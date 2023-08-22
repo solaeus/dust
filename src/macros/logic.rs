@@ -1,4 +1,4 @@
-use crate::{Error, Macro, MacroInfo, Result, Value, ValueType};
+use crate::{Error, Macro, MacroInfo, Result, Value, ValueType };
 
 
 pub struct Assert;
@@ -58,18 +58,54 @@ impl Macro for If {
     fn info(&self) -> MacroInfo<'static> {
         MacroInfo {
             identifier: "if",
-            description: "Evaluates the first argument. If true, it does the second argument. If false, it does the third argument",            
-            group: "general",
+            description: "Evaluates the first argument. If true, it does the second argument.",     
+            group: "logic",
             inputs: vec![
                 ValueType::List(vec![
                     ValueType::Boolean,
                     ValueType::Any,
-                    ValueType::Any
                 ]), 
                 ValueType::List(vec![
                     ValueType::Function, 
                     ValueType::Any,
-                    ValueType::Any
+                ])],
+        }
+    }
+
+    fn run(&self, argument: &Value) -> Result<Value> {
+        let argument = argument.as_fixed_len_list(2)?;
+        let (condition, if_true) = (&argument[0], &argument[1]);
+        let condition = if let Ok(function) = condition.as_function() {
+            function.run()?.as_boolean()?
+        } else {
+            condition.as_boolean()?
+        };
+
+        if condition {
+            Ok(if_true.clone())
+        } else {
+            Ok(Value::Empty)
+        }
+
+    }
+}
+
+pub struct IfElse;
+
+impl Macro for IfElse {
+    fn info(&self) -> MacroInfo<'static> {
+        MacroInfo {
+            identifier: "if_else",
+            description: "Evaluates the first argument. If true, it does the second argument. If false, it does the third argument",            
+            group: "logic",
+            inputs: vec![
+                ValueType::List(vec![
+                    ValueType::Boolean,
+                    ValueType::Any,
+                ]), 
+                ValueType::List(vec![
+                    ValueType::Function, 
+                    ValueType::Any,
                 ])],
         }
     }

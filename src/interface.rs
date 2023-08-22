@@ -12,18 +12,7 @@ use crate::{token, tree, Result, Value, VariableMap};
 /// *See the [crate doc](index.html) for more examples and explanations of the expression format.*
 pub fn eval(string: &str) -> Result<Value> {
     let mut context = VariableMap::new();
-    let eval = eval_with_context(string, &mut context);
-
-    match eval {
-        Ok(output) => {
-            if output.is_empty() {
-                Ok(Value::Map(context))
-            } else {
-                Ok(output)
-            }
-        }
-        Err(error) => Err(error),
-    }
+    eval_with_context(string, &mut context)
 }
 
 /// Evaluate the given expression string with the given context.

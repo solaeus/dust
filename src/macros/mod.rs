@@ -40,7 +40,7 @@ pub mod time;
 ///
 /// This list is used to match identifiers with macros and to provide info to
 /// the shell.
-pub const MACRO_LIST: [&'static dyn Macro; 56] = [
+pub const MACRO_LIST: [&'static dyn Macro; 57] = [
     &collections::Count,
     &collections::CreateTable,
     &collections::Get,
@@ -80,6 +80,7 @@ pub const MACRO_LIST: [&'static dyn Macro; 56] = [
     &gui::Plot,
     &gui::Gui,
     &logic::If,
+    &logic::IfElse,
     &logic::Loop,
     &network::Download,
     &package_management::CoprRepositories,

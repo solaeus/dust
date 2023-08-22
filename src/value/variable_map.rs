@@ -68,9 +68,6 @@ impl VariableMap {
                 if argument.is_empty() {
                     return self.call_function(function_identifier, &value);
                 }
-
-                let value_type = value.value_type();
-
                 let list = Value::List(vec![value, argument.clone()]);
 
                 return self.call_function(function_identifier, &list);
