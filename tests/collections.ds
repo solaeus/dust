@@ -1,0 +1,7 @@
+list = (1, 2, 3);
+
+test = transform(list, 'input + 1');
+assert_equal((2, 3, 4), test);
+
+test = get(list, 0);
+assert_equal(1, test);

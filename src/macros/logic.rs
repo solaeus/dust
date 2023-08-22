@@ -36,7 +36,7 @@ impl Macro for AssertEqual {
             identifier: "assert_equal",
             description: "Panic if two values do not match.",
             group: "test",
-            inputs: vec![ValueType::List(vec![ValueType::Any, ValueType::Any])],
+            inputs: vec![ValueType::ListOf(vec![ValueType::Any, ValueType::Any])],
         }
     }
 
@@ -61,11 +61,11 @@ impl Macro for If {
             description: "Evaluates the first argument. If true, it does the second argument.",     
             group: "logic",
             inputs: vec![
-                ValueType::List(vec![
+                ValueType::ListOf(vec![
                     ValueType::Boolean,
                     ValueType::Any,
                 ]), 
-                ValueType::List(vec![
+                ValueType::ListOf(vec![
                     ValueType::Function, 
                     ValueType::Any,
                 ])],
@@ -99,12 +99,12 @@ impl Macro for IfElse {
             description: "Evaluates the first argument. If true, it does the second argument. If false, it does the third argument",            
             group: "logic",
             inputs: vec![
-                ValueType::List(vec![
+                ValueType::ListOf(vec![
                     ValueType::Boolean,
                     ValueType::Any,
                     ValueType::Any,
                 ]), 
-                ValueType::List(vec![
+                ValueType::ListOf(vec![
                     ValueType::Function, 
                     ValueType::Any,
                     ValueType::Any,
@@ -155,17 +155,5 @@ impl Macro for Loop {
         function.run()?;
 
         Loop.run(argument)
-    }
-}
-
-pub struct While;
-
-impl Macro for While {
-    fn info(&self) -> MacroInfo<'static> {
-        todo!()
-    }
-
-    fn run(&self, _argument: &Value) -> Result<Value> {
-        todo!()
     }
 }

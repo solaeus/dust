@@ -1,6 +1,6 @@
 //! Macros for collection values: strings, lists, maps and tables.
 
-use crate::{Error, Macro, MacroInfo, Result, Table, Value, VariableMap};
+use crate::{Error, Macro, MacroInfo, Result, Table, Value, ValueType, VariableMap};
 
 pub struct Transform;
 
@@ -10,7 +10,10 @@ impl Macro for Transform {
             identifier: "transform",
             description: "Change each value with a function.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::ListOf(vec![
+                ValueType::List,
+                ValueType::Function,
+            ])],
         }
     }
 
@@ -177,7 +180,10 @@ impl Macro for Get {
             identifier: "get",
             description: "Retrieve a value from a collection.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::ListOf(vec![ValueType::List, ValueType::Integer]),
+                ValueType::ListOf(vec![ValueType::Map, ValueType::String]),
+            ],
         }
     }
 

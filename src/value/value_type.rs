@@ -8,9 +8,10 @@ pub enum ValueType {
     Any,
     String,
     Float,
-    Int,
+    Integer,
     Boolean,
-    List(Vec<ValueType>),
+    List,
+    ListOf(Vec<ValueType>),
     Empty,
     Map,
     Table,
@@ -27,9 +28,12 @@ impl PartialEq for ValueType {
             (_, ValueType::Any) => true,
             (ValueType::String, ValueType::String) => true,
             (ValueType::Float, ValueType::Float) => true,
-            (ValueType::Int, ValueType::Int) => true,
+            (ValueType::Integer, ValueType::Integer) => true,
             (ValueType::Boolean, ValueType::Boolean) => true,
-            (ValueType::List(left), ValueType::List(right)) => left == right,
+            (ValueType::ListOf(left), ValueType::ListOf(right)) => left == right,
+            (ValueType::ListOf(_), ValueType::List) => true,
+            (ValueType::List, ValueType::ListOf(_)) => true,
+            (ValueType::List, ValueType::List) => true,
             (ValueType::Empty, ValueType::Empty) => true,
             (ValueType::Map, ValueType::Map) => true,
             (ValueType::Table, ValueType::Table) => true,
@@ -42,21 +46,27 @@ impl PartialEq for ValueType {
 
 impl Display for ValueType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let text = match &self {
-            ValueType::Any => "any",
-            ValueType::String => "string",
-            ValueType::Float => "float",
-            ValueType::Int => "integer",
-            ValueType::Boolean => "boolean",
-            ValueType::List(_) => "list",
-            ValueType::Empty => "empty",
-            ValueType::Map => "map",
-            ValueType::Table => "table",
-            ValueType::Function => "function",
-            ValueType::Time => "time",
-        };
+        match &self {
+            ValueType::Any => write!(f, "any"),
+            ValueType::String => write!(f, "string"),
+            ValueType::Float => write!(f, "float"),
+            ValueType::Integer => write!(f, "integer"),
+            ValueType::Boolean => write!(f, "boolean"),
+            ValueType::List => write!(f, "list"),
+            ValueType::ListOf(items) => {
+                let items = items
+                    .iter()
+                    .map(|value_type| value_type.to_string() + " ")
+                    .collect::<String>();
 
-        write!(f, "{text}")
+                write!(f, "list of {items}")
+            }
+            ValueType::Empty => write!(f, "empty"),
+            ValueType::Map => write!(f, "map"),
+            ValueType::Table => write!(f, "table"),
+            ValueType::Function => write!(f, "function"),
+            ValueType::Time => write!(f, "time"),
+        }
     }
 }
 
@@ -65,10 +75,10 @@ impl From<&Value> for ValueType {
         match value {
             Value::String(_) => ValueType::String,
             Value::Float(_) => ValueType::Float,
-            Value::Integer(_) => ValueType::Int,
+            Value::Integer(_) => ValueType::Integer,
             Value::Boolean(_) => ValueType::Boolean,
             Value::List(list) => {
-                ValueType::List(list.iter().map(|value| value.value_type()).collect())
+                ValueType::ListOf(list.iter().map(|value| value.value_type()).collect())
             }
             Value::Empty => ValueType::Empty,
             Value::Map(_) => ValueType::Map,
