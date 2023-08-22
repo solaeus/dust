@@ -66,7 +66,7 @@ impl Macro for BarGraph {
                             height = Some(float);
                         }
                     }
-                    Value::Integer(integer) => {}
+                    Value::Integer(_integer) => {}
                     Value::String(string) => name = Some(string),
                     Value::Boolean(_)
                     | Value::List(_)

@@ -34,7 +34,6 @@ pub mod network;
 pub mod package_management;
 pub mod random;
 pub mod system;
-pub mod test;
 pub mod time;
 
 /// Master list of all macros.
@@ -94,8 +93,8 @@ pub const MACRO_LIST: [&'static dyn Macro; 56] = [
     &random::RandomInteger,
     &random::RandomString,
     &system::CpuSpeed,
-    &test::Assert,
-    &test::AssertEqual,
+    &logic::Assert,
+    &logic::AssertEqual,
     &time::Local,
     &time::Now,
 ];

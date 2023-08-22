@@ -1,5 +1,55 @@
 use crate::{Error, Macro, MacroInfo, Result, Value, ValueType};
 
+
+pub struct Assert;
+
+impl Macro for Assert {
+    fn info(&self) -> MacroInfo<'static> {
+        MacroInfo {
+            identifier: "assert",
+            description: "Panic if a boolean is false.",
+            group: "test",
+            inputs: vec![],
+        }
+    }
+
+    fn run(&self, argument: &Value) -> Result<Value> {
+        let boolean = argument.as_boolean()?;
+
+        if boolean {        
+            Ok(Value::Empty)
+        } else {
+            Err(Error::AssertFailed)
+        }
+
+    }
+}
+
+pub struct AssertEqual;
+
+impl Macro for AssertEqual {
+    fn info(&self) -> MacroInfo<'static> {
+        MacroInfo {
+            identifier: "assert_equal",
+            description: "Panic if two values do not match.",
+            group: "test",
+            inputs: vec![],
+        }
+    }
+
+    fn run(&self, argument: &Value) -> Result<Value> {
+        let arguments = argument.as_fixed_len_list(2)?;
+
+        if arguments[0] == arguments[1] {
+        Ok(Value::Empty)
+            
+        } else {
+            Err(Error::AssertEqualFailed { expected: arguments[0].clone(), actual: arguments[1].clone() })
+        }
+
+    }
+}
+
 pub struct If;
 
 impl Macro for If {

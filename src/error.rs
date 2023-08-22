@@ -14,6 +14,15 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
+    /// The 'assert' macro did not resolve successfully.
+    AssertEqualFailed {
+        expected: Value,
+        actual: Value,
+    },
+
+    /// The 'assert' macro did not resolve successfully.
+    AssertFailed,
+
     /// A row was inserted to a table with the wrong amount of values.
     WrongColumnAmount {
         expected: usize,
@@ -454,6 +463,8 @@ impl fmt::Display for Error {
         use Error::*;
 
         match self {
+            AssertEqualFailed {expected, actual } => write!(f, "Equality assertion failed. {expected} does not equal {actual}."),
+            AssertFailed => write!(f, "Assertion failed. A false value was passed to \"assert\"."),
             ExpectedOperatorArgumentAmount { expected, actual } => write!(
                 f,
                 "An operator expected {} arguments, but got {}.",
