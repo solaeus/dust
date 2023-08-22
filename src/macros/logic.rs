@@ -102,9 +102,11 @@ impl Macro for IfElse {
                 ValueType::List(vec![
                     ValueType::Boolean,
                     ValueType::Any,
+                    ValueType::Any,
                 ]), 
                 ValueType::List(vec![
                     ValueType::Function, 
+                    ValueType::Any,
                     ValueType::Any,
                 ])],
         }
