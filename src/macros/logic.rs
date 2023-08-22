@@ -9,7 +9,10 @@ impl Macro for Assert {
             identifier: "assert",
             description: "Panic if a boolean is false.",
             group: "test",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::Boolean,
+                ValueType::Function
+            ],
         }
     }
 
@@ -33,7 +36,7 @@ impl Macro for AssertEqual {
             identifier: "assert_equal",
             description: "Panic if two values do not match.",
             group: "test",
-            inputs: vec![],
+            inputs: vec![ValueType::List(vec![ValueType::Any, ValueType::Any])],
         }
     }
 
@@ -42,7 +45,6 @@ impl Macro for AssertEqual {
 
         if arguments[0] == arguments[1] {
         Ok(Value::Empty)
-            
         } else {
             Err(Error::AssertEqualFailed { expected: arguments[0].clone(), actual: arguments[1].clone() })
         }

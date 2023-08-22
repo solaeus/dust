@@ -8,8 +8,8 @@ fn assert() {
 
 #[test]
 fn assert_equal() {
-    eval("assert_eq(true, true)").unwrap();
-    eval("assert_eq(true, false)").unwrap_err();
+    eval("assert_equal(true, true)").unwrap();
+    eval("assert_equal(true, false)").unwrap_err();
 }
 
 #[test]
