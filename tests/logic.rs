@@ -17,12 +17,23 @@ fn r#if() {
     eval("if(true, assert(true))").unwrap();
 
     let value = eval("if(true, 1)").unwrap();
+    assert_eq!(Value::Integer(1), value);
 
+    let value = eval("if(false, 1)").unwrap();
     assert!(value.is_empty());
 }
 
 #[test]
 fn r#if_else() {
-    eval("if(true, assert(true), assert(false))").unwrap();
-    eval("if(false, assert(false), assert(true))").unwrap();
+    let value = eval("if(true, 1, 2)").unwrap();
+    assert_eq!(Value::Integer(1), value);
+
+    let value = eval("if(false, 1, 2)").unwrap();
+    assert_eq!(Value::Integer(2), value);
+
+    let value = eval("if(true, '1', '2')").unwrap();
+    assert_eq!(Value::Integer(1), value);
+
+    let value = eval("if(false, '1', '2')").unwrap();
+    assert_eq!(Value::Integer(2), value);
 }
