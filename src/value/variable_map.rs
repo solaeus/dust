@@ -50,30 +50,6 @@ impl VariableMap {
             }
         }
 
-        let mut split = identifier.split(':').rev();
-
-        if let (Some(function_identifier), Some(variable_identifier)) = (split.next(), split.next())
-        {
-            if function_identifier.contains(':') {
-                return self.call_function(function_identifier, argument);
-            }
-
-            if variable_identifier.contains('.') {
-                let value = self.get_value(variable_identifier)?.unwrap_or(Value::Empty);
-
-                return self.call_function(function_identifier, &value);
-            }
-
-            if let Some(value) = self.get_value(variable_identifier)? {
-                if argument.is_empty() {
-                    return self.call_function(function_identifier, &value);
-                }
-                let list = Value::List(vec![value, argument.clone()]);
-
-                return self.call_function(function_identifier, &list);
-            }
-        }
-
         Err(Error::FunctionIdentifierNotFound(identifier.to_string()))
     }
 
@@ -84,6 +60,17 @@ impl VariableMap {
             if let Some(value) = self.variables.get(identifier) {
                 if let Value::Map(map) = value {
                     map.get_value(next_identifier)
+                } else if let Value::List(list) = value {
+                    let index = if let Ok(index) = next_identifier.parse::<usize>() {
+                        index
+                    } else {
+                        return Err(Error::ExpectedInt {
+                            actual: Value::String(next_identifier.to_string()),
+                        });
+                    };
+                    let value = list.get(index);
+
+                    Ok(value.cloned())
                 } else {
                     Err(Error::ExpectedMap {
                         actual: value.clone(),
