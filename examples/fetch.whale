@@ -1,0 +1,4 @@
+raw_data = download "https://api.sampleapis.com/futurama/cast";
+data = raw_data:from_json();
+first = data:get 0;
+first.name

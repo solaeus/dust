@@ -1,0 +1,21 @@
+enable_copr_repositories = ("varlad/helix");
+enable_rpm_repositories (
+	"https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-38.noarch.rpm",
+	"https://mirrors.rpmfusion.org/free/fedora/rpmfusion-nonfree-release-38.noarch.rpm"
+);
+install_package (
+	"bat",
+	"egl-wayland",
+	"fd-find",
+	"fish",
+	"fzf",
+	"lsd",
+	"kitty",
+	"helix",
+	"libwayland-cursor",
+	"libwayland-egl",
+	"wl-clipboard"
+);
+
+sh "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh";
+sh "cargo install starship zoxide";

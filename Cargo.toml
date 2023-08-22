@@ -1,0 +1,40 @@
+[package]
+name = "whale"
+version = "0.3.0"
+description = "Data-oriented programming language and interactive shell."
+authors = ["jeff <dev@jeffa.io.com>"]
+repository = "https://git.jeffa.io/jeff/whale.git"
+homepage = "https://git.jeffa.io/jeff/whale"
+readme = "README.md"
+license = "MIT"
+edition = "2018"
+
+[[bin]]
+name = "whale"
+
+[lib]
+name = "whale_lib"
+path = "src/lib.rs"
+
+[dependencies]
+rand = "0.8.5"
+chrono = "0.4.26"
+eframe = "0.22.0"
+trash = "3.0.3"
+lazy_static = "1.4.0"
+rayon = "1.7.0"
+serde = { version = "1.0.171", features = ["derive"] }
+sys-info = "0.9.1"
+sysinfo = "0.29.6"
+toml = "0.7.6"
+toml_edit = "0.19.14"
+comfy-table = "7.0.1"
+reedline = "0.22.0"
+clap = { version = "4.3.19", features = ["derive"] }
+nu-ansi-term = "0.49"
+git2 = "0.17.2"
+csv = "1.2.2"
+json = "0.12.4"
+reqwest = { version = "0.11.18", features = ["blocking", "json"] }
+serde_json = "1.0.104"
+egui_extras = "0.22.0"

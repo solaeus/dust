@@ -1,0 +1,3 @@
+output "foo...";
+wait 1;
+output "bar!";
