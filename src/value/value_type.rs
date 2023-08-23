@@ -11,7 +11,8 @@ pub enum ValueType {
     Integer,
     Boolean,
     List,
-    ListOf(Vec<ValueType>),
+    ListOf(Box<ValueType>),
+    ListExact(Vec<ValueType>),
     Empty,
     Map,
     Table,
@@ -30,9 +31,23 @@ impl PartialEq for ValueType {
             (ValueType::Float, ValueType::Float) => true,
             (ValueType::Integer, ValueType::Integer) => true,
             (ValueType::Boolean, ValueType::Boolean) => true,
-            (ValueType::ListOf(left), ValueType::ListOf(right)) => left == right,
+            (ValueType::ListExact(left), ValueType::ListExact(right)) => left == right,
+            (ValueType::ListExact(_), ValueType::List) => true,
+            (ValueType::List, ValueType::ListExact(_)) => true,
             (ValueType::ListOf(_), ValueType::List) => true,
             (ValueType::List, ValueType::ListOf(_)) => true,
+            (ValueType::ListOf(left), ValueType::ListOf(right)) => left == right,
+            (ValueType::ListOf(value_type), ValueType::ListExact(exact_list))
+            | (ValueType::ListExact(exact_list), ValueType::ListOf(value_type)) => {
+                if exact_list
+                    .iter()
+                    .all(|exact_type| exact_type == value_type.as_ref())
+                {
+                    true
+                } else {
+                    false
+                }
+            }
             (ValueType::List, ValueType::List) => true,
             (ValueType::Empty, ValueType::Empty) => true,
             (ValueType::Map, ValueType::Map) => true,
@@ -53,8 +68,11 @@ impl Display for ValueType {
             ValueType::Integer => write!(f, "integer"),
             ValueType::Boolean => write!(f, "boolean"),
             ValueType::List => write!(f, "list"),
-            ValueType::ListOf(items) => {
-                let items = items
+            ValueType::ListOf(value_type) => {
+                write!(f, "list of {value_type}")
+            }
+            ValueType::ListExact(list) => {
+                let items = list
                     .iter()
                     .map(|value_type| value_type.to_string() + " ")
                     .collect::<String>();
@@ -78,7 +96,9 @@ impl From<&Value> for ValueType {
             Value::Integer(_) => ValueType::Integer,
             Value::Boolean(_) => ValueType::Boolean,
             Value::List(list) => {
-                ValueType::ListOf(list.iter().map(|value| value.value_type()).collect())
+                let values = list.iter().map(|value| value.value_type()).collect();
+
+                ValueType::ListExact(values)
             }
             Value::Empty => ValueType::Empty,
             Value::Map(_) => ValueType::Map,

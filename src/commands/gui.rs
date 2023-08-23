@@ -232,7 +232,7 @@ impl GuiApp {
         }
     }
 
-    fn table_ui(&mut self, table: &Table, ui: &mut Ui) {
+    fn _table_ui(&mut self, table: &Table, ui: &mut Ui) {
         TableBuilder::new(ui)
             .resizable(true)
             .striped(true)

@@ -10,7 +10,7 @@ impl Macro for Transform {
             identifier: "transform",
             description: "Alter a collection by calling a function on each value.",
             group: "collections",
-            inputs: vec![ValueType::ListOf(vec![
+            inputs: vec![ValueType::ListExact(vec![
                 ValueType::List,
                 ValueType::Function,
             ])],
@@ -119,7 +119,7 @@ impl Macro for CreateTable {
             identifier: "create_table",
             description: "Define a new table with a list of column names and list of rows.",
             group: "collections",
-            inputs: vec![ValueType::ListOf(vec![ValueType::List, ValueType::List])],
+            inputs: vec![ValueType::ListExact(vec![ValueType::List, ValueType::List])],
         }
     }
 
@@ -181,8 +181,8 @@ impl Macro for Get {
             description: "Retrieve a value from a collection.",
             group: "collections",
             inputs: vec![
-                ValueType::ListOf(vec![ValueType::List, ValueType::Integer]),
-                ValueType::ListOf(vec![ValueType::Map, ValueType::String]),
+                ValueType::ListExact(vec![ValueType::List, ValueType::Integer]),
+                ValueType::ListExact(vec![ValueType::Map, ValueType::String]),
             ],
         }
     }
@@ -242,7 +242,10 @@ impl Macro for Select {
             identifier: "select",
             description: "Extract one or more values based on their key.",
             group: "collections",
-            inputs: vec![ValueType::Table, ValueType::String],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::Table,
+                ValueType::ListOf(Box::new(ValueType::String)),
+            ])],
         }
     }
 

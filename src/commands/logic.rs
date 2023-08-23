@@ -36,7 +36,7 @@ impl Macro for AssertEqual {
             identifier: "assert_equal",
             description: "Panic if two values do not match.",
             group: "test",
-            inputs: vec![ValueType::ListOf(vec![ValueType::Any, ValueType::Any])],
+            inputs: vec![ValueType::ListExact(vec![ValueType::Any, ValueType::Any])],
         }
     }
 
@@ -61,11 +61,11 @@ impl Macro for If {
             description: "Evaluates the first argument. If true, it does the second argument.",     
             group: "logic",
             inputs: vec![
-                ValueType::ListOf(vec![
+                ValueType::ListExact(vec![
                     ValueType::Boolean,
                     ValueType::Any,
                 ]), 
-                ValueType::ListOf(vec![
+                ValueType::ListExact(vec![
                     ValueType::Function, 
                     ValueType::Any,
                 ])],
@@ -99,12 +99,12 @@ impl Macro for IfElse {
             description: "Evaluates the first argument. If true, it does the second argument. If false, it does the third argument",            
             group: "logic",
             inputs: vec![
-                ValueType::ListOf(vec![
+                ValueType::ListExact(vec![
                     ValueType::Boolean,
                     ValueType::Any,
                     ValueType::Any,
                 ]), 
-                ValueType::ListOf(vec![
+                ValueType::ListExact(vec![
                     ValueType::Function, 
                     ValueType::Any,
                     ValueType::Any,

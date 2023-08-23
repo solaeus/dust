@@ -16,7 +16,7 @@ test_table = create_table(
 	)
 );
 
-assert_equal(select(table, "text", "bool"), test_table);
+assert_equal(select(table, ("text", "bool")), test_table);
 
 test_table = create_table(
 	("text", "number", "bool"),
