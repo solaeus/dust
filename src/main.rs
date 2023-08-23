@@ -25,12 +25,12 @@ struct Args {
     #[arg(short, long)]
     command: Option<String>,
 
-    /// Location of the file to run.
-    #[arg(short, long)]
-    path: Option<String>,
-
+    // Whether to launch the dedicated GUI window.
     #[arg(short, long)]
     gui: bool,
+
+    /// Location of the file to run.
+    path: Option<String>,
 }
 
 fn main() {
