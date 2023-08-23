@@ -1,9 +1,0 @@
-loop('
-	speed = cpu_speed();
-	message = "Current CPU clock: " + string(speed);
-
-	output(message);
-	wait 300;
-');
-
-

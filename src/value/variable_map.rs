@@ -41,7 +41,7 @@ impl VariableMap {
         for (key, value) in &self.variables {
             if identifier == key {
                 if let Ok(function) = value.as_function() {
-                    let mut context = VariableMap::new();
+                    let mut context = self.clone();
 
                     context.set_value("input", argument.clone())?;
 

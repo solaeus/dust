@@ -29,8 +29,21 @@ pub fn eval(string: &str) -> Result<Value> {
 /// ```
 ///
 /// *See the [crate doc](index.html) for more examples and explanations of the expression format.*
-pub fn eval_with_context(string: &str, context: &mut VariableMap) -> Result<Value> {
-    let split = string.split_once("::");
+pub fn eval_with_context(input: &str, context: &mut VariableMap) -> Result<Value> {
+    let without_comments = input
+        .lines()
+        .map(|line| {
+            let split = line.split_once('#');
+
+            if let Some((code, _comment)) = split {
+                code
+            } else {
+                line
+            }
+        })
+        .collect::<String>();
+
+    let split = without_comments.split_once("->");
 
     if let Some((left, right)) = split {
         let left_result = tree::tokens_to_operator_tree(token::tokenize(left)?)?
@@ -42,6 +55,7 @@ pub fn eval_with_context(string: &str, context: &mut VariableMap) -> Result<Valu
 
         Ok(right_result)
     } else {
-        tree::tokens_to_operator_tree(token::tokenize(string)?)?.eval_with_context_mut(context)
+        tree::tokens_to_operator_tree(token::tokenize(&without_comments)?)?
+            .eval_with_context_mut(context)
     }
 }

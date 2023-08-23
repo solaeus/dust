@@ -1,0 +1,13 @@
+# Dust is data-oriented, so variables are declared with minimal syntax. A
+# single character, the assignment operator (`=`), sets a variable.
+
+x = 1;
+y = "hello dust!";
+z = 42.0;
+list = (3, 2, x);
+big_list = (x, y, z, list);
+map.x = "foobar";
+function = '
+	message = "I am a function!";
+	output message;
+';
