@@ -1,7 +1,22 @@
-list = (1, 2, 3);
 
+# transform
+list = (1, 2, 3);
 test = transform(list, 'input + 1');
 assert_equal((2, 3, 4), test);
 
-test = get(list, 0);
-assert_equal(1, test);
+# string
+test = string(42);
+assert_equal("42", test);
+
+test = string(42.42);
+assert_equal("42.42", test);
+
+test = string(false);
+assert_equal("false", test);
+
+# count
+
+test = count("123");
+assert_equal(3, test);
+
+# create_table

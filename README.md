@@ -1,21 +1,5 @@
 # Dust
 
-<!--toc:start-->
-- [Dust](#dust)
-  - [Features](#features)
-  - [Usage](#usage)
-  - [Installation](#installation)
-  - [The Dust Programming Language](#the-dust-programming-language)
-    - [Variables and Data Types](#variables-and-data-types)
-    - [Commands](#commands)
-    - [Lists](#lists)
-    - [Maps](#maps)
-    - [Tables](#tables)
-    - [The Yield Operator](#the-yield-operator)
-    - [Functions](#functions)
-    - [Time](#time)
-<!--toc:end-->
-
 Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a tool create or manage data. Dust is expression-based, has first-class functions, lexical scope and lightweight syntax.
 
 A basic dust program:
@@ -43,6 +27,22 @@ read("examples/assets/faithful.csv")
     -> plot(input)
 ```
 
+<!--toc:start-->
+- [Dust](#dust)
+  - [Features](#features)
+  - [Usage](#usage)
+  - [Installation](#installation)
+  - [The Dust Programming Language](#the-dust-programming-language)
+    - [Variables and Data Types](#variables-and-data-types)
+    - [Commands](#commands)
+    - [Lists](#lists)
+    - [Maps](#maps)
+    - [Tables](#tables)
+    - [The Yield Operator](#the-yield-operator)
+    - [Functions](#functions)
+    - [Time](#time)
+<!--toc:end-->
+
 ## Features
 
 - Data visualization: GUI (not TUI) plots, graphs and charts are available from directly within dust. No external tools are needed.
@@ -60,11 +60,15 @@ Dust is an experimental project under active development. At this stage, feature
 
 You must have the default rust toolchain installed and up-to-date. Clone the repository and run `cargo run` to start the interactive shell. To see other command line options, use `cargo run -- --help`.
 
+## Contributing
+
+Please submit any thoughts or suggestions for this project. To contribute a new command, see the library documentation. Implementation tests are written in dust and are run by a corresponding rust test so dust tests will be run when `cargo test` is called.
+
 ## The Dust Programming Language
 
 Dust is a hard fork of [evalexpr]; a simple expression language. Dust's core language features maintain this simplicity. But it can manage large, complex sets of data and perform complicated tasks through commands. It should not take long for a new user to learn the language, especially with the assistance of the shell.
 
-If your editor supports tree sitter, you can use [tree-sitter-dust] for syntax highlighting and completion support.
+If your editor supports tree sitter, you can use [tree-sitter-dust] for syntax highlighting and completion support. Aside from this guide, the best way to learn dust is to read the examples and tests to get a better idea of what dust can do.
 
 ### Variables and Data Types
 
@@ -166,7 +170,7 @@ insert(
 
 assert_eq(length(animals.all), 6);
 
-animals.by_name = sort_by(animals.all, "name");
+by_name = sort_by(animals, "name");
 ```
 
 ### The Yield Operator
