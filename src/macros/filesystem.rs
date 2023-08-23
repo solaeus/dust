@@ -103,7 +103,7 @@ impl Macro for ReadDir {
             identifier: "read_dir",
             description: "Read the content of a directory.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
@@ -174,7 +174,7 @@ impl Macro for ReadFile {
             identifier: "read_file",
             description: "Read file contents.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
