@@ -11,7 +11,6 @@ use std::{
     mem,
 };
 
-// Exclude display module from coverage, as it prints not well-defined prefix notation.
 #[cfg(not(tarpaulin_include))]
 mod iter;
 
@@ -20,18 +19,6 @@ mod iter;
 /// It can be evaluated for a given context with the `Node::eval` method.
 ///
 /// The advantage of constructing the operator tree separately from the actual evaluation is that it can be evaluated arbitrarily often with different contexts.
-///
-/// # Examples
-///
-/// ```rust
-/// use evalexpr::*;
-///
-/// let mut context = HashMapContext::new();
-/// context.set_value("alpha".into(), 2.into()).unwrap(); // Do proper error handling here
-/// let node = build_operator_tree("1 + alpha").unwrap(); // Do proper error handling here
-/// assert_eq!(node.eval_with_context(&context), Ok(Value::from(3)));
-/// ```
-///
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node {
     operator: Operator,
@@ -50,22 +37,6 @@ impl Node {
         Self::new(Operator::RootNode)
     }
 
-    /// Returns an iterator over all identifiers in this expression.
-    /// Each occurrence of an identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let tree = build_operator_tree("a + b + c * f()").unwrap(); // Do proper error handling here
-    /// let mut iter = tree.iter_identifiers();
-    /// assert_eq!(iter.next(), Some("a"));
-    /// assert_eq!(iter.next(), Some("b"));
-    /// assert_eq!(iter.next(), Some("c"));
-    /// assert_eq!(iter.next(), Some("f"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_identifiers(&self) -> impl Iterator<Item = &str> {
         self.iter().filter_map(|node| match node.operator() {
             Operator::VariableIdentifierWrite { identifier }
@@ -77,26 +48,6 @@ impl Node {
 
     /// Returns an iterator over all identifiers in this expression, allowing mutation.
     /// Each occurrence of an identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let mut tree = build_operator_tree("a + b + c * f()").unwrap(); // Do proper error handling here
-    ///
-    /// for identifier in tree.iter_identifiers_mut() {
-    ///     *identifier = String::from("x");
-    /// }
-    ///
-    /// let mut iter = tree.iter_identifiers();
-    ///
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_identifiers_mut(&mut self) -> impl Iterator<Item = &mut String> {
         self.iter_operators_mut()
             .filter_map(|operator| match operator {
@@ -109,19 +60,6 @@ impl Node {
 
     /// Returns an iterator over all variable identifiers in this expression.
     /// Each occurrence of a variable identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let tree = build_operator_tree("a + f(b + c)").unwrap(); // Do proper error handling here
-    /// let mut iter = tree.iter_variable_identifiers();
-    /// assert_eq!(iter.next(), Some("a"));
-    /// assert_eq!(iter.next(), Some("b"));
-    /// assert_eq!(iter.next(), Some("c"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_variable_identifiers(&self) -> impl Iterator<Item = &str> {
         self.iter().filter_map(|node| match node.operator() {
             Operator::VariableIdentifierWrite { identifier }
@@ -132,26 +70,6 @@ impl Node {
 
     /// Returns an iterator over all variable identifiers in this expression, allowing mutation.
     /// Each occurrence of a variable identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let mut tree = build_operator_tree("a + b + c * f()").unwrap(); // Do proper error handling here
-    ///
-    /// for identifier in tree.iter_variable_identifiers_mut() {
-    ///     *identifier = String::from("x");
-    /// }
-    ///
-    /// let mut iter = tree.iter_identifiers();
-    ///
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("f"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_variable_identifiers_mut(&mut self) -> impl Iterator<Item = &mut String> {
         self.iter_operators_mut()
             .filter_map(|operator| match operator {
@@ -163,19 +81,6 @@ impl Node {
 
     /// Returns an iterator over all read variable identifiers in this expression.
     /// Each occurrence of a variable identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let tree = build_operator_tree("d = a + f(b + c)").unwrap(); // Do proper error handling here
-    /// let mut iter = tree.iter_read_variable_identifiers();
-    /// assert_eq!(iter.next(), Some("a"));
-    /// assert_eq!(iter.next(), Some("b"));
-    /// assert_eq!(iter.next(), Some("c"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_read_variable_identifiers(&self) -> impl Iterator<Item = &str> {
         self.iter().filter_map(|node| match node.operator() {
             Operator::VariableIdentifierRead { identifier } => Some(identifier.as_str()),
@@ -185,27 +90,6 @@ impl Node {
 
     /// Returns an iterator over all read variable identifiers in this expression, allowing mutation.
     /// Each occurrence of a variable identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let mut tree = build_operator_tree("d = a + f(b + c)").unwrap(); // Do proper error handling here
-    ///
-    /// for identifier in tree.iter_read_variable_identifiers_mut() {
-    ///     *identifier = String::from("x");
-    /// }
-    ///
-    /// let mut iter = tree.iter_identifiers();
-    ///
-    /// assert_eq!(iter.next(), Some("d"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("f"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_read_variable_identifiers_mut(&mut self) -> impl Iterator<Item = &mut String> {
         self.iter_operators_mut()
             .filter_map(|operator| match operator {
@@ -216,17 +100,6 @@ impl Node {
 
     /// Returns an iterator over all write variable identifiers in this expression.
     /// Each occurrence of a variable identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let tree = build_operator_tree("d = a + f(b + c)").unwrap(); // Do proper error handling here
-    /// let mut iter = tree.iter_write_variable_identifiers();
-    /// assert_eq!(iter.next(), Some("d"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_write_variable_identifiers(&self) -> impl Iterator<Item = &str> {
         self.iter().filter_map(|node| match node.operator() {
             Operator::VariableIdentifierWrite { identifier } => Some(identifier.as_str()),
@@ -236,27 +109,6 @@ impl Node {
 
     /// Returns an iterator over all write variable identifiers in this expression, allowing mutation.
     /// Each occurrence of a variable identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let mut tree = build_operator_tree("d = a + f(b + c)").unwrap(); // Do proper error handling here
-    ///
-    /// for identifier in tree.iter_write_variable_identifiers_mut() {
-    ///     *identifier = String::from("x");
-    /// }
-    ///
-    /// let mut iter = tree.iter_identifiers();
-    ///
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("a"));
-    /// assert_eq!(iter.next(), Some("f"));
-    /// assert_eq!(iter.next(), Some("b"));
-    /// assert_eq!(iter.next(), Some("c"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_write_variable_identifiers_mut(&mut self) -> impl Iterator<Item = &mut String> {
         self.iter_operators_mut()
             .filter_map(|operator| match operator {
@@ -267,17 +119,6 @@ impl Node {
 
     /// Returns an iterator over all function identifiers in this expression.
     /// Each occurrence of a function identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let tree = build_operator_tree("a + f(b + c)").unwrap(); // Do proper error handling here
-    /// let mut iter = tree.iter_function_identifiers();
-    /// assert_eq!(iter.next(), Some("f"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_function_identifiers(&self) -> impl Iterator<Item = &str> {
         self.iter().filter_map(|node| match node.operator() {
             Operator::FunctionIdentifier { identifier } => Some(identifier.as_str()),
@@ -287,27 +128,6 @@ impl Node {
 
     /// Returns an iterator over all function identifiers in this expression, allowing mutation.
     /// Each occurrence of a variable identifier is returned separately.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use evalexpr::*;
-    ///
-    /// let mut tree = build_operator_tree("d = a + f(b + c)").unwrap(); // Do proper error handling here
-    ///
-    /// for identifier in tree.iter_function_identifiers_mut() {
-    ///     *identifier = String::from("x");
-    /// }
-    ///
-    /// let mut iter = tree.iter_identifiers();
-    ///
-    /// assert_eq!(iter.next(), Some("d"));
-    /// assert_eq!(iter.next(), Some("a"));
-    /// assert_eq!(iter.next(), Some("x"));
-    /// assert_eq!(iter.next(), Some("b"));
-    /// assert_eq!(iter.next(), Some("c"));
-    /// assert_eq!(iter.next(), None);
-    /// ```
     pub fn iter_function_identifiers_mut(&mut self) -> impl Iterator<Item = &mut String> {
         self.iter_operators_mut()
             .filter_map(|operator| match operator {
@@ -316,9 +136,8 @@ impl Node {
             })
     }
 
-    /// Evaluates the operator tree rooted at this node with the given context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node with the given context. Fails if one of the
+    /// operators in the expression tree fails.
     pub fn eval_with_context(&self, context: &VariableMap) -> Result<Value> {
         let mut arguments = Vec::new();
         for child in self.children() {
@@ -328,8 +147,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node with the given mutable context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_with_context_mut(&self, context: &mut VariableMap) -> Result<Value> {
         let mut arguments = Vec::new();
         for child in self.children() {
@@ -339,15 +157,13 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval(&self) -> Result<Value> {
         self.eval_with_context_mut(&mut VariableMap::new())
     }
 
     /// Evaluates the operator tree rooted at this node into a string with an the given context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_string_with_context(&self, context: &VariableMap) -> Result<String> {
         match self.eval_with_context(context) {
             Ok(Value::String(string)) => Ok(string),
@@ -357,8 +173,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node into a float with an the given context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_float_with_context(&self, context: &VariableMap) -> Result<f64> {
         match self.eval_with_context(context) {
             Ok(Value::Float(float)) => Ok(float),
@@ -368,8 +183,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node into an integer with an the given context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_int_with_context(&self, context: &VariableMap) -> Result<i64> {
         match self.eval_with_context(context) {
             Ok(Value::Integer(int)) => Ok(int),
@@ -378,10 +192,8 @@ impl Node {
         }
     }
 
-    /// Evaluates the operator tree rooted at this node into a float with an the given context.
-    /// If the result of the expression is an integer, it is silently converted into a float.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a float with an the given context. If
+    /// the result of the expression is an integer, it is silently converted into a float. Fails         /// if one of the operators in the expression tree fails.
     pub fn eval_number_with_context(&self, context: &VariableMap) -> Result<f64> {
         match self.eval_with_context(context) {
             Ok(Value::Integer(int)) => Ok(int as f64),
@@ -391,9 +203,8 @@ impl Node {
         }
     }
 
-    /// Evaluates the operator tree rooted at this node into a boolean with an the given context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a boolean with an the given context     
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_boolean_with_context(&self, context: &VariableMap) -> Result<bool> {
         match self.eval_with_context(context) {
             Ok(Value::Boolean(boolean)) => Ok(boolean),
@@ -403,8 +214,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node into a tuple with an the given context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_tuple_with_context(&self, context: &VariableMap) -> Result<Vec<Value>> {
         match self.eval_with_context(context) {
             Ok(Value::List(tuple)) => Ok(tuple),
@@ -414,8 +224,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node into an empty value with an the given context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_empty_with_context(&self, context: &VariableMap) -> Result<()> {
         match self.eval_with_context(context) {
             Ok(Value::Empty) => Ok(()),
@@ -425,8 +234,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node into a string with an the given mutable context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_string_with_context_mut(&self, context: &mut VariableMap) -> Result<String> {
         match self.eval_with_context_mut(context) {
             Ok(Value::String(string)) => Ok(string),
@@ -436,8 +244,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node into a float with an the given mutable context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_float_with_context_mut(&self, context: &mut VariableMap) -> Result<f64> {
         match self.eval_with_context_mut(context) {
             Ok(Value::Float(float)) => Ok(float),
@@ -447,8 +254,7 @@ impl Node {
     }
 
     /// Evaluates the operator tree rooted at this node into an integer with an the given mutable context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_int_with_context_mut(&self, context: &mut VariableMap) -> Result<i64> {
         match self.eval_with_context_mut(context) {
             Ok(Value::Integer(int)) => Ok(int),
@@ -459,8 +265,7 @@ impl Node {
 
     /// Evaluates the operator tree rooted at this node into a float with an the given mutable context.
     /// If the result of the expression is an integer, it is silently converted into a float.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Fails if one of the operators in the expression tree fails.
     pub fn eval_number_with_context_mut(&self, context: &mut VariableMap) -> Result<f64> {
         match self.eval_with_context_mut(context) {
             Ok(Value::Integer(int)) => Ok(int as f64),
@@ -470,9 +275,7 @@ impl Node {
         }
     }
 
-    /// Evaluates the operator tree rooted at this node into a boolean with an the given mutable context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a boolean with an the given mutable         /// context. Fails if one of the operators in the expression tree fails.
     pub fn eval_boolean_with_context_mut(&self, context: &mut VariableMap) -> Result<bool> {
         match self.eval_with_context_mut(context) {
             Ok(Value::Boolean(boolean)) => Ok(boolean),
@@ -481,9 +284,7 @@ impl Node {
         }
     }
 
-    /// Evaluates the operator tree rooted at this node into a tuple with an the given mutable context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a tuple with an the given mutable           /// context. Fails if one of the operators in the expression tree fails.
     pub fn eval_tuple_with_context_mut(&self, context: &mut VariableMap) -> Result<Vec<Value>> {
         match self.eval_with_context_mut(context) {
             Ok(Value::List(tuple)) => Ok(tuple),
@@ -492,9 +293,7 @@ impl Node {
         }
     }
 
-    /// Evaluates the operator tree rooted at this node into an empty value with an the given mutable context.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into an empty value with an the given            /// mutable context. Fails if one of the operators in the expression tree fails.
     pub fn eval_empty_with_context_mut(&self, context: &mut VariableMap) -> Result<()> {
         match self.eval_with_context_mut(context) {
             Ok(Value::Empty) => Ok(()),
@@ -503,52 +302,39 @@ impl Node {
         }
     }
 
-    /// Evaluates the operator tree rooted at this node into a string.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a string. Fails if one of the               /// operators in the expression tree fails.
     pub fn eval_string(&self) -> Result<String> {
         self.eval_string_with_context_mut(&mut VariableMap::new())
     }
 
-    /// Evaluates the operator tree rooted at this node into a float.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a float. Fails if one of the operators      /// in the expression tree fails.
     pub fn eval_float(&self) -> Result<f64> {
         self.eval_float_with_context_mut(&mut VariableMap::new())
     }
 
-    /// Evaluates the operator tree rooted at this node into an integer.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into an integer. Fails if one of the     
+    /// operators in the expression tree fails.
     pub fn eval_int(&self) -> Result<i64> {
         self.eval_int_with_context_mut(&mut VariableMap::new())
     }
 
-    /// Evaluates the operator tree rooted at this node into a float.
-    /// If the result of the expression is an integer, it is silently converted into a float.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a float. If the result of the     
+    /// expression is an integer, it is silently converted into a float. Fails if one of the            /// operators in the expression tree fails.
     pub fn eval_number(&self) -> Result<f64> {
         self.eval_number_with_context_mut(&mut VariableMap::new())
     }
 
-    /// Evaluates the operator tree rooted at this node into a boolean.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a boolean. Fails if one of the             /// operators in the expression tree fails.
     pub fn eval_boolean(&self) -> Result<bool> {
         self.eval_boolean_with_context_mut(&mut VariableMap::new())
     }
 
-    /// Evaluates the operator tree rooted at this node into a tuple.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into a tuple. Fails if one of the operators     /// in the expression tree fails.
     pub fn eval_tuple(&self) -> Result<Vec<Value>> {
         self.eval_tuple_with_context_mut(&mut VariableMap::new())
     }
 
-    /// Evaluates the operator tree rooted at this node into an empty value.
-    ///
-    /// Fails, if one of the operators in the expression tree fails.
+    /// Evaluates the operator tree rooted at this node into an empty value. Fails if one of the        /// operators in the expression tree fails.
     pub fn eval_empty(&self) -> Result<()> {
         self.eval_empty_with_context_mut(&mut VariableMap::new())
     }

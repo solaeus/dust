@@ -925,6 +925,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
+name = "dust"
+version = "0.3.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "comfy-table",
+ "csv",
+ "eframe",
+ "egui_extras",
+ "git2",
+ "json",
+ "lazy_static",
+ "nu-ansi-term",
+ "rand",
+ "rayon",
+ "reedline",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sys-info",
+ "sysinfo",
+ "toml",
+ "toml_edit",
+ "trash",
+]
+
+[[package]]
 name = "ecolor"
 version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3447,33 +3474,6 @@ dependencies = [
  "raw-window-handle",
  "url",
  "web-sys",
-]
-
-[[package]]
-name = "whale"
-version = "0.3.0"
-dependencies = [
- "chrono",
- "clap",
- "comfy-table",
- "csv",
- "eframe",
- "egui_extras",
- "git2",
- "json",
- "lazy_static",
- "nu-ansi-term",
- "rand",
- "rayon",
- "reedline",
- "reqwest",
- "serde",
- "serde_json",
- "sys-info",
- "sysinfo",
- "toml",
- "toml_edit",
- "trash",
 ]
 
 [[package]]

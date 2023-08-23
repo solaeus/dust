@@ -1,19 +1,19 @@
 [package]
-name = "whale"
+name = "dust"
 version = "0.3.0"
 description = "Data-oriented programming language and interactive shell."
 authors = ["jeff <dev@jeffa.io.com>"]
-repository = "https://git.jeffa.io/jeff/whale.git"
-homepage = "https://git.jeffa.io/jeff/whale"
+repository = "https://git.jeffa.io/jeff/dust.git"
+homepage = "https://git.jeffa.io/jeff/dust"
 readme = "README.md"
 license = "MIT"
 edition = "2018"
 
 [[bin]]
-name = "whale"
+name = "dust"
 
 [lib]
-name = "whale_lib"
+name = "dust_lib"
 path = "src/lib.rs"
 
 [dependencies]

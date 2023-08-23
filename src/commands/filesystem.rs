@@ -206,7 +206,7 @@ impl Macro for RemoveDir {
 
     fn run(&self, argument: &Value) -> Result<Value> {
         let path = argument.as_string()?;
-        fs::remove_file(path)?;
+        fs::remove_dir(path)?;
 
         Ok(Value::Empty)
     }
@@ -310,21 +310,34 @@ pub struct RemoveFile;
 impl Macro for RemoveFile {
     fn info(&self) -> MacroInfo<'static> {
         MacroInfo {
-            identifier: "write",
-            description: "Write data to a file.",
+            identifier: "remove_file",
+            description: "Permanently delete a file.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::String,
+                ValueType::ListOf(Box::new(ValueType::String)),
+            ],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        let strings = argument.as_list()?;
+        if let Ok(path) = argument.as_string() {
+            fs::remove_file(path)?;
 
-        Error::expect_function_argument_amount(self.info().identifier, strings.len(), 2)?;
+            return Ok(Value::Empty);
+        }
 
-        let _path = strings.first().unwrap().as_string()?;
+        if let Ok(path_list) = argument.as_list() {
+            for path in path_list {
+                let path = path.as_string()?;
 
-        todo!();
+                fs::remove_file(path)?;
+            }
+
+            return Ok(Value::Empty);
+        }
+
+        Err(Error::expected_string(argument.clone()))
     }
 }
 
