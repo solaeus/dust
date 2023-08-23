@@ -1,4 +1,4 @@
-table = create_table (
+table = create_table(
 	("text", "number", "bool"),
 	(
 		("a", 1, true),
@@ -7,7 +7,7 @@ table = create_table (
 	)
 );
 
-test_table = create_table (
+test_table = create_table(
 	("text", "bool"),
 	(
 		("a", true),
@@ -16,9 +16,9 @@ test_table = create_table (
 	)
 );
 
-assert_equal(table:select("text", "bool"), test_table);
+assert_equal(select(table, "text", "bool"), test_table);
 
-test_table = create_table (
+test_table = create_table(
 	("text", "number", "bool"),
 	(
 		("a", 1, true),
@@ -26,4 +26,4 @@ test_table = create_table (
 	)
 );
 
-assert_equal(table:where('text == "a"'), test_table);
+assert_equal(where(table, 'text == "a"'), test_table);

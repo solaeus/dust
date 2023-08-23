@@ -2,9 +2,9 @@
 #![forbid(unsafe_code)]
 
 pub use crate::{
+    commands::*,
     error::*,
     interface::*,
-    macros::*,
     operator::Operator,
     token::PartialToken,
     tree::Node,
@@ -14,9 +14,9 @@ pub use crate::{
     },
 };
 
+mod commands;
 mod error;
 mod interface;
-mod macros;
 mod operator;
 mod token;
 mod tree;

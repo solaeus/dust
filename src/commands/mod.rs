@@ -1,13 +1,10 @@
-//! This module contains whale's built-in macro system. Every macro is listed
-//! alphabetically. Use [call_macro] to check an identifier against every macro.
+//! This module contains dust's built-in commands.
 //!
 //! ## Writing macros
 //!
 //! - snake case identifier, this is enforced by a test
-//! - the type name should be the identifier in upper camel case
-//! - always verify user input, this creates helpful errors
 //! - the description should be brief, it will display in the shell
-//! - maintain alphabetical order
+//!
 //!
 //! ## Usage
 //!

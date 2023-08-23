@@ -59,7 +59,7 @@ impl Macro for String {
             identifier: "string",
             description: "Stringify a value.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::Any],
         }
     }
 
@@ -89,13 +89,13 @@ impl Macro for Count {
             identifier: "count",
             description: "Return the number of items in a value.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::Any],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
         let len = match argument {
-            Value::String(string) => string.len(),
+            Value::String(string) => string.chars().count(),
             Value::List(list) => list.len(),
             Value::Map(map) => map.len(),
             Value::Table(table) => table.len(),
@@ -119,7 +119,7 @@ impl Macro for CreateTable {
             identifier: "create_table",
             description: "Define a new table with a list of column names and list of rows.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::ListOf(vec![ValueType::List, ValueType::List])],
         }
     }
 
@@ -155,7 +155,7 @@ impl Macro for Rows {
             identifier: "rows",
             description: "Extract a table's rows as a list.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::Table],
         }
     }
 
@@ -213,13 +213,13 @@ impl Macro for Insert {
             identifier: "insert",
             description: "Add new rows to a table.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::Table, ValueType::List],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
         let argument = argument.as_list()?;
-        let new_rows = &argument[1..];
+        let new_rows = argument[1].as_list()?;
         let mut table = argument[0].as_table()?.clone();
 
         table.reserve(new_rows.len());
@@ -242,7 +242,7 @@ impl Macro for Select {
             identifier: "select",
             description: "Extract one or more values based on their key.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::Table, ValueType::String],
         }
     }
 
