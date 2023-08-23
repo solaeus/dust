@@ -1,6 +1,6 @@
 //! Convert values to and from data formats like JSON and TOML.
 
-use crate::{Macro, MacroInfo, Result, Table, Value};
+use crate::{Macro, MacroInfo, Result, Table, Value, ValueType};
 
 pub struct FromJson;
 
@@ -49,7 +49,7 @@ impl Macro for FromCsv {
             identifier: "from_csv",
             description: "Create a whale value from a CSV string.",
             group: "data",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
