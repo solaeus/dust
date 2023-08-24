@@ -17,11 +17,25 @@ impl Tool for RandomBoolean {
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        argument.as_empty()?;
+        match argument {
+            Value::Empty => {
+                let boolean = rand::thread_rng().gen();
 
-        let boolean = rand::thread_rng().gen();
-
-        Ok(Value::Boolean(boolean))
+                Ok(Value::Boolean(boolean))
+            }
+            Value::String(_)
+            | Value::Float(_)
+            | Value::Integer(_)
+            | Value::Boolean(_)
+            | Value::List(_)
+            | Value::Map(_)
+            | Value::Table(_)
+            | Value::Time(_)
+            | Value::Function(_) => Err(Error::TypeCheckFailure {
+                tool_info: self.info(),
+                argument: argument.clone(),
+            }),
+        }
     }
 }
 
@@ -58,7 +72,10 @@ impl Tool for RandomInteger {
                 Ok(Value::Integer(integer))
             }
             Value::Empty => Ok(crate::Value::Integer(random())),
-            value => Err(Error::expected_empty(value.clone())),
+            _ => Err(Error::TypeCheckFailure {
+                tool_info: self.info(),
+                argument: argument.clone(),
+            }),
         }
     }
 }
@@ -71,7 +88,7 @@ impl Tool for RandomString {
             identifier: "random_string",
             description: "Generate a random string.",
             group: "random",
-            inputs: vec![],
+            inputs: vec![ValueType::Empty, ValueType::Integer],
         }
     }
 
@@ -100,8 +117,9 @@ impl Tool for RandomString {
 
                 Ok(Value::String(random))
             }
-            _ => Err(Error::ExpectedEmpty {
-                actual: argument.clone(),
+            _ => Err(Error::TypeCheckFailure {
+                tool_info: self.info(),
+                argument: argument.clone(),
             }),
         }
     }
