@@ -1,4 +1,9 @@
-//! This module contains dust's built-in commands.
+//! Dust's built-in commands.
+//!
+//! When a tool in invoked in Dust, the input is checked against the inputs listed in its ToolInfo.
+//! The input should then be double-checked by `Tool::check_input` when you implement `run`. The
+//! purpose of the second check is to weed out mistakes in how the inputs were described in the
+//! ToolInfo. The errors from the second check should only come up during development and should not //! be seen by the user.
 //!
 //! ## Writing macros
 //!
@@ -43,10 +48,9 @@ pub mod random;
 pub mod system;
 pub mod time;
 
-/// Master list of all macros.
+/// Master list of all tools.
 ///
-/// This list is used to match identifiers with macros and to provide info to
-/// the shell.
+/// This list is used to match identifiers with tools and to provide info to the shell.
 pub const TOOL_LIST: [&'static dyn Tool; 57] = [
     &collections::Count,
     &collections::CreateTable,
@@ -111,6 +115,29 @@ pub const TOOL_LIST: [&'static dyn Tool; 57] = [
 pub trait Tool: Sync + Send {
     fn info(&self) -> ToolInfo<'static>;
     fn run(&self, argument: &Value) -> Result<Value>;
+
+    fn check_type<'a>(&self, argument: &'a Value) -> Result<&'a Value> {
+        if self
+            .info()
+            .inputs
+            .iter()
+            .any(|value_type| &argument.value_type() == value_type)
+        {
+            Ok(argument)
+        } else {
+            Err(crate::Error::TypeCheckFailure {
+                tool_info: self.info(),
+                argument: argument.clone(),
+            })
+        }
+    }
+
+    fn fail(&self, argument: &Value) -> Result<Value> {
+        Err(crate::Error::TypeCheckFailure {
+            tool_info: self.info(),
+            argument: argument.clone(),
+        })
+    }
 }
 
 /// Information needed for each macro.

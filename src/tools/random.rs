@@ -17,24 +17,14 @@ impl Tool for RandomBoolean {
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        match argument {
-            Value::Empty => {
-                let boolean = rand::thread_rng().gen();
+        let argument = self.check_type(argument)?;
 
-                Ok(Value::Boolean(boolean))
-            }
-            Value::String(_)
-            | Value::Float(_)
-            | Value::Integer(_)
-            | Value::Boolean(_)
-            | Value::List(_)
-            | Value::Map(_)
-            | Value::Table(_)
-            | Value::Time(_)
-            | Value::Function(_) => Err(Error::TypeCheckFailure {
-                tool_info: self.info(),
-                argument: argument.clone(),
-            }),
+        if let Value::Empty = argument {
+            let boolean = rand::thread_rng().gen();
+
+            Ok(Value::Boolean(boolean))
+        } else {
+            self.fail(argument)
         }
     }
 }
@@ -72,10 +62,7 @@ impl Tool for RandomInteger {
                 Ok(Value::Integer(integer))
             }
             Value::Empty => Ok(crate::Value::Integer(random())),
-            _ => Err(Error::TypeCheckFailure {
-                tool_info: self.info(),
-                argument: argument.clone(),
-            }),
+            _ => self.fail(argument),
         }
     }
 }
@@ -93,35 +80,34 @@ impl Tool for RandomString {
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        match argument {
-            Value::Integer(length) => {
-                let length: usize = length.unsigned_abs().try_into().unwrap_or(0);
-                let mut random = String::with_capacity(length);
+        let argument = self.check_type(argument)?;
 
-                for _ in 0..length {
-                    let random_char = thread_rng().gen_range('A'..='z').to_string();
+        if let Value::Integer(length) = argument {
+            let length: usize = length.unsigned_abs().try_into().unwrap_or(0);
+            let mut random = String::with_capacity(length);
 
-                    random.push_str(&random_char);
-                }
+            for _ in 0..length {
+                let random_char = thread_rng().gen_range('A'..='z').to_string();
 
-                Ok(Value::String(random))
+                random.push_str(&random_char);
             }
-            Value::Empty => {
-                let mut random = String::with_capacity(10);
 
-                for _ in 0..10 {
-                    let random_char = thread_rng().gen_range('A'..='z').to_string();
-
-                    random.push_str(&random_char);
-                }
-
-                Ok(Value::String(random))
-            }
-            _ => Err(Error::TypeCheckFailure {
-                tool_info: self.info(),
-                argument: argument.clone(),
-            }),
+            return Ok(Value::String(random));
         }
+
+        if let Value::Empty = argument {
+            let mut random = String::with_capacity(10);
+
+            for _ in 0..10 {
+                let random_char = thread_rng().gen_range('A'..='z').to_string();
+
+                random.push_str(&random_char);
+            }
+
+            return Ok(Value::String(random));
+        }
+
+        self.fail(argument)
     }
 }
 
@@ -133,14 +119,18 @@ impl Tool for RandomFloat {
             identifier: "random_float",
             description: "Generate a random floating point value between 0 and 1.",
             group: "random",
-            inputs: vec![],
+            inputs: vec![ValueType::Empty],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        argument.as_empty()?;
+        let argument = self.check_type(argument)?;
 
-        Ok(Value::Float(random()))
+        if argument.is_empty() {
+            Ok(Value::Float(random()))
+        } else {
+            self.fail(argument)
+        }
     }
 }
 
@@ -150,22 +140,22 @@ impl Tool for Random {
     fn info(&self) -> ToolInfo<'static> {
         ToolInfo {
             identifier: "random",
-            description: "Select a random item from a collection.",
+            description: "Select a random item from a list.",
             group: "random",
-            inputs: vec![],
+            inputs: vec![ValueType::List],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        if let Ok(list) = argument.as_list() {
+        let argument = self.check_type(argument)?;
+
+        if let Value::List(list) = argument {
             let random_index = thread_rng().gen_range(0..list.len());
             let random_item = list.get(random_index).unwrap();
 
             Ok(random_item.clone())
         } else {
-            Err(Error::ExpectedCollection {
-                actual: argument.clone(),
-            })
+            self.fail(argument)
         }
     }
 }
