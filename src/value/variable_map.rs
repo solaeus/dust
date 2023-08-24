@@ -6,7 +6,10 @@ use std::{
 
 use crate::{value::Value, Error, Result, Table, TOOL_LIST};
 
-/// A context that stores its mappings in hash maps.
+/// A collection dust variables comprised of key-value pairs.
+///
+/// The inner value is a BTreeMap in order to allow VariableMap instances to be sorted and compared
+/// to one another.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
 pub struct VariableMap {
     variables: BTreeMap<String, Value>,
@@ -95,8 +98,8 @@ impl VariableMap {
     pub fn set_value(&mut self, identifier: &str, value: Value) -> Result<()> {
         let split = identifier.split_once('.');
 
-        if let Some((map_name, next_identifier)) = split {
-            let get_value = self.variables.get_mut(map_name);
+        if let Some((identifier, next_identifier)) = split {
+            let get_value = self.variables.get_mut(identifier);
 
             if let Some(found_value) = get_value {
                 if let Value::List(list) = found_value {
@@ -130,7 +133,7 @@ impl VariableMap {
                 new_map.set_value(next_identifier, value)?;
 
                 self.variables
-                    .insert(map_name.to_string(), Value::Map(new_map));
+                    .insert(identifier.to_string(), Value::Map(new_map));
 
                 Ok(())
             }

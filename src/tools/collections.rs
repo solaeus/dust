@@ -242,10 +242,13 @@ impl Tool for Select {
             identifier: "select",
             description: "Extract one or more values based on their key.",
             group: "collections",
-            inputs: vec![ValueType::ListExact(vec![
-                ValueType::Table,
-                ValueType::ListOf(Box::new(ValueType::String)),
-            ])],
+            inputs: vec![
+                ValueType::ListExact(vec![ValueType::Table, ValueType::String]),
+                ValueType::ListExact(vec![
+                    ValueType::Table,
+                    ValueType::ListOf(Box::new(ValueType::String)),
+                ]),
+            ],
         }
     }
 
