@@ -98,12 +98,30 @@ impl VariableMap {
         if let Some((map_name, next_identifier)) = split {
             let get_value = self.variables.get_mut(map_name);
 
-            if let Some(map_value) = get_value {
-                if let Value::Map(map) = map_value {
+            if let Some(found_value) = get_value {
+                if let Value::List(list) = found_value {
+                    let index = if let Ok(index) = next_identifier.parse::<usize>() {
+                        index
+                    } else {
+                        return Err(Error::expected_int(Value::String(
+                            next_identifier.to_string(),
+                        )));
+                    };
+
+                    let mut missing_elements = index - list.len() + 1;
+
+                    while missing_elements > 0 {
+                        list.push(value.clone());
+
+                        missing_elements -= 1;
+                    }
+
+                    Ok(())
+                } else if let Value::Map(map) = found_value {
                     map.set_value(next_identifier, value)
                 } else {
                     Err(Error::ExpectedMap {
-                        actual: map_value.clone(),
+                        actual: found_value.clone(),
                     })
                 }
             } else {
