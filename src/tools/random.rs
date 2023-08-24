@@ -56,8 +56,8 @@ impl Tool for RandomInteger {
                 Error::expect_function_argument_amount(self.info().identifier, min_max.len(), 2)?;
 
                 let min = min_max[0].as_int()?;
-                let max = min_max[1].as_int()?;
-                let integer = rand::thread_rng().gen_range(min..=max);
+                let max = min_max[1].as_int()? + 1;
+                let integer = rand::thread_rng().gen_range(min..max);
 
                 Ok(Value::Integer(integer))
             }
