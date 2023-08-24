@@ -1,4 +1,6 @@
 //! Macros for collection values: strings, lists, maps and tables.
+//!
+//! Tests for this module are written in Dust and can be found at tests/collections.ds.
 
 use crate::{Error, Result, Table, Tool, ToolInfo, Value, ValueType, VariableMap};
 

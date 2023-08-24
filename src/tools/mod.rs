@@ -51,7 +51,7 @@ pub mod time;
 /// Master list of all tools.
 ///
 /// This list is used to match identifiers with tools and to provide info to the shell.
-pub const TOOL_LIST: [&'static dyn Tool; 56] = [
+pub const TOOL_LIST: [&'static dyn Tool; 55] = [
     &collections::Count,
     &collections::CreateTable,
     &collections::Insert,
@@ -84,7 +84,6 @@ pub const TOOL_LIST: [&'static dyn Tool; 56] = [
     &general::Async,
     &general::Output,
     &general::Repeat,
-    &general::Run,
     &general::Wait,
     &gui::BarGraph,
     &gui::Plot,
@@ -385,7 +384,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn macro_formatting() {
+    fn tool_identifier_formatting() {
         for function in TOOL_LIST {
             let identifier = function.info().identifier;
 
@@ -396,6 +395,16 @@ mod tests {
             assert!(!identifier.contains(':'));
             assert!(!identifier.contains('.'));
             assert!(!identifier.contains('-'));
+        }
+    }
+
+    #[test]
+    fn tool_inputs_exist() {
+        for function in TOOL_LIST {
+            let identifier = function.info().identifier;
+            let input_count = function.info().inputs.len();
+
+            assert!(input_count > 0, "{} has no inputs declared", identifier);
         }
     }
 }

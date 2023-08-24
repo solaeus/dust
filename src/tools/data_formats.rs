@@ -30,7 +30,7 @@ impl Tool for ToJson {
             identifier: "to_json",
             description: "Create a JSON string from a whale value.",
             group: "data",
-            inputs: vec![],
+            inputs: vec![ValueType::Any],
         }
     }
 
@@ -96,7 +96,7 @@ impl Tool for ToCsv {
             identifier: "to_csv",
             description: "Convert a value to a string of comma-separated values.",
             group: "data",
-            inputs: vec![],
+            inputs: vec![ValueType::Any],
         }
     }
 

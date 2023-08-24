@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use crate::{Result, Tool, ToolInfo, Value};
+use crate::{Result, Tool, ToolInfo, Value, ValueType};
 
 pub struct Sh;
 
@@ -10,7 +10,7 @@ impl Tool for Sh {
             identifier: "sh",
             description: "Pass input to the Bourne Shell.",
             group: "command",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
@@ -31,7 +31,7 @@ impl Tool for Bash {
             identifier: "bash",
             description: "Pass input to the Bourne Again Shell.",
             group: "command",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
@@ -55,7 +55,7 @@ impl Tool for Fish {
             identifier: "fish",
             description: "Pass input to the fish shell.",
             group: "command",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
@@ -80,7 +80,7 @@ impl Tool for Zsh {
             identifier: "zsh",
             description: "Pass input to the Z shell.",
             group: "command",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
@@ -105,7 +105,7 @@ impl Tool for Raw {
             identifier: "raw",
             description: "Run input as a command without a shell",
             group: "command",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 

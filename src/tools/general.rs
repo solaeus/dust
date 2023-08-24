@@ -1,8 +1,8 @@
-use std::{fs, thread::sleep, time::Duration};
+use std::{thread::sleep, time::Duration};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{Function, Result, Tool, ToolInfo, Value};
+use crate::{Result, Tool, ToolInfo, Value, ValueType};
 
 pub struct Output;
 
@@ -12,7 +12,7 @@ impl Tool for Output {
             identifier: "output",
             description: "Print a value.",
             group: "general",
-            inputs: vec![],
+            inputs: vec![ValueType::Any],
         }
     }
 
@@ -30,7 +30,10 @@ impl Tool for Repeat {
             identifier: "repeat",
             description: "Run a function the given number of times.",
             group: "general",
-            inputs: vec![],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::Function,
+                ValueType::Integer,
+            ])],
         }
     }
 
@@ -50,35 +53,15 @@ impl Tool for Repeat {
     }
 }
 
-pub struct Run;
-
-impl Tool for Run {
-    fn info(&self) -> ToolInfo<'static> {
-        ToolInfo {
-            identifier: "run",
-            description: "Run a whale file.",
-            group: "general",
-            inputs: vec![],
-        }
-    }
-
-    fn run(&self, argument: &Value) -> Result<Value> {
-        let path = argument.as_string()?;
-        let file_contents = fs::read_to_string(path)?;
-
-        Function::new(&file_contents).run()
-    }
-}
-
 pub struct Async;
 
 impl Tool for Async {
     fn info(&self) -> ToolInfo<'static> {
         ToolInfo {
-            identifier: "async",
+            identifier: "run",
             description: "Run functions in parallel.",
             group: "general",
-            inputs: vec![],
+            inputs: vec![ValueType::ListOf(Box::new(ValueType::Function))],
         }
     }
 
@@ -112,7 +95,7 @@ impl Tool for Wait {
             identifier: "wait",
             description: "Wait for the given number of milliseconds.",
             group: "general",
-            inputs: vec![],
+            inputs: vec![ValueType::Integer],
         }
     }
 

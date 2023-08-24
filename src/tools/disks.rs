@@ -2,7 +2,7 @@ use std::process::Command;
 
 use sysinfo::{DiskExt, System, SystemExt};
 
-use crate::{Result, Table, Tool, ToolInfo, Value};
+use crate::{Result, Table, Tool, ToolInfo, Value, ValueType};
 
 pub struct ListDisks;
 
@@ -12,7 +12,7 @@ impl Tool for ListDisks {
             identifier: "list_disks",
             description: "List all block devices.",
             group: "disks",
-            inputs: vec![],
+            inputs: vec![ValueType::Empty],
         }
     }
 
@@ -66,7 +66,7 @@ impl Tool for Partition {
             identifier: "partition",
             description: "Partition a disk, clearing its content.",
             group: "disks",
-            inputs: vec![],
+            inputs: vec![ValueType::Map],
         }
     }
 
