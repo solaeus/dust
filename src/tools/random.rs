@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 use rand::{random, thread_rng, Rng};
 
-use crate::{Error, Result, Tool, ToolInfo, Value};
+use crate::{Error, Result, Tool, ToolInfo, Value, ValueType};
 
 pub struct RandomBoolean;
 
@@ -12,7 +12,7 @@ impl Tool for RandomBoolean {
             identifier: "random_boolean",
             description: "Create a random boolean.",
             group: "random",
-            inputs: vec![],
+            inputs: vec![ValueType::Empty],
         }
     }
 
@@ -33,7 +33,11 @@ impl Tool for RandomInteger {
             identifier: "random_integer",
             description: "Create a random integer.",
             group: "random",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::Empty,
+                ValueType::Integer,
+                ValueType::ListExact(vec![ValueType::Integer, ValueType::Integer]),
+            ],
         }
     }
 
@@ -47,14 +51,14 @@ impl Tool for RandomInteger {
             Value::List(min_max) => {
                 Error::expect_function_argument_amount(self.info().identifier, min_max.len(), 2)?;
 
-                let min = min_max.get(0).unwrap().as_int()?;
-                let max = min_max.get(1).unwrap().as_int()? + 1;
-                let integer = rand::thread_rng().gen_range(min..max);
+                let min = min_max[0].as_int()?;
+                let max = min_max[1].as_int()?;
+                let integer = rand::thread_rng().gen_range(min..=max);
 
                 Ok(Value::Integer(integer))
             }
             Value::Empty => Ok(crate::Value::Integer(random())),
-            _ => todo!(),
+            value => Err(Error::expected_empty(value.clone())),
         }
     }
 }
