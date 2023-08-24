@@ -14,6 +14,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
+    /// Dust's internal type checking failed to identify a type mismatch. This should never happen,      /// the error prompts the user to report the bug.
+    TypeCheckFailure {
+        tool_info: ToolInfo<'static>,
+        argument: Value,
+    },
+
     /// The 'assert' macro did not resolve successfully.
     AssertEqualFailed {
         expected: Value,
@@ -463,6 +469,7 @@ impl fmt::Display for Error {
         use Error::*;
 
         match self {
+            TypeCheckFailure { tool_info, argument } => write!(f, "Type check failure. This is a bug with the tool or with Dust's internal type checking. Please report this bug and include this error message.\nToolInfo = {tool_info:?}\nargument = {argument}"),
             AssertEqualFailed {expected, actual } => write!(f, "Equality assertion failed. {expected} does not equal {actual}."),
             AssertFailed => write!(f, "Assertion failed. A false value was passed to \"assert\"."),
             ExpectedOperatorArgumentAmount { expected, actual } => write!(
