@@ -13,8 +13,8 @@ use std::{
     path::PathBuf,
 };
 
-use whale_lib::{
-    eval, eval_with_context, gui::GuiApp, Macro, MacroInfo, Result, Value, VariableMap, MACRO_LIST,
+use dust_lib::{
+    eval, eval_with_context, gui::GuiApp, Result, Tool, ToolInfo, Value, VariableMap, TOOL_LIST,
 };
 
 /// Command-line arguments to be parsed.
@@ -113,11 +113,11 @@ impl WhaleCompeleter {
         }
     }
 
-    pub fn set_macro_list(&mut self, macro_list: Vec<&'static dyn Macro>) -> &mut Self {
+    pub fn set_command_list(&mut self, macro_list: Vec<&'static dyn Tool>) -> &mut Self {
         self.macro_list = macro_list
             .iter()
             .map(|r#macro| {
-                let MacroInfo {
+                let ToolInfo {
                     identifier,
                     description,
                     group,
@@ -204,7 +204,7 @@ impl Completer for WhaleCompeleter {
 fn setup_reedline() -> Reedline {
     let mut completer = Box::new(WhaleCompeleter::new());
 
-    completer.set_macro_list(MACRO_LIST.to_vec());
+    completer.set_command_list(TOOL_LIST.to_vec());
 
     let completion_menu = Box::new(
         ColumnarMenu::default()

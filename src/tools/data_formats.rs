@@ -1,12 +1,12 @@
 //! Convert values to and from data formats like JSON and TOML.
 
-use crate::{Macro, MacroInfo, Result, Table, Value, ValueType};
+use crate::{Result, Table, Tool, ToolInfo, Value, ValueType};
 
 pub struct FromJson;
 
-impl Macro for FromJson {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for FromJson {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "from_json",
             description: "Get a whale value from a JSON string.",
             group: "data",
@@ -24,9 +24,9 @@ impl Macro for FromJson {
 
 pub struct ToJson;
 
-impl Macro for ToJson {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for ToJson {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "to_json",
             description: "Create a JSON string from a whale value.",
             group: "data",
@@ -43,9 +43,9 @@ impl Macro for ToJson {
 
 pub struct FromCsv;
 
-impl Macro for FromCsv {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for FromCsv {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "from_csv",
             description: "Create a whale value from a CSV string.",
             group: "data",
@@ -90,9 +90,9 @@ impl Macro for FromCsv {
 
 pub struct ToCsv;
 
-impl Macro for ToCsv {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for ToCsv {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "to_csv",
             description: "Convert a value to a string of comma-separated values.",
             group: "data",

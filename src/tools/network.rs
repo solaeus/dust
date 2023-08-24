@@ -1,12 +1,12 @@
 //! Macros for network access.
 
-use crate::{Macro, MacroInfo, Result, Value};
+use crate::{Result, Tool, ToolInfo, Value};
 
 pub struct Download;
 
-impl Macro for Download {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Download {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "download",
             description: "Fetch a network resource.",
             group: "network",

@@ -1,12 +1,12 @@
 //! Macros for collection values: strings, lists, maps and tables.
 
-use crate::{Error, Macro, MacroInfo, Result, Table, Value, ValueType, VariableMap};
+use crate::{Error, Result, Table, Tool, ToolInfo, Value, ValueType, VariableMap};
 
 pub struct Transform;
 
-impl Macro for Transform {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Transform {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "transform",
             description: "Alter a collection by calling a function on each value.",
             group: "collections",
@@ -53,9 +53,9 @@ impl Macro for Transform {
 
 pub struct String;
 
-impl Macro for String {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for String {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "string",
             description: "Stringify a value.",
             group: "collections",
@@ -83,9 +83,9 @@ impl Macro for String {
 
 pub struct Count;
 
-impl Macro for Count {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Count {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "count",
             description: "Return the number of items in a value.",
             group: "collections",
@@ -113,9 +113,9 @@ impl Macro for Count {
 
 pub struct CreateTable;
 
-impl Macro for CreateTable {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for CreateTable {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "create_table",
             description: "Define a new table with a list of column names and list of rows.",
             group: "collections",
@@ -149,9 +149,9 @@ impl Macro for CreateTable {
 
 pub struct Rows;
 
-impl Macro for Rows {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Rows {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "rows",
             description: "Extract a table's rows as a list.",
             group: "collections",
@@ -174,9 +174,9 @@ impl Macro for Rows {
 
 pub struct Get;
 
-impl Macro for Get {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Get {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "get",
             description: "Retrieve a value from a collection.",
             group: "collections",
@@ -207,9 +207,9 @@ impl Macro for Get {
 
 pub struct Insert;
 
-impl Macro for Insert {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Insert {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "insert",
             description: "Add new rows to a table.",
             group: "collections",
@@ -236,9 +236,9 @@ impl Macro for Insert {
 
 pub struct Select;
 
-impl Macro for Select {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Select {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "select",
             description: "Extract one or more values based on their key.",
             group: "collections",
@@ -305,9 +305,9 @@ impl Macro for Select {
 
 pub struct ForEach;
 
-impl Macro for ForEach {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for ForEach {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "for_each",
             description: "Run an operation on every item in a collection.",
             group: "collections",
@@ -342,9 +342,9 @@ impl Macro for ForEach {
 
 pub struct Where;
 
-impl Macro for Where {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Where {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "where",
             description: "Keep rows matching a predicate.",
             group: "collections",

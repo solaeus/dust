@@ -1,22 +1,24 @@
-//! Tools for files and directories.
-
+//! Dust commands for managing files and directories.
 use std::{
     fs::{self, OpenOptions},
     io::{Read, Write as IoWrite},
     path::PathBuf,
 };
 
-use crate::{Error, Macro, MacroInfo, Result, Table, Time, Value, ValueType};
+use crate::{Error, Result, Table, Time, Tool, ToolInfo, Value, ValueType};
 
 pub struct Append;
 
-impl Macro for Append {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Append {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "append",
             description: "Append data to a file.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::String,
+                ValueType::Any,
+            ])],
         }
     }
 
@@ -34,13 +36,16 @@ impl Macro for Append {
 
 pub struct CreateDir;
 
-impl Macro for CreateDir {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for CreateDir {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "create_dir",
             description: "Create one or more directories.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::String,
+                ValueType::ListOf(Box::new(ValueType::String)),
+            ],
         }
     }
 
@@ -54,13 +59,16 @@ impl Macro for CreateDir {
 
 pub struct FileMetadata;
 
-impl Macro for FileMetadata {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for FileMetadata {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "file_metadata",
             description: "Get metadata for files.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::String,
+                ValueType::ListOf(Box::new(ValueType::String)),
+            ],
         }
     }
 
@@ -97,9 +105,9 @@ impl Macro for FileMetadata {
 
 pub struct ReadDir;
 
-impl Macro for ReadDir {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for ReadDir {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "read_dir",
             description: "Read the content of a directory.",
             group: "filesystem",
@@ -168,9 +176,9 @@ impl Macro for ReadDir {
 
 pub struct ReadFile;
 
-impl Macro for ReadFile {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for ReadFile {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "read_file",
             description: "Read file contents.",
             group: "filesystem",
@@ -194,13 +202,16 @@ impl Macro for ReadFile {
 
 pub struct RemoveDir;
 
-impl Macro for RemoveDir {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for RemoveDir {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "remove_dir",
             description: "Remove directories.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::String,
+                ValueType::ListOf(Box::new(ValueType::String)),
+            ],
         }
     }
 
@@ -214,13 +225,16 @@ impl Macro for RemoveDir {
 
 pub struct MoveDir;
 
-impl Macro for MoveDir {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for MoveDir {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "move_dir",
             description: "Move a directory to a new path.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::String,
+                ValueType::String,
+            ])],
         }
     }
 
@@ -252,13 +266,16 @@ impl Macro for MoveDir {
 
 pub struct Trash;
 
-impl Macro for Trash {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Trash {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "trash",
             description: "Move a file or directory to the trash.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![
+                ValueType::String,
+                ValueType::ListOf(Box::new(ValueType::String)),
+            ],
         }
     }
 
@@ -273,13 +290,16 @@ impl Macro for Trash {
 
 pub struct Write;
 
-impl Macro for Write {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Write {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "write",
             description: "Write data to a file.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::String,
+                ValueType::Any,
+            ])],
         }
     }
 
@@ -307,9 +327,9 @@ impl Macro for Write {
 
 pub struct RemoveFile;
 
-impl Macro for RemoveFile {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for RemoveFile {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "remove_file",
             description: "Permanently delete a file.",
             group: "filesystem",
@@ -343,13 +363,13 @@ impl Macro for RemoveFile {
 
 pub struct Watch;
 
-impl Macro for Watch {
-    fn info(&self) -> crate::MacroInfo<'static> {
-        crate::MacroInfo {
+impl Tool for Watch {
+    fn info(&self) -> crate::ToolInfo<'static> {
+        crate::ToolInfo {
             identifier: "watch",
             description: "Wait until a file changes.",
             group: "filesystem",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 

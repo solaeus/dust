@@ -2,13 +2,13 @@ use std::convert::TryInto;
 
 use rand::{random, thread_rng, Rng};
 
-use crate::{Error, Macro, MacroInfo, Result, Value};
+use crate::{Error, Result, Tool, ToolInfo, Value};
 
 pub struct RandomBoolean;
 
-impl Macro for RandomBoolean {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for RandomBoolean {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "random_boolean",
             description: "Create a random boolean.",
             group: "random",
@@ -27,9 +27,9 @@ impl Macro for RandomBoolean {
 
 pub struct RandomInteger;
 
-impl Macro for RandomInteger {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for RandomInteger {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "random_integer",
             description: "Create a random integer.",
             group: "random",
@@ -61,9 +61,9 @@ impl Macro for RandomInteger {
 
 pub struct RandomString;
 
-impl Macro for RandomString {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for RandomString {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "random_string",
             description: "Generate a random string.",
             group: "random",
@@ -105,9 +105,9 @@ impl Macro for RandomString {
 
 pub struct RandomFloat;
 
-impl Macro for RandomFloat {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for RandomFloat {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "random_float",
             description: "Generate a random floating point value between 0 and 1.",
             group: "random",
@@ -124,9 +124,9 @@ impl Macro for RandomFloat {
 
 pub struct Random;
 
-impl Macro for Random {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Random {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "random",
             description: "Select a random item from a collection.",
             group: "random",

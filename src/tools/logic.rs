@@ -1,11 +1,11 @@
-use crate::{Error, Macro, MacroInfo, Result, Value, ValueType };
+use crate::{Error, Tool, ToolInfo, Result, Value, ValueType };
 
 
 pub struct Assert;
 
-impl Macro for Assert {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Assert {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "assert",
             description: "Panic if a boolean is false.",
             group: "test",
@@ -30,9 +30,9 @@ impl Macro for Assert {
 
 pub struct AssertEqual;
 
-impl Macro for AssertEqual {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for AssertEqual {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "assert_equal",
             description: "Panic if two values do not match.",
             group: "test",
@@ -54,9 +54,9 @@ impl Macro for AssertEqual {
 
 pub struct If;
 
-impl Macro for If {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for If {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "if",
             description: "Evaluates the first argument. If true, it does the second argument.",     
             group: "logic",
@@ -92,9 +92,9 @@ impl Macro for If {
 
 pub struct IfElse;
 
-impl Macro for IfElse {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for IfElse {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "if_else",
             description: "Evaluates the first argument. If true, it does the second argument. If false, it does the third argument",            
             group: "logic",
@@ -139,9 +139,9 @@ impl Macro for IfElse {
 
 pub struct Loop;
 
-impl Macro for Loop {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Loop {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "loop",
             description: "Repeats a function until the program ends.",
             group: "general",

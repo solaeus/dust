@@ -1,12 +1,12 @@
 use std::process::Command;
 
-use crate::{Error, Macro, MacroInfo, Result, Value};
+use crate::{Error, Result, Tool, ToolInfo, Value};
 
 pub struct CoprRepositories;
 
-impl Macro for CoprRepositories {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for CoprRepositories {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "enable_copr_repository",
             description: "Enable one or more COPR repositories.",
             group: "package management",
@@ -37,9 +37,9 @@ impl Macro for CoprRepositories {
 
 pub struct InstallPackage;
 
-impl Macro for InstallPackage {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for InstallPackage {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "install_package",
             description: "Install one or more packages.",
             group: "package management",
@@ -73,9 +73,9 @@ impl Macro for InstallPackage {
 
 pub struct EnableRpmRepositories;
 
-impl Macro for EnableRpmRepositories {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for EnableRpmRepositories {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "enable_rpm_repositories",
             description: "Enable one or more RPM repositories.",
             group: "package management",
@@ -110,9 +110,9 @@ impl Macro for EnableRpmRepositories {
 
 pub struct UninstallPackage;
 
-impl Macro for UninstallPackage {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for UninstallPackage {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "uninstall_package",
             description: "Uninstall one or more packages.",
             group: "package management",
@@ -146,9 +146,9 @@ impl Macro for UninstallPackage {
 
 pub struct UpgradePackages;
 
-impl Macro for UpgradePackages {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for UpgradePackages {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "upgrade_packages",
             description: "Upgrade all installed packages.",
             group: "package management",

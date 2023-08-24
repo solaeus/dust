@@ -2,17 +2,27 @@
 //!
 //! ## Writing macros
 //!
-//! - snake case identifier, this is enforced by a test
-//! - the description should be brief, it will display in the shell
-//!
+//! - Snake case identifier, this is enforced by a test
+//! - The description should be brief, it will display in the shell
+//! - Recycle code that is already written and tested
+//! - Write non-trivial tests, do not write tests just for the sake of writing them
 //!
 //! ## Usage
 //!
-//! Macros can be used in Rust by passing a Value to the run method.
+//! Commands can be used in Rust by passing a Value to the run method.
 //!
 //! ```
-//! let value = Value::List(vec![1, 2,3]);
-//! let count = Count.run(value).as_string().unwrap();
+//! # use dust_lib::{tools::collections::Count, Tool, Value};
+//! let value = Value::List(vec![
+//!     Value::Integer(1),
+//!     Value::Integer(2),
+//!     Value::Integer(3),
+//! ]);
+//! let count = Count
+//!     .run(&value)
+//!     .unwrap()
+//!     .as_int()
+//!     .unwrap();
 //!
 //! assert_eq!(count, 3);
 //! ```
@@ -37,7 +47,7 @@ pub mod time;
 ///
 /// This list is used to match identifiers with macros and to provide info to
 /// the shell.
-pub const MACRO_LIST: [&'static dyn Macro; 57] = [
+pub const TOOL_LIST: [&'static dyn Tool; 57] = [
     &collections::Count,
     &collections::CreateTable,
     &collections::Get,
@@ -98,14 +108,14 @@ pub const MACRO_LIST: [&'static dyn Macro; 57] = [
 ];
 
 /// A whale macro function.
-pub trait Macro: Sync + Send {
-    fn info(&self) -> MacroInfo<'static>;
+pub trait Tool: Sync + Send {
+    fn info(&self) -> ToolInfo<'static>;
     fn run(&self, argument: &Value) -> Result<Value>;
 }
 
 /// Information needed for each macro.
 #[derive(Clone, Debug, PartialEq)]
-pub struct MacroInfo<'a> {
+pub struct ToolInfo<'a> {
     /// Text pattern that triggers this macro.
     pub identifier: &'a str,
 
@@ -350,7 +360,7 @@ mod tests {
 
     #[test]
     fn macro_formatting() {
-        for function in MACRO_LIST {
+        for function in TOOL_LIST {
             let identifier = function.info().identifier;
 
             assert_eq!(identifier.to_lowercase(), identifier);

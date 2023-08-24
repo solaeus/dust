@@ -3,8 +3,8 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the MacroFailure variant if the error can only occur inside a macro.
 use crate::{
-    operator::Operator, token::PartialToken, value::value_type::ValueType, value::Value, MacroInfo,
-    Node,
+    operator::Operator, token::PartialToken, value::value_type::ValueType, value::Value, Node,
+    ToolInfo,
 };
 
 use std::{fmt, io, time::SystemTimeError};
@@ -133,7 +133,7 @@ pub enum Error {
     /// A macro or function was called with the wrong type of input.
     MacroArgumentType {
         /// The macro that was called.
-        macro_info: MacroInfo<'static>,
+        macro_info: ToolInfo<'static>,
         /// The actual value.
         actual: Value,
     },

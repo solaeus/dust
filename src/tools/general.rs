@@ -2,13 +2,13 @@ use std::{fs, thread::sleep, time::Duration};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{Function, Macro, MacroInfo, Result, Value};
+use crate::{Function, Result, Tool, ToolInfo, Value};
 
 pub struct Output;
 
-impl Macro for Output {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Output {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "output",
             description: "Print a value.",
             group: "general",
@@ -24,9 +24,9 @@ impl Macro for Output {
 }
 pub struct Repeat;
 
-impl Macro for Repeat {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Repeat {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "repeat",
             description: "Run a function the given number of times.",
             group: "general",
@@ -52,9 +52,9 @@ impl Macro for Repeat {
 
 pub struct Run;
 
-impl Macro for Run {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Run {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "run",
             description: "Run a whale file.",
             group: "general",
@@ -72,9 +72,9 @@ impl Macro for Run {
 
 pub struct Async;
 
-impl Macro for Async {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Async {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "async",
             description: "Run functions in parallel.",
             group: "general",
@@ -106,9 +106,9 @@ impl Macro for Async {
 
 pub struct Wait;
 
-impl Macro for Wait {
-    fn info(&self) -> crate::MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Wait {
+    fn info(&self) -> crate::ToolInfo<'static> {
+        ToolInfo {
             identifier: "wait",
             description: "Wait for the given number of milliseconds.",
             group: "general",

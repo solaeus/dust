@@ -5,7 +5,7 @@ use crate::{token, tree, Result, Value, VariableMap};
 /// # Examples
 ///
 /// ```rust
-/// # use whale_lib::*;
+/// # use dust_lib::*;
 /// assert_eq!(eval("1 + 2 + 3"), Ok(Value::from(6)));
 /// ```
 ///
@@ -20,12 +20,12 @@ pub fn eval(string: &str) -> Result<Value> {
 /// # Examples
 ///
 /// ```rust
-/// # use whale_lib::*;
+/// # use dust_lib::*;
 /// let mut context = VariableMap::new();
 /// context.set_value("one".into(), 1.into()).unwrap(); // Do proper error handling here
 /// context.set_value("two".into(), 2.into()).unwrap(); // Do proper error handling here
 /// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
-/// assert_eq!(eval_with_context("one + two + three", &context), Ok(Value::from(6)));
+/// assert_eq!(eval_with_context("one + two + three", &mut context), Ok(Value::from(6)));
 /// ```
 ///
 /// *See the [crate doc](index.html) for more examples and explanations of the expression format.*

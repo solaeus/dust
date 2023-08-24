@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{value::Value, Error, Result, Table, MACRO_LIST};
+use crate::{value::Value, Error, Result, Table, TOOL_LIST};
 
 /// A context that stores its mappings in hash maps.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
@@ -21,7 +21,7 @@ impl VariableMap {
     }
 
     pub fn call_function(&self, identifier: &str, argument: &Value) -> Result<Value> {
-        for macro_item in MACRO_LIST {
+        for macro_item in TOOL_LIST {
             let valid_input_types = macro_item.info().inputs;
 
             if identifier == macro_item.info().identifier {

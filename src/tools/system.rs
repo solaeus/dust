@@ -1,12 +1,12 @@
 use sys_info::cpu_speed;
 
-use crate::{Macro, MacroInfo, Result, Value};
+use crate::{Result, Tool, ToolInfo, Value};
 
 pub struct CpuSpeed;
 
-impl Macro for CpuSpeed {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for CpuSpeed {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "cpu_speed",
             description: "Return the current processor speed in megahertz.",
             group: "system",

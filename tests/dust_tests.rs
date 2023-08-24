@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 
-use whale_lib::*;
+use dust_lib::*;
 
 #[test]
 fn collections() {

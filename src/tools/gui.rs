@@ -9,13 +9,13 @@ use eframe::{
 };
 use egui_extras::{Column, StripBuilder, TableBuilder};
 
-use crate::{eval_with_context, Error, Macro, MacroInfo, Result, Table, Value, VariableMap};
+use crate::{eval_with_context, Error, Result, Table, Tool, ToolInfo, Value, VariableMap};
 
 pub struct CreateLine;
 
-impl Macro for CreateLine {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for CreateLine {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "create_line",
             description: "Create a map value to be shown as a line in a plot.",
             group: "gui",
@@ -40,9 +40,9 @@ impl Macro for CreateLine {
 
 pub struct BarGraph;
 
-impl Macro for BarGraph {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for BarGraph {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "bar_graph",
             description: "Render a list of values as a bar graph.",
             group: "gui",
@@ -125,9 +125,9 @@ impl eframe::App for BarGraphGui {
 
 pub struct Plot;
 
-impl Macro for Plot {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Plot {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "plot",
             description: "Render a list of numbers as a scatter plot graph.",
             group: "gui",
@@ -193,9 +193,9 @@ impl eframe::App for PlotGui {
 
 pub struct Gui;
 
-impl Macro for Gui {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Gui {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "gui",
             description: "Display a value in a GUI window.",
             group: "gui",

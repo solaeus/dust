@@ -2,11 +2,11 @@
 #![forbid(unsafe_code)]
 
 pub use crate::{
-    commands::*,
     error::*,
     interface::*,
     operator::Operator,
     token::PartialToken,
+    tools::{Tool, ToolInfo, TOOL_LIST},
     tree::Node,
     value::{
         function::Function, table::Table, time::Time, value_type::ValueType,
@@ -14,7 +14,8 @@ pub use crate::{
     },
 };
 
-mod commands;
+pub mod tools;
+
 mod error;
 mod interface;
 mod operator;

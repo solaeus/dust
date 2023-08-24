@@ -1,12 +1,12 @@
 use std::time::Instant;
 
-use crate::{Macro, MacroInfo, Result, Time, Value};
+use crate::{Result, Time, Tool, ToolInfo, Value};
 
 pub struct Now;
 
-impl Macro for Now {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Now {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "now",
             description: "Return the current time.",
             group: "time",
@@ -25,9 +25,9 @@ impl Macro for Now {
 
 pub struct Local;
 
-impl Macro for Local {
-    fn info(&self) -> MacroInfo<'static> {
-        MacroInfo {
+impl Tool for Local {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
             identifier: "local",
             description: "Show a time value adjusted for the current time zone.",
             group: "time",
