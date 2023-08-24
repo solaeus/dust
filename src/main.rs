@@ -14,7 +14,8 @@ use std::{
 };
 
 use dust_lib::{
-    eval, eval_with_context, gui::GuiApp, Result, Tool, ToolInfo, Value, VariableMap, TOOL_LIST,
+    eval, eval_with_context, tools::gui::GuiApp, Result, Tool, ToolInfo, Value, VariableMap,
+    TOOL_LIST,
 };
 
 /// Command-line arguments to be parsed.

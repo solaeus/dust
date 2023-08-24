@@ -10,7 +10,7 @@ impl Tool for FromJson {
             identifier: "from_json",
             description: "Get a whale value from a JSON string.",
             group: "data",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 

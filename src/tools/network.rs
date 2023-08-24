@@ -1,6 +1,6 @@
 //! Macros for network access.
 
-use crate::{Result, Tool, ToolInfo, Value};
+use crate::{Result, Tool, ToolInfo, Value, ValueType};
 
 pub struct Download;
 
@@ -10,7 +10,7 @@ impl Tool for Download {
             identifier: "download",
             description: "Fetch a network resource.",
             group: "network",
-            inputs: vec![],
+            inputs: vec![ValueType::String],
         }
     }
 
