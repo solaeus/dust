@@ -54,39 +54,35 @@ impl VariableMap {
     }
 
     pub fn get_value(&self, identifier: &str) -> Result<Option<Value>> {
-        let split = identifier.split_once('.');
-
-        if let Some((identifier, next_identifier)) = split {
-            if let Some(value) = self.variables.get(identifier) {
-                if let Value::Map(map) = value {
-                    map.get_value(next_identifier)
-                } else if let Value::List(list) = value {
-                    let index = if let Ok(index) = next_identifier.parse::<usize>() {
-                        index
-                    } else {
-                        return Err(Error::ExpectedInt {
-                            actual: Value::String(next_identifier.to_string()),
-                        });
-                    };
-                    let value = list.get(index);
-
-                    Ok(value.cloned())
-                } else {
-                    Err(Error::ExpectedMap {
-                        actual: value.clone(),
-                    })
-                }
+        let split = identifier.rsplit_once('.');
+        let (found_value, next_identifier) = if let Some((identifier, next_identifier)) = split {
+            if identifier.contains('.') {
+                (self.get_value(identifier)?, next_identifier)
             } else {
-                Ok(None)
+                (self.variables.get(identifier).cloned(), next_identifier)
             }
         } else {
-            let value = self.variables.get(identifier);
+            return Ok(self.variables.get(identifier).cloned());
+        };
 
-            if let Some(value) = value {
-                Ok(Some(value.clone()))
+        if let Some(value) = found_value {
+            if let Value::List(list) = value {
+                let index = if let Ok(index) = next_identifier.parse::<usize>() {
+                    index
+                } else {
+                    return Err(Error::expected_int(Value::String(
+                        next_identifier.to_string(),
+                    )));
+                };
+
+                Ok(list.get(index).cloned())
+            } else if let Value::Map(map) = value {
+                map.get_value(next_identifier)
             } else {
-                Ok(None)
+                Ok(Some(value))
             }
+        } else {
+            Ok(None)
         }
     }
 
