@@ -8,7 +8,7 @@ impl Tool for Transform {
     fn info(&self) -> ToolInfo<'static> {
         ToolInfo {
             identifier: "transform",
-            description: "Alter a collection by calling a function on each value.",
+            description: "Alter a list by calling a function on each value.",
             group: "collections",
             inputs: vec![ValueType::ListExact(vec![
                 ValueType::List,
@@ -18,36 +18,27 @@ impl Tool for Transform {
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        let argument = argument.as_list()?;
-        let value = &argument[0];
-        let function = argument[1].as_function()?;
+        let argument = self.check_type(argument)?;
 
-        match value {
-            Value::String(_string) => todo!(),
-            Value::Float(_) => todo!(),
-            Value::Integer(_) => todo!(),
-            Value::Boolean(_) => todo!(),
-            Value::List(list) => {
-                let mut mapped_list = Vec::with_capacity(list.len());
+        if let Value::List(list) = argument {
+            let list = list[0].as_list()?;
+            let function = list[1].as_function()?;
+            let mut mapped_list = Vec::with_capacity(list.len());
 
-                for value in list {
-                    let mut context = VariableMap::new();
+            for value in list {
+                let mut context = VariableMap::new();
 
-                    context.set_value("input", value.clone())?;
+                context.set_value("input", value.clone())?;
 
-                    let mapped_value = function.run_with_context(&mut context)?;
+                let mapped_value = function.run_with_context(&mut context)?;
 
-                    mapped_list.push(mapped_value);
-                }
-
-                Ok(Value::List(mapped_list))
+                mapped_list.push(mapped_value);
             }
-            Value::Empty => todo!(),
-            Value::Map(_map) => todo!(),
-            Value::Table(_) => todo!(),
-            Value::Function(_) => todo!(),
-            Value::Time(_) => todo!(),
+
+            return Ok(Value::List(mapped_list));
         }
+
+        self.fail(argument)
     }
 }
 
@@ -59,22 +50,26 @@ impl Tool for String {
             identifier: "string",
             description: "Stringify a value.",
             group: "collections",
-            inputs: vec![ValueType::Any],
+            inputs: vec![
+                ValueType::String,
+                ValueType::Function,
+                ValueType::Float,
+                ValueType::Integer,
+                ValueType::Boolean,
+            ],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        let string = match argument.clone() {
-            Value::String(string) => string,
-            Value::List(_list) => todo!(),
-            Value::Map(_map) => todo!(),
-            Value::Table(_table) => todo!(),
+        let argument = self.check_type(argument)?;
+
+        let string = match argument {
+            Value::String(string) => string.clone(),
             Value::Function(function) => function.to_string(),
             Value::Float(float) => float.to_string(),
             Value::Integer(integer) => integer.to_string(),
             Value::Boolean(boolean) => boolean.to_string(),
-            Value::Time(_) => todo!(),
-            Value::Empty => todo!(),
+            _ => return self.fail(argument),
         };
 
         Ok(Value::String(string))
@@ -87,13 +82,15 @@ impl Tool for Count {
     fn info(&self) -> ToolInfo<'static> {
         ToolInfo {
             identifier: "count",
-            description: "Return the number of items in a value.",
+            description: "Return the number of items in a collection.",
             group: "collections",
             inputs: vec![ValueType::Any],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
+        let argument = self.check_type(argument)?;
+
         let len = match argument {
             Value::String(string) => string.chars().count(),
             Value::List(list) => list.len(),
@@ -103,8 +100,8 @@ impl Tool for Count {
             | Value::Float(_)
             | Value::Integer(_)
             | Value::Boolean(_)
-            | Value::Time(_) => 1,
-            Value::Empty => 0,
+            | Value::Time(_)
+            | Value::Empty => return self.fail(argument),
         };
 
         Ok(Value::Integer(len as i64))
@@ -119,12 +116,15 @@ impl Tool for CreateTable {
             identifier: "create_table",
             description: "Define a new table with a list of column names and list of rows.",
             group: "collections",
-            inputs: vec![ValueType::ListExact(vec![ValueType::List, ValueType::List])],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::ListOf(Box::new(ValueType::String)),
+                ValueType::ListOf(Box::new(ValueType::List)),
+            ])],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        let argument = argument.as_list()?;
+        let argument = self.check_type(argument)?.as_list()?;
 
         let column_name_inputs = argument[0].as_list()?;
         let mut column_names = Vec::with_capacity(column_name_inputs.len());
@@ -160,48 +160,19 @@ impl Tool for Rows {
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        let table = argument.as_table()?;
+        let argument = self.check_type(argument)?;
 
-        let rows = table
-            .rows()
-            .iter()
-            .map(|row| Value::List(row.clone()))
-            .collect();
+        if let Value::Table(table) = argument {
+            let rows = table
+                .rows()
+                .iter()
+                .map(|row| Value::List(row.clone()))
+                .collect();
 
-        Ok(Value::List(rows))
-    }
-}
-
-pub struct Get;
-
-impl Tool for Get {
-    fn info(&self) -> ToolInfo<'static> {
-        ToolInfo {
-            identifier: "get",
-            description: "Retrieve a value from a collection.",
-            group: "collections",
-            inputs: vec![
-                ValueType::ListExact(vec![ValueType::List, ValueType::Integer]),
-                ValueType::ListExact(vec![ValueType::Map, ValueType::String]),
-            ],
+            Ok(Value::List(rows))
+        } else {
+            self.fail(argument)
         }
-    }
-
-    fn run(&self, argument: &Value) -> Result<Value> {
-        let argument = argument.as_list()?;
-
-        let collection = &argument[0];
-        let index = argument[1].as_int()?;
-
-        if let Ok(list) = collection.as_list() {
-            if let Some(value) = list.get(index as usize) {
-                return Ok(value.clone());
-            } else {
-                return Ok(Value::Empty);
-            }
-        }
-
-        todo!()
     }
 }
 
@@ -213,7 +184,10 @@ impl Tool for Insert {
             identifier: "insert",
             description: "Add new rows to a table.",
             group: "collections",
-            inputs: vec![ValueType::Table, ValueType::List],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::Table,
+                ValueType::ListOf(Box::new(ValueType::List)),
+            ])],
         }
     }
 
@@ -351,76 +325,34 @@ impl Tool for Where {
             identifier: "where",
             description: "Keep rows matching a predicate.",
             group: "collections",
-            inputs: vec![],
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::Table,
+                ValueType::Function,
+            ])],
         }
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        let argument_list = argument.as_list()?;
-        Error::expect_function_argument_amount(self.info().identifier, argument_list.len(), 2)?;
+        let argument = self.check_type(argument)?.as_list()?;
+        let table = &argument[0].as_table()?;
+        let function = argument[1].as_function()?;
 
-        let collection = &argument_list[0];
-        let function = argument_list[1].as_function()?;
+        let mut context = VariableMap::new();
+        let mut new_table = Table::new(table.column_names().clone());
 
-        if let Ok(list) = collection.as_list() {
-            let mut context = VariableMap::new();
-            let mut new_list = Vec::new();
+        for row in table.rows() {
+            for (column_index, cell) in row.iter().enumerate() {
+                let column_name = table.column_names().get(column_index).unwrap();
 
-            for value in list {
-                context.set_value("input", value.clone())?;
-                let keep_row = function.run_with_context(&mut context)?.as_boolean()?;
-
-                if keep_row {
-                    new_list.push(value.clone());
-                }
+                context.set_value(column_name, cell.clone())?;
             }
+            let keep_row = function.run_with_context(&mut context)?.as_boolean()?;
 
-            return Ok(Value::List(new_list));
+            if keep_row {
+                new_table.insert(row.clone())?;
+            }
         }
 
-        if let Ok(map) = collection.as_map() {
-            let mut context = VariableMap::new();
-            let mut new_map = VariableMap::new();
-
-            for (key, value) in map.inner() {
-                if let Ok(map) = value.as_map() {
-                    for (key, value) in map.inner() {
-                        context.set_value(key, value.clone())?;
-                    }
-                } else {
-                    context.set_value("input", value.clone())?;
-                }
-
-                let keep_row = function.run_with_context(&mut context)?.as_boolean()?;
-
-                if keep_row {
-                    new_map.set_value(key, value.clone())?;
-                }
-            }
-
-            return Ok(Value::Map(new_map));
-        }
-
-        if let Ok(table) = collection.as_table() {
-            let mut context = VariableMap::new();
-            let mut new_table = Table::new(table.column_names().clone());
-
-            for row in table.rows() {
-                for (column_index, cell) in row.iter().enumerate() {
-                    let column_name = table.column_names().get(column_index).unwrap();
-
-                    context.set_value(column_name, cell.clone())?;
-                }
-                let keep_row = function.run_with_context(&mut context)?.as_boolean()?;
-
-                if keep_row {
-                    new_table.insert(row.clone())?;
-                }
-            }
-
-            return Ok(Value::Table(new_table));
-        }
-
-        todo!()
+        Ok(Value::Table(new_table))
     }
 }
