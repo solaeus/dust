@@ -18,27 +18,22 @@ impl Tool for Transform {
     }
 
     fn run(&self, argument: &Value) -> Result<Value> {
-        let argument = self.check_type(argument)?;
+        let argument = self.check_type(argument)?.as_list()?;
+        let list = argument[0].as_list()?;
+        let function = argument[1].as_function()?;
+        let mut mapped_list = Vec::with_capacity(list.len());
 
-        if let Value::List(list) = argument {
-            let list = list[0].as_list()?;
-            let function = list[1].as_function()?;
-            let mut mapped_list = Vec::with_capacity(list.len());
+        for value in list {
+            let mut context = VariableMap::new();
 
-            for value in list {
-                let mut context = VariableMap::new();
+            context.set_value("input", value.clone())?;
 
-                context.set_value("input", value.clone())?;
+            let mapped_value = function.run_with_context(&mut context)?;
 
-                let mapped_value = function.run_with_context(&mut context)?;
-
-                mapped_list.push(mapped_value);
-            }
-
-            return Ok(Value::List(mapped_list));
+            mapped_list.push(mapped_value);
         }
 
-        self.fail(argument)
+        return Ok(Value::List(mapped_list));
     }
 }
 
@@ -84,7 +79,12 @@ impl Tool for Count {
             identifier: "count",
             description: "Return the number of items in a collection.",
             group: "collections",
-            inputs: vec![ValueType::Any],
+            inputs: vec![
+                ValueType::String,
+                ValueType::List,
+                ValueType::Map,
+                ValueType::Table,
+            ],
         }
     }
 
