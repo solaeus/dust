@@ -145,7 +145,7 @@ impl Tool for Loop {
             identifier: "loop",
             description: "Repeats a function until the program ends.",
             group: "general",
-            inputs: vec![],
+            inputs: vec![ValueType::Function],
         }
     }
 

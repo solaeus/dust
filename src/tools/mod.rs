@@ -43,7 +43,6 @@ pub mod general;
 pub mod gui;
 pub mod logic;
 pub mod network;
-pub mod package_management;
 pub mod random;
 pub mod system;
 pub mod time;
@@ -51,7 +50,7 @@ pub mod time;
 /// Master list of all tools.
 ///
 /// This list is used to match identifiers with tools and to provide info to the shell.
-pub const TOOL_LIST: [&'static dyn Tool; 55] = [
+pub const TOOL_LIST: [&'static dyn Tool; 49] = [
     &collections::Count,
     &collections::CreateTable,
     &collections::Insert,
@@ -81,22 +80,16 @@ pub const TOOL_LIST: [&'static dyn Tool; 55] = [
     &filesystem::Trash,
     &filesystem::Watch,
     &filesystem::Write,
-    &general::Async,
+    &general::Run,
     &general::Output,
     &general::Repeat,
     &general::Wait,
     &gui::BarGraph,
     &gui::Plot,
-    &gui::Gui,
     &logic::If,
     &logic::IfElse,
     &logic::Loop,
     &network::Download,
-    &package_management::CoprRepositories,
-    &package_management::EnableRpmRepositories,
-    &package_management::InstallPackage,
-    &package_management::UninstallPackage,
-    &package_management::UpgradePackages,
     &random::Random,
     &random::RandomBoolean,
     &random::RandomFloat,

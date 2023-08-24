@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::{Result, Time, Tool, ToolInfo, Value};
+use crate::{Result, Time, Tool, ToolInfo, Value, ValueType};
 
 pub struct Now;
 
@@ -10,7 +10,7 @@ impl Tool for Now {
             identifier: "now",
             description: "Return the current time.",
             group: "time",
-            inputs: vec![],
+            inputs: vec![ValueType::Empty],
         }
     }
 
@@ -31,7 +31,7 @@ impl Tool for Local {
             identifier: "local",
             description: "Show a time value adjusted for the current time zone.",
             group: "time",
-            inputs: vec![],
+            inputs: vec![ValueType::Time],
         }
     }
 

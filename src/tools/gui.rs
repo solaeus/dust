@@ -9,34 +9,9 @@ use eframe::{
 };
 use egui_extras::{Column, StripBuilder, TableBuilder};
 
-use crate::{eval_with_context, Error, Result, Table, Tool, ToolInfo, Value, VariableMap};
-
-pub struct CreateLine;
-
-impl Tool for CreateLine {
-    fn info(&self) -> ToolInfo<'static> {
-        ToolInfo {
-            identifier: "create_line",
-            description: "Create a map value to be shown as a line in a plot.",
-            group: "gui",
-            inputs: vec![],
-        }
-    }
-
-    fn run(&self, argument: &Value) -> Result<Value> {
-        let argument = argument.as_list()?;
-        let index = argument[0].as_int()?.clone();
-        let height = argument[1].as_float()?.clone();
-        let name = argument[2].clone();
-        let mut line = VariableMap::new();
-
-        line.set_value("index", Value::Float(index as f64))?;
-        line.set_value("height", Value::Float(height))?;
-        line.set_value("name", name)?;
-
-        Ok(Value::Map(line))
-    }
-}
+use crate::{
+    eval_with_context, Error, Result, Table, Tool, ToolInfo, Value, ValueType, VariableMap,
+};
 
 pub struct BarGraph;
 
@@ -46,7 +21,7 @@ impl Tool for BarGraph {
             identifier: "bar_graph",
             description: "Render a list of values as a bar graph.",
             group: "gui",
-            inputs: vec![],
+            inputs: vec![ValueType::ListOf(Box::new(ValueType::List))],
         }
     }
 
@@ -131,7 +106,7 @@ impl Tool for Plot {
             identifier: "plot",
             description: "Render a list of numbers as a scatter plot graph.",
             group: "gui",
-            inputs: vec![],
+            inputs: vec![ValueType::ListOf(Box::new(ValueType::Integer))],
         }
     }
 
@@ -188,32 +163,6 @@ impl eframe::App for PlotGui {
                 plot_ui.line(line);
             })
         });
-    }
-}
-
-pub struct Gui;
-
-impl Tool for Gui {
-    fn info(&self) -> ToolInfo<'static> {
-        ToolInfo {
-            identifier: "gui",
-            description: "Display a value in a GUI window.",
-            group: "gui",
-            inputs: vec![],
-        }
-    }
-
-    fn run(&self, argument: &Value) -> Result<Value> {
-        let argument = argument.clone();
-
-        run_native(
-            &argument.value_type().to_string(),
-            NativeOptions::default(),
-            Box::new(|_cc| Box::new(GuiApp::new(Ok(argument)))),
-        )
-        .unwrap();
-
-        Ok(Value::Empty)
     }
 }
 

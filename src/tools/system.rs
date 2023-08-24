@@ -1,6 +1,6 @@
 use sys_info::cpu_speed;
 
-use crate::{Result, Tool, ToolInfo, Value};
+use crate::{Result, Tool, ToolInfo, Value, ValueType};
 
 pub struct CpuSpeed;
 
@@ -10,7 +10,7 @@ impl Tool for CpuSpeed {
             identifier: "cpu_speed",
             description: "Return the current processor speed in megahertz.",
             group: "system",
-            inputs: vec![],
+            inputs: vec![ValueType::Empty],
         }
     }
 

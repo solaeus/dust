@@ -53,9 +53,9 @@ impl Tool for Repeat {
     }
 }
 
-pub struct Async;
+pub struct Run;
 
-impl Tool for Async {
+impl Tool for Run {
     fn info(&self) -> ToolInfo<'static> {
         ToolInfo {
             identifier: "run",
