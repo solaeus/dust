@@ -20,6 +20,9 @@ impl VariableMap {
         }
     }
 
+    /// Invokes built-in tools or user-defined functions based on the identifier and passes the     
+    /// argument. Returns an error a tool is called with the wrong inputs or if the identifier does
+    /// not match any tools or functions.
     pub fn call_function(&self, identifier: &str, argument: &Value) -> Result<Value> {
         for macro_item in TOOL_LIST {
             let valid_input_types = macro_item.info().inputs;
@@ -53,6 +56,7 @@ impl VariableMap {
         Err(Error::FunctionIdentifierNotFound(identifier.to_string()))
     }
 
+    /// Returns a Value assigned to the identifer, allowing dot notation to retrieve Values that are     /// nested in Lists or Maps. Returns None if there is no variable with a key matching the            /// identifier. Returns an error if a Map or List is indexed incorrectly.
     pub fn get_value(&self, identifier: &str) -> Result<Option<Value>> {
         let split = identifier.rsplit_once('.');
         let (found_value, next_identifier) = if let Some((identifier, next_identifier)) = split {
@@ -86,6 +90,8 @@ impl VariableMap {
         }
     }
 
+    /// Assigns a variable with a Value and the identifier as its key, allowing dot notation to
+    /// assign nested lists and maps. Returns an error if a List or Map is indexed incorrectly.
     pub fn set_value(&mut self, identifier: &str, value: Value) -> Result<()> {
         let split = identifier.split_once('.');
 
