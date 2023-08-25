@@ -106,7 +106,10 @@ impl Tool for Plot {
             identifier: "plot",
             description: "Render a list of numbers as a scatter plot graph.",
             group: "gui",
-            inputs: vec![ValueType::ListOf(Box::new(ValueType::Integer))],
+            inputs: vec![
+                ValueType::ListOf(Box::new(ValueType::Float)),
+                ValueType::ListOf(Box::new(ValueType::Integer)),
+            ],
         }
     }
 
