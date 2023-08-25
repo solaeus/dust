@@ -4,6 +4,35 @@
 
 use crate::{Error, Result, Table, Tool, ToolInfo, Value, ValueType, VariableMap};
 
+pub struct Sort;
+
+impl Tool for Sort {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
+            identifier: "sort",
+            description: "Apply default ordering to a list or table.",
+            group: "collections",
+            inputs: vec![ValueType::List, ValueType::Table],
+        }
+    }
+
+    fn run(&self, argument: &Value) -> Result<Value> {
+        if let Ok(mut list) = argument.as_list().cloned() {
+            list.sort();
+
+            Ok(Value::List(list))
+        } else if let Ok(mut table) = argument.as_table().cloned() {
+            table.sort();
+
+            Ok(Value::Table(table))
+        } else {
+            Err(crate::Error::ExpectedList {
+                actual: argument.clone(),
+            })
+        }
+    }
+}
+
 pub struct Transform;
 
 impl Tool for Transform {
