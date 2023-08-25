@@ -120,7 +120,7 @@ Lists are sequential collections. They can be built by grouping values with pare
 ```dust
 list = (true, 42, "Ok");
 
-assert_eq(list.0, true);
+assert_equal(list.0, true);
 ```
 
 ### Maps
@@ -132,7 +132,7 @@ reminder.message = "Buy milk";
 reminder.tags = ("groceries", "home");
 
 json = to_json(reminder);
-append_to_file(json, "info.txt");
+append(json, "info.txt");
 ```
 
 ### Tables
@@ -170,7 +170,7 @@ insert(
 
 assert_eq(length(animals.all), 6);
 
-by_name = sort_by(animals, "name");
+sorted = sort(animals, "name");
 ```
 
 ### The Yield Operator
@@ -187,7 +187,7 @@ This can be useful when working on the command line but to make a script easier 
 json = download("https://api.sampleapis.com/futurama/characters");
 from_json(json)
     -> select(input, "name");
-    -> get(input, 4)
+    -> input.4
 ```
 
 ### Functions
@@ -201,7 +201,7 @@ say_hi = 'output "hi"';
 add_one = 'input + 1';
 
 say_hi();
-assert_eq(add_one(3), 4);
+assert_equal(add_one(3), 4);
 ```
 
 This function simply passes the input to the shell's standard output.
@@ -217,8 +217,8 @@ organize them.
 math.add = 'input.0 + input.1';
 math.subtract = 'input.0 - input.1';
 
-assert_eq(math.add(2, 2), 4);
-assert_eq(math.subtract(100, 1), 99);
+assert_equal(math.add(2, 2), 4);
+assert_equal(math.subtract(100, 1), 99);
 ```
 
 ### Time
