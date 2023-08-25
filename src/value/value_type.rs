@@ -34,9 +34,9 @@ impl PartialEq for ValueType {
             (ValueType::ListExact(left), ValueType::ListExact(right)) => left == right,
             (ValueType::ListExact(_), ValueType::List) => true,
             (ValueType::List, ValueType::ListExact(_)) => true,
+            (ValueType::ListOf(left), ValueType::ListOf(right)) => left == right,
             (ValueType::ListOf(_), ValueType::List) => true,
             (ValueType::List, ValueType::ListOf(_)) => true,
-            (ValueType::ListOf(left), ValueType::ListOf(right)) => left == right,
             (ValueType::ListOf(value_type), ValueType::ListExact(exact_list))
             | (ValueType::ListExact(exact_list), ValueType::ListOf(value_type)) => {
                 if exact_list

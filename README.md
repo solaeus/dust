@@ -145,7 +145,7 @@ animals = create_table (
     (
         ("rover", "cat", 14),
         ("spot", "snake", 9),
-        ("bob", "giraffe", 2),
+        ("bob", "giraffe", 2)
     )
 );
 ```
@@ -163,14 +163,16 @@ The commands `create_table` and `insert` make sure that all of the memory used t
 ```dust
 insert(
     animals,
-    ("eliza", "ostrich", 4),
-    ("pat", "white rhino", 7),
-    ("jim", "walrus", 9)
+    (
+        ("eliza", "ostrich", 4),
+        ("pat", "white rhino", 7),
+        ("jim", "walrus", 9)
+    )
 );
 
-assert_eq(length(animals.all), 6);
+assert_equal(count(animals.all), 6);
 
-sorted = sort(animals, "name");
+sorted = sort(animals);
 ```
 
 ### The Yield Operator
