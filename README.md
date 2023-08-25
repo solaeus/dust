@@ -22,7 +22,7 @@ Dust can do amazing things with data. To load CSV data, isolate a column and ren
 ```dust
 read("examples/assets/faithful.csv")
     -> from_csv(input)
-    -> get_rows(input)
+    -> rows(input)
     -> transform(input, 'input.1')
     -> plot(input)
 ```

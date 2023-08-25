@@ -132,7 +132,7 @@ impl WhaleCompeleter {
                     .collect();
 
                 Suggestion {
-                    value: identifier.to_string(),
+                    value: identifier.to_string() + "()",
                     description: Some(description),
                     extra: Some(inputs),
                     ..Default::default()
