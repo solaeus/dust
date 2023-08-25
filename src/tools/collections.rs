@@ -73,6 +73,33 @@ impl Tool for String {
     }
 }
 
+pub struct Replace;
+
+impl Tool for Replace {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
+            identifier: "replace",
+            description: "Replace all occurences of a substring in a string.",
+            group: "collections",
+            inputs: vec![ValueType::ListExact(vec![
+                ValueType::String,
+                ValueType::String,
+                ValueType::String,
+            ])],
+        }
+    }
+
+    fn run(&self, argument: &Value) -> Result<Value> {
+        let argument = self.check_type(argument)?.as_list()?;
+        let target = argument[0].as_string()?;
+        let to_remove = argument[1].as_string()?;
+        let replacement = argument[2].as_string()?;
+        let result = target.replace(to_remove, replacement);
+
+        Ok(Value::String(result))
+    }
+}
+
 pub struct Count;
 
 impl Tool for Count {
