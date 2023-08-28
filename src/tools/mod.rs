@@ -97,7 +97,7 @@ pub const TOOL_LIST: [&'static dyn Tool; 51] = [
     &random::RandomFloat,
     &random::RandomInteger,
     &random::RandomString,
-    &system::CpuSpeed,
+    &system::Users,
     &logic::Assert,
     &logic::AssertEqual,
     &time::Local,

@@ -1,14 +1,14 @@
-use sys_info::cpu_speed;
+use sysinfo::{RefreshKind, System, SystemExt, UserExt};
 
 use crate::{Result, Tool, ToolInfo, Value, ValueType};
 
-pub struct CpuSpeed;
+pub struct Users;
 
-impl Tool for CpuSpeed {
+impl Tool for Users {
     fn info(&self) -> ToolInfo<'static> {
         ToolInfo {
-            identifier: "cpu_speed",
-            description: "Return the current processor speed in megahertz.",
+            identifier: "users",
+            description: "Get a list of the system's users.",
             group: "system",
             inputs: vec![ValueType::Empty],
         }
@@ -17,8 +17,12 @@ impl Tool for CpuSpeed {
     fn run(&self, argument: &Value) -> Result<Value> {
         argument.as_empty()?;
 
-        let speed = cpu_speed().unwrap_or_default() as i64;
+        let users = System::new_with_specifics(RefreshKind::new().with_users_list())
+            .users()
+            .iter()
+            .map(|user| Value::String(user.name().to_string()))
+            .collect();
 
-        Ok(Value::Integer(speed))
+        Ok(Value::List(users))
     }
 }

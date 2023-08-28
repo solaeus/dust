@@ -281,12 +281,6 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<sys_info::Error> for Error {
-    fn from(value: sys_info::Error) -> Self {
-        Error::MacroFailure(value.to_string())
-    }
-}
-
 impl From<SystemTimeError> for Error {
     fn from(value: SystemTimeError) -> Self {
         Error::MacroFailure(value.to_string())
