@@ -64,7 +64,7 @@ impl Tool for Transform {
             mapped_list.push(mapped_value);
         }
 
-        return Ok(Value::List(mapped_list));
+        Ok(Value::List(mapped_list))
     }
 }
 

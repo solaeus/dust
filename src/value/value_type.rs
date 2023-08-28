@@ -39,14 +39,9 @@ impl PartialEq for ValueType {
             (ValueType::List, ValueType::ListOf(_)) => true,
             (ValueType::ListOf(value_type), ValueType::ListExact(exact_list))
             | (ValueType::ListExact(exact_list), ValueType::ListOf(value_type)) => {
-                if exact_list
+                exact_list
                     .iter()
                     .all(|exact_type| exact_type == value_type.as_ref())
-                {
-                    true
-                } else {
-                    false
-                }
             }
             (ValueType::List, ValueType::List) => true,
             (ValueType::Empty, ValueType::Empty) => true,

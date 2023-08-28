@@ -518,7 +518,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Integer(v as i64))
+        Ok(Value::Integer(v))
     }
 
     fn visit_i128<E>(self, v: i128) -> std::result::Result<Self::Value, E>

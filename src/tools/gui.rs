@@ -29,7 +29,7 @@ impl Tool for BarGraph {
         let argument = argument.as_list()?;
         let mut bars = Vec::new();
 
-        for (index, value) in argument.into_iter().enumerate() {
+        for (index, value) in argument.iter().enumerate() {
             let list = value.as_list()?;
             let mut name = None;
             let mut height = None;
