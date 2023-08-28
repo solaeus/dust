@@ -1,3 +1,12 @@
+//! Representation of a moment in time.
+//!
+//! Whale represent time values correctly. To do this, there must be a clear separation between
+//! monotonic timestamps, naive times that do not know their locale and those that have a timezone.
+//!
+//! Only monotonic time instances are guaranteed not to repeat, although and Instance can be used to
+//! create and of these variants. Users generally want the timezone included, so the `as_local` is
+//! included, which will use no timezone offset if one is not available.
+
 use std::{
     fmt::{self, Display, Formatter},
     time::{Instant, SystemTime},

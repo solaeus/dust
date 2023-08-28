@@ -1,3 +1,4 @@
+//! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
     Function, Table, Time, ValueType, VariableMap,
