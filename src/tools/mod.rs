@@ -50,7 +50,7 @@ pub mod time;
 /// Master list of all tools.
 ///
 /// This list is used to match identifiers with tools and to provide info to the shell.
-pub const TOOL_LIST: [&'static dyn Tool; 51] = [
+pub const TOOL_LIST: [&'static dyn Tool; 52] = [
     &collections::Count,
     &collections::CreateTable,
     &collections::Insert,
@@ -82,6 +82,7 @@ pub const TOOL_LIST: [&'static dyn Tool; 51] = [
     &filesystem::Trash,
     &filesystem::Watch,
     &filesystem::Write,
+    &general::Help,
     &general::Run,
     &general::Output,
     &general::Repeat,

@@ -2,7 +2,37 @@ use std::{thread::sleep, time::Duration};
 
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
-use crate::{Result, Tool, ToolInfo, Value, ValueType};
+use crate::{Result, Table, Tool, ToolInfo, Value, ValueType, TOOL_LIST};
+
+pub struct Help;
+
+impl Tool for Help {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
+            identifier: "help",
+            description: "Get help using dust.",
+            group: "general",
+            inputs: vec![ValueType::Empty, ValueType::String],
+        }
+    }
+
+    fn run(&self, argument: &Value) -> Result<Value> {
+        self.check_type(argument)?;
+
+        let mut table = Table::new(vec!["tool".to_string(), "description".to_string()]);
+
+        for tool in TOOL_LIST {
+            let row = vec![
+                Value::String(tool.info().identifier.to_string()),
+                Value::String(tool.info().description.to_string()),
+            ];
+
+            table.insert(row)?;
+        }
+
+        Ok(Value::Table(table))
+    }
+}
 
 pub struct Output;
 

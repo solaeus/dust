@@ -150,7 +150,7 @@ fn run_cli_shell() {
                 let eval_result = eval_with_context(line, &mut context);
 
                 match eval_result {
-                    Ok(_) => {}
+                    Ok(value) => println!("{value}"),
                     Err(error) => eprintln!("{error}"),
                 }
             }
