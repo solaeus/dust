@@ -1,4 +1,8 @@
-#![doc = include_str!("../README.md")]
+//! The Dust library is used to implement the Dust language, `src/main.rs` implements the command
+//! line binary.
+//!
+//! Using this library is simple and straightforward, see the [inferface] module for instructions on
+//! interpreting Dust code. Most of the language's features are implemented in the [tools] module.
 #![forbid(unsafe_code)]
 
 pub use crate::{

@@ -1,3 +1,5 @@
+//! The top level of Dust's API with functions in interpret Dust code.
+
 use crate::{token, tree, Result, Value, VariableMap};
 
 /// Evaluate the given expression string.
@@ -27,8 +29,6 @@ pub fn eval(string: &str) -> Result<Value> {
 /// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
 /// assert_eq!(eval_with_context("one + two + three", &mut context), Ok(Value::from(6)));
 /// ```
-///
-/// *See the [crate doc](index.html) for more examples and explanations of the expression format.*
 pub fn eval_with_context(input: &str, context: &mut VariableMap) -> Result<Value> {
     let without_comments = input
         .lines()
