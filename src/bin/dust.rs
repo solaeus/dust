@@ -1,6 +1,5 @@
 //! Command line interface for the whale programming language.
 use clap::Parser;
-use eframe::{run_native, NativeOptions};
 use nu_ansi_term::{Color, Style};
 use reedline::{
     default_emacs_keybindings, ColumnarMenu, Completer, DefaultHinter, DefaultPrompt,
@@ -13,10 +12,7 @@ use std::{
     path::PathBuf,
 };
 
-use dust_lib::{
-    eval, eval_with_context, tools::gui::GuiApp, Result, Tool, ToolInfo, Value, VariableMap,
-    TOOL_LIST,
-};
+use dust_lib::{eval, eval_with_context, Tool, ToolInfo, Value, VariableMap, TOOL_LIST};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -26,10 +22,6 @@ struct Args {
     #[arg(short, long)]
     command: Option<String>,
 
-    // Whether to launch the dedicated GUI window.
-    #[arg(short, long)]
-    gui: bool,
-
     /// Location of the file to run.
     path: Option<String>,
 }
@@ -37,7 +29,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    if !args.gui && args.path.is_none() && args.command.is_none() {
+    if args.path.is_none() && args.command.is_none() {
         return run_cli_shell();
     }
 
@@ -51,23 +43,10 @@ fn main() {
         Ok(Value::Empty)
     };
 
-    if args.gui {
-        return run_gui_shell(eval_result);
-    }
-
     match eval_result {
         Ok(value) => println!("{value}"),
         Err(error) => eprintln!("{error}"),
     }
-}
-
-fn run_gui_shell(result: Result<Value>) {
-    run_native(
-        &Value::Empty.to_string(),
-        NativeOptions::default(),
-        Box::new(|_cc| Box::new(GuiApp::new(result))),
-    )
-    .unwrap();
 }
 
 fn run_cli_shell() {
