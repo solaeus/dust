@@ -19,12 +19,33 @@ impl Tool for Help {
     fn run(&self, argument: &Value) -> Result<Value> {
         self.check_type(argument)?;
 
-        let mut table = Table::new(vec!["tool".to_string(), "description".to_string()]);
+        let mut table = Table::new(vec![
+            "tool".to_string(),
+            "description".to_string(),
+            "group".to_string(),
+            "inputs".to_string(),
+        ]);
 
         for tool in TOOL_LIST {
+            let tool_group = tool.info().group.to_string();
+
+            if let Ok(group) = argument.as_string() {
+                if &tool_group != group {
+                    continue;
+                }
+            }
+
             let row = vec![
                 Value::String(tool.info().identifier.to_string()),
                 Value::String(tool.info().description.to_string()),
+                Value::String(tool_group),
+                Value::List(
+                    tool.info()
+                        .inputs
+                        .iter()
+                        .map(|value_type| Value::String(value_type.to_string()))
+                        .collect(),
+                ),
             ];
 
             table.insert(row)?;
