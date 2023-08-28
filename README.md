@@ -32,9 +32,10 @@ read("examples/assets/faithful.csv")
   - [Features](#features)
   - [Usage](#usage)
   - [Installation](#installation)
+  - [Contributing](#contributing)
   - [The Dust Programming Language](#the-dust-programming-language)
     - [Variables and Data Types](#variables-and-data-types)
-    - [Commands](#commands)
+    - [Tools](#tools)
     - [Lists](#lists)
     - [Maps](#maps)
     - [Tables](#tables)
@@ -55,6 +56,15 @@ read("examples/assets/faithful.csv")
 ## Usage
 
 Dust is an experimental project under active development. At this stage, features come and go and the API is always changing. It should not be considered for serious use yet.
+
+To get help with the shell you can use the "help" tool.
+
+```dust
+help()         # Returns a table will all tool info.
+help("random") # Returns a table with info on tools in the specified group.
+# The above is simply a shorthand for this:
+help() -> where(input, 'tool == "random"')    
+```
 
 ## Installation
 
@@ -98,9 +108,9 @@ map.key = "value";
 empty = ();
 ```
 
-### Commands
+### Tools
 
-**Commands** are dust's built-in tools. Some of them can reconfigure your whole system while others are do very little. They may accept different inputs, or none at all. commands in the `random` group can be run without input, but the `random_integer` command can optionally take two numbers as in inclusive range.
+**Tools** are dust's built-in functions. Some of them can reconfigure your whole system while others do very little. They may accept different inputs, or none at all. For example, commands in the `random` group can be run without input, but the `random_integer` command can optionally take two numbers as in inclusive range.
 
 ```dust
 die_roll = random_integer(1, 6);
@@ -108,11 +118,9 @@ d20_roll = random_integer(1, 20);
 coin_flip = random_boolean();
 ```
 
-Other commands can be found by pressing TAB in the interactive shell.
-
 ```dust
 message = "I hate dust.";
-replace(message, "hate", "love");
+replace(message, "hate", "love")
 ```
 
 ### Lists
