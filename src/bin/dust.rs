@@ -62,9 +62,6 @@ struct DustReadline {
 
     tool_hints: Vec<ToolHint>,
 
-    #[rustyline(Validator)]
-    validator: MatchingBracketValidator,
-
     #[rustyline(Hinter)]
     hinter: HistoryHinter,
 }
@@ -73,7 +70,6 @@ impl DustReadline {
     fn new() -> Self {
         Self {
             completer: FilenameCompleter::new(),
-            validator: MatchingBracketValidator::new(),
             hinter: HistoryHinter {},
             tool_hints: TOOL_LIST
                 .iter()
@@ -133,36 +129,10 @@ impl Hinter for DustReadline {
 }
 
 impl Highlighter for DustReadline {
-    fn highlight<'l>(&self, line: &'l str, pos: usize) -> std::borrow::Cow<'l, str> {
-        let _ = pos;
-        Cow::Borrowed(line)
-    }
-
-    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
-        &'s self,
-        prompt: &'p str,
-        default: bool,
-    ) -> std::borrow::Cow<'b, str> {
-        let _ = default;
-        Cow::Borrowed(prompt)
-    }
-
     fn highlight_hint<'h>(&self, hint: &'h str) -> std::borrow::Cow<'h, str> {
-        Cow::Borrowed(hint)
-    }
+        let highlighted = ansi_term::Colour::Red.paint(hint).to_string();
 
-    fn highlight_candidate<'c>(
-        &self,
-        candidate: &'c str, // FIXME should be Completer::Candidate
-        completion: rustyline::CompletionType,
-    ) -> std::borrow::Cow<'c, str> {
-        let _ = completion;
-        Cow::Borrowed(candidate)
-    }
-
-    fn highlight_char(&self, line: &str, pos: usize) -> bool {
-        let _ = (line, pos);
-        false
+        Cow::Owned(highlighted)
     }
 }
 
