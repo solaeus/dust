@@ -1,24 +1,17 @@
 //! Command line interface for the whale programming language.
 use clap::Parser;
-use eframe::epaint::ahash::HashSet;
 use rustyline::{
     completion::FilenameCompleter,
     error::ReadlineError,
     highlight::Highlighter,
     hint::{Hint, Hinter, HistoryHinter},
     history::DefaultHistory,
-    validate::MatchingBracketValidator,
-    Completer, Context, DefaultEditor, Editor, Helper, Hinter, Validator,
+    Completer, Context, Editor, Helper, Validator,
 };
 
-use std::{
-    borrow::Cow,
-    collections::BTreeSet,
-    fs::{self, read_to_string},
-    path::PathBuf,
-};
+use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lib::{eval, eval_with_context, Tool, ToolInfo, Value, VariableMap, TOOL_LIST};
+use dust_lib::{eval, eval_with_context, Value, VariableMap, TOOL_LIST};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -63,14 +56,14 @@ struct DustReadline {
     tool_hints: Vec<ToolHint>,
 
     #[rustyline(Hinter)]
-    hinter: HistoryHinter,
+    _hinter: HistoryHinter,
 }
 
 impl DustReadline {
     fn new() -> Self {
         Self {
             completer: FilenameCompleter::new(),
-            hinter: HistoryHinter {},
+            _hinter: HistoryHinter {},
             tool_hints: TOOL_LIST
                 .iter()
                 .map(|tool| ToolHint {
@@ -147,7 +140,7 @@ fn run_cli_shell() {
     }
 
     loop {
-        let readline = rl.readline(">> ");
+        let readline = rl.readline("* ");
         match readline {
             Ok(line) => {
                 let line = line.as_str();
@@ -157,22 +150,17 @@ fn run_cli_shell() {
                 let eval_result = eval_with_context(line, &mut context);
 
                 match eval_result {
-                    Ok(value) => println!("{value}"),
+                    Ok(_) => {}
                     Err(error) => eprintln!("{error}"),
                 }
             }
             Err(ReadlineError::Interrupted) => {
-                println!("CTRL-C");
                 break;
             }
             Err(ReadlineError::Eof) => {
-                println!("CTRL-D");
                 break;
             }
-            Err(err) => {
-                println!("Error: {:?}", err);
-                break;
-            }
+            Err(error) => eprintln!("{error}"),
         }
     }
 
