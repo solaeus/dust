@@ -58,7 +58,9 @@ Dust is an experimental project under active development. At this stage, feature
 
 ## Installation
 
-You must have the default rust toolchain installed and up-to-date. Clone the repository and run `cargo run` to start the interactive shell. To see other command line options, use `cargo run -- --help`.
+You must have the default rust toolchain installed and up-to-date. Install [rustup] if it is not already installed. Run `cargo install dust-lang` then run `dust` to start the interactive shell. Use `dust --help` to see the full command line options.
+
+To build from source, clone the repository and run `cargo run` to start the shell. To see other command line options, use `cargo run -- --help`.
 
 ## Contributing
 
@@ -243,3 +245,4 @@ output "Local time is " + local(time);
 
 [dnf]: https://dnf.readthedocs.io/en/latest/index.html
 [evalexpr]: https://github.com/ISibboI/evalexpr
+[rustup]: https://rustup.rs
