@@ -1,13 +1,19 @@
 //! Command line interface for the whale programming language.
 use clap::Parser;
-use nu_ansi_term::{Color, Style};
-use reedline::{
-    default_emacs_keybindings, ColumnarMenu, Completer, DefaultHinter, DefaultPrompt,
-    DefaultPromptSegment, EditCommand, Emacs, FileBackedHistory, KeyCode, KeyModifiers, Reedline,
-    ReedlineEvent, ReedlineMenu, Signal, Span, Suggestion,
+use eframe::epaint::ahash::HashSet;
+use rustyline::{
+    completion::FilenameCompleter,
+    error::ReadlineError,
+    highlight::Highlighter,
+    hint::{Hint, Hinter, HistoryHinter},
+    history::DefaultHistory,
+    validate::MatchingBracketValidator,
+    Completer, Context, DefaultEditor, Editor, Helper, Hinter, Validator,
 };
 
 use std::{
+    borrow::Cow,
+    collections::BTreeSet,
     fs::{self, read_to_string},
     path::PathBuf,
 };
@@ -49,205 +55,156 @@ fn main() {
     }
 }
 
+#[derive(Helper, Completer, Validator)]
+struct DustReadline {
+    #[rustyline(Completer)]
+    completer: FilenameCompleter,
+
+    tool_hints: Vec<ToolHint>,
+
+    #[rustyline(Validator)]
+    validator: MatchingBracketValidator,
+
+    #[rustyline(Hinter)]
+    hinter: HistoryHinter,
+}
+
+impl DustReadline {
+    fn new() -> Self {
+        Self {
+            completer: FilenameCompleter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+            tool_hints: TOOL_LIST
+                .iter()
+                .map(|tool| ToolHint {
+                    display: tool.info().identifier.to_string(),
+                    complete_to: tool.info().identifier.len(),
+                })
+                .collect(),
+        }
+    }
+}
+
+struct ToolHint {
+    display: String,
+    complete_to: usize,
+}
+
+impl Hint for ToolHint {
+    fn display(&self) -> &str {
+        &self.display
+    }
+
+    fn completion(&self) -> Option<&str> {
+        if self.complete_to > 0 {
+            Some(&self.display[..self.complete_to])
+        } else {
+            None
+        }
+    }
+}
+
+impl ToolHint {
+    fn suffix(&self, strip_chars: usize) -> ToolHint {
+        ToolHint {
+            display: self.display[strip_chars..].to_string(),
+            complete_to: self.complete_to.saturating_sub(strip_chars),
+        }
+    }
+}
+
+impl Hinter for DustReadline {
+    type Hint = ToolHint;
+
+    fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<Self::Hint> {
+        if line.is_empty() || pos < line.len() {
+            return None;
+        }
+
+        self.tool_hints.iter().find_map(|tool_hint| {
+            if tool_hint.display.starts_with(line) {
+                Some(tool_hint.suffix(pos))
+            } else {
+                None
+            }
+        })
+    }
+}
+
+impl Highlighter for DustReadline {
+    fn highlight<'l>(&self, line: &'l str, pos: usize) -> std::borrow::Cow<'l, str> {
+        let _ = pos;
+        Cow::Borrowed(line)
+    }
+
+    fn highlight_prompt<'b, 's: 'b, 'p: 'b>(
+        &'s self,
+        prompt: &'p str,
+        default: bool,
+    ) -> std::borrow::Cow<'b, str> {
+        let _ = default;
+        Cow::Borrowed(prompt)
+    }
+
+    fn highlight_hint<'h>(&self, hint: &'h str) -> std::borrow::Cow<'h, str> {
+        Cow::Borrowed(hint)
+    }
+
+    fn highlight_candidate<'c>(
+        &self,
+        candidate: &'c str, // FIXME should be Completer::Candidate
+        completion: rustyline::CompletionType,
+    ) -> std::borrow::Cow<'c, str> {
+        let _ = completion;
+        Cow::Borrowed(candidate)
+    }
+
+    fn highlight_char(&self, line: &str, pos: usize) -> bool {
+        let _ = (line, pos);
+        false
+    }
+}
+
 fn run_cli_shell() {
     let mut context = VariableMap::new();
-    let mut line_editor = setup_reedline();
-    let prompt = DefaultPrompt {
-        left_prompt: DefaultPromptSegment::WorkingDirectory,
-        right_prompt: DefaultPromptSegment::CurrentDateTime,
-    };
+    let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
+
+    rl.set_helper(Some(DustReadline::new()));
+
+    if rl.load_history("target/history.txt").is_err() {
+        println!("No previous history.");
+    }
 
     loop {
-        let sig = line_editor.read_line(&prompt);
+        let readline = rl.readline(">> ");
+        match readline {
+            Ok(line) => {
+                let line = line.as_str();
 
-        match sig {
-            Ok(Signal::Success(buffer)) => {
-                let eval_result = eval_with_context(&buffer, &mut context);
+                rl.add_history_entry(line).unwrap();
+
+                let eval_result = eval_with_context(line, &mut context);
 
                 match eval_result {
                     Ok(value) => println!("{value}"),
                     Err(error) => eprintln!("{error}"),
                 }
             }
-            Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
-                println!("\nExit");
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
                 break;
             }
-            signal => {
-                println!("Unhandled signal: {:?}", signal);
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
             }
         }
     }
-}
 
-struct WhaleCompeleter {
-    macro_list: Vec<Suggestion>,
-    files: Vec<Suggestion>,
-}
-
-impl WhaleCompeleter {
-    pub fn new() -> Self {
-        WhaleCompeleter {
-            macro_list: Vec::new(),
-            files: Vec::new(),
-        }
-    }
-
-    pub fn set_command_list(&mut self, macro_list: Vec<&'static dyn Tool>) -> &mut Self {
-        self.macro_list = macro_list
-            .iter()
-            .map(|r#macro| {
-                let ToolInfo {
-                    identifier,
-                    description,
-                    group,
-                    inputs,
-                } = r#macro.info();
-
-                let description = format!("{description} | {group}");
-                let inputs = inputs
-                    .iter()
-                    .map(|value_type| value_type.to_string())
-                    .collect();
-
-                Suggestion {
-                    value: identifier.to_string() + "()",
-                    description: Some(description),
-                    extra: Some(inputs),
-                    ..Default::default()
-                }
-            })
-            .collect();
-
-        self.macro_list
-            .sort_by_key(|suggestion| suggestion.extra.clone());
-
-        self
-    }
-
-    pub fn get_suggestions(&mut self, start: usize, end: usize) -> Vec<Suggestion> {
-        let macro_suggestions = self
-            .macro_list
-            .iter()
-            .cloned()
-            .map(|suggestion| Suggestion {
-                span: Span { start, end },
-                ..suggestion
-            });
-        let file_suggestions = self.files.iter().cloned().map(|suggestion| Suggestion {
-            span: Span { start, end },
-            ..suggestion
-        });
-
-        file_suggestions.chain(macro_suggestions).collect()
-    }
-
-    pub fn update_files(&mut self, mut path: &str) {
-        if path.starts_with('\"') {
-            path = &path[1..];
-        }
-
-        let path = PathBuf::from(path);
-
-        if !path.is_dir() {
-            return;
-        }
-
-        self.files = fs::read_dir(path)
-            .unwrap()
-            .map(|entry| {
-                let path = entry.unwrap().path();
-                let path = path.to_string_lossy();
-
-                Suggestion {
-                    value: format!("\"{path}\""),
-                    description: None,
-                    ..Default::default()
-                }
-            })
-            .collect();
-    }
-}
-
-impl Completer for WhaleCompeleter {
-    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let split = line.split(' ');
-        let current_word = split.last().unwrap_or("");
-        let start = pos.saturating_sub(current_word.len());
-        let end = line.len();
-
-        self.update_files(current_word);
-        self.get_suggestions(start, end)
-    }
-}
-
-fn setup_reedline() -> Reedline {
-    let mut completer = Box::new(WhaleCompeleter::new());
-
-    completer.set_command_list(TOOL_LIST.to_vec());
-
-    let completion_menu = Box::new(
-        ColumnarMenu::default()
-            .with_name("completion_menu")
-            .with_columns(1)
-            .with_text_style(Style {
-                foreground: Some(Color::White),
-                is_dimmed: false,
-                ..Default::default()
-            })
-            .with_description_text_style(Style {
-                is_dimmed: true,
-                ..Default::default()
-            })
-            .with_selected_text_style(Style {
-                is_bold: true,
-                background: Some(Color::Black),
-                foreground: Some(Color::White),
-                ..Default::default()
-            }),
-    );
-
-    let mut keybindings = default_emacs_keybindings();
-    keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::Tab,
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
-        ]),
-    );
-    keybindings.add_binding(
-        KeyModifiers::SHIFT,
-        KeyCode::Tab,
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuPrevious,
-        ]),
-    );
-    keybindings.add_binding(
-        KeyModifiers::ALT,
-        KeyCode::Enter,
-        ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
-    );
-
-    let edit_mode = Box::new(Emacs::new(keybindings));
-    let history = Box::new(
-        FileBackedHistory::with_file(100, "target/history.txt".into())
-            .expect("Error configuring shell history file."),
-    );
-    let mut hinter = DefaultHinter::default();
-
-    hinter = hinter.with_style(Style {
-        foreground: Some(Color::Yellow),
-        ..Default::default()
-    });
-
-    Reedline::create()
-        .with_completer(completer)
-        .with_menu(ReedlineMenu::EngineCompleter(completion_menu))
-        .with_edit_mode(edit_mode)
-        .with_history(history)
-        .with_hinter(Box::new(hinter))
-        .with_partial_completions(true)
-        .with_quick_completions(true)
+    rl.save_history("target/history.txt").unwrap();
 }
