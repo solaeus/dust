@@ -162,7 +162,21 @@ impl Display for Table {
         for row in &self.rows {
             let row = row.iter().map(|value| {
                 let text = match value {
-                    Value::List(list) => format!("{list:?}"),
+                    Value::List(list) => {
+                        let mut string = "(".to_string();
+
+                        for (index, value) in list.into_iter().enumerate() {
+                            if index > 0 {
+                                string.push_str(", ");
+                            }
+
+                            string.push_str(&value.to_string());
+                        }
+
+                        string.push_str(")");
+
+                        string
+                    }
                     Value::Map(map) => format!("Map ({} items)", map.len()),
                     Value::Table(table) => format!("Table ({} items)", table.len()),
                     Value::Function(_) => "Function".to_string(),

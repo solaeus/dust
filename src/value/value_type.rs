@@ -1,9 +1,9 @@
-use std::fmt::Display;
+use std::fmt::{self, Debug, Display, Formatter};
 
 use crate::Value;
 
 /// The type of a `Value`.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum ValueType {
     Any,
     String,
@@ -53,7 +53,7 @@ impl PartialEq for ValueType {
 }
 
 impl Display for ValueType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
             ValueType::Any => write!(f, "any"),
             ValueType::String => write!(f, "string"),
@@ -62,15 +62,19 @@ impl Display for ValueType {
             ValueType::Boolean => write!(f, "boolean"),
             ValueType::List => write!(f, "list"),
             ValueType::ListOf(value_type) => {
-                write!(f, "list of {value_type}")
+                write!(f, "({value_type}s)")
             }
             ValueType::ListExact(list) => {
-                let items = list
-                    .iter()
-                    .map(|value_type| value_type.to_string() + " ")
-                    .collect::<String>();
+                write!(f, "(")?;
+                for (index, item) in list.into_iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
 
-                write!(f, "list of {items}")
+                    write!(f, "{item}")?;
+                }
+
+                write!(f, ")")
             }
             ValueType::Empty => write!(f, "empty"),
             ValueType::Map => write!(f, "map"),
@@ -78,6 +82,12 @@ impl Display for ValueType {
             ValueType::Function => write!(f, "function"),
             ValueType::Time => write!(f, "time"),
         }
+    }
+}
+
+impl Debug for ValueType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{self}")
     }
 }
 
