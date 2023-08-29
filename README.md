@@ -125,12 +125,17 @@ replace(message, "hate", "love")
 
 ### Lists
 
-Lists are sequential collections. They can be built by grouping values with parentheses and separating them with commas. Values can be indexed by their position to access their contents. Lists are used to represent rows in tables and most commands take a list as an argument.
+Lists are sequential collections. They can be built by grouping values with parentheses and separating them with commas. Values can be indexed by their position to access their contents. Lists are used to represent rows in tables and most commands take a list as an argument. Their contents can be indexed using dot notation with an integer.
 
 ```dust
-list = (true, 42, "Ok");
+list = (true, 41, "Ok");
 
 assert_equal(list.0, true);
+
+list.1 = list.1 + 1;
+
+assert_equal(list.1, 42);
+
 ```
 
 ### Maps
@@ -165,7 +170,7 @@ Querying a table is similar to SQL.
 ```dust
 names = select(animals, "name");
 youngins = where(animals, 'age < 5');
-old_species = select_where(animals, "species", 'age > 5')
+old_species = select_where(animals, "species", 'age > 5');
 ```
 
 The commands `create_table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.

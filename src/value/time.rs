@@ -1,15 +1,16 @@
 //! Representation of a moment in time.
 //!
-//! Whale represent time values correctly. To do this, there must be a clear separation between
-//! monotonic timestamps, naive times that do not know their locale and those that have a timezone.
+//! Dust tries to represent time values correctly. To do this, there must be a clear separation
+//! between monotonic timestamps, naive times that do not know their locale and those that have a ..
+//! timezone.
 //!
-//! Only monotonic time instances are guaranteed not to repeat, although and Instance can be used to
+//! Only monotonic time instances are guaranteed not to repeat, although an Instant can be used to
 //! create and of these variants. Users generally want the timezone included, so the `as_local` is
 //! included, which will use no timezone offset if one is not available.
 
 use std::{
     fmt::{self, Display, Formatter},
-    time::{Instant, SystemTime},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use chrono::{DateTime, FixedOffset, Local as LocalTime, NaiveDateTime};
@@ -54,7 +55,7 @@ impl Time {
             Time::Utc(utc) => DateTime::from_utc(utc, FixedOffset::west_opt(0).unwrap()),
             Time::Local(local) => local,
             Time::Monotonic(instant) => DateTime::from_utc(
-                NaiveDateTime::from_timestamp_micros(instant.elapsed().as_micros() as i64).unwrap(),
+                NaiveDateTime::from_timestamp_millis(instant.elapsed().as_millis() as i64).unwrap(),
                 FixedOffset::west_opt(0).unwrap(),
             ),
         };
@@ -65,7 +66,11 @@ impl Time {
 
 impl Display for Time {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_local())
+        match self {
+            Time::Utc(inner) => write!(f, "{}", inner),
+            Time::Local(inner) => write!(f, "{}", inner),
+            Time::Monotonic(inner) => write!(f, "{:?}", inner),
+        }
     }
 }
 

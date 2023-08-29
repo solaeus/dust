@@ -111,7 +111,7 @@ impl VariableMap {
                         )));
                     };
 
-                    let mut missing_elements = index - list.len() + 1;
+                    let mut missing_elements = index.saturating_sub(list.len()) + 1;
 
                     while missing_elements > 0 {
                         list.push(value.clone());
