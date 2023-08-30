@@ -1,50 +1,71 @@
-use iced::widget::{button, column, text};
-use iced::{Alignment, Element, Sandbox, Settings};
+use dust_lib::eval;
+use iced::widget::{button, column, container, scrollable, text, text_input};
+use iced::{executor, Alignment, Application, Command, Element, Sandbox, Settings, Theme};
+use once_cell::sync::Lazy;
+
+static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
 
 pub fn main() -> iced::Result {
-    Counter::run(Settings::default())
+    DustGui::run(Settings::default())
 }
 
-struct Counter {
-    value: i32,
+struct DustGui {
+    text_buffer: String,
+    results: Vec<String>,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum Message {
-    IncrementPressed,
-    DecrementPressed,
-}
+impl Application for DustGui {
+    type Executor = executor::Default;
 
-impl Sandbox for Counter {
     type Message = Message;
 
-    fn new() -> Self {
-        Self { value: 0 }
+    type Theme = Theme;
+
+    type Flags = ();
+
+    fn new(flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+        (
+            DustGui {
+                text_buffer: String::new(),
+                results: Vec::new(),
+            },
+            Command::none(),
+        )
     }
 
     fn title(&self) -> String {
-        String::from("Counter - Iced")
+        "Dust".to_string()
     }
 
-    fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
         match message {
-            Message::IncrementPressed => {
-                self.value += 1;
+            Message::TextInput(input) => {
+                self.text_buffer = input;
+
+                Command::none()
             }
-            Message::DecrementPressed => {
-                self.value -= 1;
+            Message::Evaluate => {
+                let eval_result = eval(&self.text_buffer);
+
+                Command::batch(vec![])
             }
         }
     }
 
-    fn view(&self) -> Element<Message> {
-        column![
-            button("Increment").on_press(Message::IncrementPressed),
-            text(self.value).size(50),
-            button("Decrement").on_press(Message::DecrementPressed)
-        ]
-        .padding(20)
-        .align_items(Alignment::Center)
-        .into()
+    fn view(&self) -> Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
+        let input = text_input("What needs to be done?", &self.text_buffer)
+            .id(INPUT_ID.clone())
+            .on_input(Message::TextInput)
+            .on_submit(Message::Evaluate)
+            .padding(15)
+            .size(30);
+
+        scrollable(container(column![input])).into()
     }
+}
+
+#[derive(Debug, Clone)]
+enum Message {
+    TextInput(String),
+    Evaluate,
 }
