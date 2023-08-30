@@ -1,5 +1,5 @@
 use dust_lib::eval;
-use iced::widget::{button, column, container, scrollable, text, text_input};
+use iced::widget::{button, column, container, scrollable, text, text_input, Column, Text};
 use iced::{executor, Alignment, Application, Command, Element, Sandbox, Settings, Theme};
 use once_cell::sync::Lazy;
 
@@ -47,6 +47,11 @@ impl Application for DustGui {
             Message::Evaluate => {
                 let eval_result = eval(&self.text_buffer);
 
+                match eval_result {
+                    Ok(result) => self.results.push(result.to_string()),
+                    Err(error) => self.results.push(error.to_string()),
+                }
+
                 Command::batch(vec![])
             }
         }
@@ -60,7 +65,19 @@ impl Application for DustGui {
             .padding(15)
             .size(30);
 
-        scrollable(container(column![input])).into()
+        let result_display: Column<Message> = {
+            let mut text_widgets = Vec::new();
+
+            for result in &self.results {
+                text_widgets.push(text(result).into());
+            }
+
+            text_widgets.reverse();
+
+            Column::with_children(text_widgets)
+        };
+
+        container(column![input, result_display]).into()
     }
 }
 
