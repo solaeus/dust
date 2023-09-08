@@ -1,6 +1,6 @@
-use dust_lib::{eval, Value};
-use iced::widget::{column, container, text, text_input, Column};
-use iced::{executor, Application, Command, Element, Sandbox, Settings, Theme};
+use dust_lib::eval;
+use iced::widget::{column, container, text_input, Column};
+use iced::{executor, Application, Command, Element, Settings, Theme};
 use once_cell::sync::Lazy;
 
 static INPUT_ID: Lazy<text_input::Id> = Lazy::new(text_input::Id::unique);
@@ -23,7 +23,7 @@ impl Application for DustGui {
 
     type Flags = ();
 
-    fn new(flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
+    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         (
             DustGui {
                 text_buffer: String::new(),
@@ -68,7 +68,7 @@ impl Application for DustGui {
         let result_display: Column<Message> = {
             let mut text_widgets = Vec::new();
 
-            for result in &self.results {
+            for _result in &self.results {
                 // text_widgets.push(text(result).style().into());
             }
 
@@ -85,8 +85,4 @@ impl Application for DustGui {
 enum Message {
     TextInput(String),
     Evaluate,
-}
-
-struct DustOutput {
-    content: dust_lib::Result<Value>,
 }
