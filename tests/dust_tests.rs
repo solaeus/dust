@@ -36,3 +36,10 @@ fn scope() {
 
     eval(&file_contents).unwrap();
 }
+
+#[test]
+fn data_formats() {
+    let file_contents = read_to_string("tests/data_formats.ds").unwrap();
+
+    eval(&file_contents).unwrap();
+}

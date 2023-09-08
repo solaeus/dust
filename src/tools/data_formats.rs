@@ -2,6 +2,26 @@
 
 use crate::{Result, Table, Tool, ToolInfo, Value, ValueType};
 
+pub struct FromToml;
+
+impl Tool for FromToml {
+    fn info(&self) -> ToolInfo<'static> {
+        ToolInfo {
+            identifier: "from_toml",
+            description: "Create a value from a TOML string.",
+            group: "data",
+            inputs: vec![ValueType::String],
+        }
+    }
+
+    fn run(&self, argument: &Value) -> Result<Value> {
+        let argument = argument.as_string()?;
+        let value = toml::from_str(&argument)?;
+
+        Ok(value)
+    }
+}
+
 pub struct FromJson;
 
 impl Tool for FromJson {

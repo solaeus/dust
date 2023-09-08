@@ -293,6 +293,12 @@ impl From<trash::Error> for Error {
     }
 }
 
+impl From<toml::de::Error> for Error {
+    fn from(value: toml::de::Error) -> Self {
+        Error::MacroFailure(value.to_string())
+    }
+}
+
 impl Error {
     pub(crate) fn expect_operator_argument_amount(actual: usize, expected: usize) -> Result<()> {
         if actual == expected {

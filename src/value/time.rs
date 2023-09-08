@@ -10,7 +10,7 @@
 
 use std::{
     fmt::{self, Display, Formatter},
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime},
 };
 
 use chrono::{DateTime, FixedOffset, Local as LocalTime, NaiveDateTime};
