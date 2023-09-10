@@ -8,6 +8,7 @@ homepage = "https://git.jeffa.io/jeff/dust"
 readme = "README.md"
 license = "MIT"
 edition = "2018"
+default-run = "dust"
 
 [[bin]]
 name = "dust"
