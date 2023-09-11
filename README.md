@@ -132,10 +132,9 @@ list = (true, 41, "Ok");
 
 assert_equal(list.0, true);
 
-list.1 = list.1 + 1;
+the_answer = list.1 + 1;
 
-assert_equal(list.1, 42);
-
+assert_equal(the_answer, 42);
 ```
 
 ### Maps
