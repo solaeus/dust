@@ -20,7 +20,7 @@ run(
 Dust can do amazing things with data. To load CSV data, isolate a column and render it as a line plot in a GUI window:
 
 ```dust
-read("examples/assets/faithful.csv")
+read_file("examples/assets/faithful.csv")
     -> from_csv(input)
     -> rows(input)
     -> transform(input, 'input.1')

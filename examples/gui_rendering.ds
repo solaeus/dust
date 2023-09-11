@@ -1,0 +1,6 @@
+# This will read a CSV file and display it as a line plot in a GUI window.
+read_file("examples/assets/faithful.csv")
+    -> from_csv(input)
+    -> rows(input)
+    -> transform(input, 'input.1')
+    -> plot(input);
