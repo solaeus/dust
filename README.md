@@ -169,7 +169,6 @@ Querying a table is similar to SQL.
 ```dust
 names = select(animals, "name");
 youngins = where(animals, 'age < 5');
-old_species = select_where(animals, "species", 'age > 5');
 ```
 
 The commands `create_table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
