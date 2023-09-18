@@ -67,7 +67,7 @@ impl DustReadline {
             tool_hints: TOOL_LIST
                 .iter()
                 .map(|tool| ToolHint {
-                    display: tool.info().identifier.to_string(),
+                    display: tool.info().identifier.to_string() + "()",
                     complete_to: tool.info().identifier.len(),
                 })
                 .collect(),
