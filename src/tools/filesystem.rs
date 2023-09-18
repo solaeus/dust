@@ -111,7 +111,7 @@ impl Tool for ReadDir {
             identifier: "read_dir",
             description: "Read the content of a directory.",
             group: "filesystem",
-            inputs: vec![ValueType::String],
+            inputs: vec![ValueType::String, ValueType::Empty],
         }
     }
 
