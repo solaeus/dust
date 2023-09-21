@@ -2,6 +2,8 @@
 
 use crate::{token, tree, Result, Value, VariableMap};
 
+use tree_sitter::{Language, Parser};
+
 /// Evaluate the given expression string.
 ///
 /// # Examples
@@ -30,32 +32,16 @@ pub fn eval(string: &str) -> Result<Value> {
 /// assert_eq!(eval_with_context("one + two + three", &mut context), Ok(Value::from(6)));
 /// ```
 pub fn eval_with_context(input: &str, context: &mut VariableMap) -> Result<Value> {
-    let without_comments = input
-        .lines()
-        .map(|line| {
-            let split = line.split_once('#');
+    let mut parser = Parser::new();
 
-            if let Some((code, _comment)) = split {
-                code
-            } else {
-                line
-            }
-        })
-        .collect::<String>();
+    parser
+        .set_language(tree_sitter_rust::language())
+        .expect("Error loading Rust grammar");
 
-    let split = without_comments.split_once("->");
+    let tree = parser.parse(input, None).unwrap();
+    let root_node = tree.root_node().to_sexp();
 
-    if let Some((left, right)) = split {
-        let left_result = tree::tokens_to_operator_tree(token::tokenize(left)?)?
-            .eval_with_context_mut(context)?;
+    println!("{root_node:?}");
 
-        context.set_value("input", left_result)?;
-
-        let right_result = eval_with_context(right, context)?;
-
-        Ok(right_result)
-    } else {
-        tree::tokens_to_operator_tree(token::tokenize(&without_comments)?)?
-            .eval_with_context_mut(context)
-    }
+    Ok(Value::Empty)
 }

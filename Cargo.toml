@@ -20,7 +20,12 @@ name = "gui"
 name = "dust_lib"
 path = "src/lib.rs"
 
+[build-dependencies]
+cc = "*"
+
 [dependencies]
+tree-sitter = "0.20.10"
+tree-sitter-rust = "0.20.3"
 rand = "0.8.5"
 chrono = "0.4.26"
 trash = "3.0.3"
