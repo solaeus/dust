@@ -1,6 +1,6 @@
 [package]
 name = "dust-lang"
-version = "0.1.1"
+version = "0.1.2"
 description = "Data-oriented programming language and interactive shell."
 authors = ["jeff <dev@jeffa.io.com>"]
 repository = "https://git.jeffa.io/jeff/dust.git"
