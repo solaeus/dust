@@ -1,6 +1,10 @@
 //! The top level of Dust's API with functions in interpret Dust code.
 
-use crate::{token, tree, Result, Value, VariableMap};
+use std::ops::Range;
+
+use tree_sitter::{Parser, TreeCursor};
+
+use crate::{language, token, tree, Error, Result, Value, VariableMap};
 
 /// Evaluate the given expression string.
 ///
@@ -12,9 +16,10 @@ use crate::{token, tree, Result, Value, VariableMap};
 /// ```
 ///
 /// *See the [crate doc](index.html) for more examples and explanations of the expression format.*
-pub fn eval(string: &str) -> Result<Value> {
+pub fn eval(source: &str) -> Result<Value> {
     let mut context = VariableMap::new();
-    eval_with_context(string, &mut context)
+
+    eval_with_context(source, &mut context)
 }
 
 /// Evaluate the given expression string with the given context.
@@ -30,32 +35,93 @@ pub fn eval(string: &str) -> Result<Value> {
 /// assert_eq!(eval_with_context("one + two + three", &mut context), Ok(Value::from(6)));
 /// ```
 pub fn eval_with_context(input: &str, context: &mut VariableMap) -> Result<Value> {
-    let without_comments = input
-        .lines()
-        .map(|line| {
-            let split = line.split_once('#');
+    let mut parser = Parser::new();
 
-            if let Some((code, _comment)) = split {
-                code
+    parser.set_language(language()).unwrap();
+
+    let tree = parser.parse(input, None).unwrap();
+    let sexp = tree.root_node().to_sexp();
+
+    println!("{sexp}");
+
+    let mut cursor = tree.walk();
+
+    cursor.goto_first_child();
+
+    let statement = Statement::from_cursor(cursor);
+
+    println!("{statement:?}");
+
+    Ok(Value::Empty)
+}
+
+#[derive(Debug)]
+struct EvalTree {
+    root: Source,
+}
+
+#[derive(Debug)]
+enum Source {
+    Comment(String),
+    Statement(Statement),
+}
+
+#[derive(Debug)]
+enum Statement {
+    Closed(Expression),
+}
+
+impl Statement {
+    fn from_cursor(mut cursor: TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+
+        cursor.goto_first_child();
+
+        if node.kind() == "statement" {
+            Ok(Statement::Closed(Expression::from_cursor(cursor)?))
+        } else {
+            Err(Error::UnexpectedSourceNode {
+                expected: "statement",
+                actual: node.kind(),
+            })
+        }
+    }
+}
+
+#[derive(Debug)]
+enum Expression {
+    Identifier(&'static str),
+    Value(Range<usize>),
+}
+
+impl Expression {
+    fn from_cursor(mut cursor: TreeCursor) -> Result<Self> {
+        let parent = cursor.node();
+
+        cursor.goto_first_child();
+
+        let child = cursor.node();
+
+        if parent.kind() == "expression" {
+            if child.kind() == "identifier" {
+                if let Some(name) = cursor.field_name() {
+                    Ok(Expression::Identifier(name))
+                } else {
+                    Err(Error::ExpectedFieldName)
+                }
+            } else if child.kind() == "value" {
+                Ok(Self::Value(child.byte_range()))
             } else {
-                line
+                Err(Error::UnexpectedSourceNode {
+                    expected: "identifier or value",
+                    actual: child.kind(),
+                })
             }
-        })
-        .collect::<String>();
-
-    let split = without_comments.split_once("->");
-
-    if let Some((left, right)) = split {
-        let left_result = tree::tokens_to_operator_tree(token::tokenize(left)?)?
-            .eval_with_context_mut(context)?;
-
-        context.set_value("input", left_result)?;
-
-        let right_result = eval_with_context(right, context)?;
-
-        Ok(right_result)
-    } else {
-        tree::tokens_to_operator_tree(token::tokenize(&without_comments)?)?
-            .eval_with_context_mut(context)
+        } else {
+            Err(Error::UnexpectedSourceNode {
+                expected: "expression",
+                actual: parent.kind(),
+            })
+        }
     }
 }

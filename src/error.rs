@@ -14,6 +14,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
+    UnexpectedSourceNode {
+        expected: &'static str,
+        actual: &'static str,
+    },
+
+    ExpectedFieldName,
+
     /// Dust's internal type checking failed to identify a type mismatch. This should never happen,      /// the error prompts the user to report the bug.
     TypeCheckFailure {
         tool_info: ToolInfo<'static>,
@@ -628,6 +635,8 @@ impl fmt::Display for Error {
                 macro_info.identifier,
                 macro_info.inputs
             ),
+            UnexpectedSourceNode { expected, actual } => write!(f, "Unexpected source node. Expected {expected}, but found {actual}."),
+            ExpectedFieldName => write!(f, "Expected a field name for this node, but none was found."),
         }
     }
 }
