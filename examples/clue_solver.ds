@@ -1,0 +1,15 @@
+suspects = ("White", "Green");
+rooms = ("Library", "Kitchen");
+weapons = ("Rope", "Lead Pipe");
+
+make_guess = {
+	current_room = input.0;
+
+	if length(suspects) == 1
+		&& length(rooms) == 1
+		&& length(weapons) == 1
+	then
+		output 'It was ' + suspects.0 + ' in the ' + rooms.0 + ' with the ' + weapons.0 '!';
+	else
+		output 'I accuse ' + random(suspects) + ' in the ' + current_room + ' with the ' + random(weapons) '!';
+};

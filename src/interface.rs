@@ -47,18 +47,25 @@ pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<
 
     let tree = parser.parse(source, None).unwrap();
     let sexp = tree.root_node().to_sexp();
-    let evaluator = Evaluator::new(tree.clone(), source).unwrap();
     let mut cursor = tree.walk();
-    let results = evaluator.run(context, &mut cursor, source);
 
     println!("{sexp}");
+
+    let evaluator = Evaluator::new(tree.clone(), source).unwrap();
     println!("{evaluator:?}");
+
+    let results = evaluator.run(context, &mut cursor, source);
     println!("{results:?}");
     println!("{context:?}");
 
     results
 }
 
+/// A collection of statements and comments interpreted from a syntax tree.
+///
+/// The Evaluator turns a tree sitter concrete syntax tree into a vector of
+/// trees that can be run to execute the source code. Each of these trees is an
+/// [Item][] in the evaluator.
 #[derive(Debug)]
 struct Evaluator {
     items: Vec<Item>,
@@ -66,14 +73,11 @@ struct Evaluator {
 
 impl Evaluator {
     fn new(tree: Tree, source: &str) -> Result<Self> {
-        let mut cursor = tree.walk();
-        let root_node = cursor.node();
+        let root_node = tree.root_node();
         let mut items = Vec::new();
 
-        for node in root_node.children(&mut cursor) {
-            let item = Item::new(node, source)?;
-            items.push(item);
-        }
+        let item = Item::new(root_node, source)?;
+        items.push(item);
 
         Ok(Evaluator { items })
     }
@@ -99,6 +103,11 @@ impl Evaluator {
     }
 }
 
+/// An abstractiton of an independent unit of source code.
+///
+/// Items are either comments, which do nothing, or statements, which can be run
+/// to produce a single value or interact with a context by creating or
+/// referencing variables.
 #[derive(Debug)]
 enum Item {
     Comment(String),
@@ -107,12 +116,21 @@ enum Item {
 
 impl Item {
     fn new(node: Node, source: &str) -> Result<Self> {
-        if node.kind() == "comment" {
+        if node.kind() != "item" {
+            return Err(Error::UnexpectedSourceNode {
+                expected: "item",
+                actual: node.kind(),
+            });
+        }
+
+        let child = node.child(0).unwrap();
+
+        if child.kind() == "comment" {
             let byte_range = node.byte_range();
             let value_string = &source[byte_range];
 
             Ok(Item::Comment(value_string.to_string()))
-        } else if node.kind() == "statement" {
+        } else if child.kind() == "statement" {
             let child = node.child(0).unwrap();
             Ok(Item::Statement(Statement::new(child, source)?))
         } else {
@@ -134,7 +152,7 @@ impl Statement {
     fn new(node: Node, source: &str) -> Result<Self> {
         let child = node.child(0).unwrap();
 
-        match node.kind() {
+        match child.kind() {
             "closed_statement" => Ok(Statement::Closed(Expression::new(child, source)?)),
             "open_statement" => Ok(Self::Open(Expression::new(child, source)?)),
             _ => Err(Error::UnexpectedSourceNode {
@@ -165,19 +183,13 @@ impl Statement {
 enum Expression {
     Identifier(String),
     Value(Value),
-    Operation(Operation),
+    Operation(Box<Operation>),
+    ControlFlow(Box<ControlFlow>),
 }
 
 impl Expression {
     fn new(node: Node, source: &str) -> Result<Self> {
-        if node.kind() != "expression" {
-            return Err(Error::UnexpectedSourceNode {
-                expected: "expression",
-                actual: node.kind(),
-            });
-        }
-
-        let child = node.child(0).unwrap();
+        let child = node.child(0).unwrap().child(0).unwrap();
 
         if child.kind() == "identifier" {
             let byte_range = child.byte_range();
@@ -187,10 +199,16 @@ impl Expression {
         } else if child.kind() == "value" {
             Ok(Expression::Value(Value::new(child, source)?))
         } else if child.kind() == "operation" {
-            Ok(Expression::Operation(Operation::new(child, source)?))
+            Ok(Expression::Operation(Box::new(Operation::new(
+                child, source,
+            )?)))
+        } else if child.kind() == "control_flow" {
+            Ok(Expression::ControlFlow(Box::new(ControlFlow::new(
+                child, source,
+            )?)))
         } else {
             Err(Error::UnexpectedSourceNode {
-                expected: "identifier, operation or value",
+                expected: "identifier, operation, control_flow or value",
                 actual: child.kind(),
             })
         }
@@ -214,25 +232,28 @@ impl Expression {
             }
             Expression::Value(value) => Ok(value.clone()),
             Expression::Operation(operation) => operation.run(context, &mut cursor, source),
+            Expression::ControlFlow(control_flow) => control_flow.run(context, &mut cursor, source),
         }
     }
 }
 
 #[derive(Debug)]
 struct Operation {
-    left: Box<Expression>,
+    left: Expression,
     operator: String,
-    right: Box<Expression>,
+    right: Expression,
 }
 
 impl Operation {
     fn new(node: Node, source: &str) -> Result<Self> {
+        println!("{node:?}");
+
         let first_child = node.child(0).unwrap();
         let second_child = node.child(1).unwrap();
         let third_child = node.child(2).unwrap();
-        let left = { Box::new(Expression::new(first_child, source)?) };
-        let operator = { second_child.child(0).unwrap().kind().to_string() };
-        let right = { Box::new(Expression::new(third_child, source)?) };
+        let left = Expression::new(first_child, source)?;
+        let operator = second_child.child(0).unwrap().kind().to_string();
+        let right = Expression::new(third_child, source)?;
 
         Ok(Operation {
             left,
@@ -252,7 +273,7 @@ impl Operation {
         let result = match self.operator.as_str() {
             "+" => left + right,
             "=" => {
-                if let Expression::Identifier(key) = self.left.as_ref() {
+                if let Expression::Identifier(key) = &self.left {
                     context.set_value(key, right)?;
                 }
 
@@ -262,6 +283,53 @@ impl Operation {
         };
 
         Ok(result?)
+    }
+}
+
+#[derive(Debug)]
+struct ControlFlow {
+    if_expression: Expression,
+    then_statement: Statement,
+    else_statement: Option<Statement>,
+}
+
+impl ControlFlow {
+    fn new(node: Node, source: &str) -> Result<Self> {
+        let second_child = node.child(1).unwrap();
+        let fourth_child = node.child(3).unwrap();
+        let fifth_child = node.child(4);
+        println!("{second_child:?} {fourth_child:?} {fifth_child:?}");
+        let else_statement = if let Some(child) = fifth_child {
+            Some(Statement::new(child, source)?)
+        } else {
+            None
+        };
+
+        Ok(ControlFlow {
+            if_expression: Expression::new(second_child, source)?,
+            then_statement: Statement::new(fourth_child, source)?,
+            else_statement,
+        })
+    }
+
+    fn run(
+        &self,
+        context: &mut VariableMap,
+        mut cursor: &mut TreeCursor,
+        source: &str,
+    ) -> Result<Value> {
+        let if_boolean = self
+            .if_expression
+            .run(context, &mut cursor, source)?
+            .as_boolean()?;
+
+        if if_boolean {
+            self.then_statement.run(context, &mut cursor, source)
+        } else if let Some(statement) = &self.else_statement {
+            statement.run(context, &mut cursor, source)
+        } else {
+            Ok(Value::Empty)
+        }
     }
 }
 
@@ -284,5 +352,13 @@ mod tests {
     #[test]
     fn evaluate_string() {
         assert_eq!(eval("'one'"), vec![Ok(Value::String("one".to_string()))]);
+    }
+
+    #[test]
+    fn if_else() {
+        assert_eq!(
+            eval("if true then 'true'"),
+            vec![Ok(Value::String("true".to_string()))]
+        );
     }
 }

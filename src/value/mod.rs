@@ -71,6 +71,11 @@ impl Value {
 
                 Ok(Value::String(without_quotes.to_string()))
             }
+            "boolean" => {
+                let raw = value_snippet.parse::<bool>().unwrap_or_default();
+
+                Ok(Value::Boolean(raw))
+            }
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSourceNode {
                 expected: "raw value",
