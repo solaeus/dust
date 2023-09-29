@@ -17,6 +17,7 @@ use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
+    ops::Add,
 };
 
 pub mod function;
@@ -237,6 +238,51 @@ impl Value {
             Value::List(list) => Ok(Table::from(list)),
             Value::Map(map) => Ok(Table::from(map)),
             value => Err(Error::expected_table(value.clone())),
+        }
+    }
+}
+
+impl Add for Value {
+    type Output = Result<Value>;
+
+    fn add(self, right: Self) -> Self::Output {
+        match (self, right) {
+            (Value::String(left), Value::String(right)) => {
+                let concatenated = left + &right;
+
+                Ok(Value::String(concatenated))
+            }
+            (Value::String(string), other) | (other, Value::String(string)) => {
+                Err(Error::ExpectedString { actual: other })
+            }
+            (Value::Float(left), Value::Float(right)) => {
+                let addition = left + right;
+
+                Ok(Value::Float(addition))
+            }
+            (Value::Float(_), other) | (other, Value::Float(_)) => {
+                Err(Error::ExpectedFloat { actual: other })
+            }
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
+            (Value::Integer(_), other) | (other, Value::Integer(_)) => {
+                Err(Error::ExpectedInt { actual: other })
+            }
+            (Value::Boolean(_), Value::Boolean(_)) => todo!(),
+            (Value::Boolean(_), other) | (other, Value::Boolean(_)) => {
+                Err(Error::ExpectedBoolean { actual: other })
+            }
+            (Value::List(_), Value::List(_)) => todo!(),
+            (Value::List(_), other) | (other, Value::List(_)) => {
+                Err(Error::ExpectedList { actual: other })
+            }
+            (Value::Map(_), Value::Map(_)) => todo!(),
+            (Value::Map(_), other) | (other, Value::Map(_)) => {
+                Err(Error::ExpectedMap { actual: other })
+            }
+            (Value::Empty, Value::Empty) => Ok(Value::Empty),
+            _ => Err(Error::CustomMessage(
+                "Cannot add the given types.".to_string(),
+            )),
         }
     }
 }

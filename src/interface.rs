@@ -236,19 +236,11 @@ impl Operation {
     ) -> Result<Value> {
         let left = self.left.run(context, &mut cursor, source)?;
         let right = self.right.run(context, &mut cursor, source)?;
+        let result = match self.operator {
+            "+" => left + right,
+            _ => return Err(Error::CustomMessage("Operator not supported.".to_string())),
+        };
 
-        match self.operator {
-            "+" => {
-                let integer_result = left.as_int()? + right.as_int()?;
-
-                Ok(Value::Integer(integer_result))
-            }
-            "-" => {
-                let integer_result = left.as_int()? - right.as_int()?;
-
-                Ok(Value::Integer(integer_result))
-            }
-            _ => Ok(Value::Empty),
-        }
+        Ok(result?)
     }
 }
