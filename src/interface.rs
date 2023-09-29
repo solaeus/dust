@@ -1,6 +1,6 @@
 //! The top level of Dust's API with functions to interpret Dust code.
 
-use tree_sitter::{Node, Parser, Tree, TreeCursor};
+use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
 
 use crate::{language, Error, Result, Value, VariableMap};
 
@@ -55,20 +55,40 @@ pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<
     results
 }
 
+pub trait EvaluatorTree: Sized {
+    /// Interpret the syntax tree at the given node and return the abstraction.
+    ///
+    /// This function is used to convert nodes in the Tree Sitter concrete
+    /// syntax tree into executable nodes in an abstract tree. This function is
+    /// where the tree should be traversed by accessing sibling and child nodes.
+    /// Each node in the CST should be traversed only once.
+    ///
+    /// If necessary, the source code can be accessed directly by getting the
+    /// node's byte range.
+    fn new(node: Node, source: &str) -> Result<Self>;
+
+    /// Execute dust code by traversing the tree
+    fn run(
+        &self,
+        context: &mut VariableMap,
+        cursor: &mut TreeCursor,
+        source: &str,
+    ) -> Vec<Result<Value>>;
+}
+
 /// A collection of statements and comments interpreted from a syntax tree.
 ///
 /// The Evaluator turns a tree sitter concrete syntax tree into a vector of
-/// trees that can be run to execute the source code. Each of these trees is an
-/// [Item][] in the evaluator.
+/// abstract trees called [Item][]s that can be run to execute the source code.
 #[derive(Debug)]
 pub struct Evaluator {
     items: Vec<Item>,
 }
 
 impl Evaluator {
-    fn new(tree: Tree, source: &str) -> Result<Self> {
-        let root_node = tree.root_node();
-        let mut cursor = tree.walk();
+    fn new(tree_sitter_tree: TSTree, source: &str) -> Result<Self> {
+        let root_node = tree_sitter_tree.root_node();
+        let mut cursor = tree_sitter_tree.walk();
         let mut items = Vec::new();
 
         for (index, node) in root_node.children(&mut cursor).enumerate() {
@@ -76,6 +96,7 @@ impl Evaluator {
 
             items.push(item);
 
+            // This iterator will run forever without this check.
             if index == root_node.child_count() - 1 {
                 break;
             }
@@ -144,6 +165,11 @@ impl Item {
     }
 }
 
+/// Representation of a statement in the .
+///
+/// Items are either comments, which do nothing, or statements, which can be run
+/// to produce a single value or interact with a context by creating or
+/// referencing variables.
 #[derive(Debug)]
 pub enum Statement {
     Open(Expression),
@@ -290,6 +316,10 @@ impl Operation {
     }
 }
 
+/// Respresentation of an if-then-else logic gate.
+///
+/// A ControlFlow instance represents work to be done when the "run" method is
+/// called.
 #[derive(Debug)]
 pub struct ControlFlow {
     if_expression: Expression,
@@ -299,6 +329,7 @@ pub struct ControlFlow {
 
 impl ControlFlow {
     fn new(node: Node, source: &str) -> Result<Self> {
+        // Skip the child nodes for the keywords "if", "then" and "else".
         let second_child = node.child(1).unwrap();
         let fourth_child = node.child(3).unwrap();
         let sixth_child = node.child(5);
@@ -345,8 +376,8 @@ mod tests {
     #[test]
     fn evaluate_empty() {
         assert_eq!(eval("()"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("1;"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("'foobar';"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval("x = 9"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval("y = 'foobar'"), vec![Ok(Value::Empty)]);
     }
 
     #[test]
@@ -376,7 +407,7 @@ mod tests {
     #[test]
     fn evaluate_list() {
         assert_eq!(
-            eval("(1, 2, 'foobar')"),
+            eval("[1, 2, 'foobar']"),
             vec![Ok(Value::List(vec![
                 Value::Integer(1),
                 Value::Integer(2),
@@ -392,10 +423,8 @@ mod tests {
             output number
         }";
 
-        assert_eq!(
-            eval("{ x = 1, foo = 'bar' }"),
-            vec![Ok(Value::Function(Function::new(function_str)))]
-        );
+        todo!();
+        // assert_eq!("", vec![Ok(Value::Function(Function::new(function_str)))]);
     }
 
     #[test]
@@ -406,7 +435,7 @@ mod tests {
         map.set_value("foo", Value::String("bar".to_string()))
             .unwrap();
 
-        assert_eq!(eval("{ x = 1, foo = 'bar' }"), vec![Ok(Value::Map(map))]);
+        assert_eq!(eval("map { x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);
     }
 
     #[test]
@@ -427,9 +456,9 @@ mod tests {
             eval(
                 "
                 table <messages, numbers> {
-                    ('hiya', 42)
-                    ('foo', 57)
-                    ('bar', 99.99)
+                    ['hiya', 42]
+                    ['foo', 57]
+                    ['bar', 99.99]
                 }
                 "
             ),

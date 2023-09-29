@@ -133,6 +133,7 @@ impl Value {
 
                 Ok(Value::Table(table))
             }
+            "map" => todo!(),
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSourceNode {
                 expected: "integer, string, boolean, float, list or empty",
