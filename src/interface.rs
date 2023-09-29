@@ -276,6 +276,7 @@ impl Operation {
         let right = self.right.run(context, &mut cursor, source)?;
         let result = match self.operator.as_str() {
             "+" => left + right,
+            "-" => left - right,
             "=" => {
                 if let Expression::Identifier(key) = &self.left {
                     context.set_value(key, right)?;

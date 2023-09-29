@@ -17,7 +17,7 @@ use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::Add,
+    ops::{Add, Sub},
 };
 
 pub mod function;
@@ -256,8 +256,8 @@ impl Value {
 impl Add for Value {
     type Output = Result<Value>;
 
-    fn add(self, right: Self) -> Self::Output {
-        match (self, right) {
+    fn add(self, other: Self) -> Self::Output {
+        match (self, other) {
             (Value::String(left), Value::String(right)) => {
                 let concatenated = left + &right;
 
@@ -290,6 +290,51 @@ impl Add for Value {
             (Value::Map(_), other) | (other, Value::Map(_)) => {
                 Err(Error::ExpectedMap { actual: other })
             }
+            (Value::Empty, Value::Empty) => Ok(Value::Empty),
+            _ => Err(Error::CustomMessage(
+                "Cannot add the given types.".to_string(),
+            )),
+        }
+    }
+}
+
+impl Sub for Value {
+    type Output = Result<Self>;
+
+    fn sub(self, other: Self) -> Self::Output {
+        match (&self, &other) {
+            (Value::String(_), Value::String(_)) => Err(Error::ExpectedNumber {
+                actual: self.clone(),
+            }),
+            (Value::String(_), other) | (other, Value::String(_)) => Err(Error::ExpectedNumber {
+                actual: other.clone(),
+            }),
+            (Value::Float(left), Value::Float(right)) => {
+                let addition = left - right;
+
+                Ok(Value::Float(addition))
+            }
+            (Value::Float(_), other) | (other, Value::Float(_)) => Err(Error::ExpectedFloat {
+                actual: other.clone(),
+            }),
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left - right)),
+            (Value::Integer(_), other) | (other, Value::Integer(_)) => Err(Error::ExpectedInt {
+                actual: other.clone(),
+            }),
+            (Value::Boolean(_), Value::Boolean(_)) => todo!(),
+            (Value::Boolean(_), other) | (other, Value::Boolean(_)) => {
+                Err(Error::ExpectedBoolean {
+                    actual: other.clone(),
+                })
+            }
+            (Value::List(_), Value::List(_)) => todo!(),
+            (Value::List(_), other) | (other, Value::List(_)) => Err(Error::ExpectedList {
+                actual: other.clone(),
+            }),
+            (Value::Map(_), Value::Map(_)) => todo!(),
+            (Value::Map(_), other) | (other, Value::Map(_)) => Err(Error::ExpectedMap {
+                actual: other.clone(),
+            }),
             (Value::Empty, Value::Empty) => Ok(Value::Empty),
             _ => Err(Error::CustomMessage(
                 "Cannot add the given types.".to_string(),
