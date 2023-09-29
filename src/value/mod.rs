@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, Table, Time, ValueType, VariableMap,
+    Expression, Function, Table, Time, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -64,9 +64,8 @@ impl Value {
                 Ok(Value::Integer(raw))
             }
             "string" => {
-                let without_quotes = &value_snippet[1..value_snippet.len() - 1];
-
-                println!("{without_quotes}");
+                let quote_str = &value_snippet.chars().nth(0).unwrap();
+                let without_quotes = value_snippet.trim_matches(*quote_str);
 
                 Ok(Value::String(without_quotes.to_string()))
             }
@@ -99,9 +98,44 @@ impl Value {
 
                 Ok(Value::List(values))
             }
+            "table" => {
+                let child_count = node.child_count();
+                let mut column_names = Vec::new();
+                let mut rows = Vec::new();
+
+                // Skip the first and last nodes because they are pointy braces.
+                for index in 1..child_count - 1 {
+                    let child = node.child(index).unwrap();
+
+                    if child.kind() == "identifier" {
+                        let child_expression = Expression::new(child, source)?;
+
+                        if let Expression::Identifier(column_name) = child_expression {
+                            column_names.push(column_name)
+                        }
+                    }
+
+                    if child.kind() == "list" {
+                        let child_value = Value::new(child, source)?;
+
+                        if let Value::List(row) = child_value {
+                            rows.push(row);
+                        }
+                    }
+                }
+
+                let mut table = Table::new(column_names);
+                table.reserve(rows.len());
+
+                for row in rows {
+                    table.insert(row)?;
+                }
+
+                Ok(Value::Table(table))
+            }
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSourceNode {
-                expected: "integer, string, boolean or empty",
+                expected: "integer, string, boolean, float, list or empty",
                 actual: node.kind(),
             }),
         }

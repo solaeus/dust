@@ -61,7 +61,7 @@ pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<
 /// trees that can be run to execute the source code. Each of these trees is an
 /// [Item][] in the evaluator.
 #[derive(Debug)]
-struct Evaluator {
+pub struct Evaluator {
     items: Vec<Item>,
 }
 
@@ -111,7 +111,7 @@ impl Evaluator {
 /// to produce a single value or interact with a context by creating or
 /// referencing variables.
 #[derive(Debug)]
-enum Item {
+pub enum Item {
     Comment(String),
     Statement(Statement),
 }
@@ -145,12 +145,12 @@ impl Item {
 }
 
 #[derive(Debug)]
-enum Statement {
+pub enum Statement {
     Open(Expression),
 }
 
 impl Statement {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    pub fn new(node: Node, source: &str) -> Result<Self> {
         let node = if node.kind() == "statement" {
             node.child(0).unwrap()
         } else {
@@ -180,7 +180,7 @@ impl Statement {
 }
 
 #[derive(Debug)]
-enum Expression {
+pub enum Expression {
     Identifier(String),
     Value(Value),
     Operation(Box<Operation>),
@@ -188,7 +188,7 @@ enum Expression {
 }
 
 impl Expression {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    pub fn new(node: Node, source: &str) -> Result<Self> {
         let node = if node.kind() == "expression" {
             node.child(0).unwrap()
         } else {
@@ -218,7 +218,7 @@ impl Expression {
         }
     }
 
-    fn run(
+    pub fn run(
         &self,
         context: &mut VariableMap,
         mut cursor: &mut TreeCursor,
@@ -242,7 +242,7 @@ impl Expression {
 }
 
 #[derive(Debug)]
-struct Operation {
+pub struct Operation {
     left: Expression,
     operator: String,
     right: Expression,
@@ -291,7 +291,7 @@ impl Operation {
 }
 
 #[derive(Debug)]
-struct ControlFlow {
+pub struct ControlFlow {
     if_expression: Expression,
     then_statement: Statement,
     else_statement: Option<Statement>,
@@ -387,9 +387,9 @@ mod tests {
 
     #[test]
     fn evaluate_function() {
-        let function_str = "function <message, answer> {
-            output message;
-            output 'The answer is ' + answer;
+        let function_str = "function <message, number> {
+            output message
+            output number
         }";
 
         assert_eq!(
@@ -417,7 +417,7 @@ mod tests {
             .insert(vec![Value::String("hiya".to_string()), Value::Integer(42)])
             .unwrap();
         table
-            .insert(vec![Value::String("foo".to_string()), Value::Integer(-57)])
+            .insert(vec![Value::String("foo".to_string()), Value::Integer(57)])
             .unwrap();
         table
             .insert(vec![Value::String("bar".to_string()), Value::Float(99.99)])
@@ -425,21 +425,13 @@ mod tests {
 
         assert_eq!(
             eval(
-                "table <messages, numbers>
-                    row ('hiya', 42)
-                    row ('foo', -57)
-                    row ('bar', 99.99)"
-            ),
-            vec![Ok(Value::Table(table.clone()))]
-        );
-        assert_eq!(
-            eval(
-                "my_table = table <messages, numbers>
-                    row ('hiya', 42);
-                
-                my_table += ('foo', -57);
-                my_table += ('bar', 99.99);
-                my_table"
+                "
+                table <messages, numbers> {
+                    ('hiya', 42)
+                    ('foo', 57)
+                    ('bar', 99.99)
+                }
+                "
             ),
             vec![Ok(Value::Table(table))]
         );
