@@ -66,6 +66,7 @@ impl Value {
 
                 Ok(Value::Integer(raw))
             }
+            "string" => Ok(Value::String(value_snippet.to_string())),
             _ => Err(Error::UnexpectedSourceNode {
                 expected: "raw value",
                 actual: child.kind(),
@@ -252,7 +253,7 @@ impl Add for Value {
 
                 Ok(Value::String(concatenated))
             }
-            (Value::String(string), other) | (other, Value::String(string)) => {
+            (Value::String(_), other) | (other, Value::String(_)) => {
                 Err(Error::ExpectedString { actual: other })
             }
             (Value::Float(left), Value::Float(right)) => {

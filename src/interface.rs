@@ -109,7 +109,8 @@ impl Item {
 
             Ok(Item::Comment(value_string.to_string()))
         } else if node.kind() == "statement" {
-            Ok(Item::Statement(Statement::new(node, source)?))
+            let child = node.child(0).unwrap();
+            Ok(Item::Statement(Statement::new(child, source)?))
         } else {
             Err(Error::UnexpectedSourceNode {
                 expected: "comment or statement",
@@ -122,20 +123,20 @@ impl Item {
 #[derive(Debug)]
 enum Statement {
     Closed(Expression),
+    Open(Expression),
 }
 
 impl Statement {
     fn new(node: Node, source: &str) -> Result<Self> {
-        if node.kind() == "statement" {
-            Ok(Statement::Closed(Expression::new(
-                node.child(0).unwrap(),
-                source,
-            )?))
-        } else {
-            Err(Error::UnexpectedSourceNode {
-                expected: "statement",
+        let child = node.child(0).unwrap();
+
+        match node.kind() {
+            "closed_statement" => Ok(Statement::Closed(Expression::new(child, source)?)),
+            "open_statement" => Ok(Self::Open(Expression::new(child, source)?)),
+            _ => Err(Error::UnexpectedSourceNode {
+                expected: "closed_statement or open_statement",
                 actual: node.kind(),
-            })
+            }),
         }
     }
 
@@ -146,7 +147,12 @@ impl Statement {
         source: &str,
     ) -> Result<Value> {
         match self {
-            Statement::Closed(expression) => expression.run(context, &mut cursor, source),
+            Statement::Closed(expression) => {
+                expression.run(context, &mut cursor, source)?;
+
+                Ok(Value::Empty)
+            }
+            Statement::Open(expression) => expression.run(context, &mut cursor, source),
         }
     }
 }
