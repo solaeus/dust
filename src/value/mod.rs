@@ -314,7 +314,7 @@ impl Sub for Value {
 
                 Ok(Value::Float(addition))
             }
-            (Value::Float(_), other) | (other, Value::Float(_)) => Err(Error::ExpectedFloat {
+            (Value::Float(_), other) | (other, Value::Float(_)) => Err(Error::ExpectedNumber {
                 actual: other.clone(),
             }),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left - right)),

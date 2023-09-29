@@ -1,5 +1,6 @@
 //! The top level of Dust's API with functions to interpret Dust code.
 
+use egui::util::id_type_map;
 use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
 use crate::{language, Error, Result, Value, VariableMap};
@@ -33,11 +34,11 @@ pub fn eval(source: &str) -> Vec<Result<Value>> {
 /// context.set_value("two".into(), 2.into()).unwrap(); // Do proper error handling here
 /// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
 ///
-/// let dust_code = "one + two + three; one - two - three;";
+/// let dust_code = "four = 4; one + two + three + four;";
 ///
 /// assert_eq!(
 ///     eval_with_context(dust_code, &mut context),
-///     vec![Ok(Value::from(6)), Ok(Value::from(-4))]
+///     vec![Ok(Value::Empty), Ok(Value::from(10))]
 /// );
 /// ```
 pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
@@ -74,10 +75,18 @@ struct Evaluator {
 impl Evaluator {
     fn new(tree: Tree, source: &str) -> Result<Self> {
         let root_node = tree.root_node();
+        let mut cursor = tree.walk();
         let mut items = Vec::new();
 
-        let item = Item::new(root_node, source)?;
-        items.push(item);
+        for (index, node) in root_node.children(&mut cursor).enumerate() {
+            let item = Item::new(node, source)?;
+
+            items.push(item);
+
+            if index == root_node.child_count() - 1 {
+                break;
+            }
+        }
 
         Ok(Evaluator { items })
     }
@@ -150,9 +159,14 @@ enum Statement {
 
 impl Statement {
     fn new(node: Node, source: &str) -> Result<Self> {
+        let node = if node.kind() == "statement" {
+            node.child(0).unwrap()
+        } else {
+            node
+        };
         let child = node.child(0).unwrap();
 
-        match child.kind() {
+        match node.kind() {
             "closed_statement" => Ok(Statement::Closed(Expression::new(child, source)?)),
             "open_statement" => Ok(Self::Open(Expression::new(child, source)?)),
             _ => Err(Error::UnexpectedSourceNode {
@@ -189,31 +203,31 @@ enum Expression {
 
 impl Expression {
     fn new(node: Node, source: &str) -> Result<Self> {
-        let mut child = node.child(0).unwrap();
+        let node = if node.kind() == "expression" {
+            node.child(0).unwrap()
+        } else {
+            node
+        };
 
-        if child.kind() == "expression" {
-            child = child.child(0).unwrap();
-        }
-
-        if child.kind() == "identifier" {
-            let byte_range = child.byte_range();
+        if node.kind() == "identifier" {
+            let byte_range = node.byte_range();
             let identifier = &source[byte_range];
 
             Ok(Self::Identifier(identifier.to_string()))
-        } else if child.kind() == "value" {
-            Ok(Expression::Value(Value::new(child, source)?))
-        } else if child.kind() == "operation" {
+        } else if node.kind() == "value" {
+            Ok(Expression::Value(Value::new(node, source)?))
+        } else if node.kind() == "operation" {
             Ok(Expression::Operation(Box::new(Operation::new(
-                child, source,
+                node, source,
             )?)))
-        } else if child.kind() == "control_flow" {
+        } else if node.kind() == "control_flow" {
             Ok(Expression::ControlFlow(Box::new(ControlFlow::new(
-                child, source,
+                node, source,
             )?)))
         } else {
             Err(Error::UnexpectedSourceNode {
                 expected: "identifier, operation, control_flow or value",
-                actual: child.kind(),
+                actual: node.kind(),
             })
         }
     }

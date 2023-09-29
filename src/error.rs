@@ -2,6 +2,7 @@
 //!
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the MacroFailure variant if the error can only occur inside a macro.
+
 use crate::{value::value_type::ValueType, value::Value, ToolInfo};
 
 use std::{fmt, io, time::SystemTimeError};
@@ -17,6 +18,10 @@ pub enum Error {
     },
 
     ExpectedFieldName,
+
+    ExpectedChildNode {
+        empty_node_sexp: String,
+    },
 
     /// Dust's internal type checking failed to identify a type mismatch. This should never happen,      /// the error prompts the user to report the bug.
     TypeCheckFailure {
@@ -290,14 +295,6 @@ impl From<toml::de::Error> for Error {
 }
 
 impl Error {
-    pub(crate) fn expect_operator_argument_amount(actual: usize, expected: usize) -> Result<()> {
-        if actual == expected {
-            Ok(())
-        } else {
-            Err(Error::ExpectedOperatorArgumentAmount { expected, actual })
-        }
-    }
-
     pub(crate) fn expect_function_argument_amount(
         identifier: &str,
         actual: usize,
@@ -387,36 +384,6 @@ impl Error {
 
     pub fn expected_collection(actual: Value) -> Self {
         Error::ExpectedCollection { actual }
-    }
-
-    pub(crate) fn addition_error(augend: Value, addend: Value) -> Self {
-        Error::AdditionError { augend, addend }
-    }
-
-    pub(crate) fn subtraction_error(minuend: Value, subtrahend: Value) -> Self {
-        Error::SubtractionError {
-            minuend,
-            subtrahend,
-        }
-    }
-
-    pub(crate) fn negation_error(argument: Value) -> Self {
-        Error::NegationError { argument }
-    }
-
-    pub(crate) fn multiplication_error(multiplicand: Value, multiplier: Value) -> Self {
-        Error::MultiplicationError {
-            multiplicand,
-            multiplier,
-        }
-    }
-
-    pub(crate) fn division_error(dividend: Value, divisor: Value) -> Self {
-        Error::DivisionError { dividend, divisor }
-    }
-
-    pub(crate) fn modulation_error(dividend: Value, divisor: Value) -> Self {
-        Error::ModulationError { dividend, divisor }
     }
 
     /// Constructs `EvalexprError::InvalidRegex(regex)`
@@ -588,6 +555,7 @@ impl fmt::Display for Error {
             UnexpectedSourceNode { expected, actual } => write!(f, "Unexpected source node. Expected {expected}, but found {actual}."),
             ExpectedFieldName => write!(f, "Expected a field name for this node, but none was found."),
             WrongTypeCombination { expected, actual } => write!(f, "Wrong type combination. Expected {expected}, found {actual}."),
+            ExpectedChildNode { empty_node_sexp } => write!(f, "Expected this node to have a child, {empty_node_sexp}."),
         }
     }
 }
