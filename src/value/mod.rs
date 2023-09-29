@@ -10,6 +10,7 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
+use tree_sitter::{Node, TreeCursor};
 
 use std::{
     cmp::Ordering,
@@ -46,6 +47,31 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn new(node: Node, source: &str) -> Result<Self> {
+        let child = node.child(0).unwrap();
+
+        if node.kind() != "value" {
+            return Err(Error::UnexpectedSourceNode {
+                expected: "value",
+                actual: node.kind(),
+            });
+        }
+
+        let value_snippet = &source[child.byte_range()];
+
+        match child.kind() {
+            "integer" => {
+                let raw = value_snippet.parse::<i64>().unwrap_or_default();
+
+                Ok(Value::Integer(raw))
+            }
+            _ => Err(Error::UnexpectedSourceNode {
+                expected: "raw value",
+                actual: child.kind(),
+            }),
+        }
+    }
+
     pub fn value_type(&self) -> ValueType {
         ValueType::from(self)
     }

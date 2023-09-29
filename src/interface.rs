@@ -2,9 +2,9 @@
 
 use std::ops::Range;
 
-use tree_sitter::{Parser, TreeCursor};
+use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
-use crate::{language, token, tree, Error, Result, Value, VariableMap};
+use crate::{language, Error, Result, Value, VariableMap};
 
 /// Evaluate the given expression string.
 ///
@@ -34,36 +34,89 @@ pub fn eval(source: &str) -> Result<Value> {
 /// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
 /// assert_eq!(eval_with_context("one + two + three", &mut context), Ok(Value::from(6)));
 /// ```
-pub fn eval_with_context(input: &str, context: &mut VariableMap) -> Result<Value> {
+pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Result<Value> {
     let mut parser = Parser::new();
 
     parser.set_language(language()).unwrap();
 
-    let tree = parser.parse(input, None).unwrap();
+    let tree = parser.parse(source, None).unwrap();
     let sexp = tree.root_node().to_sexp();
 
     println!("{sexp}");
 
+    let evaluator = Evaluator::new(tree.clone(), source).unwrap();
     let mut cursor = tree.walk();
 
-    cursor.goto_first_child();
+    let results = evaluator.run(context, &mut cursor, source);
 
-    let statement = Statement::from_cursor(cursor);
-
-    println!("{statement:?}");
+    println!("{evaluator:?}");
+    println!("{results:?}");
 
     Ok(Value::Empty)
 }
 
 #[derive(Debug)]
-struct EvalTree {
-    root: Source,
+struct Evaluator {
+    items: Vec<Item>,
+}
+
+impl Evaluator {
+    fn new(tree: Tree, source: &str) -> Result<Self> {
+        let mut cursor = tree.walk();
+        let root_node = cursor.node();
+        let mut items = Vec::new();
+
+        for node in root_node.children(&mut cursor) {
+            let item = Item::new(node, source)?;
+            items.push(item);
+        }
+
+        Ok(Evaluator { items })
+    }
+
+    fn run(
+        &self,
+        context: &mut VariableMap,
+        mut cursor: &mut TreeCursor,
+        source: &str,
+    ) -> Vec<Result<Value>> {
+        let mut results = Vec::with_capacity(self.items.len());
+
+        for root in &self.items {
+            match root {
+                Item::Comment(comment) => results.push(Ok(Value::String(comment.clone()))),
+                Item::Statement(statement) => {
+                    results.push(statement.run(context, &mut cursor, source))
+                }
+            }
+        }
+
+        results
+    }
 }
 
 #[derive(Debug)]
-enum Source {
+enum Item {
     Comment(String),
     Statement(Statement),
+}
+
+impl Item {
+    fn new(node: Node, source: &str) -> Result<Self> {
+        if node.kind() == "comment" {
+            let byte_range = node.byte_range();
+            let value_string = &source[byte_range];
+
+            Ok(Item::Comment(value_string.to_string()))
+        } else if node.kind() == "statement" {
+            Ok(Item::Statement(Statement::new(node, source)?))
+        } else {
+            Err(Error::UnexpectedSourceNode {
+                expected: "comment or statement",
+                actual: node.kind(),
+            })
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -72,13 +125,12 @@ enum Statement {
 }
 
 impl Statement {
-    fn from_cursor(mut cursor: TreeCursor) -> Result<Self> {
-        let node = cursor.node();
-
-        cursor.goto_first_child();
-
+    fn new(node: Node, source: &str) -> Result<Self> {
         if node.kind() == "statement" {
-            Ok(Statement::Closed(Expression::from_cursor(cursor)?))
+            Ok(Statement::Closed(Expression::new(
+                node.child(0).unwrap(),
+                source,
+            )?))
         } else {
             Err(Error::UnexpectedSourceNode {
                 expected: "statement",
@@ -86,42 +138,117 @@ impl Statement {
             })
         }
     }
+
+    fn run(
+        &self,
+        context: &mut VariableMap,
+        mut cursor: &mut TreeCursor,
+        source: &str,
+    ) -> Result<Value> {
+        match self {
+            Statement::Closed(expression) => expression.run(context, &mut cursor, source),
+        }
+    }
 }
 
 #[derive(Debug)]
 enum Expression {
     Identifier(&'static str),
-    Value(Range<usize>),
+    Value(Value),
+    Operation(Operation),
 }
 
 impl Expression {
-    fn from_cursor(mut cursor: TreeCursor) -> Result<Self> {
-        let parent = cursor.node();
+    fn new(node: Node, source: &str) -> Result<Self> {
+        if node.kind() != "expression" {
+            return Err(Error::UnexpectedSourceNode {
+                expected: "expression",
+                actual: node.kind(),
+            });
+        }
 
-        cursor.goto_first_child();
+        let child = node.child(0).unwrap();
 
-        let child = cursor.node();
-
-        if parent.kind() == "expression" {
-            if child.kind() == "identifier" {
-                if let Some(name) = cursor.field_name() {
-                    Ok(Expression::Identifier(name))
-                } else {
-                    Err(Error::ExpectedFieldName)
-                }
-            } else if child.kind() == "value" {
-                Ok(Self::Value(child.byte_range()))
-            } else {
-                Err(Error::UnexpectedSourceNode {
-                    expected: "identifier or value",
-                    actual: child.kind(),
-                })
-            }
+        if child.kind() == "identifier" {
+            todo!()
+        } else if child.kind() == "value" {
+            Ok(Expression::Value(Value::new(child, source)?))
+        } else if child.kind() == "operation" {
+            Ok(Expression::Operation(Operation::new(child, source)?))
         } else {
             Err(Error::UnexpectedSourceNode {
-                expected: "expression",
-                actual: parent.kind(),
+                expected: "identifier, operation or value",
+                actual: child.kind(),
             })
+        }
+    }
+
+    fn run(
+        &self,
+        context: &mut VariableMap,
+        mut cursor: &mut TreeCursor,
+        source: &str,
+    ) -> Result<Value> {
+        match self {
+            Expression::Identifier(identifier) => {
+                let value = context.get_value(&identifier)?;
+
+                if let Some(value) = value {
+                    Ok(value)
+                } else {
+                    Ok(Value::Empty)
+                }
+            }
+            Expression::Value(value) => Ok(value.clone()),
+            Expression::Operation(operation) => operation.run(context, &mut cursor, source),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Operation {
+    left: Box<Expression>,
+    operator: &'static str,
+    right: Box<Expression>,
+}
+
+impl Operation {
+    fn new(node: Node, source: &str) -> Result<Self> {
+        let first_child = node.child(0).unwrap();
+        let second_child = node.child(1).unwrap();
+        let third_child = node.child(2).unwrap();
+        let left = { Box::new(Expression::new(first_child, source)?) };
+        let operator = { second_child.child(0).unwrap().kind() };
+        let right = { Box::new(Expression::new(third_child, source)?) };
+
+        Ok(Operation {
+            left,
+            operator,
+            right,
+        })
+    }
+
+    fn run(
+        &self,
+        context: &mut VariableMap,
+        mut cursor: &mut TreeCursor,
+        source: &str,
+    ) -> Result<Value> {
+        let left = self.left.run(context, &mut cursor, source)?;
+        let right = self.right.run(context, &mut cursor, source)?;
+
+        match self.operator {
+            "+" => {
+                let integer_result = left.as_int()? + right.as_int()?;
+
+                Ok(Value::Integer(integer_result))
+            }
+            "-" => {
+                let integer_result = left.as_int()? - right.as_int()?;
+
+                Ok(Value::Integer(integer_result))
+            }
+            _ => Ok(Value::Empty),
         }
     }
 }
