@@ -263,8 +263,6 @@ struct Operation {
 
 impl Operation {
     fn new(node: Node, source: &str) -> Result<Self> {
-        println!("{node:?}");
-
         let first_child = node.child(0).unwrap();
         let second_child = node.child(1).unwrap();
         let third_child = node.child(2).unwrap();

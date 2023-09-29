@@ -49,18 +49,15 @@ pub enum Value {
 
 impl Value {
     pub fn new(node: Node, source: &str) -> Result<Self> {
-        let child = node.child(0).unwrap();
+        let node = if node.kind() == "value" {
+            node.child(0).unwrap()
+        } else {
+            node
+        };
 
-        if node.kind() != "value" {
-            return Err(Error::UnexpectedSourceNode {
-                expected: "value",
-                actual: node.kind(),
-            });
-        }
+        let value_snippet = &source[node.byte_range()];
 
-        let value_snippet = &source[child.byte_range()];
-
-        match child.kind() {
+        match node.kind() {
             "integer" => {
                 let raw = value_snippet.parse::<i64>().unwrap_or_default();
 
@@ -81,10 +78,29 @@ impl Value {
 
                 Ok(Value::Float(raw))
             }
+            "list" => {
+                let child_count = node.child_count();
+                let mut values = Vec::with_capacity(child_count);
+
+                // Skip the first and last nodes because they are parentheses.
+                for index in 1..child_count - 1 {
+                    let child = node.child(index).unwrap();
+
+                    if child.kind() == "," {
+                        continue;
+                    }
+
+                    let value = Value::new(child, source)?;
+
+                    values.push(value)
+                }
+
+                Ok(Value::List(values))
+            }
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSourceNode {
                 expected: "integer, string, boolean or empty",
-                actual: child.kind(),
+                actual: node.kind(),
             }),
         }
     }
