@@ -34,7 +34,7 @@ pub fn eval(source: &str) -> Vec<Result<Value>> {
 /// context.set_value("two".into(), 2.into()).unwrap(); // Do proper error handling here
 /// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
 ///
-/// let dust_code = "four = 4; one + two + three + four;";
+/// let dust_code = "four = 4; one + two + three + four";
 ///
 /// assert_eq!(
 ///     eval_with_context(dust_code, &mut context),
