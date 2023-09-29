@@ -98,8 +98,8 @@ impl Evaluator {
     ) -> Vec<Result<Value>> {
         let mut results = Vec::with_capacity(self.items.len());
 
-        for root in &self.items {
-            match root {
+        for item in &self.items {
+            match item {
                 Item::Comment(comment) => results.push(Ok(Value::String(comment.clone()))),
                 Item::Statement(statement) => {
                     results.push(statement.run(context, &mut cursor, source))
@@ -295,6 +295,7 @@ impl Operation {
 
                 Ok(Value::Empty)
             }
+            "==" => Ok(Value::Boolean(left == right)),
             _ => return Err(Error::CustomMessage("Operator not supported.".to_string())),
         };
 
