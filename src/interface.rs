@@ -189,7 +189,11 @@ enum Expression {
 
 impl Expression {
     fn new(node: Node, source: &str) -> Result<Self> {
-        let child = node.child(0).unwrap().child(0).unwrap();
+        let mut child = node.child(0).unwrap();
+
+        if child.kind() == "expression" {
+            child = child.child(0).unwrap();
+        }
 
         if child.kind() == "identifier" {
             let byte_range = child.byte_range();
@@ -297,9 +301,9 @@ impl ControlFlow {
     fn new(node: Node, source: &str) -> Result<Self> {
         let second_child = node.child(1).unwrap();
         let fourth_child = node.child(3).unwrap();
-        let fifth_child = node.child(4);
-        println!("{second_child:?} {fourth_child:?} {fifth_child:?}");
-        let else_statement = if let Some(child) = fifth_child {
+        let sixth_child = node.child(5);
+        println!("{second_child:?} {fourth_child:?} {sixth_child:?}");
+        let else_statement = if let Some(child) = sixth_child {
             Some(Statement::new(child, source)?)
         } else {
             None
