@@ -66,6 +66,8 @@ impl Value {
             "string" => {
                 let without_quotes = &value_snippet[1..value_snippet.len() - 1];
 
+                println!("{without_quotes}");
+
                 Ok(Value::String(without_quotes.to_string()))
             }
             "boolean" => {

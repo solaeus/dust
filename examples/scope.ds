@@ -1,9 +1,0 @@
-foo = "bar";
-func = 'foo';
-
-assert_equal("bar", func());
-
-foo = "xyz";
-
-assert_equal("xyz", func());
-

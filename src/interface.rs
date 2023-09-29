@@ -1,6 +1,5 @@
 //! The top level of Dust's API with functions to interpret Dust code.
 
-use egui::util::id_type_map;
 use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
 use crate::{language, Error, Result, Value, VariableMap};
@@ -351,6 +350,8 @@ impl ControlFlow {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Function, Table};
+
     use super::*;
 
     #[test]
@@ -377,6 +378,82 @@ mod tests {
         assert_eq!(
             eval("'`one`'"),
             vec![Ok(Value::String("`one`".to_string()))]
+        );
+        assert_eq!(
+            eval("\"'one'\""),
+            vec![Ok(Value::String("'one'".to_string()))]
+        );
+    }
+
+    #[test]
+    fn evaluate_list() {
+        assert_eq!(
+            eval("(1, 2, 'foobar')"),
+            vec![Ok(Value::List(vec![
+                Value::Integer(1),
+                Value::Integer(2),
+                Value::String("foobar".to_string()),
+            ]))]
+        );
+    }
+
+    #[test]
+    fn evaluate_function() {
+        let function_str = "function <message, answer> {
+            output message;
+            output 'The answer is ' + answer;
+        }";
+
+        assert_eq!(
+            eval("{ x = 1, foo = 'bar' }"),
+            vec![Ok(Value::Function(Function::new(function_str)))]
+        );
+    }
+
+    #[test]
+    fn evaluate_map() {
+        let mut map = VariableMap::new();
+
+        map.set_value("x", Value::Integer(1)).unwrap();
+        map.set_value("foo", Value::String("bar".to_string()))
+            .unwrap();
+
+        assert_eq!(eval("{ x = 1, foo = 'bar' }"), vec![Ok(Value::Map(map))]);
+    }
+
+    #[test]
+    fn evaluate_table() {
+        let mut table = Table::new(vec!["messages".to_string(), "numbers".to_string()]);
+
+        table
+            .insert(vec![Value::String("hiya".to_string()), Value::Integer(42)])
+            .unwrap();
+        table
+            .insert(vec![Value::String("foo".to_string()), Value::Integer(-57)])
+            .unwrap();
+        table
+            .insert(vec![Value::String("bar".to_string()), Value::Float(99.99)])
+            .unwrap();
+
+        assert_eq!(
+            eval(
+                "table <messages, numbers>
+                    row ('hiya', 42)
+                    row ('foo', -57)
+                    row ('bar', 99.99)"
+            ),
+            vec![Ok(Value::Table(table.clone()))]
+        );
+        assert_eq!(
+            eval(
+                "my_table = table <messages, numbers>
+                    row ('hiya', 42);
+                
+                my_table += ('foo', -57);
+                my_table += ('bar', 99.99);
+                my_table"
+            ),
+            vec![Ok(Value::Table(table))]
         );
     }
 
