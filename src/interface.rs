@@ -53,11 +53,10 @@ pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<
     println!("{sexp}");
 
     let evaluator = Evaluator::new(tree.clone(), source).unwrap();
-    println!("{evaluator:?}");
 
     let results = evaluator.run(context, &mut cursor, source);
+
     println!("{results:?}");
-    println!("{context:?}");
 
     results
 }
@@ -317,7 +316,6 @@ impl ControlFlow {
         let second_child = node.child(1).unwrap();
         let fourth_child = node.child(3).unwrap();
         let sixth_child = node.child(5);
-        println!("{second_child:?} {fourth_child:?} {sixth_child:?}");
         let else_statement = if let Some(child) = sixth_child {
             Some(Statement::new(child, source)?)
         } else {
@@ -370,14 +368,33 @@ mod tests {
 
     #[test]
     fn evaluate_string() {
+        assert_eq!(eval("\"one\""), vec![Ok(Value::String("one".to_string()))]);
         assert_eq!(eval("'one'"), vec![Ok(Value::String("one".to_string()))]);
+        assert_eq!(eval("`one`"), vec![Ok(Value::String("one".to_string()))]);
+        assert_eq!(
+            eval("`'one'`"),
+            vec![Ok(Value::String("'one'".to_string()))]
+        );
+        assert_eq!(
+            eval("'`one`'"),
+            vec![Ok(Value::String("`one`".to_string()))]
+        );
     }
 
     #[test]
-    fn if_else() {
+    fn if_then() {
         assert_eq!(
             eval("if true then 'true'"),
             vec![Ok(Value::String("true".to_string()))]
+        );
+    }
+
+    #[test]
+    fn if_then_else() {
+        assert_eq!(eval("if false then 1 else 2"), vec![Ok(Value::Integer(2))]);
+        assert_eq!(
+            eval("if true then 1.0 else 42.0"),
+            vec![Ok(Value::Float(1.0))]
         );
     }
 }

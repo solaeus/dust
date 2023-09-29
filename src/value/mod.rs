@@ -76,9 +76,14 @@ impl Value {
 
                 Ok(Value::Boolean(raw))
             }
+            "float" => {
+                let raw = value_snippet.parse::<f64>().unwrap_or_default();
+
+                Ok(Value::Float(raw))
+            }
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSourceNode {
-                expected: "raw value",
+                expected: "integer, string, boolean or empty",
                 actual: child.kind(),
             }),
         }
