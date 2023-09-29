@@ -33,7 +33,7 @@ pub fn eval(source: &str) -> Vec<Result<Value>> {
 /// context.set_value("two".into(), 2.into()).unwrap(); // Do proper error handling here
 /// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
 ///
-/// let dust_code = "four = 4; one + two + three + four";
+/// let dust_code = "four = 4 one + two + three + four";
 ///
 /// assert_eq!(
 ///     eval_with_context(dust_code, &mut context),
@@ -46,13 +46,8 @@ pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<
     parser.set_language(language()).unwrap();
 
     let tree = parser.parse(source, None).unwrap();
-    let sexp = tree.root_node().to_sexp();
     let mut cursor = tree.walk();
-
-    println!("{sexp}");
-
     let evaluator = Evaluator::new(tree.clone(), source).unwrap();
-
     let results = evaluator.run(context, &mut cursor, source);
 
     println!("{results:?}");
@@ -151,7 +146,6 @@ impl Item {
 
 #[derive(Debug)]
 enum Statement {
-    Closed(Expression),
     Open(Expression),
 }
 
@@ -165,10 +159,9 @@ impl Statement {
         let child = node.child(0).unwrap();
 
         match node.kind() {
-            "closed_statement" => Ok(Statement::Closed(Expression::new(child, source)?)),
             "open_statement" => Ok(Self::Open(Expression::new(child, source)?)),
             _ => Err(Error::UnexpectedSourceNode {
-                expected: "closed_statement or open_statement",
+                expected: "open_statement",
                 actual: node.kind(),
             }),
         }
@@ -181,11 +174,6 @@ impl Statement {
         source: &str,
     ) -> Result<Value> {
         match self {
-            Statement::Closed(expression) => {
-                expression.run(context, &mut cursor, source)?;
-
-                Ok(Value::Empty)
-            }
             Statement::Open(expression) => expression.run(context, &mut cursor, source),
         }
     }
