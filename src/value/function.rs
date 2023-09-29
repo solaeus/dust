@@ -13,11 +13,11 @@ impl Function {
     }
 
     pub fn run(&self) -> Result<Value> {
-        eval(&self.0)
+        todo!()
     }
 
     pub fn run_with_context(&self, context: &mut VariableMap) -> Result<Value> {
-        eval_with_context(&self.0, context)
+        todo!()
     }
 }
 

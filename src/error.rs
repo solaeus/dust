@@ -2,10 +2,7 @@
 //!
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the MacroFailure variant if the error can only occur inside a macro.
-use crate::{
-    operator::Operator, token::PartialToken, value::value_type::ValueType, value::Value, Node,
-    ToolInfo,
-};
+use crate::{value::value_type::ValueType, value::Value, ToolInfo};
 
 use std::{fmt, io, time::SystemTimeError};
 
@@ -118,10 +115,6 @@ pub enum Error {
         actual: Value,
     },
 
-    /// Tried to append a child to a leaf node.
-    /// Leaf nodes cannot have children.
-    AppendedToLeafNode(Node),
-
     /// Tried to append a child to a node such that the precedence of the child
     /// is not higher. This error should never occur. If it does, please file a
     /// bug report.
@@ -154,9 +147,9 @@ pub enum Error {
     /// An operator is used with a wrong combination of types.
     WrongTypeCombination {
         /// The operator that whose evaluation caused the error.
-        operator: Operator,
+        expected: ValueType,
         /// The types that were used in the operator causing it to fail.
-        actual: Vec<ValueType>,
+        actual: ValueType,
     },
 
     /// An opening brace without a matching closing brace was found.
@@ -168,16 +161,6 @@ pub enum Error {
     /// Left of an opening brace or right of a closing brace is a token that does not expect the brace next to it.
     /// For example, writing `4(5)` would yield this error, as the `4` does not have any operands.
     MissingOperatorOutsideOfBrace,
-
-    /// A `PartialToken` is unmatched, such that it cannot be combined into a full `Token`.
-    /// This happens if for example a single `=` is found, surrounded by whitespace.
-    /// It is not a token, but it is part of the string representation of some tokens.
-    UnmatchedPartialToken {
-        /// The unmatched partial token.
-        first: PartialToken,
-        /// The token that follows the unmatched partial token and that cannot be matched to the partial token, or `None`, if `first` is the last partial token in the stream.
-        second: Option<PartialToken>,
-    },
 
     /// An addition operation performed by Rust failed.
     AdditionError {
@@ -351,10 +334,6 @@ impl Error {
         Error::TypeError { actual, expected }
     }
 
-    pub fn wrong_type_combination(operator: Operator, actual: Vec<ValueType>) -> Self {
-        Error::WrongTypeCombination { operator, actual }
-    }
-
     pub fn expected_string(actual: Value) -> Self {
         Error::ExpectedString { actual }
     }
@@ -408,13 +387,6 @@ impl Error {
 
     pub fn expected_collection(actual: Value) -> Self {
         Error::ExpectedCollection { actual }
-    }
-
-    pub(crate) fn unmatched_partial_token(
-        first: PartialToken,
-        second: Option<PartialToken>,
-    ) -> Self {
-        Error::UnmatchedPartialToken { first, second }
     }
 
     pub(crate) fn addition_error(augend: Value, addend: Value) -> Self {
@@ -540,7 +512,6 @@ impl fmt::Display for Error {
                     actual
                 )
             }
-            AppendedToLeafNode(node) => write!(f, "Syntax error at \"{node}\"."),
             PrecedenceViolation => write!(
                 f,
                 "Tried to append a node to another node with higher precedence."
@@ -561,11 +532,6 @@ impl fmt::Display for Error {
                     "Type Error. The value {actual} is not one of the following: {expected:?}.",
                 )
             }
-            WrongTypeCombination { operator, actual } => write!(
-                f,
-                "The operator {:?} was called with a wrong combination of types: {:?}",
-                operator, actual
-            ),
             UnmatchedLBrace => write!(f, "Found an unmatched opening parenthesis '('."),
             UnmatchedRBrace => write!(f, "Found an unmatched closing parenthesis ')'."),
             MissingOperatorOutsideOfBrace { .. } => write!(
@@ -574,22 +540,6 @@ impl fmt::Display for Error {
                  any arguments on the right, or found a closing parenthesis that is succeeded by \
                  something that does not take any arguments on the left."
             ),
-            UnmatchedPartialToken { first, second } => {
-                if let Some(second) = second {
-                    write!(
-                        f,
-                        "Found a partial token '{}' that should not be followed by '{}'.",
-                        first, second
-                    )
-                } else {
-                    write!(
-                        f,
-                        "Found a partial token '{}' that should be followed by another partial \
-                         token.",
-                        first
-                    )
-                }
-            }
             AdditionError { augend, addend } => write!(f, "Error adding {} + {}", augend, addend),
             SubtractionError {
                 minuend,
@@ -637,6 +587,7 @@ impl fmt::Display for Error {
             ),
             UnexpectedSourceNode { expected, actual } => write!(f, "Unexpected source node. Expected {expected}, but found {actual}."),
             ExpectedFieldName => write!(f, "Expected a field name for this node, but none was found."),
+            WrongTypeCombination { expected, actual } => write!(f, "Wrong type combination. Expected {expected}, found {actual}."),
         }
     }
 }

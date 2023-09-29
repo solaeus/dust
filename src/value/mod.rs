@@ -10,7 +10,7 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
-use tree_sitter::{Node, TreeCursor};
+use tree_sitter::Node;
 
 use std::{
     cmp::Ordering,
@@ -66,7 +66,12 @@ impl Value {
 
                 Ok(Value::Integer(raw))
             }
-            "string" => Ok(Value::String(value_snippet.to_string())),
+            "string" => {
+                let without_quotes = &value_snippet[1..value_snippet.len() - 1];
+
+                Ok(Value::String(without_quotes.to_string()))
+            }
+            "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSourceNode {
                 expected: "raw value",
                 actual: child.kind(),

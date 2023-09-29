@@ -1,58 +1,62 @@
-//! The top level of Dust's API with functions in interpret Dust code.
-
-use std::ops::Range;
+//! The top level of Dust's API with functions to interpret Dust code.
 
 use tree_sitter::{Node, Parser, Tree, TreeCursor};
 
 use crate::{language, Error, Result, Value, VariableMap};
 
-/// Evaluate the given expression string.
+/// Evaluate the given source code.
+///
+/// Returns a vector of results from evaluating the source code. Each comment
+/// and statemtent will have its own result.
 ///
 /// # Examples
 ///
 /// ```rust
 /// # use dust_lib::*;
-/// assert_eq!(eval("1 + 2 + 3"), Ok(Value::from(6)));
+/// assert_eq!(eval("1 + 2 + 3"), vec![Ok(Value::from(6))]);
 /// ```
-///
-/// *See the [crate doc](index.html) for more examples and explanations of the expression format.*
-pub fn eval(source: &str) -> Result<Value> {
+pub fn eval(source: &str) -> Vec<Result<Value>> {
     let mut context = VariableMap::new();
 
     eval_with_context(source, &mut context)
 }
 
-/// Evaluate the given expression string with the given context.
+/// Evaluate the given source code with the given context.
 ///
 /// # Examples
 ///
 /// ```rust
 /// # use dust_lib::*;
 /// let mut context = VariableMap::new();
+///
 /// context.set_value("one".into(), 1.into()).unwrap(); // Do proper error handling here
 /// context.set_value("two".into(), 2.into()).unwrap(); // Do proper error handling here
 /// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
-/// assert_eq!(eval_with_context("one + two + three", &mut context), Ok(Value::from(6)));
+///
+/// let dust_code = "one + two + three; one - two - three;";
+///
+/// assert_eq!(
+///     eval_with_context(dust_code, &mut context),
+///     vec![Ok(Value::from(6)), Ok(Value::from(-4))]
+/// );
 /// ```
-pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Result<Value> {
+pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
     let mut parser = Parser::new();
 
     parser.set_language(language()).unwrap();
 
     let tree = parser.parse(source, None).unwrap();
     let sexp = tree.root_node().to_sexp();
-
-    println!("{sexp}");
-
     let evaluator = Evaluator::new(tree.clone(), source).unwrap();
     let mut cursor = tree.walk();
-
     let results = evaluator.run(context, &mut cursor, source);
 
+    println!("{sexp}");
     println!("{evaluator:?}");
     println!("{results:?}");
+    println!("{context:?}");
 
-    Ok(Value::Empty)
+    results
 }
 
 #[derive(Debug)]
@@ -159,7 +163,7 @@ impl Statement {
 
 #[derive(Debug)]
 enum Expression {
-    Identifier(&'static str),
+    Identifier(String),
     Value(Value),
     Operation(Operation),
 }
@@ -176,7 +180,10 @@ impl Expression {
         let child = node.child(0).unwrap();
 
         if child.kind() == "identifier" {
-            todo!()
+            let byte_range = child.byte_range();
+            let identifier = &source[byte_range];
+
+            Ok(Self::Identifier(identifier.to_string()))
         } else if child.kind() == "value" {
             Ok(Expression::Value(Value::new(child, source)?))
         } else if child.kind() == "operation" {
@@ -214,7 +221,7 @@ impl Expression {
 #[derive(Debug)]
 struct Operation {
     left: Box<Expression>,
-    operator: &'static str,
+    operator: String,
     right: Box<Expression>,
 }
 
@@ -224,7 +231,7 @@ impl Operation {
         let second_child = node.child(1).unwrap();
         let third_child = node.child(2).unwrap();
         let left = { Box::new(Expression::new(first_child, source)?) };
-        let operator = { second_child.child(0).unwrap().kind() };
+        let operator = { second_child.child(0).unwrap().kind().to_string() };
         let right = { Box::new(Expression::new(third_child, source)?) };
 
         Ok(Operation {
@@ -242,11 +249,40 @@ impl Operation {
     ) -> Result<Value> {
         let left = self.left.run(context, &mut cursor, source)?;
         let right = self.right.run(context, &mut cursor, source)?;
-        let result = match self.operator {
+        let result = match self.operator.as_str() {
             "+" => left + right,
+            "=" => {
+                if let Expression::Identifier(key) = self.left.as_ref() {
+                    context.set_value(key, right)?;
+                }
+
+                Ok(Value::Empty)
+            }
             _ => return Err(Error::CustomMessage("Operator not supported.".to_string())),
         };
 
         Ok(result?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn evaluate_empty() {
+        assert_eq!(eval("()"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval("1;"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval("'foobar';"), vec![Ok(Value::Empty)]);
+    }
+
+    #[test]
+    fn evaluate_integer() {
+        assert_eq!(eval("1"), vec![Ok(Value::Integer(1))]);
+    }
+
+    #[test]
+    fn evaluate_string() {
+        assert_eq!(eval("'one'"), vec![Ok(Value::String("one".to_string()))]);
     }
 }

@@ -233,8 +233,7 @@ impl eframe::App for GuiApp {
                         }
 
                         if submit.clicked() {
-                            self.eval_result =
-                                eval_with_context(&self.text_edit_buffer, &mut self.whale_context);
+                            todo!()
                         }
                     });
                 },
