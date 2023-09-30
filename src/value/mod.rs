@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Expression, Function, Table, Time, ValueType, VariableMap,
+    Expression, Function, Statement, Table, Time, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -134,6 +134,31 @@ impl Value {
                 Ok(Value::Table(table))
             }
             "map" => todo!(),
+            "function" => {
+                let child_count = node.child_count();
+                let mut identifiers = Vec::new();
+                let mut statements = Vec::new();
+
+                for index in 0..child_count {
+                    let child = node.child(index).unwrap();
+
+                    if child.kind() == "identifier" {
+                        let child_identifier = Expression::new(child, source)?;
+
+                        if let Expression::Identifier(identifier) = child_identifier {
+                            identifiers.push(identifier)
+                        }
+                    }
+
+                    if child.kind() == "statement" {
+                        let statement = Statement::new(child, source)?;
+
+                        statements.push(statement)
+                    }
+                }
+
+                Ok(Value::Function(Function::new(identifiers, statements)))
+            }
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSourceNode {
                 expected: "integer, string, boolean, float, list or empty",

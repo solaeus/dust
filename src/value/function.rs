@@ -2,14 +2,20 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{eval, eval_with_context, Result, Value, VariableMap};
+use crate::{Result, Statement, Value, VariableMap};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Function(String);
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Function {
+    identifiers: Vec<String>,
+    statements: Vec<Statement>,
+}
 
 impl Function {
-    pub fn new(body: &str) -> Self {
-        Function(body.to_string())
+    pub fn new(identifiers: Vec<String>, statements: Vec<Statement>) -> Self {
+        Function {
+            identifiers,
+            statements,
+        }
     }
 
     pub fn run(&self) -> Result<Value> {
@@ -23,6 +29,10 @@ impl Function {
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(
+            f,
+            "function < {:?} > {{ {:?} }}",
+            self.identifiers, self.statements
+        )
     }
 }

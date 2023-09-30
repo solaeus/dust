@@ -1,5 +1,6 @@
 //! The top level of Dust's API with functions to interpret Dust code.
 
+use serde::{Deserialize, Serialize};
 use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
 
 use crate::{language, Error, Result, Value, VariableMap};
@@ -170,7 +171,7 @@ impl Item {
 /// Items are either comments, which do nothing, or statements, which can be run
 /// to produce a single value or interact with a context by creating or
 /// referencing variables.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Open(Expression),
 }
@@ -205,7 +206,7 @@ impl Statement {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression {
     Identifier(String),
     Value(Value),
@@ -267,7 +268,7 @@ impl Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Operation {
     left: Expression,
     operator: String,
@@ -298,7 +299,8 @@ impl Operation {
     ) -> Result<Value> {
         let left = self.left.run(context, &mut cursor, source)?;
         let right = self.right.run(context, &mut cursor, source)?;
-        let result = match self.operator.as_str() {
+
+        match self.operator.as_str() {
             "+" => left + right,
             "-" => left - right,
             "=" => {
@@ -309,10 +311,8 @@ impl Operation {
                 Ok(Value::Empty)
             }
             "==" => Ok(Value::Boolean(left == right)),
-            _ => return Err(Error::CustomMessage("Operator not supported.".to_string())),
-        };
-
-        Ok(result?)
+            _ => Err(Error::CustomMessage("Operator not supported.".to_string())),
+        }
     }
 }
 
@@ -320,7 +320,7 @@ impl Operation {
 ///
 /// A ControlFlow instance represents work to be done when the "run" method is
 /// called.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ControlFlow {
     if_expression: Expression,
     then_statement: Statement,
@@ -369,7 +369,7 @@ impl ControlFlow {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Function, Table};
+    use crate::Table;
 
     use super::*;
 
@@ -414,17 +414,6 @@ mod tests {
                 Value::String("foobar".to_string()),
             ]))]
         );
-    }
-
-    #[test]
-    fn evaluate_function() {
-        let function_str = "function <message, number> {
-            output message
-            output number
-        }";
-
-        todo!();
-        // assert_eq!("", vec![Ok(Value::Function(Function::new(function_str)))]);
     }
 
     #[test]
