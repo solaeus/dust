@@ -133,7 +133,31 @@ impl Value {
 
                 Ok(Value::Table(table))
             }
-            "map" => todo!(),
+            "map" => {
+                let child_count = node.child_count();
+                let mut map = VariableMap::new();
+                let mut key = String::new();
+
+                for index in 0..child_count {
+                    let child = node.child(index).unwrap();
+
+                    if child.kind() == "identifier" {
+                        let child_identifier = Expression::new(child, source)?;
+
+                        if let Expression::Identifier(identifier) = child_identifier {
+                            key = identifier
+                        }
+                    }
+
+                    if child.kind() == "value" {
+                        let value = Value::new(child, source)?;
+
+                        map.set_value(key.as_str(), value)?;
+                    }
+                }
+
+                Ok(Value::Map(map))
+            }
             "function" => {
                 let child_count = node.child_count();
                 let mut identifiers = Vec::new();
