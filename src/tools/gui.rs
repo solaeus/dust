@@ -9,9 +9,7 @@ use eframe::{
 };
 use egui_extras::{Column, StripBuilder, TableBuilder};
 
-use crate::{
-    eval_with_context, Error, Result, Table, Tool, ToolInfo, Value, ValueType, VariableMap,
-};
+use crate::{Error, Result, Table, Tool, ToolInfo, Value, ValueType, VariableMap};
 
 pub struct BarGraph;
 
@@ -171,7 +169,7 @@ impl eframe::App for PlotGui {
 
 pub struct GuiApp {
     text_edit_buffer: String,
-    whale_context: VariableMap,
+    _whale_context: VariableMap,
     eval_result: Result<Value>,
 }
 
@@ -179,7 +177,7 @@ impl GuiApp {
     pub fn new(result: Result<Value>) -> Self {
         GuiApp {
             text_edit_buffer: String::new(),
-            whale_context: VariableMap::new(),
+            _whale_context: VariableMap::new(),
             eval_result: result,
         }
     }

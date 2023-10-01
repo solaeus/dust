@@ -1,4 +1,8 @@
 //! The top level of Dust's API with functions to interpret Dust code.
+//!
+//! You can use this library externally by calling either of the "eval"
+//! functions or by constructing your own Evaluator.
+use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
@@ -30,9 +34,9 @@ pub fn eval(source: &str) -> Vec<Result<Value>> {
 /// # use dust_lib::*;
 /// let mut context = VariableMap::new();
 ///
-/// context.set_value("one".into(), 1.into()).unwrap(); // Do proper error handling here
-/// context.set_value("two".into(), 2.into()).unwrap(); // Do proper error handling here
-/// context.set_value("three".into(), 3.into()).unwrap(); // Do proper error handling here
+/// context.set_value("one".into(), 1.into());
+/// context.set_value("two".into(), 2.into());
+/// context.set_value("three".into(), 3.into());
 ///
 /// let dust_code = "four = 4 one + two + three + four";
 ///
@@ -43,20 +47,12 @@ pub fn eval(source: &str) -> Vec<Result<Value>> {
 /// ```
 pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
     let mut parser = Parser::new();
-
     parser.set_language(language()).unwrap();
 
-    let tree = parser.parse(source, None).unwrap();
-    let mut cursor = tree.walk();
-    let evaluator = Evaluator::new(tree.clone(), source).unwrap();
-    let results = evaluator.run(context, &mut cursor, source);
-
-    println!("{results:?}");
-
-    results
+    Evaluator::new(parser, context, source).run()
 }
 
-pub trait EvaluatorTree: Sized {
+trait EvaluatorTree: Sized {
     /// Interpret the syntax tree at the given node and return the abstraction.
     ///
     /// This function is used to convert nodes in the Tree Sitter concrete
@@ -69,33 +65,50 @@ pub trait EvaluatorTree: Sized {
     fn new(node: Node, source: &str) -> Result<Self>;
 
     /// Execute dust code by traversing the tree
-    fn run(
-        &self,
-        context: &mut VariableMap,
-        cursor: &mut TreeCursor,
-        source: &str,
-    ) -> Vec<Result<Value>>;
+    fn run() -> Vec<Result<Value>>;
 }
 
 /// A collection of statements and comments interpreted from a syntax tree.
 ///
 /// The Evaluator turns a tree sitter concrete syntax tree into a vector of
 /// abstract trees called [Item][]s that can be run to execute the source code.
-#[derive(Debug)]
-pub struct Evaluator {
-    items: Vec<Item>,
+pub struct Evaluator<'context, 'source> {
+    _parser: Parser,
+    context: &'context mut VariableMap,
+    source: &'source str,
+    tree: TSTree,
 }
 
-impl Evaluator {
-    fn new(tree_sitter_tree: TSTree, source: &str) -> Result<Self> {
-        let root_node = tree_sitter_tree.root_node();
-        let mut cursor = tree_sitter_tree.walk();
+impl Debug for Evaluator<'_, '_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "Evaluator context: {}", self.context)
+    }
+}
+
+impl<'c, 's> Evaluator<'c, 's> {
+    fn new(mut parser: Parser, context: &'c mut VariableMap, source: &'s str) -> Self {
+        let tree = parser.parse(source, None).unwrap();
+
+        Evaluator {
+            _parser: parser,
+            context,
+            source,
+            tree,
+        }
+    }
+
+    fn run(self) -> Vec<Result<Value>> {
+        let root_node = self.tree.root_node();
+        let mut cursor = self.tree.walk();
         let mut items = Vec::new();
+        let mut results = Vec::new();
 
         for (index, node) in root_node.children(&mut cursor).enumerate() {
-            let item = Item::new(node, source)?;
+            if let Ok(item) = Item::new(node, self.source) {
+                items.push(item);
+            }
 
-            items.push(item);
+            println!("{node:?}");
 
             // This iterator will run forever without this check.
             if index == root_node.child_count() - 1 {
@@ -103,22 +116,11 @@ impl Evaluator {
             }
         }
 
-        Ok(Evaluator { items })
-    }
-
-    fn run(
-        &self,
-        context: &mut VariableMap,
-        mut cursor: &mut TreeCursor,
-        source: &str,
-    ) -> Vec<Result<Value>> {
-        let mut results = Vec::with_capacity(self.items.len());
-
-        for item in &self.items {
+        for item in &items {
             match item {
                 Item::Comment(comment) => results.push(Ok(Value::String(comment.clone()))),
                 Item::Statement(statement) => {
-                    results.push(statement.run(context, &mut cursor, source))
+                    results.push(statement.run(self.context, &mut cursor, self.source))
                 }
             }
         }
@@ -376,13 +378,22 @@ mod tests {
     #[test]
     fn evaluate_empty() {
         assert_eq!(eval("()"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("x = 9"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("y = 'foobar'"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval("x = 9 ()"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval("y = 'foobar' ()"), vec![Ok(Value::Empty)]);
     }
 
     #[test]
     fn evaluate_integer() {
         assert_eq!(eval("1"), vec![Ok(Value::Integer(1))]);
+        assert_eq!(eval("123"), vec![Ok(Value::Integer(123))]);
+        assert_eq!(eval("-666"), vec![Ok(Value::Integer(-666))]);
+    }
+
+    #[test]
+    fn evaluate_float() {
+        assert_eq!(eval("0.1"), vec![Ok(Value::Float(0.1))]);
+        assert_eq!(eval("12.3"), vec![Ok(Value::Float(12.3))]);
+        assert_eq!(eval("-6.66"), vec![Ok(Value::Float(-6.66))]);
     }
 
     #[test]

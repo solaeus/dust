@@ -22,7 +22,7 @@ impl Function {
         todo!()
     }
 
-    pub fn run_with_context(&self, context: &mut VariableMap) -> Result<Value> {
+    pub fn run_with_context(&self, _context: &mut VariableMap) -> Result<Value> {
         todo!()
     }
 }
