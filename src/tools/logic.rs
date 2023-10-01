@@ -44,9 +44,12 @@ impl Tool for AssertEqual {
         let arguments = argument.as_fixed_len_list(2)?;
 
         if arguments[0] == arguments[1] {
-        Ok(Value::Empty)
+            Ok(Value::Empty)
         } else {
-            Err(Error::AssertEqualFailed { expected: arguments[0].clone(), actual: arguments[1].clone() })
+            Err(Error::AssertEqualFailed {
+                expected: arguments[0].clone(),
+                actual: arguments[1].clone()
+            })
         }
 
     }

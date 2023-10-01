@@ -10,7 +10,7 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
-use tree_sitter::Node;
+use tree_sitter::{Node, TreeCursor};
 
 use std::{
     cmp::Ordering,
@@ -32,7 +32,7 @@ pub mod variable_map;
 /// Every whale variable has a key and a Value. Variables are represented by
 /// storing them in a VariableMap. This means the map of variables is itself a
 /// value that can be treated as any other.
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum Value {
     String(String),
     Float(f64),
@@ -49,15 +49,12 @@ pub enum Value {
 
 impl Value {
     pub fn new(node: Node, source: &str) -> Result<Self> {
-        let node = if node.kind() == "value" {
-            node.child(0).unwrap()
-        } else {
-            node
-        };
+        assert_eq!(node.kind(), "value");
 
+        let child = node.child(0).unwrap();
         let value_snippet = &source[node.byte_range()];
 
-        match node.kind() {
+        match child.kind() {
             "integer" => {
                 let raw = value_snippet.parse::<i64>().unwrap_or_default();
 
@@ -179,7 +176,7 @@ impl Value {
             }
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSyntax {
-                expected: "integer, string, boolean, float, list or empty",
+                expected: "integer, string, boolean, float, list, table, function or empty",
                 actual: node.kind(),
                 location: node.start_position(),
             }),
@@ -446,6 +443,26 @@ impl Sub for Value {
 }
 
 impl Eq for Value {}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::String(left), Value::String(right)) => left == right,
+            (Value::Float(left), Value::Float(right)) => left == right,
+            (Value::Integer(left), Value::Integer(right)) => left == right,
+            (Value::Float(float), Value::Integer(integer))
+            | (Value::Integer(integer), Value::Float(float)) => *float == *integer as f64,
+            (Value::Boolean(left), Value::Boolean(right)) => left == right,
+            (Value::List(left), Value::List(right)) => left == right,
+            (Value::Map(left), Value::Map(right)) => left == right,
+            (Value::Table(left), Value::Table(right)) => left == right,
+            (Value::Time(left), Value::Time(right)) => left == right,
+            (Value::Function(left), Value::Function(right)) => left == right,
+            (Value::Empty, Value::Empty) => true,
+            _ => false,
+        }
+    }
+}
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
