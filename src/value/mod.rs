@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Expression, Function, Statement, Table, Time, ValueType, VariableMap,
+    EvaluatorTree, Expression, Function, Statement, Table, Time, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -184,7 +184,7 @@ impl Value {
                 Ok(Value::Function(Function::new(identifiers, statements)))
             }
             "empty" => Ok(Value::Empty),
-            _ => Err(Error::UnexpectedSourceNode {
+            _ => Err(Error::UnexpectedSyntax {
                 expected: "integer, string, boolean, float, list or empty",
                 actual: node.kind(),
                 location: node.start_position(),

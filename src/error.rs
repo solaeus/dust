@@ -12,7 +12,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
-    UnexpectedSourceNode {
+    UnexpectedSyntax {
         expected: &'static str,
         actual: &'static str,
         location: tree_sitter::Point,
@@ -553,7 +553,7 @@ impl fmt::Display for Error {
                 macro_info.identifier,
                 macro_info.inputs
             ),
-            UnexpectedSourceNode { expected, actual, location } => write!(f, "Unexpected syntax at {location}. Expected {expected}, but found {actual}."),
+            UnexpectedSyntax { expected, actual, location } => write!(f, "Unexpected syntax at {location}. Expected {expected}, but found {actual}."),
             ExpectedFieldName => write!(f, "Expected a field name for this node, but none was found."),
             WrongTypeCombination { expected, actual } => write!(f, "Wrong type combination. Expected {expected}, found {actual}."),
             ExpectedChildNode { empty_node_sexp } => write!(f, "Expected this node to have a child, {empty_node_sexp}."),
