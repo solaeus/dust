@@ -181,10 +181,14 @@ pub enum Statement {
 
 impl EvaluatorTree for Statement {
     fn new(node: Node, source: &str) -> Result<Self> {
-        let child = node.child(0).unwrap();
+        let node = if node.kind() == "statement" {
+            node.child(0).unwrap()
+        } else {
+            node
+        };
 
         match node.kind() {
-            "expression" => Ok(Self::Expression(Expression::new(child, source)?)),
+            "expression" => Ok(Self::Expression(Expression::new(node, source)?)),
             _ => Err(Error::UnexpectedSyntax {
                 expected: "expression",
                 actual: node.kind(),
@@ -237,10 +241,10 @@ impl EvaluatorTree for Expression {
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         match self {
-            Expression::Identifier(identifier) => identifier.run(context),
             Expression::Value(value) => Ok(value.clone()),
+            Expression::Identifier(identifier) => identifier.run(context),
             Expression::ControlFlow(control_flow) => control_flow.run(context),
-            Expression::Assignment(_) => todo!(),
+            Expression::Assignment(assignment) => assignment.run(context),
             Expression::Math(math) => math.run(context),
         }
     }
@@ -252,6 +256,10 @@ pub struct Identifier(String);
 impl Identifier {
     pub fn take_inner(self) -> String {
         self.0
+    }
+
+    pub fn inner(&self) -> &String {
+        &self.0
     }
 }
 
@@ -311,24 +319,32 @@ impl EvaluatorTree for ControlFlow {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
-    identifier: String,
+    identifier: Identifier,
     statement: Statement,
 }
 
-impl Assignment {
-    pub fn new(node: Node, source: &str) -> Result<Self> {
+impl EvaluatorTree for Assignment {
+    fn new(node: Node, source: &str) -> Result<Self> {
         let sexp = node.to_sexp();
         println!("{sexp}");
 
         let identifier_node = node.child(0).unwrap();
         let statement_node = node.child(2).unwrap();
-        let identifier = source[identifier_node.byte_range()].to_string();
+        let identifier = Identifier::new(identifier_node, source)?;
         let statement = Statement::new(statement_node, source)?;
 
-        Ok(Self {
+        Ok(Assignment {
             identifier,
             statement,
         })
+    }
+
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+        let value = self.statement.run(context)?;
+
+        context.set_value(self.identifier.inner(), value)?;
+
+        Ok(Value::Empty)
     }
 }
 
