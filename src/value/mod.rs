@@ -10,7 +10,7 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
-use tree_sitter::{Node, TreeCursor};
+use tree_sitter::Node;
 
 use std::{
     cmp::Ordering,
@@ -49,7 +49,11 @@ pub enum Value {
 
 impl Value {
     pub fn new(node: Node, source: &str) -> Result<Self> {
-        assert_eq!(node.kind(), "value");
+        assert!(
+            node.kind() == "value" || node.kind() == "list",
+            "{}",
+            node.kind()
+        );
 
         let child = node.child(0).unwrap();
         let value_snippet = &source[node.byte_range()];
@@ -77,20 +81,20 @@ impl Value {
                 Ok(Value::Float(raw))
             }
             "list" => {
-                let child_count = node.child_count();
-                let mut values = Vec::with_capacity(child_count);
+                let grandchild_count = child.child_count();
+                let mut values = Vec::with_capacity(grandchild_count);
 
-                // Skip the first and last nodes because they are parentheses.
-                for index in 1..child_count - 1 {
-                    let child = node.child(index).unwrap();
+                let mut previous_grandchild = child.child(0).unwrap();
 
-                    if child.kind() == "," {
-                        continue;
+                for _ in 0..grandchild_count {
+                    if let Some(current_node) = previous_grandchild.next_sibling() {
+                        if current_node.kind() == "value" {
+                            let value = Value::new(current_node, source)?;
+
+                            values.push(value);
+                        }
+                        previous_grandchild = current_node
                     }
-
-                    let value = Value::new(child, source)?;
-
-                    values.push(value)
                 }
 
                 Ok(Value::List(values))
@@ -101,7 +105,7 @@ impl Value {
                 let mut rows = Vec::new();
 
                 // Skip the first and last nodes because they are pointy braces.
-                for index in 1..child_count - 1 {
+                for index in 0..child_count {
                     let child = node.child(index).unwrap();
 
                     if child.kind() == "identifier" {
@@ -111,7 +115,7 @@ impl Value {
                     }
 
                     if child.kind() == "list" {
-                        let child_value = Value::new(child, source)?;
+                        let child_value = Value::new(node, source)?;
 
                         if let Value::List(row) = child_value {
                             rows.push(row);
@@ -177,8 +181,8 @@ impl Value {
             "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSyntax {
                 expected: "integer, string, boolean, float, list, table, function or empty",
-                actual: node.kind(),
-                location: node.start_position(),
+                actual: child.kind(),
+                location: child.start_position(),
             }),
         }
     }

@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
+use tree_sitter::{Node, Parser, Tree as TSTree};
 
 use crate::{language, Error, Result, Value, VariableMap};
 
