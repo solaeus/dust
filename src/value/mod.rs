@@ -187,6 +187,7 @@ impl Value {
             _ => Err(Error::UnexpectedSourceNode {
                 expected: "integer, string, boolean, float, list or empty",
                 actual: node.kind(),
+                location: node.start_position(),
             }),
         }
     }

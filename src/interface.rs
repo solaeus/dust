@@ -72,10 +72,10 @@ trait EvaluatorTree: Sized {
 ///
 /// The Evaluator turns a tree sitter concrete syntax tree into a vector of
 /// abstract trees called [Item][]s that can be run to execute the source code.
-pub struct Evaluator<'context, 'source> {
+pub struct Evaluator<'context, 'code> {
     _parser: Parser,
     context: &'context mut VariableMap,
-    source: &'source str,
+    source: &'code str,
     tree: TSTree,
 }
 
@@ -85,8 +85,8 @@ impl Debug for Evaluator<'_, '_> {
     }
 }
 
-impl<'c, 's> Evaluator<'c, 's> {
-    fn new(mut parser: Parser, context: &'c mut VariableMap, source: &'s str) -> Self {
+impl<'context, 'code> Evaluator<'context, 'code> {
+    fn new(mut parser: Parser, context: &'context mut VariableMap, source: &'code str) -> Self {
         let tree = parser.parse(source, None).unwrap();
 
         Evaluator {
@@ -104,8 +104,9 @@ impl<'c, 's> Evaluator<'c, 's> {
         let mut results = Vec::new();
 
         for (index, node) in root_node.children(&mut cursor).enumerate() {
-            if let Ok(item) = Item::new(node, self.source) {
-                items.push(item);
+            match Item::new(node, self.source) {
+                Ok(item) => items.push(item),
+                Err(error) => results.push(Err(error)),
             }
 
             println!("{node:?}");
@@ -118,7 +119,7 @@ impl<'c, 's> Evaluator<'c, 's> {
 
         for item in &items {
             match item {
-                Item::Comment(comment) => results.push(Ok(Value::String(comment.clone()))),
+                Item::Comment(comment) => results.push(Ok(Value::String(comment.to_string()))),
                 Item::Statement(statement) => {
                     results.push(statement.run(self.context, &mut cursor, self.source))
                 }
@@ -146,6 +147,7 @@ impl Item {
             return Err(Error::UnexpectedSourceNode {
                 expected: "item",
                 actual: node.kind(),
+                location: node.start_position(),
             });
         }
 
@@ -153,9 +155,9 @@ impl Item {
 
         if child.kind() == "comment" {
             let byte_range = node.byte_range();
-            let value_string = &source[byte_range];
+            let comment_text = &source[byte_range];
 
-            Ok(Item::Comment(value_string.to_string()))
+            Ok(Item::Comment(comment_text.to_string()))
         } else if child.kind() == "statement" {
             let child = node.child(0).unwrap();
             Ok(Item::Statement(Statement::new(child, source)?))
@@ -163,6 +165,7 @@ impl Item {
             Err(Error::UnexpectedSourceNode {
                 expected: "comment or statement",
                 actual: node.kind(),
+                location: node.start_position(),
             })
         }
     }
@@ -175,7 +178,7 @@ impl Item {
 /// referencing variables.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
-    Open(Expression),
+    Expression(Expression),
 }
 
 impl Statement {
@@ -185,13 +188,15 @@ impl Statement {
         } else {
             node
         };
+
         let child = node.child(0).unwrap();
 
         match node.kind() {
-            "open_statement" => Ok(Self::Open(Expression::new(child, source)?)),
+            "expression" => Ok(Self::Expression(Expression::new(child, source)?)),
             _ => Err(Error::UnexpectedSourceNode {
-                expected: "open_statement",
+                expected: "expression",
                 actual: node.kind(),
+                location: node.start_position(),
             }),
         }
     }
@@ -203,7 +208,7 @@ impl Statement {
         source: &str,
     ) -> Result<Value> {
         match self {
-            Statement::Open(expression) => expression.run(context, &mut cursor, source),
+            Statement::Expression(expression) => expression.run(context, &mut cursor, source),
         }
     }
 }
@@ -212,8 +217,31 @@ impl Statement {
 pub enum Expression {
     Identifier(String),
     Value(Value),
-    Operation(Box<Operation>),
     ControlFlow(Box<ControlFlow>),
+    Assignment(Box<Assignment>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Assignment {
+    identifier: String,
+    statement: Statement,
+}
+
+impl Assignment {
+    pub fn new(node: Node, source: &str) -> Result<Self> {
+        let sexp = node.to_sexp();
+        println!("{sexp}");
+
+        let identifier_node = node.child(0).unwrap();
+        let statement_node = node.child(2).unwrap();
+        let identifier = source[identifier_node.byte_range()].to_string();
+        let statement = Statement::new(statement_node, source)?;
+
+        Ok(Self {
+            identifier,
+            statement,
+        })
+    }
 }
 
 impl Expression {
@@ -231,18 +259,19 @@ impl Expression {
             Ok(Self::Identifier(identifier.to_string()))
         } else if node.kind() == "value" {
             Ok(Expression::Value(Value::new(node, source)?))
-        } else if node.kind() == "operation" {
-            Ok(Expression::Operation(Box::new(Operation::new(
-                node, source,
-            )?)))
         } else if node.kind() == "control_flow" {
             Ok(Expression::ControlFlow(Box::new(ControlFlow::new(
                 node, source,
             )?)))
+        } else if node.kind() == "assignment" {
+            Ok(Expression::Assignment(Box::new(Assignment::new(
+                node, source,
+            )?)))
         } else {
             Err(Error::UnexpectedSourceNode {
-                expected: "identifier, operation, control_flow or value",
+                expected: "identifier, operation, control_flow, assignment or value",
                 actual: node.kind(),
+                location: node.start_position(),
             })
         }
     }
@@ -264,64 +293,12 @@ impl Expression {
                 }
             }
             Expression::Value(value) => Ok(value.clone()),
-            Expression::Operation(operation) => operation.run(context, &mut cursor, source),
             Expression::ControlFlow(control_flow) => control_flow.run(context, &mut cursor, source),
+            Expression::Assignment(_) => todo!(),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Operation {
-    left: Expression,
-    operator: String,
-    right: Expression,
-}
-
-impl Operation {
-    fn new(node: Node, source: &str) -> Result<Self> {
-        let first_child = node.child(0).unwrap();
-        let second_child = node.child(1).unwrap();
-        let third_child = node.child(2).unwrap();
-        let left = Expression::new(first_child, source)?;
-        let operator = second_child.child(0).unwrap().kind().to_string();
-        let right = Expression::new(third_child, source)?;
-
-        Ok(Operation {
-            left,
-            operator,
-            right,
-        })
-    }
-
-    fn run(
-        &self,
-        context: &mut VariableMap,
-        mut cursor: &mut TreeCursor,
-        source: &str,
-    ) -> Result<Value> {
-        let left = self.left.run(context, &mut cursor, source)?;
-        let right = self.right.run(context, &mut cursor, source)?;
-
-        match self.operator.as_str() {
-            "+" => left + right,
-            "-" => left - right,
-            "=" => {
-                if let Expression::Identifier(key) = &self.left {
-                    context.set_value(key, right)?;
-                }
-
-                Ok(Value::Empty)
-            }
-            "==" => Ok(Value::Boolean(left == right)),
-            _ => Err(Error::CustomMessage("Operator not supported.".to_string())),
-        }
-    }
-}
-
-/// Respresentation of an if-then-else logic gate.
-///
-/// A ControlFlow instance represents work to be done when the "run" method is
-/// called.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ControlFlow {
     if_expression: Expression,
@@ -377,9 +354,9 @@ mod tests {
 
     #[test]
     fn evaluate_empty() {
-        assert_eq!(eval("()"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("x = 9 ()"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("y = 'foobar' ()"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval(""), vec![]);
+        assert_eq!(eval("x = 9"), vec![]);
+        assert_eq!(eval("'foo' + 'bar'"), vec![]);
     }
 
     #[test]
