@@ -202,72 +202,11 @@ impl EvaluatorTree for Statement {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression {
-    Identifier(String),
+    Identifier(Identifier),
     Value(Value),
     ControlFlow(Box<ControlFlow>),
     Assignment(Box<Assignment>),
     Math(Box<Math>),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Math {
-    left: Expression,
-    operator: MathOperator,
-    right: Expression,
-}
-
-impl EvaluatorTree for Math {
-    fn new(node: Node, source: &str) -> Result<Self> {
-        let left_node = node.child(0).unwrap();
-        let operator_node = node.child(1).unwrap().child(0).unwrap();
-        let right_node = node.child(2).unwrap();
-        println!("{left_node:#?}");
-        println!("{operator_node:#?}");
-        println!("{right_node:#?}");
-        let operator = match operator_node.kind() {
-            "+" => MathOperator::Add,
-            "-" => MathOperator::Subtract,
-            "*" => MathOperator::Multiply,
-            "/" => MathOperator::Divide,
-            "%" => MathOperator::Modulo,
-            _ => {
-                return Err(Error::UnexpectedSyntax {
-                    expected: "+, -, *, / or %",
-                    actual: operator_node.kind(),
-                    location: operator_node.start_position(),
-                })
-            }
-        };
-
-        Ok(Math {
-            left: Expression::new(left_node, source)?,
-            operator,
-            right: Expression::new(right_node, source)?,
-        })
-    }
-
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        let left_value = self.left.run(context)?.as_number()?;
-        let right_value = self.right.run(context)?.as_number()?;
-        let outcome = match self.operator {
-            MathOperator::Add => left_value + right_value,
-            MathOperator::Subtract => left_value - right_value,
-            MathOperator::Multiply => left_value * right_value,
-            MathOperator::Divide => left_value / right_value,
-            MathOperator::Modulo => left_value % right_value,
-        };
-
-        Ok(Value::Float(outcome))
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum MathOperator {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Modulo,
 }
 
 impl EvaluatorTree for Expression {
@@ -279,12 +218,7 @@ impl EvaluatorTree for Expression {
         };
 
         let expression = match node.kind() {
-            "identifier" => {
-                let byte_range = node.byte_range();
-                let identifier = &source[byte_range];
-
-                Self::Identifier(identifier.to_string())
-            }
+            "identifier" => Self::Identifier(Identifier::new(node, source)?),
             "value" => Expression::Value(Value::new(node, source)?),
             "control_flow" => Expression::ControlFlow(Box::new(ControlFlow::new(node, source)?)),
             "assignment" => Expression::Assignment(Box::new(Assignment::new(node, source)?)),
@@ -303,20 +237,36 @@ impl EvaluatorTree for Expression {
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         match self {
-            Expression::Identifier(identifier) => {
-                let value = context.get_value(&identifier)?;
-
-                if let Some(value) = value {
-                    Ok(value)
-                } else {
-                    Ok(Value::Empty)
-                }
-            }
+            Expression::Identifier(identifier) => identifier.run(context),
             Expression::Value(value) => Ok(value.clone()),
             Expression::ControlFlow(control_flow) => control_flow.run(context),
             Expression::Assignment(_) => todo!(),
             Expression::Math(math) => math.run(context),
         }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Identifier(String);
+
+impl Identifier {
+    pub fn take_inner(self) -> String {
+        self.0
+    }
+}
+
+impl EvaluatorTree for Identifier {
+    fn new(node: Node, source: &str) -> Result<Self> {
+        let byte_range = node.byte_range();
+        let identifier = &source[byte_range];
+
+        Ok(Identifier(identifier.to_string()))
+    }
+
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+        let value = context.get_value(&self.0)?.unwrap_or_default();
+
+        Ok(value)
     }
 }
 
@@ -380,6 +330,64 @@ impl Assignment {
             statement,
         })
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Math {
+    left: Expression,
+    operator: MathOperator,
+    right: Expression,
+}
+
+impl EvaluatorTree for Math {
+    fn new(node: Node, source: &str) -> Result<Self> {
+        let left_node = node.child(0).unwrap();
+        let operator_node = node.child(1).unwrap().child(0).unwrap();
+        let right_node = node.child(2).unwrap();
+        let operator = match operator_node.kind() {
+            "+" => MathOperator::Add,
+            "-" => MathOperator::Subtract,
+            "*" => MathOperator::Multiply,
+            "/" => MathOperator::Divide,
+            "%" => MathOperator::Modulo,
+            _ => {
+                return Err(Error::UnexpectedSyntax {
+                    expected: "+, -, *, / or %",
+                    actual: operator_node.kind(),
+                    location: operator_node.start_position(),
+                })
+            }
+        };
+
+        Ok(Math {
+            left: Expression::new(left_node, source)?,
+            operator,
+            right: Expression::new(right_node, source)?,
+        })
+    }
+
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+        let left_value = self.left.run(context)?.as_number()?;
+        let right_value = self.right.run(context)?.as_number()?;
+        let outcome = match self.operator {
+            MathOperator::Add => left_value + right_value,
+            MathOperator::Subtract => left_value - right_value,
+            MathOperator::Multiply => left_value * right_value,
+            MathOperator::Divide => left_value / right_value,
+            MathOperator::Modulo => left_value % right_value,
+        };
+
+        Ok(Value::Float(outcome))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub enum MathOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
 }
 
 #[cfg(test)]

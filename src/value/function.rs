@@ -2,16 +2,16 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Result, Statement, Value, VariableMap};
+use crate::{Identifier, Result, Statement, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
-    identifiers: Vec<String>,
+    identifiers: Vec<Identifier>,
     statements: Vec<Statement>,
 }
 
 impl Function {
-    pub fn new(identifiers: Vec<String>, statements: Vec<Statement>) -> Self {
+    pub fn new(identifiers: Vec<Identifier>, statements: Vec<Statement>) -> Self {
         Function {
             identifiers,
             statements,

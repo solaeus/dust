@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    EvaluatorTree, Expression, Function, Statement, Table, Time, ValueType, VariableMap,
+    EvaluatorTree, Function, Identifier, Statement, Table, Time, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -108,11 +108,9 @@ impl Value {
                     let child = node.child(index).unwrap();
 
                     if child.kind() == "identifier" {
-                        let child_expression = Expression::new(child, source)?;
+                        let identifier = Identifier::new(child, source)?;
 
-                        if let Expression::Identifier(column_name) = child_expression {
-                            column_names.push(column_name)
-                        }
+                        column_names.push(identifier.take_inner())
                     }
 
                     if child.kind() == "list" {
@@ -142,11 +140,9 @@ impl Value {
                     let child = node.child(index).unwrap();
 
                     if child.kind() == "identifier" {
-                        let child_identifier = Expression::new(child, source)?;
+                        let identifier = Identifier::new(child, source)?;
 
-                        if let Expression::Identifier(identifier) = child_identifier {
-                            key = identifier
-                        }
+                        key = identifier.take_inner()
                     }
 
                     if child.kind() == "value" {
@@ -167,11 +163,9 @@ impl Value {
                     let child = node.child(index).unwrap();
 
                     if child.kind() == "identifier" {
-                        let child_identifier = Expression::new(child, source)?;
+                        let identifier = Identifier::new(child, source)?;
 
-                        if let Expression::Identifier(identifier) = child_identifier {
-                            identifiers.push(identifier)
-                        }
+                        identifiers.push(identifier)
                     }
 
                     if child.kind() == "statement" {
