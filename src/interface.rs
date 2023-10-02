@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
+use tree_sitter::{Parser, Tree as TSTree, TreeCursor};
 
 use crate::{language, Error, Primitive, Result, Value, VariableMap};
 
@@ -111,7 +111,7 @@ impl<'context, 'code> Evaluator<'context, 'code> {
 
         cursor_1.goto_first_child();
 
-        for item_node in node.named_children(&mut cursor_0) {
+        for _ in node.children(&mut cursor_0) {
             let item_result = Item::new(self.source, &mut cursor_1);
 
             match item_result {
@@ -183,11 +183,8 @@ pub enum Statement {
 
 impl EvaluatorTree for Statement {
     fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
         cursor.goto_first_child();
         let child = cursor.node();
-
-        assert_eq!(node.kind(), "statement");
 
         match child.kind() {
             "expression" => Ok(Self::Expression(Expression::new(source, cursor)?)),
@@ -295,30 +292,33 @@ pub struct ControlFlow {
 impl EvaluatorTree for ControlFlow {
     fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
         let node = cursor.node();
-        cursor.goto_first_child();
-        let child = cursor.node();
-
         assert_eq!(node.kind(), "control_flow");
 
+        println!("{node:?}");
+
         // Skip the child nodes for the keywords "if", "then" and "else".
-        let if_expression_node = child.next_named_sibling().unwrap();
+
+        let if_node = node.child_by_field_name("if_expression").unwrap();
+
+        cursor.reset(if_node);
+
         let if_expression = Expression::new(source, cursor)?;
 
-        let then_statement_node = node.next_named_sibling().unwrap();
+        println!("{:?}", cursor.node());
+
+        let then_node = node.child_by_field_name("then_statement").unwrap();
+
+        cursor.reset(then_node);
+
+        let position = cursor.node();
         let then_statement = Statement::new(source, cursor)?;
 
-        let else_statement_node = node.next_named_sibling();
-
-        let else_statement = if let Some(child) = else_statement_node {
-            Some(Statement::new(source, cursor)?)
-        } else {
-            None
-        };
+        cursor.reset(position);
 
         Ok(ControlFlow {
             if_expression,
             then_statement,
-            else_statement,
+            else_statement: None,
         })
     }
 
