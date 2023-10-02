@@ -7,7 +7,7 @@ use std::fmt::{self, Debug, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
 
-use crate::{language, Error, Result, Value, VariableMap};
+use crate::{language, Error, Primitive, Result, Value, VariableMap};
 
 /// Evaluate the given source code.
 ///
@@ -42,7 +42,7 @@ pub fn eval(source: &str) -> Vec<Result<Value>> {
 ///
 /// assert_eq!(
 ///     eval_with_context(dust_code, &mut context),
-///     vec![Ok(Value::Empty), Ok(Value::from(10))]
+///     vec![Ok(Value::Primitive(Primitive::Empty)), Ok(Value::from(10))]
 /// );
 /// ```
 pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
@@ -165,7 +165,7 @@ impl EvaluatorTree for Item {
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         match self {
-            Item::Comment(text) => Ok(Value::String(text.clone())),
+            Item::Comment(text) => Ok(Value::Primitive(Primitive::String(text.clone()))),
             Item::Statement(statement) => statement.run(context),
         }
     }
@@ -226,7 +226,7 @@ impl EvaluatorTree for Expression {
 
         let expression = match child.kind() {
             "identifier" => Self::Identifier(Identifier::new(source, cursor)?),
-            "value" => Expression::Value(Value::new(source, cursor)?),
+            "value" => Expression::Value(Value::from_source(source, cursor)?),
             "control_flow" => Expression::ControlFlow(Box::new(ControlFlow::new(source, cursor)?)),
             "assignment" => Expression::Assignment(Box::new(Assignment::new(source, cursor)?)),
             "math" => Expression::Math(Box::new(Math::new(source, cursor)?)),
@@ -330,7 +330,7 @@ impl EvaluatorTree for ControlFlow {
         } else if let Some(statement) = &self.else_statement {
             statement.run(context)
         } else {
-            Ok(Value::Empty)
+            Ok(Value::Primitive(Primitive::Empty))
         }
     }
 }
@@ -367,7 +367,7 @@ impl EvaluatorTree for Assignment {
 
         context.set_value(key, value)?;
 
-        Ok(Value::Empty)
+        Ok(Value::Primitive(Primitive::Empty))
     }
 }
 
@@ -424,7 +424,7 @@ impl EvaluatorTree for Math {
             MathOperator::Modulo => left_value % right_value,
         };
 
-        Ok(Value::Float(outcome))
+        Ok(Value::Primitive(Primitive::Float(outcome)))
     }
 }
 
@@ -488,40 +488,67 @@ mod tests {
 
     #[test]
     fn evaluate_empty() {
-        assert_eq!(eval("x = 9"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("x = 'foo' + 'bar'"), vec![Ok(Value::Empty)]);
+        assert_eq!(eval("x = 9"), vec![Ok(Value::Primitive(Primitive::Empty))]);
+        assert_eq!(
+            eval("x = 'foo' + 'bar'"),
+            vec![Ok(Value::Primitive(Primitive::Empty))]
+        );
     }
 
     #[test]
     fn evaluate_integer() {
-        assert_eq!(eval("1"), vec![Ok(Value::Integer(1))]);
-        assert_eq!(eval("123"), vec![Ok(Value::Integer(123))]);
-        assert_eq!(eval("-666"), vec![Ok(Value::Integer(-666))]);
+        assert_eq!(eval("1"), vec![Ok(Value::Primitive(Primitive::Integer(1)))]);
+        assert_eq!(
+            eval("123"),
+            vec![Ok(Value::Primitive(Primitive::Integer(123)))]
+        );
+        assert_eq!(
+            eval("-666"),
+            vec![Ok(Value::Primitive(Primitive::Integer(-666)))]
+        );
     }
 
     #[test]
     fn evaluate_float() {
-        assert_eq!(eval("0.1"), vec![Ok(Value::Float(0.1))]);
-        assert_eq!(eval("12.3"), vec![Ok(Value::Float(12.3))]);
-        assert_eq!(eval("-6.66"), vec![Ok(Value::Float(-6.66))]);
+        assert_eq!(
+            eval("0.1"),
+            vec![Ok(Value::Primitive(Primitive::Float(0.1)))]
+        );
+        assert_eq!(
+            eval("12.3"),
+            vec![Ok(Value::Primitive(Primitive::Float(12.3)))]
+        );
+        assert_eq!(
+            eval("-6.66"),
+            vec![Ok(Value::Primitive(Primitive::Float(-6.66)))]
+        );
     }
 
     #[test]
     fn evaluate_string() {
-        assert_eq!(eval("\"one\""), vec![Ok(Value::String("one".to_string()))]);
-        assert_eq!(eval("'one'"), vec![Ok(Value::String("one".to_string()))]);
-        assert_eq!(eval("`one`"), vec![Ok(Value::String("one".to_string()))]);
+        assert_eq!(
+            eval("\"one\""),
+            vec![Ok(Value::Primitive(Primitive::String("one".to_string())))]
+        );
+        assert_eq!(
+            eval("'one'"),
+            vec![Ok(Value::Primitive(Primitive::String("one".to_string())))]
+        );
+        assert_eq!(
+            eval("`one`"),
+            vec![Ok(Value::Primitive(Primitive::String("one".to_string())))]
+        );
         assert_eq!(
             eval("`'one'`"),
-            vec![Ok(Value::String("'one'".to_string()))]
+            vec![Ok(Value::Primitive(Primitive::String("'one'".to_string())))]
         );
         assert_eq!(
             eval("'`one`'"),
-            vec![Ok(Value::String("`one`".to_string()))]
+            vec![Ok(Value::Primitive(Primitive::String("`one`".to_string())))]
         );
         assert_eq!(
             eval("\"'one'\""),
-            vec![Ok(Value::String("'one'".to_string()))]
+            vec![Ok(Value::Primitive(Primitive::String("'one'".to_string())))]
         );
     }
 
@@ -530,9 +557,9 @@ mod tests {
         assert_eq!(
             eval("[1, 2, 'foobar']"),
             vec![Ok(Value::List(vec![
-                Value::Integer(1),
-                Value::Integer(2),
-                Value::String("foobar".to_string()),
+                Value::Primitive(Primitive::Integer(1)),
+                Value::Primitive(Primitive::Integer(2)),
+                Value::Primitive(Primitive::String("foobar".to_string())),
             ]))]
         );
     }
@@ -541,9 +568,13 @@ mod tests {
     fn evaluate_map() {
         let mut map = VariableMap::new();
 
-        map.set_value("x".to_string(), Value::Integer(1)).unwrap();
-        map.set_value("foo".to_string(), Value::String("bar".to_string()))
+        map.set_value("x".to_string(), Value::Primitive(Primitive::Integer(1)))
             .unwrap();
+        map.set_value(
+            "foo".to_string(),
+            Value::Primitive(Primitive::String("bar".to_string())),
+        )
+        .unwrap();
 
         assert_eq!(eval("map { x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);
     }
@@ -553,13 +584,22 @@ mod tests {
         let mut table = Table::new(vec!["messages".to_string(), "numbers".to_string()]);
 
         table
-            .insert(vec![Value::String("hiya".to_string()), Value::Integer(42)])
+            .insert(vec![
+                Value::Primitive(Primitive::String("hiya".to_string())),
+                Value::Primitive(Primitive::Integer(42)),
+            ])
             .unwrap();
         table
-            .insert(vec![Value::String("foo".to_string()), Value::Integer(57)])
+            .insert(vec![
+                Value::Primitive(Primitive::String("foo".to_string())),
+                Value::Primitive(Primitive::Integer(57)),
+            ])
             .unwrap();
         table
-            .insert(vec![Value::String("bar".to_string()), Value::Float(99.99)])
+            .insert(vec![
+                Value::Primitive(Primitive::String("bar".to_string())),
+                Value::Primitive(Primitive::Float(99.99)),
+            ])
             .unwrap();
 
         assert_eq!(
@@ -580,16 +620,19 @@ mod tests {
     fn if_then() {
         assert_eq!(
             eval("if true then 'true'"),
-            vec![Ok(Value::String("true".to_string()))]
+            vec![Ok(Value::Primitive(Primitive::String("true".to_string())))]
         );
     }
 
     #[test]
     fn if_then_else() {
-        assert_eq!(eval("if false then 1 else 2"), vec![Ok(Value::Integer(2))]);
+        assert_eq!(
+            eval("if false then 1 else 2"),
+            vec![Ok(Value::Primitive(Primitive::Integer(2)))]
+        );
         assert_eq!(
             eval("if true then 1.0 else 42.0"),
-            vec![Ok(Value::Float(1.0))]
+            vec![Ok(Value::Primitive(Primitive::Float(1.0)))]
         );
     }
 }

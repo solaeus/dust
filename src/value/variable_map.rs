@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{value::Value, Error, Result, Table, TOOL_LIST};
+use crate::{value::Value, Error, Primitive, Result, Table};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -27,34 +27,34 @@ impl VariableMap {
     /// argument. Returns an error a tool is called with the wrong inputs or if the identifier does
     /// not match any tools or functions.
     pub fn call_function(&self, identifier: &str, argument: &Value) -> Result<Value> {
-        for macro_item in TOOL_LIST {
-            let valid_input_types = macro_item.info().inputs;
+        // for macro_item in TOOL_LIST {
+        //     let valid_input_types = macro_item.info().inputs;
 
-            if identifier == macro_item.info().identifier {
-                let input_type = argument.value_type();
+        //     if identifier == macro_item.info().identifier {
+        //         let input_type = argument.value_type();
 
-                if valid_input_types.contains(&input_type) {
-                    return macro_item.run(argument);
-                } else {
-                    return Err(Error::MacroArgumentType {
-                        macro_info: macro_item.info(),
-                        actual: argument.clone(),
-                    });
-                }
-            }
-        }
+        //         if valid_input_types.contains(&input_type) {
+        //             return macro_item.run(argument);
+        //         } else {
+        //             return Err(Error::MacroArgumentType {
+        //                 macro_info: macro_item.info(),
+        //                 actual: argument.clone(),
+        //             });
+        //         }
+        //     }
+        // }
 
-        for (key, value) in &self.variables {
-            if identifier == key {
-                if let Ok(function) = value.as_function() {
-                    let mut context = self.clone();
+        // for (key, value) in &self.variables {
+        //     if identifier == key {
+        //         if let Ok(function) = value.as_function() {
+        //             let mut context = self.clone();
 
-                    context.set_value("input".to_string(), argument.clone())?;
+        //             context.set_value("input".to_string(), argument.clone())?;
 
-                    return function.run_with_context(&mut context);
-                }
-            }
-        }
+        //             return function.run_with_context(&mut context);
+        //         }
+        //     }
+        // }
 
         Err(Error::FunctionIdentifierNotFound(identifier.to_string()))
     }
@@ -77,9 +77,9 @@ impl VariableMap {
                 let index = if let Ok(index) = next_identifier.parse::<usize>() {
                     index
                 } else {
-                    return Err(Error::expected_int(Value::String(
+                    return Err(Error::expected_int(Value::Primitive(Primitive::String(
                         next_identifier.to_string(),
-                    )));
+                    ))));
                 };
 
                 Ok(list.get(index).cloned())
@@ -106,9 +106,9 @@ impl VariableMap {
                     let index = if let Ok(index) = next_identifier.parse::<usize>() {
                         index
                     } else {
-                        return Err(Error::expected_int(Value::String(
+                        return Err(Error::expected_int(Value::Primitive(Primitive::String(
                             next_identifier.to_string(),
-                        )));
+                        ))));
                     };
 
                     let mut missing_elements = index.saturating_sub(list.len()) + 1;
@@ -193,9 +193,13 @@ mod tests {
     fn get_and_set_simple_value() {
         let mut map = VariableMap::new();
 
-        map.set_value("x".to_string(), Value::Integer(1)).unwrap();
+        map.set_value("x".to_string(), Value::Primitive(Primitive::Integer(1)))
+            .unwrap();
 
-        assert_eq!(Value::Integer(1), map.get_value("x").unwrap().unwrap());
+        assert_eq!(
+            Value::Primitive(Primitive::Integer(1)),
+            map.get_value("x").unwrap().unwrap()
+        );
     }
 
     #[test]

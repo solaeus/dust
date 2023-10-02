@@ -27,28 +27,54 @@ pub mod time;
 pub mod value_type;
 pub mod variable_map;
 
+#[derive(Clone, Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub enum Primitive {
+    String(String),
+    Float(f64),
+    Integer(i64),
+    Boolean(bool),
+    #[default]
+    Empty,
+}
+
+impl Eq for Primitive {}
+
+impl Ord for Primitive {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Primitive::String(left), Primitive::String(right)) => left.cmp(right),
+            (Primitive::Float(left), Primitive::Float(right)) => {
+                left.to_le_bytes().cmp(&right.to_le_bytes())
+            }
+            (Primitive::Integer(left), Primitive::Integer(right)) => left.cmp(right),
+            (Primitive::Boolean(left), Primitive::Boolean(right)) => left.cmp(right),
+            (Primitive::Empty, Primitive::Empty) => Ordering::Equal,
+            (Primitive::String(_), _) => Ordering::Greater,
+            (Primitive::Float(_), _) => Ordering::Greater,
+            (Primitive::Integer(_), _) => Ordering::Greater,
+            (Primitive::Boolean(_), _) => Ordering::Greater,
+            (Primitive::Empty, _) => Ordering::Less,
+        }
+    }
+}
+
 /// Whale value representation.
 ///
 /// Every whale variable has a key and a Value. Variables are represented by
 /// storing them in a VariableMap. This means the map of variables is itself a
 /// value that can be treated as any other.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub enum Value {
-    String(String),
-    Float(f64),
-    Integer(i64),
-    Boolean(bool),
+    Primitive(Primitive),
     List(Vec<Value>),
     Map(VariableMap),
     Table(Table),
     Time(Time),
     Function(Function),
-    #[default]
-    Empty,
 }
 
 impl Value {
-    pub fn new(source: &str, mut cursor: &mut TreeCursor) -> Result<Self> {
+    pub fn from_source(source: &str, mut cursor: &mut TreeCursor) -> Result<Self> {
         let node = cursor.node();
         cursor.goto_first_child();
         let child = cursor.node();
@@ -57,7 +83,7 @@ impl Value {
 
         match child.kind() {
             "integer" | "float" | "boolean" | "string" | "empty" => {
-                Value::from_syntax_node(child, source)
+                Value::simple_from_syntax_node(node, source)
             }
             "list" => {
                 let list_length = child.named_child_count();
@@ -66,7 +92,7 @@ impl Value {
                 cursor.goto_first_child();
 
                 for value_node in child.children_by_field_name("item", &mut cursor) {
-                    let value = Value::from_syntax_node(value_node.child(0).unwrap(), source)?;
+                    let value = Value::simple_from_syntax_node(value_node, source)?;
 
                     values.push(value);
                 }
@@ -81,25 +107,19 @@ impl Value {
                 Ok(Value::Table(table))
             }
             "map" => {
-                let grandchild_count = child.child_count();
                 let mut map = VariableMap::new();
 
-                let mut previous_grandchild = child.child(0).unwrap();
-                let mut key = String::new();
+                let mut current_key = String::new();
 
-                for _ in 0..grandchild_count {
-                    if let Some(current_node) = previous_grandchild.next_sibling() {
-                        if current_node.kind() == "identifier" {
-                            key = Identifier::new(source, cursor)?.take_inner();
-                        }
+                for key_value_node in child.children_by_field_name("key_value_pair", &mut cursor) {
+                    if key_value_node.kind() == "identifier" {
+                        let identifier_text = &source[key_value_node.byte_range()];
+                        current_key = identifier_text.to_string();
+                    }
 
-                        if current_node.kind() == "value" {
-                            let value = Value::new(source, cursor)?;
-
-                            map.set_value(key.clone(), value)?;
-                        }
-
-                        previous_grandchild = current_node
+                    if key_value_node.kind() == "value" {
+                        let value = Value::simple_from_syntax_node(key_value_node, source)?;
+                        map.set_value(current_key.to_string(), value)?;
                     }
                 }
 
@@ -136,17 +156,23 @@ impl Value {
         }
     }
 
-    pub fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        match node.kind() {
-            "integer" => Value::integer_from_source(source, node.byte_range()),
-            "float" => Value::integer_from_source(source, node.byte_range()),
-            "boolean" => Value::integer_from_source(source, node.byte_range()),
-            "string" => Value::integer_from_source(source, node.byte_range()),
-            "empty" => Ok(Value::Empty),
+    /// Creates a simple value from the given source code and a node in the
+    /// syntax tree.
+    ///
+    ///
+    pub fn simple_from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        let child = node.child(0).unwrap();
+
+        match child.kind() {
+            "integer" => Value::integer_from_source(source, child.byte_range()),
+            "float" => Value::float_from_source(source, child.byte_range()),
+            "boolean" => Value::boolean_from_source(source, child.byte_range()),
+            "string" => Value::string_from_source(source, child.byte_range()),
+            "empty" => Ok(Value::Primitive(Primitive::Empty)),
             _ => Err(Error::UnexpectedSyntax {
                 expected: "integer, float, boolean, string or empty",
-                actual: node.kind(),
-                location: node.start_position(),
+                actual: child.kind(),
+                location: child.start_position(),
             }),
         }
     }
@@ -155,29 +181,30 @@ impl Value {
         let value_snippet = &source[byte_range];
         let raw = value_snippet.parse::<i64>().unwrap_or_default();
 
-        Ok(Value::Integer(raw))
+        Ok(Value::Primitive(Primitive::Integer(raw)))
     }
 
     pub fn float_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
         let value_snippet = &source[byte_range];
         let raw = value_snippet.parse::<f64>().unwrap_or_default();
 
-        Ok(Value::Float(raw))
+        Ok(Value::Primitive(Primitive::Float(raw)))
     }
 
     pub fn boolean_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
         let value_snippet = &source[byte_range];
         let raw = value_snippet.parse::<bool>().unwrap_or_default();
 
-        Ok(Value::Boolean(raw))
+        Ok(Value::Primitive(Primitive::Boolean(raw)))
     }
 
     pub fn string_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
         let value_snippet = &source[byte_range];
-        let quote_str = &value_snippet.chars().nth(0).unwrap();
-        let without_quotes = value_snippet.trim_matches(*quote_str);
+        let without_quotes = &value_snippet[1..value_snippet.len() - 1];
 
-        Ok(Value::String(without_quotes.to_string()))
+        Ok(Value::Primitive(Primitive::String(
+            without_quotes.to_string(),
+        )))
     }
 
     pub fn value_type(&self) -> ValueType {
@@ -189,23 +216,26 @@ impl Value {
     }
 
     pub fn is_string(&self) -> bool {
-        matches!(self, Value::String(_))
+        matches!(self, Value::Primitive(Primitive::String(_)))
     }
 
     pub fn is_integer(&self) -> bool {
-        matches!(self, Value::Integer(_))
+        matches!(self, Value::Primitive(Primitive::Integer(_)))
     }
 
     pub fn is_float(&self) -> bool {
-        matches!(self, Value::Float(_))
+        matches!(self, Value::Primitive(Primitive::Float(_)))
     }
 
     pub fn is_number(&self) -> bool {
-        matches!(self, Value::Integer(_) | Value::Float(_))
+        matches!(
+            self,
+            Value::Primitive(Primitive::Integer(_)) | Value::Primitive(Primitive::Float(_))
+        )
     }
 
     pub fn is_boolean(&self) -> bool {
-        matches!(self, Value::Boolean(_))
+        matches!(self, Value::Primitive(Primitive::Boolean(_)))
     }
 
     pub fn is_list(&self) -> bool {
@@ -213,7 +243,7 @@ impl Value {
     }
 
     pub fn is_empty(&self) -> bool {
-        matches!(self, Value::Empty)
+        matches!(self, Value::Primitive(Primitive::Empty))
     }
 
     pub fn is_map(&self) -> bool {
@@ -224,10 +254,10 @@ impl Value {
         matches!(self, Value::Map(_))
     }
 
-    /// Borrows the value stored in `self` as `String`, or returns `Err` if `self` is not a `Value::String`.
+    /// Borrows the value stored in `self` as `String`, or returns `Err` if `self` is not a `Value::Primitive(Primitive::String`.
     pub fn as_string(&self) -> Result<&String> {
         match self {
-            Value::String(string) => Ok(string),
+            Value::Primitive(Primitive::String(string)) => Ok(string),
             value => Err(Error::expected_string(value.clone())),
         }
     }
@@ -235,33 +265,33 @@ impl Value {
     /// Copies the value stored in `self` as `i64`, or returns `Err` if `self` is not a `Value::Int`.
     pub fn as_int(&self) -> Result<i64> {
         match self {
-            Value::Integer(i) => Ok(*i),
+            Value::Primitive(Primitive::Integer(i)) => Ok(*i),
             value => Err(Error::expected_int(value.clone())),
         }
     }
 
-    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Value::Float`.
+    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Primitive::Float`.
     pub fn as_float(&self) -> Result<f64> {
         match self {
-            Value::Float(f) => Ok(*f),
+            Value::Primitive(Primitive::Float(f)) => Ok(*f),
             value => Err(Error::expected_float(value.clone())),
         }
     }
 
-    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Value::Float` or `Value::Int`.
+    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Primitive::Float` or `Value::Int`.
     /// Note that this method silently converts `i64` to `f64`, if `self` is a `Value::Int`.
     pub fn as_number(&self) -> Result<f64> {
         match self {
-            Value::Float(f) => Ok(*f),
-            Value::Integer(i) => Ok(*i as f64),
+            Value::Primitive(Primitive::Float(f)) => Ok(*f),
+            Value::Primitive(Primitive::Integer(i)) => Ok(*i as f64),
             value => Err(Error::expected_number(value.clone())),
         }
     }
 
-    /// Copies the value stored in  `self` as `bool`, or returns `Err` if `self` is not a `Value::Boolean`.
+    /// Copies the value stored in  `self` as `bool`, or returns `Err` if `self` is not a `Primitive::Boolean`.
     pub fn as_boolean(&self) -> Result<bool> {
         match self {
-            Value::Boolean(boolean) => Ok(*boolean),
+            Value::Primitive(Primitive::Boolean(boolean)) => Ok(*boolean),
             value => Err(Error::expected_boolean(value.clone())),
         }
     }
@@ -333,7 +363,7 @@ impl Value {
     /// Returns `()`, or returns`Err` if `self` is not a `Value::Tuple`.
     pub fn as_empty(&self) -> Result<()> {
         match self {
-            Value::Empty => Ok(()),
+            Value::Primitive(Primitive::Empty) => Ok(()),
             value => Err(Error::expected_empty(value.clone())),
         }
     }
@@ -349,33 +379,54 @@ impl Value {
     }
 }
 
+impl Default for Value {
+    fn default() -> Self {
+        Value::Primitive(Primitive::Empty)
+    }
+}
+
 impl Add for Value {
     type Output = Result<Value>;
 
     fn add(self, other: Self) -> Self::Output {
         match (self, other) {
-            (Value::String(left), Value::String(right)) => {
+            (
+                Value::Primitive(Primitive::String(left)),
+                Value::Primitive(Primitive::String(right)),
+            ) => {
                 let concatenated = left + &right;
 
-                Ok(Value::String(concatenated))
+                Ok(Value::Primitive(Primitive::String(concatenated)))
             }
-            (Value::String(_), other) | (other, Value::String(_)) => {
+            (Value::Primitive(Primitive::String(_)), other)
+            | (other, Value::Primitive(Primitive::String(_))) => {
                 Err(Error::ExpectedString { actual: other })
             }
-            (Value::Float(left), Value::Float(right)) => {
+            (
+                Value::Primitive(Primitive::Float(left)),
+                Value::Primitive(Primitive::Float(right)),
+            ) => {
                 let addition = left + right;
 
-                Ok(Value::Float(addition))
+                Ok(Value::Primitive(Primitive::Float(addition)))
             }
-            (Value::Float(_), other) | (other, Value::Float(_)) => {
+            (Value::Primitive(Primitive::Float(_)), other)
+            | (other, Value::Primitive(Primitive::Float(_))) => {
                 Err(Error::ExpectedFloat { actual: other })
             }
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
-            (Value::Integer(_), other) | (other, Value::Integer(_)) => {
+            (
+                Value::Primitive(Primitive::Integer(left)),
+                Value::Primitive(Primitive::Integer(right)),
+            ) => Ok(Value::Primitive(Primitive::Integer(left + right))),
+            (Value::Primitive(Primitive::Integer(_)), other)
+            | (other, Value::Primitive(Primitive::Integer(_))) => {
                 Err(Error::ExpectedInt { actual: other })
             }
-            (Value::Boolean(_), Value::Boolean(_)) => todo!(),
-            (Value::Boolean(_), other) | (other, Value::Boolean(_)) => {
+            (Value::Primitive(Primitive::Boolean(_)), Value::Primitive(Primitive::Boolean(_))) => {
+                todo!()
+            }
+            (Value::Primitive(Primitive::Boolean(_)), other)
+            | (other, Value::Primitive(Primitive::Boolean(_))) => {
                 Err(Error::ExpectedBoolean { actual: other })
             }
             (Value::List(_), Value::List(_)) => todo!(),
@@ -386,7 +437,9 @@ impl Add for Value {
             (Value::Map(_), other) | (other, Value::Map(_)) => {
                 Err(Error::ExpectedMap { actual: other })
             }
-            (Value::Empty, Value::Empty) => Ok(Value::Empty),
+            (Value::Primitive(Primitive::Empty), Value::Primitive(Primitive::Empty)) => {
+                Ok(Value::Primitive(Primitive::Empty))
+            }
             _ => Err(Error::CustomMessage(
                 "Cannot add the given types.".to_string(),
             )),
@@ -398,44 +451,7 @@ impl Sub for Value {
     type Output = Result<Self>;
 
     fn sub(self, other: Self) -> Self::Output {
-        match (&self, &other) {
-            (Value::String(_), Value::String(_)) => Err(Error::ExpectedNumber {
-                actual: self.clone(),
-            }),
-            (Value::String(_), other) | (other, Value::String(_)) => Err(Error::ExpectedNumber {
-                actual: other.clone(),
-            }),
-            (Value::Float(left), Value::Float(right)) => {
-                let addition = left - right;
-
-                Ok(Value::Float(addition))
-            }
-            (Value::Float(_), other) | (other, Value::Float(_)) => Err(Error::ExpectedNumber {
-                actual: other.clone(),
-            }),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left - right)),
-            (Value::Integer(_), other) | (other, Value::Integer(_)) => Err(Error::ExpectedInt {
-                actual: other.clone(),
-            }),
-            (Value::Boolean(_), Value::Boolean(_)) => todo!(),
-            (Value::Boolean(_), other) | (other, Value::Boolean(_)) => {
-                Err(Error::ExpectedBoolean {
-                    actual: other.clone(),
-                })
-            }
-            (Value::List(_), Value::List(_)) => todo!(),
-            (Value::List(_), other) | (other, Value::List(_)) => Err(Error::ExpectedList {
-                actual: other.clone(),
-            }),
-            (Value::Map(_), Value::Map(_)) => todo!(),
-            (Value::Map(_), other) | (other, Value::Map(_)) => Err(Error::ExpectedMap {
-                actual: other.clone(),
-            }),
-            (Value::Empty, Value::Empty) => Ok(Value::Empty),
-            _ => Err(Error::CustomMessage(
-                "Cannot add the given types.".to_string(),
-            )),
-        }
+        todo!()
     }
 }
 
@@ -444,18 +460,12 @@ impl Eq for Value {}
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Value::String(left), Value::String(right)) => left == right,
-            (Value::Float(left), Value::Float(right)) => left == right,
-            (Value::Integer(left), Value::Integer(right)) => left == right,
-            (Value::Float(float), Value::Integer(integer))
-            | (Value::Integer(integer), Value::Float(float)) => *float == *integer as f64,
-            (Value::Boolean(left), Value::Boolean(right)) => left == right,
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Table(left), Value::Table(right)) => left == right,
             (Value::Time(left), Value::Time(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
-            (Value::Empty, Value::Empty) => true,
+            (Value::Primitive(left), Value::Primitive(right)) => left == right,
             _ => false,
         }
     }
@@ -470,14 +480,6 @@ impl PartialOrd for Value {
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Value::String(left), Value::String(right)) => left.cmp(right),
-            (Value::String(_), _) => Ordering::Greater,
-            (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
-            (Value::Integer(_), _) => Ordering::Greater,
-            (Value::Boolean(left), Value::Boolean(right)) => left.cmp(right),
-            (Value::Boolean(_), _) => Ordering::Greater,
-            (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
-            (Value::Float(_), _) => Ordering::Greater,
             (Value::List(left), Value::List(right)) => left.cmp(right),
             (Value::List(_), _) => Ordering::Greater,
             (Value::Map(left), Value::Map(right)) => left.cmp(right),
@@ -488,8 +490,8 @@ impl Ord for Value {
             (Value::Function(_), _) => Ordering::Greater,
             (Value::Time(left), Value::Time(right)) => left.cmp(right),
             (Value::Time(_), _) => Ordering::Greater,
-            (Value::Empty, Value::Empty) => Ordering::Equal,
-            (Value::Empty, _) => Ordering::Less,
+            (Value::Primitive(left), Value::Primitive(right)) => left.cmp(right),
+            (Value::Primitive(_), _) => Ordering::Less,
         }
     }
 }
@@ -500,10 +502,10 @@ impl Serialize for Value {
         S: Serializer,
     {
         match self {
-            Value::String(inner) => serializer.serialize_str(inner),
-            Value::Float(inner) => serializer.serialize_f64(*inner),
-            Value::Integer(inner) => serializer.serialize_i64(*inner),
-            Value::Boolean(inner) => serializer.serialize_bool(*inner),
+            Value::Primitive(Primitive::String(inner)) => serializer.serialize_str(inner),
+            Value::Primitive(Primitive::Float(inner)) => serializer.serialize_f64(*inner),
+            Value::Primitive(Primitive::Integer(inner)) => serializer.serialize_i64(*inner),
+            Value::Primitive(Primitive::Boolean(inner)) => serializer.serialize_bool(*inner),
             Value::List(inner) => {
                 let mut tuple = serializer.serialize_tuple(inner.len())?;
 
@@ -513,7 +515,7 @@ impl Serialize for Value {
 
                 tuple.end()
             }
-            Value::Empty => todo!(),
+            Value::Primitive(Primitive::Empty) => todo!(),
             Value::Map(inner) => inner.serialize(serializer),
             Value::Table(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
@@ -525,11 +527,11 @@ impl Serialize for Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::String(string) => write!(f, "{string}"),
-            Value::Float(float) => write!(f, "{}", float),
-            Value::Integer(int) => write!(f, "{}", int),
-            Value::Boolean(boolean) => write!(f, "{}", boolean),
-            Value::Empty => write!(f, "()"),
+            Value::Primitive(Primitive::String(string)) => write!(f, "{string}"),
+            Value::Primitive(Primitive::Float(float)) => write!(f, "{}", float),
+            Value::Primitive(Primitive::Integer(int)) => write!(f, "{}", int),
+            Value::Primitive(Primitive::Boolean(boolean)) => write!(f, "{}", boolean),
+            Value::Primitive(Primitive::Empty) => write!(f, "()"),
             Value::List(list) => Table::from(list).fmt(f),
             Value::Map(map) => write!(f, "{map}"),
             Value::Table(table) => write!(f, "{table}"),
@@ -541,31 +543,31 @@ impl Display for Value {
 
 impl From<String> for Value {
     fn from(string: String) -> Self {
-        Value::String(string)
+        Value::Primitive(Primitive::String(string))
     }
 }
 
 impl From<&str> for Value {
     fn from(string: &str) -> Self {
-        Value::String(string.to_string())
+        Value::Primitive(Primitive::String(string.to_string()))
     }
 }
 
 impl From<f64> for Value {
     fn from(float: f64) -> Self {
-        Value::Float(float)
+        Value::Primitive(Primitive::Float(float))
     }
 }
 
 impl From<i64> for Value {
     fn from(int: i64) -> Self {
-        Value::Integer(int)
+        Value::Primitive(Primitive::Integer(int))
     }
 }
 
 impl From<bool> for Value {
     fn from(boolean: bool) -> Self {
-        Value::Boolean(boolean)
+        Value::Primitive(Primitive::Boolean(boolean))
     }
 }
 
@@ -583,7 +585,7 @@ impl From<Value> for Result<Value> {
 
 impl From<()> for Value {
     fn from(_: ()) -> Self {
-        Value::Empty
+        Value::Primitive(Primitive::Empty)
     }
 }
 
@@ -594,11 +596,11 @@ impl TryFrom<JsonValue> for Value {
         use JsonValue::*;
 
         match json_value {
-            Null => Ok(Value::Empty),
-            Short(short) => Ok(Value::String(short.to_string())),
-            String(string) => Ok(Value::String(string)),
-            Number(number) => Ok(Value::Float(f64::from(number))),
-            Boolean(boolean) => Ok(Value::Boolean(boolean)),
+            Null => Ok(Value::Primitive(Primitive::Empty)),
+            Short(short) => Ok(Value::Primitive(Primitive::String(short.to_string()))),
+            String(string) => Ok(Value::Primitive(Primitive::String(string))),
+            Number(number) => Ok(Value::Primitive(Primitive::Float(f64::from(number)))),
+            Boolean(boolean) => Ok(Value::Primitive(Primitive::Boolean(boolean))),
             Object(object) => {
                 let mut map = VariableMap::new();
 
@@ -632,11 +634,11 @@ impl TryFrom<&JsonValue> for Value {
         use JsonValue::*;
 
         match json_value {
-            Null => Ok(Value::Empty),
-            Short(short) => Ok(Value::String(short.to_string())),
-            String(string) => Ok(Value::String(string.clone())),
-            Number(number) => Ok(Value::Float(f64::from(*number))),
-            Boolean(boolean) => Ok(Value::Boolean(*boolean)),
+            Null => Ok(Value::Primitive(Primitive::Empty)),
+            Short(short) => Ok(Value::Primitive(Primitive::String(short.to_string()))),
+            String(string) => Ok(Value::Primitive(Primitive::String(string.clone()))),
+            Number(number) => Ok(Value::Primitive(Primitive::Float(f64::from(*number)))),
+            Boolean(boolean) => Ok(Value::Primitive(Primitive::Boolean(*boolean))),
             Object(object) => {
                 let mut map = VariableMap::new();
 
@@ -667,7 +669,7 @@ impl TryFrom<Value> for String {
     type Error = Error;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        if let Value::String(value) = value {
+        if let Value::Primitive(Primitive::String(value)) = value {
             Ok(value)
         } else {
             Err(Error::ExpectedString { actual: value })
@@ -679,7 +681,7 @@ impl TryFrom<Value> for f64 {
     type Error = Error;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        if let Value::Float(value) = value {
+        if let Value::Primitive(Primitive::Float(value)) = value {
             Ok(value)
         } else {
             Err(Error::ExpectedFloat { actual: value })
@@ -691,7 +693,7 @@ impl TryFrom<Value> for i64 {
     type Error = Error;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        if let Value::Integer(value) = value {
+        if let Value::Primitive(Primitive::Integer(value)) = value {
             Ok(value)
         } else {
             Err(Error::ExpectedInt { actual: value })
@@ -703,7 +705,7 @@ impl TryFrom<Value> for bool {
     type Error = Error;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        if let Value::Boolean(value) = value {
+        if let Value::Primitive(Primitive::Boolean(value)) = value {
             Ok(value)
         } else {
             Err(Error::ExpectedBoolean { actual: value })
@@ -734,7 +736,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Boolean(v))
+        Ok(Value::Primitive(Primitive::Boolean(v)))
     }
 
     fn visit_i8<E>(self, v: i8) -> std::result::Result<Self::Value, E>
@@ -762,7 +764,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Integer(v))
+        Ok(Value::Primitive(Primitive::Integer(v)))
     }
 
     fn visit_i128<E>(self, v: i128) -> std::result::Result<Self::Value, E>
@@ -770,9 +772,9 @@ impl<'de> Visitor<'de> for ValueVisitor {
         E: serde::de::Error,
     {
         if v > i64::MAX as i128 {
-            Ok(Value::Integer(i64::MAX))
+            Ok(Value::Primitive(Primitive::Integer(i64::MAX)))
         } else {
-            Ok(Value::Integer(v as i64))
+            Ok(Value::Primitive(Primitive::Integer(v as i64)))
         }
     }
 
@@ -822,7 +824,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Float(v))
+        Ok(Value::Primitive(Primitive::Float(v)))
     }
 
     fn visit_char<E>(self, v: char) -> std::result::Result<Self::Value, E>
@@ -836,7 +838,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::String(v.to_string()))
+        Ok(Value::Primitive(Primitive::String(v.to_string())))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> std::result::Result<Self::Value, E>
@@ -850,7 +852,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::String(v))
+        Ok(Value::Primitive(Primitive::String(v)))
     }
 
     fn visit_bytes<E>(self, v: &[u8]) -> std::result::Result<Self::Value, E>

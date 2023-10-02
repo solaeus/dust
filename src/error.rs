@@ -3,7 +3,7 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the MacroFailure variant if the error can only occur inside a macro.
 
-use crate::{value::value_type::ValueType, value::Value, ToolInfo};
+use crate::{value::value_type::ValueType, value::Value, Primitive};
 
 use std::{fmt, io, time::SystemTimeError};
 
@@ -22,12 +22,6 @@ pub enum Error {
 
     ExpectedChildNode {
         empty_node_sexp: String,
-    },
-
-    /// Dust's internal type checking failed to identify a type mismatch. This should never happen,      /// the error prompts the user to report the bug.
-    TypeCheckFailure {
-        tool_info: ToolInfo<'static>,
-        argument: Value,
     },
 
     /// The 'assert' macro did not resolve successfully.
@@ -138,14 +132,6 @@ pub enum Error {
     TypeError {
         /// The expected types.
         expected: &'static [ValueType],
-        /// The actual value.
-        actual: Value,
-    },
-
-    /// A macro or function was called with the wrong type of input.
-    MacroArgumentType {
-        /// The macro that was called.
-        macro_info: ToolInfo<'static>,
         /// The actual value.
         actual: Value,
     },
@@ -396,16 +382,10 @@ impl Error {
 /// Returns `Ok(())` if the given value is a string or a numeric.
 pub fn expect_number_or_string(actual: &Value) -> Result<()> {
     match actual {
-        Value::String(_) | Value::Float(_) | Value::Integer(_) => Ok(()),
+        Value::Primitive(Primitive::String(_))
+        | Value::Primitive(Primitive::Float(_))
+        | Value::Primitive(Primitive::Integer(_)) => Ok(()),
         _ => Err(Error::expected_number_or_string(actual.clone())),
-    }
-}
-
-/// Returns `Ok(())` if the given value is a String, List, Map or Table.
-pub fn _expect_collection(actual: &Value) -> Result<()> {
-    match actual {
-        Value::String(_) | Value::List(_) | Value::Map(_) | Value::Table(_) => Ok(()),
-        _ => Err(Error::expected_collection(actual.clone())),
     }
 }
 
@@ -416,9 +396,14 @@ impl fmt::Display for Error {
         use Error::*;
 
         match self {
-            TypeCheckFailure { tool_info, argument } => write!(f, "Type check failure. This is a bug with the tool or with Dust's internal type checking. Please report this bug and include this error message.\nToolInfo = {tool_info:?}\nargument = {argument}"),
-            AssertEqualFailed {expected, actual } => write!(f, "Equality assertion failed. {expected} does not equal {actual}."),
-            AssertFailed => write!(f, "Assertion failed. A false value was passed to \"assert\"."),
+            AssertEqualFailed { expected, actual } => write!(
+                f,
+                "Equality assertion failed. {expected} does not equal {actual}."
+            ),
+            AssertFailed => write!(
+                f,
+                "Assertion failed. A false value was passed to \"assert\"."
+            ),
             ExpectedOperatorArgumentAmount { expected, actual } => write!(
                 f,
                 "An operator expected {} arguments, but got {}.",
@@ -543,20 +528,25 @@ impl fmt::Display for Error {
                 f,
                 "Wrong number of columns for this table. Expected {expected}, found {actual}."
             ),
-            MacroArgumentType {
-                macro_info,
+            UnexpectedSyntax {
+                expected,
                 actual,
+                location,
             } => write!(
                 f,
-                "Wrong argument of type {:?} was passed to {}. Expected one of the following types: {:?}.",
-                actual.value_type(),
-                macro_info.identifier,
-                macro_info.inputs
+                "Unexpected syntax at {location}. Expected {expected}, but found {actual}."
             ),
-            UnexpectedSyntax { expected, actual, location } => write!(f, "Unexpected syntax at {location}. Expected {expected}, but found {actual}."),
-            ExpectedFieldName => write!(f, "Expected a field name for this node, but none was found."),
-            WrongTypeCombination { expected, actual } => write!(f, "Wrong type combination. Expected {expected}, found {actual}."),
-            ExpectedChildNode { empty_node_sexp } => write!(f, "Expected this node to have a child, {empty_node_sexp}."),
+            ExpectedFieldName => write!(
+                f,
+                "Expected a field name for this node, but none was found."
+            ),
+            WrongTypeCombination { expected, actual } => write!(
+                f,
+                "Wrong type combination. Expected {expected}, found {actual}."
+            ),
+            ExpectedChildNode { empty_node_sexp } => {
+                write!(f, "Expected this node to have a child, {empty_node_sexp}.")
+            }
         }
     }
 }

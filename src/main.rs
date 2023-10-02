@@ -11,7 +11,7 @@ use rustyline::{
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lib::{eval, eval_with_context, Value, VariableMap, TOOL_LIST};
+use dust_lib::{eval, eval_with_context, Primitive, Value, VariableMap};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -39,7 +39,7 @@ fn main() {
     } else if let Some(command) = args.command {
         eval(&command)
     } else {
-        vec![Ok(Value::Empty)]
+        vec![Ok(Value::Primitive(Primitive::Empty))]
     };
 
     for result in eval_results {
@@ -66,13 +66,7 @@ impl DustReadline {
         Self {
             completer: FilenameCompleter::new(),
             _hinter: HistoryHinter {},
-            tool_hints: TOOL_LIST
-                .iter()
-                .map(|tool| ToolHint {
-                    display: tool.info().identifier.to_string() + "()",
-                    complete_to: tool.info().identifier.len(),
-                })
-                .collect(),
+            tool_hints: Vec::new(),
         }
     }
 }
