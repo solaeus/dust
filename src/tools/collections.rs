@@ -57,7 +57,7 @@ impl Tool for Transform {
         for value in list {
             let mut context = VariableMap::new();
 
-            context.set_value("input", value.clone())?;
+            context.set_value("input".to_string(), value.clone())?;
 
             let mapped_value = function.run_with_context(&mut context)?;
 
@@ -321,7 +321,7 @@ impl Tool for Select {
 
             for (key, value) in map.inner() {
                 if column_names.contains(key) {
-                    selected.set_value(key, value.clone())?;
+                    selected.set_value(key.to_string(), value.clone())?;
                 }
             }
 
@@ -402,7 +402,7 @@ impl Tool for Where {
             for (column_index, cell) in row.iter().enumerate() {
                 let column_name = table.column_names().get(column_index).unwrap();
 
-                context.set_value(column_name, cell.clone())?;
+                context.set_value(column_name.to_string(), cell.clone())?;
             }
             let keep_row = function.run_with_context(&mut context)?.as_boolean()?;
 

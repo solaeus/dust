@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::{Node, Parser, Tree as TSTree};
+use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
 
 use crate::{language, Error, Result, Value, VariableMap};
 
@@ -63,7 +63,7 @@ pub trait EvaluatorTree: Sized {
     ///
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
-    fn new(node: Node, source: &str) -> Result<Self>;
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self>;
 
     /// Execute dust code by traversing the tree
     fn run(&self, context: &mut VariableMap) -> Result<Value>;
@@ -99,17 +99,20 @@ impl<'context, 'code> Evaluator<'context, 'code> {
     }
 
     fn run(self) -> Vec<Result<Value>> {
-        let mut cursor = self.tree.walk();
-        let node = cursor.node();
+        let mut cursor_0 = self.tree.walk();
+        let mut cursor_1 = self.tree.walk();
+        let node = cursor_0.node();
         let item_count = node.child_count();
         let mut results = Vec::with_capacity(item_count);
 
         println!("{}", node.to_sexp());
 
-        assert_eq!(cursor.node().kind(), "root");
+        assert_eq!(cursor_0.node().kind(), "root");
 
-        for item_node in node.children(&mut cursor) {
-            let item_result = Item::new(item_node, self.source);
+        cursor_1.goto_first_child();
+
+        for item_node in node.named_children(&mut cursor_0) {
+            let item_result = Item::new(self.source, &mut cursor_1);
 
             match item_result {
                 Ok(item) => {
@@ -137,10 +140,12 @@ pub enum Item {
 }
 
 impl EvaluatorTree for Item {
-    fn new(node: Node, source: &str) -> Result<Self> {
-        assert_eq!(node.kind(), "item");
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+        cursor.goto_first_child();
+        let child = cursor.node();
 
-        let child = node.child(0).unwrap();
+        assert_eq!(node.kind(), "item");
 
         if child.kind() == "comment" {
             let byte_range = child.byte_range();
@@ -148,7 +153,7 @@ impl EvaluatorTree for Item {
 
             Ok(Item::Comment(comment_text.to_string()))
         } else if child.kind() == "statement" {
-            Ok(Item::Statement(Statement::new(child, source)?))
+            Ok(Item::Statement(Statement::new(source, cursor)?))
         } else {
             Err(Error::UnexpectedSyntax {
                 expected: "comment or statement",
@@ -177,12 +182,15 @@ pub enum Statement {
 }
 
 impl EvaluatorTree for Statement {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+        cursor.goto_first_child();
+        let child = cursor.node();
+
         assert_eq!(node.kind(), "statement");
-        let child = node.child(0).unwrap();
 
         match child.kind() {
-            "expression" => Ok(Self::Expression(Expression::new(child, source)?)),
+            "expression" => Ok(Self::Expression(Expression::new(source, cursor)?)),
             _ => Err(Error::UnexpectedSyntax {
                 expected: "expression",
                 actual: child.kind(),
@@ -209,17 +217,20 @@ pub enum Expression {
 }
 
 impl EvaluatorTree for Expression {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+        cursor.goto_first_child();
+        let child = cursor.node();
+
         assert_eq!(node.kind(), "expression");
 
-        let child = node.child(0).unwrap();
         let expression = match child.kind() {
-            "identifier" => Self::Identifier(Identifier::new(child, source)?),
-            "value" => Expression::Value(Value::new(child, source)?),
-            "control_flow" => Expression::ControlFlow(Box::new(ControlFlow::new(child, source)?)),
-            "assignment" => Expression::Assignment(Box::new(Assignment::new(child, source)?)),
-            "math" => Expression::Math(Box::new(Math::new(child, source)?)),
-            "function_call" => Expression::FunctionCall(FunctionCall::new(child, source)?),
+            "identifier" => Self::Identifier(Identifier::new(source, cursor)?),
+            "value" => Expression::Value(Value::new(source, cursor)?),
+            "control_flow" => Expression::ControlFlow(Box::new(ControlFlow::new(source, cursor)?)),
+            "assignment" => Expression::Assignment(Box::new(Assignment::new(source, cursor)?)),
+            "math" => Expression::Math(Box::new(Math::new(source, cursor)?)),
+            "function_call" => Expression::FunctionCall(FunctionCall::new(source, cursor)?),
             _ => return Err(Error::UnexpectedSyntax {
                 expected:
                     "identifier, operation, control_flow, assignment, math, function_call or value",
@@ -257,7 +268,9 @@ impl Identifier {
 }
 
 impl EvaluatorTree for Identifier {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+
         assert_eq!(node.kind(), "identifier");
 
         let identifier = &source[node.byte_range()];
@@ -280,23 +293,31 @@ pub struct ControlFlow {
 }
 
 impl EvaluatorTree for ControlFlow {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+        cursor.goto_first_child();
+        let child = cursor.node();
+
         assert_eq!(node.kind(), "control_flow");
 
         // Skip the child nodes for the keywords "if", "then" and "else".
-        let if_expression_node = node.child(1).unwrap();
-        let then_statement_node = node.child(3).unwrap();
-        let else_statement_node = node.child(5);
+        let if_expression_node = child.next_named_sibling().unwrap();
+        let if_expression = Expression::new(source, cursor)?;
+
+        let then_statement_node = node.next_named_sibling().unwrap();
+        let then_statement = Statement::new(source, cursor)?;
+
+        let else_statement_node = node.next_named_sibling();
 
         let else_statement = if let Some(child) = else_statement_node {
-            Some(Statement::new(child, source)?)
+            Some(Statement::new(source, cursor)?)
         } else {
             None
         };
 
         Ok(ControlFlow {
-            if_expression: Expression::new(if_expression_node, source)?,
-            then_statement: Statement::new(then_statement_node, source)?,
+            if_expression,
+            then_statement,
             else_statement,
         })
     }
@@ -321,22 +342,30 @@ pub struct Assignment {
 }
 
 impl EvaluatorTree for Assignment {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+        cursor.goto_first_child();
         assert_eq!(node.kind(), "assignment");
 
-        let identifier_node = node.child(0).unwrap();
-        let statement_node = node.child(2).unwrap();
+        cursor.goto_next_sibling();
+        let identifier = Identifier::new(source, cursor)?;
+
+        cursor.goto_next_sibling();
+        let statement = Statement::new(source, cursor)?;
+
+        cursor.goto_next_sibling();
 
         Ok(Assignment {
-            identifier: Identifier::new(identifier_node, source)?,
-            statement: Statement::new(statement_node, source)?,
+            identifier,
+            statement,
         })
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
+        let key = self.identifier.clone().take_inner();
         let value = self.statement.run(context)?;
 
-        context.set_value(self.identifier.inner(), value)?;
+        context.set_value(key, value)?;
 
         Ok(Value::Empty)
     }
@@ -350,12 +379,15 @@ pub struct Math {
 }
 
 impl EvaluatorTree for Math {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
         assert_eq!(node.kind(), "math");
 
-        let left_node = node.child(0).unwrap();
-        let operator_node = node.child(1).unwrap().child(0).unwrap();
-        let right_node = node.child(2).unwrap();
+        cursor.goto_first_child();
+        let left = Expression::new(source, cursor)?;
+
+        cursor.goto_next_sibling();
+        let operator_node = cursor.node();
         let operator = match operator_node.kind() {
             "+" => MathOperator::Add,
             "-" => MathOperator::Subtract,
@@ -371,10 +403,13 @@ impl EvaluatorTree for Math {
             }
         };
 
+        cursor.goto_next_sibling();
+        let right = Expression::new(source, cursor)?;
+
         Ok(Math {
-            left: Expression::new(left_node, source)?,
+            left,
             operator,
-            right: Expression::new(right_node, source)?,
+            right,
         })
     }
 
@@ -409,23 +444,25 @@ pub struct FunctionCall {
 }
 
 impl EvaluatorTree for FunctionCall {
-    fn new(node: Node, source: &str) -> Result<Self> {
+    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
         assert_eq!(node.kind(), "function_call");
 
-        let identifier_node = node.child(0).unwrap();
+        cursor.goto_first_child();
+        let identifier = Identifier::new(source, cursor)?;
+
         let mut expressions = Vec::new();
 
         for index in 2..node.child_count() - 1 {
-            let child = node.child(index).unwrap();
-            if child.kind() == "expression" {
-                let expression = Expression::new(node, source)?;
+            cursor.goto_next_sibling();
 
-                expressions.push(expression);
-            }
+            let expression = Expression::new(source, cursor)?;
+
+            expressions.push(expression);
         }
 
         Ok(FunctionCall {
-            identifier: Identifier::new(identifier_node, source)?,
+            identifier,
             expressions,
         })
     }
@@ -504,8 +541,8 @@ mod tests {
     fn evaluate_map() {
         let mut map = VariableMap::new();
 
-        map.set_value("x", Value::Integer(1)).unwrap();
-        map.set_value("foo", Value::String("bar".to_string()))
+        map.set_value("x".to_string(), Value::Integer(1)).unwrap();
+        map.set_value("foo".to_string(), Value::String("bar".to_string()))
             .unwrap();
 
         assert_eq!(eval("map { x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);

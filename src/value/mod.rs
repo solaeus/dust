@@ -10,14 +10,14 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
-use tree_sitter::Node;
+use tree_sitter::{Node, TreeCursor};
 
 use std::{
     cmp::Ordering,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, Sub},
+    ops::{Add, Range, Sub},
 };
 
 pub mod function;
@@ -48,129 +48,79 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn new(node: Node, source: &str) -> Result<Self> {
-        assert!(
-            node.kind() == "value" || node.kind() == "list",
-            "{}",
-            node.kind()
-        );
+    pub fn new(source: &str, mut cursor: &mut TreeCursor) -> Result<Self> {
+        let node = cursor.node();
+        cursor.goto_first_child();
+        let child = cursor.node();
 
-        let child = node.child(0).unwrap();
-        let value_snippet = &source[node.byte_range()];
+        assert_eq!(node.kind(), "value");
 
         match child.kind() {
-            "integer" => {
-                let raw = value_snippet.parse::<i64>().unwrap_or_default();
-
-                Ok(Value::Integer(raw))
-            }
-            "string" => {
-                let quote_str = &value_snippet.chars().nth(0).unwrap();
-                let without_quotes = value_snippet.trim_matches(*quote_str);
-
-                Ok(Value::String(without_quotes.to_string()))
-            }
-            "boolean" => {
-                let raw = value_snippet.parse::<bool>().unwrap_or_default();
-
-                Ok(Value::Boolean(raw))
-            }
-            "float" => {
-                let raw = value_snippet.parse::<f64>().unwrap_or_default();
-
-                Ok(Value::Float(raw))
+            "integer" | "float" | "boolean" | "string" | "empty" => {
+                Value::from_syntax_node(child, source)
             }
             "list" => {
-                let grandchild_count = child.child_count();
-                let mut values = Vec::with_capacity(grandchild_count);
+                let list_length = child.named_child_count();
+                let mut values = Vec::with_capacity(list_length);
 
-                let mut previous_grandchild = child.child(0).unwrap();
+                cursor.goto_first_child();
 
-                for _ in 0..grandchild_count {
-                    if let Some(current_node) = previous_grandchild.next_sibling() {
-                        if current_node.kind() == "value" {
-                            let value = Value::new(current_node, source)?;
+                for value_node in child.children_by_field_name("item", &mut cursor) {
+                    let value = Value::from_syntax_node(value_node.child(0).unwrap(), source)?;
 
-                            values.push(value);
-                        }
-                        previous_grandchild = current_node
-                    }
+                    values.push(value);
                 }
 
                 Ok(Value::List(values))
             }
             "table" => {
-                let child_count = node.child_count();
                 let mut column_names = Vec::new();
-                let mut rows = Vec::new();
-
-                // Skip the first and last nodes because they are pointy braces.
-                for index in 0..child_count {
-                    let child = node.child(index).unwrap();
-
-                    if child.kind() == "identifier" {
-                        let identifier = Identifier::new(child, source)?;
-
-                        column_names.push(identifier.take_inner())
-                    }
-
-                    if child.kind() == "list" {
-                        let child_value = Value::new(node, source)?;
-
-                        if let Value::List(row) = child_value {
-                            rows.push(row);
-                        }
-                    }
-                }
 
                 let mut table = Table::new(column_names);
-                table.reserve(rows.len());
-
-                for row in rows {
-                    table.insert(row)?;
-                }
 
                 Ok(Value::Table(table))
             }
             "map" => {
-                let child_count = node.child_count();
+                let grandchild_count = child.child_count();
                 let mut map = VariableMap::new();
+
+                let mut previous_grandchild = child.child(0).unwrap();
                 let mut key = String::new();
 
-                for index in 0..child_count {
-                    let child = node.child(index).unwrap();
+                for _ in 0..grandchild_count {
+                    if let Some(current_node) = previous_grandchild.next_sibling() {
+                        if current_node.kind() == "identifier" {
+                            key = Identifier::new(source, cursor)?.take_inner();
+                        }
 
-                    if child.kind() == "identifier" {
-                        let identifier = Identifier::new(child, source)?;
+                        if current_node.kind() == "value" {
+                            let value = Value::new(source, cursor)?;
 
-                        key = identifier.take_inner()
-                    }
+                            map.set_value(key.clone(), value)?;
+                        }
 
-                    if child.kind() == "value" {
-                        let value = Value::new(child, source)?;
-
-                        map.set_value(key.as_str(), value)?;
+                        previous_grandchild = current_node
                     }
                 }
 
                 Ok(Value::Map(map))
             }
             "function" => {
-                let child_count = node.child_count();
+                let child_count = child.child_count();
                 let mut identifiers = Vec::new();
                 let mut statements = Vec::new();
 
                 for index in 0..child_count {
-                    let child = node.child(index).unwrap();
+                    let child = child.child(index).unwrap();
 
                     if child.kind() == "identifier" {
-                        let identifier = Identifier::new(child, source)?;
+                        let identifier = Identifier::new(source, cursor)?;
 
                         identifiers.push(identifier)
                     }
 
                     if child.kind() == "statement" {
-                        let statement = Statement::new(child, source)?;
+                        let statement = Statement::new(source, cursor)?;
 
                         statements.push(statement)
                     }
@@ -178,13 +128,56 @@ impl Value {
 
                 Ok(Value::Function(Function::new(identifiers, statements)))
             }
-            "empty" => Ok(Value::Empty),
             _ => Err(Error::UnexpectedSyntax {
-                expected: "integer, string, boolean, float, list, table, function or empty",
+                expected: "integer, float, boolean, string list, table, map, function or empty",
                 actual: child.kind(),
                 location: child.start_position(),
             }),
         }
+    }
+
+    pub fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        match node.kind() {
+            "integer" => Value::integer_from_source(source, node.byte_range()),
+            "float" => Value::integer_from_source(source, node.byte_range()),
+            "boolean" => Value::integer_from_source(source, node.byte_range()),
+            "string" => Value::integer_from_source(source, node.byte_range()),
+            "empty" => Ok(Value::Empty),
+            _ => Err(Error::UnexpectedSyntax {
+                expected: "integer, float, boolean, string or empty",
+                actual: node.kind(),
+                location: node.start_position(),
+            }),
+        }
+    }
+
+    pub fn integer_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let raw = value_snippet.parse::<i64>().unwrap_or_default();
+
+        Ok(Value::Integer(raw))
+    }
+
+    pub fn float_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let raw = value_snippet.parse::<f64>().unwrap_or_default();
+
+        Ok(Value::Float(raw))
+    }
+
+    pub fn boolean_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let raw = value_snippet.parse::<bool>().unwrap_or_default();
+
+        Ok(Value::Boolean(raw))
+    }
+
+    pub fn string_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let quote_str = &value_snippet.chars().nth(0).unwrap();
+        let without_quotes = value_snippet.trim_matches(*quote_str);
+
+        Ok(Value::String(without_quotes.to_string()))
     }
 
     pub fn value_type(&self) -> ValueType {
@@ -612,7 +605,7 @@ impl TryFrom<JsonValue> for Value {
                 for (key, node_value) in object.iter() {
                     let value = Value::try_from(node_value)?;
 
-                    map.set_value(key, value)?;
+                    map.set_value(key.to_string(), value)?;
                 }
 
                 Ok(Value::Map(map))
@@ -650,7 +643,7 @@ impl TryFrom<&JsonValue> for Value {
                 for (key, node_value) in object.iter() {
                     let value = Value::try_from(node_value)?;
 
-                    map.set_value(key, value)?;
+                    map.set_value(key.to_string(), value)?;
                 }
 
                 Ok(Value::Map(map))

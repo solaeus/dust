@@ -49,7 +49,7 @@ impl VariableMap {
                 if let Ok(function) = value.as_function() {
                     let mut context = self.clone();
 
-                    context.set_value("input", argument.clone())?;
+                    context.set_value("input".to_string(), argument.clone())?;
 
                     return function.run_with_context(&mut context);
                 }
@@ -95,8 +95,8 @@ impl VariableMap {
 
     /// Assigns a variable with a Value and the identifier as its key, allowing dot notation to
     /// assign nested lists and maps. Returns an error if a List or Map is indexed incorrectly.
-    pub fn set_value(&mut self, identifier: &str, value: Value) -> Result<()> {
-        let split = identifier.split_once('.');
+    pub fn set_value(&mut self, key: String, value: Value) -> Result<()> {
+        let split = key.split_once('.');
 
         if let Some((identifier, next_identifier)) = split {
             let get_value = self.variables.get_mut(identifier);
@@ -121,7 +121,7 @@ impl VariableMap {
 
                     Ok(())
                 } else if let Value::Map(map) = found_value {
-                    map.set_value(next_identifier, value)
+                    map.set_value(next_identifier.to_string(), value)
                 } else {
                     Err(Error::ExpectedMap {
                         actual: found_value.clone(),
@@ -130,7 +130,7 @@ impl VariableMap {
             } else {
                 let mut new_map = VariableMap::new();
 
-                new_map.set_value(next_identifier, value)?;
+                new_map.set_value(next_identifier.to_string(), value)?;
 
                 self.variables
                     .insert(identifier.to_string(), Value::Map(new_map));
@@ -138,7 +138,7 @@ impl VariableMap {
                 Ok(())
             }
         } else {
-            self.variables.insert(identifier.to_string(), value);
+            self.variables.insert(key.to_string(), value);
 
             Ok(())
         }
@@ -177,7 +177,7 @@ impl From<&Table> for VariableMap {
         let mut map = VariableMap::new();
 
         for (row_index, row) in value.rows().iter().enumerate() {
-            map.set_value(&row_index.to_string(), Value::List(row.clone()))
+            map.set_value(row_index.to_string(), Value::List(row.clone()))
                 .unwrap();
         }
 
@@ -193,7 +193,7 @@ mod tests {
     fn get_and_set_simple_value() {
         let mut map = VariableMap::new();
 
-        map.set_value("x", Value::Integer(1)).unwrap();
+        map.set_value("x".to_string(), Value::Integer(1)).unwrap();
 
         assert_eq!(Value::Integer(1), map.get_value("x").unwrap().unwrap());
     }
@@ -202,12 +202,13 @@ mod tests {
     fn get_and_set_nested_maps() {
         let mut map = VariableMap::new();
 
-        map.set_value("x", Value::Map(VariableMap::new())).unwrap();
-        map.set_value("x.x", Value::Map(VariableMap::new()))
+        map.set_value("x".to_string(), Value::Map(VariableMap::new()))
             .unwrap();
-        map.set_value("x.x.x", Value::Map(VariableMap::new()))
+        map.set_value("x.x".to_string(), Value::Map(VariableMap::new()))
             .unwrap();
-        map.set_value("x.x.x.x", Value::Map(VariableMap::new()))
+        map.set_value("x.x.x".to_string(), Value::Map(VariableMap::new()))
+            .unwrap();
+        map.set_value("x.x.x.x".to_string(), Value::Map(VariableMap::new()))
             .unwrap();
 
         assert_eq!(
