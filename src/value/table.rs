@@ -8,16 +8,32 @@ use std::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Table {
-    header: Vec<String>,
+    headers: Vec<String>,
     rows: Vec<Vec<Value>>,
     primary_key_index: usize,
 }
 
 impl Table {
-    pub fn new(column_names: Vec<String>) -> Self {
+    pub fn new(headers: Vec<String>) -> Self {
         Table {
-            header: column_names,
+            headers,
             rows: Vec::new(),
+            primary_key_index: 0,
+        }
+    }
+
+    pub fn with_capacity(capacity: usize, headers: Vec<String>) -> Self {
+        Table {
+            headers,
+            rows: Vec::with_capacity(capacity),
+            primary_key_index: 0,
+        }
+    }
+
+    pub fn from_raw_parts(headers: Vec<String>, rows: Vec<Vec<Value>>) -> Self {
+        Table {
+            headers,
+            rows,
             primary_key_index: 0,
         }
     }
@@ -27,7 +43,7 @@ impl Table {
     }
 
     pub fn column_names(&self) -> &Vec<String> {
-        &self.header
+        &self.headers
     }
 
     pub fn rows(&self) -> &Vec<Vec<Value>> {
@@ -47,9 +63,9 @@ impl Table {
     }
 
     pub fn insert(&mut self, row: Vec<Value>) -> Result<()> {
-        if row.len() != self.header.len() {
+        if row.len() != self.headers.len() {
             return Err(Error::WrongColumnAmount {
-                expected: self.header.len(),
+                expected: self.headers.len(),
                 actual: row.len(),
             });
         }
@@ -82,10 +98,10 @@ impl Table {
             let mut new_row = Vec::new();
 
             for (i, value) in row.iter().enumerate() {
-                let column_name = self.header.get(i).unwrap();
+                let column_name = self.headers.get(i).unwrap();
                 let new_table_column_index =
                     new_table
-                        .header
+                        .headers
                         .iter()
                         .enumerate()
                         .find_map(|(index, new_column_name)| {
@@ -125,7 +141,7 @@ impl Table {
     }
 
     pub fn filter(&self, column_name: &str, expected: &Value) -> Option<Table> {
-        let mut filtered = Table::new(self.header.clone());
+        let mut filtered = Table::new(self.headers.clone());
         let column_index = self.get_column_index(column_name)?;
 
         for row in &self.rows {
@@ -140,7 +156,7 @@ impl Table {
     }
 
     pub fn get_column_index(&self, column_name: &str) -> Option<usize> {
-        let column_names = &self.header;
+        let column_names = &self.headers;
         for (i, column) in column_names.iter().enumerate() {
             if column == column_name {
                 return Some(i);
@@ -157,7 +173,7 @@ impl Display for Table {
         table
             .load_preset("││──├─┼┤│    ┬┴╭╮╰╯")
             .set_content_arrangement(ContentArrangement::Dynamic)
-            .set_header(&self.header);
+            .set_header(&self.headers);
 
         for row in &self.rows {
             let row = row.iter().map(|value| {
@@ -209,7 +225,7 @@ impl Display for Table {
             table.add_row(row);
         }
 
-        if self.header.is_empty() {
+        if self.headers.is_empty() {
             table.set_header(["empty"]);
         }
 
@@ -360,7 +376,7 @@ impl Eq for Table {}
 
 impl PartialEq for Table {
     fn eq(&self, other: &Self) -> bool {
-        if self.header != other.header {
+        if self.headers != other.headers {
             return false;
         }
 
@@ -370,12 +386,12 @@ impl PartialEq for Table {
 
 impl PartialOrd for Table {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.header.partial_cmp(&other.header)
+        self.headers.partial_cmp(&other.headers)
     }
 }
 
 impl Ord for Table {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.header.cmp(&other.header)
+        self.headers.cmp(&other.headers)
     }
 }

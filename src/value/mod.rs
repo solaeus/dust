@@ -37,6 +37,50 @@ pub enum Primitive {
     Empty,
 }
 
+impl Primitive {
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        match node.kind() {
+            "integer" => Primitive::integer_from_source(source, node.byte_range()),
+            "float" => Primitive::float_from_source(source, node.byte_range()),
+            "boolean" => Primitive::boolean_from_source(source, node.byte_range()),
+            "string" => Primitive::string_from_source(source, node.byte_range()),
+            "empty" => Ok(Primitive::Empty),
+            _ => Err(Error::UnexpectedSyntax {
+                expected: "integer, float, boolean, string or empty",
+                actual: node.kind(),
+                location: node.start_position(),
+            }),
+        }
+    }
+    pub fn integer_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let raw = value_snippet.parse::<i64>().unwrap_or_default();
+
+        Ok(Primitive::Integer(raw))
+    }
+
+    pub fn float_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let raw = value_snippet.parse::<f64>().unwrap_or_default();
+
+        Ok(Primitive::Float(raw))
+    }
+
+    pub fn boolean_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let raw = value_snippet.parse::<bool>().unwrap_or_default();
+
+        Ok(Primitive::Boolean(raw))
+    }
+
+    pub fn string_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+        let value_snippet = &source[byte_range];
+        let without_quotes = &value_snippet[1..value_snippet.len() - 1];
+
+        Ok(Primitive::String(without_quotes.to_string()))
+    }
+}
+
 impl Eq for Primitive {}
 
 impl Ord for Primitive {
@@ -74,52 +118,89 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn from_source(source: &str, mut cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
-        cursor.goto_first_child();
-        let child = cursor.node();
+    pub fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        debug_assert_eq!(node.kind(), "value");
 
-        assert_eq!(node.kind(), "value");
+        let child = node.child(0).unwrap();
 
         match child.kind() {
-            "integer" | "float" | "boolean" | "string" | "empty" => {
-                Value::simple_from_syntax_node(node, source)
-            }
+            "integer" | "float" | "boolean" | "string" | "empty" => Ok(Value::Primitive(
+                Primitive::from_syntax_node(child, source)?,
+            )),
             "list" => {
-                let list_length = child.named_child_count();
-                let mut values = Vec::with_capacity(list_length);
+                let item_count = child.named_child_count();
+                let mut values = Vec::with_capacity(item_count);
+                let mut current_node = child.child(1).unwrap();
 
-                cursor.goto_first_child();
+                while values.len() < item_count {
+                    if current_node.is_named() {
+                        let value = Value::from_syntax_node(current_node, source)?;
 
-                for value_node in child.children_by_field_name("item", &mut cursor) {
-                    let value = Value::simple_from_syntax_node(value_node, source)?;
+                        values.push(value);
+                    }
 
-                    values.push(value);
+                    current_node = current_node.next_sibling().unwrap();
                 }
 
                 Ok(Value::List(values))
             }
             "table" => {
-                let mut column_names = Vec::new();
+                let mut current_node = child.child(0).unwrap();
+                let header_and_row_count = child.named_child_count();
 
-                let mut table = Table::new(column_names);
+                let mut headers = Vec::new();
+                let mut rows = Vec::new();
+
+                while headers.len() + rows.len() < header_and_row_count {
+                    println!("{current_node:?}");
+
+                    if current_node.kind() == "identifier" {
+                        let identifier = Identifier::from_syntax_node(current_node, source)?;
+                        let identifier_text = identifier.take_inner();
+
+                        headers.push(identifier_text);
+                    }
+
+                    if current_node.kind() == "list" {
+                        let value = Value::list_from_syntax_node(current_node, source)?;
+                        let row = value.into_inner_list()?;
+
+                        rows.push(row);
+                    }
+
+                    if let Some(node) = current_node.next_sibling() {
+                        current_node = node;
+                    } else {
+                        break;
+                    }
+                }
+
+                let table = Table::from_raw_parts(headers, rows);
 
                 Ok(Value::Table(table))
             }
             "map" => {
                 let mut map = VariableMap::new();
-
+                let pair_count = child.named_child_count();
                 let mut current_key = String::new();
+                let mut current_node = child.child(0).unwrap();
 
-                for key_value_node in child.children_by_field_name("key_value_pair", &mut cursor) {
-                    if key_value_node.kind() == "identifier" {
-                        let identifier_text = &source[key_value_node.byte_range()];
+                while map.len() < pair_count {
+                    if current_node.kind() == "identifier" {
+                        let identifier_text = &source[current_node.byte_range()];
                         current_key = identifier_text.to_string();
                     }
 
-                    if key_value_node.kind() == "value" {
-                        let value = Value::simple_from_syntax_node(key_value_node, source)?;
+                    if current_node.kind() == "value" {
+                        let value = Value::from_syntax_node(current_node, source)?;
+
                         map.set_value(current_key.to_string(), value)?;
+                    }
+
+                    if let Some(node) = current_node.next_sibling() {
+                        current_node = node;
+                    } else {
+                        break;
                     }
                 }
 
@@ -133,17 +214,17 @@ impl Value {
                 for index in 0..child_count {
                     let child = child.child(index).unwrap();
 
-                    if child.kind() == "identifier" {
-                        let identifier = Identifier::new(source, cursor)?;
+                    //                 if child.kind() == "identifier" {
+                    //                     let identifier = Identifier::new(source, cursor)?;
 
-                        identifiers.push(identifier)
-                    }
+                    //                     identifiers.push(identifier)
+                    //                 }
 
-                    if child.kind() == "statement" {
-                        let statement = Statement::new(source, cursor)?;
+                    //                 if child.kind() == "statement" {
+                    //                     let statement = Statement::new(source, cursor)?;
 
-                        statements.push(statement)
-                    }
+                    //                     statements.push(statement)
+                    //                 }
                 }
 
                 Ok(Value::Function(Function::new(identifiers, statements)))
@@ -156,56 +237,53 @@ impl Value {
         }
     }
 
-    /// Creates a simple value from the given source code and a node in the
-    /// syntax tree.
-    ///
-    ///
-    pub fn simple_from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        let child = node.child(0).unwrap();
+    pub fn list_from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        debug_assert_eq!(node.kind(), "list");
 
-        match child.kind() {
-            "integer" => Value::integer_from_source(source, child.byte_range()),
-            "float" => Value::float_from_source(source, child.byte_range()),
-            "boolean" => Value::boolean_from_source(source, child.byte_range()),
-            "string" => Value::string_from_source(source, child.byte_range()),
-            "empty" => Ok(Value::Primitive(Primitive::Empty)),
-            _ => Err(Error::UnexpectedSyntax {
-                expected: "integer, float, boolean, string or empty",
-                actual: child.kind(),
-                location: child.start_position(),
-            }),
+        let item_count = node.named_child_count();
+        let mut values = Vec::with_capacity(item_count);
+        let mut current_node = node.child(1).unwrap();
+
+        while values.len() < item_count {
+            if current_node.is_named() {
+                let value = Value::from_syntax_node(current_node, source)?;
+
+                values.push(value);
+            }
+
+            current_node = current_node.next_sibling().unwrap();
         }
+
+        Ok(Value::List(values))
     }
 
-    pub fn integer_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-        let value_snippet = &source[byte_range];
-        let raw = value_snippet.parse::<i64>().unwrap_or_default();
+    // pub fn integer_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+    //     let value_snippet = &source[byte_range];
+    //     let raw = value_snippet.parse::<i64>().unwrap_or_default();
 
-        Ok(Value::Primitive(Primitive::Integer(raw)))
-    }
+    //     Ok(Primitive::Integer(raw))
+    // }
 
-    pub fn float_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-        let value_snippet = &source[byte_range];
-        let raw = value_snippet.parse::<f64>().unwrap_or_default();
+    // pub fn float_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+    //     let value_snippet = &source[byte_range];
+    //     let raw = value_snippet.parse::<f64>().unwrap_or_default();
 
-        Ok(Value::Primitive(Primitive::Float(raw)))
-    }
+    //     Ok(Primitive::Float(raw))
+    // }
 
-    pub fn boolean_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-        let value_snippet = &source[byte_range];
-        let raw = value_snippet.parse::<bool>().unwrap_or_default();
+    // pub fn boolean_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+    //     let value_snippet = &source[byte_range];
+    //     let raw = value_snippet.parse::<bool>().unwrap_or_default();
 
-        Ok(Value::Primitive(Primitive::Boolean(raw)))
-    }
+    //     Ok(Primitive::Boolean(raw))
+    // }
 
-    pub fn string_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-        let value_snippet = &source[byte_range];
-        let without_quotes = &value_snippet[1..value_snippet.len() - 1];
+    // pub fn string_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
+    //     let value_snippet = &source[byte_range];
+    //     let without_quotes = &value_snippet[1..value_snippet.len() - 1];
 
-        Ok(Value::Primitive(Primitive::String(
-            without_quotes.to_string(),
-        )))
-    }
+    //     Ok(Primitive::String(without_quotes.to_string()))
+    // }
 
     pub fn value_type(&self) -> ValueType {
         ValueType::from(self)
@@ -532,7 +610,13 @@ impl Display for Value {
             Value::Primitive(Primitive::Integer(int)) => write!(f, "{}", int),
             Value::Primitive(Primitive::Boolean(boolean)) => write!(f, "{}", boolean),
             Value::Primitive(Primitive::Empty) => write!(f, "()"),
-            Value::List(list) => Table::from(list).fmt(f),
+            Value::List(list) => {
+                write!(f, "(")?;
+                for value in list {
+                    write!(f, " {value} ")?;
+                }
+                write!(f, ")")
+            }
             Value::Map(map) => write!(f, "{map}"),
             Value::Table(table) => write!(f, "{table}"),
             Value::Function(function) => write!(f, "{function}"),

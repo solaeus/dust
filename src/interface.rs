@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::{Parser, Tree as TSTree, TreeCursor};
+use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
 
 use crate::{language, Error, Primitive, Result, Value, VariableMap};
 
@@ -63,7 +63,7 @@ pub trait EvaluatorTree: Sized {
     ///
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self>;
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self>;
 
     /// Execute dust code by traversing the tree
     fn run(&self, context: &mut VariableMap) -> Result<Value>;
@@ -109,10 +109,8 @@ impl<'context, 'code> Evaluator<'context, 'code> {
 
         assert_eq!(cursor_0.node().kind(), "root");
 
-        cursor_1.goto_first_child();
-
-        for _ in node.children(&mut cursor_0) {
-            let item_result = Item::new(self.source, &mut cursor_1);
+        for item_node in node.children(&mut cursor_0) {
+            let item_result = Item::from_syntax_node(item_node, self.source);
 
             match item_result {
                 Ok(item) => {
@@ -140,12 +138,10 @@ pub enum Item {
 }
 
 impl EvaluatorTree for Item {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
-        cursor.goto_first_child();
-        let child = cursor.node();
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        debug_assert_eq!(node.kind(), "item");
 
-        assert_eq!(node.kind(), "item");
+        let child = node.child(0).unwrap();
 
         if child.kind() == "comment" {
             let byte_range = child.byte_range();
@@ -153,7 +149,7 @@ impl EvaluatorTree for Item {
 
             Ok(Item::Comment(comment_text.to_string()))
         } else if child.kind() == "statement" {
-            Ok(Item::Statement(Statement::new(source, cursor)?))
+            Ok(Item::Statement(Statement::from_syntax_node(child, source)?))
         } else {
             Err(Error::UnexpectedSyntax {
                 expected: "comment or statement",
@@ -182,12 +178,15 @@ pub enum Statement {
 }
 
 impl EvaluatorTree for Statement {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        cursor.goto_first_child();
-        let child = cursor.node();
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        debug_assert_eq!(node.kind(), "statement");
+
+        let child = node.child(0).unwrap();
 
         match child.kind() {
-            "expression" => Ok(Self::Expression(Expression::new(source, cursor)?)),
+            "expression" => Ok(Self::Expression(Expression::from_syntax_node(
+                child, source,
+            )?)),
             _ => Err(Error::UnexpectedSyntax {
                 expected: "expression",
                 actual: child.kind(),
@@ -214,20 +213,24 @@ pub enum Expression {
 }
 
 impl EvaluatorTree for Expression {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
-        cursor.goto_first_child();
-        let child = cursor.node();
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        debug_assert_eq!(node.kind(), "expression");
 
-        assert_eq!(node.kind(), "expression");
+        let child = node.child(0).unwrap();
 
         let expression = match child.kind() {
-            "identifier" => Self::Identifier(Identifier::new(source, cursor)?),
-            "value" => Expression::Value(Value::from_source(source, cursor)?),
-            "control_flow" => Expression::ControlFlow(Box::new(ControlFlow::new(source, cursor)?)),
-            "assignment" => Expression::Assignment(Box::new(Assignment::new(source, cursor)?)),
-            "math" => Expression::Math(Box::new(Math::new(source, cursor)?)),
-            "function_call" => Expression::FunctionCall(FunctionCall::new(source, cursor)?),
+            "identifier" => Self::Identifier(Identifier::from_syntax_node(child, source)?),
+            "value" => Expression::Value(Value::from_syntax_node(child, source)?),
+            "control_flow" => {
+                Expression::ControlFlow(Box::new(ControlFlow::from_syntax_node(child, source)?))
+            }
+            "assignment" => {
+                Expression::Assignment(Box::new(Assignment::from_syntax_node(child, source)?))
+            }
+            "math" => Expression::Math(Box::new(Math::from_syntax_node(child, source)?)),
+            "function_call" => {
+                Expression::FunctionCall(FunctionCall::from_syntax_node(child, source)?)
+            }
             _ => return Err(Error::UnexpectedSyntax {
                 expected:
                     "identifier, operation, control_flow, assignment, math, function_call or value",
@@ -265,9 +268,7 @@ impl Identifier {
 }
 
 impl EvaluatorTree for Identifier {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
-
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         assert_eq!(node.kind(), "identifier");
 
         let identifier = &source[node.byte_range()];
@@ -290,35 +291,26 @@ pub struct ControlFlow {
 }
 
 impl EvaluatorTree for ControlFlow {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         assert_eq!(node.kind(), "control_flow");
 
-        println!("{node:?}");
-
-        // Skip the child nodes for the keywords "if", "then" and "else".
-
         let if_node = node.child_by_field_name("if_expression").unwrap();
-
-        cursor.reset(if_node);
-
-        let if_expression = Expression::new(source, cursor)?;
-
-        println!("{:?}", cursor.node());
+        let if_expression = Expression::from_syntax_node(if_node, source)?;
 
         let then_node = node.child_by_field_name("then_statement").unwrap();
+        let then_statement = Statement::from_syntax_node(then_node, source)?;
 
-        cursor.reset(then_node);
-
-        let position = cursor.node();
-        let then_statement = Statement::new(source, cursor)?;
-
-        cursor.reset(position);
+        let else_node = node.child_by_field_name("else_statement");
+        let else_statement = if let Some(node) = else_node {
+            Some(Statement::from_syntax_node(node, source)?)
+        } else {
+            None
+        };
 
         Ok(ControlFlow {
             if_expression,
             then_statement,
-            else_statement: None,
+            else_statement,
         })
     }
 
@@ -342,18 +334,14 @@ pub struct Assignment {
 }
 
 impl EvaluatorTree for Assignment {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
-        cursor.goto_first_child();
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         assert_eq!(node.kind(), "assignment");
 
-        cursor.goto_next_sibling();
-        let identifier = Identifier::new(source, cursor)?;
+        let identifier_node = node.child(0).unwrap();
+        let identifier = Identifier::from_syntax_node(identifier_node, source)?;
 
-        cursor.goto_next_sibling();
-        let statement = Statement::new(source, cursor)?;
-
-        cursor.goto_next_sibling();
+        let statement_node = node.child(2).unwrap();
+        let statement = Statement::from_syntax_node(statement_node, source)?;
 
         Ok(Assignment {
             identifier,
@@ -379,15 +367,13 @@ pub struct Math {
 }
 
 impl EvaluatorTree for Math {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         assert_eq!(node.kind(), "math");
 
-        cursor.goto_first_child();
-        let left = Expression::new(source, cursor)?;
+        let left_node = node.child(0).unwrap();
+        let left = Expression::from_syntax_node(left_node, source)?;
 
-        cursor.goto_next_sibling();
-        let operator_node = cursor.node();
+        let operator_node = left_node.next_sibling().unwrap();
         let operator = match operator_node.kind() {
             "+" => MathOperator::Add,
             "-" => MathOperator::Subtract,
@@ -403,8 +389,8 @@ impl EvaluatorTree for Math {
             }
         };
 
-        cursor.goto_next_sibling();
-        let right = Expression::new(source, cursor)?;
+        let right_node = operator_node.next_sibling().unwrap();
+        let right = Expression::from_syntax_node(right_node, source)?;
 
         Ok(Math {
             left,
@@ -444,22 +430,15 @@ pub struct FunctionCall {
 }
 
 impl EvaluatorTree for FunctionCall {
-    fn new(source: &str, cursor: &mut TreeCursor) -> Result<Self> {
-        let node = cursor.node();
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         assert_eq!(node.kind(), "function_call");
 
-        cursor.goto_first_child();
-        let identifier = Identifier::new(source, cursor)?;
+        let identifier_node = node.child(0).unwrap();
+        let identifier = Identifier::from_syntax_node(identifier_node, source)?;
 
         let mut expressions = Vec::new();
 
-        for index in 2..node.child_count() - 1 {
-            cursor.goto_next_sibling();
-
-            let expression = Expression::new(source, cursor)?;
-
-            expressions.push(expression);
-        }
+        todo!();
 
         Ok(FunctionCall {
             identifier,
