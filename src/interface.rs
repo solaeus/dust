@@ -521,7 +521,7 @@ mod tests {
         map.set_value("foo".to_string(), Value::String("bar".to_string()))
             .unwrap();
 
-        assert_eq!(eval("map { x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);
+        assert_eq!(eval("{ x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);
     }
 
     #[test]

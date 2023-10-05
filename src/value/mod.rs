@@ -67,7 +67,7 @@ impl Value {
                 Ok(Value::Float(raw_value))
             }
             "string" => {
-                let byte_range_without_quotes = child.start_byte() - 1..child.end_byte();
+                let byte_range_without_quotes = child.start_byte() + 1..child.end_byte() - 1;
                 let text = &source[byte_range_without_quotes];
 
                 Ok(Value::String(text.to_string()))
@@ -438,11 +438,16 @@ impl Eq for Value {}
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Value::Integer(left), Value::Integer(right)) => left == right,
+            (Value::Float(left), Value::Float(right)) => left == right,
+            (Value::Boolean(left), Value::Boolean(right)) => left == right,
+            (Value::String(left), Value::String(right)) => left == right,
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Table(left), Value::Table(right)) => left == right,
             (Value::Time(left), Value::Time(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
+            (Value::Empty, Value::Empty) => true,
             _ => false,
         }
     }
@@ -475,6 +480,7 @@ impl Ord for Value {
             (Value::Function(_), _) => Ordering::Greater,
             (Value::Time(left), Value::Time(right)) => left.cmp(right),
             (Value::Time(_), _) => Ordering::Greater,
+            (Value::Empty, Value::Empty) => Ordering::Equal,
             (Value::Empty, _) => Ordering::Less,
         }
     }
