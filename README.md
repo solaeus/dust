@@ -5,26 +5,26 @@ Dust is a data-oriented programming language and interactive shell. Dust can be 
 A basic dust program:
 
 ```dust
-output "Hello world!"
+output <"Hello world!">
 ```
 
 Dust can do two (or more) things at the same time with effortless concurrency:
 
 ```dust
-run(
-    'output "will this one finish first?"',
-    'output "or will this one?"'
-)
+run <
+    function { output 'will this one finish first?' }
+    function { output 'or will this one?' }
+>
 ```
 
 Dust can do amazing things with data. To load CSV data, isolate a column and render it as a line plot in a GUI window:
 
 ```dust
 read_file("examples/assets/faithful.csv")
-    -> from_csv(input)
-    -> rows(input)
-    -> transform(input, 'input.1')
-    -> plot(input)
+    -> from_csv
+    -> rows
+    -> transform <{input.1}>
+    -> plot
 ```
 
 <!--toc:start-->
@@ -35,23 +35,23 @@ read_file("examples/assets/faithful.csv")
   - [Contributing](#contributing)
   - [The Dust Programming Language](#the-dust-programming-language)
     - [Variables and Data Types](#variables-and-data-types)
-    - [Tools](#tools)
+    - [Integers and Floats](#integers-and-floats)
     - [Lists](#lists)
     - [Maps](#maps)
     - [Tables](#tables)
     - [The Yield Operator](#the-yield-operator)
     - [Functions](#functions)
-    - [Time](#time)
+    - [Empty Values](#empty-values)
 <!--toc:end-->
 
 ## Features
 
-- Data visualization: GUI (not TUI) plots, graphs and charts are available from directly within dust. No external tools are needed.
-- Powerful tooling: Built-in commands reduce complex tasks to plain, simple code. You can even partition disks or install software.
+- Simplicity: Dust is designed to be easy to learn and powerful to use, without compromising either.
+- Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness.
+- Data format: Dust is data-oriented, so first and foremost it makes a great language for defining data.
 - Pipelines: Like a pipe in bash, dust features the yield `->` operator.
 - Format conversion: Effortlessly convert between dust and formats like JSON, CSV and TOML.
 - Structured data: Dust can represent data with more than just strings. Lists, maps and tables are easy to make and manage.
-- Developer tools: Dust has a complete tree sitter grammar, allowing syntax highlighting and completion in most code editors.
 
 ## Usage
 
@@ -60,10 +60,10 @@ Dust is an experimental project under active development. At this stage, feature
 To get help with the shell you can use the "help" tool.
 
 ```dust
-help()         # Returns a table will all tool info.
-help("random") # Returns a table with info on tools in the specified group.
+help            # Returns a table will all tool info.
+help <"random"> # Returns a table with info on tools in the specified group.
 # The above is simply a shorthand for this:
-help() -> where(input, 'tool == "random"')    
+help -> where(input, function <tool> { tool == "random" })    
 ```
 
 ## Installation
@@ -94,94 +94,74 @@ Variables have two parts: a key and a value. The key is always a text string. Th
 - map
 - table
 - function
-- time
-- empty
 
 Here are some examples of variables in dust.
 
 ```dust
-string = "The answer is 42.";
-integer = 42;
-float = 42.42;
-list = (1, 2, string, integer, float);
-map.key = "value";
-empty = ();
+string = "The answer is 42."
+integer = 42
+float = 42.42
+list = (1, 2, string, integer, float)
+map.key = 'value'
 ```
 
-### Tools
+### Integers and Floats
 
-**Tools** are dust's built-in functions. Some of them can reconfigure your whole system while others do very little. They may accept different inputs, or none at all. For example, commands in the `random` group can be run without input, but the `random_integer` command can optionally take two numbers as in inclusive range.
-
-```dust
-die_roll = random_integer(1, 6);
-d20_roll = random_integer(1, 20);
-coin_flip = random_boolean();
-```
-
-```dust
-message = "I hate dust.";
-replace(message, "hate", "love")
-```
+Integer and floating point values are dust's numeric types. Any whole number (i.e. without a decimal) is an integer. Floats are declared by adding a single decimal to or number. If you divide integers or do any kind of math with a float, you will create a float value.
 
 ### Lists
 
-Lists are sequential collections. They can be built by grouping values with parentheses and separating them with commas. Values can be indexed by their position to access their contents. Lists are used to represent rows in tables and most commands take a list as an argument. Their contents can be indexed using dot notation with an integer.
+Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position to access their contents. Their contents can be indexed using dot notation with an integer. Dust lists are zero-indexed.
 
 ```dust
-list = (true, 41, "Ok");
+list = [true 41 "Ok"]
 
-assert_equal(list.0, true);
+assert_equal <list.0 true>
 
-the_answer = list.1 + 1;
+the_answer = list.1 + 1
 
-assert_equal(the_answer, 42);
+assert_equal <the_answer, 42>
 ```
 
 ### Maps
 
-Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. Under the hood, all of dust's runtime variables are stored in a map, so, as with variables, the key is always a string.
+Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. Under the hood, all of dust's runtime variables are stored in a map, so, as with variables, the key is always a string. A map is created with a pair of curly braces and its entries and just variables declared inside those braces. Map contents can be accessed using dot notation and a value's key.
 
 ```dust
-reminder.message = "Buy milk";
-reminder.tags = ("groceries", "home");
+reminder = {
+    message = "Buy milk"
+    tags = ("groceries", "home")
+}
 
-json = to_json(reminder);
-append(json, "info.txt");
+output <reminder.message>
 ```
 
 ### Tables
 
-Tables are strict collections, each row must have a value for each column. Empty cells must be explicitly set to an empty value.
+Tables are strict collections, each row must have a value for each column. If a values is "missing" it should be set to an appropriate value for that type. For example a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces. The column names are followed by a pair of curly braces filled with list values. Each list will become a row in the new table.
 
 ```dust
-animals = create_table (
-    ("name", "species", "age"),
-    (
-        ("rover", "cat", 14),
-        ("spot", "snake", 9),
-        ("bob", "giraffe", 2)
-    )
-);
+animals = table <name species age> {    
+    ["rover" "cat" 14]
+    ["spot" "snake" 9]
+    ["bob" "giraffe" 2]
+}
 ```
 
 Querying a table is similar to SQL.
-  
+
 ```dust
-names = select(animals, "name");
-youngins = where(animals, 'age < 5');
+names = select name from animals
+youngins = select species from animals where age <= 10
 ```
 
 The commands `create_table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
 
 ```dust
-insert(
-    animals,
-    (
-        ("eliza", "ostrich", 4),
-        ("pat", "white rhino", 7),
-        ("jim", "walrus", 9)
-    )
-);
+insert into animals
+    ["eliza" "ostrich" 4]
+    ["pat" "white rhino" 7]
+    ["jim" "walrus" 9]
 
 assert_equal(count(animals.all), 6);
 
@@ -207,52 +187,32 @@ from_json(json)
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To call a function, it's just like calling a command: simply pass it an argument or use an empty set of parentheses to pass an empty value.
-
-In the function bod, the **`input` variable** represents whatever value is passed to the function when called.
+Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name and use a set of pointed braces to pass arguments (unless it has no arguments).
 
 ```dust
-say_hi = 'output "hi"';
-add_one = 'input + 1';
+say_hi = function <> {
+    output <"hi">
+}
 
-say_hi();
-assert_equal(add_one(3), 4);
+add_one = function <number> {
+    number + 1
+}
+
+say_hi
+assert_equal <add_one(3), 4>
 ```
 
 This function simply passes the input to the shell's standard output.
 
 ```dust
-print = 'output(input)';
+print = function <input> {
+    output<input>
+}
 ```
 
-Because functions are stored in variables, we can use collections like maps to
-organize them.
+### Empty Values
 
-```dust
-math.add = 'input.0 + input.1';
-math.subtract = 'input.0 - input.1';
-
-assert_equal(math.add(2, 2), 4);
-assert_equal(math.subtract(100, 1), 99);
-```
-
-### Time
-
-Dust can record, parse and convert time values. Dust can parse TOML datetime
-values or can create time values using commands.
-
-```dust
-dob = from_toml("1979-05-27T07:32:00-08:00")
-
-output "Date of birth = " + local(dob);
-```
-
-```dust
-time = now();
-
-output "Universal time is " + utc(time);
-output "Local time is " + local(time);
-```
+Dust does not have a null type. Instead, it uses the "empty" type to represent a lack of any other value. There is no syntax to create this value: it is only used by the interpreter. Note that Dust does have the NaN value, which is a floating point value that must exist in order for floats to work as intended. Integers will never be NaN and no value will ever be null or undefined.
 
 [dnf]: https://dnf.readthedocs.io/en/latest/index.html
 [evalexpr]: https://github.com/ISibboI/evalexpr
