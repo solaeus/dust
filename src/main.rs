@@ -11,7 +11,7 @@ use rustyline::{
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lib::{eval, eval_with_context, Primitive, Value, VariableMap};
+use dust_lib::{eval, eval_with_context, Value, VariableMap};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -39,7 +39,7 @@ fn main() {
     } else if let Some(command) = args.command {
         eval(&command)
     } else {
-        vec![Ok(Value::Primitive(Primitive::Empty))]
+        vec![Ok(Value::Empty)]
     };
 
     for result in eval_results {

@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Display, Formatter};
 
-use crate::{Primitive, Value};
+use crate::Value;
 
 /// The type of a `Value`.
 #[derive(Clone)]
@@ -94,11 +94,11 @@ impl Debug for ValueType {
 impl From<&Value> for ValueType {
     fn from(value: &Value) -> Self {
         match value {
-            Value::Primitive(Primitive::String(_)) => ValueType::String,
-            Value::Primitive(Primitive::Float(_)) => ValueType::Float,
-            Value::Primitive(Primitive::Integer(_)) => ValueType::Integer,
-            Value::Primitive(Primitive::Boolean(_)) => ValueType::Boolean,
-            Value::Primitive(Primitive::Empty) => ValueType::Empty,
+            Value::String(_) => ValueType::String,
+            Value::Float(_) => ValueType::Float,
+            Value::Integer(_) => ValueType::Integer,
+            Value::Boolean(_) => ValueType::Boolean,
+            Value::Empty => ValueType::Empty,
             Value::List(list) => {
                 let values = list.iter().map(|value| value.value_type()).collect();
 

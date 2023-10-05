@@ -9,7 +9,7 @@ pub use crate::{
     interface::*,
     value::{
         function::Function, table::Table, time::Time, value_type::ValueType,
-        variable_map::VariableMap, Primitive, Value,
+        variable_map::VariableMap, Value,
     },
 };
 

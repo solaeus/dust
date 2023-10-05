@@ -3,7 +3,7 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the MacroFailure variant if the error can only occur inside a macro.
 
-use crate::{value::value_type::ValueType, value::Value, Primitive};
+use crate::{value::value_type::ValueType, value::Value};
 
 use std::{fmt, io, time::SystemTimeError};
 
@@ -382,9 +382,7 @@ impl Error {
 /// Returns `Ok(())` if the given value is a string or a numeric.
 pub fn expect_number_or_string(actual: &Value) -> Result<()> {
     match actual {
-        Value::Primitive(Primitive::String(_))
-        | Value::Primitive(Primitive::Float(_))
-        | Value::Primitive(Primitive::Integer(_)) => Ok(()),
+        Value::String(_) | Value::Float(_) | Value::Integer(_) => Ok(()),
         _ => Err(Error::expected_number_or_string(actual.clone())),
     }
 }

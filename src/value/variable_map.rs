@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{value::Value, Error, Primitive, Result, Table};
+use crate::{value::Value, Error, Result, Table};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -77,9 +77,9 @@ impl VariableMap {
                 let index = if let Ok(index) = next_identifier.parse::<usize>() {
                     index
                 } else {
-                    return Err(Error::expected_int(Value::Primitive(Primitive::String(
+                    return Err(Error::expected_int(Value::String(
                         next_identifier.to_string(),
-                    ))));
+                    )));
                 };
 
                 Ok(list.get(index).cloned())
@@ -106,9 +106,9 @@ impl VariableMap {
                     let index = if let Ok(index) = next_identifier.parse::<usize>() {
                         index
                     } else {
-                        return Err(Error::expected_int(Value::Primitive(Primitive::String(
+                        return Err(Error::expected_int(Value::String(
                             next_identifier.to_string(),
-                        ))));
+                        )));
                     };
 
                     let mut missing_elements = index.saturating_sub(list.len()) + 1;
@@ -193,13 +193,9 @@ mod tests {
     fn get_and_set_simple_value() {
         let mut map = VariableMap::new();
 
-        map.set_value("x".to_string(), Value::Primitive(Primitive::Integer(1)))
-            .unwrap();
+        map.set_value("x".to_string(), Value::Integer(1)).unwrap();
 
-        assert_eq!(
-            Value::Primitive(Primitive::Integer(1)),
-            map.get_value("x").unwrap().unwrap()
-        );
+        assert_eq!(Value::Integer(1), map.get_value("x").unwrap().unwrap());
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use crate::{Error, Primitive, Result, Value, VariableMap};
+use crate::{Error, Result, Value, VariableMap};
 use comfy_table::{Cell, Color, ContentArrangement, Table as ComfyTable};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -114,7 +114,7 @@ impl Table {
 
                 if let Some(index) = new_table_column_index {
                     while new_row.len() < index + 1 {
-                        new_row.push(Value::Primitive(Primitive::Empty));
+                        new_row.push(Value::Empty);
                     }
                     new_row[index] = value.clone();
                 }
@@ -196,7 +196,7 @@ impl Display for Table {
                     Value::Map(map) => format!("Map ({} items)", map.len()),
                     Value::Table(table) => format!("Table ({} items)", table.len()),
                     Value::Function(_) => "Function".to_string(),
-                    Value::Primitive(Primitive::Empty) => "Empty".to_string(),
+                    Value::Empty => "Empty".to_string(),
                     value => value.to_string(),
                 };
 
@@ -236,46 +236,38 @@ impl Display for Table {
 impl From<&Value> for Table {
     fn from(value: &Value) -> Self {
         match value {
-            Value::Primitive(Primitive::String(string)) => {
+            Value::String(string) => {
                 let mut table = Table::new(vec!["string".to_string()]);
 
                 table
-                    .insert(vec![Value::Primitive(Primitive::String(
-                        string.to_string(),
-                    ))])
+                    .insert(vec![Value::String(string.to_string())])
                     .unwrap();
 
                 table
             }
-            Value::Primitive(Primitive::Float(float)) => {
+            Value::Float(float) => {
                 let mut table = Table::new(vec!["float".to_string()]);
 
-                table
-                    .insert(vec![Value::Primitive(Primitive::Float(*float))])
-                    .unwrap();
+                table.insert(vec![Value::Float(*float)]).unwrap();
 
                 table
             }
-            Value::Primitive(Primitive::Integer(integer)) => {
+            Value::Integer(integer) => {
                 let mut table = Table::new(vec!["integer".to_string()]);
 
-                table
-                    .insert(vec![Value::Primitive(Primitive::Integer(*integer))])
-                    .unwrap();
+                table.insert(vec![Value::Integer(*integer)]).unwrap();
 
                 table
             }
-            Value::Primitive(Primitive::Boolean(boolean)) => {
+            Value::Boolean(boolean) => {
                 let mut table = Table::new(vec!["boolean".to_string()]);
 
-                table
-                    .insert(vec![Value::Primitive(Primitive::Boolean(*boolean))])
-                    .unwrap();
+                table.insert(vec![Value::Boolean(*boolean)]).unwrap();
 
                 table
             }
             Value::List(list) => Self::from(list),
-            Value::Primitive(Primitive::Empty) => Table::new(Vec::with_capacity(0)),
+            Value::Empty => Table::new(Vec::with_capacity(0)),
             Value::Map(map) => Self::from(map),
             Value::Table(table) => table.clone(),
             Value::Function(function) => {
@@ -298,10 +290,7 @@ impl From<&Vec<Value>> for Table {
 
         for (i, value) in list.iter().enumerate() {
             table
-                .insert(vec![
-                    Value::Primitive(Primitive::Integer(i as i64)),
-                    value.clone(),
-                ])
+                .insert(vec![Value::Integer(i as i64), value.clone()])
                 .unwrap();
         }
 
@@ -318,10 +307,7 @@ impl From<&mut Vec<Value>> for Table {
                 table.insert(list.clone()).unwrap();
             } else {
                 table
-                    .insert(vec![
-                        Value::Primitive(Primitive::Integer(i as i64)),
-                        value.clone(),
-                    ])
+                    .insert(vec![Value::Integer(i as i64), value.clone()])
                     .unwrap();
             }
         }
