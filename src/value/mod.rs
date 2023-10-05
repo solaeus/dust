@@ -209,34 +209,6 @@ impl Value {
         Ok(Value::List(values))
     }
 
-    // pub fn integer_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-    //     let value_snippet = &source[byte_range];
-    //     let raw = value_snippet.parse::<i64>().unwrap_or_default();
-
-    //     Ok(Primitive::Integer(raw))
-    // }
-
-    // pub fn float_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-    //     let value_snippet = &source[byte_range];
-    //     let raw = value_snippet.parse::<f64>().unwrap_or_default();
-
-    //     Ok(Primitive::Float(raw))
-    // }
-
-    // pub fn boolean_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-    //     let value_snippet = &source[byte_range];
-    //     let raw = value_snippet.parse::<bool>().unwrap_or_default();
-
-    //     Ok(Primitive::Boolean(raw))
-    // }
-
-    // pub fn string_from_source(source: &str, byte_range: Range<usize>) -> Result<Self> {
-    //     let value_snippet = &source[byte_range];
-    //     let without_quotes = &value_snippet[1..value_snippet.len() - 1];
-
-    //     Ok(Primitive::String(without_quotes.to_string()))
-    // }
-
     pub fn value_type(&self) -> ValueType {
         ValueType::from(self)
     }
@@ -545,11 +517,11 @@ impl Display for Value {
             Value::Boolean(boolean) => write!(f, "{}", boolean),
             Value::Empty => write!(f, "()"),
             Value::List(list) => {
-                write!(f, "(")?;
+                write!(f, "[")?;
                 for value in list {
                     write!(f, " {value} ")?;
                 }
-                write!(f, ")")
+                write!(f, "]")
             }
             Value::Map(map) => write!(f, "{map}"),
             Value::Table(table) => write!(f, "{table}"),
