@@ -1,0 +1,11 @@
+fibonacci = function <number> {
+	if number <= 0 then 0
+	else if number == 1 then 1
+	else
+		first = fibonacci { number - 2 }
+		second = fibonacci { number - 1 }
+
+		first + second
+}
+
+

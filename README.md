@@ -1,11 +1,11 @@
 # Dust
 
-Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a tool create or manage data. Dust is expression-based, has first-class functions, lexical scope and lightweight syntax. Dust's grammar is formally defined in code and its minimalism is in large part due to its tree sitter parser, which is lightning-fast, accurate and thoroughly tested.
+Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a data format. Dust is expression-based, has first-class functions, lexical scope and lightweight syntax. Dust's grammar is formally defined in code and its minimalism is in large part due to its tree sitter parser, which is lightning-fast, accurate and thoroughly tested.
 
 A basic dust program:
 
 ```dust
-output <"Hello world!">
+output { "Hello world!" }
 ```
 
 Dust can do two (or more) things at the same time with effortless concurrency:
@@ -27,6 +27,19 @@ read_file("examples/assets/faithful.csv")
     -> plot
 ```
 
+Dust is also a minimal, obvious data format. It is easier to write than JSON and easier to read than TOML and YAML. However, because it is a programming language, it is able to self-reference, perform calculations or load external data.
+
+```dust
+foo = "bar"
+numbers = [1 2 3 4]
+truths = {
+    dust = "the best thing ever"
+    favorite_number = numbers.3
+    another_number = numbers.0 + numbers.1
+}
+old_faithful_data = read_file { "faithful.csv" }
+```
+
 <!--toc:start-->
 - [Dust](#dust)
   - [Features](#features)
@@ -40,7 +53,6 @@ read_file("examples/assets/faithful.csv")
     - [Lists](#lists)
     - [Maps](#maps)
     - [Tables](#tables)
-    - [The Yield Operator](#the-yield-operator)
     - [Functions](#functions)
     - [Empty Values](#empty-values)
 <!--toc:end-->
@@ -62,9 +74,9 @@ To get help with the shell you can use the "help" tool.
 
 ```dust
 help            # Returns a table will all tool info.
-help <"random"> # Returns a table with info on tools in the specified group.
+help {"random"} # Returns a table with info on tools in the specified group.
 # The above is simply a shorthand for this:
-help -> where(input, function <tool> { tool == "random" })    
+help -> where { input, function <tool> { tool == "random" } }
 ```
 
 ## Installation
@@ -89,7 +101,7 @@ It should not take long for a new user to learn the language, especially with th
 
 ### Declaring Variables
 
-Variables have two parts: a key and a value. The key is always a text string. The value can be any of the following data types:
+Variables have two parts: a key and a value. The key is always a string. The value can be any of the following data types:
 
 - string
 - integer
@@ -106,7 +118,7 @@ Here are some examples of variables in dust.
 string = "The answer is 42."
 integer = 42
 float = 42.42
-list = (1 2 string integer float)
+list = [1 2 string integer float] # Commas are optional when writing lists.
 map = {
     key = `value`
 }
@@ -125,11 +137,11 @@ Lists are sequential collections. They can be built by grouping values with squa
 ```dust
 list = [true 41 "Ok"]
 
-assert_equal <list.0 true>
+assert_equal { list.0 true }
 
 the_answer = list.1 + 1
 
-assert_equal <the_answer, 42>
+assert_equal { the_answer, 42 }
 ```
 
 ### Maps
@@ -139,18 +151,18 @@ Maps are flexible collections with arbitrary key-value pairs, similar to JSON ob
 ```dust
 reminder = {
     message = "Buy milk"
-    tags = ("groceries", "home")
+    tags = ["groceries", "home"]
 }
 
-output <reminder.message>
+output { reminder.message }
 ```
 
 ### Tables
 
-Tables are strict collections, each row must have a value for each column. If a values is "missing" it should be set to an appropriate value for that type. For example a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces. The column names are followed by a pair of curly braces filled with list values. Each list will become a row in the new table.
+Tables are strict collections, each row must have a value for each column. If a value is "missing" it should be set to an appropriate value for that type. For example, a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces. The column names are followed by a pair of curly braces filled with list values. Each list will become a row in the new table.
 
 ```dust
-animals = table <name species age> {    
+animals = table <name species age> {
     ["rover" "cat" 14]
     ["spot" "snake" 9]
     ["bob" "giraffe" 2]
@@ -164,58 +176,40 @@ names = select name from animals
 youngins = select species from animals where age <= 10
 ```
 
-The commands `create_table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
+The keywords `table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
 
 ```dust
-insert into animals
+insert into animals {
     ["eliza" "ostrich" 4]
     ["pat" "white rhino" 7]
     ["jim" "walrus" 9]
+}
 
-assert_equal(count(animals.all), 6);
-
-sorted = sort(animals);
-```
-
-### The Yield Operator
-
-Like a pipe in bash, zsh or fish, the yield operator evaluates the expression on the left and passes it as input to the expression on the right. That input is always assigned to the **`input` variable** for that context. These expressions may simply contain a value or they can call a command or function that returns a value.
-
-```dust
-"Hello dust!" -> output <input>
-```
-
-This can be useful when working on the command line but to make a script easier to read or to avoid fetching the same resource multiple times, we can also declare variables. You should use `->` and variables together to write efficient, elegant scripts.
-
-```dust
-json = download("https://api.sampleapis.com/futurama/characters");
-from_json(json)
-    -> select(input, "name");
-    -> input.4
+assert_equal { count { animals }, 6 };
 ```
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name and use a set of pointed braces to pass arguments (unless it has no arguments).
+Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name and use a set of curly braces to pass arguments (or leave them empty to pass nothing). You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read. Use your best judgement, the parser will disambiguate any valid syntax.
 
 ```dust
 say_hi = function <> {
-    output <"hi">
+    output {"hi"}
 }
 
 add_one = function <number> {
     number + 1
 }
 
-say_hi
-assert_equal <add_one(3), 4>
+say_hi {}
+assert_equal { add_one{3}, 4 }
 ```
 
 This function simply passes the input to the shell's standard output.
 
 ```dust
 print = function <input> {
-    output<input>
+    output { input }
 }
 ```
 
