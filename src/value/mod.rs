@@ -54,9 +54,31 @@ impl Value {
         let child = node.child(0).unwrap();
 
         match child.kind() {
-            "integer" | "float" | "boolean" | "string" | "empty" => {
-                Ok(Value::from_syntax_node(child, source)?)
+            "integer" => {
+                let bytes = &source[child.byte_range()];
+                let raw_value = bytes.parse::<i64>().unwrap();
+
+                Ok(Value::Integer(raw_value))
             }
+            "float" => {
+                let bytes = &source[child.byte_range()];
+                let raw_value = bytes.parse::<f64>().unwrap();
+
+                Ok(Value::Float(raw_value))
+            }
+            "string" => {
+                let byte_range_without_quotes = child.start_byte() - 1..child.end_byte();
+                let text = &source[byte_range_without_quotes];
+
+                Ok(Value::String(text.to_string()))
+            }
+            "boolean" => {
+                let bytes = &source[child.byte_range()];
+                let raw_value = bytes.parse::<bool>().unwrap();
+
+                Ok(Value::Boolean(raw_value))
+            }
+            "empty" => Ok(Value::Empty),
             "list" => {
                 let item_count = child.named_child_count();
                 let mut values = Vec::with_capacity(item_count);

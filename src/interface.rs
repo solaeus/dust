@@ -99,17 +99,14 @@ impl<'context, 'code> Evaluator<'context, 'code> {
     }
 
     fn run(self) -> Vec<Result<Value>> {
-        let mut cursor_0 = self.tree.walk();
-        let mut cursor_1 = self.tree.walk();
-        let node = cursor_0.node();
-        let item_count = node.child_count();
+        let mut cursor = self.tree.walk();
+        let root_node = cursor.node();
+        let item_count = root_node.child_count();
         let mut results = Vec::with_capacity(item_count);
 
-        println!("{}", node.to_sexp());
+        println!("{}", root_node.to_sexp());
 
-        assert_eq!(cursor_0.node().kind(), "root");
-
-        for item_node in node.children(&mut cursor_0) {
+        for item_node in root_node.children(&mut cursor) {
             let item_result = Item::from_syntax_node(item_node, self.source);
 
             match item_result {
