@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Result, Statement, Value, VariableMap};
+use crate::{EvaluatorTree, Identifier, Result, Statement, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
@@ -17,12 +17,19 @@ impl Function {
             statements,
         }
     }
+}
 
-    pub fn run(&self) -> Result<Value> {
-        todo!()
+impl EvaluatorTree for Function {
+    fn from_syntax_node(node: tree_sitter::Node, source: &str) -> Result<Self> {
+        debug_assert_eq!(node.kind(), "function");
+
+        Ok(Function {
+            identifiers: vec![],
+            statements: vec![],
+        })
     }
 
-    pub fn run_with_context(&self, _context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
         todo!()
     }
 }
@@ -34,5 +41,27 @@ impl Display for Function {
             "function < {:?} > {{ {:?} }}",
             self.identifiers, self.statements
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{evaluate, Expression};
+
+    use super::*;
+
+    #[test]
+    fn evaluate_function() {
+        let function = Function::new(
+            vec![Identifier::new("output".to_string())],
+            vec![Statement::Expression(Expression::Identifier(
+                Identifier::new("output".to_string()),
+            ))],
+        );
+
+        assert_eq!(
+            evaluate("function <output> { output }"),
+            vec![Ok(Value::Function(function))]
+        );
     }
 }

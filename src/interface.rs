@@ -20,10 +20,10 @@ use crate::{language, Error, Result, Value, VariableMap};
 /// # use dust_lib::*;
 /// assert_eq!(eval("1 + 2 + 3"), vec![Ok(Value::from(6))]);
 /// ```
-pub fn eval(source: &str) -> Vec<Result<Value>> {
+pub fn evaluate(source: &str) -> Vec<Result<Value>> {
     let mut context = VariableMap::new();
 
-    eval_with_context(source, &mut context)
+    evaluate_with_context(source, &mut context)
 }
 
 /// Evaluate the given source code with the given context.
@@ -45,7 +45,7 @@ pub fn eval(source: &str) -> Vec<Result<Value>> {
 ///     vec![Ok(Value::Primitive(Primitive::Empty)), Ok(Value::from(10))]
 /// );
 /// ```
-pub fn eval_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
+pub fn evaluate_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
     let mut parser = Parser::new();
     parser.set_language(language()).unwrap();
 
@@ -255,6 +255,10 @@ impl EvaluatorTree for Expression {
 pub struct Identifier(String);
 
 impl Identifier {
+    pub fn new(inner: String) -> Self {
+        Identifier(inner)
+    }
+
     pub fn take_inner(self) -> String {
         self.0
     }
@@ -458,45 +462,54 @@ impl EvaluatorTree for FunctionCall {
 
 #[cfg(test)]
 mod tests {
-    use crate::Table;
+    use crate::{Function, Table};
 
     use super::*;
 
     #[test]
     fn evaluate_empty() {
-        assert_eq!(eval("x = 9"), vec![Ok(Value::Empty)]);
-        assert_eq!(eval("x = 'foo' + 'bar'"), vec![Ok(Value::Empty)]);
+        assert_eq!(evaluate("x = 9"), vec![Ok(Value::Empty)]);
+        assert_eq!(evaluate("x = 'foo' + 'bar'"), vec![Ok(Value::Empty)]);
     }
 
     #[test]
     fn evaluate_integer() {
-        assert_eq!(eval("1"), vec![Ok(Value::Integer(1))]);
-        assert_eq!(eval("123"), vec![Ok(Value::Integer(123))]);
-        assert_eq!(eval("-666"), vec![Ok(Value::Integer(-666))]);
+        assert_eq!(evaluate("1"), vec![Ok(Value::Integer(1))]);
+        assert_eq!(evaluate("123"), vec![Ok(Value::Integer(123))]);
+        assert_eq!(evaluate("-666"), vec![Ok(Value::Integer(-666))]);
     }
 
     #[test]
     fn evaluate_float() {
-        assert_eq!(eval("0.1"), vec![Ok(Value::Float(0.1))]);
-        assert_eq!(eval("12.3"), vec![Ok(Value::Float(12.3))]);
-        assert_eq!(eval("-6.66"), vec![Ok(Value::Float(-6.66))]);
+        assert_eq!(evaluate("0.1"), vec![Ok(Value::Float(0.1))]);
+        assert_eq!(evaluate("12.3"), vec![Ok(Value::Float(12.3))]);
+        assert_eq!(evaluate("-6.66"), vec![Ok(Value::Float(-6.66))]);
     }
 
     #[test]
     fn evaluate_string() {
-        assert_eq!(eval("\"one\""), vec![Ok(Value::String("one".to_string()))]);
-        assert_eq!(eval("'one'"), vec![Ok(Value::String("one".to_string()))]);
-        assert_eq!(eval("`one`"), vec![Ok(Value::String("one".to_string()))]);
         assert_eq!(
-            eval("`'one'`"),
+            evaluate("\"one\""),
+            vec![Ok(Value::String("one".to_string()))]
+        );
+        assert_eq!(
+            evaluate("'one'"),
+            vec![Ok(Value::String("one".to_string()))]
+        );
+        assert_eq!(
+            evaluate("`one`"),
+            vec![Ok(Value::String("one".to_string()))]
+        );
+        assert_eq!(
+            evaluate("`'one'`"),
             vec![Ok(Value::String("'one'".to_string()))]
         );
         assert_eq!(
-            eval("'`one`'"),
+            evaluate("'`one`'"),
             vec![Ok(Value::String("`one`".to_string()))]
         );
         assert_eq!(
-            eval("\"'one'\""),
+            evaluate("\"'one'\""),
             vec![Ok(Value::String("'one'".to_string()))]
         );
     }
@@ -504,7 +517,7 @@ mod tests {
     #[test]
     fn evaluate_list() {
         assert_eq!(
-            eval("[1, 2, 'foobar']"),
+            evaluate("[1, 2, 'foobar']"),
             vec![Ok(Value::List(vec![
                 Value::Integer(1),
                 Value::Integer(2),
@@ -521,7 +534,7 @@ mod tests {
         map.set_value("foo".to_string(), Value::String("bar".to_string()))
             .unwrap();
 
-        assert_eq!(eval("{ x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);
+        assert_eq!(evaluate("{ x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);
     }
 
     #[test]
@@ -539,7 +552,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            eval(
+            evaluate(
                 "
                 table <messages, numbers> {
                     ['hiya', 42]
@@ -553,18 +566,21 @@ mod tests {
     }
 
     #[test]
-    fn if_then() {
+    fn evaluate_if_then() {
         assert_eq!(
-            eval("if true then 'true'"),
+            evaluate("if true then 'true'"),
             vec![Ok(Value::String("true".to_string()))]
         );
     }
 
     #[test]
-    fn if_then_else() {
-        assert_eq!(eval("if false then 1 else 2"), vec![Ok(Value::Integer(2))]);
+    fn evaluate_if_then_else() {
         assert_eq!(
-            eval("if true then 1.0 else 42.0"),
+            evaluate("if false then 1 else 2"),
+            vec![Ok(Value::Integer(2))]
+        );
+        assert_eq!(
+            evaluate("if true then 1.0 else 42.0"),
             vec![Ok(Value::Float(1.0))]
         );
     }

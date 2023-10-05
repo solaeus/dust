@@ -11,7 +11,7 @@ use rustyline::{
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust::{eval, eval_with_context, Value, VariableMap};
+use dust::{evaluate, evaluate_with_context, Value, VariableMap};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -35,9 +35,9 @@ fn main() {
     let eval_results = if let Some(path) = args.path {
         let file_contents = read_to_string(path).unwrap();
 
-        eval(&file_contents)
+        evaluate(&file_contents)
     } else if let Some(command) = args.command {
-        eval(&command)
+        evaluate(&command)
     } else {
         vec![Ok(Value::Empty)]
     };
@@ -143,7 +143,7 @@ fn run_cli_shell() {
 
                 rl.add_history_entry(line).unwrap();
 
-                let eval_results = eval_with_context(line, &mut context);
+                let eval_results = evaluate_with_context(line, &mut context);
 
                 for result in eval_results {
                     match result {

@@ -10,14 +10,14 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
-use tree_sitter::{Node, TreeCursor};
+use tree_sitter::Node;
 
 use std::{
     cmp::Ordering,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, Range, Sub},
+    ops::{Add, Sub},
 };
 
 pub mod function;
@@ -166,23 +166,23 @@ impl Value {
                 for index in 0..child_count {
                     let child = child.child(index).unwrap();
 
-                    //                 if child.kind() == "identifier" {
-                    //                     let identifier = Identifier::new(source, cursor)?;
+                    if child.kind() == "identifier" {
+                        let identifier = Identifier::from_syntax_node(child, source)?;
 
-                    //                     identifiers.push(identifier)
-                    //                 }
+                        identifiers.push(identifier)
+                    }
 
-                    //                 if child.kind() == "statement" {
-                    //                     let statement = Statement::new(source, cursor)?;
+                    if child.kind() == "statement" {
+                        let statement = Statement::from_syntax_node(child, source)?;
 
-                    //                     statements.push(statement)
-                    //                 }
+                        statements.push(statement)
+                    }
                 }
 
                 Ok(Value::Function(Function::new(identifiers, statements)))
             }
             _ => Err(Error::UnexpectedSyntax {
-                expected: "integer, float, boolean, string list, table, map, function or empty",
+                expected: "string, integer, float, boolean, list, table, map, function or empty",
                 actual: child.kind(),
                 location: child.start_position(),
             }),
@@ -428,7 +428,7 @@ impl Add for Value {
 impl Sub for Value {
     type Output = Result<Self>;
 
-    fn sub(self, other: Self) -> Self::Output {
+    fn sub(self, _other: Self) -> Self::Output {
         todo!()
     }
 }
