@@ -11,7 +11,7 @@ use rustyline::{
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lib::{eval, eval_with_context, Value, VariableMap};
+use dust::{eval, eval_with_context, Value, VariableMap};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
