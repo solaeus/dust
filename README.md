@@ -1,6 +1,6 @@
 # Dust
 
-Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a tool create or manage data. Dust is expression-based, has first-class functions, lexical scope and lightweight syntax.
+Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a tool create or manage data. Dust is expression-based, has first-class functions, lexical scope and lightweight syntax. Dust's grammar is formally defined in code and its minimalism is in large part due to its tree sitter parser, which is lightning-fast and accurate.
 
 A basic dust program:
 
@@ -23,7 +23,7 @@ Dust can do amazing things with data. To load CSV data, isolate a column and ren
 read_file("examples/assets/faithful.csv")
     -> from_csv
     -> rows
-    -> transform <{input.1}>
+    -> transform <{item.1}>
     -> plot
 ```
 
@@ -32,9 +32,10 @@ read_file("examples/assets/faithful.csv")
   - [Features](#features)
   - [Usage](#usage)
   - [Installation](#installation)
+  - [Implementation](#implementation)
   - [Contributing](#contributing)
   - [The Dust Programming Language](#the-dust-programming-language)
-    - [Variables and Data Types](#variables-and-data-types)
+    - [Declaring Variables](#declaring-variables)
     - [Integers and Floats](#integers-and-floats)
     - [Lists](#lists)
     - [Maps](#maps)
@@ -72,17 +73,21 @@ You must have the default rust toolchain installed and up-to-date. Install [rust
 
 To build from source, clone the repository and run `cargo run` to start the shell. To see other command line options, use `cargo run -- --help`.
 
+## Implementation
+
+Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust module. Tree sitter generates a parser, written in C, from a set of rules defined in JavaScript. Dust itself is a rust binary that calls the C parser using FFI. Dust does not use Javascript at runtime.
+
+Tree Sitter generates a concrete syntax tree, which the Rust code maps to an abstract syntax tree by traversing each node once. Tree sitter is fast enough to be updated on every keystroke which is perfect for a data-oriented language like Dust because it allows only the relevant sections to be re-evaluated and the result displayed instantly.
+
 ## Contributing
 
-Please submit any thoughts or suggestions for this project. To contribute a new command, see the library documentation. Implementation tests are written in dust and are run by a corresponding rust test so dust tests will be run when `cargo test` is called.
+Please submit any thoughts or suggestions for this project. For instructions on the internal API, see the library documentation. Implementation tests are written in dust and are run by a corresponding rust test so dust tests will be run when `cargo test` is called.
 
 ## The Dust Programming Language
 
-Dust is a hard fork of [evalexpr]; a simple expression language. Dust's core language features maintain this simplicity. But it can manage large, complex sets of data and perform complicated tasks through commands. It should not take long for a new user to learn the language, especially with the assistance of the shell.
+It should not take long for a new user to learn the language, especially with the assistance of the shell. If your editor supports tree sitter, you can use [tree-sitter-dust] for syntax highlighting and completion support. Aside from this guide, the best way to learn dust is to read the examples and tests to get a better idea of what dust can do.
 
-If your editor supports tree sitter, you can use [tree-sitter-dust] for syntax highlighting and completion support. Aside from this guide, the best way to learn dust is to read the examples and tests to get a better idea of what dust can do.
-
-### Variables and Data Types
+### Declaring Variables
 
 Variables have two parts: a key and a value. The key is always a text string. The value can be any of the following data types:
 
@@ -101,9 +106,13 @@ Here are some examples of variables in dust.
 string = "The answer is 42."
 integer = 42
 float = 42.42
-list = (1, 2, string, integer, float)
-map.key = 'value'
+list = (1 2 string integer float)
+map = {
+    key = `value`
+}
 ```
+
+Note that strings can be wrapped with any kind of quote: single, double or backticks. Numbers are always integers by default. And commas are optional in lists.
 
 ### Integers and Floats
 
@@ -173,7 +182,7 @@ sorted = sort(animals);
 Like a pipe in bash, zsh or fish, the yield operator evaluates the expression on the left and passes it as input to the expression on the right. That input is always assigned to the **`input` variable** for that context. These expressions may simply contain a value or they can call a command or function that returns a value.
 
 ```dust
-"Hello dust!" -> output(input)
+"Hello dust!" -> output <input>
 ```
 
 This can be useful when working on the command line but to make a script easier to read or to avoid fetching the same resource multiple times, we can also declare variables. You should use `->` and variables together to write efficient, elegant scripts.
