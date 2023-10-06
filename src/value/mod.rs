@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    EvaluatorTree, Function, Identifier, Statement, Table, Time, ValueType, VariableMap,
+    AbstractTree, Function, Identifier, Statement, Table, Time, ValueType, VariableMap,
 };
 
 use json::JsonValue;

@@ -3,7 +3,7 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the MacroFailure variant if the error can only occur inside a macro.
 
-use crate::{value::value_type::ValueType, value::Value};
+use crate::{value::value_type::ValueType, value::Value, Identifier};
 
 use std::{fmt, io, time::SystemTimeError};
 
@@ -125,7 +125,7 @@ pub enum Error {
     VariableIdentifierNotFound(String),
 
     /// A `FunctionIdentifier` operation did not find its value in the context.
-    FunctionIdentifierNotFound(String),
+    FunctionIdentifierNotFound(Identifier),
 
     /// A value has the wrong type.
     /// Only use this if there is no other error that describes the expected and

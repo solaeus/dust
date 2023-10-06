@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{value::Value, Error, Result, Table};
+use crate::{value::Value, AbstractTree, Error, Result, Table};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -21,42 +21,6 @@ impl VariableMap {
         VariableMap {
             variables: BTreeMap::new(),
         }
-    }
-
-    /// Invokes built-in tools or user-defined functions based on the identifier and passes the     
-    /// argument. Returns an error a tool is called with the wrong inputs or if the identifier does
-    /// not match any tools or functions.
-    pub fn call_function(&self, identifier: &str, argument: &Value) -> Result<Value> {
-        // for macro_item in TOOL_LIST {
-        //     let valid_input_types = macro_item.info().inputs;
-
-        //     if identifier == macro_item.info().identifier {
-        //         let input_type = argument.value_type();
-
-        //         if valid_input_types.contains(&input_type) {
-        //             return macro_item.run(argument);
-        //         } else {
-        //             return Err(Error::MacroArgumentType {
-        //                 macro_info: macro_item.info(),
-        //                 actual: argument.clone(),
-        //             });
-        //         }
-        //     }
-        // }
-
-        // for (key, value) in &self.variables {
-        //     if identifier == key {
-        //         if let Ok(function) = value.as_function() {
-        //             let mut context = self.clone();
-
-        //             context.set_value("input".to_string(), argument.clone())?;
-
-        //             return function.run_with_context(&mut context);
-        //         }
-        //     }
-        // }
-
-        Err(Error::FunctionIdentifierNotFound(identifier.to_string()))
     }
 
     /// Returns a Value assigned to the identifer, allowing dot notation to retrieve Values that are     /// nested in Lists or Maps. Returns None if there is no variable with a key matching the            /// identifier. Returns an error if a Map or List is indexed incorrectly.

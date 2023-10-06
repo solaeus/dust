@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{EvaluatorTree, Identifier, Result, Statement, Value, VariableMap};
+use crate::{Identifier, Statement};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
@@ -23,7 +23,7 @@ impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "function < {:?} > {{ {:?} }}",
+            "function < {:?} > {{ {:?} }}", // TODO: Correct this output
             self.identifiers, self.statements
         )
     }

@@ -5,16 +5,18 @@
 //! interpreting Dust code. Most of the language's features are implemented in the [tools] module.
 
 pub use crate::{
+    abstract_tree::*,
     error::*,
-    interface::*,
+    evaluator::*,
     value::{
         function::Function, table::Table, time::Time, value_type::ValueType,
         variable_map::VariableMap, Value,
     },
 };
 
+mod abstract_tree;
 mod error;
-mod interface;
+mod evaluator;
 mod value;
 
 use tree_sitter::Language;
