@@ -584,4 +584,19 @@ mod tests {
             vec![Ok(Value::Float(1.0))]
         );
     }
+
+    #[test]
+    fn evaluate_function() {
+        let function = Function::new(
+            vec![Identifier::new("output".to_string())],
+            vec![Statement::Expression(Expression::Identifier(
+                Identifier::new("output".to_string()),
+            ))],
+        );
+
+        assert_eq!(
+            evaluate("function <output> { output }"),
+            vec![Ok(Value::Function(function))]
+        );
+    }
 }
