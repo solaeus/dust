@@ -1,0 +1,114 @@
+# transform
+
+list = (1, 2, 3);
+test = transform(list, 'input + 1');
+assert_equal((2, 3, 4), test);
+
+# string
+
+test = string(42);
+assert_equal("42", test);
+
+test = string(42.42);
+assert_equal("42.42", test);
+
+test = string(false);
+assert_equal("false", test);
+
+# create_table
+
+table = create_table(
+	("text", "num"),
+	(
+		("foo", 1),
+		("bar", 2)
+	)
+);
+
+# rows
+
+test = rows(table);
+assert_equal(
+	(
+		("foo", 1),
+		("bar", 2)
+	),
+	test
+);
+
+# insert
+
+test = insert(
+	table,
+	(
+		("foo", 1),
+		("bar", 2)
+	)
+);
+assert_equal(
+	create_table(
+		("text", "num"),
+		(
+			("foo", 1),
+			("bar", 2),
+			("foo", 1),
+			("bar", 2)
+		)
+	),
+	test
+);
+
+# select
+
+table = create_table(
+	("text", "number", "bool"),
+	(
+		("a", 1, true),
+		("b", 2, true),
+		("a", 3, true)
+	)
+);
+
+test_table = create_table(
+	("text", "bool"),
+	(
+		("a", true),
+		("b", true),
+		("a", true)
+	)
+);
+
+assert_equal(select(table, ("text", "bool")), test_table);
+
+test_table = create_table(
+	("text", "number", "bool"),
+	(
+		("a", 1, true),
+		("a", 3, true)
+	)
+);
+
+assert_equal(where(table, 'text == "a"'), test_table);
+
+# count
+
+table = create_table(
+	("text", "number", "bool"),
+	(
+		("a", 1, true),
+		("b", 2, true),
+		("a", 3, true)
+	)
+);
+test = count(table);
+assert_equal(3, test);
+
+test = count("123");
+assert_equal(3, test);
+
+test = count(1, 2, 3);
+assert_equal(3, test);
+
+map.x.z.y = 1;
+test = count(map);
+assert_equal(1, test);

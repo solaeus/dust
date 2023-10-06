@@ -5,7 +5,7 @@ Dust is a data-oriented programming language and interactive shell. Dust can be 
 A basic dust program:
 
 ```dust
-output { "Hello world!" }
+(output  "Hello world!")
 ```
 
 Dust can do two (or more) things at the same time with effortless concurrency:

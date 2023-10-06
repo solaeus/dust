@@ -1,0 +1,4 @@
+dob = from_toml("1979-05-27T07:32:00-08:00");
+toml = to_toml(dob);
+
+assert_equal(toml, "1979-05-27T07:32:00-08:00");

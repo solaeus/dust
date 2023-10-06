@@ -1,0 +1,4 @@
+raw_data = download <"https://api.sampleapis.com/futurama/cast"> 
+dust_data = from_json <raw_data>
+
+assert_equal <"Billy West", data.0.name>
