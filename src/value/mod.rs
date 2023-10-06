@@ -183,7 +183,7 @@ impl Value {
                 expected: "string, integer, float, boolean, list, table, map, function or empty",
                 actual: child.kind(),
                 location: child.start_position(),
-                surrounding_text: source[child.byte_range()].to_string(),
+                relevant_source: source[child.byte_range()].to_string(),
             }),
         }
     }

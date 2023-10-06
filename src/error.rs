@@ -9,14 +9,14 @@ use std::{fmt, io, time::SystemTimeError};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
     UnexpectedSyntax {
         expected: &'static str,
         actual: &'static str,
         location: tree_sitter::Point,
-        surrounding_text: String,
+        relevant_source: String,
     },
 
     ExpectedFieldName,
@@ -390,6 +390,12 @@ pub fn expect_number_or_string(actual: &Value) -> Result<()> {
 
 impl std::error::Error for Error {}
 
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Error::*;
@@ -531,7 +537,7 @@ impl fmt::Display for Error {
                 expected,
                 actual,
                 location,
-                surrounding_text,
+                relevant_source: surrounding_text,
             } => write!(
                 f,
                 "Unexpected syntax at {location}. Expected {expected}, but found {actual}.

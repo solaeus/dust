@@ -150,7 +150,7 @@ impl EvaluatorTree for Item {
                 expected: "comment or statement",
                 actual: child.kind(),
                 location: child.start_position(),
-                surrounding_text: source[node.byte_range()].to_string(),
+                relevant_source: source[node.byte_range()].to_string(),
             })
         }
     }
@@ -166,43 +166,46 @@ impl EvaluatorTree for Item {
 /// Abstract representation of a statement.
 ///
 /// Items are either comments, which do nothing, or statements, which can be run
-/// to produce a single value or interact with a context by creating or
-/// referencing variables.
+/// to produce a single value or interact with their context.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
-    Expression(Expression),
-    ControlFlow(Box<ControlFlow>),
     Assignment(Box<Assignment>),
+    Expression(Expression),
+    IfElse(Box<IfElse>),
+    Match(Match),
 }
 
 impl EvaluatorTree for Statement {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        debug_assert_eq!("statement", node.kind());
+
         let child = node.child(0).unwrap();
 
         match child.kind() {
-            "expression" => Ok(Self::Expression(Expression::from_syntax_node(
-                child, source,
-            )?)),
-            "control_flow" => Ok(Statement::ControlFlow(Box::new(
-                ControlFlow::from_syntax_node(child, source)?,
-            ))),
             "assignment" => Ok(Statement::Assignment(Box::new(
                 Assignment::from_syntax_node(child, source)?,
             ))),
+            "expression" => Ok(Self::Expression(Expression::from_syntax_node(
+                child, source,
+            )?)),
+            "if_else" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
+                child, source,
+            )?))),
             _ => Err(Error::UnexpectedSyntax {
-                expected: "expression",
+                expected: "assignment, expression or if...else",
                 actual: child.kind(),
                 location: child.start_position(),
-                surrounding_text: source[node.byte_range()].to_string(),
+                relevant_source: source[node.byte_range()].to_string(),
             }),
         }
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         match self {
-            Statement::Expression(expression) => expression.run(context),
-            Statement::ControlFlow(control_flow) => control_flow.run(context),
             Statement::Assignment(assignment) => assignment.run(context),
+            Statement::Expression(expression) => expression.run(context),
+            Statement::IfElse(if_else) => if_else.run(context),
+            Statement::Match(r#match) => r#match.run(context),
         }
     }
 }
@@ -212,6 +215,7 @@ pub enum Expression {
     Identifier(Identifier),
     Value(Value),
     Math(Box<Math>),
+    Logic(Box<Logic>),
     FunctionCall(FunctionCall),
 }
 
@@ -220,19 +224,21 @@ impl EvaluatorTree for Expression {
         let child = node.child(0).unwrap();
 
         let expression = match child.kind() {
-            "identifier" => Self::Identifier(Identifier::from_syntax_node(child, source)?),
             "value" => Expression::Value(Value::from_syntax_node(child, source)?),
+            "identifier" => Self::Identifier(Identifier::from_syntax_node(child, source)?),
             "math" => Expression::Math(Box::new(Math::from_syntax_node(child, source)?)),
+            "logic" => Expression::Logic(Box::new(Logic::from_syntax_node(child, source)?)),
             "function_call" => {
                 Expression::FunctionCall(FunctionCall::from_syntax_node(child, source)?)
             }
-            _ => return Err(Error::UnexpectedSyntax {
-                expected:
-                    "identifier, operation, control_flow, assignment, math, function_call or value",
-                actual: child.kind(),
-                location: child.start_position(),
-                surrounding_text: source[node.byte_range()].to_string(),
-            }),
+            _ => {
+                return Err(Error::UnexpectedSyntax {
+                    expected: "value, identifier, math or function_call",
+                    actual: child.kind(),
+                    location: child.start_position(),
+                    relevant_source: source[node.byte_range()].to_string(),
+                })
+            }
         };
 
         Ok(expression)
@@ -244,6 +250,7 @@ impl EvaluatorTree for Expression {
             Expression::Identifier(identifier) => identifier.run(context),
             Expression::Math(math) => math.run(context),
             Expression::FunctionCall(function_call) => function_call.run(context),
+            Expression::Logic(logic) => logic.run(context),
         }
     }
 }
@@ -280,13 +287,13 @@ impl EvaluatorTree for Identifier {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ControlFlow {
+pub struct IfElse {
     if_expression: Expression,
     then_statement: Statement,
     else_statement: Option<Statement>,
 }
 
-impl EvaluatorTree for ControlFlow {
+impl EvaluatorTree for IfElse {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         let if_node = node.child(1).unwrap();
         let if_expression = Expression::from_syntax_node(if_node, source)?;
@@ -301,7 +308,9 @@ impl EvaluatorTree for ControlFlow {
             None
         };
 
-        Ok(ControlFlow {
+        println!("{if_node:?} {then_node:?} {else_node:?}");
+
+        Ok(IfElse {
             if_expression,
             then_statement,
             else_statement,
@@ -322,9 +331,22 @@ impl EvaluatorTree for ControlFlow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Match {}
+
+impl EvaluatorTree for Match {
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        todo!()
+    }
+
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+        todo!()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    expression: Expression,
+    statement: Statement,
 }
 
 impl EvaluatorTree for Assignment {
@@ -332,18 +354,18 @@ impl EvaluatorTree for Assignment {
         let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(identifier_node, source)?;
 
-        let expression_node = node.child(2).unwrap();
-        let expression = Expression::from_syntax_node(expression_node, source)?;
+        let statement_node = node.child(2).unwrap();
+        let statement = Statement::from_syntax_node(statement_node, source)?;
 
         Ok(Assignment {
             identifier,
-            expression,
+            statement,
         })
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         let key = self.identifier.clone().take_inner();
-        let value = self.expression.run(context)?;
+        let value = self.statement.run(context)?;
 
         context.set_value(key, value)?;
 
@@ -375,7 +397,7 @@ impl EvaluatorTree for Math {
                     expected: "+, -, *, / or %",
                     actual: operator_node.kind(),
                     location: operator_node.start_position(),
-                    surrounding_text: source[operator_node.byte_range()].to_string(),
+                    relevant_source: source[operator_node.byte_range()].to_string(),
                 })
             }
         };
@@ -391,17 +413,31 @@ impl EvaluatorTree for Math {
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        let left_value = self.left.run(context)?.as_number()?;
-        let right_value = self.right.run(context)?.as_number()?;
-        let outcome = match self.operator {
-            MathOperator::Add => left_value + right_value,
-            MathOperator::Subtract => left_value - right_value,
-            MathOperator::Multiply => left_value * right_value,
-            MathOperator::Divide => left_value / right_value,
-            MathOperator::Modulo => left_value % right_value,
-        };
+        match self.operator {
+            MathOperator::Add | MathOperator::Subtract | MathOperator::Multiply => {
+                let left_value = self.left.run(context)?.as_int()?;
+                let right_value = self.right.run(context)?.as_int()?;
+                let outcome = match &self.operator {
+                    MathOperator::Add => left_value + right_value,
+                    MathOperator::Subtract => left_value - right_value,
+                    MathOperator::Multiply => left_value * right_value,
+                    _ => panic!("Unreachable"),
+                };
 
-        Ok(Value::Float(outcome))
+                Ok(Value::Integer(outcome))
+            }
+            MathOperator::Divide | MathOperator::Modulo => {
+                let left_value = self.left.run(context)?.as_number()?;
+                let right_value = self.right.run(context)?.as_number()?;
+                let outcome = match self.operator {
+                    MathOperator::Divide => left_value / right_value,
+                    MathOperator::Modulo => left_value % right_value,
+                    _ => panic!("Unreachable"),
+                };
+
+                Ok(Value::Float(outcome))
+            }
+        }
     }
 }
 
@@ -412,6 +448,63 @@ pub enum MathOperator {
     Multiply,
     Divide,
     Modulo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Logic {
+    left: Expression,
+    operator: LogicOperator,
+    right: Expression,
+}
+
+impl EvaluatorTree for Logic {
+    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        let left_node = node.child(0).unwrap();
+        let left = Expression::from_syntax_node(left_node, source)?;
+
+        let operator_node = node.child(1).unwrap().child(0).unwrap();
+        let operator = match operator_node.kind() {
+            "==" => LogicOperator::Equal,
+            "&&" => LogicOperator::And,
+            "||" => LogicOperator::Or,
+            _ => {
+                return Err(Error::UnexpectedSyntax {
+                    expected: "==, && or ||",
+                    actual: operator_node.kind(),
+                    location: operator_node.start_position(),
+                    relevant_source: source[operator_node.byte_range()].to_string(),
+                })
+            }
+        };
+
+        let right_node = node.child(2).unwrap();
+        let right = Expression::from_syntax_node(right_node, source)?;
+
+        Ok(Logic {
+            left,
+            operator,
+            right,
+        })
+    }
+
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+        let left_value = self.left.run(context)?;
+        let right_value = self.right.run(context)?;
+        let outcome = match self.operator {
+            LogicOperator::Equal => left_value == right_value,
+            LogicOperator::And => left_value.as_boolean()? && right_value.as_boolean()?,
+            LogicOperator::Or => left_value.as_boolean()? || right_value.as_boolean()?,
+        };
+
+        Ok(Value::Boolean(outcome))
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub enum LogicOperator {
+    Equal,
+    And,
+    Or,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -574,13 +667,13 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_if_else_if_then_else() {
+    fn evaluate_if_else_else_if_else() {
         assert_eq!(
             evaluate(
                 "
                     if false
                         then 'no'
-                    else if 1 + 1 = 3
+                    else if 1 + 1 == 3
                         then 'nope'
                     else
                         'ok'
@@ -588,9 +681,25 @@ mod tests {
             ),
             vec![Ok(Value::String("ok".to_string()))]
         );
+    }
+
+    #[test]
+    fn evaluate_if_else_else_if_else_if_else_if_else() {
         assert_eq!(
-            evaluate("if true then 1.0 else 42.0"),
-            vec![Ok(Value::Float(1.0))]
+            evaluate(
+                "
+                    if false
+                        then 'no'
+                    else if 1 + 1 == 1
+                        then 'nope'
+                    else if 9 / 2 == 4 
+                        then 'nope'
+                    else if 'foo' == 'bar'
+                        then 'nope'
+                    else 'ok'
+                "
+            ),
+            vec![Ok(Value::String("ok".to_string()))]
         );
     }
 
