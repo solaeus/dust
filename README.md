@@ -27,19 +27,6 @@ read_file { "examples/assets/faithful.csv" }
     -> plot
 ```
 
-Dust is also a minimal, obvious data format. It is easier to write than JSON and easier to read than TOML and YAML. However, because it is a programming language, it is able to self-reference, perform calculations or load external data.
-
-```dust
-foo = "bar"
-numbers = [1 2 3 4]
-truths = {
-    dust = "the best thing ever"
-    favorite_number = numbers.3
-    another_number = numbers.0 + numbers.1
-}
-old_faithful_data = read_file { "examples/assets/faithful.csv" }
-```
-
 <!--toc:start-->
 - [Dust](#dust)
   - [Features](#features)
@@ -75,8 +62,6 @@ To get help with the shell you can use the "help" tool.
 ```dust
 help            # Returns a table will all tool info.
 help {"random"} # Returns a table with info on tools in the specified group.
-# The above is simply a shorthand for this:
-help -> select name, description from input where group == "random" 
 ```
 
 ## Installation
