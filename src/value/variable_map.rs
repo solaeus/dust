@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{value::Value, AbstractTree, Error, Result, Table};
+use crate::{value::Value, Error, Result, Table};
 
 /// A collection dust variables comprised of key-value pairs.
 ///

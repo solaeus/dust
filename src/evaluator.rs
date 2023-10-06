@@ -109,9 +109,7 @@ impl<'context, 'code> Evaluator<'context, 'code> {
 mod tests {
     use crate::{
         abstract_tree::{expression::Expression, identifier::Identifier, statement::Statement},
-        tool::ToolCall,
-        value::variable_map,
-        Function, FunctionCall, Table,
+        Function, Table,
     };
 
     use super::*;
@@ -290,20 +288,19 @@ mod tests {
     #[test]
     fn evaluate_function_call() {
         let mut context = VariableMap::new();
-        let function = Function::new(
-            vec![Identifier::new("message".to_string())],
-            vec![Statement::Expression(Expression::Identifier(
-                Identifier::new("message".to_string()),
-            ))],
-        );
-
-        context
-            .set_value("foobar".to_string(), Value::Function(function))
-            .unwrap();
 
         assert_eq!(
-            evaluate("(foobar 'Hiya')"),
-            vec![Ok(Value::String("Hiya".to_string()))]
+            evaluate_with_context(
+                "
+                foobar = function <message> { message }
+                (foobar 'Hiya')
+                ",
+                &mut context
+            ),
+            vec![
+                Ok(Value::Empty),
+                Ok(Value::List(vec![Value::String("Hiya".to_string())]))
+            ]
         );
     }
 

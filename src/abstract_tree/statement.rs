@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    tool::ToolCall, AbstractTree, Assignment, Error, Expression, IfElse, Match, Result, Value,
+    tool::Tool, AbstractTree, Assignment, Error, Expression, IfElse, Match, Result, Value,
     VariableMap,
 };
 
@@ -16,7 +16,7 @@ pub enum Statement {
     Expression(Expression),
     IfElse(Box<IfElse>),
     Match(Match),
-    Tool(ToolCall),
+    Tool(Tool),
 }
 
 impl AbstractTree for Statement {

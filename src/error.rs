@@ -283,7 +283,7 @@ impl From<toml::de::Error> for Error {
 }
 
 impl Error {
-    pub(crate) fn expect_function_argument_amount(
+    pub(crate) fn _expect_function_argument_amount(
         identifier: &str,
         actual: usize,
         expected: usize,
@@ -299,7 +299,7 @@ impl Error {
         }
     }
 
-    pub(crate) fn expected_minimum_function_argument_amount(
+    pub(crate) fn _expected_minimum_function_argument_amount(
         identifier: &str,
         actual: usize,
         minimum: usize,

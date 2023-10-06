@@ -9,8 +9,7 @@ pub use crate::{
     error::*,
     evaluator::*,
     value::{
-        function::Function, table::Table, time::Time, value_type::ValueType,
-        variable_map::VariableMap, Value,
+        function::Function, table::Table, value_type::ValueType, variable_map::VariableMap, Value,
     },
 };
 

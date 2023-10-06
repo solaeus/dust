@@ -39,12 +39,28 @@ impl AbstractTree for FunctionCall {
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         let identifier = &self.identifier;
         let definition = if let Some(value) = context.get_value(identifier.inner())? {
-            value
+            value.as_function().cloned()?
         } else {
             return Err(crate::Error::FunctionIdentifierNotFound(identifier.clone()));
         };
-        let mut arguments = Vec::with_capacity(self.expressions.len());
 
-        Ok(Value::List(arguments))
+        let id_expr_pairs = definition.identifiers().iter().zip(self.expressions.iter());
+
+        for (identifier, expression) in id_expr_pairs {
+            let key = identifier.clone().take_inner();
+            let value = expression.run(context)?;
+
+            context.set_value(key, value)?;
+        }
+
+        let mut results = Vec::with_capacity(self.expressions.len());
+
+        for statement in definition.statements() {
+            let result = statement.run(context)?;
+
+            results.push(result);
+        }
+
+        Ok(Value::List(results))
     }
 }

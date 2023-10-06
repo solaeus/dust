@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    AbstractTree, Function, Identifier, Statement, Table, Time, ValueType, VariableMap,
+    AbstractTree, Function, Identifier, Statement, Table, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -23,7 +23,6 @@ use std::{
 pub mod function;
 pub mod iter;
 pub mod table;
-pub mod time;
 pub mod value_type;
 pub mod variable_map;
 
@@ -37,7 +36,6 @@ pub enum Value {
     List(Vec<Value>),
     Map(VariableMap),
     Table(Table),
-    Time(Time),
     Function(Function),
     String(String),
     Float(f64),
@@ -347,15 +345,6 @@ impl Value {
         }
     }
 
-    /// Borrows the value stored in `self` as `Time`, or returns `Err` if
-    /// `self` is not a `Value::Time`.
-    pub fn as_time(&self) -> Result<&Time> {
-        match self {
-            Value::Time(time) => Ok(time),
-            value => Err(Error::expected_function(value.clone())),
-        }
-    }
-
     /// Returns `()`, or returns`Err` if `self` is not a `Value::Tuple`.
     pub fn as_empty(&self) -> Result<()> {
         match self {
@@ -442,7 +431,6 @@ impl PartialEq for Value {
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Table(left), Value::Table(right)) => left == right,
-            (Value::Time(left), Value::Time(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Empty, Value::Empty) => true,
             _ => false,
@@ -475,8 +463,6 @@ impl Ord for Value {
             (Value::Table(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
-            (Value::Time(left), Value::Time(right)) => left.cmp(right),
-            (Value::Time(_), _) => Ordering::Greater,
             (Value::Empty, Value::Empty) => Ordering::Equal,
             (Value::Empty, _) => Ordering::Less,
         }
@@ -506,7 +492,6 @@ impl Serialize for Value {
             Value::Map(inner) => inner.serialize(serializer),
             Value::Table(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
-            Value::Time(inner) => inner.serialize(serializer),
         }
     }
 }
@@ -529,7 +514,6 @@ impl Display for Value {
             Value::Map(map) => write!(f, "{map}"),
             Value::Table(table) => write!(f, "{table}"),
             Value::Function(function) => write!(f, "{function}"),
-            Value::Time(time) => write!(f, "{time}"),
         }
     }
 }

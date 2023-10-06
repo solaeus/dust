@@ -4,21 +4,21 @@ use tree_sitter::Node;
 use crate::{AbstractTree, Error, Expression, Result, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum ToolCall {
+pub enum Tool {
     Output(Expression),
 }
 
-impl AbstractTree for ToolCall {
+impl AbstractTree for Tool {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         let tool_node = node.child(1).unwrap();
         let tool_name = tool_node.kind();
 
         match tool_name {
             "output" => {
-                let expression_node = node.child(1).unwrap();
+                let expression_node = tool_node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(expression_node, source)?;
 
-                Ok(ToolCall::Output(expression))
+                Ok(Tool::Output(expression))
             }
             _ => Err(Error::UnexpectedSyntax {
                 expected: "output",
@@ -29,9 +29,9 @@ impl AbstractTree for ToolCall {
         }
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<crate::Value> {
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
         match self {
-            ToolCall::Output(expression) => {
+            Tool::Output(expression) => {
                 let value = expression.run(context)?;
 
                 println!("{value}")

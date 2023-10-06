@@ -17,6 +17,14 @@ impl Function {
             statements,
         }
     }
+
+    pub fn identifiers(&self) -> &Vec<Identifier> {
+        &self.identifiers
+    }
+
+    pub fn statements(&self) -> &Vec<Statement> {
+        &self.statements
+    }
 }
 
 impl Display for Function {

@@ -107,7 +107,6 @@ impl From<&Value> for ValueType {
             Value::Map(_) => ValueType::Map,
             Value::Table { .. } => ValueType::Table,
             Value::Function(_) => ValueType::Function,
-            Value::Time(_) => ValueType::Time,
         }
     }
 }
