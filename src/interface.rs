@@ -5,7 +5,7 @@
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
+use tree_sitter::{Node, Parser, Tree as TSTree};
 
 use crate::{language, Error, Result, Value, VariableMap};
 
@@ -17,8 +17,8 @@ use crate::{language, Error, Result, Value, VariableMap};
 /// # Examples
 ///
 /// ```rust
-/// # use dust_lib::*;
-/// assert_eq!(eval("1 + 2 + 3"), vec![Ok(Value::from(6))]);
+/// # use dust::*;
+/// assert_eq!(evaluate("1 + 2 + 3"), vec![Ok(Value::Integer(6))]);
 /// ```
 pub fn evaluate(source: &str) -> Vec<Result<Value>> {
     let mut context = VariableMap::new();
@@ -31,7 +31,7 @@ pub fn evaluate(source: &str) -> Vec<Result<Value>> {
 /// # Examples
 ///
 /// ```rust
-/// # use dust_lib::*;
+/// # use dust::*;
 /// let mut context = VariableMap::new();
 ///
 /// context.set_value("one".into(), 1.into());
@@ -41,8 +41,8 @@ pub fn evaluate(source: &str) -> Vec<Result<Value>> {
 /// let dust_code = "four = 4 one + two + three + four";
 ///
 /// assert_eq!(
-///     eval_with_context(dust_code, &mut context),
-///     vec![Ok(Value::Primitive(Primitive::Empty)), Ok(Value::from(10))]
+///     evaluate_with_context(dust_code, &mut context),
+///     vec![Ok(Value::Empty), Ok(Value::Integer(10))]
 /// );
 /// ```
 pub fn evaluate_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
@@ -172,6 +172,8 @@ impl EvaluatorTree for Item {
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Expression(Expression),
+    ControlFlow(Box<ControlFlow>),
+    Assignment(Box<Assignment>),
 }
 
 impl EvaluatorTree for Statement {
@@ -184,6 +186,12 @@ impl EvaluatorTree for Statement {
             "expression" => Ok(Self::Expression(Expression::from_syntax_node(
                 child, source,
             )?)),
+            "control_flow" => Ok(Statement::ControlFlow(Box::new(
+                ControlFlow::from_syntax_node(child, source)?,
+            ))),
+            "assignment" => Ok(Statement::Assignment(Box::new(
+                Assignment::from_syntax_node(child, source)?,
+            ))),
             _ => Err(Error::UnexpectedSyntax {
                 expected: "expression",
                 actual: child.kind(),
@@ -195,6 +203,8 @@ impl EvaluatorTree for Statement {
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         match self {
             Statement::Expression(expression) => expression.run(context),
+            Statement::ControlFlow(control_flow) => control_flow.run(context),
+            Statement::Assignment(assignment) => assignment.run(context),
         }
     }
 }
@@ -203,8 +213,6 @@ impl EvaluatorTree for Statement {
 pub enum Expression {
     Identifier(Identifier),
     Value(Value),
-    ControlFlow(Box<ControlFlow>),
-    Assignment(Box<Assignment>),
     Math(Box<Math>),
     FunctionCall(FunctionCall),
 }
@@ -218,12 +226,6 @@ impl EvaluatorTree for Expression {
         let expression = match child.kind() {
             "identifier" => Self::Identifier(Identifier::from_syntax_node(child, source)?),
             "value" => Expression::Value(Value::from_syntax_node(child, source)?),
-            "control_flow" => {
-                Expression::ControlFlow(Box::new(ControlFlow::from_syntax_node(child, source)?))
-            }
-            "assignment" => {
-                Expression::Assignment(Box::new(Assignment::from_syntax_node(child, source)?))
-            }
             "math" => Expression::Math(Box::new(Math::from_syntax_node(child, source)?)),
             "function_call" => {
                 Expression::FunctionCall(FunctionCall::from_syntax_node(child, source)?)
@@ -243,8 +245,6 @@ impl EvaluatorTree for Expression {
         match self {
             Expression::Value(value) => Ok(value.clone()),
             Expression::Identifier(identifier) => identifier.run(context),
-            Expression::ControlFlow(control_flow) => control_flow.run(context),
-            Expression::Assignment(assignment) => assignment.run(context),
             Expression::Math(math) => math.run(context),
             Expression::FunctionCall(function_call) => function_call.run(context),
         }
@@ -295,13 +295,13 @@ impl EvaluatorTree for ControlFlow {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         assert_eq!(node.kind(), "control_flow");
 
-        let if_node = node.child_by_field_name("if_expression").unwrap();
+        let if_node = node.child(1).unwrap();
         let if_expression = Expression::from_syntax_node(if_node, source)?;
 
-        let then_node = node.child_by_field_name("then_statement").unwrap();
+        let then_node = node.child(3).unwrap();
         let then_statement = Statement::from_syntax_node(then_node, source)?;
 
-        let else_node = node.child_by_field_name("else_statement");
+        let else_node = node.child(5);
         let else_statement = if let Some(node) = else_node {
             Some(Statement::from_syntax_node(node, source)?)
         } else {
@@ -331,7 +331,7 @@ impl EvaluatorTree for ControlFlow {
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    statement: Statement,
+    expression: Expression,
 }
 
 impl EvaluatorTree for Assignment {
@@ -341,18 +341,18 @@ impl EvaluatorTree for Assignment {
         let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(identifier_node, source)?;
 
-        let statement_node = node.child(2).unwrap();
-        let statement = Statement::from_syntax_node(statement_node, source)?;
+        let expression_node = node.child(2).unwrap();
+        let expression = Expression::from_syntax_node(expression_node, source)?;
 
         Ok(Assignment {
             identifier,
-            statement,
+            expression,
         })
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
         let key = self.identifier.clone().take_inner();
-        let value = self.statement.run(context)?;
+        let value = self.expression.run(context)?;
 
         context.set_value(key, value)?;
 
@@ -374,7 +374,7 @@ impl EvaluatorTree for Math {
         let left_node = node.child(0).unwrap();
         let left = Expression::from_syntax_node(left_node, source)?;
 
-        let operator_node = left_node.next_sibling().unwrap();
+        let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
             "+" => MathOperator::Add,
             "-" => MathOperator::Subtract,
@@ -390,7 +390,7 @@ impl EvaluatorTree for Math {
             }
         };
 
-        let right_node = operator_node.next_sibling().unwrap();
+        let right_node = node.child(2).unwrap();
         let right = Expression::from_syntax_node(right_node, source)?;
 
         Ok(Math {
@@ -469,7 +469,7 @@ mod tests {
     #[test]
     fn evaluate_empty() {
         assert_eq!(evaluate("x = 9"), vec![Ok(Value::Empty)]);
-        assert_eq!(evaluate("x = 'foo' + 'bar'"), vec![Ok(Value::Empty)]);
+        assert_eq!(evaluate("x = 1 + 1"), vec![Ok(Value::Empty)]);
     }
 
     #[test]
