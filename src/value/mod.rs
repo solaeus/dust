@@ -49,8 +49,6 @@ pub enum Value {
 
 impl Value {
     pub fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        debug_assert_eq!(node.kind(), "value");
-
         let child = node.child(0).unwrap();
 
         match child.kind() {
@@ -185,13 +183,12 @@ impl Value {
                 expected: "string, integer, float, boolean, list, table, map, function or empty",
                 actual: child.kind(),
                 location: child.start_position(),
+                surrounding_text: source[child.byte_range()].to_string(),
             }),
         }
     }
 
     pub fn list_from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        debug_assert_eq!(node.kind(), "list");
-
         let item_count = node.named_child_count();
         let mut values = Vec::with_capacity(item_count);
         let mut current_node = node.child(1).unwrap();

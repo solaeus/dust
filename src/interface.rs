@@ -136,8 +136,6 @@ pub enum Item {
 
 impl EvaluatorTree for Item {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        debug_assert_eq!(node.kind(), "item");
-
         let child = node.child(0).unwrap();
 
         if child.kind() == "comment" {
@@ -152,6 +150,7 @@ impl EvaluatorTree for Item {
                 expected: "comment or statement",
                 actual: child.kind(),
                 location: child.start_position(),
+                surrounding_text: source[node.byte_range()].to_string(),
             })
         }
     }
@@ -178,8 +177,6 @@ pub enum Statement {
 
 impl EvaluatorTree for Statement {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        debug_assert_eq!(node.kind(), "statement");
-
         let child = node.child(0).unwrap();
 
         match child.kind() {
@@ -196,6 +193,7 @@ impl EvaluatorTree for Statement {
                 expected: "expression",
                 actual: child.kind(),
                 location: child.start_position(),
+                surrounding_text: source[node.byte_range()].to_string(),
             }),
         }
     }
@@ -219,8 +217,6 @@ pub enum Expression {
 
 impl EvaluatorTree for Expression {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        debug_assert_eq!(node.kind(), "expression");
-
         let child = node.child(0).unwrap();
 
         let expression = match child.kind() {
@@ -235,6 +231,7 @@ impl EvaluatorTree for Expression {
                     "identifier, operation, control_flow, assignment, math, function_call or value",
                 actual: child.kind(),
                 location: child.start_position(),
+                surrounding_text: source[node.byte_range()].to_string(),
             }),
         };
 
@@ -270,8 +267,6 @@ impl Identifier {
 
 impl EvaluatorTree for Identifier {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        assert_eq!(node.kind(), "identifier");
-
         let identifier = &source[node.byte_range()];
 
         Ok(Identifier(identifier.to_string()))
@@ -293,8 +288,6 @@ pub struct ControlFlow {
 
 impl EvaluatorTree for ControlFlow {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        assert_eq!(node.kind(), "control_flow");
-
         let if_node = node.child(1).unwrap();
         let if_expression = Expression::from_syntax_node(if_node, source)?;
 
@@ -336,8 +329,6 @@ pub struct Assignment {
 
 impl EvaluatorTree for Assignment {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        assert_eq!(node.kind(), "assignment");
-
         let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(identifier_node, source)?;
 
@@ -369,8 +360,6 @@ pub struct Math {
 
 impl EvaluatorTree for Math {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        assert_eq!(node.kind(), "math");
-
         let left_node = node.child(0).unwrap();
         let left = Expression::from_syntax_node(left_node, source)?;
 
@@ -386,6 +375,7 @@ impl EvaluatorTree for Math {
                     expected: "+, -, *, / or %",
                     actual: operator_node.kind(),
                     location: operator_node.start_position(),
+                    surrounding_text: source[operator_node.byte_range()].to_string(),
                 })
             }
         };
@@ -432,8 +422,6 @@ pub struct FunctionCall {
 
 impl EvaluatorTree for FunctionCall {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        assert_eq!(node.kind(), "function_call");
-
         let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(identifier_node, source)?;
 
@@ -578,6 +566,27 @@ mod tests {
         assert_eq!(
             evaluate("if false then 1 else 2"),
             vec![Ok(Value::Integer(2))]
+        );
+        assert_eq!(
+            evaluate("if true then 1.0 else 42.0"),
+            vec![Ok(Value::Float(1.0))]
+        );
+    }
+
+    #[test]
+    fn evaluate_if_else_if_then_else() {
+        assert_eq!(
+            evaluate(
+                "
+                    if false
+                        then 'no'
+                    else if 1 + 1 = 3
+                        then 'nope'
+                    else
+                        'ok'
+                "
+            ),
+            vec![Ok(Value::String("ok".to_string()))]
         );
         assert_eq!(
             evaluate("if true then 1.0 else 42.0"),

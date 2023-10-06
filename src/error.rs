@@ -16,6 +16,7 @@ pub enum Error {
         expected: &'static str,
         actual: &'static str,
         location: tree_sitter::Point,
+        surrounding_text: String,
     },
 
     ExpectedFieldName,
@@ -530,9 +531,11 @@ impl fmt::Display for Error {
                 expected,
                 actual,
                 location,
+                surrounding_text,
             } => write!(
                 f,
-                "Unexpected syntax at {location}. Expected {expected}, but found {actual}."
+                "Unexpected syntax at {location}. Expected {expected}, but found {actual}.
+                >> {surrounding_text} <<"
             ),
             ExpectedFieldName => write!(
                 f,
