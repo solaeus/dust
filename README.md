@@ -11,20 +11,9 @@ A basic dust program:
 Dust can do two (or more) things at the same time with effortless concurrency:
 
 ```dust
-run {
-    function { output 'will this one finish first?' }
-    function { output 'or will this one?' }
-}
-```
-
-Dust can do amazing things with data. To load CSV data, isolate a column and render it as a line plot in a GUI window:
-
-```dust
-read_file { "examples/assets/faithful.csv" }
-    -> from_csv
-    -> rows
-    -> transform <{item.1}>
-    -> plot
+(run 
+    (output 'will this one finish first?')
+    (output 'or will this one?'))
 ```
 
 <!--toc:start-->
@@ -65,8 +54,6 @@ help {"random"} # Returns a table with info on tools in the specified group.
 ```
 
 ## Installation
-
-**WARNING**: Because Dust is changing so rapidly, there may be differences between the version you download using `cargo install` and the version to which this README refers. Even if you compile the code locally, some aspects of the documentation may not work because features are generally documented and tested before being implemented. You can run `cargo test` to identify things that don't work yet.
 
 You must have the default rust toolchain installed and up-to-date. Install [rustup] if it is not already installed. Run `cargo install dust-lang` then run `dust` to start the interactive shell. Use `dust --help` to see the full command line options.
 
@@ -192,13 +179,13 @@ print = function <input> {
 
 ### Empty Values
 
-Dust does not have a null type. Instead, it uses the "empty" type to represent a lack of any other value. There is no syntax to create this value: it is only used by the interpreter. Note that Dust *does* have the NaN value, which is a floating point value that must exist in order for floats to work as intended. Integers will never be NaN and no value will ever be null or undefined.
+Dust does not have a null type. Instead, it uses the "empty" type to represent a lack of any other value. There is no syntax to create this value: it is only used by the interpreter. Note that Dust *does* have the NaN value, which is a floating point value that must exist in order for floats to work as intended. No value will ever be null or undefined.
 
 ## Implementation
 
-Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust module. Tree sitter generates a parser, written in C, from a set of rules defined in Javascript. Dust itself is a rust binary that calls the C parser using FFI. Javascript is used *only* to define the grammar, all of the compiled code is in Rust or C.
+Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust module. Tree sitter generates a parser, written in C, from a set of rules defined in Javascript. Dust itself is a rust binary that calls the C parser using FFI.
 
-Tree Sitter generates a concrete syntax tree, which the Rust code maps to an abstract syntax tree by traversing each node once. Tree sitter is fast enough to be updated on every keystroke which is perfect for a data-oriented language like Dust because it allows only the relevant sections to be re-evaluated and the result displayed instantly. Most languages skip the concrete syntax and parse directly to an abstract syntax tree, but there are reasons for using a concrete syntax tree. Some of the project's long-term goals are to support interactivity and allowing comments to be aware of the interpreted code. In the medium-term it is helpful to produce error messages for invalid syntax because the evaluator knows exactly where it and everything else is in the document.
+Tree Sitter generates a concrete syntax tree, which dust travseres to create an abstract syntax tree that can be executed run the dust code. Each 
 
 ## Contributing
 
