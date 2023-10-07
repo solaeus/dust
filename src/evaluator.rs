@@ -86,8 +86,6 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         let item_count = root_node.child_count();
         let mut results = Vec::with_capacity(item_count);
 
-        println!("{}", root_node.to_sexp());
-
         for item_node in root_node.children(&mut cursor) {
             let item_result = Item::from_syntax_node(item_node, self.source);
 

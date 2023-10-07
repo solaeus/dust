@@ -108,6 +108,13 @@ impl VariableMap {
         }
     }
 
+    /// Removes and assignmed variable.
+    ///
+    /// TODO: Support dot notation.
+    pub fn remove(&mut self, key: &str) -> Option<Value> {
+        self.variables.remove(key)
+    }
+
     /// Returns a reference to the inner BTreeMap.
     pub fn inner(&self) -> &BTreeMap<String, Value> {
         &self.variables

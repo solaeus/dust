@@ -61,6 +61,12 @@ impl AbstractTree for FunctionCall {
             results.push(result);
         }
 
+        for identifier in definition.identifiers() {
+            let key = identifier.inner();
+
+            context.remove(&key);
+        }
+
         Ok(Value::List(results))
     }
 }
