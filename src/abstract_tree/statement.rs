@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    tool::Tool, AbstractTree, Assignment, Error, Expression, IfElse, Match, Result, Value,
-    VariableMap,
+    r#while::While, tool::Tool, AbstractTree, Assignment, Error, Expression, IfElse, Match, Result,
+    Value, VariableMap,
 };
 
 /// Abstract representation of a statement.
@@ -17,6 +17,7 @@ pub enum Statement {
     IfElse(Box<IfElse>),
     Match(Match),
     Tool(Tool),
+    While(Box<While>),
 }
 
 impl AbstractTree for Statement {
@@ -38,6 +39,9 @@ impl AbstractTree for Statement {
             "tool" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
                 child, source,
             )?))),
+            "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
+                child, source,
+            )?))),
             _ => Err(Error::UnexpectedSyntax {
                 expected: "assignment, expression, if...else or tool",
                 actual: child.kind(),
@@ -54,6 +58,7 @@ impl AbstractTree for Statement {
             Statement::IfElse(if_else) => if_else.run(context),
             Statement::Match(r#match) => r#match.run(context),
             Statement::Tool(tool) => tool.run(context),
+            Statement::While(r#while) => r#while.run(context),
         }
     }
 }

@@ -1,3 +1,11 @@
+//! Abstract, executable representations of corresponding items found in Dust
+//! source code. The types that implement [AbstractTree] are inteded to be
+//! created by an [Evaluator].
+//!
+//! When adding new lanugage features, first extend the grammar to recognize new
+//! syntax nodes. Then add a new AbstractTree type using the existing types as
+//! examples.
+
 pub mod assignment;
 pub mod expression;
 pub mod function_call;
@@ -9,6 +17,7 @@ pub mod r#match;
 pub mod math;
 pub mod statement;
 pub mod tool;
+pub mod r#while;
 
 pub use {
     assignment::*, expression::*, function_call::*, identifier::*, if_else::*, item::*, logic::*,
