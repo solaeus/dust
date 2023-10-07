@@ -1,5 +1,6 @@
 //! Top-level unit of Dust code.
 
+use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{AbstractTree, Error, Result, Statement, Value, VariableMap};
@@ -9,7 +10,7 @@ use crate::{AbstractTree, Error, Result, Statement, Value, VariableMap};
 /// Items are either comments, which do nothing, or statements, which can be run
 /// to produce a single value or interact with a context by creating or
 /// referencing variables.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Item {
     Comment(String),
     Statement(Statement),
@@ -17,6 +18,8 @@ pub enum Item {
 
 impl AbstractTree for Item {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+        debug_assert_eq!("item", node.kind());
+
         let child = node.child(0).unwrap();
 
         if child.kind() == "comment" {

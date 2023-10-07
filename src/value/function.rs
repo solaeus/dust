@@ -2,28 +2,28 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Statement};
+use crate::{Identifier, Item};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
-    identifiers: Vec<Identifier>,
-    statements: Vec<Statement>,
+    parameters: Vec<Identifier>,
+    body: Vec<Item>,
 }
 
 impl Function {
-    pub fn new(identifiers: Vec<Identifier>, statements: Vec<Statement>) -> Self {
+    pub fn new(identifiers: Vec<Identifier>, items: Vec<Item>) -> Self {
         Function {
-            identifiers,
-            statements,
+            parameters: identifiers,
+            body: items,
         }
     }
 
     pub fn identifiers(&self) -> &Vec<Identifier> {
-        &self.identifiers
+        &self.parameters
     }
 
-    pub fn statements(&self) -> &Vec<Statement> {
-        &self.statements
+    pub fn items(&self) -> &Vec<Item> {
+        &self.body
     }
 }
 
@@ -32,7 +32,7 @@ impl Display for Function {
         write!(
             f,
             "function < {:?} > {{ {:?} }}", // TODO: Correct this output
-            self.identifiers, self.statements
+            self.parameters, self.body
         )
     }
 }

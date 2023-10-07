@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    AbstractTree, Function, Identifier, Statement, Table, ValueType, VariableMap,
+    AbstractTree, Function, Identifier, Item, Table, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -157,10 +157,12 @@ impl Value {
             "function" => {
                 let child_count = child.child_count();
                 let mut identifiers = Vec::new();
-                let mut statements = Vec::new();
+                let mut items = Vec::new();
 
                 for index in 0..child_count {
                     let child = child.child(index).unwrap();
+
+                    println!("{child:?}");
 
                     if child.kind() == "identifier" {
                         let identifier = Identifier::from_syntax_node(child, source)?;
@@ -168,14 +170,14 @@ impl Value {
                         identifiers.push(identifier)
                     }
 
-                    if child.kind() == "statement" {
-                        let statement = Statement::from_syntax_node(child, source)?;
+                    if child.kind() == "item" {
+                        let item = Item::from_syntax_node(child, source)?;
 
-                        statements.push(statement)
+                        items.push(item)
                     }
                 }
 
-                Ok(Value::Function(Function::new(identifiers, statements)))
+                Ok(Value::Function(Function::new(identifiers, items)))
             }
             _ => Err(Error::UnexpectedSyntax {
                 expected: "string, integer, float, boolean, list, table, map, function or empty",

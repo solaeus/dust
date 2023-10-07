@@ -55,8 +55,8 @@ impl AbstractTree for FunctionCall {
 
         let mut results = Vec::with_capacity(self.expressions.len());
 
-        for statement in definition.statements() {
-            let result = statement.run(context)?;
+        for item in definition.items() {
+            let result = item.run(context)?;
 
             results.push(result);
         }

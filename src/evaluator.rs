@@ -272,8 +272,8 @@ mod tests {
     fn evaluate_function() {
         let function = Function::new(
             vec![Identifier::new("message".to_string())],
-            vec![Statement::Expression(Expression::Identifier(
-                Identifier::new("message".to_string()),
+            vec![Item::Statement(Statement::Expression(
+                Expression::Identifier(Identifier::new("message".to_string())),
             ))],
         );
 
