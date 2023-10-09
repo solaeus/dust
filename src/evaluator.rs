@@ -85,6 +85,8 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         let root_node = cursor.node();
         let mut prev_result = Ok(Value::Empty);
 
+        println!("{}", root_node.to_sexp());
+
         for item_node in root_node.children(&mut cursor) {
             let item = Item::from_syntax_node(item_node, self.source)?;
             prev_result = item.run(self.context);
@@ -188,18 +190,18 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_if_then() {
+    fn evaluate_if() {
         assert_eq!(
-            evaluate("if true then 'true'"),
+            evaluate("if true { 'true' }"),
             Ok(Value::String("true".to_string()))
         );
     }
 
     #[test]
-    fn evaluate_if_then_else() {
-        assert_eq!(evaluate("if false then 1 else 2"), Ok(Value::Integer(2)));
+    fn evaluate_if_else() {
+        assert_eq!(evaluate("if false { 1 } else { 2 }"), Ok(Value::Integer(2)));
         assert_eq!(
-            evaluate("if true then 1.0 else 42.0"),
+            evaluate("if true { 1.0 } else { 42.0 }"),
             Ok(Value::Float(1.0))
         );
     }
@@ -209,12 +211,13 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                    if false
-                        then 'no'
-                    else if 1 + 1 == 3
-                        then 'nope'
-                    else
+                    if false {
+                        'no'
+                    } else if 1 + 1 == 3 {
+                        'nope'
+                    } else {
                         'ok'
+                    }
                 "
             ),
             Ok(Value::String("ok".to_string()))
@@ -226,15 +229,17 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                    if false
-                        then 'no'
-                    else if 1 + 1 == 1
-                        then 'nope'
-                    else if 9 / 2 == 4 
-                        then 'nope'
-                    else if 'foo' == 'bar'
-                        then 'nope'
-                    else 'ok'
+                    if false {
+                        'no'
+                    } else if 1 + 1 == 1 {
+                        'nope'
+                    } else if 9 / 2 == 4 {
+                        'nope'
+                    } else if 'foo' == 'bar' {
+                        'nope'
+                    } else {
+                        'ok'
+                    }
                 "
             ),
             Ok(Value::String("ok".to_string()))

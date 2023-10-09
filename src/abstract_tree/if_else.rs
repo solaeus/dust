@@ -7,29 +7,52 @@ use crate::{AbstractTree, Expression, Result, Statement, Value, VariableMap};
 pub struct IfElse {
     if_expression: Expression,
     then_statement: Statement,
+    else_if_expressions: Vec<Expression>,
+    else_if_statements: Vec<Statement>,
     else_statement: Option<Statement>,
 }
 
 impl AbstractTree for IfElse {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        let if_node = node.child(1).unwrap();
+        let if_node = node.child(0).unwrap().child(1).unwrap();
         let if_expression = Expression::from_syntax_node(if_node, source)?;
 
-        let then_node = node.child(3).unwrap();
+        let then_node = node.child(0).unwrap().child(3).unwrap();
         let then_statement = Statement::from_syntax_node(then_node, source)?;
 
-        let else_node = node.child(5);
-        let else_statement = if let Some(node) = else_node {
-            Some(Statement::from_syntax_node(node, source)?)
-        } else {
-            None
-        };
+        let child_count = node.child_count();
+        let mut else_if_expressions = Vec::new();
+        let mut else_if_statements = Vec::new();
+        let mut else_statement = None;
 
-        println!("{if_node:?} {then_node:?} {else_node:?}");
+        for index in 1..child_count {
+            let child = node.child(index);
+
+            if let Some(node) = child {
+                if node.kind() == "else_if" {
+                    let expression_node = node.child(1).unwrap();
+                    let expression = Expression::from_syntax_node(expression_node, source)?;
+
+                    else_if_expressions.push(expression);
+
+                    let statement_node = node.child(3).unwrap();
+                    let statement = Statement::from_syntax_node(statement_node, source)?;
+
+                    else_if_statements.push(statement);
+                }
+
+                if node.kind() == "else" {
+                    let else_node = node.child(2).unwrap();
+                    else_statement = Some(Statement::from_syntax_node(else_node, source)?);
+                }
+            }
+        }
 
         Ok(IfElse {
             if_expression,
             then_statement,
+            else_if_expressions,
+            else_if_statements,
             else_statement,
         })
     }
@@ -39,10 +62,24 @@ impl AbstractTree for IfElse {
 
         if if_boolean {
             self.then_statement.run(context)
-        } else if let Some(statement) = &self.else_statement {
-            statement.run(context)
         } else {
-            Ok(Value::Empty)
+            let expressions = &self.else_if_expressions;
+
+            for (index, expression) in expressions.into_iter().enumerate() {
+                let if_boolean = expression.run(context)?.as_boolean()?;
+
+                if if_boolean {
+                    let statement = self.else_if_statements.get(index).unwrap();
+
+                    return statement.run(context);
+                }
+            }
+
+            if let Some(statement) = &self.else_statement {
+                statement.run(context)
+            } else {
+                Ok(Value::Empty)
+            }
         }
     }
 }
