@@ -11,38 +11,52 @@ use crate::{AbstractTree, Error, Result, Statement, Value, VariableMap};
 /// to produce a single value or interact with a context by creating or
 /// referencing variables.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Item {
-    Comment(String),
-    Statement(Statement),
+pub struct Item {
+    statements: Vec<Statement>,
+}
+
+impl Item {
+    pub fn new(statements: Vec<Statement>) -> Self {
+        Self { statements }
+    }
 }
 
 impl AbstractTree for Item {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         debug_assert_eq!("item", node.kind());
 
-        let child = node.child(0).unwrap();
+        let child_count = node.child_count();
+        let mut statements = Vec::with_capacity(child_count);
 
-        if child.kind() == "comment" {
-            let byte_range = child.byte_range();
-            let comment_text = &source[byte_range];
+        for index in 0..child_count {
+            let child = node.child(index).unwrap();
 
-            Ok(Item::Comment(comment_text.to_string()))
-        } else if child.kind() == "statement" {
-            Ok(Item::Statement(Statement::from_syntax_node(child, source)?))
-        } else {
-            Err(Error::UnexpectedSyntax {
-                expected: "comment or statement",
-                actual: child.kind(),
-                location: child.start_position(),
-                relevant_source: source[node.byte_range()].to_string(),
-            })
+            let statement = match child.kind() {
+                "statement" => Statement::from_syntax_node(child, source)?,
+                _ => {
+                    return Err(Error::UnexpectedSyntax {
+                        expected: "comment or statement",
+                        actual: child.kind(),
+                        location: child.start_position(),
+                        relevant_source: source[node.byte_range()].to_string(),
+                    })
+                }
+            };
+
+            statements.push(statement);
         }
+
+        Ok(Item { statements })
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        match self {
-            Item::Comment(text) => Ok(Value::String(text.clone())),
-            Item::Statement(statement) => statement.run(context),
+        let mut prev_result = Ok(Value::Empty);
+
+        for statement in &self.statements {
+            prev_result?;
+            prev_result = statement.run(context);
         }
+
+        prev_result
     }
 }

@@ -1,72 +1,89 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Result, Value, VariableMap};
+use crate::{tool::Tool, AbstractTree, Result, Value, VariableMap};
 
 use super::{expression::Expression, identifier::Identifier};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
-    identifier: Identifier,
-    expressions: Vec<Expression>,
+    name: FunctionName,
+    arguments: Vec<Expression>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub enum FunctionName {
+    Identifier(Identifier),
+    Tool(Tool),
 }
 
 impl AbstractTree for FunctionCall {
     fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
         debug_assert_eq!("function_call", node.kind());
 
-        let identifier_node = node.child(1).unwrap();
-        let identifier = Identifier::from_syntax_node(identifier_node, source)?;
+        let name_node = node.child(1).unwrap();
 
-        let mut expressions = Vec::new();
+        let name = match name_node.kind() {
+            "identifier" => {
+                FunctionName::Identifier(Identifier::from_syntax_node(name_node, source)?)
+            }
+            "tool" => {
+                let tool_node = name_node.child(0).unwrap();
+                let tool = match tool_node.kind() {
+                    "output" => Tool::Output,
+                    "read" => Tool::Read,
+                    _ => panic!(""),
+                };
+
+                FunctionName::Tool(tool)
+            }
+            _ => panic!(""),
+        };
+
+        let mut arguments = Vec::new();
 
         let mut current_index = 2;
         while current_index < node.child_count() - 1 {
             let expression_node = node.child(current_index).unwrap();
             let expression = Expression::from_syntax_node(expression_node, source)?;
 
-            expressions.push(expression);
+            arguments.push(expression);
 
             current_index += 1;
         }
 
-        Ok(FunctionCall {
-            identifier,
-            expressions,
-        })
+        Ok(FunctionCall { name, arguments })
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        let identifier = &self.identifier;
+        let identifier = match &self.name {
+            FunctionName::Identifier(identifier) => identifier,
+            FunctionName::Tool(tool) => {
+                let value = self
+                    .arguments
+                    .first()
+                    .map(|expression| expression.run(context))
+                    .unwrap_or(Ok(Value::Empty))?;
+
+                return tool.run(&value);
+            }
+        };
         let definition = if let Some(value) = context.get_value(identifier.inner())? {
             value.as_function().cloned()?
         } else {
             return Err(crate::Error::FunctionIdentifierNotFound(identifier.clone()));
         };
 
-        let id_expr_pairs = definition.identifiers().iter().zip(self.expressions.iter());
+        let id_expr_pairs = definition.identifiers().iter().zip(self.arguments.iter());
+        let mut function_context = context.clone();
 
         for (identifier, expression) in id_expr_pairs {
             let key = identifier.clone().take_inner();
-            let value = expression.run(context)?;
+            let value = expression.run(&mut function_context)?;
 
-            context.set_value(key, value)?;
+            function_context.set_value(key, value)?;
         }
 
-        let mut results = Vec::with_capacity(self.expressions.len());
-
-        for item in definition.items() {
-            let result = item.run(context)?;
-
-            results.push(result);
-        }
-
-        for identifier in definition.identifiers() {
-            let key = identifier.inner();
-
-            context.remove(&key);
-        }
-
-        Ok(Value::List(results))
+        definition.body().run(&mut function_context)
     }
 }

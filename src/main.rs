@@ -32,21 +32,19 @@ fn main() {
         return run_cli_shell();
     }
 
-    let eval_results = if let Some(path) = args.path {
+    let eval_result = if let Some(path) = args.path {
         let file_contents = read_to_string(path).unwrap();
 
         evaluate(&file_contents)
     } else if let Some(command) = args.command {
         evaluate(&command)
     } else {
-        vec![Ok(Value::Empty)]
+        Ok(Value::Empty)
     };
 
-    for result in eval_results {
-        match result {
-            Ok(value) => println!("{value}"),
-            Err(error) => eprintln!("{error}"),
-        }
+    match eval_result {
+        Ok(value) => println!("{value}"),
+        Err(error) => eprintln!("{error}"),
     }
 }
 
@@ -143,21 +141,15 @@ fn run_cli_shell() {
 
                 rl.add_history_entry(line).unwrap();
 
-                let eval_results = evaluate_with_context(line, &mut context);
+                let eval_result = evaluate_with_context(line, &mut context);
 
-                for result in eval_results {
-                    match result {
-                        Ok(value) => println!("{value}"),
-                        Err(error) => eprintln!("{error}"),
-                    }
+                match eval_result {
+                    Ok(value) => println!("{value}"),
+                    Err(error) => eprintln!("{error}"),
                 }
             }
-            Err(ReadlineError::Interrupted) => {
-                break;
-            }
-            Err(ReadlineError::Eof) => {
-                break;
-            }
+            Err(ReadlineError::Interrupted) => break,
+            Err(ReadlineError::Eof) => break,
             Err(error) => eprintln!("{error}"),
         }
     }

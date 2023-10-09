@@ -7,11 +7,11 @@ use crate::{Identifier, Item};
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
     parameters: Vec<Identifier>,
-    body: Vec<Item>,
+    body: Item,
 }
 
 impl Function {
-    pub fn new(identifiers: Vec<Identifier>, items: Vec<Item>) -> Self {
+    pub fn new(identifiers: Vec<Identifier>, items: Item) -> Self {
         Function {
             parameters: identifiers,
             body: items,
@@ -22,7 +22,7 @@ impl Function {
         &self.parameters
     }
 
-    pub fn items(&self) -> &Vec<Item> {
+    pub fn body(&self) -> &Item {
         &self.body
     }
 }

@@ -2,21 +2,20 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    r#while::While, tool::Tool, AbstractTree, Assignment, Error, Expression, IfElse, Match, Result,
-    Value, VariableMap,
+    r#while::While, AbstractTree, Assignment, Error, Expression, IfElse, Match, Result, Value,
+    VariableMap,
 };
 
 /// Abstract representation of a statement.
 ///
-/// Items are either comments, which do nothing, or statements, which can be run
-/// to produce a single value or interact with their context.
+/// A statement may evaluate to an Empty value when run. If a Statement is an
+/// Expression, it will always return a non-empty value when run.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Assignment(Box<Assignment>),
     Expression(Expression),
     IfElse(Box<IfElse>),
     Match(Match),
-    Tool(Tool),
     While(Box<While>),
 }
 
@@ -57,7 +56,6 @@ impl AbstractTree for Statement {
             Statement::Expression(expression) => expression.run(context),
             Statement::IfElse(if_else) => if_else.run(context),
             Statement::Match(r#match) => r#match.run(context),
-            Statement::Tool(tool) => tool.run(context),
             Statement::While(r#while) => r#while.run(context),
         }
     }

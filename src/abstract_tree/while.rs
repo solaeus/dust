@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Expression, Item};
+use crate::{AbstractTree, Expression, Item, Result, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
     expression: Expression,
-    item: Item,
+    items: Vec<Item>,
 }
 
 impl AbstractTree for While {
@@ -15,15 +15,24 @@ impl AbstractTree for While {
         let expression_node = node.child(1).unwrap();
         let expression = Expression::from_syntax_node(expression_node, source)?;
 
-        let item_node = node.child(3).unwrap();
-        let item = Item::from_syntax_node(item_node, source)?;
+        let child_count = node.child_count();
+        let mut items = Vec::with_capacity(child_count);
 
-        Ok(While { expression, item })
+        for index in 3..child_count - 1 {
+            let item_node = node.child(index).unwrap();
+            let item = Item::from_syntax_node(item_node, source)?;
+
+            items.push(item);
+        }
+
+        Ok(While { expression, items })
     }
 
-    fn run(&self, context: &mut crate::VariableMap) -> crate::Result<crate::Value> {
+    fn run(&self, context: &mut VariableMap) -> Result<Value> {
         while self.expression.run(context)?.as_boolean()? {
-            self.item.run(context)?;
+            for item in &self.items {
+                item.run(context)?;
+            }
         }
 
         Ok(crate::Value::Empty)
@@ -36,9 +45,6 @@ mod tests {
 
     #[test]
     fn evalualate_while_loop() {
-        assert_eq!(
-            evaluate("while false { 'foo' }"),
-            vec![Ok(crate::Value::Empty)]
-        )
+        assert_eq!(evaluate("while false { 'foo' }"), Ok(crate::Value::Empty))
     }
 }

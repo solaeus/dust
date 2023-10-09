@@ -17,11 +17,10 @@ use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, Sub},
+    ops::{Add, AddAssign, Sub, SubAssign},
 };
 
 pub mod function;
-pub mod iter;
 pub mod table;
 pub mod value_type;
 pub mod variable_map;
@@ -157,12 +156,10 @@ impl Value {
             "function" => {
                 let child_count = child.child_count();
                 let mut identifiers = Vec::new();
-                let mut items = Vec::new();
+                let mut item = None;
 
                 for index in 0..child_count {
                     let child = child.child(index).unwrap();
-
-                    println!("{child:?}");
 
                     if child.kind() == "identifier" {
                         let identifier = Identifier::from_syntax_node(child, source)?;
@@ -171,13 +168,11 @@ impl Value {
                     }
 
                     if child.kind() == "item" {
-                        let item = Item::from_syntax_node(child, source)?;
-
-                        items.push(item)
+                        item = Some(Item::from_syntax_node(child, source)?);
                     }
                 }
 
-                Ok(Value::Function(Function::new(identifiers, items)))
+                Ok(Value::Function(Function::new(identifiers, item.unwrap())))
             }
             _ => Err(Error::UnexpectedSyntax {
                 expected: "string, integer, float, boolean, list, table, map, function or empty",
@@ -370,54 +365,67 @@ impl Add for Value {
     type Output = Result<Value>;
 
     fn add(self, other: Self) -> Self::Output {
-        match (self, other) {
-            (Value::String(left), Value::String(right)) => {
-                let concatenated = left + &right;
+        let non_number = match (self, other) {
+            (Value::Integer(left), Value::Integer(right)) => {
+                return Ok(Value::Integer(left + right))
+            }
+            (Value::Float(left), Value::Float(right)) => return Ok(Value::Float(left + right)),
+            (Value::Integer(left), Value::Float(right)) => {
+                return Ok(Value::Float(left as f64 + right))
+            }
+            (Value::Float(left), Value::Integer(right)) => {
+                return Ok(Value::Float(left + right as f64))
+            }
+            (non_number, Value::Integer(_)) | (non_number, Value::Float(_)) => non_number,
+            (non_number, _) => non_number,
+        };
 
-                Ok(Value::String(concatenated))
-            }
-            (Value::String(_), other) | (other, Value::String(_)) => {
-                Err(Error::ExpectedString { actual: other })
-            }
-            (Value::Float(left), Value::Float(right)) => {
-                let addition = left + right;
-
-                Ok(Value::Float(addition))
-            }
-            (Value::Float(_), other) | (other, Value::Float(_)) => {
-                Err(Error::ExpectedFloat { actual: other })
-            }
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
-            (Value::Integer(_), other) | (other, Value::Integer(_)) => {
-                Err(Error::ExpectedInt { actual: other })
-            }
-            (Value::Boolean(_), Value::Boolean(_)) => {
-                todo!()
-            }
-            (Value::Boolean(_), other) | (other, Value::Boolean(_)) => {
-                Err(Error::ExpectedBoolean { actual: other })
-            }
-            (Value::List(_), Value::List(_)) => todo!(),
-            (Value::List(_), other) | (other, Value::List(_)) => {
-                Err(Error::ExpectedList { actual: other })
-            }
-            (Value::Map(_), Value::Map(_)) => todo!(),
-            (Value::Map(_), other) | (other, Value::Map(_)) => {
-                Err(Error::ExpectedMap { actual: other })
-            }
-            (Value::Empty, Value::Empty) => Ok(Value::Empty),
-            _ => Err(Error::CustomMessage(
-                "Cannot add the given types.".to_string(),
-            )),
-        }
+        Err(Error::ExpectedNumber { actual: non_number })
     }
 }
 
 impl Sub for Value {
     type Output = Result<Self>;
 
-    fn sub(self, _other: Self) -> Self::Output {
-        todo!()
+    fn sub(self, other: Self) -> Self::Output {
+        let non_number = match (self, other) {
+            (Value::Integer(left), Value::Integer(right)) => {
+                return Ok(Value::Integer(left + right))
+            }
+            (Value::Float(left), Value::Float(right)) => return Ok(Value::Float(left + right)),
+            (Value::Integer(left), Value::Float(right)) => {
+                return Ok(Value::Float(left as f64 + right))
+            }
+            (Value::Float(left), Value::Integer(right)) => {
+                return Ok(Value::Float(left + right as f64))
+            }
+            (non_number, Value::Integer(_)) | (non_number, Value::Float(_)) => non_number,
+            (non_number, _) => non_number,
+        };
+
+        Err(Error::ExpectedNumber { actual: non_number })
+    }
+}
+
+impl AddAssign for Value {
+    fn add_assign(&mut self, other: Self) {
+        match (self, other) {
+            (Value::Integer(left), Value::Integer(right)) => *left += right,
+            (Value::Float(left), Value::Float(right)) => *left += right,
+            (Value::Float(left), Value::Integer(right)) => *left += right as f64,
+            _ => {}
+        }
+    }
+}
+
+impl SubAssign for Value {
+    fn sub_assign(&mut self, other: Self) {
+        match (self, other) {
+            (Value::Integer(left), Value::Integer(right)) => *left -= right,
+            (Value::Float(left), Value::Float(right)) => *left -= right,
+            (Value::Float(left), Value::Integer(right)) => *left -= right as f64,
+            _ => {}
+        }
     }
 }
 

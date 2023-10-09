@@ -20,6 +20,10 @@ impl AbstractTree for Logic {
             "==" => LogicOperator::Equal,
             "&&" => LogicOperator::And,
             "||" => LogicOperator::Or,
+            ">" => LogicOperator::Greater,
+            "<" => LogicOperator::Less,
+            ">=" => LogicOperator::GreaterOrEqual,
+            "<=" => LogicOperator::LessOrEqaul,
             _ => {
                 return Err(Error::UnexpectedSyntax {
                     expected: "==, && or ||",
@@ -41,15 +45,25 @@ impl AbstractTree for Logic {
     }
 
     fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        let left_value = self.left.run(context)?;
-        let right_value = self.right.run(context)?;
-        let outcome = match self.operator {
-            LogicOperator::Equal => left_value == right_value,
-            LogicOperator::And => left_value.as_boolean()? && right_value.as_boolean()?,
-            LogicOperator::Or => left_value.as_boolean()? || right_value.as_boolean()?,
+        let left = self.left.run(context)?;
+        let right = self.right.run(context)?;
+        let result = match self.operator {
+            LogicOperator::Equal => {
+                if let (Ok(left_num), Ok(right_num)) = (left.as_number(), right.as_number()) {
+                    left_num == right_num
+                } else {
+                    left == right
+                }
+            }
+            LogicOperator::And => left.as_boolean()? && right.as_boolean()?,
+            LogicOperator::Or => left.as_boolean()? || right.as_boolean()?,
+            LogicOperator::Greater => left > right,
+            LogicOperator::Less => left < right,
+            LogicOperator::GreaterOrEqual => left >= right,
+            LogicOperator::LessOrEqaul => left <= right,
         };
 
-        Ok(Value::Boolean(outcome))
+        Ok(Value::Boolean(result))
     }
 }
 
@@ -58,4 +72,8 @@ pub enum LogicOperator {
     Equal,
     And,
     Or,
+    Greater,
+    Less,
+    GreaterOrEqual,
+    LessOrEqaul,
 }

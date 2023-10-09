@@ -1,31 +1,15 @@
-fizzbuzz_basic = function <limit> {
-	count = 1
+count = 1
 
-	while count < limit {		
-		if count % 3 == 0 && count % 5 == 0 {
-			(output 'fizzbuzz')
-		} else f count % 3 == 0 {
-			(output 'fizz')
-		} else if count % 5 == 0 {
-			(output 'buzz')
-		} else 
-			(output count)
+while count <= 15 {
+	(output count)
 
-		count += 1
+	if count % 3 == 0 {
+		(output 'fizz')
 	}
-}
-
-fizzbuzz_match <limit> {
-	count = 1
 	
-	while count < 1 {
-		output match [count % 3 == 0, count % 5 == 0] {
-			[true, false] => 'fizz'
-			[false, true] => 'buzz'
-			[true, true] => 'fizzbuzz'
-		}
+	if count % 5 == 0 {
+		(output 'buzz')
 	}
+	
+	count += 1
 }
-
-fizzbuzz_basic<15>
-fizzbuzz_match<15>

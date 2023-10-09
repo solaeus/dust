@@ -1,43 +1,30 @@
-use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
+use std::fs::read_to_string;
 
-use crate::{AbstractTree, Error, Expression, Result, Value, VariableMap};
+use serde::{Deserialize, Serialize};
+
+use crate::{Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {
-    Output(Expression),
+    Output,
+    Read,
 }
 
-impl AbstractTree for Tool {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        let tool_node = node.child(1).unwrap();
-        let tool_name = tool_node.kind();
+impl Tool {
+    pub fn run(&self, value: &Value) -> Result<Value> {
+        let value = match self {
+            Tool::Output => {
+                println!("{value}");
 
-        match tool_name {
-            "output" => {
-                let expression_node = tool_node.child(1).unwrap();
-                let expression = Expression::from_syntax_node(expression_node, source)?;
-
-                Ok(Tool::Output(expression))
+                Value::Empty
             }
-            _ => Err(Error::UnexpectedSyntax {
-                expected: "output",
-                actual: tool_name,
-                location: tool_node.start_position(),
-                relevant_source: tool_node.kind().to_string(),
-            }),
-        }
-    }
+            Tool::Read => {
+                let file_contents = read_to_string(value.as_string()?)?;
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        match self {
-            Tool::Output(expression) => {
-                let value = expression.run(context)?;
-
-                println!("{value}")
+                Value::String(file_contents)
             }
-        }
+        };
 
-        Ok(Value::Empty)
+        Ok(value)
     }
 }

@@ -19,7 +19,7 @@ use crate::{abstract_tree::item::Item, language, AbstractTree, Result, Value, Va
 /// # use dust::*;
 /// assert_eq!(evaluate("1 + 2 + 3"), vec![Ok(Value::Integer(6))]);
 /// ```
-pub fn evaluate(source: &str) -> Vec<Result<Value>> {
+pub fn evaluate(source: &str) -> Result<Value> {
     let mut context = VariableMap::new();
 
     evaluate_with_context(source, &mut context)
@@ -44,7 +44,7 @@ pub fn evaluate(source: &str) -> Vec<Result<Value>> {
 ///     vec![Ok(Value::Empty), Ok(Value::Integer(10))]
 /// );
 /// ```
-pub fn evaluate_with_context(source: &str, context: &mut VariableMap) -> Vec<Result<Value>> {
+pub fn evaluate_with_context(source: &str, context: &mut VariableMap) -> Result<Value> {
     let mut parser = Parser::new();
     parser.set_language(language()).unwrap();
 
@@ -80,26 +80,17 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         }
     }
 
-    fn run(self) -> Vec<Result<Value>> {
+    fn run(self) -> Result<Value> {
         let mut cursor = self.syntax_tree.walk();
         let root_node = cursor.node();
-        let item_count = root_node.child_count();
-        let mut results = Vec::with_capacity(item_count);
+        let mut prev_result = Ok(Value::Empty);
 
         for item_node in root_node.children(&mut cursor) {
-            let item_result = Item::from_syntax_node(item_node, self.source);
-
-            match item_result {
-                Ok(item) => {
-                    let eval_result = item.run(self.context);
-
-                    results.push(eval_result);
-                }
-                Err(error) => results.push(Err(error)),
-            }
+            let item = Item::from_syntax_node(item_node, self.source)?;
+            prev_result = item.run(self.context);
         }
 
-        results
+        prev_result
     }
 }
 
@@ -114,49 +105,34 @@ mod tests {
 
     #[test]
     fn evaluate_empty() {
-        assert_eq!(evaluate("x = 9"), vec![Ok(Value::Empty)]);
-        assert_eq!(evaluate("x = 1 + 1"), vec![Ok(Value::Empty)]);
+        assert_eq!(evaluate("x = 9"), Ok(Value::Empty));
+        assert_eq!(evaluate("x = 1 + 1"), Ok(Value::Empty));
     }
 
     #[test]
     fn evaluate_integer() {
-        assert_eq!(evaluate("1"), vec![Ok(Value::Integer(1))]);
-        assert_eq!(evaluate("123"), vec![Ok(Value::Integer(123))]);
-        assert_eq!(evaluate("-666"), vec![Ok(Value::Integer(-666))]);
+        assert_eq!(evaluate("1"), Ok(Value::Integer(1)));
+        assert_eq!(evaluate("123"), Ok(Value::Integer(123)));
+        assert_eq!(evaluate("-666"), Ok(Value::Integer(-666)));
     }
 
     #[test]
     fn evaluate_float() {
-        assert_eq!(evaluate("0.1"), vec![Ok(Value::Float(0.1))]);
-        assert_eq!(evaluate("12.3"), vec![Ok(Value::Float(12.3))]);
-        assert_eq!(evaluate("-6.66"), vec![Ok(Value::Float(-6.66))]);
+        assert_eq!(evaluate("0.1"), Ok(Value::Float(0.1)));
+        assert_eq!(evaluate("12.3"), Ok(Value::Float(12.3)));
+        assert_eq!(evaluate("-6.66"), Ok(Value::Float(-6.66)));
     }
 
     #[test]
     fn evaluate_string() {
-        assert_eq!(
-            evaluate("\"one\""),
-            vec![Ok(Value::String("one".to_string()))]
-        );
-        assert_eq!(
-            evaluate("'one'"),
-            vec![Ok(Value::String("one".to_string()))]
-        );
-        assert_eq!(
-            evaluate("`one`"),
-            vec![Ok(Value::String("one".to_string()))]
-        );
-        assert_eq!(
-            evaluate("`'one'`"),
-            vec![Ok(Value::String("'one'".to_string()))]
-        );
-        assert_eq!(
-            evaluate("'`one`'"),
-            vec![Ok(Value::String("`one`".to_string()))]
-        );
+        assert_eq!(evaluate("\"one\""), Ok(Value::String("one".to_string())));
+        assert_eq!(evaluate("'one'"), Ok(Value::String("one".to_string())));
+        assert_eq!(evaluate("`one`"), Ok(Value::String("one".to_string())));
+        assert_eq!(evaluate("`'one'`"), Ok(Value::String("'one'".to_string())));
+        assert_eq!(evaluate("'`one`'"), Ok(Value::String("`one`".to_string())));
         assert_eq!(
             evaluate("\"'one'\""),
-            vec![Ok(Value::String("'one'".to_string()))]
+            Ok(Value::String("'one'".to_string()))
         );
     }
 
@@ -164,11 +140,11 @@ mod tests {
     fn evaluate_list() {
         assert_eq!(
             evaluate("[1, 2, 'foobar']"),
-            vec![Ok(Value::List(vec![
+            Ok(Value::List(vec![
                 Value::Integer(1),
                 Value::Integer(2),
                 Value::String("foobar".to_string()),
-            ]))]
+            ]))
         );
     }
 
@@ -180,7 +156,7 @@ mod tests {
         map.set_value("foo".to_string(), Value::String("bar".to_string()))
             .unwrap();
 
-        assert_eq!(evaluate("{ x = 1 foo = 'bar' }"), vec![Ok(Value::Map(map))]);
+        assert_eq!(evaluate("{ x = 1 foo = 'bar' }"), Ok(Value::Map(map)));
     }
 
     #[test]
@@ -207,7 +183,7 @@ mod tests {
                 }
                 "
             ),
-            vec![Ok(Value::Table(table))]
+            Ok(Value::Table(table))
         );
     }
 
@@ -215,19 +191,16 @@ mod tests {
     fn evaluate_if_then() {
         assert_eq!(
             evaluate("if true then 'true'"),
-            vec![Ok(Value::String("true".to_string()))]
+            Ok(Value::String("true".to_string()))
         );
     }
 
     #[test]
     fn evaluate_if_then_else() {
-        assert_eq!(
-            evaluate("if false then 1 else 2"),
-            vec![Ok(Value::Integer(2))]
-        );
+        assert_eq!(evaluate("if false then 1 else 2"), Ok(Value::Integer(2)));
         assert_eq!(
             evaluate("if true then 1.0 else 42.0"),
-            vec![Ok(Value::Float(1.0))]
+            Ok(Value::Float(1.0))
         );
     }
 
@@ -244,7 +217,7 @@ mod tests {
                         'ok'
                 "
             ),
-            vec![Ok(Value::String("ok".to_string()))]
+            Ok(Value::String("ok".to_string()))
         );
     }
 
@@ -264,7 +237,7 @@ mod tests {
                     else 'ok'
                 "
             ),
-            vec![Ok(Value::String("ok".to_string()))]
+            Ok(Value::String("ok".to_string()))
         );
     }
 
@@ -272,14 +245,14 @@ mod tests {
     fn evaluate_function() {
         let function = Function::new(
             vec![Identifier::new("message".to_string())],
-            vec![Item::Statement(Statement::Expression(
-                Expression::Identifier(Identifier::new("message".to_string())),
-            ))],
+            Item::new(vec![Statement::Expression(Expression::Identifier(
+                Identifier::new("message".to_string()),
+            ))]),
         );
 
         assert_eq!(
             evaluate("function <message> { message }"),
-            vec![Ok(Value::Function(function))]
+            Ok(Value::Function(function))
         );
     }
 
@@ -295,15 +268,12 @@ mod tests {
                 ",
                 &mut context
             ),
-            vec![
-                Ok(Value::Empty),
-                Ok(Value::List(vec![Value::String("Hiya".to_string())]))
-            ]
+            Ok(Value::String("Hiya".to_string()))
         );
     }
 
     #[test]
     fn evaluate_tool_call() {
-        assert_eq!(evaluate("(output 'Hiya')"), vec![Ok(Value::Empty)]);
+        assert_eq!(evaluate("(output 'Hiya')"), Ok(Value::Empty));
     }
 }
