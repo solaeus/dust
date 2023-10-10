@@ -27,7 +27,7 @@ impl AbstractTree for Identifier {
         Ok(Identifier(identifier.to_string()))
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, _source: &str, context: &mut VariableMap) -> Result<Value> {
         let value = context.get_value(&self.0)?.unwrap_or_default();
 
         Ok(value)

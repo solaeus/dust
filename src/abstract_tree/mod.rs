@@ -17,6 +17,7 @@ pub mod r#match;
 pub mod math;
 pub mod statement;
 pub mod tool;
+pub mod value_node;
 pub mod r#while;
 
 pub use {

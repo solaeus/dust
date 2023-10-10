@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{value::ValueNode, AbstractTree, Error, Identifier, Result, Value, VariableMap};
+use crate::{value_node::ValueNode, AbstractTree, Error, Identifier, Result, Value, VariableMap};
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
 

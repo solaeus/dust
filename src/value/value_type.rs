@@ -5,9 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::Value;
-
-use super::ValueNode;
+use crate::{value_node::ValueNode, Expression, Value};
 
 /// The type of a `Value`.
 #[derive(Clone, Serialize, Deserialize, PartialOrd, Ord)]
@@ -17,7 +15,7 @@ pub enum ValueType {
     Float,
     Integer,
     Boolean,
-    ListExact(Vec<ValueNode>),
+    ListExact(Vec<Expression>),
     Empty,
     Map(BTreeMap<String, ValueNode>),
     Table,
@@ -66,7 +64,7 @@ impl Display for ValueType {
                 write!(f, ")")
             }
             ValueType::Empty => write!(f, "empty"),
-            ValueType::Map(map) => write!(f, "map"),
+            ValueType::Map(_map) => write!(f, "map"),
             ValueType::Table => write!(f, "table"),
             ValueType::Function => write!(f, "function"),
         }
@@ -90,11 +88,7 @@ impl From<&Value> for ValueType {
             Value::List(list) => {
                 let value_nodes = list
                     .iter()
-                    .map(|value| ValueNode {
-                        value_type: value.value_type(),
-                        start_byte: 0,
-                        end_byte: 0,
-                    })
+                    .map(|value| Expression::Value(ValueNode::new(value.value_type(), 0, 0)))
                     .collect();
 
                 ValueType::ListExact(value_nodes)
@@ -104,11 +98,7 @@ impl From<&Value> for ValueType {
 
                 for (key, value) in map.inner() {
                     let value_type = ValueType::from(value);
-                    let value_node = ValueNode {
-                        value_type,
-                        start_byte: 0,
-                        end_byte: 0,
-                    };
+                    let value_node = ValueNode::new(value_type, 0, 0);
 
                     value_nodes.insert(key.to_string(), value_node);
                 }

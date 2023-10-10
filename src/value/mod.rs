@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    AbstractTree, Function, Identifier, Table, ValueType, VariableMap,
+    Function, Table, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -10,15 +10,13 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
-use tree_sitter::Node;
 
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, AddAssign, Range, Sub, SubAssign},
+    ops::{Add, AddAssign, Sub, SubAssign},
 };
 
 pub mod function;
@@ -43,120 +41,6 @@ pub enum Value {
     Boolean(bool),
     #[default]
     Empty,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ValueNode {
-    value_type: ValueType,
-    start_byte: usize,
-    end_byte: usize,
-}
-
-impl ValueNode {
-    pub fn byte_range(&self) -> Range<usize> {
-        self.start_byte..self.end_byte
-    }
-}
-
-impl AbstractTree for ValueNode {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        let value_type = match node.kind() {
-            "integer" => ValueType::Integer,
-            "float" => ValueType::Float,
-            "string" => ValueType::String,
-            "boolean" => ValueType::Boolean,
-            "empty" => ValueType::Empty,
-            "list" => {
-                let mut child_nodes = Vec::new();
-
-                for index in 0..node.child_count() - 1 {
-                    let child_syntax_node = node.child(index).unwrap();
-                    let child_value = ValueNode::from_syntax_node(source, child_syntax_node)?;
-
-                    child_nodes.push(child_value);
-                }
-
-                ValueType::ListExact(child_nodes)
-            }
-            "table" => ValueType::Table,
-            "map" => {
-                let mut child_nodes = BTreeMap::new();
-                let mut current_key = "".to_string();
-
-                for index in 0..node.child_count() - 1 {
-                    let child_syntax_node = node.child(index).unwrap();
-
-                    if child_syntax_node.kind() == "identifier" {
-                        current_key =
-                            Identifier::from_syntax_node(source, child_syntax_node)?.take_inner();
-                    }
-
-                    if child_syntax_node.kind() == "value" {
-                        let child_value = ValueNode::from_syntax_node(source, child_syntax_node)?;
-                        let key = current_key.clone();
-
-                        child_nodes.insert(key, child_value);
-                    }
-                }
-
-                ValueType::Map(child_nodes)
-            }
-            "function" => ValueType::Function,
-            _ => {
-                return Err(Error::UnexpectedSyntaxNode {
-                    expected:
-                        "string, integer, float, boolean, list, table, map, function or empty",
-                    actual: node.kind(),
-                    location: node.start_position(),
-                    relevant_source: source[node.byte_range()].to_string(),
-                })
-            }
-        };
-
-        Ok(ValueNode {
-            value_type,
-            start_byte: node.start_byte(),
-            end_byte: node.end_byte(),
-        })
-    }
-
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
-        let value_source = &source[self.byte_range()];
-        let value = match &self.value_type {
-            ValueType::Any => todo!(),
-            ValueType::String => Value::String(value_source.to_owned()),
-            ValueType::Float => Value::Float(value_source.parse().unwrap()),
-            ValueType::Integer => Value::Integer(value_source.parse().unwrap()),
-            ValueType::Boolean => Value::Boolean(value_source.parse().unwrap()),
-            ValueType::ListExact(nodes) => {
-                let mut values = Vec::with_capacity(nodes.len());
-
-                for node in nodes {
-                    let value = node.run(source, context)?;
-
-                    values.push(value);
-                }
-
-                Value::List(values)
-            }
-            ValueType::Empty => Value::Empty,
-            ValueType::Map(nodes) => {
-                let mut values = VariableMap::new();
-
-                for (key, node) in nodes {
-                    let value = node.run(source, context)?;
-
-                    values.set_value(key.clone(), value)?;
-                }
-
-                Value::Map(values)
-            }
-            ValueType::Table => todo!(),
-            ValueType::Function => todo!(),
-        };
-
-        Ok(value)
-    }
 }
 
 impl Value {
