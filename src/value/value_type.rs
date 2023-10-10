@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{value_node::ValueNode, Expression, Value};
+use crate::{value_node::ValueNode, Expression, Function, Value};
 
 /// The type of a `Value`.
 #[derive(Clone, Serialize, Deserialize, PartialOrd, Ord)]
@@ -17,9 +17,9 @@ pub enum ValueType {
     Boolean,
     ListExact(Vec<Expression>),
     Empty,
-    Map(BTreeMap<String, ValueNode>),
+    Map(BTreeMap<String, Expression>),
     Table,
-    Function,
+    Function(Function),
 }
 
 impl Eq for ValueType {}
@@ -37,7 +37,7 @@ impl PartialEq for ValueType {
             (ValueType::Empty, ValueType::Empty) => true,
             (ValueType::Map(left), ValueType::Map(right)) => left == right,
             (ValueType::Table, ValueType::Table) => true,
-            (ValueType::Function, ValueType::Function) => true,
+            (ValueType::Function(left), ValueType::Function(right)) => left == right,
             _ => false,
         }
     }
@@ -66,7 +66,7 @@ impl Display for ValueType {
             ValueType::Empty => write!(f, "empty"),
             ValueType::Map(_map) => write!(f, "map"),
             ValueType::Table => write!(f, "table"),
-            ValueType::Function => write!(f, "function"),
+            ValueType::Function(function) => write!(f, "{function}"),
         }
     }
 }
@@ -99,14 +99,15 @@ impl From<&Value> for ValueType {
                 for (key, value) in map.inner() {
                     let value_type = ValueType::from(value);
                     let value_node = ValueNode::new(value_type, 0, 0);
+                    let expression = Expression::Value(value_node);
 
-                    value_nodes.insert(key.to_string(), value_node);
+                    value_nodes.insert(key.to_string(), expression);
                 }
 
                 ValueType::Map(value_nodes)
             }
-            Value::Table { .. } => ValueType::Table,
-            Value::Function(_) => ValueType::Function,
+            Value::Table(_) => ValueType::Table,
+            Value::Function(function) => ValueType::Function(function.clone()),
         }
     }
 }

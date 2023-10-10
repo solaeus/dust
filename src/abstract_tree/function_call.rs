@@ -79,8 +79,8 @@ impl AbstractTree for FunctionCall {
         let mut function_context = context.clone();
 
         for (identifier, expression) in id_expr_pairs {
-            let key = identifier.run(source, context)?.to_string();
-            let value = expression.run(source, &mut function_context)?;
+            let key = identifier.inner().clone();
+            let value = expression.run(source, context)?;
 
             function_context.set_value(key, value)?;
         }

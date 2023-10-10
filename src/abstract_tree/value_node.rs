@@ -3,7 +3,10 @@ use std::{collections::BTreeMap, ops::Range};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Identifier, Result, Value, ValueType, VariableMap};
+use crate::{
+    AbstractTree, Error, Expression, Function, Identifier, Item, Result, Value, ValueType,
+    VariableMap,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ValueNode {
@@ -64,17 +67,36 @@ impl AbstractTree for ValueNode {
                             Identifier::from_syntax_node(source, child_syntax_node)?.take_inner();
                     }
 
-                    if child_syntax_node.kind() == "value" {
-                        let child_value = ValueNode::from_syntax_node(source, child_syntax_node)?;
+                    if child_syntax_node.kind() == "expression" {
                         let key = current_key.clone();
+                        let expression = Expression::from_syntax_node(source, child_syntax_node)?;
 
-                        child_nodes.insert(key, child_value);
+                        child_nodes.insert(key, expression);
                     }
                 }
 
                 ValueType::Map(child_nodes)
             }
-            "function" => ValueType::Function,
+            "function" => {
+                let mut identifiers = Vec::new();
+
+                let item_node = child.child(child.child_count() - 2).unwrap();
+                let item = Item::from_syntax_node(source, item_node)?;
+
+                for index in 1..child.child_count() - 3 {
+                    let child_node = child.child(index).unwrap();
+
+                    if child_node.kind() == "identifier" {
+                        let identifier = Identifier::from_syntax_node(source, child_node)?;
+
+                        identifiers.push(identifier);
+                    }
+                }
+
+                let function = Function::new(identifiers, item);
+
+                ValueType::Function(function)
+            }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected:
@@ -129,7 +151,7 @@ impl AbstractTree for ValueNode {
                 Value::Map(values)
             }
             ValueType::Table => todo!(),
-            ValueType::Function => todo!(),
+            ValueType::Function(function) => Value::Function(function.clone()),
         };
 
         Ok(value)

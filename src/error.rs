@@ -476,13 +476,13 @@ impl fmt::Display for Error {
             ),
             VariableIdentifierNotFound(identifier) => write!(
                 f,
-                "Variable identifier is not bound to anything by context: {:?}.",
+                "Variable identifier is not bound to anything by context: {}.",
                 identifier
             ),
             FunctionIdentifierNotFound(identifier) => write!(
                 f,
-                "Function identifier is not bound to anything by context: {:?}.",
-                identifier
+                "Function identifier is not bound to anything by context: {}.",
+                identifier.inner()
             ),
             TypeError { expected, actual } => {
                 write!(

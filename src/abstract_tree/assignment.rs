@@ -50,7 +50,7 @@ impl AbstractTree for Assignment {
     }
 
     fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
-        let key = self.identifier.run(source, context)?.to_string();
+        let key = self.identifier.inner().clone();
         let mut value = self.statement.run(source, context)?;
 
         match self.operator {
