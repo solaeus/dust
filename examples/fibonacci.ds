@@ -1,11 +1,9 @@
-fibonacci = function <i> {
-	if i <= 1 {
+fibonacci = function <number> {
+	if number <= 1 {
 		1
-	} else if i == 2 {
-		2
 	} else {
-		output (fibonacci - 1) + (fibonacci - 2)
+		(fibonacci number - 1) + (fibonacci number - 2)
 	}
 }
 
-(fibonacci 20)
+(fibonacci 5)
