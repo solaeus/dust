@@ -20,43 +20,43 @@ pub enum Statement {
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         debug_assert_eq!("statement", node.kind());
 
         let child = node.child(0).unwrap();
 
         match child.kind() {
             "assignment" => Ok(Statement::Assignment(Box::new(
-                Assignment::from_syntax_node(child, source)?,
+                Assignment::from_syntax_node(source, child)?,
             ))),
             "expression" => Ok(Self::Expression(Expression::from_syntax_node(
-                child, source,
+                source, child,
             )?)),
             "if_else" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
-                child, source,
+                source, child,
             )?))),
             "tool" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
-                child, source,
+                source, child,
             )?))),
             "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
-                child, source,
+                source, child,
             )?))),
-            _ => Err(Error::UnexpectedSyntax {
+            _ => Err(Error::UnexpectedSyntaxNode {
                 expected: "assignment, expression, if...else or tool",
                 actual: child.kind(),
                 location: child.start_position(),
-                relevant_source: source[node.byte_range()].to_string(),
+                relevant_source: source[child.byte_range()].to_string(),
             }),
         }
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
         match self {
-            Statement::Assignment(assignment) => assignment.run(context),
-            Statement::Expression(expression) => expression.run(context),
-            Statement::IfElse(if_else) => if_else.run(context),
-            Statement::Match(r#match) => r#match.run(context),
-            Statement::While(r#while) => r#while.run(context),
+            Statement::Assignment(assignment) => assignment.run(source, context),
+            Statement::Expression(expression) => expression.run(source, context),
+            Statement::IfElse(if_else) => if_else.run(source, context),
+            Statement::Match(r#match) => r#match.run(source, context),
+            Statement::While(r#while) => r#while.run(source, context),
         }
     }
 }

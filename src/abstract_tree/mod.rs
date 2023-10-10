@@ -40,8 +40,8 @@ pub trait AbstractTree: Sized {
     ///
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self>;
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self>;
 
     /// Execute dust code by traversing the tree
-    fn run(&self, context: &mut VariableMap) -> Result<Value>;
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value>;
 }

@@ -12,7 +12,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Clone, PartialEq)]
 #[non_exhaustive]
 pub enum Error {
-    UnexpectedSyntax {
+    UnexpectedSyntaxNode {
         expected: &'static str,
         actual: &'static str,
         location: tree_sitter::Point,
@@ -533,15 +533,14 @@ impl fmt::Display for Error {
                 f,
                 "Wrong number of columns for this table. Expected {expected}, found {actual}."
             ),
-            UnexpectedSyntax {
+            UnexpectedSyntaxNode {
                 expected,
                 actual,
                 location,
-                relevant_source: surrounding_text,
+                relevant_source
             } => write!(
                 f,
-                "Unexpected syntax at {location}. Expected {expected}, but found {actual}.
-                >> {surrounding_text} <<"
+                "Unexpected syntax at {location}. Expected {expected}, but found {actual}. {relevant_source}"
             ),
             ExpectedFieldName => write!(
                 f,

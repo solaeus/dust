@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    AbstractTree, Function, Identifier, Item, Table, ValueType, VariableMap,
+    AbstractTree, Function, Identifier, Table, ValueType, VariableMap,
 };
 
 use json::JsonValue;
@@ -14,10 +14,11 @@ use tree_sitter::Node;
 
 use std::{
     cmp::Ordering,
+    collections::BTreeMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, AddAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Range, Sub, SubAssign},
 };
 
 pub mod function;
@@ -30,7 +31,7 @@ pub mod variable_map;
 /// Every whale variable has a key and a Value. Variables are represented by
 /// storing them in a VariableMap. This means the map of variables is itself a
 /// value that can be treated as any other.
-#[derive(Clone, Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub enum Value {
     List(Vec<Value>),
     Map(VariableMap),
@@ -44,163 +45,121 @@ pub enum Value {
     Empty,
 }
 
-impl Value {
-    pub fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        let child = node.child(0).unwrap();
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub struct ValueNode {
+    value_type: ValueType,
+    start_byte: usize,
+    end_byte: usize,
+}
 
-        match child.kind() {
-            "integer" => {
-                let bytes = &source[child.byte_range()];
-                let raw_value = bytes.parse::<i64>().unwrap();
+impl ValueNode {
+    pub fn byte_range(&self) -> Range<usize> {
+        self.start_byte..self.end_byte
+    }
+}
 
-                Ok(Value::Integer(raw_value))
-            }
-            "float" => {
-                let bytes = &source[child.byte_range()];
-                let raw_value = bytes.parse::<f64>().unwrap();
-
-                Ok(Value::Float(raw_value))
-            }
-            "string" => {
-                let byte_range_without_quotes = child.start_byte() + 1..child.end_byte() - 1;
-                let text = &source[byte_range_without_quotes];
-
-                Ok(Value::String(text.to_string()))
-            }
-            "boolean" => {
-                let bytes = &source[child.byte_range()];
-                let raw_value = bytes.parse::<bool>().unwrap();
-
-                Ok(Value::Boolean(raw_value))
-            }
-            "empty" => Ok(Value::Empty),
+impl AbstractTree for ValueNode {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        let value_type = match node.kind() {
+            "integer" => ValueType::Integer,
+            "float" => ValueType::Float,
+            "string" => ValueType::String,
+            "boolean" => ValueType::Boolean,
+            "empty" => ValueType::Empty,
             "list" => {
-                let item_count = child.named_child_count();
-                let mut values = Vec::with_capacity(item_count);
-                let mut current_node = child.child(1).unwrap();
+                let mut child_nodes = Vec::new();
 
-                while values.len() < item_count {
-                    if current_node.is_named() {
-                        let value = Value::from_syntax_node(current_node, source)?;
+                for index in 0..node.child_count() - 1 {
+                    let child_syntax_node = node.child(index).unwrap();
+                    let child_value = ValueNode::from_syntax_node(source, child_syntax_node)?;
 
-                        values.push(value);
-                    }
-
-                    current_node = current_node.next_sibling().unwrap();
+                    child_nodes.push(child_value);
                 }
 
-                Ok(Value::List(values))
+                ValueType::ListExact(child_nodes)
             }
-            "table" => {
-                let mut current_node = child.child(0).unwrap();
-                let header_and_row_count = child.named_child_count();
-
-                let mut headers = Vec::new();
-                let mut rows = Vec::new();
-
-                while headers.len() + rows.len() < header_and_row_count {
-                    println!("{current_node:?}");
-
-                    if current_node.kind() == "identifier" {
-                        let identifier = Identifier::from_syntax_node(current_node, source)?;
-                        let identifier_text = identifier.take_inner();
-
-                        headers.push(identifier_text);
-                    }
-
-                    if current_node.kind() == "list" {
-                        let value = Value::list_from_syntax_node(current_node, source)?;
-                        let row = value.into_inner_list()?;
-
-                        rows.push(row);
-                    }
-
-                    if let Some(node) = current_node.next_sibling() {
-                        current_node = node;
-                    } else {
-                        break;
-                    }
-                }
-
-                let table = Table::from_raw_parts(headers, rows);
-
-                Ok(Value::Table(table))
-            }
+            "table" => ValueType::Table,
             "map" => {
-                let mut map = VariableMap::new();
-                let pair_count = child.named_child_count();
-                let mut current_key = String::new();
-                let mut current_node = child.child(0).unwrap();
+                let mut child_nodes = BTreeMap::new();
+                let mut current_key = "".to_string();
 
-                while map.len() < pair_count {
-                    if current_node.kind() == "identifier" {
-                        let identifier_text = &source[current_node.byte_range()];
-                        current_key = identifier_text.to_string();
+                for index in 0..node.child_count() - 1 {
+                    let child_syntax_node = node.child(index).unwrap();
+
+                    if child_syntax_node.kind() == "identifier" {
+                        current_key =
+                            Identifier::from_syntax_node(source, child_syntax_node)?.take_inner();
                     }
 
-                    if current_node.kind() == "value" {
-                        let value = Value::from_syntax_node(current_node, source)?;
+                    if child_syntax_node.kind() == "value" {
+                        let child_value = ValueNode::from_syntax_node(source, child_syntax_node)?;
+                        let key = current_key.clone();
 
-                        map.set_value(current_key.to_string(), value)?;
-                    }
-
-                    if let Some(node) = current_node.next_sibling() {
-                        current_node = node;
-                    } else {
-                        break;
+                        child_nodes.insert(key, child_value);
                     }
                 }
 
-                Ok(Value::Map(map))
+                ValueType::Map(child_nodes)
             }
-            "function" => {
-                let child_count = child.child_count();
-                let mut identifiers = Vec::new();
-                let mut item = None;
+            "function" => ValueType::Function,
+            _ => {
+                return Err(Error::UnexpectedSyntaxNode {
+                    expected:
+                        "string, integer, float, boolean, list, table, map, function or empty",
+                    actual: node.kind(),
+                    location: node.start_position(),
+                    relevant_source: source[node.byte_range()].to_string(),
+                })
+            }
+        };
 
-                for index in 0..child_count {
-                    let child = child.child(index).unwrap();
+        Ok(ValueNode {
+            value_type,
+            start_byte: node.start_byte(),
+            end_byte: node.end_byte(),
+        })
+    }
 
-                    if child.kind() == "identifier" {
-                        let identifier = Identifier::from_syntax_node(child, source)?;
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+        let value_source = &source[self.byte_range()];
+        let value = match &self.value_type {
+            ValueType::Any => todo!(),
+            ValueType::String => Value::String(value_source.to_owned()),
+            ValueType::Float => Value::Float(value_source.parse().unwrap()),
+            ValueType::Integer => Value::Integer(value_source.parse().unwrap()),
+            ValueType::Boolean => Value::Boolean(value_source.parse().unwrap()),
+            ValueType::ListExact(nodes) => {
+                let mut values = Vec::with_capacity(nodes.len());
 
-                        identifiers.push(identifier)
-                    }
+                for node in nodes {
+                    let value = node.run(source, context)?;
 
-                    if child.kind() == "item" {
-                        item = Some(Item::from_syntax_node(child, source)?);
-                    }
+                    values.push(value);
                 }
 
-                Ok(Value::Function(Function::new(identifiers, item.unwrap())))
+                Value::List(values)
             }
-            _ => Err(Error::UnexpectedSyntax {
-                expected: "string, integer, float, boolean, list, table, map, function or empty",
-                actual: child.kind(),
-                location: child.start_position(),
-                relevant_source: source[child.byte_range()].to_string(),
-            }),
-        }
-    }
+            ValueType::Empty => Value::Empty,
+            ValueType::Map(nodes) => {
+                let mut values = VariableMap::new();
 
-    pub fn list_from_syntax_node(node: Node, source: &str) -> Result<Self> {
-        let item_count = node.named_child_count();
-        let mut values = Vec::with_capacity(item_count);
-        let mut current_node = node.child(1).unwrap();
+                for (key, node) in nodes {
+                    let value = node.run(source, context)?;
 
-        while values.len() < item_count {
-            if current_node.is_named() {
-                let value = Value::from_syntax_node(current_node, source)?;
+                    values.set_value(key.clone(), value)?;
+                }
 
-                values.push(value);
+                Value::Map(values)
             }
+            ValueType::Table => todo!(),
+            ValueType::Function => todo!(),
+        };
 
-            current_node = current_node.next_sibling().unwrap();
-        }
-
-        Ok(Value::List(values))
+        Ok(value)
     }
+}
 
+impl Value {
     pub fn value_type(&self) -> ValueType {
         ValueType::from(self)
     }

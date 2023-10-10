@@ -20,9 +20,9 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for Assignment {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let identifier_node = node.child(0).unwrap();
-        let identifier = Identifier::from_syntax_node(identifier_node, source)?;
+        let identifier = Identifier::from_syntax_node(source, identifier_node)?;
 
         let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
@@ -30,17 +30,17 @@ impl AbstractTree for Assignment {
             "+=" => AssignmentOperator::PlusEqual,
             "-=" => AssignmentOperator::MinusEqual,
             _ => {
-                return Err(Error::UnexpectedSyntax {
+                return Err(Error::UnexpectedSyntaxNode {
                     expected: "=, += or -=",
                     actual: operator_node.kind(),
                     location: operator_node.start_position(),
-                    relevant_source: source[node.byte_range()].to_string(),
+                    relevant_source: source[operator_node.byte_range()].to_string(),
                 })
             }
         };
 
         let statement_node = node.child(2).unwrap();
-        let statement = Statement::from_syntax_node(statement_node, source)?;
+        let statement = Statement::from_syntax_node(source, statement_node)?;
 
         Ok(Assignment {
             identifier,
@@ -49,9 +49,9 @@ impl AbstractTree for Assignment {
         })
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        let key = self.identifier.clone().take_inner();
-        let mut value = self.statement.run(context)?;
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+        let key = self.identifier.run(source, context)?.to_string();
+        let mut value = self.statement.run(source, context)?;
 
         match self.operator {
             AssignmentOperator::PlusEqual => {

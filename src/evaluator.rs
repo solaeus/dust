@@ -88,8 +88,8 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         println!("{}", root_node.to_sexp());
 
         for item_node in root_node.children(&mut cursor) {
-            let item = Item::from_syntax_node(item_node, self.source)?;
-            prev_result = item.run(self.context);
+            let item = Item::from_syntax_node(self.source, item_node)?;
+            prev_result = item.run(self.source, self.context);
         }
 
         prev_result
@@ -98,10 +98,7 @@ impl<'context, 'code> Evaluator<'context, 'code> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        abstract_tree::{expression::Expression, identifier::Identifier, statement::Statement},
-        Function, Table,
-    };
+    use crate::Table;
 
     use super::*;
 
@@ -243,21 +240,6 @@ mod tests {
                 "
             ),
             Ok(Value::String("ok".to_string()))
-        );
-    }
-
-    #[test]
-    fn evaluate_function() {
-        let function = Function::new(
-            vec![Identifier::new("message".to_string())],
-            Item::new(vec![Statement::Expression(Expression::Identifier(
-                Identifier::new("message".to_string()),
-            ))]),
-        );
-
-        assert_eq!(
-            evaluate("function <message> { message }"),
-            Ok(Value::Function(function))
         );
     }
 

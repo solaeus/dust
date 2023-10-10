@@ -21,13 +21,13 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let identifier = &source[node.byte_range()];
 
         Ok(Identifier(identifier.to_string()))
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
         let value = context.get_value(&self.0)?.unwrap_or_default();
 
         Ok(value)

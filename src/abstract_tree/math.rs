@@ -11,9 +11,9 @@ pub struct Math {
 }
 
 impl AbstractTree for Math {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let left_node = node.child(0).unwrap();
-        let left = Expression::from_syntax_node(left_node, source)?;
+        let left = Expression::from_syntax_node(source, left_node)?;
 
         let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
@@ -23,7 +23,7 @@ impl AbstractTree for Math {
             "/" => MathOperator::Divide,
             "%" => MathOperator::Modulo,
             _ => {
-                return Err(Error::UnexpectedSyntax {
+                return Err(Error::UnexpectedSyntaxNode {
                     expected: "+, -, *, / or %",
                     actual: operator_node.kind(),
                     location: operator_node.start_position(),
@@ -33,7 +33,7 @@ impl AbstractTree for Math {
         };
 
         let right_node = node.child(2).unwrap();
-        let right = Expression::from_syntax_node(right_node, source)?;
+        let right = Expression::from_syntax_node(source, right_node)?;
 
         Ok(Math {
             left,
@@ -42,11 +42,11 @@ impl AbstractTree for Math {
         })
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
         match self.operator {
             MathOperator::Add | MathOperator::Subtract | MathOperator::Multiply => {
-                let left_value = self.left.run(context)?.as_int()?;
-                let right_value = self.right.run(context)?.as_int()?;
+                let left_value = self.left.run(source, context)?.as_int()?;
+                let right_value = self.right.run(source, context)?.as_int()?;
                 let outcome = match &self.operator {
                     MathOperator::Add => left_value + right_value,
                     MathOperator::Subtract => left_value - right_value,
@@ -57,8 +57,8 @@ impl AbstractTree for Math {
                 Ok(Value::Integer(outcome))
             }
             MathOperator::Divide | MathOperator::Modulo => {
-                let left_value = self.left.run(context)?.as_number()?;
-                let right_value = self.right.run(context)?.as_number()?;
+                let left_value = self.left.run(source, context)?.as_number()?;
+                let right_value = self.right.run(source, context)?.as_number()?;
                 let outcome = match self.operator {
                     MathOperator::Divide => left_value / right_value,
                     MathOperator::Modulo => left_value % right_value,

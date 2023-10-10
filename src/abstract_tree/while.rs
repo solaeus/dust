@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node;
 
 use crate::{AbstractTree, Expression, Item, Result, Value, VariableMap};
 
@@ -9,18 +10,18 @@ pub struct While {
 }
 
 impl AbstractTree for While {
-    fn from_syntax_node(node: tree_sitter::Node, source: &str) -> crate::Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> crate::Result<Self> {
         debug_assert_eq!("while", node.kind());
 
         let expression_node = node.child(1).unwrap();
-        let expression = Expression::from_syntax_node(expression_node, source)?;
+        let expression = Expression::from_syntax_node(source, expression_node)?;
 
         let child_count = node.child_count();
         let mut items = Vec::with_capacity(child_count);
 
         for index in 3..child_count - 1 {
             let item_node = node.child(index).unwrap();
-            let item = Item::from_syntax_node(item_node, source)?;
+            let item = Item::from_syntax_node(source, item_node)?;
 
             items.push(item);
         }
@@ -28,10 +29,10 @@ impl AbstractTree for While {
         Ok(While { expression, items })
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        while self.expression.run(context)?.as_boolean()? {
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+        while self.expression.run(source, context)?.as_boolean()? {
             for item in &self.items {
-                item.run(context)?;
+                item.run(source, context)?;
             }
         }
 

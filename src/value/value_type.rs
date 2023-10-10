@@ -1,23 +1,27 @@
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Debug, Display, Formatter},
+};
+
+use serde::{Deserialize, Serialize};
 
 use crate::Value;
 
+use super::ValueNode;
+
 /// The type of a `Value`.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, PartialOrd, Ord)]
 pub enum ValueType {
     Any,
     String,
     Float,
     Integer,
     Boolean,
-    List,
-    ListOf(Box<ValueType>),
-    ListExact(Vec<ValueType>),
+    ListExact(Vec<ValueNode>),
     Empty,
-    Map,
+    Map(BTreeMap<String, ValueNode>),
     Table,
     Function,
-    Time,
 }
 
 impl Eq for ValueType {}
@@ -32,21 +36,10 @@ impl PartialEq for ValueType {
             (ValueType::Integer, ValueType::Integer) => true,
             (ValueType::Boolean, ValueType::Boolean) => true,
             (ValueType::ListExact(left), ValueType::ListExact(right)) => left == right,
-            (ValueType::ListExact(_), ValueType::List) => true,
-            (ValueType::List, ValueType::ListExact(_)) => true,
-            (ValueType::ListOf(left), ValueType::ListOf(right)) => left == right,
-            (ValueType::ListOf(_), ValueType::List) => true,
-            (ValueType::List, ValueType::ListOf(_)) => true,
-            (ValueType::ListOf(value_type), ValueType::ListExact(exact_list))
-            | (ValueType::ListExact(exact_list), ValueType::ListOf(value_type)) => exact_list
-                .iter()
-                .all(|exact_type| exact_type == value_type.as_ref()),
-            (ValueType::List, ValueType::List) => true,
             (ValueType::Empty, ValueType::Empty) => true,
-            (ValueType::Map, ValueType::Map) => true,
+            (ValueType::Map(left), ValueType::Map(right)) => left == right,
             (ValueType::Table, ValueType::Table) => true,
             (ValueType::Function, ValueType::Function) => true,
-            (ValueType::Time, ValueType::Time) => true,
             _ => false,
         }
     }
@@ -60,10 +53,6 @@ impl Display for ValueType {
             ValueType::Float => write!(f, "float"),
             ValueType::Integer => write!(f, "integer"),
             ValueType::Boolean => write!(f, "boolean"),
-            ValueType::List => write!(f, "list"),
-            ValueType::ListOf(value_type) => {
-                write!(f, "({value_type}s)")
-            }
             ValueType::ListExact(list) => {
                 write!(f, "(")?;
                 for (index, item) in list.into_iter().enumerate() {
@@ -71,16 +60,15 @@ impl Display for ValueType {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{item}")?;
+                    write!(f, "{item:?}")?;
                 }
 
                 write!(f, ")")
             }
             ValueType::Empty => write!(f, "empty"),
-            ValueType::Map => write!(f, "map"),
+            ValueType::Map(map) => write!(f, "map"),
             ValueType::Table => write!(f, "table"),
             ValueType::Function => write!(f, "function"),
-            ValueType::Time => write!(f, "time"),
         }
     }
 }
@@ -100,11 +88,33 @@ impl From<&Value> for ValueType {
             Value::Boolean(_) => ValueType::Boolean,
             Value::Empty => ValueType::Empty,
             Value::List(list) => {
-                let values = list.iter().map(|value| value.value_type()).collect();
+                let value_nodes = list
+                    .iter()
+                    .map(|value| ValueNode {
+                        value_type: value.value_type(),
+                        start_byte: 0,
+                        end_byte: 0,
+                    })
+                    .collect();
 
-                ValueType::ListExact(values)
+                ValueType::ListExact(value_nodes)
             }
-            Value::Map(_) => ValueType::Map,
+            Value::Map(map) => {
+                let mut value_nodes = BTreeMap::new();
+
+                for (key, value) in map.inner() {
+                    let value_type = ValueType::from(value);
+                    let value_node = ValueNode {
+                        value_type,
+                        start_byte: 0,
+                        end_byte: 0,
+                    };
+
+                    value_nodes.insert(key.to_string(), value_node);
+                }
+
+                ValueType::Map(value_nodes)
+            }
             Value::Table { .. } => ValueType::Table,
             Value::Function(_) => ValueType::Function,
         }

@@ -11,9 +11,9 @@ pub struct Logic {
 }
 
 impl AbstractTree for Logic {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let left_node = node.child(0).unwrap();
-        let left = Expression::from_syntax_node(left_node, source)?;
+        let left = Expression::from_syntax_node(source, left_node)?;
 
         let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
@@ -25,7 +25,7 @@ impl AbstractTree for Logic {
             ">=" => LogicOperator::GreaterOrEqual,
             "<=" => LogicOperator::LessOrEqaul,
             _ => {
-                return Err(Error::UnexpectedSyntax {
+                return Err(Error::UnexpectedSyntaxNode {
                     expected: "==, && or ||",
                     actual: operator_node.kind(),
                     location: operator_node.start_position(),
@@ -35,7 +35,7 @@ impl AbstractTree for Logic {
         };
 
         let right_node = node.child(2).unwrap();
-        let right = Expression::from_syntax_node(right_node, source)?;
+        let right = Expression::from_syntax_node(source, right_node)?;
 
         Ok(Logic {
             left,
@@ -44,9 +44,9 @@ impl AbstractTree for Logic {
         })
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        let left = self.left.run(context)?;
-        let right = self.right.run(context)?;
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+        let left = self.left.run(source, context)?;
+        let right = self.right.run(source, context)?;
         let result = match self.operator {
             LogicOperator::Equal => {
                 if let (Ok(left_num), Ok(right_num)) = (left.as_number(), right.as_number()) {

@@ -13,12 +13,12 @@ pub struct IfElse {
 }
 
 impl AbstractTree for IfElse {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let if_node = node.child(0).unwrap().child(1).unwrap();
-        let if_expression = Expression::from_syntax_node(if_node, source)?;
+        let if_expression = Expression::from_syntax_node(source, if_node)?;
 
         let then_node = node.child(0).unwrap().child(3).unwrap();
-        let then_statement = Statement::from_syntax_node(then_node, source)?;
+        let then_statement = Statement::from_syntax_node(source, then_node)?;
 
         let child_count = node.child_count();
         let mut else_if_expressions = Vec::new();
@@ -31,19 +31,19 @@ impl AbstractTree for IfElse {
             if let Some(node) = child {
                 if node.kind() == "else_if" {
                     let expression_node = node.child(1).unwrap();
-                    let expression = Expression::from_syntax_node(expression_node, source)?;
+                    let expression = Expression::from_syntax_node(source, expression_node)?;
 
                     else_if_expressions.push(expression);
 
                     let statement_node = node.child(3).unwrap();
-                    let statement = Statement::from_syntax_node(statement_node, source)?;
+                    let statement = Statement::from_syntax_node(source, statement_node)?;
 
                     else_if_statements.push(statement);
                 }
 
                 if node.kind() == "else" {
                     let else_node = node.child(2).unwrap();
-                    else_statement = Some(Statement::from_syntax_node(else_node, source)?);
+                    else_statement = Some(Statement::from_syntax_node(source, else_node)?);
                 }
             }
         }
@@ -57,26 +57,26 @@ impl AbstractTree for IfElse {
         })
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
-        let if_boolean = self.if_expression.run(context)?.as_boolean()?;
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+        let if_boolean = self.if_expression.run(source, context)?.as_boolean()?;
 
         if if_boolean {
-            self.then_statement.run(context)
+            self.then_statement.run(source, context)
         } else {
             let expressions = &self.else_if_expressions;
 
             for (index, expression) in expressions.into_iter().enumerate() {
-                let if_boolean = expression.run(context)?.as_boolean()?;
+                let if_boolean = expression.run(source, context)?.as_boolean()?;
 
                 if if_boolean {
                     let statement = self.else_if_statements.get(index).unwrap();
 
-                    return statement.run(context);
+                    return statement.run(source, context);
                 }
             }
 
             if let Some(statement) = &self.else_statement {
-                statement.run(context)
+                statement.run(source, context)
             } else {
                 Ok(Value::Empty)
             }

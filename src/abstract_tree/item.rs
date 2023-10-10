@@ -22,7 +22,7 @@ impl Item {
 }
 
 impl AbstractTree for Item {
-    fn from_syntax_node(node: Node, source: &str) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         debug_assert_eq!("item", node.kind());
 
         let child_count = node.child_count();
@@ -32,13 +32,13 @@ impl AbstractTree for Item {
             let child = node.child(index).unwrap();
 
             let statement = match child.kind() {
-                "statement" => Statement::from_syntax_node(child, source)?,
+                "statement" => Statement::from_syntax_node(source, child)?,
                 _ => {
-                    return Err(Error::UnexpectedSyntax {
+                    return Err(Error::UnexpectedSyntaxNode {
                         expected: "comment or statement",
                         actual: child.kind(),
                         location: child.start_position(),
-                        relevant_source: source[node.byte_range()].to_string(),
+                        relevant_source: source[child.byte_range()].to_string(),
                     })
                 }
             };
@@ -49,12 +49,12 @@ impl AbstractTree for Item {
         Ok(Item { statements })
     }
 
-    fn run(&self, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
         let mut prev_result = Ok(Value::Empty);
 
         for statement in &self.statements {
             prev_result?;
-            prev_result = statement.run(context);
+            prev_result = statement.run(source, context);
         }
 
         prev_result
