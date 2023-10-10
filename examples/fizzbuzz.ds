@@ -1,14 +1,17 @@
 count = 1
 
 while count <= 15 {
-	(output count)
+	mod_three = count % 3 == 0
+	mod_five = count % 5 == 0
 
-	if count % 3 == 0 {
+	if mod_three && mod_five {
+		(output 'fizzbuzz')
+	} else if mod_three {
 		(output 'fizz')
-	}
-	
-	if count % 5 == 0 {
+	} else if mod_five {
 		(output 'buzz')
+	} else {
+		(output count)
 	}
 	
 	count += 1
