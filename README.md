@@ -1,6 +1,6 @@
 # Dust
 
-Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a data format. Dust is expression-based, has first-class functions, lexical scope and lightweight syntax. Dust's grammar is formally defined in code and its minimalism is in large part due to its tree sitter parser, which is lightning-fast, accurate and thoroughly tested.
+Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a data format. Dust is fast, efficient and easy to learn.
 
 A basic dust program:
 
@@ -84,15 +84,11 @@ integer = 42
 float = 42.42
 list = [1 2 string integer float] # Commas are optional when writing lists.
 map = {
-    key = `value`
+    key = 'value'
 }
 ```
 
-Note that strings can be wrapped with any kind of quote: single, double or backticks. Numbers are always integers by default. And commas are optional in lists.
-
-### Integers and Floats
-
-Integer and floating point values are dust's numeric types. Any whole number (i.e. without a decimal) is an integer. Floats are declared by adding a single decimal to or number. If you divide integers or do any kind of math with a float, you will create a float value.
+Note that strings can be wrapped with any kind of quote: single, double or backticks. Numbers are always integers by default. Floats are declared by adding a decimal. If you divide integers or do any kind of math with a float, you will create a float value.
 
 ### Lists
 
@@ -101,16 +97,17 @@ Lists are sequential collections. They can be built by grouping values with squa
 ```dust
 list = [true 41 "Ok"]
 
-assert_equal { list.0 true }
+(assert_equal list.0 true)
 
 the_answer = list.1 + 1
 
-assert_equal { the_answer, 42 }
+(assert_equal  the_answer, 42) # You can also use commas when passing values to
+                               # a function. 
 ```
 
 ### Maps
 
-Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. Under the hood, all of dust's runtime variables are stored in a map, so, as with variables, the key is always a string. A map is created with a pair of curly braces and its entries and just variables declared inside those braces. Map contents can be accessed using dot notation and a value's key.
+Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. Under the hood, all of dust's runtime variables are stored in a map so. A map is created with a pair of curly braces and its entries and just variables declared inside those braces. Map contents can be accessed using dot notation and a value's key.
 
 ```dust
 reminder = {
@@ -118,7 +115,7 @@ reminder = {
     tags = ["groceries", "home"]
 }
 
-output { reminder.message }
+(output reminder.message)
 ```
 
 ### Tables
@@ -149,47 +146,41 @@ insert into animals {
     ["jim" "walrus" 9]
 }
 
-assert_equal { count { animals }, 6 };
+(assert_equal 6 (length animals))
 ```
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name and use a set of curly braces to pass arguments (or leave them empty to pass nothing). You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read. Use your best judgement, the parser will disambiguate any valid syntax.
+Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name and use a set of curly braces to pass arguments (or leave them empty to pass nothing). You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
 
 ```dust
 say_hi = function <> {
-    output {"hi"}
+    (output "hi")
 }
 
 add_one = function <number> {
-    number + 1
+    (number + 1)
 }
 
-say_hi {}
-assert_equal { add_one{3}, 4 }
+(say_hi)
+(assert_equal (add_one 3), 4)
 ```
 
 This function simply passes the input to the shell's standard output.
 
 ```dust
 print = function <input> {
-    output { input }
+    (output input)
 }
 ```
-
-### Empty Values
-
-Dust does not have a null type. Instead, it uses the "empty" type to represent a lack of any other value. There is no syntax to create this value: it is only used by the interpreter. Note that Dust *does* have the NaN value, which is a floating point value that must exist in order for floats to work as intended. No value will ever be null or undefined.
 
 ## Implementation
 
 Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust module. Tree sitter generates a parser, written in C, from a set of rules defined in Javascript. Dust itself is a rust binary that calls the C parser using FFI.
 
-Tree Sitter generates a concrete syntax tree, which dust travseres to create an abstract syntax tree that can be executed run the dust code. Each 
+Tests are written in the Rust library, in Dust as implementation tests and in the Tree Sitter test format. Generally, features are added by implementing and testing the syntax in the tree-sitter-dust repository, then writing library tests to evaluate the new syntax. Implementation tests run the Dust files in the "examples" directory and should be used to demonstrate and verify that features work together.
 
-## Contributing
-
-Please submit any thoughts or suggestions for this project. For instructions on the internal API, see the library documentation. Implementation tests are written in dust and are run by a corresponding rust test so dust tests will be run when `cargo test` is called.
+Tree Sitter generates a concrete syntax tree, which dust traverses to create an abstract syntax tree that can run the dust code. The CST generation is an extra step but it allows easy testing of the parser, defining the language in one file and makes the syntax easy to modify and expand.
 
 [dnf]: https://dnf.readthedocs.io/en/latest/index.html
 [evalexpr]: https://github.com/ISibboI/evalexpr
