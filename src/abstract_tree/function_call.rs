@@ -30,6 +30,8 @@ impl AbstractTree for FunctionCall {
             "tool" => {
                 let tool_node = name_node.child(0).unwrap();
                 let tool = match tool_node.kind() {
+                    "assert" => Tool::Assert,
+                    "assert_equal" => Tool::AssertEqual,
                     "output" => Tool::Output,
                     "read" => Tool::Read,
                     _ => panic!(""),
@@ -42,14 +44,14 @@ impl AbstractTree for FunctionCall {
 
         let mut arguments = Vec::new();
 
-        let mut current_index = 2;
-        while current_index < node.child_count() - 1 {
-            let expression_node = node.child(current_index).unwrap();
-            let expression = Expression::from_syntax_node(source, expression_node)?;
+        for index in 2..node.child_count() - 1 {
+            let child = node.child(index).unwrap();
 
-            arguments.push(expression);
+            if child.is_named() {
+                let expression = Expression::from_syntax_node(source, child)?;
 
-            current_index += 1;
+                arguments.push(expression);
+            }
         }
 
         Ok(FunctionCall { name, arguments })
@@ -59,13 +61,15 @@ impl AbstractTree for FunctionCall {
         let identifier = match &self.name {
             FunctionName::Identifier(identifier) => identifier,
             FunctionName::Tool(tool) => {
-                let value = self
-                    .arguments
-                    .first()
-                    .map(|expression| expression.run(source, context))
-                    .unwrap_or(Ok(Value::Empty))?;
+                let mut values = Vec::with_capacity(self.arguments.len());
 
-                return tool.run(&value);
+                for expression in &self.arguments {
+                    let value = expression.run(source, context)?;
+
+                    values.push(value);
+                }
+
+                return tool.run(&values);
             }
         };
         let key = identifier.inner();

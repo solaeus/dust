@@ -47,8 +47,8 @@ pub enum Error {
     },
 
     /// A function was called with the wrong amount of arguments.
-    ExpectedFunctionArgumentAmount {
-        identifier: String,
+    ExpectedToolArgumentAmount {
+        tool_name: &'static str,
         expected: usize,
         actual: usize,
     },
@@ -283,38 +283,6 @@ impl From<toml::de::Error> for Error {
 }
 
 impl Error {
-    pub(crate) fn _expect_function_argument_amount(
-        identifier: &str,
-        actual: usize,
-        expected: usize,
-    ) -> Result<()> {
-        if actual == expected {
-            Ok(())
-        } else {
-            Err(Error::ExpectedFunctionArgumentAmount {
-                identifier: identifier.to_string(),
-                expected,
-                actual,
-            })
-        }
-    }
-
-    pub(crate) fn _expected_minimum_function_argument_amount(
-        identifier: &str,
-        actual: usize,
-        minimum: usize,
-    ) -> Result<()> {
-        if actual >= minimum {
-            Ok(())
-        } else {
-            Err(Error::ExpectedAtLeastFunctionArgumentAmount {
-                identifier: identifier.to_string(),
-                minimum,
-                actual,
-            })
-        }
-    }
-
     pub fn type_error(actual: Value, expected: &'static [ValueType]) -> Self {
         Error::TypeError { actual, expected }
     }
@@ -414,13 +382,13 @@ impl fmt::Display for Error {
                 "An operator expected {} arguments, but got {}.",
                 expected, actual
             ),
-            ExpectedFunctionArgumentAmount {
+            ExpectedToolArgumentAmount {
+                tool_name,
                 expected,
                 actual,
-                identifier,
             } => write!(
                 f,
-                "{identifier} expected {expected} arguments, but got {actual}.",
+                "{tool_name} expected {expected} arguments, but got {actual}.",
             ),
             ExpectedAtLeastFunctionArgumentAmount {
                 minimum,
