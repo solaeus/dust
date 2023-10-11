@@ -1,9 +1,1 @@
 (output 'Hello, world!')
-
-main = function <message> {
-	while 1 == 1 {
-		(output message)
-	}
-}
-
-(main 'Hello dust ~*')
