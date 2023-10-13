@@ -41,9 +41,9 @@ impl VariableMap {
                 let index = if let Ok(index) = next_identifier.parse::<usize>() {
                     index
                 } else {
-                    return Err(Error::expected_int(Value::String(
-                        next_identifier.to_string(),
-                    )));
+                    return Err(Error::ExpectedInt {
+                        actual: Value::String(next_identifier.to_string()),
+                    });
                 };
 
                 Ok(list.get(index).cloned())
@@ -70,9 +70,9 @@ impl VariableMap {
                     let index = if let Ok(index) = next_identifier.parse::<usize>() {
                         index
                     } else {
-                        return Err(Error::expected_int(Value::String(
-                            next_identifier.to_string(),
-                        )));
+                        return Err(Error::ExpectedInt {
+                            actual: Value::String(next_identifier.to_string()),
+                        });
                     };
 
                     let mut missing_elements = index.saturating_sub(list.len()) + 1;

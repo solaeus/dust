@@ -92,7 +92,9 @@ impl Value {
     pub fn as_string(&self) -> Result<&String> {
         match self {
             Value::String(string) => Ok(string),
-            value => Err(Error::expected_string(value.clone())),
+            value => Err(Error::ExpectedString {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -100,7 +102,9 @@ impl Value {
     pub fn as_int(&self) -> Result<i64> {
         match self {
             Value::Integer(i) => Ok(*i),
-            value => Err(Error::expected_int(value.clone())),
+            value => Err(Error::ExpectedInt {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -108,7 +112,9 @@ impl Value {
     pub fn as_float(&self) -> Result<f64> {
         match self {
             Value::Float(f) => Ok(*f),
-            value => Err(Error::expected_float(value.clone())),
+            value => Err(Error::ExpectedFloat {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -118,7 +124,9 @@ impl Value {
         match self {
             Value::Float(f) => Ok(*f),
             Value::Integer(i) => Ok(*i as f64),
-            value => Err(Error::expected_number(value.clone())),
+            value => Err(Error::ExpectedNumber {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -126,7 +134,9 @@ impl Value {
     pub fn as_boolean(&self) -> Result<bool> {
         match self {
             Value::Boolean(boolean) => Ok(*boolean),
-            value => Err(Error::expected_boolean(value.clone())),
+            value => Err(Error::ExpectedBoolean {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -134,7 +144,9 @@ impl Value {
     pub fn as_list(&self) -> Result<&Vec<Value>> {
         match self {
             Value::List(list) => Ok(list),
-            value => Err(Error::expected_list(value.clone())),
+            value => Err(Error::ExpectedList {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -142,21 +154,9 @@ impl Value {
     pub fn into_inner_list(self) -> Result<Vec<Value>> {
         match self {
             Value::List(list) => Ok(list),
-            value => Err(Error::expected_list(value.clone())),
-        }
-    }
-
-    /// Borrows the value stored in `self` as `Vec<Value>` or returns `Err` if `self` is not a `Value::Map` of the required length.
-    pub fn as_fixed_len_list(&self, len: usize) -> Result<&Vec<Value>> {
-        match self {
-            Value::List(tuple) => {
-                if tuple.len() == len {
-                    Ok(tuple)
-                } else {
-                    Err(Error::expected_fixed_len_list(len, self.clone()))
-                }
-            }
-            value => Err(Error::expected_list(value.clone())),
+            value => Err(Error::ExpectedList {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -164,7 +164,9 @@ impl Value {
     pub fn as_map(&self) -> Result<&VariableMap> {
         match self {
             Value::Map(map) => Ok(map),
-            value => Err(Error::expected_map(value.clone())),
+            value => Err(Error::ExpectedMap {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -172,7 +174,9 @@ impl Value {
     pub fn as_table(&self) -> Result<&Table> {
         match self {
             Value::Table(table) => Ok(table),
-            value => Err(Error::expected_table(value.clone())),
+            value => Err(Error::ExpectedTable {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -181,7 +185,9 @@ impl Value {
     pub fn as_function(&self) -> Result<&Function> {
         match self {
             Value::Function(function) => Ok(function),
-            value => Err(Error::expected_function(value.clone())),
+            value => Err(Error::ExpectedFunction {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -189,7 +195,9 @@ impl Value {
     pub fn as_empty(&self) -> Result<()> {
         match self {
             Value::Empty => Ok(()),
-            value => Err(Error::expected_empty(value.clone())),
+            value => Err(Error::ExpectedEmpty {
+                actual: value.clone(),
+            }),
         }
     }
 
@@ -199,7 +207,9 @@ impl Value {
             Value::Table(table) => Ok(table.clone()),
             Value::List(list) => Ok(Table::from(list)),
             Value::Map(map) => Ok(Table::from(map)),
-            value => Err(Error::expected_table(value.clone())),
+            value => Err(Error::ExpectedTable {
+                actual: value.clone(),
+            }),
         }
     }
 }

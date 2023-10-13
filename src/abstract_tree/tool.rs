@@ -2,7 +2,7 @@ use std::fs::read_to_string;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Result, Value};
+use crate::{Error, Result, Table, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {
@@ -10,6 +10,7 @@ pub enum Tool {
     AssertEqual,
     Output,
     Read,
+    Help,
 }
 
 impl Tool {
@@ -27,10 +28,7 @@ impl Tool {
                 if values[0].as_boolean()? {
                     Value::Empty
                 } else {
-                    return Err(Error::AssertEqualFailed {
-                        expected: Value::Boolean(true),
-                        actual: values[0].clone(),
-                    });
+                    return Err(Error::AssertFailed);
                 }
             }
             Tool::AssertEqual => {
@@ -76,6 +74,41 @@ impl Tool {
                 let file_contents = read_to_string(values[0].as_string()?)?;
 
                 Value::String(file_contents)
+            }
+            Tool::Help => {
+                if values.len() > 1 {
+                    return Err(Error::ExpectedToolArgumentAmount {
+                        tool_name: "help",
+                        expected: 1,
+                        actual: values.len(),
+                    });
+                }
+
+                let mut help_table =
+                    Table::new(vec!["name".to_string(), "description".to_string()]);
+
+                help_table.insert(vec![
+                    Value::String("help".to_string()),
+                    Value::String("List available tools.".to_string()),
+                ])?;
+                help_table.insert(vec![
+                    Value::String("assert".to_string()),
+                    Value::String("Panic if an expression is false.".to_string()),
+                ])?;
+                help_table.insert(vec![
+                    Value::String("assert_equal".to_string()),
+                    Value::String("Panic if two values are not equal.".to_string()),
+                ])?;
+                help_table.insert(vec![
+                    Value::String("output".to_string()),
+                    Value::String("Emit a value to stdout.".to_string()),
+                ])?;
+                help_table.insert(vec![
+                    Value::String("read".to_string()),
+                    Value::String("Get a file's content.".to_string()),
+                ])?;
+
+                Value::Table(help_table)
             }
         };
 

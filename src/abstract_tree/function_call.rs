@@ -34,7 +34,8 @@ impl AbstractTree for FunctionCall {
                     "assert_equal" => Tool::AssertEqual,
                     "output" => Tool::Output,
                     "read" => Tool::Read,
-                    _ => panic!(""),
+                    "help" => Tool::Help,
+                    _ => panic!("Tool name not recognized."),
                 };
 
                 FunctionName::Tool(tool)
