@@ -1,6 +1,6 @@
 # Dust
 
-Dust is a data-oriented programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a data format. Dust is fast, efficient and easy to learn.
+Dust is a programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a data format. Dust is fast, efficient and easy to learn.
 
 A basic dust program:
 
@@ -16,6 +16,8 @@ Dust can do two (or more) things at the same time with effortless concurrency:
     (output 'or will this one?'))
 ```
 
+Dust is an interpreted, general purpose language with first class functions. It is *data-oriented*, with extensive tools to manage structured and relational data. Dust also includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
+
 <!--toc:start-->
 - [Dust](#dust)
   - [Features](#features)
@@ -23,22 +25,18 @@ Dust can do two (or more) things at the same time with effortless concurrency:
   - [Installation](#installation)
   - [The Dust Programming Language](#the-dust-programming-language)
     - [Declaring Variables](#declaring-variables)
-    - [Integers and Floats](#integers-and-floats)
     - [Lists](#lists)
     - [Maps](#maps)
     - [Tables](#tables)
     - [Functions](#functions)
-    - [Empty Values](#empty-values)
   - [Implementation](#implementation)
-  - [Contributing](#contributing)
 <!--toc:end-->
 
 ## Features
 
-- Simplicity: Dust is designed to be easy to learn and powerful to use, without compromising either.
+- Simplicity: Dust is designed to be easy to learn.
 - Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness.
-- Data format: Dust is data-oriented, so first and foremost it makes a great language for defining data.
-- Pipelines: Like a pipe in bash, dust features the yield `->` operator.
+- Data format: Dust is data-oriented, making it a great language for defining data.
 - Format conversion: Effortlessly convert between dust and formats like JSON, CSV and TOML.
 - Structured data: Dust can represent data with more than just strings. Lists, maps and tables are easy to make and manage.
 
@@ -49,8 +47,8 @@ Dust is an experimental project under active development. At this stage, feature
 To get help with the shell you can use the "help" tool.
 
 ```dust
-help            # Returns a table will all tool info.
-help {"random"} # Returns a table with info on tools in the specified group.
+(help)          # Returns a table will all tool info.
+(help "random") # Returns a table with info on tools in the specified group.
 ```
 
 ## Installation
@@ -92,7 +90,7 @@ Note that strings can be wrapped with any kind of quote: single, double or backt
 
 ### Lists
 
-Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position to access their contents. Their contents can be indexed using dot notation with an integer. Dust lists are zero-indexed.
+Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position using dot notation with an integer. Dust lists are zero-indexed.
 
 ```dust
 list = [true 41 "Ok"]
@@ -101,8 +99,8 @@ list = [true 41 "Ok"]
 
 the_answer = list.1 + 1
 
-(assert_equal  the_answer, 42) # You can also use commas when passing values to
-                               # a function. 
+(assert_equal the_answer, 42) # You can also use commas when passing values to
+                              # a function. 
 ```
 
 ### Maps
