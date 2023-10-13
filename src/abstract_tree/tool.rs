@@ -10,13 +10,57 @@ pub enum Tool {
     Assert,
     AssertEqual,
     Output,
-    Random,
     Read,
     Help,
+
+    Raw,
+    Sh,
+    Bash,
+    Fish,
+    Zsh,
+
+    FromCsv,
+    ToCsv,
+    FromJson,
+    ToJson,
+
+    Random,
+    RandomFloat,
     RandomInteger,
+    RandomString,
 }
 
 impl Tool {
+    pub fn new(kind: &str) -> Result<Self> {
+        let tool = match kind {
+            "assert" => Tool::Assert,
+            "assert_equal" => Tool::AssertEqual,
+            "output" => Tool::Output,
+
+            "raw" => Tool::Raw,
+            "sh" => Tool::Sh,
+            "bash" => Tool::Bash,
+            "fish" => Tool::Fish,
+            "zsh" => Tool::Zsh,
+
+            "from_csv" => Tool::FromCsv,
+            "to_csv" => Tool::ToCsv,
+            "from_json" => Tool::FromJson,
+            "to_json" => Tool::ToJson,
+
+            "random" => Tool::Random,
+            "random_integer" => Tool::RandomInteger,
+            "random_float" => Tool::RandomFloat,
+            "random_string" => Tool::RandomString,
+
+            "read" => Tool::Read,
+            "help" => Tool::Help,
+            _ => todo!("Tool name not recognized."),
+        };
+
+        Ok(tool)
+    }
+
     pub fn run(&self, values: &[Value]) -> Result<Value> {
         let value = match self {
             Tool::Assert => {
@@ -65,7 +109,22 @@ impl Tool {
 
                 Value::Empty
             }
+            Tool::Read => {
+                if values.len() != 1 {
+                    return Err(Error::ExpectedToolArgumentAmount {
+                        tool_name: "read",
+                        expected: 1,
+                        actual: values.len(),
+                    });
+                }
+
+                let file_contents = read_to_string(values[0].as_string()?)?;
+
+                Value::String(file_contents)
+            }
             Tool::Random => todo!(),
+            Tool::RandomFloat => todo!(),
+            Tool::RandomString => todo!(),
             Tool::RandomInteger => {
                 if values.len() == 0 {
                     Value::Integer(random())
@@ -82,19 +141,6 @@ impl Tool {
                         actual: values.len(),
                     });
                 }
-            }
-            Tool::Read => {
-                if values.len() != 1 {
-                    return Err(Error::ExpectedToolArgumentAmount {
-                        tool_name: "read",
-                        expected: 1,
-                        actual: values.len(),
-                    });
-                }
-
-                let file_contents = read_to_string(values[0].as_string()?)?;
-
-                Value::String(file_contents)
             }
             Tool::Help => {
                 if values.len() > 1 {
@@ -131,6 +177,15 @@ impl Tool {
 
                 Value::Table(help_table)
             }
+            Tool::Raw => todo!(),
+            Tool::Sh => todo!(),
+            Tool::Bash => todo!(),
+            Tool::Fish => todo!(),
+            Tool::Zsh => todo!(),
+            Tool::FromCsv => todo!(),
+            Tool::ToCsv => todo!(),
+            Tool::FromJson => todo!(),
+            Tool::ToJson => todo!(),
         };
 
         Ok(value)

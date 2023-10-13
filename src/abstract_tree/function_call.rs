@@ -22,23 +22,13 @@ impl AbstractTree for FunctionCall {
         debug_assert_eq!("function_call", node.kind());
 
         let name_node = node.child(1).unwrap();
-
         let name = match name_node.kind() {
             "identifier" => {
                 FunctionName::Identifier(Identifier::from_syntax_node(source, name_node)?)
             }
             "tool" => {
                 let tool_node = name_node.child(0).unwrap();
-                let tool = match tool_node.kind() {
-                    "assert" => Tool::Assert,
-                    "assert_equal" => Tool::AssertEqual,
-                    "output" => Tool::Output,
-                    "random" => Tool::Random,
-                    "random_integer" => Tool::RandomInteger,
-                    "read" => Tool::Read,
-                    "help" => Tool::Help,
-                    _ => panic!("Tool name not recognized."),
-                };
+                let tool = Tool::new(tool_node.kind())?;
 
                 FunctionName::Tool(tool)
             }
