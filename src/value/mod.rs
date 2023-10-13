@@ -16,7 +16,7 @@ use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, AddAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign},
 };
 
 pub mod function;
@@ -257,6 +257,56 @@ impl Sub for Value {
         };
 
         Err(Error::ExpectedNumber { actual: non_number })
+    }
+}
+
+impl Mul for Value {
+    type Output = Result<Self>;
+
+    fn mul(self, other: Self) -> Self::Output {
+        if self.is_integer() && other.is_integer() {
+            let left = self.as_int().unwrap();
+            let right = other.as_int().unwrap();
+            let value = Value::Integer(left.saturating_mul(right));
+
+            Ok(value)
+        } else {
+            let left = self.as_number()?;
+            let right = other.as_number()?;
+            let value = Value::Float(left * right);
+
+            Ok(value)
+        }
+    }
+}
+
+impl Div for Value {
+    type Output = Result<Self>;
+
+    fn div(self, other: Self) -> Self::Output {
+        let left = self.as_number()?;
+        let right = other.as_number()?;
+        let result = left / right;
+
+        let value = if result % 2.0 == 0.0 {
+            Value::Integer(result as i64)
+        } else {
+            Value::Float(result)
+        };
+
+        Ok(value)
+    }
+}
+
+impl Rem for Value {
+    type Output = Result<Self>;
+
+    fn rem(self, other: Self) -> Self::Output {
+        let left = self.as_int()?;
+        let right = other.as_int()?;
+        let result = left % right;
+
+        Ok(Value::Integer(result))
     }
 }
 

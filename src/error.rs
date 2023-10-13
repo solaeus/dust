@@ -277,7 +277,10 @@ impl fmt::Display for Error {
                 actual,
                 location,
                 relevant_source,
-            } => todo!(),
+            } => write!(
+                f,
+                "Expected syntax node {expected}, but got {actual} at {location}. Code: {relevant_source} ",
+            ),
             ExpectedChildNode { empty_node_sexp } => todo!(),
             WrongColumnAmount { expected, actual } => todo!(),
             ToolFailure(_) => todo!(),

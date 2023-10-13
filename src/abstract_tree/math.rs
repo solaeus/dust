@@ -43,31 +43,17 @@ impl AbstractTree for Math {
     }
 
     fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
-        match self.operator {
-            MathOperator::Add | MathOperator::Subtract | MathOperator::Multiply => {
-                let left_value = self.left.run(source, context)?.as_int()?;
-                let right_value = self.right.run(source, context)?.as_int()?;
-                let outcome = match &self.operator {
-                    MathOperator::Add => left_value + right_value,
-                    MathOperator::Subtract => left_value - right_value,
-                    MathOperator::Multiply => left_value * right_value,
-                    _ => panic!("Unreachable"),
-                };
+        let left = self.left.run(source, context)?;
+        let right = self.right.run(source, context)?;
+        let value = match self.operator {
+            MathOperator::Add => left + right,
+            MathOperator::Subtract => left - right,
+            MathOperator::Multiply => left * right,
+            MathOperator::Divide => left / right,
+            MathOperator::Modulo => left % right,
+        }?;
 
-                Ok(Value::Integer(outcome))
-            }
-            MathOperator::Divide | MathOperator::Modulo => {
-                let left_value = self.left.run(source, context)?.as_number()?;
-                let right_value = self.right.run(source, context)?.as_number()?;
-                let outcome = match self.operator {
-                    MathOperator::Divide => left_value / right_value,
-                    MathOperator::Modulo => left_value % right_value,
-                    _ => panic!("Unreachable"),
-                };
-
-                Ok(Value::Float(outcome))
-            }
-        }
+        Ok(value)
     }
 }
 
