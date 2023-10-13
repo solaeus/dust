@@ -1,7 +1,7 @@
 //! Error and Result types.
 //!
 //! To deal with errors from dependencies, either create a new error variant
-//! or use the MacroFailure variant if the error can only occur inside a macro.
+//! or use the ToolFailure variant if the error can only occur inside a tool.
 
 use crate::{value::Value, Identifier};
 

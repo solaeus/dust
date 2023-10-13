@@ -33,6 +33,8 @@ impl AbstractTree for FunctionCall {
                     "assert" => Tool::Assert,
                     "assert_equal" => Tool::AssertEqual,
                     "output" => Tool::Output,
+                    "random" => Tool::Random,
+                    "random_integer" => Tool::RandomInteger,
                     "read" => Tool::Read,
                     "help" => Tool::Help,
                     _ => panic!("Tool name not recognized."),

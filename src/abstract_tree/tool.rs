@@ -1,5 +1,6 @@
 use std::fs::read_to_string;
 
+use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result, Table, Value};
@@ -9,8 +10,10 @@ pub enum Tool {
     Assert,
     AssertEqual,
     Output,
+    Random,
     Read,
     Help,
+    RandomInteger,
 }
 
 impl Tool {
@@ -61,6 +64,24 @@ impl Tool {
                 println!("{}", values[0]);
 
                 Value::Empty
+            }
+            Tool::Random => todo!(),
+            Tool::RandomInteger => {
+                if values.len() == 0 {
+                    Value::Integer(random())
+                } else if values.len() == 2 {
+                    let range = values[0].as_int()?..values[1].as_int()?;
+                    let mut rng = thread_rng();
+                    let random = rng.gen_range(range);
+
+                    Value::Integer(random)
+                } else {
+                    return Err(Error::ExpectedToolArgumentAmount {
+                        tool_name: "random_integer",
+                        expected: 2,
+                        actual: values.len(),
+                    });
+                }
             }
             Tool::Read => {
                 if values.len() != 1 {
