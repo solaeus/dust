@@ -26,7 +26,7 @@ impl AbstractTree for Logic {
             "<=" => LogicOperator::LessOrEqaul,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "==, && or ||",
+                    expected: "==, && ||, >, <, >= or <=",
                     actual: operator_node.kind(),
                     location: operator_node.start_position(),
                     relevant_source: source[operator_node.byte_range()].to_string(),
