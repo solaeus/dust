@@ -184,7 +184,13 @@ impl Tool {
             Tool::Zsh => todo!(),
             Tool::FromCsv => todo!(),
             Tool::ToCsv => todo!(),
-            Tool::FromJson => todo!(),
+            Tool::FromJson => {
+                Error::expect_tool_argument_amount("from_json", 1, values.len())?;
+
+                let json_string = values[0].as_string()?;
+
+                serde_json::from_str(json_string)?
+            }
             Tool::ToJson => todo!(),
         };
 

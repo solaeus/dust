@@ -122,6 +122,24 @@ pub enum Error {
     CustomMessage(String),
 }
 
+impl Error {
+    pub fn expect_tool_argument_amount(
+        tool_name: &'static str,
+        expected: usize,
+        actual: usize,
+    ) -> Result<()> {
+        if expected == actual {
+            Ok(())
+        } else {
+            Err(Error::ExpectedToolArgumentAmount {
+                tool_name,
+                expected,
+                actual,
+            })
+        }
+    }
+}
+
 impl From<csv::Error> for Error {
     fn from(value: csv::Error) -> Self {
         Error::ToolFailure(value.to_string())
