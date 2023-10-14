@@ -139,7 +139,11 @@ impl Default for VariableMap {
 
 impl Display for VariableMap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Table::from(self).fmt(f)
+        write!(f, "{{\n")?;
+        for (key, value) in &self.variables {
+            write!(f, "  {key} = {value}\n")?;
+        }
+        write!(f, "}}")
     }
 }
 

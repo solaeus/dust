@@ -174,6 +174,14 @@ impl Tool {
                     Value::String("read".to_string()),
                     Value::String("Get a file's content.".to_string()),
                 ])?;
+                help_table.insert(vec![
+                    Value::String("from_json".to_string()),
+                    Value::String("Convert a JSON string to a value.".to_string()),
+                ])?;
+                help_table.insert(vec![
+                    Value::String("to_json".to_string()),
+                    Value::String("Convert a value to a JSON string.".to_string()),
+                ])?;
 
                 Value::Table(help_table)
             }
@@ -191,7 +199,14 @@ impl Tool {
 
                 serde_json::from_str(json_string)?
             }
-            Tool::ToJson => todo!(),
+            Tool::ToJson => {
+                Error::expect_tool_argument_amount("to_json", 1, values.len())?;
+
+                let value = &values[0];
+                let json_string = serde_json::to_string(value)?;
+
+                Value::String(json_string)
+            }
         };
 
         Ok(value)

@@ -413,10 +413,10 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Value::String(string) => write!(f, "{string}"),
-            Value::Float(float) => write!(f, "{}", float),
-            Value::Integer(int) => write!(f, "{}", int),
-            Value::Boolean(boolean) => write!(f, "{}", boolean),
-            Value::Empty => write!(f, "()"),
+            Value::Float(float) => write!(f, "{float}"),
+            Value::Integer(int) => write!(f, "{int}"),
+            Value::Boolean(boolean) => write!(f, "{boolean}"),
+            Value::Empty => write!(f, "empty"),
             Value::List(list) => {
                 write!(f, "[")?;
                 for value in list {
