@@ -5,7 +5,7 @@
 
 use crate::{value::Value, Identifier};
 
-use std::{fmt, io, time::SystemTimeError};
+use std::{fmt, io, time};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -16,10 +16,6 @@ pub enum Error {
         actual: &'static str,
         location: tree_sitter::Point,
         relevant_source: String,
-    },
-
-    ExpectedChildNode {
-        empty_node_sexp: String,
     },
 
     /// The 'assert' macro did not resolve successfully.
@@ -162,8 +158,8 @@ impl From<serde_json::Error> for Error {
     }
 }
 
-impl From<SystemTimeError> for Error {
-    fn from(value: SystemTimeError) -> Self {
+impl From<time::SystemTimeError> for Error {
+    fn from(value: time::SystemTimeError) -> Self {
         Error::ToolFailure(value.to_string())
     }
 }
@@ -281,10 +277,9 @@ impl fmt::Display for Error {
                 f,
                 "Expected syntax node {expected}, but got {actual} at {location}. Code: {relevant_source} ",
             ),
-            ExpectedChildNode { empty_node_sexp } => todo!(),
-            WrongColumnAmount { expected, actual } => todo!(),
-            ToolFailure(_) => todo!(),
-            CustomMessage(_) => todo!(),
+            WrongColumnAmount { expected, actual } => write!(f, "Wrong column amount. Expected {expected} but got {actual}."),
+            ToolFailure(message) => write!(f, "{message}"),
+            CustomMessage(message) => write!(f, "{message}"),
         }
     }
 }
