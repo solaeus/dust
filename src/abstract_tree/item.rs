@@ -1,5 +1,6 @@
 //! Top-level unit of Dust code.
 
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -18,6 +19,16 @@ pub struct Item {
 impl Item {
     pub fn new(statements: Vec<Statement>) -> Self {
         Self { statements }
+    }
+
+    pub fn run_parallel(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+        self.statements.par_iter().for_each(|statement| {
+            let mut context = context.clone();
+
+            statement.run(source, &mut context);
+        });
+
+        Ok(Value::Empty)
     }
 }
 

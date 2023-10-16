@@ -11,9 +11,8 @@ A basic dust program:
 Dust can do two (or more) things at the same time with effortless concurrency:
 
 ```dust
-(run 
-    (output 'will this one finish first?')
-    (output 'or will this one?'))
+async (output 'will this one finish first?')
+async (output 'or will this one?')
 ```
 
 Dust is an interpreted, general purpose language with first class functions. It is *data-oriented*, with extensive tools to manage structured and relational data. Dust also includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
@@ -169,6 +168,19 @@ This function simply passes the input to the shell's standard output.
 ```dust
 print = function <input> {
     (output input)
+}
+```
+
+### Concurrency
+
+As a language written in Rust, Dust features effortless concurrency anywhere in your code.
+
+```dust
+if (random_integer) % 2 == 0 {
+    run {
+        (output 1 + 1)
+        (output 1 + 1 == 2)
+    }
 }
 ```
 

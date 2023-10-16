@@ -3,13 +3,14 @@ use std::fs::read_to_string;
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Result, Table, Value};
+use crate::{evaluate, Error, Result, Table, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {
     Assert,
     AssertEqual,
     Output,
+    Run,
     Read,
     Help,
 
@@ -95,6 +96,14 @@ impl Tool {
                         actual: values[1].clone(),
                     });
                 }
+            }
+            Tool::Run => {
+                Error::expect_tool_argument_amount("run", 1, values.len())?;
+
+                let file_path = values[0].as_string()?;
+                let file_contents = read_to_string(file_path)?;
+
+                evaluate(&file_contents)?
             }
             Tool::Output => {
                 if values.len() != 1 {

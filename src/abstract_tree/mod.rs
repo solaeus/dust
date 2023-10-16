@@ -7,6 +7,7 @@
 //! examples.
 
 pub mod assignment;
+pub mod r#async;
 pub mod expression;
 pub mod function_call;
 pub mod identifier;
