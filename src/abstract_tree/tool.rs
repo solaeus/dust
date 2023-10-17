@@ -1,4 +1,4 @@
-use std::fs::read_to_string;
+use std::{fs::read_to_string, process::Command};
 
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -221,11 +221,72 @@ impl Tool {
 
                 Value::Table(help_table)
             }
-            Tool::Raw => todo!(),
-            Tool::Sh => todo!(),
-            Tool::Bash => todo!(),
-            Tool::Fish => todo!(),
-            Tool::Zsh => todo!(),
+            Tool::Raw => {
+                let program = values[0].as_string()?;
+                let mut command = Command::new(program);
+
+                for value in &values[1..] {
+                    let arg = value.as_string()?;
+
+                    command.arg(arg);
+                }
+
+                command.spawn()?.wait()?;
+
+                Value::Empty
+            }
+            Tool::Sh => {
+                let mut command = Command::new("sh");
+
+                for value in values {
+                    let arg = value.as_string()?;
+
+                    command.arg(arg);
+                }
+
+                command.spawn()?.wait()?;
+
+                Value::Empty
+            }
+            Tool::Bash => {
+                let mut command = Command::new("bash");
+
+                for value in values {
+                    let arg = value.as_string()?;
+
+                    command.arg(arg);
+                }
+
+                command.spawn()?.wait()?;
+
+                Value::Empty
+            }
+            Tool::Fish => {
+                let mut command = Command::new("fish");
+
+                for value in values {
+                    let arg = value.as_string()?;
+
+                    command.arg(arg);
+                }
+
+                command.spawn()?.wait()?;
+
+                Value::Empty
+            }
+            Tool::Zsh => {
+                let mut command = Command::new("zsh");
+
+                for value in values {
+                    let arg = value.as_string()?;
+
+                    command.arg(arg);
+                }
+
+                command.spawn()?.wait()?;
+
+                Value::Empty
+            }
             Tool::FromCsv => todo!(),
             Tool::ToCsv => todo!(),
             Tool::FromJson => {
