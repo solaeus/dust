@@ -11,8 +11,10 @@ A basic dust program:
 Dust can do two (or more) things at the same time with effortless concurrency:
 
 ```dust
-async (output 'will this one finish first?')
-async (output 'or will this one?')
+async {
+    (output 'will this one finish first?')
+    (output 'or will this one?')
+}
 ```
 
 Dust is an interpreted, general purpose language with first class functions. It is *data-oriented*, with extensive tools to manage structured and relational data. Dust also includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
@@ -28,6 +30,7 @@ Dust is an interpreted, general purpose language with first class functions. It 
     - [Maps](#maps)
     - [Tables](#tables)
     - [Functions](#functions)
+    - [Concurrency](#concurrency)
   - [Implementation](#implementation)
 <!--toc:end-->
 
@@ -176,12 +179,20 @@ print = function <input> {
 As a language written in Rust, Dust features effortless concurrency anywhere in your code.
 
 ```dust
-if (random_integer) % 2 == 0 {
-    run {
-        (output 1 + 1)
-        (output 1 + 1 == 2)
-    }
+async {
+    await 1 + 1
 }
+```
+
+The **await** keyword can be used in an asnyc block to indicate what value the async block should evaluate to. In this case, we want "data" to be read from a file.
+
+```dust
+data = async {
+    (output "Reading a file...")
+    (read "examples/assets/faithful.csv")
+}
+
+(output data)
 ```
 
 ## Implementation

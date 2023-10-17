@@ -22,13 +22,16 @@ impl Item {
     }
 
     pub fn run_parallel(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
-        self.statements.par_iter().for_each(|statement| {
+        let statements = &self.statements;
+        let run_result = statements.into_par_iter().try_for_each(|statement| {
             let mut context = context.clone();
-
-            statement.run(source, &mut context);
+            statement.run(source, &mut context).map(|_| ())
         });
 
-        Ok(Value::Empty)
+        match run_result {
+            Ok(()) => Ok(Value::Empty),
+            Err(error) => Err(error),
+        }
     }
 }
 
