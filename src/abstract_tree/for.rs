@@ -31,14 +31,13 @@ impl AbstractTree for For {
         let value = self.expression.run(source, context)?;
         let list = value.as_list()?;
         let key = self.identifier.inner();
+        let mut context = context.clone();
 
         for value in list {
             context.set_value(key.clone(), value.clone())?;
 
-            self.item.run(source, context)?;
+            self.item.run(source, &mut context)?;
         }
-
-        context.set_value(key.clone(), Value::Empty)?;
 
         Ok(Value::Empty)
     }
