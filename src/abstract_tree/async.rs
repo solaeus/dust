@@ -43,18 +43,18 @@ impl AbstractTree for Async {
         statements
             .into_par_iter()
             .enumerate()
-            .find_map_last(|(index, statement)| {
+            .find_map_first(|(index, statement)| {
                 let mut context = context.clone();
-                let result = statement.run(source, &mut context).unwrap_or_default();
+                let result = statement.run(source, &mut context);
 
-                if index == statements.len() - 1 {
+                if result.is_err() {
+                    Some(result)
+                } else if index == statements.len() - 1 {
                     Some(result)
                 } else {
                     None
                 }
             })
-            .ok_or(Error::CustomMessage(
-                "Async block has nothing to run.".to_string(),
-            ))
+            .unwrap()
     }
 }
