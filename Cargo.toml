@@ -1,9 +1,7 @@
 [package]
 name = "dust"
 description = "Data-Oriented Programming Language"
-version = "0.2.0"
-keywords = ["incremental", "parsing", "dust"]
-categories = ["parsing", "text-editors"]
+version = "0.3.0"
 repository = "https://github.com/tree-sitter/tree-sitter-dust"
 edition = "2018"
 license = "MIT"
