@@ -136,7 +136,7 @@ impl Tool {
                     Value::Integer(random())
                 } else if values.len() == 2 {
                     let mut rng = thread_rng();
-                    let range = values[0].as_int()?..values[1].as_int()?;
+                    let range = values[0].as_int()?..=values[1].as_int()?;
                     let random = rng.gen_range(range);
 
                     Value::Integer(random)
