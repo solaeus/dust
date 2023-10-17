@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    r#async::Async, r#while::While, AbstractTree, Assignment, Error, Expression, IfElse, Match,
-    Result, Value, VariableMap,
+    AbstractTree, Assignment, Async, Error, Expression, For, IfElse, Match, Result, Value,
+    VariableMap, While,
 };
 
 /// Abstract representation of a statement.
@@ -17,7 +17,8 @@ pub enum Statement {
     IfElse(Box<IfElse>),
     Match(Match),
     While(Box<While>),
-    Run(Box<Async>),
+    Async(Box<Async>),
+    For(Box<For>),
 }
 
 impl AbstractTree for Statement {
@@ -42,7 +43,10 @@ impl AbstractTree for Statement {
             "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
                 source, child,
             )?))),
-            "async" => Ok(Statement::Run(Box::new(Async::from_syntax_node(
+            "async" => Ok(Statement::Async(Box::new(Async::from_syntax_node(
+                source, child,
+            )?))),
+            "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
                 source, child,
             )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
@@ -61,7 +65,8 @@ impl AbstractTree for Statement {
             Statement::IfElse(if_else) => if_else.run(source, context),
             Statement::Match(r#match) => r#match.run(source, context),
             Statement::While(r#while) => r#while.run(source, context),
-            Statement::Run(run) => run.run(source, context),
+            Statement::Async(run) => run.run(source, context),
+            Statement::For(r#for) => r#for.run(source, context),
         }
     }
 }

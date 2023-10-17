@@ -9,6 +9,7 @@
 pub mod assignment;
 pub mod r#async;
 pub mod expression;
+pub mod r#for;
 pub mod function_call;
 pub mod identifier;
 pub mod if_else;
@@ -23,7 +24,7 @@ pub mod r#while;
 
 pub use {
     assignment::*, expression::*, function_call::*, identifier::*, if_else::*, item::*, logic::*,
-    math::*, r#match::*, statement::*,
+    math::*, r#async::*, r#for::*, r#match::*, r#while::*, statement::*,
 };
 
 use tree_sitter::Node;
