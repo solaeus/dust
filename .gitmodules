@@ -1,3 +1,0 @@
-[submodule "tree-sitter-dust"]
-	path = tree-sitter-dust
-	url = ssh://git@git.jeffa.io:22022/jeff/tree-sitter-dust.git
