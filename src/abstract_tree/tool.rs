@@ -69,13 +69,7 @@ impl Tool {
     pub fn run(&self, values: &[Value]) -> Result<Value> {
         let value = match self {
             Tool::Assert => {
-                if values.len() != 1 {
-                    return Err(Error::ExpectedToolArgumentAmount {
-                        tool_name: "assert",
-                        expected: 1,
-                        actual: values.len(),
-                    });
-                }
+                Error::expect_tool_argument_amount("assert", 1, values.len())?;
 
                 if values[0].as_boolean()? {
                     Value::Empty
@@ -84,13 +78,7 @@ impl Tool {
                 }
             }
             Tool::AssertEqual => {
-                if values.len() != 2 {
-                    return Err(Error::ExpectedToolArgumentAmount {
-                        tool_name: "assert_equal",
-                        expected: 2,
-                        actual: values.len(),
-                    });
-                }
+                Error::expect_tool_argument_amount("assert_equal", 2, values.len())?;
 
                 if values[0] == values[1] {
                     Value::Empty
@@ -110,26 +98,14 @@ impl Tool {
                 evaluate(&file_contents)?
             }
             Tool::Output => {
-                if values.len() != 1 {
-                    return Err(Error::ExpectedToolArgumentAmount {
-                        tool_name: "output",
-                        expected: 1,
-                        actual: values.len(),
-                    });
-                }
+                Error::expect_tool_argument_amount("output", 1, values.len())?;
 
                 println!("{}", values[0]);
 
                 Value::Empty
             }
             Tool::Length => {
-                if values.len() != 1 {
-                    return Err(Error::ExpectedToolArgumentAmount {
-                        tool_name: "len",
-                        expected: 1,
-                        actual: values.len(),
-                    });
-                }
+                Error::expect_tool_argument_amount("length", 1, values.len())?;
 
                 let length = if let Ok(list) = values[0].as_list() {
                     list.len()
@@ -146,13 +122,7 @@ impl Tool {
                 Value::Integer(length as i64)
             }
             Tool::Read => {
-                if values.len() != 1 {
-                    return Err(Error::ExpectedToolArgumentAmount {
-                        tool_name: "read",
-                        expected: 1,
-                        actual: values.len(),
-                    });
-                }
+                Error::expect_tool_argument_amount("read", 1, values.len())?;
 
                 let file_contents = read_to_string(values[0].as_string()?)?;
 
@@ -165,8 +135,8 @@ impl Tool {
                 if values.len() == 0 {
                     Value::Integer(random())
                 } else if values.len() == 2 {
-                    let range = values[0].as_int()?..values[1].as_int()?;
                     let mut rng = thread_rng();
+                    let range = values[0].as_int()?..values[1].as_int()?;
                     let random = rng.gen_range(range);
 
                     Value::Integer(random)
@@ -179,13 +149,7 @@ impl Tool {
                 }
             }
             Tool::Help => {
-                if values.len() > 1 {
-                    return Err(Error::ExpectedToolArgumentAmount {
-                        tool_name: "help",
-                        expected: 1,
-                        actual: values.len(),
-                    });
-                }
+                Error::expect_tool_argument_amount("help", 0, values.len())?;
 
                 let mut help_table =
                     Table::new(vec!["name".to_string(), "description".to_string()]);
