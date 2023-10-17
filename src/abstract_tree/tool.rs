@@ -14,6 +14,8 @@ pub enum Tool {
     Read,
     Help,
 
+    Length,
+
     Raw,
     Sh,
     Bash,
@@ -37,6 +39,8 @@ impl Tool {
             "assert" => Tool::Assert,
             "assert_equal" => Tool::AssertEqual,
             "output" => Tool::Output,
+
+            "length" => Tool::Length,
 
             "raw" => Tool::Raw,
             "sh" => Tool::Sh,
@@ -117,6 +121,29 @@ impl Tool {
                 println!("{}", values[0]);
 
                 Value::Empty
+            }
+            Tool::Length => {
+                if values.len() != 1 {
+                    return Err(Error::ExpectedToolArgumentAmount {
+                        tool_name: "len",
+                        expected: 1,
+                        actual: values.len(),
+                    });
+                }
+
+                let length = if let Ok(list) = values[0].as_list() {
+                    list.len()
+                } else if let Ok(map) = values[0].as_map() {
+                    map.len()
+                } else if let Ok(table) = values[0].as_table() {
+                    table.len()
+                } else if let Ok(string) = values[0].as_string() {
+                    string.chars().count()
+                } else {
+                    1
+                };
+
+                Value::Integer(length as i64)
             }
             Tool::Read => {
                 if values.len() != 1 {
