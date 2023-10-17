@@ -118,6 +118,65 @@ reminder = {
 (output reminder.message)
 ```
 
+### Loops
+
+A **while** loop continues until a predicate is false.
+
+```dust
+i = 0
+while i < 10 {
+    (output i)
+    i += 1
+}
+```
+
+A **for** loop operates on a list without mutating it or the items inside. It does not return a value.
+
+```dust
+list = [ 1, 2, 3 ]
+
+for number in list {
+    number += 1 # This modifies x *only* in this block scope
+}
+
+(output list)
+# Output: [ 1 2 3 ]
+# The original list is left unchanged.
+```
+
+To mutate the values in a list, use a **transform** loop, which returns a new modified list.
+
+```dust
+list = transform number in [1 2 3] {
+    number - 1
+}
+
+(output list)
+# Output: [ 0 1 2 ]
+```
+
+To filter out some of the values in a list, use a **filter** loop.
+
+```dust
+list = filter number in [1 2 3] {
+    number >= 2
+}
+
+(output list)
+# Output: [ 2 3 ]
+```
+
+A **find** loop will return a single value, the first item that satisfies the predicate.
+
+```dust
+found = find number in [1 2 1] {
+    number != 1
+}
+
+(output found)
+# Output: 2
+```
+
 ### Tables
 
 Tables are strict collections, each row must have a value for each column. If a value is "missing" it should be set to an appropriate value for that type. For example, a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces. The column names are followed by a pair of curly braces filled with list values. Each list will become a row in the new table.

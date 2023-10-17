@@ -1,6 +1,8 @@
-i = 0
-for i in [1 2 3] {
+list = [1 2 3]
+
+for i in list {
 	i += 1
 	(output i)
 }
-(output i)
+
+(output list)
