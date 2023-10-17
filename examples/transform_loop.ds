@@ -1,0 +1,8 @@
+list = [1 2 3]
+
+new_list = transform i in list {
+	i + 1
+}
+
+(assert_equal [2 3 4] new_list)
+

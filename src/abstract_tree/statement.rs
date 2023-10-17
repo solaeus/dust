@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Async, Error, Expression, For, IfElse, Match, Result, Value,
-    VariableMap, While,
+    AbstractTree, Assignment, Async, Error, Expression, For, IfElse, Match, Result, Transform,
+    Value, VariableMap, While,
 };
 
 /// Abstract representation of a statement.
@@ -19,6 +19,7 @@ pub enum Statement {
     While(Box<While>),
     Async(Box<Async>),
     For(Box<For>),
+    Transform(Box<Transform>),
 }
 
 impl AbstractTree for Statement {
@@ -49,8 +50,11 @@ impl AbstractTree for Statement {
             "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
                 source, child,
             )?))),
+            "transform" => Ok(Statement::Transform(Box::new(Transform::from_syntax_node(
+                source, child,
+            )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
-                expected: "assignment, expression, if...else, while, tool or async",
+                expected: "assignment, expression, if...else, while, for, transform, tool or async",
                 actual: child.kind(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),
@@ -67,6 +71,7 @@ impl AbstractTree for Statement {
             Statement::While(r#while) => r#while.run(source, context),
             Statement::Async(run) => run.run(source, context),
             Statement::For(r#for) => r#for.run(source, context),
+            Statement::Transform(transform) => transform.run(source, context),
         }
     }
 }
