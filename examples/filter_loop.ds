@@ -1,0 +1,8 @@
+list = [1 2 1 2]
+
+new_list = filter i in list {
+	i == 2
+}
+
+(assert_equal [2 2] new_list)
+
