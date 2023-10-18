@@ -66,6 +66,10 @@
         {
           "type": "SYMBOL",
           "name": "filter"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "find"
         }
       ]
     },
@@ -802,6 +806,39 @@
         {
           "type": "STRING",
           "value": "filter"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "STRING",
+          "value": "in"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "expression"
+        },
+        {
+          "type": "STRING",
+          "value": "{"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "item"
+        },
+        {
+          "type": "STRING",
+          "value": "}"
+        }
+      ]
+    },
+    "find": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "find"
         },
         {
           "type": "SYMBOL",

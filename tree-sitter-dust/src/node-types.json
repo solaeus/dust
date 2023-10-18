@@ -141,6 +141,29 @@
     }
   },
   {
+    "type": "find",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "item",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "for",
     "named": true,
     "fields": {},
@@ -430,6 +453,10 @@
           "named": true
         },
         {
+          "type": "find",
+          "named": true
+        },
+        {
           "type": "for",
           "named": true
         },
@@ -675,6 +702,10 @@
   },
   {
     "type": "filter",
+    "named": false
+  },
+  {
+    "type": "find",
     "named": false
   },
   {
