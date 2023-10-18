@@ -175,11 +175,11 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                table <messages, numbers> {
+                table <messages, numbers> [
                     ['hiya', 42]
                     ['foo', 57]
                     ['bar', 99.99]
-                }
+                ]
                 "
             ),
             Ok(Value::Table(table))

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Function, Identifier, Item, Result, Value, ValueType,
+    AbstractTree, Error, Expression, Function, Identifier, Item, Result, Table, Value, ValueType,
     VariableMap,
 };
 
@@ -54,7 +54,28 @@ impl AbstractTree for ValueNode {
 
                 ValueType::ListExact(child_nodes)
             }
-            "table" => ValueType::Table,
+            "table" => {
+                let child_count = child.child_count();
+                let mut column_names = Vec::new();
+
+                let expression_node = child.child(child_count - 1).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
+
+                for index in 2..child.child_count() - 2 {
+                    let node = child.child(index).unwrap();
+
+                    if node.is_named() {
+                        let identifier = Identifier::from_syntax_node(source, node)?;
+
+                        column_names.push(identifier)
+                    }
+                }
+
+                ValueType::Table {
+                    column_names,
+                    rows: Box::new(expression),
+                }
+            }
             "map" => {
                 let mut child_nodes = BTreeMap::new();
                 let mut current_key = "".to_string();
@@ -150,7 +171,32 @@ impl AbstractTree for ValueNode {
 
                 Value::Map(values)
             }
-            ValueType::Table => todo!(),
+            ValueType::Table {
+                column_names,
+                rows: row_expression,
+            } => {
+                let mut headers = Vec::with_capacity(column_names.len());
+                let mut rows = Vec::new();
+
+                for identifier in column_names {
+                    let name = identifier.inner().clone();
+
+                    headers.push(name)
+                }
+
+                let _row_values = row_expression.run(source, context)?;
+                let row_values = _row_values.as_list()?;
+
+                for value in row_values {
+                    let row = value.as_list()?.clone();
+
+                    rows.push(row)
+                }
+
+                let table = Table::from_raw_parts(headers, rows);
+
+                Value::Table(table)
+            }
             ValueType::Function(function) => Value::Function(function.clone()),
         };
 

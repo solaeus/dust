@@ -2,9 +2,9 @@
 Table Declaration
 ==================
 
-table <text, number> {
+table <text, number> [
     ['answer', 42]
-}
+]
 
 ---
 
@@ -21,18 +21,20 @@ table <text, number> {
                 (list
                   (expression
                     (value
-                      (string)))
-                  (expression
-                    (value
-                      (integer))))))))))))
-
+                      (list
+                        (expression
+                          (value
+                            (string)))
+                        (expression
+                          (value
+                            (integer)))))))))))))))
 ==================
 Table Assignment
 ==================
 
-foobar = table <text, number> {
+foobar = table <text, number> [
     ['answer', 42]
-}
+]
 
 ---
 
@@ -53,10 +55,13 @@ foobar = table <text, number> {
                     (list
                       (expression
                         (value
-                          (string)))
-                      (expression
-                        (value
-                          (integer))))))))))))))
+                          (list
+                            (expression
+                              (value
+                                (string)))
+                            (expression
+                              (value
+                                (integer)))))))))))))))))
 
 ==================
 Table Access

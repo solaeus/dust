@@ -76,13 +76,11 @@ module.exports = grammar({
       '}',
     ),
 
-    table: $ => seq(
+    table: $ => prec.right(seq(
       'table',
       seq('<', repeat1(seq($.identifier, optional(','))), '>'),
-      '{',
-      repeat($.expression),
-      '}',
-    ),
+      $.expression,
+    )),
 
     map: $ => seq(
       '{',

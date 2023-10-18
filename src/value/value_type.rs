@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{value_node::ValueNode, Expression, Function, Value};
+use crate::{value_node::ValueNode, Expression, Function, Identifier, Value};
 
 /// The type of a `Value`.
 #[derive(Clone, Serialize, Deserialize, PartialOrd, Ord)]
@@ -18,7 +18,10 @@ pub enum ValueType {
     ListExact(Vec<Expression>),
     Empty,
     Map(BTreeMap<String, Expression>),
-    Table,
+    Table {
+        column_names: Vec<Identifier>,
+        rows: Box<Expression>,
+    },
     Function(Function),
 }
 
@@ -36,7 +39,16 @@ impl PartialEq for ValueType {
             (ValueType::ListExact(left), ValueType::ListExact(right)) => left == right,
             (ValueType::Empty, ValueType::Empty) => true,
             (ValueType::Map(left), ValueType::Map(right)) => left == right,
-            (ValueType::Table, ValueType::Table) => true,
+            (
+                ValueType::Table {
+                    column_names: left_columns,
+                    rows: left_rows,
+                },
+                ValueType::Table {
+                    column_names: right_columns,
+                    rows: right_rows,
+                },
+            ) => left_columns == right_columns && left_rows == right_rows,
             (ValueType::Function(left), ValueType::Function(right)) => left == right,
             _ => false,
         }
@@ -65,7 +77,9 @@ impl Display for ValueType {
             }
             ValueType::Empty => write!(f, "empty"),
             ValueType::Map(_map) => write!(f, "map"),
-            ValueType::Table => write!(f, "table"),
+            ValueType::Table { column_names, rows } => {
+                write!(f, "table")
+            }
             ValueType::Function(function) => write!(f, "{function}"),
         }
     }
@@ -106,7 +120,10 @@ impl From<&Value> for ValueType {
 
                 ValueType::Map(value_nodes)
             }
-            Value::Table(_) => ValueType::Table,
+            Value::Table(table) => ValueType::Table {
+                column_names: todo!(),
+                rows: todo!(),
+            },
             Value::Function(function) => ValueType::Function(function.clone()),
         }
     }
