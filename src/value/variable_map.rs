@@ -6,11 +6,20 @@ use std::{
 
 use crate::{value::Value, Error, Result, Table};
 
+impl Serialize for VariableMap {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.variables.serialize(serializer)
+    }
+}
+
 /// A collection dust variables comprised of key-value pairs.
 ///
 /// The inner value is a BTreeMap in order to allow VariableMap instances to be sorted and compared
 /// to one another.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Deserialize)]
 pub struct VariableMap {
     variables: BTreeMap<String, Value>,
 }
