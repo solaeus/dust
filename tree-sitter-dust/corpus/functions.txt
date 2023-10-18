@@ -1,0 +1,109 @@
+==================
+Simple Function
+==================
+
+function { "Hiya" }
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (function
+            (item
+              (statement
+                (expression
+                  (value
+                    (string)))))))))))
+
+==================
+Function Call
+==================
+
+(foobar "Hiya")
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (function_call
+          (identifier)
+          (expression
+            (value
+              (string))))))))
+
+==================
+Complex Function
+==================
+
+function <message number> {
+  (output message)
+  (output number)
+}
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (function
+            (identifier)
+            (identifier)
+            (item
+              (statement
+                (expression
+                  (function_call
+                    (tool)
+                    (expression
+                      (identifier)))))
+              (statement
+                (expression
+                  (function_call
+                    (tool)
+                    (expression
+                      (identifier))))))))))))
+
+==================
+Complex Function Call
+==================
+
+(foobar
+    "hi"
+    42
+    {
+      x = 1
+      y = 2
+    }
+)
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (function_call
+          (identifier)
+          (expression
+            (value
+              (string)))
+          (expression
+            (value
+              (integer)))
+          (expression
+            (value
+              (map
+                (identifier)
+                (expression
+                  (value
+                    (integer)))
+                (identifier)
+                (expression
+                  (value
+                    (integer)))))))))))

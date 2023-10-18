@@ -1,0 +1,98 @@
+==================
+Equality
+==================
+
+3 == 1 + 1 + 1
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (logic
+          (expression
+            (value
+              (integer)))
+          (logic_operator)
+          (expression
+            (math
+              (expression
+                (math
+                  (expression
+                    (value
+                      (integer)))
+                  (math_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (math_operator)
+              (expression
+                (value
+                  (integer))))))))))
+
+==================
+&&
+==================
+
+4 + 2 == 42 && true 
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (logic
+          (expression
+            (math
+              (expression
+                (value
+                  (integer)))
+              (math_operator)
+              (expression
+                (value
+                  (integer)))))
+          (logic_operator)
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (boolean))))))))))
+
+==================
+\||
+==================
+
+4 + 2 == 42 || true 
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (logic
+          (expression
+            (math
+              (expression
+                (value
+                  (integer)))
+              (math_operator)
+              (expression
+                (value
+                  (integer)))))
+          (logic_operator)
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (boolean))))))))))

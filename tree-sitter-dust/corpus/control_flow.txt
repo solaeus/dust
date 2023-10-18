@@ -1,0 +1,178 @@
+==================
+If
+==================
+
+if true { "True" }
+
+---
+
+(root
+  (item
+    (statement
+      (if_else
+        (if
+          (expression
+            (value
+              (boolean)))
+          (statement
+            (expression
+              (value
+                (string)))))))))
+
+==================
+If Assignment
+==================
+
+x = if true { 1 }
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (if_else
+            (if
+              (expression
+                (value
+                  (boolean)))
+              (statement
+                (expression
+                  (value
+                    (integer)))))))))))
+
+==================
+If Else
+==================
+
+if false { "True" } else { "False" }
+
+---
+
+(root
+  (item
+    (statement
+      (if_else
+        (if
+          (expression
+            (value
+              (boolean)))
+          (statement
+            (expression
+              (value
+                (string)))))
+        (else
+          (statement
+            (expression
+              (value
+                (string)))))))))
+
+==================
+If Else If
+==================
+
+if 1 == 1 {
+  "math is fun"
+} else if 4 == 9 {
+  "math is broken"
+}
+
+---
+
+(root
+  (item
+    (statement
+      (if_else
+        (if
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (statement
+            (expression
+              (value
+                (string)))))
+        (else_if
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (statement
+            (expression
+              (value
+                (string)))))))))
+
+==================
+If Else Else If Else
+==================
+
+if false {
+  "no"
+} else if false {
+  "no"
+} else if 1 + 1 == 9 {
+  "not the answer"
+} else {
+  "42"
+}
+
+---
+
+(root
+  (item
+    (statement
+      (if_else
+        (if
+          (expression
+            (value
+              (boolean)))
+          (statement
+            (expression
+              (value
+                (string)))))
+        (else_if
+          (expression
+            (value
+              (boolean)))
+          (statement
+            (expression
+              (value
+                (string)))))
+        (else_if
+          (expression
+            (logic
+              (expression
+                (math
+                  (expression
+                    (value
+                      (integer)))
+                  (math_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (statement
+            (expression
+              (value
+                (string)))))
+        (else
+          (statement
+            (expression
+              (value
+                (string)))))))))

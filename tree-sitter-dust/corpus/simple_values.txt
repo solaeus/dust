@@ -1,0 +1,91 @@
+==================
+Booleans
+==================
+
+true
+false
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (boolean)))))
+  (item
+    (statement
+      (expression
+        (value
+          (boolean))))))
+
+==================
+Integers
+==================
+
+1 2 3
+456 7
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (integer)))))
+  (item
+    (statement
+      (expression
+        (value
+          (integer)))))
+  (item
+    (statement
+      (expression
+        (value
+          (integer)))))
+  (item
+    (statement
+      (expression
+        (value
+          (integer)))))
+  (item
+    (statement
+      (expression
+        (value
+          (integer))))))
+
+==================
+Strings
+==================
+
+"one" 'two' "three" `four` 'five'
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (string)))))
+  (item
+    (statement
+      (expression
+        (value
+          (string)))))
+  (item
+    (statement
+      (expression
+        (value
+          (string)))))
+  (item
+    (statement
+      (expression
+        (value
+          (string)))))
+  (item
+    (statement
+      (expression
+        (value
+          (string))))))

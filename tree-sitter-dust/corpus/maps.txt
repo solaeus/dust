@@ -1,0 +1,59 @@
+==================
+Simple Map
+==================
+
+{
+    answer = 42
+}
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (map
+            (identifier)
+            (expression
+              (value
+                (integer)))))))))
+
+==================
+Map Assignment
+==================
+
+x = {
+    answer = 42
+}
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (value
+              (map
+                (identifier)
+                (expression
+                  (value
+                    (integer)))))))))))
+
+==================
+Map Access
+==================
+
+x.answer
+
+---
+
+(root
+    (item
+      (statement
+        (expression
+          (identifier)))))

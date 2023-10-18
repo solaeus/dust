@@ -1,0 +1,52 @@
+==================
+While Loop
+==================
+
+while true {
+  (output "This is a bad idea...")
+}
+
+---
+
+(root
+  (item
+    (statement
+      (while
+        (expression
+          (value
+            (boolean)))
+        (item
+          (statement
+            (expression
+              (function_call
+                (tool)
+                (expression
+                  (value
+                    (string)))))))))))
+
+==================
+While Loop Assignment
+==================
+
+answer = while false {
+  42
+}
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (while
+            (expression
+              (value
+                (boolean)))
+            (item
+              (statement
+                (expression
+                  (value
+                    (integer)))))))))))

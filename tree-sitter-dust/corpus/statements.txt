@@ -1,0 +1,116 @@
+==================
+Simple Statements
+==================
+
+1
+"one"
+x
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (integer)))))
+  (item
+    (statement
+      (expression
+        (value
+          (string)))))
+  (item
+    (statement
+      (expression
+        (identifier)))))
+
+==================
+Simple Assignment
+==================
+
+x = 1
+y = "one"
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (value
+              (integer)))))))
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (value
+              (string))))))))
+
+==================
+Complex Assignment
+==================
+
+x = 1 + 1
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (math
+              (expression
+                (value
+                  (integer)))
+              (math_operator)
+              (expression
+                (value
+                  (integer))))))))))
+
+==================
+Expression Precedence
+==================
+
+x = (3 == (1 + (2 + 2)))
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (math
+                  (expression
+                    (value
+                      (integer)))
+                  (math_operator)
+                  (expression
+                    (math
+                      (expression
+                        (value
+                          (integer)))
+                      (math_operator)
+                      (expression
+                        (value
+                          (integer))))))))))))))

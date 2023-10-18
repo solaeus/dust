@@ -1,0 +1,92 @@
+==================
+Simple For Loop
+==================
+
+for i in [1, 2, 3] {
+  (output i)
+}
+
+---
+
+(root
+  (item
+    (statement
+      (for
+        (identifier)
+        (expression
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (item
+          (statement
+            (expression
+              (function_call
+                (tool)
+                (expression
+                  (identifier))))))))))
+
+==================
+Complex For Loop
+==================
+
+for list in list_of_lists {
+  for item in list {
+    (output item)
+  }
+
+  if (length list) > 1 {
+    (output "List is long...")
+  }
+}
+
+---
+
+(root
+  (item
+    (statement
+      (for
+        (identifier)
+        (expression
+          (identifier))
+        (item
+          (statement
+            (for
+              (identifier)
+              (expression
+                (identifier))
+              (item
+                (statement
+                  (expression
+                    (function_call
+                      (tool)
+                      (expression
+                        (identifier))))))))
+          (statement
+            (if_else
+              (if
+                (expression
+                  (logic
+                    (expression
+                      (function_call
+                        (tool)
+                        (expression
+                          (identifier))))
+                    (logic_operator)
+                    (expression
+                      (value
+                        (integer)))))
+                (statement
+                  (expression
+                    (function_call
+                      (tool)
+                      (expression
+                        (value
+                          (string))))))))))))))

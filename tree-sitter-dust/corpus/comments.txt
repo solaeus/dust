@@ -1,0 +1,34 @@
+==================
+Full Line Comments
+==================
+
+not_a_comment
+# comment
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (identifier))))
+  (item
+    (statement
+      (comment))))
+
+==================
+Partial Line Comments
+==================
+
+not_a_comment # comment
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (identifier))))
+  (item
+    (statement
+      (comment))))

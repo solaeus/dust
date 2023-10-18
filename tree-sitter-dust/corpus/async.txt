@@ -1,0 +1,169 @@
+==================
+Simple Async Statements
+==================
+
+async { (output 'Whaddup') }
+
+---
+
+(root
+  (item
+    (statement
+      (async
+        (statement
+          (expression
+            (function_call
+              (tool)
+              (expression
+                (value
+                  (string))))))))))
+
+==================
+Complex Async Statements
+==================
+
+async {
+  if 1 % 2 == 0 {
+    (output 'true')
+  } else {
+    (output 'false')
+  }
+
+  (output 'foobar')
+}
+
+---
+
+(root
+  (item
+    (statement
+      (async
+        (statement
+          (if_else
+            (if
+              (expression
+                (logic
+                  (expression
+                    (math
+                      (expression
+                        (value
+                          (integer)))
+                      (math_operator)
+                      (expression
+                        (value
+                          (integer)))))
+                  (logic_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (statement
+                (expression
+                  (function_call
+                    (tool)
+                    (expression
+                      (value
+                        (string)))))))
+            (else
+              (statement
+                (expression
+                  (function_call
+                    (tool)
+                    (expression
+                      (value
+                        (string)))))))))
+        (statement
+          (expression
+            (function_call
+              (tool)
+              (expression
+                (value
+                  (string))))))))))
+                    
+==================
+Simple Async Await Statements
+==================
+
+x = async {
+  1
+}
+
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (async
+            (statement
+              (expression
+                (value
+                  (integer))))))))))
+                    
+==================
+Complex Async Await Statements
+==================
+
+x = async {
+  i = 0
+  while i < 5 {
+    (output i)
+    i += 1
+  }
+  (read "examples/assets/faithful.csv")
+}
+
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (async
+            (statement
+              (assignment
+                (identifier)
+                (assignment_operator)
+                (statement
+                  (expression
+                    (value
+                      (integer))))))
+            (statement
+              (while
+                (expression
+                  (logic
+                    (expression
+                      (identifier))
+                    (logic_operator)
+                    (expression
+                      (value
+                        (integer)))))
+                (item
+                  (statement
+                    (expression
+                      (function_call
+                        (tool)
+                        (expression
+                          (identifier)))))
+                  (statement
+                    (assignment
+                      (identifier)
+                      (assignment_operator)
+                      (statement
+                        (expression
+                          (value
+                            (integer)))))))))
+            (statement
+              (expression
+                (function_call
+                  (tool)
+                  (expression
+                    (value
+                      (string))))))))))))

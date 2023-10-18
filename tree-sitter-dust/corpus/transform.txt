@@ -1,0 +1,73 @@
+==================
+Transform Loop
+==================
+
+transform i in [1, 2, 3] {
+  (output i)
+}
+
+---
+
+(root
+  (item
+    (statement
+      (transform
+        (identifier)
+        (expression
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (item
+          (statement
+            (expression
+              (function_call
+                (tool)
+                (expression
+                  (identifier))))))))))
+
+==================
+Transform Loop Assignment
+==================
+
+list = transform i in ["one", "two", "three"] {
+  (output i)
+}
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (transform
+            (identifier)
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (string))))))
+            (item
+              (statement
+                (expression
+                  (function_call
+                    (tool)
+                    (expression
+                      (identifier))))))))))))

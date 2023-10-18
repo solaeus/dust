@@ -1,0 +1,72 @@
+==================
+List Declaration
+==================
+
+['answer', 42]
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (integer)))))))))
+
+==================
+List Assignment
+==================
+
+foobar = ['foobar']
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (value
+              (list
+                (expression
+                  (value
+                    (string)))))))))))
+
+==================
+List Nesting
+==================
+
+['answers', [42, [666]]]
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (integer)))
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (integer)))))))))))))))
