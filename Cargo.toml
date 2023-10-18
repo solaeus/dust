@@ -1,5 +1,5 @@
 [package]
-name = "dust"
+name = "dust-lang"
 description = "Data-Oriented Programming Language"
 version = "0.3.0"
 repository = "https://github.com/tree-sitter/tree-sitter-dust"
