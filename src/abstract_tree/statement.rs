@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Async, Error, Expression, Filter, For, IfElse, Match, Result,
+    AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Match, Result,
     Transform, Value, VariableMap, While,
 };
 
@@ -21,6 +21,7 @@ pub enum Statement {
     For(Box<For>),
     Transform(Box<Transform>),
     Filter(Box<Filter>),
+    Find(Box<Find>),
 }
 
 impl AbstractTree for Statement {
@@ -57,6 +58,9 @@ impl AbstractTree for Statement {
             "filter" => Ok(Statement::Filter(Box::new(Filter::from_syntax_node(
                 source, child,
             )?))),
+            "find" => Ok(Statement::Find(Box::new(Find::from_syntax_node(
+                source, child,
+            )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
                 expected: "assignment, expression, if...else, while, for, transform, filter, tool or async",
                 actual: child.kind(),
@@ -77,6 +81,7 @@ impl AbstractTree for Statement {
             Statement::For(r#for) => r#for.run(source, context),
             Statement::Transform(transform) => transform.run(source, context),
             Statement::Filter(filter) => filter.run(source, context),
+            Statement::Find(find) => find.run(source, context),
         }
     }
 }
