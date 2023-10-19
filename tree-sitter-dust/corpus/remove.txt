@@ -1,0 +1,79 @@
+==================
+Remove Loop
+==================
+
+remove i in [1, 2, 3] {
+  i <= 2
+}
+
+---
+
+(root
+  (item
+    (statement
+      (remove
+        (identifier)
+        (expression
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (item
+          (statement
+            (expression
+              (logic
+                (expression
+                  (identifier))
+                (logic_operator)
+                (expression
+                  (value
+                    (integer)))))))))))
+
+==================
+Remove Loop Assignment
+==================
+
+removed = remove i in ["one", "two", "three"] {
+  i == "two"
+}
+
+---
+
+(root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (remove
+            (identifier)
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (string))))))
+            (item
+              (statement
+                (expression
+                  (logic
+                    (expression
+                      (identifier))
+                    (logic_operator)
+                    (expression
+                      (value
+                        (string)))))))))))))

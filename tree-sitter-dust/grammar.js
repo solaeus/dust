@@ -21,6 +21,7 @@ module.exports = grammar({
       $.transform,
       $.filter,
       $.find,
+      $.remove,
     ),
   
     comment: $ => seq(/[#]+.*/),
@@ -207,6 +208,16 @@ module.exports = grammar({
 
     find: $ => seq(
       'find',
+      $.identifier,
+      'in',
+      $.expression,
+      '{',
+      $.item,
+      '}',
+    ),
+
+    remove: $ => seq(
+      'remove',
       $.identifier,
       'in',
       $.expression,

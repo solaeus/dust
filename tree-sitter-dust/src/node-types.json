@@ -391,6 +391,29 @@
     "fields": {}
   },
   {
+    "type": "remove",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "item",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "root",
     "named": true,
     "fields": {},
@@ -466,6 +489,10 @@
         },
         {
           "type": "insert",
+          "named": true
+        },
+        {
+          "type": "remove",
           "named": true
         },
         {
@@ -798,6 +825,10 @@
   },
   {
     "type": "read",
+    "named": false
+  },
+  {
+    "type": "remove",
     "named": false
   },
   {

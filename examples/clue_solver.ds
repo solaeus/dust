@@ -1,11 +1,23 @@
-rooms = ["Library", "Kitchen"];
-suspects = ["White", "Green"];
-weapons = ["Rope", "Lead Pipe"];
+rooms = ['Library', 'Kitchen']
+suspects = ['White', 'Green']
+weapons = ['Rope', 'Lead_Pipe']
+cards = [rooms suspects weapons]
 
-show_card = function <card> {
-	(remove rooms card)
-	(remove suspects card)
-	(remove weapons card)
+take_turn = function <current_room opponent_card> {
+	(remove_card opponent_card)
+	(make_guess current_room)
+}
+
+remove_card = function <opponent_card> {
+	for card_list in cards {
+		removed_card = remove card from cards {
+			card == opponent_card
+		}
+	}
+
+	if type of removed_card == 'empty' {
+		(output 'Card not found.')
+	}
 }
 
 make_guess = function <current_room> {

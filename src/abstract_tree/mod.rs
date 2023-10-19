@@ -19,6 +19,7 @@ pub mod item;
 pub mod logic;
 pub mod r#match;
 pub mod math;
+pub mod remove;
 pub mod statement;
 pub mod tool;
 pub mod transform;
@@ -27,8 +28,8 @@ pub mod r#while;
 
 pub use {
     assignment::*, expression::*, filter::*, find::*, function_call::*, identifier::*, if_else::*,
-    item::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*, statement::*,
-    transform::*,
+    item::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*, remove::*,
+    statement::*, transform::*,
 };
 
 use tree_sitter::Node;
