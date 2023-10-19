@@ -207,10 +207,23 @@ impl fmt::Display for Error {
         use Error::*;
 
         match self {
-            AssertEqualFailed { expected, actual } => write!(
-                f,
-                "Equality assertion failed. {expected} does not equal {actual}."
-            ),
+            AssertEqualFailed { expected, actual } => {
+                write!(f, "Equality assertion failed")?;
+
+                if expected.is_table() {
+                    write!(f, "\n{expected}\n")?;
+                } else { 
+                    write!(f, " {expected} ")?;
+                }
+
+                write!(f, "does not equal")?;
+
+                if actual.is_table() {
+                    write!(f, "\n{actual}")
+                } else { 
+                    write!(f, " {actual}.")
+                }
+            },
             AssertFailed => write!(
                 f,
                 "Assertion failed. A false value was passed to \"assert\"."
