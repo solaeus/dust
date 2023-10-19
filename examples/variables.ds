@@ -1,8 +1,8 @@
 x = 1
 y = "hello dust!"
 z = 42.0
-list = (3, 2, x)
-big_list = (x, y, z, list)
+list = [3, 2, x]
+big_list = [x, y, z, list]
 foo = {
 	x = "bar" 
 	y = 42

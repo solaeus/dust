@@ -10,7 +10,7 @@ take_turn = function <current_room opponent_card> {
 
 remove_card = function <opponent_card> {
 	for card_list in cards {
-		removed_card = remove card from cards {
+		remove card from cards {
 			card == opponent_card
 		}
 	}

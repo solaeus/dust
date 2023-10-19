@@ -45,8 +45,8 @@ fn find_loop() {
 }
 
 #[test]
-fn fizz_buzz() {
-    let file_contents = read_to_string("examples/fizz_buzz.ds").unwrap();
+fn fizzbuzz() {
+    let file_contents = read_to_string("examples/fizzbuzz.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }

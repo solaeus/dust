@@ -1,9 +1,9 @@
-foo = "bar";
-func = 'foo';
+foo = "bar"
+func = function <> { "foo" }
 
-assert_equal("bar", func());
+assert_equal("bar", (func))
 
-foo = "xyz";
+foo = "xyz"
 
-assert_equal("xyz", func());
+assert_equal("xyz", (func))
 
