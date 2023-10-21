@@ -276,7 +276,6 @@ module.exports = grammar({
       'move',
       'read',
       'remove',
-      'trash',
       'write',
 
       // Format conversion

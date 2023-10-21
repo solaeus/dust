@@ -26,7 +26,6 @@ pub enum Tool {
     Move(Vec<Expression>),
     Read(Expression),
     Remove(Expression),
-    Trash(Expression),
     Write(Vec<Expression>),
 
     // Format conversion
@@ -131,12 +130,6 @@ impl AbstractTree for Tool {
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 Tool::Remove(expression)
-            }
-            "trash" => {
-                let expression_node = node.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
-
-                Tool::Trash(expression)
             }
             "write" => {
                 let expressions = parse_expressions(source, node)?;
@@ -345,8 +338,14 @@ impl AbstractTree for Tool {
 
                 Ok(content)
             }
-            Tool::Remove(_) => todo!(),
-            Tool::Trash(_) => todo!(),
+            Tool::Remove(expression) => {
+                let path_value = expression.run(source, context)?;
+                let path = PathBuf::from(path_value.as_string()?);
+
+                remove_file(path)?;
+
+                Ok(Value::Empty)
+            }
             Tool::Write(_) => todo!(),
             Tool::FromJson(_) => todo!(),
             Tool::ToJson(_) => todo!(),
