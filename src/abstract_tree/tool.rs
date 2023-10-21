@@ -1,8 +1,10 @@
 use std::{
-    fs::{metadata, File},
+    fs::{copy, metadata, remove_dir, remove_dir_all, remove_file, File},
     io::Write,
+    path::{Path, PathBuf},
 };
 
+use clap::builder::PathBufValueParser;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -275,8 +277,8 @@ impl AbstractTree for Tool {
                 Ok(Value::Empty)
             }
             Tool::Append(expressions) => {
-                let path_expression = expressions[0].run(source, context)?;
-                let path = path_expression.as_string()?;
+                let path_value = expressions[0].run(source, context)?;
+                let path = path_value.as_string()?;
                 let data = expressions[1].run(source, context)?.to_string();
                 let mut file = File::options().append(true).open(path)?;
 
@@ -288,8 +290,6 @@ impl AbstractTree for Tool {
                 let path_value = expression.run(source, context)?;
                 let path = path_value.as_string()?;
                 let metadata = metadata(path)?;
-                let mut metadata_output = VariableMap::new();
-
                 let file_type = if metadata.is_dir() {
                     "dir".to_string()
                 } else if metadata.is_file() {
@@ -302,6 +302,7 @@ impl AbstractTree for Tool {
                 let created = metadata.created()?.elapsed()?.as_secs() as i64;
                 let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
                 let accessed = metadata.accessed()?.elapsed()?.as_secs() as i64;
+                let mut metadata_output = VariableMap::new();
 
                 metadata_output.set_value("type".to_string(), Value::String(file_type))?;
                 metadata_output.set_value("created".to_string(), Value::Integer(created))?;
@@ -310,7 +311,17 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Map(metadata_output))
             }
-            Tool::Move(_) => todo!(),
+            Tool::Move(expressions) => {
+                let from_value = expressions[0].run(source, context)?;
+                let from = from_value.as_string()?;
+                let to_value = expressions[1].run(source, context)?;
+                let to = to_value.as_string()?;
+
+                copy(from, to)?;
+                remove_file(from)?;
+
+                Ok(Value::Empty)
+            }
             Tool::Read(_) => todo!(),
             Tool::Remove(_) => todo!(),
             Tool::Trash(_) => todo!(),
