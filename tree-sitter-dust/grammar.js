@@ -35,6 +35,7 @@ module.exports = grammar({
       $.value,
       $.identifier,
       $.function_call,
+      $.tool,
       $.math,
       $.logic,
     )),
@@ -251,6 +252,26 @@ module.exports = grammar({
       '{', 
       repeat($.statement), 
       '}'
+    ),
+
+    tool: $ => prec.right(seq(
+      '(',
+      $._tool_kind,
+      repeat(seq($.expression, optional(','))),
+      ')',
+    )),
+
+    _tool_kind: $ => choice(
+      'output',
+      'output_error',
+      
+      'assert',
+      'assert_equal',
+      
+      'length',
+      
+      'read',
+      'write',
     ),
   }
 });

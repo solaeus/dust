@@ -111,6 +111,10 @@
           "named": true
         },
         {
+          "type": "tool",
+          "named": true
+        },
+        {
           "type": "value",
           "named": true
         }
@@ -530,6 +534,21 @@
     }
   },
   {
+    "type": "tool",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "transform",
     "named": true,
     "fields": {},
@@ -699,6 +718,10 @@
     "named": false
   },
   {
+    "type": "assert_equal",
+    "named": false
+  },
+  {
     "type": "async",
     "named": false
   },
@@ -763,6 +786,22 @@
     "named": false
   },
   {
+    "type": "length",
+    "named": false
+  },
+  {
+    "type": "output",
+    "named": false
+  },
+  {
+    "type": "output_error",
+    "named": false
+  },
+  {
+    "type": "read",
+    "named": false
+  },
+  {
     "type": "remove",
     "named": false
   },
@@ -792,6 +831,10 @@
   },
   {
     "type": "while",
+    "named": false
+  },
+  {
+    "type": "write",
     "named": false
   },
   {

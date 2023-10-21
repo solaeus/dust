@@ -28,8 +28,7 @@ transform i in [1, 2, 3] {
         (item
           (statement
             (expression
-              (function_call
-                (tool)
+              (tool
                 (expression
                   (identifier))))))))))
 
@@ -67,7 +66,6 @@ list = transform i in ["one", "two", "three"] {
             (item
               (statement
                 (expression
-                  (function_call
-                    (tool)
+                  (tool
                     (expression
                       (identifier))))))))))))

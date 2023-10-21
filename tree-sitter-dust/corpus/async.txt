@@ -12,8 +12,7 @@ async { (output 'Whaddup') }
       (async
         (statement
           (expression
-            (function_call
-              (tool)
+            (tool
               (expression
                 (value
                   (string))))))))))
@@ -58,23 +57,20 @@ async {
                       (integer)))))
               (statement
                 (expression
-                  (function_call
-                    (tool)
+                  (tool
                     (expression
                       (value
                         (string)))))))
             (else
               (statement
                 (expression
-                  (function_call
-                    (tool)
+                  (tool
                     (expression
                       (value
                         (string)))))))))
         (statement
           (expression
-            (function_call
-              (tool)
+            (tool
               (expression
                 (value
                   (string))))))))))
@@ -148,8 +144,7 @@ x = async {
                 (item
                   (statement
                     (expression
-                      (function_call
-                        (tool)
+                      (tool
                         (expression
                           (identifier)))))
                   (statement
@@ -162,8 +157,7 @@ x = async {
                             (integer)))))))))
             (statement
               (expression
-                (function_call
-                  (tool)
+                (tool
                   (expression
                     (value
                       (string))))))))))))

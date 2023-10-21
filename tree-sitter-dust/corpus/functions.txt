@@ -58,14 +58,12 @@ function <message number> {
             (item
               (statement
                 (expression
-                  (function_call
-                    (tool)
+                  (tool
                     (expression
                       (identifier)))))
               (statement
                 (expression
-                  (function_call
-                    (tool)
+                  (tool
                     (expression
                       (identifier))))))))))))
 

@@ -18,8 +18,7 @@ while true {
         (item
           (statement
             (expression
-              (function_call
-                (tool)
+              (tool
                 (expression
                   (value
                     (string)))))))))))

@@ -28,8 +28,7 @@ for i in [1, 2, 3] {
         (item
           (statement
             (expression
-              (function_call
-                (tool)
+              (tool
                 (expression
                   (identifier))))))))))
 
@@ -65,8 +64,7 @@ for list in list_of_lists {
               (item
                 (statement
                   (expression
-                    (function_call
-                      (tool)
+                    (tool
                       (expression
                         (identifier))))))))
           (statement
@@ -75,8 +73,7 @@ for list in list_of_lists {
                 (expression
                   (logic
                     (expression
-                      (function_call
-                        (tool)
+                      (tool
                         (expression
                           (identifier))))
                     (logic_operator)
@@ -85,8 +82,7 @@ for list in list_of_lists {
                         (integer)))))
                 (statement
                   (expression
-                    (function_call
-                      (tool)
+                    (tool
                       (expression
                         (value
                           (string))))))))))))))

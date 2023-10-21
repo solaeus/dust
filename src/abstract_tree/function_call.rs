@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Result, Value, VariableMap, BUILT_IN_FUNCTIONS};
+use crate::{AbstractTree, Error, Result, Value, VariableMap};
 
 use super::{expression::Expression, identifier::Identifier};
 
@@ -38,12 +38,6 @@ impl AbstractTree for FunctionCall {
         let definition = if let Some(value) = context.get_value(key)? {
             value.as_function().cloned()?
         } else {
-            for function in BUILT_IN_FUNCTIONS {
-                if key == function.name() {
-                    return function.run(source, context);
-                }
-            }
-
             return Err(Error::FunctionIdentifierNotFound(self.name.clone()));
         };
 
