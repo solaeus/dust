@@ -1,5 +1,5 @@
 use std::{
-    fs::{copy, metadata, read_dir, read_to_string, remove_file, File},
+    fs::{copy, metadata, read_dir, read_to_string, remove_file, write, File},
     io::Write,
     path::{Path, PathBuf},
 };
@@ -346,7 +346,16 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Write(_) => todo!(),
+            Tool::Write(expressions) => {
+                let path_value = expressions[0].run(source, context)?;
+                let path = path_value.as_string()?;
+                let data_value = expressions[1].run(source, context)?;
+                let data = data_value.as_string()?;
+
+                write(path, data)?;
+
+                Ok(Value::Empty)
+            }
             Tool::FromJson(_) => todo!(),
             Tool::ToJson(_) => todo!(),
             Tool::ToString(_) => todo!(),
