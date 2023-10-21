@@ -1,5 +1,5 @@
 use std::{
-    fs::{copy, metadata, remove_dir, remove_dir_all, remove_file, File},
+    fs::{copy, metadata, read_dir, read_to_string, remove_file, File},
     io::Write,
     path::{Path, PathBuf},
 };
@@ -322,7 +322,27 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Read(_) => todo!(),
+            Tool::Read(expression) => {
+                let path_value = expression.run(source, context)?;
+                let path = PathBuf::from(path_value.as_string()?);
+                let content = if path.is_dir() {
+                    let dir = read_dir(&path)?;
+                    let mut contents = Table::new(vec!["path".to_string()]);
+
+                    for file in dir {
+                        let file = file?;
+                        let file_path = file.path().to_string_lossy().to_string();
+
+                        contents.insert(vec![Value::String(file_path)])?;
+                    }
+
+                    Value::Table(contents)
+                } else {
+                    Value::String(read_to_string(path)?)
+                };
+
+                Ok(content)
+            }
             Tool::Remove(_) => todo!(),
             Tool::Trash(_) => todo!(),
             Tool::Write(_) => todo!(),
