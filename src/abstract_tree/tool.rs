@@ -16,6 +16,8 @@ pub enum Tool {
 
 impl AbstractTree for Tool {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        debug_assert_eq!("tool", node.kind());
+
         fn parse_expressions(source: &str, node: Node) -> Result<Vec<Expression>> {
             let mut expressions = Vec::new();
 
