@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{value_node::ValueNode, AbstractTree, Error, Identifier, Result, Value, VariableMap};
+use crate::{
+    value_node::ValueNode, AbstractTree, Error, Identifier, Result, Tool, Value, VariableMap,
+};
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
 
@@ -12,6 +14,7 @@ pub enum Expression {
     Math(Box<Math>),
     Logic(Box<Logic>),
     FunctionCall(FunctionCall),
+    Tool(Box<Tool>),
 }
 
 impl AbstractTree for Expression {
@@ -28,6 +31,7 @@ impl AbstractTree for Expression {
                 "function_call" => {
                     Expression::FunctionCall(FunctionCall::from_syntax_node(source, child)?)
                 }
+                "tool" => Expression::Tool(Box::new(Tool::from_syntax_node(source, child)?)),
                 _ => continue,
             };
 
@@ -51,6 +55,7 @@ impl AbstractTree for Expression {
             Expression::Math(math) => math.run(source, context),
             Expression::Logic(logic) => logic.run(source, context),
             Expression::FunctionCall(function_call) => function_call.run(source, context),
+            Expression::Tool(tool) => tool.run(source, context),
         }
     }
 }
