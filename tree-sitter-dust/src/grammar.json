@@ -1092,14 +1092,6 @@
       "members": [
         {
           "type": "STRING",
-          "value": "output"
-        },
-        {
-          "type": "STRING",
-          "value": "output_error"
-        },
-        {
-          "type": "STRING",
           "value": "assert"
         },
         {
@@ -1108,7 +1100,31 @@
         },
         {
           "type": "STRING",
+          "value": "help"
+        },
+        {
+          "type": "STRING",
           "value": "length"
+        },
+        {
+          "type": "STRING",
+          "value": "output"
+        },
+        {
+          "type": "STRING",
+          "value": "output_error"
+        },
+        {
+          "type": "STRING",
+          "value": "append"
+        },
+        {
+          "type": "STRING",
+          "value": "metadata"
+        },
+        {
+          "type": "STRING",
+          "value": "move"
         },
         {
           "type": "STRING",
@@ -1116,7 +1132,47 @@
         },
         {
           "type": "STRING",
+          "value": "remove"
+        },
+        {
+          "type": "STRING",
+          "value": "trash"
+        },
+        {
+          "type": "STRING",
           "value": "write"
+        },
+        {
+          "type": "STRING",
+          "value": "from_json"
+        },
+        {
+          "type": "STRING",
+          "value": "to_json"
+        },
+        {
+          "type": "STRING",
+          "value": "to_string"
+        },
+        {
+          "type": "STRING",
+          "value": "bash"
+        },
+        {
+          "type": "STRING",
+          "value": "fish"
+        },
+        {
+          "type": "STRING",
+          "value": "raw"
+        },
+        {
+          "type": "STRING",
+          "value": "sh"
+        },
+        {
+          "type": "STRING",
+          "value": "zsh"
         }
       ]
     }

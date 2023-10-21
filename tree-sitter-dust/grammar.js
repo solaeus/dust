@@ -262,16 +262,34 @@ module.exports = grammar({
     )),
 
     _tool_kind: $ => choice(
-      'output',
-      'output_error',
-      
+      // General
       'assert',
       'assert_equal',
-      
+      'help',
       'length',
-      
+      'output',
+      'output_error',     
+
+      // Filesystem
+      'append',
+      'metadata',
+      'move',
       'read',
+      'remove',
+      'trash',
       'write',
+
+      // Format conversion
+      'from_json',
+      'to_json',
+      'to_string',
+
+      // Command
+      'bash',
+      'fish',
+      'raw',
+      'sh',
+      'zsh',
     ),
   }
 });

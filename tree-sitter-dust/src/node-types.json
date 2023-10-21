@@ -714,6 +714,10 @@
     "named": false
   },
   {
+    "type": "append",
+    "named": false
+  },
+  {
     "type": "assert",
     "named": false
   },
@@ -723,6 +727,10 @@
   },
   {
     "type": "async",
+    "named": false
+  },
+  {
+    "type": "bash",
     "named": false
   },
   {
@@ -746,6 +754,10 @@
     "named": false
   },
   {
+    "type": "fish",
+    "named": false
+  },
+  {
     "type": "float",
     "named": true
   },
@@ -758,7 +770,15 @@
     "named": false
   },
   {
+    "type": "from_json",
+    "named": false
+  },
+  {
     "type": "function",
+    "named": false
+  },
+  {
+    "type": "help",
     "named": false
   },
   {
@@ -790,11 +810,23 @@
     "named": false
   },
   {
+    "type": "metadata",
+    "named": false
+  },
+  {
+    "type": "move",
+    "named": false
+  },
+  {
     "type": "output",
     "named": false
   },
   {
     "type": "output_error",
+    "named": false
+  },
+  {
+    "type": "raw",
     "named": false
   },
   {
@@ -810,6 +842,10 @@
     "named": false
   },
   {
+    "type": "sh",
+    "named": false
+  },
+  {
     "type": "string",
     "named": true
   },
@@ -818,7 +854,19 @@
     "named": false
   },
   {
+    "type": "to_json",
+    "named": false
+  },
+  {
+    "type": "to_string",
+    "named": false
+  },
+  {
     "type": "transform",
+    "named": false
+  },
+  {
+    "type": "trash",
     "named": false
   },
   {
@@ -835,6 +883,10 @@
   },
   {
     "type": "write",
+    "named": false
+  },
+  {
+    "type": "zsh",
     "named": false
   },
   {
