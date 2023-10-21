@@ -1,14 +1,14 @@
 use std::{
     fs::{copy, metadata, read_dir, read_to_string, remove_file, write, File},
     io::Write,
-    path::{Path, PathBuf},
+    path::PathBuf,
+    process::Command,
 };
 
-use clap::builder::PathBufValueParser;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Result, Table, Value, VariableMap};
+use crate::{expression, AbstractTree, Error, Expression, Result, Table, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {
@@ -34,11 +34,11 @@ pub enum Tool {
     ToString(Expression),
 
     // Command
-    Bash(Expression),
-    Fish(Expression),
-    Raw(Expression),
-    Sh(Expression),
-    Zsh(Expression),
+    Bash(Vec<Expression>),
+    Fish(Vec<Expression>),
+    Raw(Vec<Expression>),
+    Sh(Vec<Expression>),
+    Zsh(Vec<Expression>),
 }
 
 impl AbstractTree for Tool {
@@ -157,34 +157,29 @@ impl AbstractTree for Tool {
                 Tool::ToString(expression)
             }
             "bash" => {
-                let expression_node = node.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expressions = parse_expressions(source, node)?;
 
-                Tool::Bash(expression)
+                Tool::Bash(expressions)
             }
             "fish" => {
-                let expression_node = node.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expressions = parse_expressions(source, node)?;
 
-                Tool::Fish(expression)
+                Tool::Fish(expressions)
             }
             "raw" => {
-                let expression_node = node.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expressions = parse_expressions(source, node)?;
 
-                Tool::Raw(expression)
+                Tool::Raw(expressions)
             }
             "sh" => {
-                let expression_node = node.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expressions = parse_expressions(source, node)?;
 
-                Tool::Sh(expression)
+                Tool::Sh(expressions)
             }
             "zsh" => {
-                let expression_node = node.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expressions = parse_expressions(source, node)?;
 
-                Tool::Zsh(expression)
+                Tool::Zsh(expressions)
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
@@ -370,11 +365,77 @@ impl AbstractTree for Tool {
                 Ok(Value::String(json))
             }
             Tool::ToString(_) => todo!(),
-            Tool::Bash(_) => todo!(),
-            Tool::Fish(_) => todo!(),
-            Tool::Raw(_) => todo!(),
-            Tool::Sh(_) => todo!(),
-            Tool::Zsh(_) => todo!(),
+            Tool::Bash(expressions) => {
+                let mut command = Command::new("bash");
+
+                for expression in expressions {
+                    let value = expression.run(source, context)?;
+                    let command_input = value.as_string()?;
+
+                    command.arg(command_input);
+                }
+
+                let output = command.spawn()?.wait_with_output()?.stdout;
+
+                Ok(Value::String(String::from_utf8(output)?))
+            }
+            Tool::Fish(expressions) => {
+                let mut command = Command::new("fish");
+
+                for expression in expressions {
+                    let value = expression.run(source, context)?;
+                    let command_input = value.as_string()?;
+
+                    command.arg(command_input);
+                }
+
+                let output = command.spawn()?.wait_with_output()?.stdout;
+
+                Ok(Value::String(String::from_utf8(output)?))
+            }
+            Tool::Raw(expressions) => {
+                let raw_command = expressions[0].run(source, context)?;
+                let mut command = Command::new(raw_command.as_string()?);
+
+                for expression in &expressions[1..] {
+                    let value = expression.run(source, context)?;
+                    let command_input = value.as_string()?;
+
+                    command.arg(command_input);
+                }
+
+                let output = command.spawn()?.wait_with_output()?.stdout;
+
+                Ok(Value::String(String::from_utf8(output)?))
+            }
+            Tool::Sh(expressions) => {
+                let mut command = Command::new("sh");
+
+                for expression in expressions {
+                    let value = expression.run(source, context)?;
+                    let command_input = value.as_string()?;
+
+                    command.arg(command_input);
+                }
+
+                let output = command.spawn()?.wait_with_output()?.stdout;
+
+                Ok(Value::String(String::from_utf8(output)?))
+            }
+            Tool::Zsh(expressions) => {
+                let mut command = Command::new("zsh");
+
+                for expression in expressions {
+                    let value = expression.run(source, context)?;
+                    let command_input = value.as_string()?;
+
+                    command.arg(command_input);
+                }
+
+                let output = command.spawn()?.wait_with_output()?.stdout;
+
+                Ok(Value::String(String::from_utf8(output)?))
+            }
         }
     }
 }
