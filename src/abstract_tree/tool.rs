@@ -17,11 +17,11 @@ pub enum Tool {
 
     // Filesystem
     Append(Vec<Expression>),
-    Metadata(Vec<Expression>),
-    Move(Option<Expression>),
+    Metadata(Expression),
+    Move(Vec<Expression>),
     Read(Expression),
-    Remove(Vec<Expression>),
-    Trash(Vec<Expression>),
+    Remove(Expression),
+    Trash(Expression),
     Write(Vec<Expression>),
 
     // Format conversion
@@ -103,74 +103,90 @@ impl AbstractTree for Tool {
                 Tool::Append(expressions)
             }
             "metadata" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Metadata(expression)
             }
             "move" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::OutputError(expressions)
+                Error::expect_tool_argument_amount("move", 2, expressions.len())?;
+
+                Tool::Move(expressions)
             }
             "read" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Read(expression)
             }
             "remove" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Remove(expression)
             }
             "trash" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Trash(expression)
             }
             "write" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::OutputError(expressions)
+                Error::expect_tool_argument_amount("write", 2, expressions.len())?;
+
+                Tool::Write(expressions)
             }
             "from_json" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::FromJson(expression)
             }
             "to_json" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::ToJson(expression)
             }
             "to_string" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::ToString(expression)
             }
             "bash" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Bash(expression)
             }
             "fish" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Fish(expression)
             }
             "raw" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Raw(expression)
             }
             "sh" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Sh(expression)
             }
             "zsh" => {
-                let expressions = parse_expressions(source, node)?;
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::OutputError(expressions)
+                Tool::Zsh(expression)
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
