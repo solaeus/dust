@@ -1,4 +1,7 @@
-use std::{fs::File, io::Write};
+use std::{
+    fs::{metadata, File},
+    io::Write,
+};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -281,7 +284,32 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Metadata(_) => todo!(),
+            Tool::Metadata(expression) => {
+                let path_value = expression.run(source, context)?;
+                let path = path_value.as_string()?;
+                let metadata = metadata(path)?;
+                let mut metadata_output = VariableMap::new();
+
+                let file_type = if metadata.is_dir() {
+                    "dir".to_string()
+                } else if metadata.is_file() {
+                    "file".to_string()
+                } else if metadata.is_symlink() {
+                    "link".to_string()
+                } else {
+                    "unknown".to_string()
+                };
+                let created = metadata.created()?.elapsed()?.as_secs() as i64;
+                let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
+                let accessed = metadata.accessed()?.elapsed()?.as_secs() as i64;
+
+                metadata_output.set_value("type".to_string(), Value::String(file_type))?;
+                metadata_output.set_value("created".to_string(), Value::Integer(created))?;
+                metadata_output.set_value("modified".to_string(), Value::Integer(modified))?;
+                metadata_output.set_value("accessed".to_string(), Value::Integer(accessed))?;
+
+                Ok(Value::Map(metadata_output))
+            }
             Tool::Move(_) => todo!(),
             Tool::Read(_) => todo!(),
             Tool::Remove(_) => todo!(),
