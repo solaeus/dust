@@ -220,10 +220,6 @@
         {
           "type": "identifier",
           "named": true
-        },
-        {
-          "type": "tool",
-          "named": true
         }
       ]
     }
@@ -443,6 +439,10 @@
         {
           "type": "identifier",
           "named": true
+        },
+        {
+          "type": "item",
+          "named": true
         }
       ]
     }
@@ -528,11 +528,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "tool",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "transform",
@@ -704,15 +699,7 @@
     "named": false
   },
   {
-    "type": "assert_equal",
-    "named": false
-  },
-  {
     "type": "async",
-    "named": false
-  },
-  {
-    "type": "bash",
     "named": false
   },
   {
@@ -736,10 +723,6 @@
     "named": false
   },
   {
-    "type": "fish",
-    "named": false
-  },
-  {
     "type": "float",
     "named": true
   },
@@ -752,19 +735,7 @@
     "named": false
   },
   {
-    "type": "from_csv",
-    "named": false
-  },
-  {
-    "type": "from_json",
-    "named": false
-  },
-  {
     "type": "function",
-    "named": false
-  },
-  {
-    "type": "help",
     "named": false
   },
   {
@@ -792,42 +763,6 @@
     "named": false
   },
   {
-    "type": "length",
-    "named": false
-  },
-  {
-    "type": "output",
-    "named": false
-  },
-  {
-    "type": "random",
-    "named": false
-  },
-  {
-    "type": "random_boolean",
-    "named": false
-  },
-  {
-    "type": "random_float",
-    "named": false
-  },
-  {
-    "type": "random_integer",
-    "named": false
-  },
-  {
-    "type": "random_string",
-    "named": false
-  },
-  {
-    "type": "raw",
-    "named": false
-  },
-  {
-    "type": "read",
-    "named": false
-  },
-  {
     "type": "remove",
     "named": false
   },
@@ -836,27 +771,11 @@
     "named": false
   },
   {
-    "type": "sh",
-    "named": false
-  },
-  {
-    "type": "sort",
-    "named": false
-  },
-  {
     "type": "string",
     "named": true
   },
   {
     "type": "table",
-    "named": false
-  },
-  {
-    "type": "to_csv",
-    "named": false
-  },
-  {
-    "type": "to_json",
     "named": false
   },
   {
@@ -873,14 +792,6 @@
   },
   {
     "type": "while",
-    "named": false
-  },
-  {
-    "type": "write",
-    "named": false
-  },
-  {
-    "type": "zsh",
     "named": false
   },
   {

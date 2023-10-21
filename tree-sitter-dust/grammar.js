@@ -163,7 +163,7 @@ module.exports = grammar({
 
     function_call: $ => prec.right(seq(
       '(',
-      choice($.identifier, $.tool),
+      $.identifier,
       repeat(seq($.expression, optional(','))),
       ')',
     )),
@@ -226,47 +226,14 @@ module.exports = grammar({
       '}',
     ),
 
-    tool: $ => choice(
-      'assert',
-      'assert_equal',
-      'output',
-
-      'read',
-      'write',
-
-      'raw',
-      'sh',
-      'bash',
-      'fish',
-      'zsh',
-
-      'random',
-      'random_boolean',
-      'random_float',
-      'random_string',
-      'random_integer',
-
-      'length',
-      'sort',
-      'transform',
-      'filter',
-
-      'to_csv',
-      'from_csv',
-      'to_json',
-      'from_json',
-
-      'help',
-    ),
-
     select: $ => prec.right(seq(
       'select',
-      $.identifier,
+      '<',
+      repeat(seq($.identifier, optional(','))),
+      '>',
       'from',
-      $.identifier,
-      optional(
-        seq('where', $.expression)
-      ),
+      $.expression,
+      optional(seq('{', $.item, '}')),
     )),
 
     insert: $ => prec.right(seq(

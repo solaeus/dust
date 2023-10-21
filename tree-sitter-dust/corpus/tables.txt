@@ -67,7 +67,9 @@ foobar = table <text, number> [
 Table Access
 ==================
 
-select number from foobar where text == 'answer'
+select <number> from foobar {
+  text == 'answer'
+}
 
 ---
 
@@ -76,16 +78,18 @@ select number from foobar where text == 'answer'
     (statement
       (select
         (identifier)
-        (identifier)
-        (expression
-          (logic
+        (expression 
+          (identifier))
+        (item
+          (statement
             (expression
-              (identifier))
-            (logic_operator)
-            (expression
-              (value
-                (string)))))))))
-
+              (logic
+                (expression
+                  (identifier))
+                (logic_operator)
+                (expression
+                  (value
+                    (string)))))))))))
 
 ==================
 Table Insert

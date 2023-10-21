@@ -1,20 +1,14 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{tool::Tool, AbstractTree, Result, Value, VariableMap};
+use crate::{AbstractTree, Error, Result, Value, VariableMap, BUILT_IN_FUNCTIONS};
 
 use super::{expression::Expression, identifier::Identifier};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
-    name: FunctionName,
+    name: Identifier,
     arguments: Vec<Expression>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum FunctionName {
-    Identifier(Identifier),
-    Tool(Tool),
 }
 
 impl AbstractTree for FunctionCall {
@@ -22,18 +16,7 @@ impl AbstractTree for FunctionCall {
         debug_assert_eq!("function_call", node.kind());
 
         let name_node = node.child(1).unwrap();
-        let name = match name_node.kind() {
-            "identifier" => {
-                FunctionName::Identifier(Identifier::from_syntax_node(source, name_node)?)
-            }
-            "tool" => {
-                let tool_node = name_node.child(0).unwrap();
-                let tool = Tool::new(tool_node.kind())?;
-
-                FunctionName::Tool(tool)
-            }
-            _ => panic!(""),
-        };
+        let name = Identifier::from_syntax_node(source, name_node)?;
 
         let mut arguments = Vec::new();
 
@@ -51,25 +34,17 @@ impl AbstractTree for FunctionCall {
     }
 
     fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
-        let identifier = match &self.name {
-            FunctionName::Identifier(identifier) => identifier,
-            FunctionName::Tool(tool) => {
-                let mut values = Vec::with_capacity(self.arguments.len());
-
-                for expression in &self.arguments {
-                    let value = expression.run(source, context)?;
-
-                    values.push(value);
-                }
-
-                return tool.run(&values);
-            }
-        };
-        let key = identifier.inner();
+        let key = self.name.inner();
         let definition = if let Some(value) = context.get_value(key)? {
             value.as_function().cloned()?
         } else {
-            return Err(crate::Error::FunctionIdentifierNotFound(identifier.clone()));
+            for function in BUILT_IN_FUNCTIONS {
+                if key == function.name() {
+                    return function.run(source, context);
+                }
+            }
+
+            return Err(Error::FunctionIdentifierNotFound(self.name.clone()));
         };
 
         let id_expr_pairs = definition.identifiers().iter().zip(self.arguments.iter());

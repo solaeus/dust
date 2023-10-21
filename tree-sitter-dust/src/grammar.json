@@ -663,17 +663,8 @@
             "value": "("
           },
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "identifier"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "tool"
-              }
-            ]
+            "type": "SYMBOL",
+            "name": "identifier"
           },
           {
             "type": "REPEAT",
@@ -896,107 +887,6 @@
         }
       ]
     },
-    "tool": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "assert"
-        },
-        {
-          "type": "STRING",
-          "value": "assert_equal"
-        },
-        {
-          "type": "STRING",
-          "value": "output"
-        },
-        {
-          "type": "STRING",
-          "value": "read"
-        },
-        {
-          "type": "STRING",
-          "value": "write"
-        },
-        {
-          "type": "STRING",
-          "value": "raw"
-        },
-        {
-          "type": "STRING",
-          "value": "sh"
-        },
-        {
-          "type": "STRING",
-          "value": "bash"
-        },
-        {
-          "type": "STRING",
-          "value": "fish"
-        },
-        {
-          "type": "STRING",
-          "value": "zsh"
-        },
-        {
-          "type": "STRING",
-          "value": "random"
-        },
-        {
-          "type": "STRING",
-          "value": "random_boolean"
-        },
-        {
-          "type": "STRING",
-          "value": "random_float"
-        },
-        {
-          "type": "STRING",
-          "value": "random_string"
-        },
-        {
-          "type": "STRING",
-          "value": "random_integer"
-        },
-        {
-          "type": "STRING",
-          "value": "length"
-        },
-        {
-          "type": "STRING",
-          "value": "sort"
-        },
-        {
-          "type": "STRING",
-          "value": "transform"
-        },
-        {
-          "type": "STRING",
-          "value": "filter"
-        },
-        {
-          "type": "STRING",
-          "value": "to_csv"
-        },
-        {
-          "type": "STRING",
-          "value": "from_csv"
-        },
-        {
-          "type": "STRING",
-          "value": "to_json"
-        },
-        {
-          "type": "STRING",
-          "value": "from_json"
-        },
-        {
-          "type": "STRING",
-          "value": "help"
-        }
-      ]
-    },
     "select": {
       "type": "PREC_RIGHT",
       "value": 0,
@@ -1008,8 +898,36 @@
             "value": "select"
           },
           {
-            "type": "SYMBOL",
-            "name": "identifier"
+            "type": "STRING",
+            "value": "<"
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "identifier"
+                },
+                {
+                  "type": "CHOICE",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": ","
+                    },
+                    {
+                      "type": "BLANK"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "type": "STRING",
+            "value": ">"
           },
           {
             "type": "STRING",
@@ -1017,7 +935,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "identifier"
+            "name": "expression"
           },
           {
             "type": "CHOICE",
@@ -1027,11 +945,15 @@
                 "members": [
                   {
                     "type": "STRING",
-                    "value": "where"
+                    "value": "{"
                   },
                   {
                     "type": "SYMBOL",
-                    "name": "expression"
+                    "name": "item"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": "}"
                   }
                 ]
               },
@@ -1113,6 +1035,38 @@
         {
           "type": "STRING",
           "value": "}"
+        }
+      ]
+    },
+    "assert": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "assert"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "expression"
+          }
+        }
+      ]
+    },
+    "assert_equal": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "assert"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "expression"
+          }
         }
       ]
     }

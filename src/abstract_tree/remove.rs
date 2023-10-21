@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{expression, AbstractTree, Expression, Identifier, Item, Value};
+use crate::{AbstractTree, Expression, Identifier, Item, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Remove {

@@ -3,7 +3,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Match, Remove,
-    Result, Transform, Value, VariableMap, While,
+    Result, Select, Transform, Value, VariableMap, While,
 };
 
 /// Abstract representation of a statement.
@@ -23,6 +23,7 @@ pub enum Statement {
     Filter(Box<Filter>),
     Find(Box<Find>),
     Remove(Box<Remove>),
+    Select(Box<Select>),
 }
 
 impl AbstractTree for Statement {
@@ -65,6 +66,9 @@ impl AbstractTree for Statement {
             "remove" => Ok(Statement::Remove(Box::new(Remove::from_syntax_node(
                 source, child,
             )?))),
+            "select" => Ok(Statement::Select(Box::new(Select::from_syntax_node(
+                source, child,
+            )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
                 expected: "assignment, expression, if...else, while, for, transform, filter, tool or async",
                 actual: child.kind(),
@@ -87,6 +91,7 @@ impl AbstractTree for Statement {
             Statement::Filter(filter) => filter.run(source, context),
             Statement::Find(find) => find.run(source, context),
             Statement::Remove(remove) => remove.run(source, context),
+            Statement::Select(select) => select.run(source, context),
         }
     }
 }

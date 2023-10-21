@@ -1,0 +1,24 @@
+==================
+Assert Boolean
+==================
+
+assert true
+
+---
+
+==================
+Assert Expression
+==================
+
+assert 42 % 2 == 0
+
+---
+
+==================
+Assert Equal
+==================
+
+assert_equal 42 "the answer"
+
+---
+
