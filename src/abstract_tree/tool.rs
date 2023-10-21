@@ -364,7 +364,12 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(json))
             }
-            Tool::ToString(_) => todo!(),
+            Tool::ToString(expression) => {
+                let value = expression.run(source, context)?;
+                let string = value.to_string();
+
+                Ok(Value::String(string))
+            }
             Tool::Bash(expressions) => {
                 let mut command = Command::new("bash");
 
