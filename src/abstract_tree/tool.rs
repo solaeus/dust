@@ -299,12 +299,14 @@ impl AbstractTree for Tool {
                 } else {
                     "unknown".to_string()
                 };
+                let size = metadata.len() as i64;
                 let created = metadata.created()?.elapsed()?.as_secs() as i64;
                 let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
                 let accessed = metadata.accessed()?.elapsed()?.as_secs() as i64;
                 let mut metadata_output = VariableMap::new();
 
                 metadata_output.set_value("type".to_string(), Value::String(file_type))?;
+                metadata_output.set_value("size".to_string(), Value::Integer(size))?;
                 metadata_output.set_value("created".to_string(), Value::Integer(created))?;
                 metadata_output.set_value("modified".to_string(), Value::Integer(modified))?;
                 metadata_output.set_value("accessed".to_string(), Value::Integer(accessed))?;
@@ -327,16 +329,16 @@ impl AbstractTree for Tool {
                 let path = PathBuf::from(path_value.as_string()?);
                 let content = if path.is_dir() {
                     let dir = read_dir(&path)?;
-                    let mut contents = Table::new(vec!["path".to_string()]);
+                    let mut contents = Vec::new();
 
                     for file in dir {
                         let file = file?;
                         let file_path = file.path().to_string_lossy().to_string();
 
-                        contents.insert(vec![Value::String(file_path)])?;
+                        contents.push(Value::String(file_path));
                     }
 
-                    Value::Table(contents)
+                    Value::List(contents)
                 } else {
                     Value::String(read_to_string(path)?)
                 };
