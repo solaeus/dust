@@ -356,8 +356,19 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::FromJson(_) => todo!(),
-            Tool::ToJson(_) => todo!(),
+            Tool::FromJson(expression) => {
+                let json_value = expression.run(source, context)?;
+                let json = json_value.as_string()?;
+                let value = serde_json::from_str(json)?;
+
+                Ok(value)
+            }
+            Tool::ToJson(expression) => {
+                let value = expression.run(source, context)?;
+                let json = serde_json::to_string(&value)?;
+
+                Ok(Value::String(json))
+            }
             Tool::ToString(_) => todo!(),
             Tool::Bash(_) => todo!(),
             Tool::Fish(_) => todo!(),
