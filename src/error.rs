@@ -164,12 +164,6 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<git2::Error> for Error {
-    fn from(value: git2::Error) -> Self {
-        Error::ToolFailure(value.to_string())
-    }
-}
-
 impl From<reqwest::Error> for Error {
     fn from(value: reqwest::Error) -> Self {
         Error::ToolFailure(value.to_string())
@@ -184,12 +178,6 @@ impl From<serde_json::Error> for Error {
 
 impl From<time::SystemTimeError> for Error {
     fn from(value: time::SystemTimeError) -> Self {
-        Error::ToolFailure(value.to_string())
-    }
-}
-
-impl From<trash::Error> for Error {
-    fn from(value: trash::Error) -> Self {
         Error::ToolFailure(value.to_string())
     }
 }
