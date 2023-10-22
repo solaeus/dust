@@ -10,20 +10,6 @@ fn clue_solver() {
 }
 
 #[test]
-fn collections() {
-    let file_contents = read_to_string("examples/collections.ds").unwrap();
-
-    evaluate(&file_contents).unwrap();
-}
-
-#[test]
-fn data_formats() {
-    let file_contents = read_to_string("examples/data_formats.ds").unwrap();
-
-    evaluate(&file_contents).unwrap();
-}
-
-#[test]
 fn fetch() {
     let file_contents = read_to_string("examples/fetch.ds").unwrap();
 

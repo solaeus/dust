@@ -866,6 +866,10 @@
     "named": false
   },
   {
+    "type": "type",
+    "named": false
+  },
+  {
     "type": "while",
     "named": false
   },

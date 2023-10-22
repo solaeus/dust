@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Result, Value, VariableMap};
+use crate::{AbstractTree, Expression, Identifier, Result, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Insert {

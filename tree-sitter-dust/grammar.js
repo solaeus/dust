@@ -265,7 +265,8 @@ module.exports = grammar({
       'help',
       'length',
       'output',
-      'output_error',     
+      'output_error',
+      'type',
 
       // Filesystem
       'append',

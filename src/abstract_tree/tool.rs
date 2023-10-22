@@ -8,7 +8,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Result, Table, Value, VariableMap};
+use crate::{AbstractTree, Error, Expression, Result, Table, Value, ValueType, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {
@@ -19,6 +19,7 @@ pub enum Tool {
     Length(Expression),
     Output(Vec<Expression>),
     OutputError(Vec<Expression>),
+    Type(Expression),
 
     // Filesystem
     Append(Vec<Expression>),
@@ -98,6 +99,12 @@ impl AbstractTree for Tool {
                 let expressions = parse_expressions(source, node)?;
 
                 Tool::OutputError(expressions)
+            }
+            "type" => {
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
+
+                Tool::Type(expression)
             }
             "append" => {
                 let expressions = parse_expressions(source, node)?;
@@ -263,6 +270,18 @@ impl AbstractTree for Tool {
                 }
 
                 Ok(Value::Empty)
+            }
+            Tool::Type(expression) => {
+                let run_expression = expression.run(source, context);
+                let value_type = if let Ok(value) = run_expression {
+                    value.value_type()
+                } else if let Err(Error::VariableIdentifierNotFound(_)) = run_expression {
+                    ValueType::Empty
+                } else {
+                    return run_expression;
+                };
+
+                Ok(Value::String(value_type.to_string()))
             }
             Tool::Append(expressions) => {
                 let path_value = expressions[0].run(source, context)?;

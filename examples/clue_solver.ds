@@ -10,12 +10,12 @@ take_turn = function <current_room opponent_card> {
 
 remove_card = function <opponent_card> {
 	for card_list in cards {
-		remove card from cards {
+		removed = remove card from card_list {
 			card == opponent_card
 		}
 	}
 
-	if type of removed_card == 'empty' {
+	if removed == 'empty' {
 		(output 'Card not found.')
 	}
 }

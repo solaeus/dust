@@ -1092,6 +1092,10 @@
         },
         {
           "type": "STRING",
+          "value": "type"
+        },
+        {
+          "type": "STRING",
           "value": "append"
         },
         {
