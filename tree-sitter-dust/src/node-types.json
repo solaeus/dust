@@ -730,6 +730,10 @@
     "named": false
   },
   {
+    "type": "columns",
+    "named": false
+  },
+  {
     "type": "else",
     "named": false
   },
@@ -847,6 +851,10 @@
   },
   {
     "type": "remove",
+    "named": false
+  },
+  {
+    "type": "rows",
     "named": false
   },
   {

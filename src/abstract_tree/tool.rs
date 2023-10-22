@@ -47,6 +47,10 @@ pub enum Tool {
     RandomBoolean,
     RandomInteger,
     RandomFloat,
+
+    // Random
+    Columns(Expression),
+    Rows(Expression),
 }
 
 impl AbstractTree for Tool {
@@ -203,6 +207,18 @@ impl AbstractTree for Tool {
             "random_boolean" => Tool::RandomBoolean,
             "random_float" => Tool::RandomFloat,
             "random_integer" => Tool::RandomInteger,
+            "columns" => {
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
+
+                Tool::Columns(expression)
+            }
+            "rows" => {
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
+
+                Tool::Rows(expression)
+            }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "built-in tool",
@@ -486,6 +502,30 @@ impl AbstractTree for Tool {
             Tool::RandomBoolean => Ok(Value::Boolean(random())),
             Tool::RandomFloat => Ok(Value::Float(random())),
             Tool::RandomInteger => Ok(Value::Integer(random())),
+            Tool::Columns(expression) => {
+                let column_names = expression
+                    .run(source, context)?
+                    .as_table()?
+                    .headers()
+                    .iter()
+                    .cloned()
+                    .map(|column_name| Value::String(column_name))
+                    .collect();
+
+                Ok(Value::List(column_names))
+            }
+            Tool::Rows(expression) => {
+                let rows = expression
+                    .run(source, context)?
+                    .as_table()?
+                    .rows()
+                    .iter()
+                    .cloned()
+                    .map(|row| Value::List(row))
+                    .collect();
+
+                Ok(Value::List(rows))
+            }
         }
     }
 }

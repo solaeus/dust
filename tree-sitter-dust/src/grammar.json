@@ -1165,6 +1165,14 @@
         {
           "type": "STRING",
           "value": "random_integer"
+        },
+        {
+          "type": "STRING",
+          "value": "rows"
+        },
+        {
+          "type": "STRING",
+          "value": "columns"
         }
       ]
     }

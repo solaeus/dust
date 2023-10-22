@@ -293,6 +293,10 @@ module.exports = grammar({
       'random_boolean',
       'random_float',
       'random_integer',
+      
+      // Tables
+      'rows',
+      'columns',
     ),
   }
 });
