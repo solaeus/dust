@@ -262,6 +262,7 @@ module.exports = grammar({
       // General
       'assert',
       'assert_equal',
+      'download',
       'help',
       'length',
       'output',

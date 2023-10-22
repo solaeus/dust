@@ -734,6 +734,10 @@
     "named": false
   },
   {
+    "type": "download",
+    "named": false
+  },
+  {
     "type": "else",
     "named": false
   },

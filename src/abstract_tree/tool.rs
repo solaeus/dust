@@ -7,6 +7,7 @@ use std::{
 };
 
 use rand::{random, thread_rng, Rng};
+use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -17,6 +18,7 @@ pub enum Tool {
     // General
     Assert(Vec<Expression>),
     AssertEqual(Vec<Expression>),
+    Download(Expression),
     Help(Option<Expression>),
     Length(Expression),
     Output(Vec<Expression>),
@@ -86,6 +88,12 @@ impl AbstractTree for Tool {
                 let expressions = parse_expressions(source, node)?;
 
                 Tool::AssertEqual(expressions)
+            }
+            "download" => {
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
+
+                Tool::Download(expression)
             }
             "help" => {
                 let child_node = node.child(2).unwrap();
@@ -270,6 +278,13 @@ impl AbstractTree for Tool {
                 }
 
                 Ok(Value::Empty)
+            }
+            Tool::Download(expression) => {
+                let value = expression.run(source, context)?;
+                let url = value.as_string()?;
+                let data = get(url)?.text()?;
+
+                Ok(Value::String(data))
             }
             Tool::Length(expression) => {
                 let length = expression.run(source, context)?.as_list()?.len();
