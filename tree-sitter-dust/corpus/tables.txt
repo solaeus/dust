@@ -106,13 +106,15 @@ insert into foobar [
     (statement
       (insert
         (identifier)
-        (list
-          (expression
-            (value
-              (list
-                (expression
-                  (value
-                    (string)))
-                (expression
-                  (value
-                    (integer)))))))))))
+        (expression
+          (value
+            (list
+              (expression
+                (value
+                  (list
+                    (expression
+                      (value
+                        (string)))
+                    (expression
+                      (value
+                        (integer)))))))))))))
