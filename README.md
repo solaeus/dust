@@ -193,7 +193,9 @@ Querying a table is similar to SQL.
 
 ```dust
 names = select name from animals
-youngins = select species from animals where age <= 10
+youngins = select species from animals {
+    age <= 10
+}
 ```
 
 The keywords `table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.

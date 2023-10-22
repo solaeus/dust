@@ -239,12 +239,9 @@ module.exports = grammar({
 
     insert: $ => prec.right(seq(
       'insert',
-      repeat1($.list),
       'into',
       $.identifier,
-      optional(
-        seq('where', $.logic)
-      ),
+      $.expression,
     )),
 
     async: $ => seq(

@@ -15,12 +15,29 @@ test_select = select <text bool> from my_table
 (assert_equal test_select, test_table)
 
 test_table = table <text number bool> [
-	["a", 1, true]
-	["a", 3, true]
+	[1, true]
+	[3, true]
 ]
 
-test_select_where = select <> from my_table {
+test_select_where = select <number, bool> from my_table {
 	text == "a"
 }
 
 (assert_equal test_select_where, test_table)
+
+test_table = table <text number bool> [
+	["a", 1, true]
+	["b", 2, true]
+	["a", 3, true]
+	["c", 4, true]
+	["d", 5, true]
+	["e", 6, true]
+]
+
+insert into my_table [
+	["c", 4, true]
+	["d", 5, true]
+	["e", 6, true]
+]
+
+(assert_equal test_table, my_table)

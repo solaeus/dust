@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Match, Remove,
-    Result, Select, Transform, Value, VariableMap, While,
+    AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Insert, Match,
+    Remove, Result, Select, Transform, Value, VariableMap, While,
 };
 
 /// Abstract representation of a statement.
@@ -24,6 +24,7 @@ pub enum Statement {
     Find(Box<Find>),
     Remove(Box<Remove>),
     Select(Box<Select>),
+    Insert(Box<Insert>),
 }
 
 impl AbstractTree for Statement {
@@ -69,8 +70,11 @@ impl AbstractTree for Statement {
             "select" => Ok(Statement::Select(Box::new(Select::from_syntax_node(
                 source, child,
             )?))),
+            "insert" => Ok(Statement::Insert(Box::new(Insert::from_syntax_node(
+                source, child,
+            )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
-                expected: "assignment, expression, if...else, while, for, transform, filter, tool or async",
+                expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select or insert",
                 actual: child.kind(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),
@@ -92,6 +96,7 @@ impl AbstractTree for Statement {
             Statement::Find(find) => find.run(source, context),
             Statement::Remove(remove) => remove.run(source, context),
             Statement::Select(select) => select.run(source, context),
+            Statement::Insert(insert) => insert.run(source, context),
         }
     }
 }

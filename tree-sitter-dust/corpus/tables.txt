@@ -95,7 +95,9 @@ select <number> from foobar {
 Table Insert
 ==================
 
-insert ['bob was here', 0] into foobar
+insert into foobar [
+  ['bob was here', 0]
+]
 
 ---
 
@@ -103,11 +105,14 @@ insert ['bob was here', 0] into foobar
   (item
     (statement
       (insert
+        (identifier)
         (list
           (expression
             (value
-              (string)))
-          (expression
-            (value
-              (integer))))
-        (identifier)))))
+              (list
+                (expression
+                  (value
+                    (string)))
+                (expression
+                  (value
+                    (integer)))))))))))

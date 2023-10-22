@@ -279,15 +279,11 @@
       "required": true,
       "types": [
         {
+          "type": "expression",
+          "named": true
+        },
+        {
           "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "list",
-          "named": true
-        },
-        {
-          "type": "logic",
           "named": true
         }
       ]
@@ -866,15 +862,7 @@
     "named": false
   },
   {
-    "type": "trash",
-    "named": false
-  },
-  {
     "type": "true",
-    "named": false
-  },
-  {
-    "type": "where",
     "named": false
   },
   {
