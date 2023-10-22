@@ -15,7 +15,7 @@ remove_card = function <opponent_card> {
 		}
 	}
 
-	if removed == 'empty' {
+	if (type removed) == 'empty' {
 		(output 'Card not found.')
 	}
 }

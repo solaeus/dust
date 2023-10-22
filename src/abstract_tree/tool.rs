@@ -5,6 +5,7 @@ use std::{
     process::Command,
 };
 
+use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -40,6 +41,12 @@ pub enum Tool {
     Raw(Vec<Expression>),
     Sh(Vec<Expression>),
     Zsh(Vec<Expression>),
+
+    // Random
+    Random(Vec<Expression>),
+    RandomBoolean,
+    RandomInteger,
+    RandomFloat,
 }
 
 impl AbstractTree for Tool {
@@ -188,6 +195,14 @@ impl AbstractTree for Tool {
 
                 Tool::Zsh(expressions)
             }
+            "random" => {
+                let expressions = parse_expressions(source, node)?;
+
+                Tool::Random(expressions)
+            }
+            "random_boolean" => Tool::RandomBoolean,
+            "random_float" => Tool::RandomFloat,
+            "random_integer" => Tool::RandomInteger,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "built-in tool",
@@ -460,6 +475,17 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(String::from_utf8(output)?))
             }
+            Tool::Random(expressions) => {
+                let range = 0..expressions.len();
+                let random_index = thread_rng().gen_range(range);
+                let random_expression = expressions.get(random_index).unwrap();
+                let value = random_expression.run(source, context)?;
+
+                Ok(value)
+            }
+            Tool::RandomBoolean => Ok(Value::Boolean(random())),
+            Tool::RandomFloat => Ok(Value::Float(random())),
+            Tool::RandomInteger => Ok(Value::Integer(random())),
         }
     }
 }

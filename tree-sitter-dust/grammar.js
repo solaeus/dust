@@ -287,6 +287,12 @@ module.exports = grammar({
       'raw',
       'sh',
       'zsh',
+
+      // Random
+      'random',
+      'random_boolean',
+      'random_float',
+      'random_integer',
     ),
   }
 });

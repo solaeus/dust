@@ -822,6 +822,22 @@
     "named": false
   },
   {
+    "type": "random",
+    "named": false
+  },
+  {
+    "type": "random_boolean",
+    "named": false
+  },
+  {
+    "type": "random_float",
+    "named": false
+  },
+  {
+    "type": "random_integer",
+    "named": false
+  },
+  {
     "type": "raw",
     "named": false
   },
