@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node;
 
 use crate::{AbstractTree, Expression, Identifier, Item, Result, Table, Value, VariableMap};
 
@@ -10,7 +11,7 @@ pub struct Select {
 }
 
 impl AbstractTree for Select {
-    fn from_syntax_node(source: &str, node: tree_sitter::Node) -> crate::Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let child_count = node.child_count();
         let mut identifiers = Vec::new();
 

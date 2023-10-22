@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Value};
+use crate::{AbstractTree, Expression, Identifier, Item, Result, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Filter {
@@ -10,7 +11,7 @@ pub struct Filter {
 }
 
 impl AbstractTree for Filter {
-    fn from_syntax_node(source: &str, node: tree_sitter::Node) -> crate::Result<Self> {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let identifier_node = node.child(1).unwrap();
         let identifier = Identifier::from_syntax_node(source, identifier_node)?;
 
@@ -27,7 +28,7 @@ impl AbstractTree for Filter {
         })
     }
 
-    fn run(&self, source: &str, context: &mut crate::VariableMap) -> crate::Result<crate::Value> {
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
         let value = self.expression.run(source, context)?;
         let list = value.as_list()?;
         let key = self.identifier.inner();
