@@ -1,4 +1,5 @@
 use std::{
+    env::current_dir,
     fs::{copy, metadata, read_dir, read_to_string, remove_file, write, File},
     io::Write,
     path::PathBuf,
@@ -21,6 +22,7 @@ pub enum Tool {
     Output(Vec<Expression>),
     OutputError(Vec<Expression>),
     Type(Expression),
+    Workdir,
 
     // Filesystem
     Append(Vec<Expression>),
@@ -117,6 +119,7 @@ impl AbstractTree for Tool {
 
                 Tool::Type(expression)
             }
+            "workdir" => Tool::Workdir,
             "append" => {
                 let expressions = parse_expressions(source, node)?;
 
@@ -313,6 +316,11 @@ impl AbstractTree for Tool {
                 };
 
                 Ok(Value::String(value_type.to_string()))
+            }
+            Tool::Workdir => {
+                let workdir = current_dir()?.to_string_lossy().to_string();
+
+                Ok(Value::String(workdir))
             }
             Tool::Append(expressions) => {
                 let path_value = expressions[0].run(source, context)?;

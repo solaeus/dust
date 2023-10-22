@@ -1096,6 +1096,10 @@
         },
         {
           "type": "STRING",
+          "value": "workdir"
+        },
+        {
+          "type": "STRING",
           "value": "append"
         },
         {
@@ -1168,11 +1172,11 @@
         },
         {
           "type": "STRING",
-          "value": "rows"
+          "value": "columns"
         },
         {
           "type": "STRING",
-          "value": "columns"
+          "value": "rows"
         }
       ]
     }
