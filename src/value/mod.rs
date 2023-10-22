@@ -218,22 +218,30 @@ impl Add for Value {
     type Output = Result<Value>;
 
     fn add(self, other: Self) -> Self::Output {
-        let non_number = match (self, other) {
-            (Value::Integer(left), Value::Integer(right)) => {
-                return Ok(Value::Integer(left + right))
-            }
-            (Value::Float(left), Value::Float(right)) => return Ok(Value::Float(left + right)),
-            (Value::Integer(left), Value::Float(right)) => {
-                return Ok(Value::Float(left as f64 + right))
-            }
-            (Value::Float(left), Value::Integer(right)) => {
-                return Ok(Value::Float(left + right as f64))
-            }
-            (non_number, Value::Integer(_)) | (non_number, Value::Float(_)) => non_number,
-            (non_number, _) => non_number,
+        match (self.as_int(), other.as_int()) {
+            (Ok(left), Ok(right)) => return Ok(Value::Integer(left + right)),
+            _ => {}
+        }
+
+        match (self.as_number(), other.as_number()) {
+            (Ok(left), Ok(right)) => return Ok(Value::Float(left + right)),
+            _ => {}
+        }
+
+        match (self.as_string(), other.as_string()) {
+            (Ok(left), Ok(right)) => return Ok(Value::String(left.to_string() + right)),
+            _ => {}
+        }
+
+        let non_number_or_string = if !self.is_number() == !self.is_string() {
+            self
+        } else {
+            other
         };
 
-        Err(Error::ExpectedNumber { actual: non_number })
+        Err(Error::ExpectedNumberOrString {
+            actual: non_number_or_string,
+        })
     }
 }
 
