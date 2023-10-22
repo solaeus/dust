@@ -60,7 +60,7 @@ To build from source, clone the repository and build the parser. To do so, enter
 
 ## The Dust Programming Language
 
-It should not take long for a new user to learn the language, especially with the assistance of the shell. If your editor supports tree sitter, you can use [tree-sitter-dust] for syntax highlighting and completion support. Aside from this guide, the best way to learn dust is to read the examples and tests to get a better idea of what dust can do.
+Dust is easy to learn. Aside from this guide, the best way to learn Dust is to read the examples and tests to get a better idea of what it can do.
 
 ### Declaring Variables
 
@@ -146,7 +146,7 @@ To create a new list, use a **transform** loop, which modifies the values into a
 ```dust
 list = [1 2 3]
 
-new_list = transform number in [1 2 3] {
+new_list = transform number in list {
     number - 1
 }
 
@@ -243,7 +243,9 @@ As a language written in Rust, Dust features effortless concurrency anywhere in 
 
 ```dust
 async {
-    await 1 + 1
+    (output (random_integer))
+    (output (random_float))
+    (output (random_boolean))
 }
 ```
 
