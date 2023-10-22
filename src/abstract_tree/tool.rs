@@ -8,7 +8,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{expression, AbstractTree, Error, Expression, Result, Table, Value, VariableMap};
+use crate::{AbstractTree, Error, Expression, Result, Table, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {

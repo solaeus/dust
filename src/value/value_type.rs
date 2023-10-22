@@ -77,7 +77,10 @@ impl Display for ValueType {
             }
             ValueType::Empty => write!(f, "empty"),
             ValueType::Map(_map) => write!(f, "map"),
-            ValueType::Table { column_names, rows } => {
+            ValueType::Table {
+                column_names: _,
+                rows: _,
+            } => {
                 write!(f, "table")
             }
             ValueType::Function(function) => write!(f, "{function}"),
@@ -120,7 +123,7 @@ impl From<&Value> for ValueType {
 
                 ValueType::Map(value_nodes)
             }
-            Value::Table(table) => ValueType::Table {
+            Value::Table(_table) => ValueType::Table {
                 column_names: todo!(),
                 rows: todo!(),
             },
