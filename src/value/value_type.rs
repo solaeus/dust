@@ -123,9 +123,17 @@ impl From<&Value> for ValueType {
 
                 ValueType::Map(value_nodes)
             }
-            Value::Table(_table) => ValueType::Table {
-                column_names: todo!(),
-                rows: todo!(),
+            Value::Table(table) => ValueType::Table {
+                column_names: table
+                    .headers()
+                    .iter()
+                    .map(|column_name| Identifier::new(column_name.clone()))
+                    .collect(),
+                rows: Box::new(Expression::Value(ValueNode::new(
+                    ValueType::ListExact(Vec::with_capacity(0)),
+                    0,
+                    0,
+                ))),
             },
             Value::Function(function) => ValueType::Function(function.clone()),
         }

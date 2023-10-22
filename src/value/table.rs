@@ -1,4 +1,4 @@
-use crate::{Error, Item, Result, Value, VariableMap};
+use crate::{Error, Result, Value, VariableMap};
 use comfy_table::{Cell, Color, ContentArrangement, Table as ComfyTable};
 use serde::{Deserialize, Serialize};
 use std::{
