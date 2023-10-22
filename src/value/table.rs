@@ -1,4 +1,4 @@
-use crate::{Error, Result, Value, VariableMap};
+use crate::{Error, Item, Result, Value, VariableMap};
 use comfy_table::{Cell, Color, ContentArrangement, Table as ComfyTable};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -42,7 +42,7 @@ impl Table {
         self.rows.reserve(additional);
     }
 
-    pub fn column_names(&self) -> &Vec<String> {
+    pub fn headers(&self) -> &Vec<String> {
         &self.headers
     }
 
@@ -86,44 +86,9 @@ impl Table {
     }
 
     pub fn get(&self, value: &Value) -> Option<&Vec<Value>> {
-        let primary_key = self.column_names().get(self.primary_key_index)?;
+        let primary_key = self.headers().get(self.primary_key_index)?;
 
         self.get_where(primary_key, value)
-    }
-
-    pub fn select(&self, column_names: &[String]) -> Table {
-        let mut new_table = Table::new(column_names.to_vec());
-
-        for row in &self.rows {
-            let mut new_row = Vec::new();
-
-            for (i, value) in row.iter().enumerate() {
-                let column_name = self.headers.get(i).unwrap();
-                let new_table_column_index =
-                    new_table
-                        .headers
-                        .iter()
-                        .enumerate()
-                        .find_map(|(index, new_column_name)| {
-                            if new_column_name == column_name {
-                                Some(index)
-                            } else {
-                                None
-                            }
-                        });
-
-                if let Some(index) = new_table_column_index {
-                    while new_row.len() < index + 1 {
-                        new_row.push(Value::Empty);
-                    }
-                    new_row[index] = value.clone();
-                }
-            }
-
-            new_table.insert(new_row).unwrap();
-        }
-
-        new_table
     }
 
     pub fn get_where(&self, column_name: &str, expected: &Value) -> Option<&Vec<Value>> {

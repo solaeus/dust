@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Expression, Identifier, Item, Value};
+use crate::{AbstractTree, Expression, Identifier, Item, Result, Table, Value, VariableMap};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Select {
@@ -52,9 +52,9 @@ impl AbstractTree for Select {
         })
     }
 
-    fn run(&self, source: &str, context: &mut crate::VariableMap) -> crate::Result<crate::Value> {
+    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
         let value = self.expression.run(source, context)?;
-        let table = value.as_table()?;
+        let old_table = value.as_table()?;
         let column_names = if self.identifiers.len() > 0 {
             self.identifiers
                 .iter()
@@ -62,9 +62,51 @@ impl AbstractTree for Select {
                 .map(|identifierier| identifierier.take_inner())
                 .collect()
         } else {
-            table.column_names().clone()
+            old_table.headers().clone()
         };
-        let new_table = table.select(&column_names);
+
+        let mut new_table = Table::new(column_names.to_vec());
+
+        for row in old_table.rows() {
+            let mut new_row = Vec::new();
+            let mut row_context = VariableMap::new();
+
+            for (i, value) in row.iter().enumerate() {
+                let column_name = old_table.headers().get(i).unwrap();
+
+                row_context.set_value(column_name.clone(), value.clone())?;
+
+                let new_table_column_index =
+                    new_table
+                        .headers()
+                        .iter()
+                        .enumerate()
+                        .find_map(|(index, new_column_name)| {
+                            if new_column_name == column_name {
+                                Some(index)
+                            } else {
+                                None
+                            }
+                        });
+
+                if let Some(index) = new_table_column_index {
+                    while new_row.len() < index + 1 {
+                        new_row.push(Value::Empty);
+                    }
+                    new_row[index] = value.clone();
+                }
+            }
+
+            if let Some(where_clause) = &self.item {
+                let should_include = where_clause.run(source, &mut row_context)?.as_boolean()?;
+
+                if should_include {
+                    new_table.insert(new_row)?;
+                }
+            } else {
+                new_table.insert(new_row)?;
+            }
+        }
 
         Ok(Value::Table(new_table))
     }
