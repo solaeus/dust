@@ -49,8 +49,7 @@ Dust is an experimental project under active development. At this stage, feature
 To get help with the shell you can use the "help" tool.
 
 ```dust
-(help)          # Returns a table will all tool info.
-(help "random") # Returns a table with info on tools in the specified group.
+(help)          # Returns a table with tool info.
 ```
 
 ## Installation
@@ -107,7 +106,7 @@ the_answer = list.1 + 1
 
 ### Maps
 
-Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. Under the hood, all of dust's runtime variables are stored in a map so. A map is created with a pair of curly braces and its entries and just variables declared inside those braces. Map contents can be accessed using dot notation and a value's key.
+Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. A map is created with a pair of curly braces and its entries are variables declared inside those braces. Map contents can be accessed using dot notation.
 
 ```dust
 reminder = {
@@ -136,23 +135,26 @@ A **for** loop operates on a list without mutating it or the items inside. It do
 list = [ 1, 2, 3 ]
 
 for number in list {
-    number += 1 # This modifies x *only* in this block scope
+    (output number + 1)
 }
 
-(output list)
-# Output: [ 1 2 3 ]
 # The original list is left unchanged.
 ```
 
-To mutate the values in a list, use a **transform** loop, which returns a new modified list.
+To create a new list, use a **transform** loop, which modifies the values into a new list without changing the original.
 
 ```dust
-list = transform number in [1 2 3] {
+list = [1 2 3]
+
+new_list = transform number in [1 2 3] {
     number - 1
 }
 
-(output list)
+(output new_list)
 # Output: [ 0 1 2 ]
+
+(output list)
+# Output: [ 1 2 3 ]
 ```
 
 To filter out some of the values in a list, use a **filter** loop.
@@ -179,14 +181,14 @@ found = find number in [1 2 1] {
 
 ### Tables
 
-Tables are strict collections, each row must have a value for each column. If a value is "missing" it should be set to an appropriate value for that type. For example, a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces. The column names are followed by a pair of curly braces filled with list values. Each list will become a row in the new table.
+Tables are strict collections, each row must have a value for each column. If a value is "missing" it should be set to an appropriate value for that type. For example, a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces, followed by a list of rows.
 
 ```dust
-animals = table <name species age> {
+animals = table <name species age> [
     ["rover" "cat" 14]
     ["spot" "snake" 9]
     ["bob" "giraffe" 2]
-}
+]
 ```
 
 Querying a table is similar to SQL.
@@ -201,18 +203,18 @@ youngins = select species from animals {
 The keywords `table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
 
 ```dust
-insert into animals {
+insert into animals [
     ["eliza" "ostrich" 4]
     ["pat" "white rhino" 7]
     ["jim" "walrus" 9]
-}
+]
 
 (assert_equal 6 (length animals))
 ```
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name and use a set of curly braces to pass arguments (or leave them empty to pass nothing). You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
+Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name inside a set of parentheses. You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
 
 ```dust
 say_hi = function <> {
@@ -245,25 +247,25 @@ async {
 }
 ```
 
-The **await** keyword can be used in an asnyc block to indicate what value the async block should evaluate to. In this case, we want "data" to be read from a file.
+In an **async** block, each statement is run in parallel. In this case, we want to read from a file and assign the data to a variable. It doesn't matter which statement finishes first, the last statement in the block will be used as the assigned value. If one of the statements in an **async** block produces an error, the other statements will stop running if they have not already finished.
 
 ```dust
 data = async {
     (output "Reading a file...")
     (read "examples/assets/faithful.csv")
 }
-
-(output data)
 ```
 
 ## Implementation
 
-Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust module. Tree sitter generates a parser, written in C, from a set of rules defined in Javascript. Dust itself is a rust binary that calls the C parser using FFI.
+Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust directory. Tree sitter generates a parser, written in C, from a set of rules defined in Javascript. Dust itself is a rust binary that calls the C parser using FFI.
 
-Tests are written in the Rust library, in Dust as implementation tests and in the Tree Sitter test format. Generally, features are added by implementing and testing the syntax in the tree-sitter-dust repository, then writing library tests to evaluate the new syntax. Implementation tests run the Dust files in the "examples" directory and should be used to demonstrate and verify that features work together.
+Tests are written in three places: in the Rust library, in Dust as examples and in the Tree Sitter test format. Generally, features are added by implementing and testing the syntax in the tree-sitter-dust repository, then writing library tests to evaluate the new syntax. Implementation tests run the Dust files in the "examples" directory and should be used to demonstrate and verify that features work together.
 
-Tree Sitter generates a concrete syntax tree, which dust traverses to create an abstract syntax tree that can run the dust code. The CST generation is an extra step but it allows easy testing of the parser, defining the language in one file and makes the syntax easy to modify and expand.
+Tree Sitter generates a concrete syntax tree, which Dust traverses to create an abstract syntax tree that can run the Dust code. The CST generation is an extra step but it allows easy testing of the parser, defining the language in one file and makes the syntax easy to modify and expand. Because it uses Tree Sitter, developer-friendly features like syntax highlighting and code navigation are already available in any text editor that supports Tree Sitter.
 
+[Tree Sitter]: https://tree-sitter.github.io/tree-sitter/
+[Rust]: https://rust-lang.org
 [dnf]: https://dnf.readthedocs.io/en/latest/index.html
 [evalexpr]: https://github.com/ISibboI/evalexpr
 [rustup]: https://rustup.rs
