@@ -295,8 +295,8 @@ module.exports = grammar({
       'random_integer',
       
       // Tables
-      'rows',
       'columns',
+      'rows',
     ),
   }
 });
