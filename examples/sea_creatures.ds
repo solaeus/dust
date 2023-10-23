@@ -10,6 +10,7 @@ data = {
 for creature in sea_creatures {
 	data.creatures += creature.name
 	data.total_clams += creature.clams
+
 	if creature.type == 'dolphin' {
 		data.dolphin_clams += creature.clams
 	}

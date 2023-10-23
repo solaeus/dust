@@ -85,8 +85,6 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         let root_node = cursor.node();
         let mut prev_result = Ok(Value::Empty);
 
-        println!("{}", root_node.to_sexp());
-
         for item_node in root_node.children(&mut cursor) {
             let item = Item::from_syntax_node(self.source, item_node)?;
             prev_result = item.run(self.source, self.context);

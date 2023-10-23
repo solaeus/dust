@@ -780,10 +780,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Option,
-            &self,
-        ))
+        Ok(Value::Empty)
     }
 
     fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
@@ -801,10 +798,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Unit,
-            &self,
-        ))
+        Ok(Value::Empty)
     }
 
     fn visit_newtype_struct<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
