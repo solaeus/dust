@@ -249,20 +249,17 @@ impl Sub for Value {
     type Output = Result<Self>;
 
     fn sub(self, other: Self) -> Self::Output {
-        let non_number = match (self, other) {
-            (Value::Integer(left), Value::Integer(right)) => {
-                return Ok(Value::Integer(left + right))
-            }
-            (Value::Float(left), Value::Float(right)) => return Ok(Value::Float(left + right)),
-            (Value::Integer(left), Value::Float(right)) => {
-                return Ok(Value::Float(left as f64 + right))
-            }
-            (Value::Float(left), Value::Integer(right)) => {
-                return Ok(Value::Float(left + right as f64))
-            }
-            (non_number, Value::Integer(_)) | (non_number, Value::Float(_)) => non_number,
-            (non_number, _) => non_number,
-        };
+        match (self.as_int(), other.as_int()) {
+            (Ok(left), Ok(right)) => return Ok(Value::Integer(left - right)),
+            _ => {}
+        }
+
+        match (self.as_number(), other.as_number()) {
+            (Ok(left), Ok(right)) => return Ok(Value::Float(left - right)),
+            _ => {}
+        }
+
+        let non_number = if !self.is_number() { self } else { other };
 
         Err(Error::ExpectedNumber { actual: non_number })
     }
@@ -295,7 +292,6 @@ impl Div for Value {
         let left = self.as_number()?;
         let right = other.as_number()?;
         let result = left / right;
-
         let value = if result % 2.0 == 0.0 {
             Value::Integer(result as i64)
         } else {

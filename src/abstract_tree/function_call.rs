@@ -40,7 +40,6 @@ impl AbstractTree for FunctionCall {
         } else {
             return Err(Error::FunctionIdentifierNotFound(self.name.clone()));
         };
-
         let id_expr_pairs = definition.identifiers().iter().zip(self.arguments.iter());
         let mut function_context = context.clone();
 

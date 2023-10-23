@@ -117,7 +117,7 @@ impl VariableMap {
         }
     }
 
-    /// Removes and assignmed variable.
+    /// Removes an assigned variable.
     ///
     /// TODO: Support dot notation.
     pub fn remove(&mut self, key: &str) -> Option<Value> {

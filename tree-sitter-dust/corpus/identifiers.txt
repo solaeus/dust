@@ -1,0 +1,37 @@
+==================
+Simple Identifiers
+==================
+
+x
+_y
+__xyz__
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (identifier))))
+  (item
+    (statement
+      (expression
+        (identifier))))
+  (item
+    (statement
+      (expression
+        (identifier)))))
+
+==================
+Dot Notation
+==================
+
+dust_data.0.name
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (identifier)))))
