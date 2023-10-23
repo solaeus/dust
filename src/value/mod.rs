@@ -321,6 +321,7 @@ impl AddAssign for Value {
             (Value::Float(left), Value::Float(right)) => *left += right,
             (Value::Float(left), Value::Integer(right)) => *left += right as f64,
             (Value::String(left), Value::String(right)) => *left += &right,
+            (Value::List(list), value) => list.push(value),
             _ => {}
         }
     }

@@ -40,7 +40,7 @@ module.exports = grammar({
       $.logic,
     )),
 
-    identifier: $ => /[a-zA-Z|_]+[.a-zA-Z0-9]*/,
+    identifier: $ => /[a-zA-Z|_]+[._a-zA-Z0-9]*/,
 
     value: $ => choice(
       $.integer,

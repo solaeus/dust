@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Result, Value, VariableMap};
+use crate::{value, AbstractTree, Error, Result, Value, VariableMap};
 
 use super::{identifier::Identifier, statement::Statement};
 
@@ -51,23 +51,29 @@ impl AbstractTree for Assignment {
 
     fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
         let key = self.identifier.inner().clone();
-        let mut value = self.statement.run(source, context)?;
+        let value = self.statement.run(source, context)?;
 
-        match self.operator {
+        let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(previous_value) = context.get_value(&key)? {
-                    value += previous_value
+                if let Some(mut previous_value) = context.get_value(&key)? {
+                    previous_value += value;
+                    previous_value
+                } else {
+                    Value::Empty
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(previous_value) = context.get_value(&key)? {
-                    value -= previous_value
+                if let Some(mut previous_value) = context.get_value(&key)? {
+                    previous_value -= value;
+                    previous_value
+                } else {
+                    Value::Empty
                 }
             }
-            AssignmentOperator::Equal => {}
-        }
+            AssignmentOperator::Equal => value,
+        };
 
-        context.set_value(key, value)?;
+        context.set_value(key, new_value)?;
 
         Ok(Value::Empty)
     }

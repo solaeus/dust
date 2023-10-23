@@ -27,10 +27,19 @@ Dot Notation
 ==================
 
 dust_data.0.name
+# Separator
+creature.total_clams
 
 ---
 
 (root
+  (item
+    (statement
+      (expression
+        (identifier))))
+  (item
+    (statement
+      (comment)))
   (item
     (statement
       (expression

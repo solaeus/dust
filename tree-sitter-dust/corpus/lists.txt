@@ -23,11 +23,21 @@ List Declaration
 List Assignment
 ==================
 
+empty = []
 foobar = ['foobar']
 
 ---
 
 (root
+  (item
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (value
+              (list)))))))
   (item
     (statement
       (assignment
