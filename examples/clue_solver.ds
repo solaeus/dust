@@ -35,11 +35,11 @@ make_guess = function <current_room> {
 		)
 	} else {
 		(output 'I accuse '
-					+ (random suspects)
-					+ ' in the '
-					+ current_room
-					+ ' with the '
-					+ (random weapons)
-					+ '!')
+			+ (random suspects)
+			+ ' in the '
+			+ current_room
+			+ ' with the '
+			+ (random weapons)
+			+ '!')
 	}
 }

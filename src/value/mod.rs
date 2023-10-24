@@ -191,7 +191,7 @@ impl Value {
         }
     }
 
-    /// Returns `()`, or returns`Err` if `self` is not a `Value::Tuple`.
+    /// Returns `()`, or returns`Err` if `self` is not a `Value::Empty`.
     pub fn as_empty(&self) -> Result<()> {
         match self {
             Value::Empty => Ok(()),
@@ -201,7 +201,7 @@ impl Value {
         }
     }
 
-    /// Returns an owned table, either by cloning or converting the inner value..
+    /// Returns an owned table, either by cloning or converting the inner value.
     pub fn to_table(&self) -> Result<Table> {
         match self {
             Value::Table(table) => Ok(table.clone()),
@@ -399,13 +399,13 @@ impl Serialize for Value {
             Value::Integer(inner) => serializer.serialize_i64(*inner),
             Value::Boolean(inner) => serializer.serialize_bool(*inner),
             Value::List(inner) => {
-                let mut tuple = serializer.serialize_tuple(inner.len())?;
+                let mut list = serializer.serialize_tuple(inner.len())?;
 
                 for value in inner {
-                    tuple.serialize_element(value)?;
+                    list.serialize_element(value)?;
                 }
 
-                tuple.end()
+                list.end()
             }
             Value::Empty => todo!(),
             Value::Map(inner) => inner.serialize(serializer),
@@ -468,8 +468,8 @@ impl From<bool> for Value {
 }
 
 impl From<Vec<Value>> for Value {
-    fn from(tuple: Vec<Value>) -> Self {
-        Value::List(tuple)
+    fn from(vec: Vec<Value>) -> Self {
+        Value::List(vec)
     }
 }
 

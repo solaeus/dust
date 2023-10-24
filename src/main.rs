@@ -43,7 +43,11 @@ fn main() {
     };
 
     match eval_result {
-        Ok(value) => println!("{value}"),
+        Ok(value) => {
+            if !value.is_empty() {
+                println!("{value}")
+            }
+        }
         Err(error) => eprintln!("{error}"),
     }
 }

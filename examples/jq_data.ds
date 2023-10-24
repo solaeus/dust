@@ -1,0 +1,8 @@
+data = (from_json (read 'examples/assets/jq_data.json'))
+
+transform commit_data in data {
+	{
+		message = commit_data.commit.message
+		name = commit_data.commit.committer.name
+	}
+}
