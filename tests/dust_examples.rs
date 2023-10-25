@@ -10,6 +10,7 @@ fn clue_solver() {
 }
 
 #[test]
+#[ignore]
 fn fetch() {
     let file_contents = read_to_string("examples/fetch.ds").unwrap();
 

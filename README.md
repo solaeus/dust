@@ -49,7 +49,7 @@ Dust is an experimental project under active development. At this stage, feature
 To get help with the shell you can use the "help" tool.
 
 ```dust
-(help)          # Returns a table with tool info.
+(help) # Returns a table with tool info.
 ```
 
 ## Installation

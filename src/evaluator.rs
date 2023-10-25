@@ -16,8 +16,8 @@ use crate::{abstract_tree::item::Item, language, AbstractTree, Result, Value, Va
 /// # Examples
 ///
 /// ```rust
-/// # use dust::*;
-/// assert_eq!(evaluate("1 + 2 + 3"), vec![Ok(Value::Integer(6))]);
+/// # use dust_lang::*;
+/// assert_eq!(evaluate("1 + 2 + 3"), Ok(Value::Integer(6)));
 /// ```
 pub fn evaluate(source: &str) -> Result<Value> {
     let mut context = VariableMap::new();
@@ -30,7 +30,7 @@ pub fn evaluate(source: &str) -> Result<Value> {
 /// # Examples
 ///
 /// ```rust
-/// # use dust::*;
+/// # use dust_lang::*;
 /// let mut context = VariableMap::new();
 ///
 /// context.set_value("one".into(), 1.into());
@@ -41,7 +41,7 @@ pub fn evaluate(source: &str) -> Result<Value> {
 ///
 /// assert_eq!(
 ///     evaluate_with_context(dust_code, &mut context),
-///     vec![Ok(Value::Empty), Ok(Value::Integer(10))]
+///     Ok(Value::Integer(10))
 /// );
 /// ```
 pub fn evaluate_with_context(source: &str, context: &mut VariableMap) -> Result<Value> {
