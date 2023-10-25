@@ -4,7 +4,7 @@ use dust_lang::*;
 
 #[test]
 fn clue_solver() {
-    let file_contents = read_to_string("examples/clue_solver").unwrap();
+    let file_contents = read_to_string("examples/clue_solver.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }

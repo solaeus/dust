@@ -20,9 +20,6 @@ remove_card = function <opponent_card> {
 	}
 }
 
-(remove_card 'Library')
-(output cards)
-
 make_guess = function <current_room> {
 	if ((length suspects) == 1)
 		&& ((length rooms) == 1)
@@ -45,5 +42,3 @@ make_guess = function <current_room> {
 			+ '!')
 	}
 }
-
-(make_guess 'Library')
