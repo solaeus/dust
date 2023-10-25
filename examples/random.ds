@@ -5,9 +5,12 @@ stuff = [
 	(random_float)
 	(random_float)
 	(random_float)
+	(random_boolean)
+	(random_boolean)
+	(random_boolean)
 	"foobar_1"
 	"foobar_2"
 	"foobar_3"
 ]
 
-(random [])
+(random stuff)
