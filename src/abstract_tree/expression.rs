@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{
-    value_node::ValueNode, AbstractTree, Error, Identifier, Result, Tool, Value, VariableMap,
-};
+use crate::{value_node::ValueNode, AbstractTree, Error, Identifier, Map, Result, Tool, Value};
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
 
@@ -48,7 +46,7 @@ impl AbstractTree for Expression {
         })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
             Expression::Value(value_node) => value_node.run(source, context),
             Expression::Identifier(identifier) => identifier.run(source, context),

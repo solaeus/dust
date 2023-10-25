@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, Table, ValueType, VariableMap,
+    Function, Map, Table, ValueType,
 };
 
 use json::JsonValue;
@@ -20,9 +20,9 @@ use std::{
 };
 
 pub mod function;
+pub mod map;
 pub mod table;
 pub mod value_type;
-pub mod variable_map;
 
 /// Whale value representation.
 ///
@@ -32,7 +32,7 @@ pub mod variable_map;
 #[derive(Debug, Clone, Default)]
 pub enum Value {
     List(Vec<Value>),
-    Map(VariableMap),
+    Map(Map),
     Table(Table),
     Function(Function),
     String(String),
@@ -161,7 +161,7 @@ impl Value {
     }
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::Map`.
-    pub fn as_map(&self) -> Result<&VariableMap> {
+    pub fn as_map(&self) -> Result<&Map> {
         match self {
             Value::Map(map) => Ok(map),
             value => Err(Error::ExpectedMap {
@@ -498,7 +498,7 @@ impl TryFrom<JsonValue> for Value {
             Number(number) => Ok(Value::Float(f64::from(number))),
             Boolean(boolean) => Ok(Value::Boolean(boolean)),
             Object(object) => {
-                let mut map = VariableMap::new();
+                let mut map = Map::new();
 
                 for (key, node_value) in object.iter() {
                     let value = Value::try_from(node_value)?;
@@ -536,7 +536,7 @@ impl TryFrom<&JsonValue> for Value {
             Number(number) => Ok(Value::Float(f64::from(*number))),
             Boolean(boolean) => Ok(Value::Boolean(*boolean)),
             Object(object) => {
-                let mut map = VariableMap::new();
+                let mut map = Map::new();
 
                 for (key, node_value) in object.iter() {
                     let value = Value::try_from(node_value)?;
@@ -829,7 +829,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let mut map = VariableMap::new();
+        let mut map = Map::new();
 
         while let Some((key, value)) = access.next_entry()? {
             map.set_value(key, value)

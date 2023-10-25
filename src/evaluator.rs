@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use tree_sitter::{Parser, Tree as TSTree};
 
-use crate::{abstract_tree::item::Item, language, AbstractTree, Result, Value, VariableMap};
+use crate::{abstract_tree::item::Item, language, AbstractTree, Map, Result, Value};
 
 /// Evaluate the given source code.
 ///
@@ -20,7 +20,7 @@ use crate::{abstract_tree::item::Item, language, AbstractTree, Result, Value, Va
 /// assert_eq!(evaluate("1 + 2 + 3"), Ok(Value::Integer(6)));
 /// ```
 pub fn evaluate(source: &str) -> Result<Value> {
-    let mut context = VariableMap::new();
+    let mut context = Map::new();
 
     evaluate_with_context(source, &mut context)
 }
@@ -44,7 +44,7 @@ pub fn evaluate(source: &str) -> Result<Value> {
 ///     Ok(Value::Integer(10))
 /// );
 /// ```
-pub fn evaluate_with_context(source: &str, context: &mut VariableMap) -> Result<Value> {
+pub fn evaluate_with_context(source: &str, context: &mut Map) -> Result<Value> {
     let mut parser = Parser::new();
     parser.set_language(language()).unwrap();
 
@@ -57,7 +57,7 @@ pub fn evaluate_with_context(source: &str, context: &mut VariableMap) -> Result<
 /// abstract trees called [Item][]s that can be run to execute the source code.
 pub struct Evaluator<'context, 'code> {
     _parser: Parser,
-    context: &'context mut VariableMap,
+    context: &'context mut Map,
     source: &'code str,
     syntax_tree: TSTree,
 }
@@ -69,7 +69,7 @@ impl Debug for Evaluator<'_, '_> {
 }
 
 impl<'context, 'code> Evaluator<'context, 'code> {
-    fn new(mut parser: Parser, context: &'context mut VariableMap, source: &'code str) -> Self {
+    fn new(mut parser: Parser, context: &'context mut Map, source: &'code str) -> Self {
         let syntax_tree = parser.parse(source, None).unwrap();
 
         Evaluator {
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn evaluate_map() {
-        let mut map = VariableMap::new();
+        let mut map = Map::new();
 
         map.set_value("x".to_string(), Value::Integer(1)).unwrap();
         map.set_value("foo".to_string(), Value::String("bar".to_string()))
@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn evaluate_function_call() {
-        let mut context = VariableMap::new();
+        let mut context = Map::new();
 
         assert_eq!(
             evaluate_with_context(

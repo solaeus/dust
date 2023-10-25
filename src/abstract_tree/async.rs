@@ -2,7 +2,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Result, Statement, Value, VariableMap};
+use crate::{AbstractTree, Error, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Async {
@@ -37,7 +37,7 @@ impl AbstractTree for Async {
         Ok(Async { statements })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let statements = &self.statements;
 
         statements

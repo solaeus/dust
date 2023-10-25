@@ -36,7 +36,7 @@ pub use {
 
 use tree_sitter::Node;
 
-use crate::{Result, Value, VariableMap};
+use crate::{Map, Result, Value};
 
 /// This trait is implemented by the Evaluator's internal types to form an
 /// executable tree that resolves to a single value.
@@ -53,5 +53,5 @@ pub trait AbstractTree: Sized {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self>;
 
     /// Execute dust code by traversing the tree
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value>;
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value>;
 }

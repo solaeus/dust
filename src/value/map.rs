@@ -6,28 +6,19 @@ use std::{
 
 use crate::{value::Value, Error, Result, Table};
 
-impl Serialize for VariableMap {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.variables.serialize(serializer)
-    }
-}
-
 /// A collection dust variables comprised of key-value pairs.
 ///
 /// The inner value is a BTreeMap in order to allow VariableMap instances to be sorted and compared
 /// to one another.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Deserialize)]
-pub struct VariableMap {
+pub struct Map {
     variables: BTreeMap<String, Value>,
 }
 
-impl VariableMap {
+impl Map {
     /// Creates a new instace.
     pub fn new() -> Self {
-        VariableMap {
+        Map {
             variables: BTreeMap::new(),
         }
     }
@@ -101,7 +92,7 @@ impl VariableMap {
                     })
                 }
             } else {
-                let mut new_map = VariableMap::new();
+                let mut new_map = Map::new();
 
                 new_map.set_value(next_identifier.to_string(), value)?;
 
@@ -140,13 +131,13 @@ impl VariableMap {
     }
 }
 
-impl Default for VariableMap {
+impl Default for Map {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Display for VariableMap {
+impl Display for Map {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{{\n")?;
         for (key, value) in &self.variables {
@@ -156,9 +147,9 @@ impl Display for VariableMap {
     }
 }
 
-impl From<&Table> for VariableMap {
+impl From<&Table> for Map {
     fn from(value: &Table) -> Self {
-        let mut map = VariableMap::new();
+        let mut map = Map::new();
 
         for (row_index, row) in value.rows().iter().enumerate() {
             map.set_value(row_index.to_string(), Value::List(row.clone()))
@@ -169,13 +160,22 @@ impl From<&Table> for VariableMap {
     }
 }
 
+impl Serialize for Map {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.variables.serialize(serializer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn get_and_set_simple_value() {
-        let mut map = VariableMap::new();
+        let mut map = Map::new();
 
         map.set_value("x".to_string(), Value::Integer(1)).unwrap();
 
@@ -184,19 +184,19 @@ mod tests {
 
     #[test]
     fn get_and_set_nested_maps() {
-        let mut map = VariableMap::new();
+        let mut map = Map::new();
 
-        map.set_value("x".to_string(), Value::Map(VariableMap::new()))
+        map.set_value("x".to_string(), Value::Map(Map::new()))
             .unwrap();
-        map.set_value("x.x".to_string(), Value::Map(VariableMap::new()))
+        map.set_value("x.x".to_string(), Value::Map(Map::new()))
             .unwrap();
-        map.set_value("x.x.x".to_string(), Value::Map(VariableMap::new()))
+        map.set_value("x.x.x".to_string(), Value::Map(Map::new()))
             .unwrap();
-        map.set_value("x.x.x.x".to_string(), Value::Map(VariableMap::new()))
+        map.set_value("x.x.x.x".to_string(), Value::Map(Map::new()))
             .unwrap();
 
         assert_eq!(
-            Value::Map(VariableMap::new()),
+            Value::Map(Map::new()),
             map.get_value("x.x.x.x").unwrap().unwrap()
         );
     }

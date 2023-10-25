@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Result, Value, VariableMap};
+use crate::{AbstractTree, Error, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(String);
@@ -29,7 +29,7 @@ impl AbstractTree for Identifier {
         Ok(Identifier(identifier.to_string()))
     }
 
-    fn run(&self, _source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, _source: &str, context: &mut Map) -> Result<Value> {
         let value = if let Some(value) = context.get_value(&self.0)? {
             value
         } else {

@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Result, Statement, Value, VariableMap};
+use crate::{AbstractTree, Error, Map, Result, Statement, Value};
 
 /// An abstractiton of an independent unit of source code, or a comment.
 ///
@@ -21,7 +21,7 @@ impl Item {
         Self { statements }
     }
 
-    pub fn run_parallel(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    pub fn run_parallel(&self, source: &str, context: &mut Map) -> Result<Value> {
         let statements = &self.statements;
         let run_result = statements.into_par_iter().try_for_each(|statement| {
             let mut context = context.clone();
@@ -63,7 +63,7 @@ impl AbstractTree for Item {
         Ok(Item { statements })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let mut prev_result = Ok(Value::Empty);
 
         for statement in &self.statements {

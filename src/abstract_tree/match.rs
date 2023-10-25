@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Result, Value, VariableMap};
+use crate::{AbstractTree, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Match {}
@@ -16,7 +16,7 @@ impl AbstractTree for Match {
         todo!()
     }
 
-    fn run(&self, _source: &str, _context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
         todo!()
     }
 }

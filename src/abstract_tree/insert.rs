@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Result, Value, VariableMap};
+use crate::{AbstractTree, Expression, Identifier, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Insert {
@@ -22,7 +22,7 @@ impl AbstractTree for Insert {
         })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let table_name = self.identifier.inner().clone();
         let mut table = self.identifier.run(source, context)?.as_table()?.clone();
         let new_rows = self.expression.run(source, context)?.into_inner_list()?;

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Result, Statement, Value, VariableMap};
+use crate::{AbstractTree, Expression, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
@@ -57,7 +57,7 @@ impl AbstractTree for IfElse {
         })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let if_boolean = self.if_expression.run(source, context)?.as_boolean()?;
 
         if if_boolean {

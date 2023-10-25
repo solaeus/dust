@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Insert, Match,
-    Remove, Result, Select, Transform, Value, VariableMap, While,
+    AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Insert, Map,
+    Match, Remove, Result, Select, Transform, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -82,7 +82,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Item, Result, Value, VariableMap};
+use crate::{AbstractTree, Expression, Item, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
@@ -29,7 +29,7 @@ impl AbstractTree for While {
         Ok(While { expression, items })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         while self.expression.run(source, context)?.as_boolean()? {
             for item in &self.items {
                 item.run(source, context)?;

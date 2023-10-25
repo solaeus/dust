@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Result, Value, VariableMap};
+use crate::{AbstractTree, Expression, Identifier, Item, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Transform {
@@ -28,7 +28,7 @@ impl AbstractTree for Transform {
         })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = self.expression.run(source, context)?;
         let list = value.as_list()?;
         let key = self.identifier.inner();

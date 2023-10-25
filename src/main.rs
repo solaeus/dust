@@ -11,7 +11,7 @@ use rustyline::{
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{evaluate, evaluate_with_context, Value, VariableMap};
+use dust_lang::{evaluate, evaluate_with_context, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -128,7 +128,7 @@ impl Highlighter for DustReadline {
 }
 
 fn run_cli_shell() {
-    let mut context = VariableMap::new();
+    let mut context = Map::new();
     let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
 
     rl.set_helper(Some(DustReadline::new()));

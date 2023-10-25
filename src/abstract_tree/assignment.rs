@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Result, Value, VariableMap};
+use crate::{AbstractTree, Error, Map, Result, Value};
 
 use super::{identifier::Identifier, statement::Statement};
 
@@ -49,7 +49,7 @@ impl AbstractTree for Assignment {
         })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let key = self.identifier.inner().clone();
         let value = self.statement.run(source, context)?;
 

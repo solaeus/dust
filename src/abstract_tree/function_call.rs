@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Result, Value, VariableMap};
+use crate::{AbstractTree, Error, Map, Result, Value};
 
 use super::{expression::Expression, identifier::Identifier};
 
@@ -33,7 +33,7 @@ impl AbstractTree for FunctionCall {
         Ok(FunctionCall { name, arguments })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let key = self.name.inner();
         let definition = if let Some(value) = context.get_value(key)? {
             value.as_function().cloned()?

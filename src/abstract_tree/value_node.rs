@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Function, Identifier, Item, Result, Table, Value, ValueType,
-    VariableMap,
+    AbstractTree, Error, Expression, Function, Identifier, Item, Map, Result, Table, Value,
+    ValueType,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -136,7 +136,7 @@ impl AbstractTree for ValueNode {
         })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value_source = &source[self.byte_range()];
         let value = match &self.value_type {
             ValueType::Any => todo!(),
@@ -161,7 +161,7 @@ impl AbstractTree for ValueNode {
             }
             ValueType::Empty => Value::Empty,
             ValueType::Map(nodes) => {
-                let mut values = VariableMap::new();
+                let mut values = Map::new();
 
                 for (key, node) in nodes {
                     let value = node.run(source, context)?;

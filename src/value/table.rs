@@ -1,4 +1,4 @@
-use crate::{Error, Result, Value, VariableMap};
+use crate::{Error, Map, Result, Value};
 use comfy_table::{Cell, Color, ContentArrangement, Table as ComfyTable};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -280,8 +280,8 @@ impl From<&mut Vec<Value>> for Table {
     }
 }
 
-impl From<VariableMap> for Table {
-    fn from(map: VariableMap) -> Self {
+impl From<Map> for Table {
+    fn from(map: Map) -> Self {
         let keys = map.inner().keys().cloned().collect();
         let values = map.inner().values().cloned().collect();
         let mut table = Table::new(keys);
@@ -294,8 +294,8 @@ impl From<VariableMap> for Table {
     }
 }
 
-impl From<&VariableMap> for Table {
-    fn from(map: &VariableMap) -> Self {
+impl From<&Map> for Table {
+    fn from(map: &Map) -> Self {
         let keys = map.inner().keys().cloned().collect();
         let values = map.inner().values().cloned().collect();
         let mut table = Table::new(keys);
@@ -308,8 +308,8 @@ impl From<&VariableMap> for Table {
     }
 }
 
-impl From<&mut VariableMap> for Table {
-    fn from(map: &mut VariableMap) -> Self {
+impl From<&mut Map> for Table {
+    fn from(map: &mut Map) -> Self {
         let keys = map.inner().keys().cloned().collect();
         let values = map.inner().values().cloned().collect();
         let mut table = Table::new(keys);

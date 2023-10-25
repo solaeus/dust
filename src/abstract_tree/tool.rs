@@ -11,7 +11,7 @@ use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Result, Table, Value, ValueType, VariableMap};
+use crate::{AbstractTree, Error, Expression, Map, Result, Table, Value, ValueType};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {
@@ -243,7 +243,7 @@ impl AbstractTree for Tool {
         Ok(tool)
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
             Tool::Assert(expressions) => {
                 for expression in expressions {
@@ -364,7 +364,7 @@ impl AbstractTree for Tool {
                 let created = metadata.created()?.elapsed()?.as_secs() as i64;
                 let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
                 let accessed = metadata.accessed()?.elapsed()?.as_secs() as i64;
-                let mut metadata_output = VariableMap::new();
+                let mut metadata_output = Map::new();
 
                 metadata_output.set_value("type".to_string(), Value::String(file_type))?;
                 metadata_output.set_value("size".to_string(), Value::Integer(size))?;

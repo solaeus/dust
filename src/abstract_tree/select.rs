@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Result, Table, Value, VariableMap};
+use crate::{AbstractTree, Expression, Identifier, Item, Map, Result, Table, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Select {
@@ -53,7 +53,7 @@ impl AbstractTree for Select {
         })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = self.expression.run(source, context)?;
         let old_table = value.as_table()?;
         let column_names = if self.identifiers.len() > 0 {
@@ -70,7 +70,7 @@ impl AbstractTree for Select {
 
         for row in old_table.rows() {
             let mut new_row = Vec::new();
-            let mut row_context = VariableMap::new();
+            let mut row_context = Map::new();
 
             for (i, value) in row.iter().enumerate() {
                 let column_name = old_table.headers().get(i).unwrap();
