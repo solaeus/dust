@@ -515,6 +515,26 @@ impl AbstractTree for Tool {
                 Ok(Value::String(String::from_utf8(output)?))
             }
             Tool::Random(expressions) => {
+                if expressions.len() == 1 {
+                    let value = expressions[0].run(source, context)?;
+                    let list = value.as_list()?;
+
+                    if list.len() < 2 {
+                        return Err(Error::ExpectedMinLengthList {
+                            minimum_len: 2,
+                            actual_len: list.len(),
+                        });
+                    }
+
+                    let range = 0..list.len();
+                    let random_index = thread_rng().gen_range(range);
+                    let random_value = list.get(random_index).ok_or(Error::ExpectedList {
+                        actual: value.clone(),
+                    })?;
+
+                    return Ok(random_value.clone());
+                }
+
                 let range = 0..expressions.len();
                 let random_index = thread_rng().gen_range(range);
                 let random_expression = expressions.get(random_index).unwrap();

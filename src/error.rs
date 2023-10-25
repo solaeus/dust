@@ -83,6 +83,11 @@ pub enum Error {
         actual: Value,
     },
 
+    ExpectedMinLengthList {
+        minimum_len: usize,
+        actual_len: usize,
+    },
+
     ExpectedFixedLenList {
         expected_len: usize,
         actual: Value,
@@ -261,13 +266,20 @@ impl fmt::Display for Error {
             ExpectedBoolean { actual } => {
                 write!(f, "Expected a Value::Boolean, but got {:?}.", actual)
             }
-            ExpectedList { actual } => write!(f, "Expected a Value::Tuple, but got {:?}.", actual),
+            ExpectedList { actual } => write!(f, "Expected a Value::List, but got {:?}.", actual),
+            ExpectedMinLengthList {
+                minimum_len,
+                actual_len,
+            } => write!(
+                f,
+                "Expected a list of at least {minimum_len} values, but got one with {actual_len}.",
+            ),
             ExpectedFixedLenList {
                 expected_len,
                 actual,
             } => write!(
                 f,
-                "Expected a Value::Tuple of len {}, but got {:?}.",
+                "Expected a Value::List of len {}, but got {:?}.",
                 expected_len, actual
             ),
             ExpectedEmpty { actual } => write!(f, "Expected a Value::Empty, but got {:?}.", actual),
