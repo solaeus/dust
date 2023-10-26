@@ -1,4 +1,4 @@
-//! Command line interface for the whale programming language.
+//! Command line interface for the dust programming language.
 use clap::Parser;
 use rustyline::{
     completion::FilenameCompleter,
@@ -17,9 +17,17 @@ use dust_lang::{evaluate, evaluate_with_context, Map, Value};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Whale source code to evaluate.
+    /// Dust source code to evaluate.
     #[arg(short, long)]
     command: Option<String>,
+
+    /// Data to assign to the "input" variable.
+    #[arg(short, long)]
+    input: Option<String>,
+
+    /// A path to file whose contents will be assigned to the "input" variable.
+    #[arg(short = 'p', long)]
+    input_path: Option<String>,
 
     /// Location of the file to run.
     path: Option<String>,
@@ -32,12 +40,22 @@ fn main() {
         return run_cli_shell();
     }
 
+    let mut context = Map::new();
+
+    if let Some(path) = args.input_path {
+        let file_contents = read_to_string(path).unwrap();
+
+        context
+            .set_value("input".to_string(), Value::String(file_contents))
+            .unwrap();
+    }
+
     let eval_result = if let Some(path) = args.path {
         let file_contents = read_to_string(path).unwrap();
 
-        evaluate(&file_contents)
+        evaluate_with_context(&file_contents, &mut context)
     } else if let Some(command) = args.command {
-        evaluate(&command)
+        evaluate_with_context(&command, &mut context)
     } else {
         Ok(Value::Empty)
     };

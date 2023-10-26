@@ -113,8 +113,11 @@ impl From<&Value> for ValueType {
             Value::Map(map) => {
                 let mut value_nodes = BTreeMap::new();
 
-                for (key, value) in map.inner() {
-                    let value_type = ValueType::from(value);
+                let inner_map = map.inner().clone();
+                let read_map = inner_map.read().unwrap();
+
+                for (key, value) in read_map.clone() {
+                    let value_type = value.value_type();
                     let value_node = ValueNode::new(value_type, 0, 0);
                     let expression = Expression::Value(value_node);
 

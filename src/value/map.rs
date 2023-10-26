@@ -1,7 +1,12 @@
+use rayon::collections::btree_map;
+use reqwest::header::ACCESS_CONTROL_EXPOSE_HEADERS;
 use serde::{Deserialize, Serialize};
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
+    marker::PhantomData,
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use crate::{value::Value, Error, Result, Table};
@@ -10,30 +15,32 @@ use crate::{value::Value, Error, Result, Table};
 ///
 /// The inner value is a BTreeMap in order to allow VariableMap instances to be sorted and compared
 /// to one another.
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Map {
-    variables: BTreeMap<String, Value>,
+    variables: Arc<RwLock<BTreeMap<String, Value>>>,
 }
 
 impl Map {
     /// Creates a new instace.
     pub fn new() -> Self {
         Map {
-            variables: BTreeMap::new(),
+            variables: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
     /// Returns a Value assigned to the identifer, allowing dot notation to retrieve Values that are     /// nested in Lists or Maps. Returns None if there is no variable with a key matching the            /// identifier. Returns an error if a Map or List is indexed incorrectly.
     pub fn get_value(&self, identifier: &str) -> Result<Option<Value>> {
+        let variables = self.variables.read().unwrap();
+
         let split = identifier.rsplit_once('.');
         let (found_value, next_identifier) = if let Some((identifier, next_identifier)) = split {
             if identifier.contains('.') {
                 (self.get_value(identifier)?, next_identifier)
             } else {
-                (self.variables.get(identifier).cloned(), next_identifier)
+                (variables.get(identifier).cloned(), next_identifier)
             }
         } else {
-            return Ok(self.variables.get(identifier).cloned());
+            return Ok(variables.get(identifier).cloned());
         };
 
         if let Some(value) = found_value {
@@ -63,7 +70,8 @@ impl Map {
         let split = key.split_once('.');
 
         if let Some((identifier, next_identifier)) = split {
-            let get_value = self.variables.get_mut(identifier);
+            let mut variables = self.variables.write().unwrap();
+            let get_value = variables.get_mut(identifier);
 
             if let Some(found_value) = get_value {
                 if let Value::List(list) = found_value {
@@ -97,12 +105,17 @@ impl Map {
                 new_map.set_value(next_identifier.to_string(), value)?;
 
                 self.variables
+                    .write()
+                    .unwrap()
                     .insert(identifier.to_string(), Value::Map(new_map));
 
                 Ok(())
             }
         } else {
-            self.variables.insert(key.to_string(), value);
+            self.variables
+                .write()
+                .unwrap()
+                .insert(key.to_string(), value);
 
             Ok(())
         }
@@ -112,22 +125,22 @@ impl Map {
     ///
     /// TODO: Support dot notation.
     pub fn remove(&mut self, key: &str) -> Option<Value> {
-        self.variables.remove(key)
+        self.variables.write().unwrap().remove(key)
     }
 
     /// Returns a reference to the inner BTreeMap.
-    pub fn inner(&self) -> &BTreeMap<String, Value> {
-        &self.variables
+    pub fn inner(&self) -> Arc<RwLock<BTreeMap<String, Value>>> {
+        Arc::clone(&self.variables)
     }
 
     /// Returns the number of stored variables.
     pub fn len(&self) -> usize {
-        self.variables.len()
+        self.variables.read().unwrap().len()
     }
 
     /// Returns true if the length is zero.
     pub fn is_empty(&self) -> bool {
-        self.variables.is_empty()
+        self.variables.read().unwrap().is_empty()
     }
 }
 
@@ -137,10 +150,42 @@ impl Default for Map {
     }
 }
 
+impl Eq for Map {}
+
+impl PartialEq for Map {
+    fn eq(&self, other: &Self) -> bool {
+        let left = self.variables.read().unwrap().clone().into_iter();
+        let right = other.variables.read().unwrap().clone().into_iter();
+
+        left.eq(right)
+    }
+}
+
+impl Ord for Map {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let left = self.variables.read().unwrap().clone().into_iter();
+        let right = other.variables.read().unwrap().clone().into_iter();
+
+        left.cmp(right)
+    }
+}
+
+impl PartialOrd for Map {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let left = self.variables.read().unwrap().clone().into_iter();
+        let right = other.variables.read().unwrap().clone().into_iter();
+
+        left.partial_cmp(right)
+    }
+}
+
 impl Display for Map {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{{\n")?;
-        for (key, value) in &self.variables {
+
+        let variables = self.variables.read().unwrap().clone().into_iter();
+
+        for (key, value) in variables {
             write!(f, "  {key} = {value}\n")?;
         }
         write!(f, "}}")
