@@ -8,7 +8,7 @@ pub use crate::{
     abstract_tree::*,
     error::*,
     evaluator::*,
-    value::{function::Function, map::Map, table::Table, value_type::ValueType, Value},
+    value::{function::Function, list::List, map::Map, table::Table, value_type::ValueType, Value},
 };
 
 mod abstract_tree;

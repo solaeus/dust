@@ -26,13 +26,13 @@ impl AbstractTree for Insert {
         let table_name = self.identifier.inner().clone();
         let mut table = self.identifier.run(source, context)?.as_table()?.clone();
         let new_rows = self.expression.run(source, context)?.into_inner_list()?;
+        let values = new_rows.items();
 
-        table.reserve(new_rows.len());
+        table.reserve(values.len());
 
-        println!("{new_rows:?}");
-
-        for row in new_rows {
-            table.insert(row.into_inner_list()?)?;
+        for row in values.iter() {
+            let row_values = row.clone().into_inner_list()?;
+            table.insert(row_values.items().clone())?;
         }
 
         context.set_value(table_name, Value::Table(table))?;

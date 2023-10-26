@@ -31,7 +31,7 @@ pub fn evaluate(source: &str) -> Result<Value> {
 ///
 /// ```rust
 /// # use dust_lang::*;
-/// let mut context = VariableMap::new();
+/// let mut context = Map::new();
 ///
 /// context.set_value("one".into(), 1.into());
 /// context.set_value("two".into(), 2.into());
@@ -96,7 +96,7 @@ impl<'context, 'code> Evaluator<'context, 'code> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Table;
+    use crate::{List, Table};
 
     use super::*;
 
@@ -137,11 +137,11 @@ mod tests {
     fn evaluate_list() {
         assert_eq!(
             evaluate("[1, 2, 'foobar']"),
-            Ok(Value::List(vec![
+            Ok(Value::List(List::with_items(vec![
                 Value::Integer(1),
                 Value::Integer(2),
                 Value::String("foobar".to_string()),
-            ]))
+            ])))
         );
     }
 

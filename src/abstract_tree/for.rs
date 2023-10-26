@@ -29,13 +29,13 @@ impl AbstractTree for For {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let value = self.expression.run(source, context)?;
-        let list = value.as_list()?;
+        let expression_run = self.expression.run(source, context)?;
+        let values = expression_run.as_list()?.items();
         let key = self.identifier.inner();
 
         let original_value = context.get_value(key)?;
 
-        for value in list {
+        for value in values.iter() {
             context.set_value(key.clone(), value.clone())?;
 
             self.item.run(source, context)?;

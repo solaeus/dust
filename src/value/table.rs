@@ -1,4 +1,4 @@
-use crate::{Error, Map, Result, Value};
+use crate::{Error, List, Map, Result, Value};
 use comfy_table::{Cell, Color, ContentArrangement, Table as ComfyTable};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -146,7 +146,7 @@ impl Display for Table {
                     Value::List(list) => {
                         let mut string = "(".to_string();
 
-                        for (index, value) in list.into_iter().enumerate() {
+                        for (index, value) in list.items().iter().enumerate() {
                             if index > 0 {
                                 string.push_str(", ");
                             }
@@ -248,11 +248,11 @@ impl From<&Value> for Table {
     }
 }
 
-impl From<&Vec<Value>> for Table {
-    fn from(list: &Vec<Value>) -> Self {
+impl From<&List> for Table {
+    fn from(list: &List) -> Self {
         let mut table = Table::new(vec!["index".to_string(), "item".to_string()]);
 
-        for (i, value) in list.iter().enumerate() {
+        for (i, value) in list.items().iter().enumerate() {
             table
                 .insert(vec![Value::Integer(i as i64), value.clone()])
                 .unwrap();
@@ -262,13 +262,13 @@ impl From<&Vec<Value>> for Table {
     }
 }
 
-impl From<&mut Vec<Value>> for Table {
-    fn from(list: &mut Vec<Value>) -> Self {
+impl From<&mut List> for Table {
+    fn from(list: &mut List) -> Self {
         let mut table = Table::new(vec!["index".to_string(), "item".to_string()]);
 
-        for (i, value) in list.iter().enumerate() {
+        for (i, value) in list.items().iter().enumerate() {
             if let Ok(list) = value.as_list() {
-                table.insert(list.clone()).unwrap();
+                table.insert(list.items().clone()).unwrap();
             } else {
                 table
                     .insert(vec![Value::Integer(i as i64), value.clone()])

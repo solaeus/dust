@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Function, Identifier, Item, Map, Result, Table, Value,
+    AbstractTree, Error, Expression, Function, Identifier, Item, List, Map, Result, Table, Value,
     ValueType,
 };
 
@@ -157,7 +157,7 @@ impl AbstractTree for ValueNode {
                     values.push(value);
                 }
 
-                Value::List(values)
+                Value::List(List::with_items(values))
             }
             ValueType::Empty => Value::Empty,
             ValueType::Map(nodes) => {
@@ -185,10 +185,10 @@ impl AbstractTree for ValueNode {
                 }
 
                 let _row_values = row_expression.run(source, context)?;
-                let row_values = _row_values.as_list()?;
+                let row_values = _row_values.as_list()?.items();
 
-                for value in row_values {
-                    let row = value.as_list()?.clone();
+                for value in row_values.iter() {
+                    let row = value.as_list()?.items().clone();
 
                     rows.push(row)
                 }

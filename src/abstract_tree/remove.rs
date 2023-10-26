@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Map, Result, Value};
+use crate::{AbstractTree, Expression, Identifier, Item, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Remove {
@@ -29,30 +29,34 @@ impl AbstractTree for Remove {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let value = self.expression.run(source, context)?;
-        let mut list = value.into_inner_list()?;
+        let expression_run = self.expression.run(source, context)?;
+        let values = expression_run.into_inner_list()?;
         let key = self.identifier.inner();
         let mut sub_context = context.clone();
+        let mut should_remove_index = None;
 
-        for (index, value) in list.clone().iter().enumerate() {
+        for (index, value) in values.items().iter().enumerate() {
             sub_context.set_value(key.clone(), value.clone())?;
 
             let should_remove = self.item.run(source, &mut sub_context)?.as_boolean()?;
 
             if should_remove {
-                list.remove(index);
+                should_remove_index = Some(index);
 
                 match &self.expression {
                     Expression::Identifier(identifier) => {
-                        context.set_value(identifier.inner().clone(), Value::List(list))?;
+                        context
+                            .set_value(identifier.inner().clone(), Value::List(values.clone()))?;
                     }
                     _ => {}
                 }
-
-                return Ok(value.clone());
             }
         }
 
-        Ok(Value::Empty)
+        if let Some(index) = should_remove_index {
+            Ok(values.items_mut().remove(index))
+        } else {
+            Ok(Value::Empty)
+        }
     }
 }

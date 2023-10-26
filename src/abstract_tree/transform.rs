@@ -1,7 +1,8 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Map, Result, Value};
+use crate::{AbstractTree, Expression, Identifier, Item, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Transform {
@@ -29,19 +30,29 @@ impl AbstractTree for Transform {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let value = self.expression.run(source, context)?;
-        let list = value.as_list()?;
+        let expression_run = self.expression.run(source, context)?;
+        let values = expression_run.as_list()?.items();
         let key = self.identifier.inner();
-        let mut context = context.clone();
-        let mut new_list = Vec::with_capacity(list.len());
+        let context = context.clone();
+        let new_list = List::with_capacity(values.len());
 
-        for value in list {
-            context.set_value(key.clone(), value.clone())?;
+        values.par_iter().try_for_each_with(
+            (context, new_list.clone()),
+            |(context, new_list), value| {
+                context.set_value(key.clone(), value.clone()).unwrap();
 
-            let value = self.item.run(source, &mut context)?;
+                let item_run = self.item.run(source, context);
 
-            new_list.push(value);
-        }
+                match item_run {
+                    Ok(value) => {
+                        new_list.items_mut().push(value);
+
+                        Ok(())
+                    }
+                    Err(error) => Err(error),
+                }
+            },
+        )?;
 
         Ok(Value::List(new_list))
     }

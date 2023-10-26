@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use crate::{value::Value, Error, Result, Table};
+use crate::{value::Value, Error, List, Result, Table};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -53,7 +53,7 @@ impl Map {
                     });
                 };
 
-                Ok(list.get(index).cloned())
+                Ok(list.items().get(index).cloned())
             } else if let Value::Map(map) = value {
                 map.get_value(next_identifier)
             } else {
@@ -83,10 +83,11 @@ impl Map {
                         });
                     };
 
-                    let mut missing_elements = index.saturating_sub(list.len()) + 1;
+                    let mut missing_elements = index.saturating_sub(list.items().len()) + 1;
+                    let mut items = list.items_mut();
 
                     while missing_elements > 0 {
-                        list.push(value.clone());
+                        items.push(value.clone());
 
                         missing_elements -= 1;
                     }
@@ -197,8 +198,11 @@ impl From<&Table> for Map {
         let mut map = Map::new();
 
         for (row_index, row) in value.rows().iter().enumerate() {
-            map.set_value(row_index.to_string(), Value::List(row.clone()))
-                .unwrap();
+            map.set_value(
+                row_index.to_string(),
+                Value::List(List::with_items(row.clone())),
+            )
+            .unwrap();
         }
 
         map

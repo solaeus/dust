@@ -30,11 +30,11 @@ impl AbstractTree for Find {
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = self.expression.run(source, context)?;
-        let list = value.as_list()?;
+        let values = value.as_list()?.items();
         let key = self.identifier.inner();
         let mut context = context.clone();
 
-        for value in list {
+        for value in values.iter() {
             context.set_value(key.clone(), value.clone())?;
 
             let should_return = self.item.run(source, &mut context)?.as_boolean()?;

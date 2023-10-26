@@ -104,6 +104,7 @@ impl From<&Value> for ValueType {
             Value::Empty => ValueType::Empty,
             Value::List(list) => {
                 let value_nodes = list
+                    .items()
                     .iter()
                     .map(|value| Expression::Value(ValueNode::new(value.value_type(), 0, 0)))
                     .collect();

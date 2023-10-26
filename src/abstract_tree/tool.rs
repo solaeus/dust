@@ -11,7 +11,7 @@ use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Table, Value, ValueType};
+use crate::{AbstractTree, Error, Expression, List, Map, Result, Table, Value, ValueType};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Tool {
@@ -287,7 +287,7 @@ impl AbstractTree for Tool {
                 Ok(Value::String(data))
             }
             Tool::Length(expression) => {
-                let length = expression.run(source, context)?.as_list()?.len();
+                let length = expression.run(source, context)?.as_list()?.items().len();
 
                 Ok(Value::Integer(length as i64))
             }
@@ -399,7 +399,7 @@ impl AbstractTree for Tool {
                         contents.push(Value::String(file_path));
                     }
 
-                    Value::List(contents)
+                    Value::List(List::with_items(contents))
                 } else {
                     Value::String(read_to_string(path)?)
                 };
@@ -517,7 +517,7 @@ impl AbstractTree for Tool {
             Tool::Random(expressions) => {
                 if expressions.len() == 1 {
                     let value = expressions[0].run(source, context)?;
-                    let list = value.as_list()?;
+                    let list = value.as_list()?.items();
 
                     if list.len() < 2 {
                         return Err(Error::ExpectedMinLengthList {
@@ -555,7 +555,7 @@ impl AbstractTree for Tool {
                     .map(|column_name| Value::String(column_name))
                     .collect();
 
-                Ok(Value::List(column_names))
+                Ok(Value::List(List::with_items(column_names)))
             }
             Tool::Rows(expression) => {
                 let rows = expression
@@ -564,10 +564,10 @@ impl AbstractTree for Tool {
                     .rows()
                     .iter()
                     .cloned()
-                    .map(|row| Value::List(row))
+                    .map(|row| Value::List(List::with_items(row)))
                     .collect();
 
-                Ok(Value::List(rows))
+                Ok(Value::List(List::with_items(rows)))
             }
         }
     }

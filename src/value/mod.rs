@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, Map, Table, ValueType,
+    Function, List, Map, Table, ValueType,
 };
 
 use json::JsonValue;
@@ -20,6 +20,7 @@ use std::{
 };
 
 pub mod function;
+pub mod list;
 pub mod map;
 pub mod table;
 pub mod value_type;
@@ -31,7 +32,7 @@ pub mod value_type;
 /// value that can be treated as any other.
 #[derive(Debug, Clone, Default)]
 pub enum Value {
-    List(Vec<Value>),
+    List(List),
     Map(Map),
     Table(Table),
     Function(Function),
@@ -141,7 +142,7 @@ impl Value {
     }
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
-    pub fn as_list(&self) -> Result<&Vec<Value>> {
+    pub fn as_list(&self) -> Result<&List> {
         match self {
             Value::List(list) => Ok(list),
             value => Err(Error::ExpectedList {
@@ -151,7 +152,7 @@ impl Value {
     }
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
-    pub fn into_inner_list(self) -> Result<Vec<Value>> {
+    pub fn into_inner_list(self) -> Result<List> {
         match self {
             Value::List(list) => Ok(list),
             value => Err(Error::ExpectedList {
@@ -321,7 +322,7 @@ impl AddAssign for Value {
             (Value::Float(left), Value::Float(right)) => *left += right,
             (Value::Float(left), Value::Integer(right)) => *left += right as f64,
             (Value::String(left), Value::String(right)) => *left += &right,
-            (Value::List(list), value) => list.push(value),
+            (Value::List(list), value) => list.items_mut().push(value),
             _ => {}
         }
     }
@@ -399,9 +400,10 @@ impl Serialize for Value {
             Value::Integer(inner) => serializer.serialize_i64(*inner),
             Value::Boolean(inner) => serializer.serialize_bool(*inner),
             Value::List(inner) => {
-                let mut list = serializer.serialize_tuple(inner.len())?;
+                let items = inner.items();
+                let mut list = serializer.serialize_tuple(items.len())?;
 
-                for value in inner {
+                for value in items.iter() {
                     list.serialize_element(value)?;
                 }
 
@@ -425,7 +427,7 @@ impl Display for Value {
             Value::Empty => write!(f, "empty"),
             Value::List(list) => {
                 write!(f, "[")?;
-                for value in list {
+                for value in list.items().iter() {
                     write!(f, " {value} ")?;
                 }
                 write!(f, "]")
@@ -469,7 +471,7 @@ impl From<bool> for Value {
 
 impl From<Vec<Value>> for Value {
     fn from(vec: Vec<Value>) -> Self {
-        Value::List(vec)
+        Value::List(List::with_items(vec))
     }
 }
 
@@ -509,15 +511,15 @@ impl TryFrom<JsonValue> for Value {
                 Ok(Value::Map(map))
             }
             Array(array) => {
-                let mut list = Vec::new();
+                let mut values = Vec::new();
 
                 for json_value in array {
                     let value = Value::try_from(json_value)?;
 
-                    list.push(value);
+                    values.push(value);
                 }
 
-                Ok(Value::List(list))
+                Ok(Value::List(List::with_items(values)))
             }
         }
     }
@@ -547,15 +549,15 @@ impl TryFrom<&JsonValue> for Value {
                 Ok(Value::Map(map))
             }
             Array(array) => {
-                let mut list = Vec::new();
+                let mut values = Vec::new();
 
                 for json_value in array {
                     let value = Value::try_from(json_value)?;
 
-                    list.push(value);
+                    values.push(value);
                 }
 
-                Ok(Value::List(list))
+                Ok(Value::List(List::with_items(values)))
             }
         }
     }
@@ -822,7 +824,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
             list.push(value);
         }
 
-        Ok(Value::List(list))
+        Ok(Value::List(List::with_items(list)))
     }
 
     fn visit_map<M>(self, mut access: M) -> std::result::Result<Value, M::Error>
