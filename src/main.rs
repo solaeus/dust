@@ -11,7 +11,7 @@ use rustyline::{
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{evaluate, evaluate_with_context, Map, Value};
+use dust_lang::{evaluate_with_context, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]

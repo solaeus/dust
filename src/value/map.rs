@@ -1,12 +1,9 @@
-use rayon::collections::btree_map;
-use reqwest::header::ACCESS_CONTROL_EXPOSE_HEADERS;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
-    marker::PhantomData,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock},
 };
 
 use crate::{value::Value, Error, List, Result, Table};
