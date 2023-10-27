@@ -33,27 +33,22 @@ impl AbstractTree for Transform {
         let expression_run = self.expression.run(source, context)?;
         let values = expression_run.as_list()?.items();
         let key = self.identifier.inner();
-        let context = context.clone();
-        let new_list = List::with_capacity(values.len());
+        let new_list = values
+            .par_iter()
+            .map(|value| {
+                let mut iter_context = Map::clone_from(context);
 
-        values.par_iter().try_for_each_with(
-            (context, new_list.clone()),
-            |(context, new_list), value| {
-                context.set_value(key.clone(), value.clone()).unwrap();
+                iter_context.set_value(key.clone(), value.clone()).unwrap();
 
-                let item_run = self.item.run(source, context);
+                let item_run = self.item.run(source, &mut iter_context);
 
                 match item_run {
-                    Ok(value) => {
-                        new_list.items_mut().push(value);
-
-                        Ok(())
-                    }
-                    Err(error) => Err(error),
+                    Ok(value) => value,
+                    Err(_) => Value::Empty,
                 }
-            },
-        )?;
+            })
+            .collect();
 
-        Ok(Value::List(new_list))
+        Ok(Value::List(List::with_items(new_list)))
     }
 }

@@ -25,6 +25,18 @@ impl Map {
         }
     }
 
+    pub fn clone_from(other: &Self) -> Self {
+        let mut new_map = BTreeMap::new();
+
+        for (key, value) in other.inner().read().unwrap().iter() {
+            new_map.insert(key.clone(), value.clone());
+        }
+
+        Map {
+            variables: Arc::new(RwLock::new(new_map)),
+        }
+    }
+
     /// Returns a Value assigned to the identifer, allowing dot notation to retrieve Values that are     /// nested in Lists or Maps. Returns None if there is no variable with a key matching the            /// identifier. Returns an error if a Map or List is indexed incorrectly.
     pub fn get_value(&self, identifier: &str) -> Result<Option<Value>> {
         let variables = self.variables.read().unwrap();
