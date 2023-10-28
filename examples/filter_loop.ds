@@ -1,8 +1,3 @@
-list = [1 2 1 2]
-
-new_list = filter i in list {
-	i == 2
+filter item in (from_json (read 'examples/assets/jq_data.json')) {
+	(length item.commit.committer.name) <= 10 
 }
-
-(assert_equal [2 2] new_list)
-

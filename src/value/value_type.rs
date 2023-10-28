@@ -15,7 +15,7 @@ pub enum ValueType {
     Float,
     Integer,
     Boolean,
-    ListExact(Vec<Expression>),
+    List(Vec<Expression>),
     Empty,
     Map(BTreeMap<String, Expression>),
     Table {
@@ -36,7 +36,7 @@ impl PartialEq for ValueType {
             (ValueType::Float, ValueType::Float) => true,
             (ValueType::Integer, ValueType::Integer) => true,
             (ValueType::Boolean, ValueType::Boolean) => true,
-            (ValueType::ListExact(left), ValueType::ListExact(right)) => left == right,
+            (ValueType::List(left), ValueType::List(right)) => left == right,
             (ValueType::Empty, ValueType::Empty) => true,
             (ValueType::Map(left), ValueType::Map(right)) => left == right,
             (
@@ -63,7 +63,7 @@ impl Display for ValueType {
             ValueType::Float => write!(f, "float"),
             ValueType::Integer => write!(f, "integer"),
             ValueType::Boolean => write!(f, "boolean"),
-            ValueType::ListExact(list) => {
+            ValueType::List(list) => {
                 write!(f, "(")?;
                 for (index, item) in list.into_iter().enumerate() {
                     if index > 0 {
@@ -109,7 +109,7 @@ impl From<&Value> for ValueType {
                     .map(|value| Expression::Value(ValueNode::new(value.value_type(), 0, 0)))
                     .collect();
 
-                ValueType::ListExact(value_nodes)
+                ValueType::List(value_nodes)
             }
             Value::Map(map) => {
                 let mut value_nodes = BTreeMap::new();
@@ -134,7 +134,7 @@ impl From<&Value> for ValueType {
                     .map(|column_name| Identifier::new(column_name.clone()))
                     .collect(),
                 rows: Box::new(Expression::Value(ValueNode::new(
-                    ValueType::ListExact(Vec::with_capacity(0)),
+                    ValueType::List(Vec::with_capacity(0)),
                     0,
                     0,
                 ))),

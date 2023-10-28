@@ -141,6 +141,10 @@
           {
             "type": "SYMBOL",
             "name": "logic"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "sublist"
           }
         ]
       }
@@ -192,7 +196,7 @@
     },
     "float": {
       "type": "PATTERN",
-      "value": "[-]?[0-9]+[.]{1}[0-9]*"
+      "value": "[-]?[0-9]+[.]{1}[0-9]+"
     },
     "string": {
       "type": "PATTERN",
@@ -315,8 +319,8 @@
       ]
     },
     "table": {
-      "type": "PREC_RIGHT",
-      "value": 0,
+      "type": "PREC",
+      "value": 2,
       "content": {
         "type": "SEQ",
         "members": [
@@ -400,6 +404,35 @@
           "value": "}"
         }
       ]
+    },
+    "sublist": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "expression"
+          },
+          {
+            "type": "STRING",
+            "value": "."
+          },
+          {
+            "type": "SYMBOL",
+            "name": "expression"
+          },
+          {
+            "type": "STRING",
+            "value": ".."
+          },
+          {
+            "type": "SYMBOL",
+            "name": "expression"
+          }
+        ]
+      }
     },
     "math": {
       "type": "PREC_LEFT",
@@ -730,8 +763,17 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "for"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "for"
+            },
+            {
+              "type": "STRING",
+              "value": "async for"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
@@ -1140,6 +1182,10 @@
         },
         {
           "type": "STRING",
+          "value": "to_float"
+        },
+        {
+          "type": "STRING",
           "value": "bash"
         },
         {
@@ -1181,6 +1227,10 @@
         {
           "type": "STRING",
           "value": "rows"
+        },
+        {
+          "type": "STRING",
+          "value": "reverse"
         }
       ]
     }

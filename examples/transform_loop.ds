@@ -1,8 +1,5 @@
-list = [1 2 3]
+data = (from_json (read "examples/assets/jq_data.json"))
 
-new_list = transform i in list {
-	i + 1
+transform item in data {
+	item.commit.committer.name
 }
-
-(assert_equal [2 3 4] new_list)
-

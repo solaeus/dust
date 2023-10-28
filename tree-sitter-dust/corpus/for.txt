@@ -86,3 +86,39 @@ for list in list_of_lists {
                       (expression
                         (value
                           (string))))))))))))))
+                          
+==================
+Async For Loop
+==================
+
+asnyc for list in list_of_lists {
+  async for item in list {
+    (output item)
+  }
+}
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (identifier))))
+  (item
+    (statement
+      (for
+        (identifier)
+        (expression
+          (identifier))
+        (item
+          (statement
+            (for
+              (identifier)
+              (expression
+                (identifier))
+              (item
+                (statement
+                  (expression
+                    (tool
+                      (expression
+                        (identifier)))))))))))))

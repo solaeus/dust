@@ -2,8 +2,10 @@
 Table Declaration
 ==================
 
-table <text, number> [
-    ['answer', 42]
+table <messages, numbers> [
+    ['hiya', 42]
+    ['foo', 57]
+    ['bar', 99.99]
 ]
 
 ---
@@ -27,7 +29,26 @@ table <text, number> [
                             (string)))
                         (expression
                           (value
-                            (integer)))))))))))))))
+                            (integer))))))
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (string)))
+                        (expression
+                          (value
+                            (integer))))))
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (string)))
+                        (expression
+                          (value
+                            (float)))))))))))))))
+
 ==================
 Table Assignment
 ==================

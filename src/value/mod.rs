@@ -100,7 +100,7 @@ impl Value {
     }
 
     /// Copies the value stored in `self` as `i64`, or returns `Err` if `self` is not a `Value::Int`.
-    pub fn as_int(&self) -> Result<i64> {
+    pub fn as_integer(&self) -> Result<i64> {
         match self {
             Value::Integer(i) => Ok(*i),
             value => Err(Error::ExpectedInt {
@@ -219,7 +219,7 @@ impl Add for Value {
     type Output = Result<Value>;
 
     fn add(self, other: Self) -> Self::Output {
-        match (self.as_int(), other.as_int()) {
+        match (self.as_integer(), other.as_integer()) {
             (Ok(left), Ok(right)) => return Ok(Value::Integer(left + right)),
             _ => {}
         }
@@ -250,7 +250,7 @@ impl Sub for Value {
     type Output = Result<Self>;
 
     fn sub(self, other: Self) -> Self::Output {
-        match (self.as_int(), other.as_int()) {
+        match (self.as_integer(), other.as_integer()) {
             (Ok(left), Ok(right)) => return Ok(Value::Integer(left - right)),
             _ => {}
         }
@@ -271,8 +271,8 @@ impl Mul for Value {
 
     fn mul(self, other: Self) -> Self::Output {
         if self.is_integer() && other.is_integer() {
-            let left = self.as_int().unwrap();
-            let right = other.as_int().unwrap();
+            let left = self.as_integer().unwrap();
+            let right = other.as_integer().unwrap();
             let value = Value::Integer(left.saturating_mul(right));
 
             Ok(value)
@@ -307,8 +307,8 @@ impl Rem for Value {
     type Output = Result<Self>;
 
     fn rem(self, other: Self) -> Self::Output {
-        let left = self.as_int()?;
-        let right = other.as_int()?;
+        let left = self.as_integer()?;
+        let right = other.as_integer()?;
         let result = left % right;
 
         Ok(Value::Integer(result))
@@ -370,8 +370,16 @@ impl Ord for Value {
             (Value::String(left), Value::String(right)) => left.cmp(right),
             (Value::String(_), _) => Ordering::Greater,
             (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
-            (Value::Float(_), _) => Ordering::Greater,
             (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
+            (Value::Float(float), Value::Integer(integer)) => {
+                let int_as_float = *integer as f64;
+                float.total_cmp(&int_as_float)
+            }
+            (Value::Integer(integer), Value::Float(float)) => {
+                let int_as_float = *integer as f64;
+                int_as_float.total_cmp(float)
+            }
+            (Value::Float(_), _) => Ordering::Greater,
             (Value::Integer(_), _) => Ordering::Greater,
             (Value::Boolean(left), Value::Boolean(right)) => left.cmp(right),
             (Value::Boolean(_), _) => Ordering::Greater,

@@ -1,7 +1,8 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, List, Map, Result, Value};
+use crate::{AbstractTree, Error, Expression, Identifier, Item, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Filter {
@@ -32,21 +33,22 @@ impl AbstractTree for Filter {
         let value = self.expression.run(source, context)?;
         let values = value.as_list()?.items();
         let key = self.identifier.inner();
-        let mut context = context.clone();
-        let mut new_values = Vec::with_capacity(values.len());
+        let new_values = List::new();
 
-        for value in values.iter() {
+        values.par_iter().try_for_each(|value| {
+            let mut context = Map::new();
+
             context.set_value(key.clone(), value.clone())?;
 
             let should_include = self.item.run(source, &mut context)?.as_boolean()?;
 
             if should_include {
-                new_values.push(value.clone());
+                new_values.items_mut().push(value.clone());
             }
-        }
 
-        let list = List::with_items(new_values);
+            Ok::<(), Error>(())
+        })?;
 
-        Ok(Value::List(list))
+        Ok(Value::List(new_values))
     }
 }

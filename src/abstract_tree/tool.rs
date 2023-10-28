@@ -38,6 +38,7 @@ pub enum Tool {
     FromJson(Expression),
     ToJson(Expression),
     ToString(Expression),
+    ToFloat(Expression),
 
     // Command
     Bash(Vec<Expression>),
@@ -52,9 +53,12 @@ pub enum Tool {
     RandomInteger,
     RandomFloat,
 
-    // Random
+    // Table
     Columns(Expression),
     Rows(Expression),
+
+    // List
+    Reverse(Expression, Option<(Expression, Expression)>),
 }
 
 impl AbstractTree for Tool {
@@ -185,6 +189,12 @@ impl AbstractTree for Tool {
 
                 Tool::ToString(expression)
             }
+            "to_float" => {
+                let expression_node = node.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
+
+                Tool::ToFloat(expression)
+            }
             "bash" => {
                 let expressions = parse_expressions(source, node)?;
 
@@ -229,6 +239,22 @@ impl AbstractTree for Tool {
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 Tool::Rows(expression)
+            }
+            "reverse" => {
+                let list_node = node.child(2).unwrap();
+                let list_expression = Expression::from_syntax_node(source, list_node)?;
+
+                let slice_range_nodes =
+                    if let (Some(start_node), Some(end_node)) = (node.child(3), node.child(4)) {
+                        let start = Expression::from_syntax_node(source, start_node)?;
+                        let end = Expression::from_syntax_node(source, end_node)?;
+
+                        Some((start, end))
+                    } else {
+                        None
+                    };
+
+                Tool::Reverse(list_expression, slice_range_nodes)
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
@@ -287,7 +313,18 @@ impl AbstractTree for Tool {
                 Ok(Value::String(data))
             }
             Tool::Length(expression) => {
-                let length = expression.run(source, context)?.as_list()?.items().len();
+                let value = expression.run(source, context)?;
+                let length = match value {
+                    Value::List(list) => list.items().len(),
+                    Value::Map(map) => map.len(),
+                    Value::Table(table) => table.len(),
+                    Value::String(string) => string.chars().count(),
+                    Value::Function(_) => todo!(),
+                    Value::Float(_) => todo!(),
+                    Value::Integer(_) => todo!(),
+                    Value::Boolean(_) => todo!(),
+                    Value::Empty => todo!(),
+                };
 
                 Ok(Value::Integer(length as i64))
             }
@@ -443,6 +480,17 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(string))
             }
+            Tool::ToFloat(expression) => {
+                let value = expression.run(source, context)?;
+                let float = match value {
+                    Value::String(string) => string.parse()?,
+                    Value::Float(float) => float,
+                    Value::Integer(integer) => integer as f64,
+                    _ => return Err(Error::ExpectedNumberOrString { actual: value }),
+                };
+
+                Ok(Value::Float(float))
+            }
             Tool::Bash(expressions) => {
                 let mut command = Command::new("bash");
 
@@ -568,6 +616,21 @@ impl AbstractTree for Tool {
                     .collect();
 
                 Ok(Value::List(List::with_items(rows)))
+            }
+            Tool::Reverse(list_expression, slice_range) => {
+                let expression_run = list_expression.run(source, context)?;
+                let list = expression_run.as_list()?;
+
+                if let Some((start, end)) = slice_range {
+                    let start = start.run(source, context)?.as_integer()? as usize;
+                    let end = end.run(source, context)?.as_integer()? as usize;
+
+                    list.items_mut()[start..end].reverse()
+                } else {
+                    list.items_mut().reverse()
+                };
+
+                Ok(Value::List(list.clone()))
             }
         }
     }

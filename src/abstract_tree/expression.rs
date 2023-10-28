@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{value_node::ValueNode, AbstractTree, Error, Identifier, Map, Result, Tool, Value};
+use crate::{
+    value_node::ValueNode, AbstractTree, Error, Identifier, Map, Result, Sublist, Tool, Value,
+};
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
 
@@ -9,6 +11,7 @@ use super::{function_call::FunctionCall, logic::Logic, math::Math};
 pub enum Expression {
     Value(ValueNode),
     Identifier(Identifier),
+    Sublist(Box<Sublist>),
     Math(Box<Math>),
     Logic(Box<Logic>),
     FunctionCall(FunctionCall),
@@ -23,7 +26,12 @@ impl AbstractTree for Expression {
             let child = node.child(index).unwrap();
             let expression = match child.kind() {
                 "value" => Expression::Value(ValueNode::from_syntax_node(source, child)?),
-                "identifier" => Self::Identifier(Identifier::from_syntax_node(source, child)?),
+                "identifier" => {
+                    Expression::Identifier(Identifier::from_syntax_node(source, child)?)
+                }
+                "sublist" => {
+                    Expression::Sublist(Box::new(Sublist::from_syntax_node(source, child)?))
+                }
                 "math" => Expression::Math(Box::new(Math::from_syntax_node(source, child)?)),
                 "logic" => Expression::Logic(Box::new(Logic::from_syntax_node(source, child)?)),
                 "function_call" => {
@@ -39,7 +47,7 @@ impl AbstractTree for Expression {
         let child = node.child(0).unwrap();
 
         Err(Error::UnexpectedSyntaxNode {
-            expected: "value, identifier, math or function_call",
+            expected: "value, identifier, sublist, math or function_call",
             actual: child.kind(),
             location: child.start_position(),
             relevant_source: source[child.byte_range()].to_string(),
@@ -50,6 +58,7 @@ impl AbstractTree for Expression {
         match self {
             Expression::Value(value_node) => value_node.run(source, context),
             Expression::Identifier(identifier) => identifier.run(source, context),
+            Expression::Sublist(sublist) => sublist.run(source, context),
             Expression::Math(math) => math.run(source, context),
             Expression::Logic(logic) => logic.run(source, context),
             Expression::FunctionCall(function_call) => function_call.run(source, context),

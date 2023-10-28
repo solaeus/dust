@@ -33,10 +33,10 @@ impl AbstractTree for Transform {
         let expression_run = self.expression.run(source, context)?;
         let values = expression_run.as_list()?.items();
         let key = self.identifier.inner();
-        let new_list = values
+        let new_values = values
             .par_iter()
             .map(|value| {
-                let mut iter_context = Map::clone_from(context);
+                let mut iter_context = Map::new();
 
                 iter_context.set_value(key.clone(), value.clone()).unwrap();
 
@@ -47,8 +47,9 @@ impl AbstractTree for Transform {
                     Err(_) => Value::Empty,
                 }
             })
+            .filter(|value| !value.is_empty())
             .collect();
 
-        Ok(Value::List(List::with_items(new_list)))
+        Ok(Value::List(List::with_items(new_values)))
     }
 }

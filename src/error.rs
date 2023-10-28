@@ -5,7 +5,7 @@
 
 use crate::{value::Value, Identifier};
 
-use std::{fmt, io, time, string::FromUtf8Error};
+use std::{fmt, io, time, string::FromUtf8Error, num::ParseFloatError};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -147,6 +147,12 @@ impl Error {
 
 impl From<FromUtf8Error> for Error {
     fn from(value: FromUtf8Error) -> Self {
+        Error::ToolFailure(value.to_string())
+    }
+}
+
+impl From<ParseFloatError> for Error {
+    fn from(value: ParseFloatError) -> Self {
         Error::ToolFailure(value.to_string())
     }
 }

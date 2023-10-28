@@ -1,10 +1,12 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Map, Result, Value};
+use crate::{AbstractTree, Error, Expression, Identifier, Item, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct For {
+    is_async: bool,
     identifier: Identifier,
     expression: Expression,
     item: Item,
@@ -12,6 +14,20 @@ pub struct For {
 
 impl AbstractTree for For {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        let for_node = node.child(0).unwrap();
+        let is_async = match for_node.kind() {
+            "for" => false,
+            "async for" => true,
+            _ => {
+                return Err(Error::UnexpectedSyntaxNode {
+                    expected: "\"for\" or \"async for\"",
+                    actual: for_node.kind(),
+                    location: for_node.start_position(),
+                    relevant_source: source[for_node.byte_range()].to_string(),
+                })
+            }
+        };
+
         let identifier_node = node.child(1).unwrap();
         let identifier = Identifier::from_syntax_node(source, identifier_node)?;
 
@@ -22,6 +38,7 @@ impl AbstractTree for For {
         let item = Item::from_syntax_node(source, item_node)?;
 
         Ok(For {
+            is_async,
             identifier,
             expression,
             item,
@@ -33,18 +50,28 @@ impl AbstractTree for For {
         let values = expression_run.as_list()?.items();
         let key = self.identifier.inner();
 
-        let original_value = context.get_value(key)?;
+        if self.is_async {
+            values.par_iter().try_for_each(|value| {
+                let mut iter_context = Map::clone_from(context);
 
-        for value in values.iter() {
-            context.set_value(key.clone(), value.clone())?;
+                iter_context.set_value(key.clone(), value.clone())?;
 
-            self.item.run(source, context)?;
-        }
-
-        if let Some(original_value) = original_value {
-            context.set_value(key.clone(), original_value)?;
+                self.item.run(source, &mut iter_context).map(|_value| ())
+            })?;
         } else {
-            context.set_value(key.clone(), Value::Empty)?;
+            let original_value = context.get_value(key)?;
+
+            for value in values.iter() {
+                context.set_value(key.clone(), value.clone())?;
+
+                self.item.run(source, context)?;
+            }
+
+            if let Some(original_value) = original_value {
+                context.set_value(key.clone(), original_value)?;
+            } else {
+                context.set_value(key.clone(), Value::Empty)?;
+            }
         }
 
         Ok(Value::Empty)

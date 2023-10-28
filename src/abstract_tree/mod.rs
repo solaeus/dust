@@ -23,6 +23,7 @@ pub mod math;
 pub mod remove;
 pub mod select;
 pub mod statement;
+pub mod sublist;
 pub mod tool;
 pub mod transform;
 pub mod value_node;
@@ -31,7 +32,7 @@ pub mod r#while;
 pub use {
     assignment::*, expression::*, filter::*, find::*, function_call::*, identifier::*, if_else::*,
     insert::*, item::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*, remove::*,
-    select::*, statement::*, tool::*, transform::*, value_node::*,
+    select::*, statement::*, sublist::*, tool::*, transform::*, value_node::*,
 };
 
 use tree_sitter::Node;

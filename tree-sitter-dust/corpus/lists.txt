@@ -80,3 +80,35 @@ List Nesting
                         (expression
                           (value
                             (integer)))))))))))))))
+
+==================
+Sublist
+==================
+
+['answers', 42, 666].1..2
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (sublist
+          (expression
+            (value
+              (list
+                (expression
+                  (value
+                    (string)))
+                (expression
+                  (value
+                    (integer)))
+                (expression
+                  (value
+                    (integer))))))
+          (expression
+            (value
+              (integer)))
+          (expression
+            (value
+              (integer))))))))

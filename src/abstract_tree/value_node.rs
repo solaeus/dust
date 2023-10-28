@@ -41,18 +41,18 @@ impl AbstractTree for ValueNode {
             "boolean" => ValueType::Boolean,
             "empty" => ValueType::Empty,
             "list" => {
-                let mut child_nodes = Vec::new();
+                let mut expressions = Vec::new();
 
                 for index in 1..child.child_count() - 1 {
-                    let child_syntax_node = child.child(index).unwrap();
+                    let current_node = child.child(index).unwrap();
 
-                    if child_syntax_node.is_named() {
-                        let expression = Expression::from_syntax_node(source, child_syntax_node)?;
-                        child_nodes.push(expression);
+                    if current_node.is_named() {
+                        let expression = Expression::from_syntax_node(source, current_node)?;
+                        expressions.push(expression);
                     }
                 }
 
-                ValueType::ListExact(child_nodes)
+                ValueType::List(expressions)
             }
             "table" => {
                 let child_count = child.child_count();
@@ -148,7 +148,7 @@ impl AbstractTree for ValueNode {
             ValueType::Float => Value::Float(value_source.parse().unwrap()),
             ValueType::Integer => Value::Integer(value_source.parse().unwrap()),
             ValueType::Boolean => Value::Boolean(value_source.parse().unwrap()),
-            ValueType::ListExact(nodes) => {
+            ValueType::List(nodes) => {
                 let mut values = Vec::with_capacity(nodes.len());
 
                 for node in nodes {

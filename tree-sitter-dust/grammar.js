@@ -38,6 +38,7 @@ module.exports = grammar({
       $.tool,
       $.math,
       $.logic,
+      $.sublist,
     )),
 
     identifier: $ => /[a-zA-Z|_]+[._a-zA-Z0-9]*/,
@@ -55,7 +56,7 @@ module.exports = grammar({
 
     integer: $ => /[-]?[0-9]+/,
 
-    float: $ => /[-]?[0-9]+[.]{1}[0-9]*/,
+    float: $ => /[-]?[0-9]+[.]{1}[0-9]+/,
 
     string: $ => /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
@@ -67,7 +68,7 @@ module.exports = grammar({
     list: $ => seq(
       '[',
       repeat(seq($.expression, optional(','))),
-      ']'
+      ']',
     ),
 
     function: $ => seq(
@@ -78,7 +79,7 @@ module.exports = grammar({
       '}',
     ),
 
-    table: $ => prec.right(seq(
+    table: $ => prec(2, seq(
       'table',
       seq('<', repeat1(seq($.identifier, optional(','))), '>'),
       $.expression,
@@ -90,6 +91,14 @@ module.exports = grammar({
       '}',
     ),
 
+    sublist: $ => prec.right(seq(
+      $.expression,
+      '.',
+      $.expression,
+      '..',
+      $.expression,
+    )),
+ 
     math: $ => prec.left(seq(
       $.expression,
       $.math_operator,      
@@ -178,7 +187,7 @@ module.exports = grammar({
     ),
 
     for: $ => seq(
-      'for',
+      choice('for', 'async for'),
       $.identifier,
       'in',
       $.expression,
@@ -282,6 +291,7 @@ module.exports = grammar({
       'from_json',
       'to_json',
       'to_string',
+      'to_float',
 
       // Command
       'bash',
@@ -299,6 +309,9 @@ module.exports = grammar({
       // Tables
       'columns',
       'rows',
+      
+      // Lists
+      'reverse',
     ),
   }
 });

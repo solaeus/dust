@@ -18,6 +18,7 @@ impl AbstractTree for Logic {
         let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
             "==" => LogicOperator::Equal,
+            "!=" => LogicOperator::NotEqual,
             "&&" => LogicOperator::And,
             "||" => LogicOperator::Or,
             ">" => LogicOperator::Greater,
@@ -26,7 +27,7 @@ impl AbstractTree for Logic {
             "<=" => LogicOperator::LessOrEqaul,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "==, && ||, >, <, >= or <=",
+                    expected: "==, !=, &&, ||, >, <, >= or <=",
                     actual: operator_node.kind(),
                     location: operator_node.start_position(),
                     relevant_source: source[operator_node.byte_range()].to_string(),
@@ -55,6 +56,13 @@ impl AbstractTree for Logic {
                     left == right
                 }
             }
+            LogicOperator::NotEqual => {
+                if let (Ok(left_num), Ok(right_num)) = (left.as_number(), right.as_number()) {
+                    left_num != right_num
+                } else {
+                    left != right
+                }
+            }
             LogicOperator::And => left.as_boolean()? && right.as_boolean()?,
             LogicOperator::Or => left.as_boolean()? || right.as_boolean()?,
             LogicOperator::Greater => left > right,
@@ -70,6 +78,7 @@ impl AbstractTree for Logic {
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum LogicOperator {
     Equal,
+    NotEqual,
     And,
     Or,
     Greater,

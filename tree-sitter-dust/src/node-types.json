@@ -111,6 +111,10 @@
           "named": true
         },
         {
+          "type": "sublist",
+          "named": true
+        },
+        {
           "type": "tool",
           "named": true
         },
@@ -511,6 +515,21 @@
     }
   },
   {
+    "type": "sublist",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "table",
     "named": true,
     "fields": {},
@@ -674,6 +693,14 @@
     "named": false
   },
   {
+    "type": ".",
+    "named": false
+  },
+  {
+    "type": "..",
+    "named": false
+  },
+  {
     "type": "/",
     "named": false
   },
@@ -723,6 +750,10 @@
   },
   {
     "type": "async",
+    "named": false
+  },
+  {
+    "type": "async for",
     "named": false
   },
   {
@@ -858,6 +889,10 @@
     "named": false
   },
   {
+    "type": "reverse",
+    "named": false
+  },
+  {
     "type": "rows",
     "named": false
   },
@@ -875,6 +910,10 @@
   },
   {
     "type": "table",
+    "named": false
+  },
+  {
+    "type": "to_float",
     "named": false
   },
   {

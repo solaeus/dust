@@ -1,8 +1,6 @@
 list = [1 2 3]
 
-for i in list {
+async for i in list {
 	i += 1
 	(output i)
 }
-
-(output list)

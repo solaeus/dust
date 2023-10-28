@@ -42,6 +42,12 @@ fn main() {
 
     let mut context = Map::new();
 
+    if let Some(input) = args.input {
+        context
+            .set_value("input".to_string(), Value::String(input))
+            .unwrap();
+    }
+
     if let Some(path) = args.input_path {
         let file_contents = read_to_string(path).unwrap();
 
