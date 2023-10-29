@@ -35,7 +35,7 @@ impl AbstractTree for Find {
         let mut context = context.clone();
 
         for value in values.iter() {
-            context.set_value(key.clone(), value.clone())?;
+            context.variables_mut().insert(key.clone(), value.clone());
 
             let should_return = self.item.run(source, &mut context)?.as_boolean()?;
 

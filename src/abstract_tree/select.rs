@@ -65,7 +65,6 @@ impl AbstractTree for Select {
         } else {
             old_table.headers().clone()
         };
-
         let mut new_table = Table::new(column_names.to_vec());
 
         for row in old_table.rows() {
@@ -75,7 +74,9 @@ impl AbstractTree for Select {
             for (i, value) in row.iter().enumerate() {
                 let column_name = old_table.headers().get(i).unwrap();
 
-                row_context.set_value(column_name.clone(), value.clone())?;
+                row_context
+                    .variables_mut()
+                    .insert(column_name.clone(), value.clone());
 
                 let new_table_column_index =
                     new_table

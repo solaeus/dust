@@ -8,7 +8,7 @@ module.exports = grammar({
 
     item: $ => prec.left(repeat1($.statement)),
 
-    statement: $ => choice(
+    statement: $ => prec.left(choice(
       $.comment,
       $.assignment,
       $.expression,
@@ -22,7 +22,7 @@ module.exports = grammar({
       $.filter,
       $.find,
       $.remove,
-    ),
+    )),
   
     comment: $ => seq(/[#]+.*/),
 
@@ -31,17 +31,17 @@ module.exports = grammar({
       seq('(', $._expression_kind, ')'),
     ),
 
-    _expression_kind: $ => prec.right(choice(
+    _expression_kind: $ => choice(
       $.value,
       $.identifier,
-      $.function_call,
-      $.tool,
+      $.index,
       $.math,
       $.logic,
-      $.sublist,
-    )),
+      $.function_call,
+      $.tool,
+    ),
 
-    identifier: $ => /[a-zA-Z|_]+[._a-zA-Z0-9]*/,
+    identifier: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
 
     value: $ => choice(
       $.integer,
@@ -54,9 +54,21 @@ module.exports = grammar({
       $.map,
     ),
 
-    integer: $ => /[-]?[0-9]+/,
+    _numeric: $ => token(repeat1(
+      choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
+    )),
 
-    float: $ => /[-]?[0-9]+[.]{1}[0-9]+/,
+    integer: $ => prec.left(seq(
+      optional(token.immediate('-')),
+      $._numeric,
+    )),
+
+    float: $ => prec.left(seq(
+      optional(token.immediate('-')),
+      $._numeric,
+      token.immediate('.'),
+      $._numeric,
+    )),
 
     string: $ => /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
@@ -71,6 +83,24 @@ module.exports = grammar({
       ']',
     ),
 
+    map: $ => seq(
+      '{',
+      repeat(seq($.identifier, "=", $.expression)),
+      '}',
+    ),
+
+    index: $ => prec.left(seq(
+      $.expression,
+      '.',
+      '{',
+      $.expression,
+      optional(seq(
+        '..',
+        $.expression,
+      )),
+      '}'
+    )),
+ 
     function: $ => seq(
       'function',
       optional(seq('<', repeat(seq($.identifier, optional(','))), '>')),
@@ -79,27 +109,13 @@ module.exports = grammar({
       '}',
     ),
 
-    table: $ => prec(2, seq(
+    table: $ => prec.right(seq(
       'table',
       seq('<', repeat1(seq($.identifier, optional(','))), '>'),
       $.expression,
     )),
 
-    map: $ => seq(
-      '{',
-      repeat(seq($.identifier, "=", $.expression)),
-      '}',
-    ),
-
-    sublist: $ => prec.right(seq(
-      $.expression,
-      '.',
-      $.expression,
-      '..',
-      $.expression,
-    )),
- 
-    math: $ => prec.left(seq(
+    math: $ => prec.left(1, seq(
       $.expression,
       $.math_operator,      
       $.expression,
@@ -113,7 +129,7 @@ module.exports = grammar({
       '%',
     ),
 
-    logic: $ => prec.right(seq(
+    logic: $ => prec.right(1, seq(
       $.expression,
       $.logic_operator,
       $.expression,
@@ -171,7 +187,7 @@ module.exports = grammar({
       '}',
     ),
 
-    function_call: $ => prec.right(seq(
+    function_call: $ => prec(1, seq(
       '(',
       $.identifier,
       repeat(seq($.expression, optional(','))),

@@ -52,10 +52,11 @@ impl AbstractTree for Assignment {
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let key = self.identifier.inner().clone();
         let value = self.statement.run(source, context)?;
+        let mut context = context.variables_mut();
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = context.get_value(&key)? {
+                if let Some(mut previous_value) = context.get(&key).cloned() {
                     previous_value += value;
                     previous_value
                 } else {
@@ -63,7 +64,7 @@ impl AbstractTree for Assignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = context.get_value(&key)? {
+                if let Some(mut previous_value) = context.get(&key).cloned() {
                     previous_value -= value;
                     previous_value
                 } else {
@@ -73,7 +74,7 @@ impl AbstractTree for Assignment {
             AssignmentOperator::Equal => value,
         };
 
-        context.set_value(key, new_value)?;
+        context.insert(key, new_value);
 
         Ok(Value::Empty)
     }

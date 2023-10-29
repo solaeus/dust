@@ -20,6 +20,57 @@ if true { "True" }
                 (string)))))))))
 
 ==================
+Complex If
+==================
+
+if (1 == 1) && (2 == 2) && (3 == 3) { "True" }
+
+---
+
+(root
+  (item
+    (statement
+      (if_else
+        (if
+          (expression
+            (logic
+              (expression
+                (logic
+                  (expression
+                    (value
+                      (integer)))
+                  (logic_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (logic_operator)
+              (expression
+                (logic
+                  (expression
+                    (logic
+                      (expression
+                        (value
+                          (integer)))
+                      (logic_operator)
+                      (expression
+                        (value
+                          (integer)))))
+                  (logic_operator)
+                  (expression
+                    (logic
+                      (expression
+                        (value
+                          (integer)))
+                      (logic_operator)
+                      (expression
+                        (value
+                          (integer)))))))))
+          (statement
+            (expression
+              (value
+                (string)))))))))
+
+==================
 If Assignment
 ==================
 

@@ -44,7 +44,8 @@ fn main() {
 
     if let Some(input) = args.input {
         context
-            .set_value("input".to_string(), Value::String(input))
+            .variables_mut()
+            .insert("input".to_string(), Value::String(input))
             .unwrap();
     }
 
@@ -52,7 +53,8 @@ fn main() {
         let file_contents = read_to_string(path).unwrap();
 
         context
-            .set_value("input".to_string(), Value::String(file_contents))
+            .variables_mut()
+            .insert("input".to_string(), Value::String(file_contents))
             .unwrap();
     }
 

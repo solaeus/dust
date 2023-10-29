@@ -508,12 +508,12 @@ impl TryFrom<JsonValue> for Value {
             Number(number) => Ok(Value::Float(f64::from(number))),
             Boolean(boolean) => Ok(Value::Boolean(boolean)),
             Object(object) => {
-                let mut map = Map::new();
+                let map = Map::new();
 
                 for (key, node_value) in object.iter() {
                     let value = Value::try_from(node_value)?;
 
-                    map.set_value(key.to_string(), value)?;
+                    map.variables_mut().insert(key.to_string(), value);
                 }
 
                 Ok(Value::Map(map))
@@ -546,12 +546,12 @@ impl TryFrom<&JsonValue> for Value {
             Number(number) => Ok(Value::Float(f64::from(*number))),
             Boolean(boolean) => Ok(Value::Boolean(*boolean)),
             Object(object) => {
-                let mut map = Map::new();
+                let map = Map::new();
 
                 for (key, node_value) in object.iter() {
                     let value = Value::try_from(node_value)?;
 
-                    map.set_value(key.to_string(), value)?;
+                    map.variables_mut().insert(key.to_string(), value);
                 }
 
                 Ok(Value::Map(map))
@@ -839,11 +839,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let mut map = Map::new();
+        let map = Map::new();
 
         while let Some((key, value)) = access.next_entry()? {
-            map.set_value(key, value)
-                .expect("Failed to deserialize Value. This is a no-op.");
+            map.variables_mut().insert(key, value);
         }
 
         Ok(Value::Map(map))

@@ -82,10 +82,10 @@ List Nesting
                             (integer)))))))))))))))
 
 ==================
-Sublist
+List Index
 ==================
 
-['answers', 42, 666].1..2
+['answers', 42, 666].{1}
 
 ---
 
@@ -93,7 +93,36 @@ Sublist
   (item
     (statement
       (expression
-        (sublist
+        (index
+          (expression
+            (value
+              (list
+                (expression
+                  (value
+                    (string)))
+                (expression
+                  (value
+                    (integer)))
+                (expression
+                  (value
+                    (integer))))))
+          (expression
+            (value
+              (integer))))))))
+              
+==================
+Sublist
+==================
+
+['answers', 42, 666].{1..2}
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (index
           (expression
             (value
               (list

@@ -30,12 +30,10 @@ impl AbstractTree for Identifier {
     }
 
     fn run(&self, _source: &str, context: &mut Map) -> Result<Value> {
-        let value = if let Some(value) = context.get_value(&self.0)? {
-            value
+        if let Some(value) = context.variables().get(&self.0) {
+            Ok(value.clone())
         } else {
-            return Err(Error::VariableIdentifierNotFound(self.inner().clone()));
-        };
-
-        Ok(value)
+            Err(Error::VariableIdentifierNotFound(self.inner().clone()))
+        }
     }
 }

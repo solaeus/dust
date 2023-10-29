@@ -36,6 +36,7 @@ Equality
 ==================
 
 4 + 2 == 42 && true 
+(((4 + 2) == 42) && true)
 
 ---
 
@@ -62,13 +63,36 @@ Equality
               (logic_operator)
               (expression
                 (value
-                  (boolean))))))))))
-
+                  (boolean)))))))))
+  (item
+    (statement
+      (expression
+        (logic
+          (expression
+            (logic
+              (expression
+                (math
+                  (expression
+                    (value
+                      (integer)))
+                  (math_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (logic_operator)
+          (expression
+            (value
+              (boolean))))))))
 ==================
 \||
 ==================
 
 4 + 2 == 42 || true 
+((4 + 2) == 42) || true 
 
 ---
 
@@ -95,4 +119,27 @@ Equality
               (logic_operator)
               (expression
                 (value
-                  (boolean))))))))))
+                  (boolean)))))))))
+  (item
+    (statement
+      (expression
+        (logic
+          (expression
+            (logic
+              (expression
+                (math
+                  (expression
+                    (value
+                      (integer)))
+                  (math_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (logic_operator)
+          (expression
+            (value
+              (boolean))))))))

@@ -401,13 +401,17 @@ impl AbstractTree for Tool {
                 let created = metadata.created()?.elapsed()?.as_secs() as i64;
                 let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
                 let accessed = metadata.accessed()?.elapsed()?.as_secs() as i64;
-                let mut metadata_output = Map::new();
+                let metadata_output = Map::new();
 
-                metadata_output.set_value("type".to_string(), Value::String(file_type))?;
-                metadata_output.set_value("size".to_string(), Value::Integer(size))?;
-                metadata_output.set_value("created".to_string(), Value::Integer(created))?;
-                metadata_output.set_value("modified".to_string(), Value::Integer(modified))?;
-                metadata_output.set_value("accessed".to_string(), Value::Integer(accessed))?;
+                {
+                    let mut metadata_variables = metadata_output.variables_mut();
+
+                    metadata_variables.insert("type".to_string(), Value::String(file_type));
+                    metadata_variables.insert("size".to_string(), Value::Integer(size));
+                    metadata_variables.insert("created".to_string(), Value::Integer(created));
+                    metadata_variables.insert("modified".to_string(), Value::Integer(modified));
+                    metadata_variables.insert("accessed".to_string(), Value::Integer(accessed));
+                }
 
                 Ok(Value::Map(metadata_output))
             }

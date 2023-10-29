@@ -161,15 +161,15 @@ impl AbstractTree for ValueNode {
             }
             ValueType::Empty => Value::Empty,
             ValueType::Map(nodes) => {
-                let mut values = Map::new();
+                let map = Map::new();
 
                 for (key, node) in nodes {
                     let value = node.run(source, context)?;
 
-                    values.set_value(key.clone(), value)?;
+                    map.variables_mut().insert(key.clone(), value);
                 }
 
-                Value::Map(values)
+                Value::Map(map)
             }
             ValueType::Table {
                 column_names,

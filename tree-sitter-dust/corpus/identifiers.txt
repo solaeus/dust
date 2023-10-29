@@ -26,9 +26,11 @@ __xyz__
 Dot Notation
 ==================
 
-dust_data.0.name
-# Separator
-creature.total_clams
+dust_data.{1}.{name}
+
+creature.{total_clams}
+
+foobar.{1}.{42}
 
 ---
 
@@ -36,11 +38,35 @@ creature.total_clams
   (item
     (statement
       (expression
-        (identifier))))
-  (item
-    (statement
-      (comment)))
+        (index
+          (expression
+            (index
+              (expression
+                (identifier))
+              (expression
+                (value
+                  (integer)))))
+          (expression
+            (identifier))))))
   (item
     (statement
       (expression
-        (identifier)))))
+        (index
+          (expression
+            (identifier))
+          (expression
+            (identifier))))))
+  (item
+    (statement
+      (expression
+        (index
+          (expression
+            (index
+              (expression
+                (identifier))
+              (expression
+                (value
+                  (integer)))))
+          (expression
+            (value
+              (integer))))))))

@@ -35,7 +35,9 @@ impl AbstractTree for Insert {
             table.insert(row_values.items().clone())?;
         }
 
-        context.set_value(table_name, Value::Table(table))?;
+        context
+            .variables_mut()
+            .insert(table_name, Value::Table(table));
 
         Ok(Value::Empty)
     }

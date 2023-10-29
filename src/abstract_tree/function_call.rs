@@ -35,7 +35,7 @@ impl AbstractTree for FunctionCall {
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let key = self.name.inner();
-        let definition = if let Some(value) = context.get_value(key)? {
+        let definition = if let Some(value) = context.variables().get(key) {
             value.as_function().cloned()?
         } else {
             return Err(Error::FunctionIdentifierNotFound(self.name.clone()));
@@ -47,7 +47,7 @@ impl AbstractTree for FunctionCall {
             let key = identifier.inner().clone();
             let value = expression.run(source, context)?;
 
-            function_context.set_value(key, value)?;
+            function_context.variables_mut().insert(key, value);
         }
 
         definition.body().run(source, &mut function_context)

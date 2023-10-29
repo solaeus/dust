@@ -52,25 +52,19 @@ impl AbstractTree for For {
 
         if self.is_async {
             values.par_iter().try_for_each(|value| {
-                let mut iter_context = Map::clone_from(context);
+                let mut iter_context = Map::new();
 
-                iter_context.set_value(key.clone(), value.clone())?;
+                iter_context
+                    .variables_mut()
+                    .insert(key.clone(), value.clone());
 
                 self.item.run(source, &mut iter_context).map(|_value| ())
             })?;
         } else {
-            let original_value = context.get_value(key)?;
-
             for value in values.iter() {
-                context.set_value(key.clone(), value.clone())?;
+                context.variables_mut().insert(key.clone(), value.clone());
 
                 self.item.run(source, context)?;
-            }
-
-            if let Some(original_value) = original_value {
-                context.set_value(key.clone(), original_value)?;
-            } else {
-                context.set_value(key.clone(), Value::Empty)?;
             }
         }
 

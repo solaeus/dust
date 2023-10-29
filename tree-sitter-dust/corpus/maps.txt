@@ -48,7 +48,7 @@ x = {
 Map Access
 ==================
 
-x.answer
+x.{answer}
 
 ---
 
@@ -56,4 +56,8 @@ x.answer
     (item
       (statement
         (expression
-          (identifier)))))
+          (index
+            (expression
+              (identifier))
+            (expression
+              (identifier)))))))

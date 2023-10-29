@@ -15,6 +15,7 @@ pub mod r#for;
 pub mod function_call;
 pub mod identifier;
 pub mod if_else;
+pub mod index;
 pub mod insert;
 pub mod item;
 pub mod logic;
@@ -31,8 +32,8 @@ pub mod r#while;
 
 pub use {
     assignment::*, expression::*, filter::*, find::*, function_call::*, identifier::*, if_else::*,
-    insert::*, item::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*, remove::*,
-    select::*, statement::*, sublist::*, tool::*, transform::*, value_node::*,
+    index::*, insert::*, item::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*,
+    remove::*, select::*, statement::*, sublist::*, tool::*, transform::*, value_node::*,
 };
 
 use tree_sitter::Node;

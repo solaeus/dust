@@ -38,7 +38,7 @@ impl AbstractTree for Filter {
         values.par_iter().try_for_each(|value| {
             let mut context = Map::new();
 
-            context.set_value(key.clone(), value.clone())?;
+            context.variables_mut().insert(key.clone(), value.clone());
 
             let should_include = self.item.run(source, &mut context)?.as_boolean()?;
 

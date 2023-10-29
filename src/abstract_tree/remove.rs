@@ -36,7 +36,9 @@ impl AbstractTree for Remove {
         let mut should_remove_index = None;
 
         for (index, value) in values.items().iter().enumerate() {
-            sub_context.set_value(key.clone(), value.clone())?;
+            sub_context
+                .variables_mut()
+                .insert(key.clone(), value.clone());
 
             let should_remove = self.item.run(source, &mut sub_context)?.as_boolean()?;
 
@@ -45,8 +47,9 @@ impl AbstractTree for Remove {
 
                 match &self.expression {
                     Expression::Identifier(identifier) => {
-                        context
-                            .set_value(identifier.inner().clone(), Value::List(values.clone()))?;
+                        sub_context
+                            .variables_mut()
+                            .insert(identifier.inner().clone(), Value::List(values.clone()));
                     }
                     _ => {}
                 }
