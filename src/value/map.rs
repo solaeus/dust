@@ -28,7 +28,7 @@ impl Map {
     pub fn clone_from(other: &Self) -> Self {
         let mut new_map = BTreeMap::new();
 
-        for (key, value) in other.inner().read().unwrap().iter() {
+        for (key, value) in other.variables().iter() {
             new_map.insert(key.clone(), value.clone());
         }
 
@@ -43,18 +43,6 @@ impl Map {
 
     pub fn variables_mut(&self) -> RwLockWriteGuard<BTreeMap<String, Value>> {
         self.variables.write().unwrap()
-    }
-
-    /// Removes an assigned variable.
-    ///
-    /// TODO: Support dot notation.
-    pub fn remove(&mut self, key: &str) -> Option<Value> {
-        self.variables.write().unwrap().remove(key)
-    }
-
-    /// Returns a reference to the inner BTreeMap.
-    pub fn inner(&self) -> Arc<RwLock<BTreeMap<String, Value>>> {
-        Arc::clone(&self.variables)
     }
 
     /// Returns the number of stored variables.

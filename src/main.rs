@@ -1,4 +1,5 @@
 //! Command line interface for the dust programming language.
+use async_std::{fs::read_to_string, prelude::*};
 use clap::Parser;
 use rustyline::{
     completion::FilenameCompleter,
@@ -9,7 +10,7 @@ use rustyline::{
     Completer, Context, Editor, Helper, Validator,
 };
 
-use std::{borrow::Cow, fs::read_to_string};
+use std::borrow::Cow;
 
 use dust_lang::{evaluate_with_context, Map, Value};
 
@@ -33,12 +34,21 @@ struct Args {
     path: Option<String>,
 }
 
-fn main() {
+#[async_std::main]
+async fn main() {
     let args = Args::parse();
 
     if args.path.is_none() && args.command.is_none() {
         return run_cli_shell();
     }
+
+    let source = if let Some(path) = &args.path {
+        read_to_string(path).await.unwrap()
+    } else if let Some(command) = &args.command {
+        command.clone()
+    } else {
+        "".to_string()
+    };
 
     let mut context = Map::new();
 
@@ -49,22 +59,14 @@ fn main() {
     }
 
     if let Some(path) = args.input_path {
-        let file_contents = read_to_string(path).unwrap();
+        let file_contents = read_to_string(path).await.unwrap();
 
         context
             .variables_mut()
             .insert("input".to_string(), Value::String(file_contents));
     }
 
-    let eval_result = if let Some(path) = args.path {
-        let file_contents = read_to_string(path).unwrap();
-
-        evaluate_with_context(&file_contents, &mut context)
-    } else if let Some(command) = args.command {
-        evaluate_with_context(&command, &mut context)
-    } else {
-        Ok(Value::Empty)
-    };
+    let eval_result = evaluate_with_context(&source, &mut context);
 
     match eval_result {
         Ok(value) => {

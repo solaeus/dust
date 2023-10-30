@@ -1,7 +1,7 @@
 [package]
 name = "dust-lang"
 description = "Data-Oriented Programming Language"
-version = "0.3.4"
+version = "0.3.5"
 repository = "https://github.com/tree-sitter/tree-sitter-dust"
 edition = "2018"
 license = "MIT"
@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 ansi_term = "0.12.1"
+async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.4.4", features = ["derive"] }
 comfy-table = "7.0.1"
 csv = "1.2.2"

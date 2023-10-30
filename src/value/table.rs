@@ -282,10 +282,9 @@ impl From<&mut List> for Table {
 
 impl From<Map> for Table {
     fn from(map: Map) -> Self {
-        let inner_map = map.inner();
-        let read_map = inner_map.read().unwrap();
-        let keys = read_map.keys().cloned().collect();
-        let values = read_map.values().cloned().collect();
+        let variables = map.variables();
+        let keys = variables.keys().cloned().collect();
+        let values = variables.values().cloned().collect();
         let mut table = Table::new(keys);
 
         table
@@ -298,10 +297,9 @@ impl From<Map> for Table {
 
 impl From<&Map> for Table {
     fn from(map: &Map) -> Self {
-        let inner_map = map.inner();
-        let read_map = inner_map.read().unwrap();
-        let keys = read_map.keys().cloned().collect();
-        let values = read_map.values().cloned().collect();
+        let variables = map.variables();
+        let keys = variables.keys().cloned().collect();
+        let values = variables.values().cloned().collect();
         let mut table = Table::new(keys);
 
         table
@@ -314,10 +312,9 @@ impl From<&Map> for Table {
 
 impl From<&mut Map> for Table {
     fn from(map: &mut Map) -> Self {
-        let inner_map = map.inner();
-        let read_map = inner_map.read().unwrap();
-        let keys = read_map.keys().cloned().collect();
-        let values = read_map.values().cloned().collect();
+        let variables = map.variables();
+        let keys = variables.keys().cloned().collect();
+        let values = variables.values().cloned().collect();
         let mut table = Table::new(keys);
 
         table
