@@ -65,7 +65,7 @@ impl Display for ValueType {
             ValueType::Boolean => write!(f, "boolean"),
             ValueType::List(list) => {
                 write!(f, "(")?;
-                for (index, item) in list.into_iter().enumerate() {
+                for (index, item) in list.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;
                     }

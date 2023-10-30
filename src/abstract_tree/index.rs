@@ -63,7 +63,7 @@ impl AbstractTree for Index {
 
                 Ok(Value::String(item.to_string()))
             }
-            _ => return Err(Error::ExpectedCollection { actual: value }),
+            _ => Err(Error::ExpectedCollection { actual: value }),
         }
     }
 }

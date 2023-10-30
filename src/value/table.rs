@@ -154,7 +154,7 @@ impl Display for Table {
                             string.push_str(&value.to_string());
                         }
 
-                        string.push_str(")");
+                        string.push(')');
 
                         string
                     }

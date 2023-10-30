@@ -56,7 +56,7 @@ impl AbstractTree for Select {
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = self.expression.run(source, context)?;
         let old_table = value.as_table()?;
-        let column_names = if self.identifiers.len() > 0 {
+        let column_names = if !self.identifiers.is_empty() {
             self.identifiers
                 .iter()
                 .cloned()

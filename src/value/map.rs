@@ -105,12 +105,12 @@ impl PartialOrd for Map {
 
 impl Display for Map {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{{\n")?;
+        writeln!(f, "{{")?;
 
         let variables = self.variables.read().unwrap().clone().into_iter();
 
         for (key, value) in variables {
-            write!(f, "  {key} = {value}\n")?;
+            writeln!(f, "  {key} = {value}")?;
         }
         write!(f, "}}")
     }

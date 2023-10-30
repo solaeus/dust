@@ -65,7 +65,7 @@ impl AbstractTree for IfElse {
         } else {
             let expressions = &self.else_if_expressions;
 
-            for (index, expression) in expressions.into_iter().enumerate() {
+            for (index, expression) in expressions.iter().enumerate() {
                 let if_boolean = expression.run(source, context)?.as_boolean()?;
 
                 if if_boolean {

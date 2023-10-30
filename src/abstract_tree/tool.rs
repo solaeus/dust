@@ -604,7 +604,7 @@ impl AbstractTree for Tool {
                     .headers()
                     .iter()
                     .cloned()
-                    .map(|column_name| Value::String(column_name))
+                    .map(Value::String)
                     .collect();
 
                 Ok(Value::List(List::with_items(column_names)))
