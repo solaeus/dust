@@ -1,0 +1,80 @@
+==================
+Indexing
+==================
+
+dust_data:1:name
+
+creature:total_clams
+
+foobar:1:42
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (index
+          (expression
+            (index
+              (expression
+                (identifier))
+              (expression
+                (value
+                  (integer)))))
+          (expression
+            (identifier))))))
+  (item
+    (statement
+      (expression
+        (index
+          (expression
+            (identifier))
+          (expression
+            (identifier))))))
+  (item
+    (statement
+      (expression
+        (index
+          (expression
+            (index
+              (expression
+                (identifier))
+              (expression
+                (value
+                  (integer)))))
+          (expression
+            (value
+              (integer))))))))
+              
+==================
+Sublist
+==================
+
+['answers', 42, 666]:1..2
+
+---
+
+(root
+  (item
+    (statement
+      (expression
+        (index
+          (expression
+            (value
+              (list
+                (expression
+                  (value
+                    (string)))
+                (expression
+                  (value
+                    (integer)))
+                (expression
+                  (value
+                    (integer))))))
+          (expression
+            (value
+              (integer)))
+          (expression
+            (value
+              (integer))))))))

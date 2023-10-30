@@ -43,21 +43,3 @@ x = {
                 (expression
                   (value
                     (integer)))))))))))
-
-==================
-Map Access
-==================
-
-x.{answer}
-
----
-
-(root
-    (item
-      (statement
-        (expression
-          (index
-            (expression
-              (identifier))
-            (expression
-              (identifier)))))))

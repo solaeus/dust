@@ -15,10 +15,10 @@ impl AbstractTree for Index {
         let collection_node = node.child(0).unwrap();
         let collection = Expression::from_syntax_node(source, collection_node)?;
 
-        let index_node = node.child(3).unwrap();
+        let index_node = node.child(2).unwrap();
         let index = Expression::from_syntax_node(source, index_node)?;
 
-        let index_end_node = node.child(5);
+        let index_end_node = node.child(4);
         let index_end = if let Some(index_end_node) = index_end_node {
             Some(Expression::from_syntax_node(source, index_end_node)?)
         } else {
@@ -52,10 +52,8 @@ impl AbstractTree for Index {
             }
             Value::Map(mut map) => {
                 let value = self.index.run(source, &mut map)?;
-                let index = value.as_string()?;
-                let item = map.variables().get(index).cloned().unwrap_or_default();
 
-                Ok(item)
+                Ok(value)
             }
             Value::String(string) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;

@@ -715,6 +715,10 @@
     "named": false
   },
   {
+    "type": ":",
+    "named": false
+  },
+  {
     "type": "<",
     "named": false
   },
@@ -760,10 +764,6 @@
   },
   {
     "type": "async",
-    "named": false
-  },
-  {
-    "type": "async for",
     "named": false
   },
   {

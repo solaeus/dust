@@ -1,0 +1,11 @@
+dictionary = {
+	dust = "awesome"
+	answer = 42
+}
+
+(output 
+	'Dust is '
+	+ dictionary.dust
+	+ '! The answer is ' 
+	+ dictionary.answer
+)

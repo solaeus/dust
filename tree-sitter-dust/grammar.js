@@ -91,14 +91,12 @@ module.exports = grammar({
 
     index: $ => prec.left(seq(
       $.expression,
-      '.',
-      '{',
+      ':',
       $.expression,
       optional(seq(
         '..',
         $.expression,
       )),
-      '}'
     )),
  
     function: $ => seq(
@@ -109,13 +107,13 @@ module.exports = grammar({
       '}',
     ),
 
-    table: $ => prec.right(seq(
+    table: $ => prec.left(seq(
       'table',
       seq('<', repeat1(seq($.identifier, optional(','))), '>'),
       $.expression,
     )),
 
-    math: $ => prec.left(1, seq(
+    math: $ => prec.left(seq(
       $.expression,
       $.math_operator,      
       $.expression,
@@ -129,7 +127,7 @@ module.exports = grammar({
       '%',
     ),
 
-    logic: $ => prec.right(1, seq(
+    logic: $ => prec.right(seq(
       $.expression,
       $.logic_operator,
       $.expression,
@@ -161,7 +159,7 @@ module.exports = grammar({
     if_else: $ => prec.left(seq(
       $.if,
       repeat(seq($.else_if)),
-      optional(seq($.else)),
+      optional($.else),
     )),
 
     if: $ => seq(
@@ -203,7 +201,7 @@ module.exports = grammar({
     ),
 
     for: $ => seq(
-      choice('for', 'async for'),
+      'for',
       $.identifier,
       'in',
       $.expression,
