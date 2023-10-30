@@ -45,8 +45,7 @@ fn main() {
     if let Some(input) = args.input {
         context
             .variables_mut()
-            .insert("input".to_string(), Value::String(input))
-            .unwrap();
+            .insert("input".to_string(), Value::String(input));
     }
 
     if let Some(path) = args.input_path {
@@ -54,8 +53,7 @@ fn main() {
 
         context
             .variables_mut()
-            .insert("input".to_string(), Value::String(file_contents))
-            .unwrap();
+            .insert("input".to_string(), Value::String(file_contents));
     }
 
     let eval_result = if let Some(path) = args.path {
