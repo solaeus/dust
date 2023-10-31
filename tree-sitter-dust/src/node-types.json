@@ -128,24 +128,47 @@
   {
     "type": "filter",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "item",
-          "named": true
-        }
-      ]
+    "fields": {
+      "collection": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "count": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "item_id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "predicate": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "item",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -392,6 +415,25 @@
     }
   },
   {
+    "type": "match",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "item",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "math",
     "named": true,
     "fields": {},
@@ -518,6 +560,10 @@
         },
         {
           "type": "insert",
+          "named": true
+        },
+        {
+          "type": "match",
           "named": true
         },
         {
@@ -703,10 +749,6 @@
     "named": false
   },
   {
-    "type": ".",
-    "named": false
-  },
-  {
     "type": "..",
     "named": false
   },
@@ -732,6 +774,10 @@
   },
   {
     "type": "==",
+    "named": false
+  },
+  {
+    "type": "=>",
     "named": false
   },
   {
@@ -844,6 +890,10 @@
   },
   {
     "type": "length",
+    "named": false
+  },
+  {
+    "type": "match",
     "named": false
   },
   {

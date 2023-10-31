@@ -1,6 +1,6 @@
 list = [1 2 3]
 
-async for i in list {
+for i in list {
 	i += 1
 	(output i)
 }

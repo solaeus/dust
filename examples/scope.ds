@@ -6,8 +6,8 @@ func = function <> {
 	x
 }
 
-assert_equal("foo", (func))
-assert_equal("bar", x)
+(assert_equal "foo", (func))
+(assert_equal "bar", x)
 
 # For Loop
 x = 42
@@ -16,7 +16,7 @@ for number in [1 2 3] {
 	x += number
 }
 
-assert_equal(48, x)
+(assert_equal 48, x)
 
 # Async Loops
 
@@ -30,8 +30,8 @@ transform number in y {
 	x = 1000
 }
  
-assert_equal([43, 44, 45], y)
-assert_equal(42, x)
+(assert_equal [43, 44, 45], y)
+(assert_equal 42, x)
 
 ## Filter Loop
 
@@ -43,8 +43,8 @@ transform number in y {
 	x = 1000
 }
  
-assert_equal([43, 44, 45], y)
-assert_equal(42, x)
+(assert_equal [43, 44, 45], y)
+(assert_equal 42, x)
 
 ## Filter Loop
 
@@ -56,5 +56,5 @@ filter number in y {
 	x = 1000
 }
  
-assert_equal([43, 44, 45], y)
-assert_equal(42, x)
+(assert_equal [43, 44, 45], y)
+(assert_equal 42, x)

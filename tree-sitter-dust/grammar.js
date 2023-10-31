@@ -22,6 +22,7 @@ module.exports = grammar({
       $.filter,
       $.find,
       $.remove,
+      $.match,
     )),
   
     comment: $ => seq(/[#]+.*/),
@@ -54,21 +55,19 @@ module.exports = grammar({
       $.map,
     ),
 
-    _numeric: $ => token(repeat1(
-      choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
-    )),
+    integer: $ => prec.left(token(seq(
+      optional('-'),
+      repeat1(
+        choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
+      ),
+    ))),
 
-    integer: $ => prec.left(seq(
-      optional(token.immediate('-')),
-      $._numeric,
-    )),
-
-    float: $ => prec.left(seq(
-      optional(token.immediate('-')),
-      $._numeric,
-      token.immediate('.'),
-      $._numeric,
-    )),
+    float: $ => prec.left(token(seq(
+      optional('-'),
+      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
+      '.',
+      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
+    ))),
 
     string: $ => /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
@@ -192,6 +191,18 @@ module.exports = grammar({
       ')',
     )),
 
+    match: $ => seq(
+      'match',
+      $.expression,
+      '{',
+      repeat1(seq(
+        $.expression,
+        '=>',
+        $.item,
+      )),
+      '}',
+    ),
+
     while: $ => seq(
       'while',
       $.expression,
@@ -222,11 +233,12 @@ module.exports = grammar({
 
     filter: $ => seq(
       'filter',
-      $.identifier,
+      field('count', optional($.expression)),
+      field('item_id', $.identifier),
       'in',
-      $.expression,
+      field('collection', $.expression),
       '{',
-      $.item,
+      field('predicate', $.item),
       '}',
     ),
 

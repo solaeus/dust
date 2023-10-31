@@ -21,16 +21,16 @@ remove_card = function <opponent_card> {
 }
 
 make_guess = function <current_room> {
-	if ((length suspects) == 1)
-		&& ((length rooms) == 1)
-		&& ((length weapons) == 1)
+	if (length suspects) == 1
+		&& (length rooms) == 1
+		&& (length weapons) == 1
 	{
 		(output 'It was '
-			+ suspects.{0}
+			+ suspects:0
 			+ ' in the '
-			+ rooms.{0} 
+			+ rooms:0 
 			+ ' with the '
-			+ weapons.{0}
+			+ weapons:0
 			+ '!')
 	} else {
 		(output 'I accuse '

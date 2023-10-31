@@ -2,7 +2,7 @@
 Filter Loop
 ==================
 
-filter i in [1, 2, 3] {
+filter 1 i in [1, 2, 3] {
   i <= 1 
 }
 
@@ -12,6 +12,9 @@ filter i in [1, 2, 3] {
   (item
     (statement
       (filter
+        (expression
+          (value
+            (integer)))
         (identifier)
         (expression
           (value
