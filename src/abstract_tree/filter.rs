@@ -2,14 +2,14 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Identifier, List, Map, Result, Statement, Value};
+use crate::{AbstractTree, Block, Error, Expression, Identifier, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Filter {
     count: Option<Expression>,
     item_id: Identifier,
     collection: Expression,
-    predicate: Statement,
+    predicate: Block,
 }
 
 impl AbstractTree for Filter {
@@ -26,7 +26,7 @@ impl AbstractTree for Filter {
         let collection = Expression::from_syntax_node(source, collection_node)?;
 
         let predicate_node = node.child(5).unwrap();
-        let predicate = Statement::from_syntax_node(source, predicate_node)?;
+        let predicate = Block::from_syntax_node(source, predicate_node)?;
 
         Ok(Filter {
             count,

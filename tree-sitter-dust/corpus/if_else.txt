@@ -123,7 +123,7 @@ if true {
 If Else
 ==================
 
-if false { "True" } else { "False" }
+if false "True" else "False"
 
 ---
 
@@ -198,15 +198,14 @@ if 1 == 1 {
 If Else Else If Else
 ==================
 
-if false {
+if false
   "no"
-} else if false {
+else if false
   "no"
-} else if 1 + 1 == 9 {
+else if 1 + 1 == 9
   "not the answer"
-} else {
+else
   "42"
-}
 
 ---
 

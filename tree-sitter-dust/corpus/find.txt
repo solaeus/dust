@@ -98,7 +98,8 @@ find i in ["one", "two", "three"] {
                 (expression
                   (logic
                     (expression
-                      (tool
+                      (function_call
+                        (built_in_function)
                         (expression
                           (identifier))))
                     (logic_operator)

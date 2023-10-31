@@ -8,6 +8,7 @@
 
 pub mod assignment;
 pub mod r#async;
+pub mod block;
 pub mod expression;
 pub mod filter;
 pub mod find;
@@ -30,9 +31,10 @@ pub mod value_node;
 pub mod r#while;
 
 pub use {
-    assignment::*, expression::*, filter::*, find::*, function_call::*, identifier::*, if_else::*,
-    index::*, insert::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*,
-    remove::*, select::*, statement::*, sublist::*, tool::*, transform::*, value_node::*,
+    assignment::*, block::*, expression::*, filter::*, find::*, function_call::*, identifier::*,
+    if_else::*, index::*, insert::*, logic::*, math::*, r#async::*, r#for::*, r#match::*,
+    r#while::*, remove::*, select::*, statement::*, sublist::*, tool::*, transform::*,
+    value_node::*,
 };
 
 use tree_sitter::Node;

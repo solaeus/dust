@@ -2,13 +2,13 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, List, Map, Result, Statement, Value};
+use crate::{AbstractTree, Block, Expression, Identifier, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Transform {
     identifier: Identifier,
     expression: Expression,
-    item: Statement,
+    item: Block,
 }
 
 impl AbstractTree for Transform {
@@ -20,7 +20,7 @@ impl AbstractTree for Transform {
         let expression = Expression::from_syntax_node(source, expression_node)?;
 
         let item_node = node.child(5).unwrap();
-        let item = Statement::from_syntax_node(source, item_node)?;
+        let item = Block::from_syntax_node(source, item_node)?;
 
         Ok(Transform {
             identifier,

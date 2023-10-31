@@ -5,6 +5,10 @@ module.exports = grammar({
 
   extras: $ => [ /\s/, $.comment ],
 
+  conflicts: $ => [
+    [$.map, $.assignment_operator],
+  ],
+
   rules: {
     root: $ => repeat1($.block),
 
@@ -15,7 +19,12 @@ module.exports = grammar({
       seq('{', repeat1($.statement), '}'),
     )),
 
-    statement: $ => prec.left(choice(
+    statement: $ => prec.right(seq(
+      $._statement_kind,
+      optional(';'),
+    )),
+
+    _statement_kind: $ => prec.right(choice(
       $.assignment,
       $.async,
       $.expression,
@@ -32,18 +41,17 @@ module.exports = grammar({
       $.while,
     )),
   
-    expression: $ => choice(
+    expression: $ => prec.left(choice(
       $._expression_kind,
       seq('(', $._expression_kind, ')'),
-    ),
+    )),
 
-    _expression_kind: $ => prec.left(choice(
+    _expression_kind: $ => prec.left(1, choice(
       $.function_call,
       $.identifier,
       $.index,
       $.logic,
       $.math,
-      $.tool,
       $.value,
     )),
 
@@ -89,15 +97,15 @@ module.exports = grammar({
 
     map: $ => seq(
       '{',
-      repeat(prec(1, seq(
+      repeat(seq(
         $.identifier,
-        '=',
-        $.expression,
+        "=",
+        $.statement,
         optional(',')
-      ))),
+      )),
       '}',
     ),
-
+ 
     index: $ => prec.left(seq(
       $.expression,
       ':',
@@ -165,51 +173,41 @@ module.exports = grammar({
 
     if_else: $ => prec.left(seq(
       $.if,
-      repeat(seq($.else_if)),
+      repeat($.else_if),
       optional($.else),
     )),
 
-    if: $ => seq(
+    if: $ => prec.left(seq(
       'if',
       $.expression,
-      '{',
       $.block,
-      '}',
-    ),
+    )),
 
-    else_if: $ => seq(
+    else_if: $ => prec.left(seq(
       'else if',
       $.expression,
-      '{',
       $.block,
-      '}',
-    ),
+    )),
 
-    else: $ => seq(
+    else: $ => prec.left(seq(
       'else',
-      '{',
       $.block,
-      '}',
-    ),
+    )),
 
-    function_call: $ => seq(
-      '(',
-      $.identifier,
-      repeat(prec.left(seq($.expression, optional(',')))),
-      ')',
-    ),
+    function_call: $ => prec.right(seq(
+      choice($.identifier, $.built_in_function),
+      repeat(prec.right(seq($.expression, optional(',')))),
+    )),
 
-    match: $ => seq(
+    match: $ => prec.right(seq(
       'match',
       $.expression,
-      '{',
       repeat1(seq(
         $.expression,
         '=>',
         $.block,
       )),
-      '}',
-    ),
+    )),
 
     while: $ => seq(
       'while',
@@ -290,14 +288,7 @@ module.exports = grammar({
       $.block,
     ),
 
-    tool: $ => seq(
-      '(',
-      $._tool_kind,
-      repeat(seq($.expression, optional(','))),
-      ')',
-    ),
-
-    _tool_kind: $ => choice(
+    built_in_function: $ => choice(
       // General
       'assert',
       'assert_equal',

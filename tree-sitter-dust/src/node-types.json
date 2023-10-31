@@ -63,6 +63,11 @@
     "fields": {}
   },
   {
+    "type": "built_in_function",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "else",
     "named": true,
     "fields": {},
@@ -122,10 +127,6 @@
         },
         {
           "type": "math",
-          "named": true
-        },
-        {
-          "type": "tool",
           "named": true
         },
         {
@@ -259,6 +260,10 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "built_in_function",
+          "named": true
+        },
         {
           "type": "expression",
           "named": true
@@ -399,11 +404,11 @@
       "required": false,
       "types": [
         {
-          "type": "expression",
+          "type": "identifier",
           "named": true
         },
         {
-          "type": "identifier",
+          "type": "statement",
           "named": true
         }
       ]
@@ -623,21 +628,6 @@
     }
   },
   {
-    "type": "tool",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "transform",
     "named": true,
     "fields": {},
@@ -776,6 +766,10 @@
   },
   {
     "type": ":",
+    "named": false
+  },
+  {
+    "type": ";",
     "named": false
   },
   {

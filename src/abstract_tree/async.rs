@@ -2,11 +2,11 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Statement, Value};
+use crate::{AbstractTree, Block, Error, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Async {
-    statements: Vec<Statement>,
+    statements: Vec<Block>,
 }
 
 impl AbstractTree for Async {
@@ -20,7 +20,7 @@ impl AbstractTree for Async {
             let child = node.child(index).unwrap();
 
             let statement = match child.kind() {
-                "statement" => Statement::from_syntax_node(source, child)?,
+                "statement" => Block::from_syntax_node(source, child)?,
                 _ => {
                     return Err(Error::UnexpectedSyntaxNode {
                         expected: "comment or statement",

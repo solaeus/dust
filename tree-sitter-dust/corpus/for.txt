@@ -28,9 +28,10 @@ for i in [1, 2, 3] {
         (block
           (statement
             (expression
-              (tool
-                (expression
-                  (identifier))))))))))
+              (function_call
+                (built_in_function)
+              (expression
+                (identifier))))))))))
 
 ==================
 Nested For Loop
@@ -60,6 +61,7 @@ for list in list_of_lists {
               (block
                 (statement
                   (expression
-                    (tool
-                      (expression
-                        (identifier)))))))))))))
+                    (function_call
+                      (built_in_function)
+                    (expression
+                      (identifier)))))))))))))

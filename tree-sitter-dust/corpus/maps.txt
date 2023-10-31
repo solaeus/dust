@@ -13,9 +13,10 @@ Simple Map
         (value
           (map
             (identifier)
-            (expression
-              (value
-                (integer)))))))))
+            (statement
+              (expression
+                (value
+                  (integer))))))))))
 
 ==================
 Nested Maps
@@ -44,22 +45,27 @@ x = {
             (value
               (map
                 (identifier)
-                (expression
-                  (value
-                    (map
-                      (identifier)
-                      (expression
-                        (value
-                          (string)))
-                      (identifier)
-                      (expression
-                        (value
-                          (map
-                            (identifier)
-                            (expression
-                              (value
-                                (string)))))))))
+                (statement
+                  (expression
+                    (value
+                      (map
+                        (identifier)
+                        (statement
+                          (expression
+                            (value
+                              (string))))
+                        (identifier)
+                        (statement
+                          (expression
+                            (value
+                              (map
+                                (identifier)
+                                (statement
+                                  (expression
+                                    (value
+                                      (string))))))))))))
                 (identifier)
-                (expression
-                  (value
-                    (integer)))))))))))
+                (statement
+                  (expression
+                    (value
+                      (integer))))))))))))

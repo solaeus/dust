@@ -2,19 +2,19 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Statement};
+use crate::{Block, Identifier};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
     parameters: Vec<Identifier>,
-    body: Box<Statement>,
+    body: Box<Block>,
 }
 
 impl Function {
-    pub fn new(identifiers: Vec<Identifier>, items: Statement) -> Self {
+    pub fn new(parameters: Vec<Identifier>, body: Block) -> Self {
         Function {
-            parameters: identifiers,
-            body: Box::new(items),
+            parameters,
+            body: Box::new(body),
         }
     }
 
@@ -22,7 +22,7 @@ impl Function {
         &self.parameters
     }
 
-    pub fn body(&self) -> &Statement {
+    pub fn body(&self) -> &Block {
         &self.body
     }
 }

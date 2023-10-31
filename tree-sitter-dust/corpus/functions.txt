@@ -58,12 +58,14 @@ function <message number> {
             (block
               (statement
                 (expression
-                  (tool
+                  (function_call
+                    (built_in_function)
                     (expression
                       (identifier)))))
               (statement
                 (expression
-                  (tool
+                  (function_call
+                    (built_in_function)
                     (expression
                       (identifier))))))))))))
 
@@ -98,10 +100,12 @@ Complex Function Call
             (value
               (map
                 (identifier)
-                (expression
-                  (value
-                    (integer)))
+                (statement
+                  (expression
+                    (value
+                      (integer))))
                 (identifier)
-                (expression
-                  (value
-                    (integer)))))))))))
+                (statement
+                  (expression
+                    (value
+                      (integer))))))))))))

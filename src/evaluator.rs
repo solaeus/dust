@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use tree_sitter::{Parser, Tree as TSTree};
 
-use crate::{language, AbstractTree, Map, Result, Statement, Value};
+use crate::{language, AbstractTree, Block, Map, Result, Value};
 
 /// Evaluate the given source code.
 ///
@@ -85,9 +85,9 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         let root_node = cursor.node();
         let mut prev_result = Ok(Value::Empty);
 
-        for item_node in root_node.children(&mut cursor) {
-            let item = Statement::from_syntax_node(self.source, item_node)?;
-            prev_result = item.run(self.source, self.context);
+        for block_node in root_node.children(&mut cursor) {
+            let block = Block::from_syntax_node(self.source, block_node)?;
+            prev_result = block.run(self.source, self.context);
         }
 
         prev_result
@@ -244,15 +244,12 @@ mod tests {
 
     #[test]
     fn evaluate_function_call() {
-        let mut context = Map::new();
-
         assert_eq!(
-            evaluate_with_context(
+            evaluate(
                 "
                 foobar = function <message> { message }
                 (foobar 'Hiya')
                 ",
-                &mut context
             ),
             Ok(Value::String("Hiya".to_string()))
         );

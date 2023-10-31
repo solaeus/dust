@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Map, Result, Statement, Value};
+use crate::{AbstractTree, Block, Expression, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
     expression: Expression,
-    statement: Statement,
+    block: Block,
 }
 
 impl AbstractTree for While {
@@ -16,18 +16,15 @@ impl AbstractTree for While {
         let expression_node = node.child(1).unwrap();
         let expression = Expression::from_syntax_node(source, expression_node)?;
 
-        let statement_node = node.child(3).unwrap();
-        let statement = Statement::from_syntax_node(source, statement_node)?;
+        let block_node = node.child(2).unwrap();
+        let block = Block::from_syntax_node(source, block_node)?;
 
-        Ok(While {
-            expression,
-            statement,
-        })
+        Ok(While { expression, block })
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         while self.expression.run(source, context)?.as_boolean()? {
-            self.statement.run(source, context)?;
+            self.block.run(source, context)?;
         }
 
         Ok(Value::Empty)

@@ -40,7 +40,7 @@ remove i from [1, 2, 3] {
 Nested Remove
 ==================
 
-removed = remove i from big_list {
+remove i from big_list {
   remove j from i {
     j != 42
   }
@@ -51,27 +51,23 @@ removed = remove i from big_list {
 (root
   (block
     (statement
-      (assignment
+      (remove
         (identifier)
-        (assignment_operator)
-        (statement
-          (remove
-            (identifier)
-            (expression
-              (identifier))
-            (block
-              (statement
-                (remove
-                  (identifier)
+        (expression
+          (identifier))
+        (block
+          (statement
+            (remove
+              (identifier)
+              (expression
+                (identifier))
+              (block
+                (statement
                   (expression
-                    (identifier))
-                  (block
-                    (statement
+                    (logic
                       (expression
-                        (logic
-                          (expression
-                            (identifier))
-                          (logic_operator)
-                          (expression
-                            (value
-                              (integer))))))))))))))))
+                        (identifier))
+                      (logic_operator)
+                      (expression
+                        (value
+                          (integer))))))))))))))
