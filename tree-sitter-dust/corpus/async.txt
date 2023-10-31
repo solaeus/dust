@@ -10,12 +10,13 @@ async { (output 'Whaddup') }
   (item
     (statement
       (async
-        (statement
-          (expression
-            (tool
-              (expression
-                (value
-                  (string))))))))))
+        (item
+          (statement
+            (expression
+              (tool
+                (expression
+                  (value
+                    (string)))))))))))
 
 ==================
 Complex Async Statements
@@ -23,12 +24,12 @@ Complex Async Statements
 
 async {
   if 1 % 2 == 0 {
-    (output 'true')
+    true
   } else {
-    (output 'false')
+    false
   }
 
-  (output 'foobar')
+  'foobar'
 }
 
 ---
@@ -37,106 +38,21 @@ async {
   (item
     (statement
       (async
-        (statement
-          (if_else
-            (if
-              (expression
-                (logic
-                  (expression
-                    (math
-                      (expression
-                        (value
-                          (integer)))
-                      (math_operator)
-                      (expression
-                        (value
-                          (integer)))))
-                  (logic_operator)
-                  (expression
-                    (value
-                      (integer)))))
-              (statement
-                (expression
-                  (tool
-                    (expression
-                      (value
-                        (string)))))))
-            (else
-              (statement
-                (expression
-                  (tool
-                    (expression
-                      (value
-                        (string)))))))))
-        (statement
-          (expression
-            (tool
-              (expression
-                (value
-                  (string))))))))))
-                    
-==================
-Simple Async Await Statements
-==================
-
-x = async {
-  1
-}
-
-
----
-
-(root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (async
-            (statement
-              (expression
-                (value
-                  (integer))))))))))
-                    
-==================
-Complex Async Await Statements
-==================
-
-x = async {
-  i = 0
-  while i < 5 {
-    (output i)
-    i += 1
-  }
-  (read "examples/assets/faithful.csv")
-}
-
-
----
-
-(root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (async
-            (statement
-              (assignment
-                (identifier)
-                (assignment_operator)
-                (statement
-                  (expression
-                    (value
-                      (integer))))))
-            (statement
-              (while
+        (item
+          (statement
+            (if_else
+              (if
                 (expression
                   (logic
                     (expression
-                      (identifier))
+                      (math
+                        (expression
+                          (value
+                            (integer)))
+                        (math_operator)
+                        (expression
+                          (value
+                            (integer)))))
                     (logic_operator)
                     (expression
                       (value
@@ -144,20 +60,15 @@ x = async {
                 (item
                   (statement
                     (expression
-                      (tool
-                        (expression
-                          (identifier)))))
+                      (value
+                        (boolean))))))
+              (else
+                (item
                   (statement
-                    (assignment
-                      (identifier)
-                      (assignment_operator)
-                      (statement
-                        (expression
-                          (value
-                            (integer)))))))))
-            (statement
-              (expression
-                (tool
-                  (expression
-                    (value
-                      (string))))))))))))
+                    (expression
+                      (value
+                        (boolean))))))))
+          (statement
+            (expression
+              (value
+                (string)))))))))

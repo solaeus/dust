@@ -17,10 +17,9 @@ impl AbstractTree for For {
         let for_node = node.child(0).unwrap();
         let is_async = match for_node.kind() {
             "for" => false,
-            "async for" => true,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "\"for\" or \"async for\"",
+                    expected: "for",
                     actual: for_node.kind(),
                     location: for_node.start_position(),
                     relevant_source: source[for_node.byte_range()].to_string(),

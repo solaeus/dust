@@ -128,24 +128,47 @@
   {
     "type": "filter",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "item",
-          "named": true
-        }
-      ]
+    "fields": {
+      "collection": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "count": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "predicate": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "statement",
+            "named": true
+          }
+        ]
+      },
+      "statement_id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -165,7 +188,7 @@
           "named": true
         },
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -193,7 +216,7 @@
           "named": true
         },
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -212,7 +235,7 @@
           "named": true
         },
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -319,21 +342,6 @@
     "fields": {}
   },
   {
-    "type": "item",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "statement",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "list",
     "named": true,
     "fields": {},
@@ -377,15 +385,30 @@
     "named": true,
     "fields": {},
     "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "assignment",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "match",
+    "named": true,
+    "fields": {},
+    "children": {
       "multiple": true,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "expression",
           "named": true
         },
         {
-          "type": "identifier",
+          "type": "statement",
           "named": true
         }
       ]
@@ -416,6 +439,29 @@
     "fields": {}
   },
   {
+    "type": "reduce",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "remove",
     "named": true,
     "fields": {},
@@ -432,7 +478,7 @@
           "named": true
         },
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -447,7 +493,7 @@
       "required": true,
       "types": [
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -470,7 +516,7 @@
           "named": true
         },
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -481,7 +527,7 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "types": [
         {
@@ -518,6 +564,14 @@
         },
         {
           "type": "insert",
+          "named": true
+        },
+        {
+          "type": "match",
+          "named": true
+        },
+        {
+          "type": "reduce",
           "named": true
         },
         {
@@ -590,7 +644,7 @@
           "named": true
         },
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -652,7 +706,7 @@
           "named": true
         },
         {
-          "type": "item",
+          "type": "statement",
           "named": true
         }
       ]
@@ -703,10 +757,6 @@
     "named": false
   },
   {
-    "type": ".",
-    "named": false
-  },
-  {
     "type": "..",
     "named": false
   },
@@ -732,6 +782,10 @@
   },
   {
     "type": "==",
+    "named": false
+  },
+  {
+    "type": "=>",
     "named": false
   },
   {
@@ -847,6 +901,10 @@
     "named": false
   },
   {
+    "type": "match",
+    "named": false
+  },
+  {
     "type": "metadata",
     "named": false
   },
@@ -887,6 +945,10 @@
     "named": false
   },
   {
+    "type": "reduce",
+    "named": false
+  },
+  {
     "type": "remove",
     "named": false
   },
@@ -912,6 +974,10 @@
   },
   {
     "type": "table",
+    "named": false
+  },
+  {
+    "type": "to",
     "named": false
   },
   {

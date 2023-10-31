@@ -1,5 +1,5 @@
 data = (from_json (read "examples/assets/jq_data.json"))
 
 transform item in data {
-	item.{commit}.{committer}.{name}
+	item:commit:committer:name
 }

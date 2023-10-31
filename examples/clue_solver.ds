@@ -10,7 +10,7 @@ take_turn = function <current_room opponent_card> {
 
 remove_card = function <opponent_card> {
 	for card_list in cards {
-		removed = remove card in card_list {
+		removed = remove card from card_list {
 			card == opponent_card
 		}
 	}
@@ -21,16 +21,16 @@ remove_card = function <opponent_card> {
 }
 
 make_guess = function <current_room> {
-	if ((length suspects) == 1)
-		&& ((length rooms) == 1)
-		&& ((length weapons) == 1)
+	if (length suspects) == 1
+		&& (length rooms) == 1
+		&& (length weapons) == 1
 	{
 		(output 'It was '
-			+ suspects.{0}
+			+ suspects:0
 			+ ' in the '
-			+ rooms.{0} 
+			+ rooms:0 
 			+ ' with the '
-			+ weapons.{0}
+			+ weapons:0
 			+ '!')
 	} else {
 		(output 'I accuse '
@@ -42,3 +42,5 @@ make_guess = function <current_room> {
 			+ '!')
 	}
 }
+
+(make_guess 'Library')

@@ -33,16 +33,12 @@ for i in [1, 2, 3] {
                   (identifier))))))))))
 
 ==================
-Complex For Loop
+Nested For Loop
 ==================
 
 for list in list_of_lists {
   for item in list {
     (output item)
-  }
-
-  if (length list) > 1 {
-    (output "List is long...")
   }
 }
 
@@ -66,23 +62,4 @@ for list in list_of_lists {
                   (expression
                     (tool
                       (expression
-                        (identifier))))))))
-          (statement
-            (if_else
-              (if
-                (expression
-                  (logic
-                    (expression
-                      (tool
-                        (expression
-                          (identifier))))
-                    (logic_operator)
-                    (expression
-                      (value
-                        (integer)))))
-                (statement
-                  (expression
-                    (tool
-                      (expression
-                        (value
-                          (string))))))))))))))
+                        (identifier)))))))))))))

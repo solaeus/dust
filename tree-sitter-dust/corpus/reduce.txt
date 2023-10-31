@@ -1,9 +1,9 @@
 ==================
-Remove Loop
+Reduce Loop
 ==================
 
-remove i from [1, 2, 3] {
-  i <= 2
+reduce i to acc in [1, 2, 3] {
+  acc += i
 }
 
 ---
@@ -11,7 +11,8 @@ remove i from [1, 2, 3] {
 (root
   (item
     (statement
-      (remove
+      (reduce
+        (identifier)
         (identifier)
         (expression
           (value
@@ -27,21 +28,19 @@ remove i from [1, 2, 3] {
                   (integer))))))
         (item
           (statement
-            (expression
-              (logic
+            (assignment
+              (identifier)
+              (assignment_operator)
+              (statement
                 (expression
-                  (identifier))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))))))))
+                  (identifier))))))))))
 
 ==================
-Remove Loop Assignment
+Reduce Loop Assignment
 ==================
 
-removed = remove i from ["one", "two", "three"] {
-  i == "two"
+together = reduce i to acc in ["one", "two", "three"] {
+  acc += i
 }
 
 ---
@@ -53,7 +52,8 @@ removed = remove i from ["one", "two", "three"] {
         (identifier)
         (assignment_operator)
         (statement
-          (remove
+          (reduce
+            (identifier)
             (identifier)
             (expression
               (value
@@ -69,11 +69,9 @@ removed = remove i from ["one", "two", "three"] {
                       (string))))))
             (item
               (statement
-                (expression
-                  (logic
+                (assignment
+                  (identifier)
+                  (assignment_operator)
+                  (statement
                     (expression
-                      (identifier))
-                    (logic_operator)
-                    (expression
-                      (value
-                        (string)))))))))))))
+                      (identifier))))))))))))

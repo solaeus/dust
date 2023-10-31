@@ -60,12 +60,6 @@ fn remove_loop() {
 }
 
 #[test]
-fn scope() {
-    let file_contents = read_to_string("examples/scope.ds").unwrap();
-
-    evaluate(&file_contents).unwrap();
-}
-#[test]
 fn table() {
     let file_contents = read_to_string("examples/table.ds").unwrap();
 

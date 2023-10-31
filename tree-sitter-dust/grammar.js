@@ -4,24 +4,29 @@ module.exports = grammar({
   word: $ => $.identifier,
 
   rules: {
-    root: $ => repeat1($.item),
-
-    item: $ => prec.left(repeat1($.statement)),
+    root: $ => repeat1($.statement),
 
     statement: $ => prec.left(choice(
-      $.comment,
+      repeat1($._statement_kind),
+      seq('{', $._statement_kind, '}'),
+    // ))
+
+    _statement_kind: $ => prec.left(choice(
       $.assignment,
-      $.expression,
-      $.if_else,
-      $.insert,
-      $.select,
-      $.while,
       $.async,
-      $.for,
-      $.transform,
+      $.comment,
+      $.expression,
       $.filter,
       $.find,
+      $.for,
+      $.if_else,
+      $.insert,
+      $.match,
+      $.reduce,
       $.remove,
+      $.select,
+      $.transform,
+      $.while,
     )),
   
     comment: $ => seq(/[#]+.*/),
@@ -32,13 +37,13 @@ module.exports = grammar({
     ),
 
     _expression_kind: $ => choice(
-      $.value,
+      $.function_call,
       $.identifier,
       $.index,
-      $.math,
       $.logic,
-      $.function_call,
+      $.math,
       $.tool,
+      $.value,
     ),
 
     identifier: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
@@ -54,21 +59,19 @@ module.exports = grammar({
       $.map,
     ),
 
-    _numeric: $ => token(repeat1(
-      choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
-    )),
+    integer: $ => prec.left(token(seq(
+      optional('-'),
+      repeat1(
+        choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
+      ),
+    ))),
 
-    integer: $ => prec.left(seq(
-      optional(token.immediate('-')),
-      $._numeric,
-    )),
-
-    float: $ => prec.left(seq(
-      optional(token.immediate('-')),
-      $._numeric,
-      token.immediate('.'),
-      $._numeric,
-    )),
+    float: $ => prec.left(token(seq(
+      optional('-'),
+      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
+      '.',
+      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
+    ))),
 
     string: $ => /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
@@ -85,7 +88,7 @@ module.exports = grammar({
 
     map: $ => seq(
       '{',
-      repeat(seq($.identifier, "=", $.expression)),
+      $.assignment,
       '}',
     ),
 
@@ -103,7 +106,7 @@ module.exports = grammar({
       'function',
       optional(seq('<', repeat(seq($.identifier, optional(','))), '>')),
       '{',
-      $.item,
+      $.statement,
       '}',
     ),
 
@@ -192,11 +195,23 @@ module.exports = grammar({
       ')',
     )),
 
+    match: $ => seq(
+      'match',
+      $.expression,
+      '{',
+      repeat1(seq(
+        $.expression,
+        '=>',
+        $.statement,
+      )),
+      '}',
+    ),
+
     while: $ => seq(
       'while',
       $.expression,
       '{',
-      $.item,
+      $.statement,
       '}',      
     ),
 
@@ -206,7 +221,7 @@ module.exports = grammar({
       'in',
       $.expression,
       '{',
-      $.item,
+      $.statement,
       '}',
     ),
 
@@ -216,17 +231,18 @@ module.exports = grammar({
       'in',
       $.expression,
       '{',
-      $.item,
+      $.statement,
       '}',
     ),
 
     filter: $ => seq(
       'filter',
-      $.identifier,
+      field('count', optional($.expression)),
+      field('statement_id', $.identifier),
       'in',
-      $.expression,
+      field('collection', $.expression),
       '{',
-      $.item,
+      field('predicate', $.statement),
       '}',
     ),
 
@@ -236,17 +252,29 @@ module.exports = grammar({
       'in',
       $.expression,
       '{',
-      $.item,
+      $.statement,
       '}',
     ),
 
     remove: $ => seq(
       'remove',
       $.identifier,
+      'from',
+      $.expression,
+      '{',
+      $.statement,
+      '}',
+    ),
+
+    reduce: $ => seq(
+      'reduce',
+      $.identifier,
+      'to',
+      $.identifier,
       'in',
       $.expression,
       '{',
-      $.item,
+      $.statement,
       '}',
     ),
 
@@ -257,7 +285,7 @@ module.exports = grammar({
       '>',
       'from',
       $.expression,
-      optional(seq('{', $.item, '}')),
+      optional(seq('{', $.statement, '}')),
     )),
 
     insert: $ => prec.right(seq(
