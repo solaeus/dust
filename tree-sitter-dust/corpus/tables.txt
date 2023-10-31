@@ -2,22 +2,23 @@
 Table Declaration
 ==================
 
-table <messages, numbers> [
-    ['hiya', 42]
-    ['foo', 57]
-    ['bar', 99.99]
+table messages numbers [
+    ['hiya' 42]
+    ['foo'  57]
+    ['bar'  99.99]
 ]
 
 ---
 
 (root
   (block
-    (statement
+   (statement
       (expression
         (value
           (table
-            (identifier)
-            (identifier)
+            (parameter_list
+              (identifier)
+              (identifier))
             (expression
               (value
                 (list
@@ -63,7 +64,8 @@ select <number> from foobar {
   (block
     (statement
       (select
-        (identifier)
+        (parameter_list
+          (identifier))
         (expression
           (identifier))
         (block

@@ -53,8 +53,9 @@ function <message number> {
       (expression
         (value
           (function
-            (identifier)
-            (identifier)
+            (parameter_list
+              (identifier)
+              (identifier))
             (block
               (statement
                 (expression

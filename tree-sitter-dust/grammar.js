@@ -19,24 +19,27 @@ module.exports = grammar({
       seq('{', repeat1($.statement), '}'),
     )),
 
-    statement: $ => prec.right(choice(
-      $.assignment,
-      $.async,
-      $.expression,
-      $.filter,
-      $.find,
-      $.for,
-      $.if_else,
-      $.insert,
-      $.match,
-      $.reduce,
-      $.remove,
-      $.select,
-      $.transform,
-      $.while,
+    statement: $ => prec.right(seq(
+      choice(
+        $.assignment,
+        $.async,
+        $.expression,
+        $.filter,
+        $.find,
+        $.for,
+        $.if_else,
+        $.insert,
+        $.match,
+        $.reduce,
+        $.remove,
+        $.select,
+        $.transform,
+        $.while,
+      ),
+      optional(';'),
     )),
   
-    expression: $ => prec.left(choice(
+    expression: $ => prec.right(choice(
       $._expression_kind,
       seq('(', $._expression_kind, ')'),
     )),
@@ -49,6 +52,8 @@ module.exports = grammar({
       $.math,
       $.value,
     )),
+
+    _expression_list: $ => repeat1(prec.right(seq($.expression, optional(',')))),
 
     identifier: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
 
@@ -111,9 +116,16 @@ module.exports = grammar({
       )),
     )),
 
-    table: $ => prec.left(seq(
+    _identifier_list: $ => repeat1(seq($.identifier, optional(','))),
+
+    parameter_list: $ => prec.right(choice(
+        $._identifier_list,
+        seq('<', $._identifier_list, '>'),
+    )),
+
+    table: $ => prec.right(seq(
       'table',
-      seq('<', repeat1(seq($.identifier, optional(','))), '>'),
+      $.parameter_list,
       $.expression,
     )),
 
@@ -160,28 +172,28 @@ module.exports = grammar({
       "-=",
     ),
 
-    if_else: $ => prec.left(seq(
+    if_else: $ => prec.right(seq(
       $.if,
       repeat($.else_if),
       optional($.else),
     )),
 
-    if: $ => prec.left(seq(
+    if: $ => seq(
       'if',
       $.expression,
       $.block,
-    )),
+    ),
 
-    else_if: $ => prec.left(seq(
+    else_if: $ => seq(
       'else if',
       $.expression,
       $.block,
-    )),
+    ),
 
-    else: $ => prec.left(seq(
+    else: $ => seq(
       'else',
       $.block,
-    )),
+    ),
 
     match: $ => prec.right(seq(
       'match',
@@ -252,9 +264,7 @@ module.exports = grammar({
 
     select: $ => prec.right(seq(
       'select',
-      '<',
-      repeat(seq($.identifier, optional(','))),
-      '>',
+      $.parameter_list,
       'from',
       $.expression,
       optional($.block),
@@ -274,7 +284,7 @@ module.exports = grammar({
  
     function: $ => seq(
       'function',
-      optional(seq('<', repeat(seq($.identifier, optional(','))), '>')),
+      optional($.parameter_list),
       $.block,
     ),
 
@@ -285,12 +295,12 @@ module.exports = grammar({
 
     _context_defined_function: $ => prec.right(seq(
       $.identifier,
-      repeat(prec.right(seq($.expression, optional(',')))),
+      optional($._expression_list),
     )),
 
     built_in_function: $ => prec.right(seq(
       $._built_in_function_name,
-      repeat(prec.right(seq($.expression, optional(',')))),
+      optional($._expression_list),
     )),
 
     _built_in_function_name: $ => choice(

@@ -24,7 +24,7 @@ if true { "True" }
 Complex If
 ==================
 
-if 1 == 1 && 2 == 2 && 3 == 3 { "True" }
+if 1 == 1 && 2 == 2 && 3 == 3 "True" 
 
 ---
 
@@ -76,13 +76,11 @@ if 1 == 1 && 2 == 2 && 3 == 3 { "True" }
 Nested If
 ==================
 
-if true { 
-  if 42 == 12 {
+if true 
+  if 42 == 12
     'hiya'
-  } else {
+  else 
     'bye'
-  }
-}
 
 ---
 
