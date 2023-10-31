@@ -8,13 +8,10 @@ not_a_comment
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (identifier))))
-  (item
-    (statement
-      (comment))))
+  (statement
+    (expression
+      (identifier)))
+    (comment))
 
 ==================
 Partial Line Comments
@@ -25,10 +22,29 @@ not_a_comment # comment
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (identifier))))
-  (item
-    (statement
-      (comment))))
+  (statement
+    (expression
+      (identifier)))
+    (comment))
+
+==================
+Multiline Comments
+==================
+
+# comment #
+not_a_comment #
+# comment # "not a comment"
+
+---
+
+(root
+  (comment)
+  (statement
+    (expression
+      (identifier)))
+  (comment)
+  (comment)
+  (statement
+    (expression
+      (value
+        (string)))))

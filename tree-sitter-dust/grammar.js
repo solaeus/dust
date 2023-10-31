@@ -3,18 +3,21 @@ module.exports = grammar({
 
   word: $ => $.identifier,
 
+  extras: $ => [ /\s/, $.comment ],
+
   rules: {
     root: $ => repeat1($.statement),
 
+    comment: $ => /[#][^#\n]*[#|\n]/,
+
     statement: $ => prec.left(choice(
-      repeat1($._statement_kind),
+      $._statement_kind,
       seq('{', $._statement_kind, '}'),
-    // ))
+    )),
 
     _statement_kind: $ => prec.left(choice(
       $.assignment,
       $.async,
-      $.comment,
       $.expression,
       $.filter,
       $.find,
@@ -29,14 +32,12 @@ module.exports = grammar({
       $.while,
     )),
   
-    comment: $ => seq(/[#]+.*/),
-
     expression: $ => choice(
       $._expression_kind,
       seq('(', $._expression_kind, ')'),
     ),
 
-    _expression_kind: $ => choice(
+    _expression_kind: $ => prec.left(choice(
       $.function_call,
       $.identifier,
       $.index,
@@ -44,7 +45,7 @@ module.exports = grammar({
       $.math,
       $.tool,
       $.value,
-    ),
+    )),
 
     identifier: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
 
@@ -59,19 +60,9 @@ module.exports = grammar({
       $.map,
     ),
 
-    integer: $ => prec.left(token(seq(
-      optional('-'),
-      repeat1(
-        choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
-      ),
-    ))),
+    integer: $ => /0[bB][01](_?[01])*|0[oO]?[0-7](_?[0-7])*|(0[dD])?\d(_?\d)*|0[xX][0-9a-fA-F](_?[0-9a-fA-F])*/,
 
-    float: $ => prec.left(token(seq(
-      optional('-'),
-      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
-      '.',
-      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
-    ))),
+    float: $ => /\d(_?\d)*(\.\d)?(_?\d)*([eE][\+-]?\d(_?\d)*)?/,
 
     string: $ => /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
@@ -188,12 +179,12 @@ module.exports = grammar({
       '}',
     ),
 
-    function_call: $ => prec(1, seq(
+    function_call: $ => seq(
       '(',
       $.identifier,
       repeat(seq($.expression, optional(','))),
       ')',
-    )),
+    ),
 
     match: $ => seq(
       'match',

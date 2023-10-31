@@ -48,11 +48,6 @@
     "fields": {}
   },
   {
-    "type": "comment",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "else",
     "named": true,
     "fields": {},
@@ -195,11 +190,6 @@
     }
   },
   {
-    "type": "float",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "for",
     "named": true,
     "fields": {},
@@ -335,11 +325,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "integer",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "list",
@@ -527,7 +512,7 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": true,
       "types": [
         {
@@ -536,10 +521,6 @@
         },
         {
           "type": "async",
-          "named": true
-        },
-        {
-          "type": "comment",
           "named": true
         },
         {
@@ -829,6 +810,10 @@
     "named": false
   },
   {
+    "type": "comment",
+    "named": true
+  },
+  {
     "type": "download",
     "named": false
   },
@@ -855,6 +840,10 @@
   {
     "type": "fish",
     "named": false
+  },
+  {
+    "type": "float",
+    "named": true
   },
   {
     "type": "for",
@@ -891,6 +880,10 @@
   {
     "type": "insert",
     "named": false
+  },
+  {
+    "type": "integer",
+    "named": true
   },
   {
     "type": "into",

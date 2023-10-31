@@ -1,5 +1,5 @@
 ==================
-Remove Loop
+Simple Remove
 ==================
 
 remove i from [1, 2, 3] {
@@ -9,65 +9,58 @@ remove i from [1, 2, 3] {
 ---
 
 (root
-  (item
-    (statement
-      (remove
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (item
-          (statement
+  (statement
+    (remove
+      (identifier)
+      (expression
+        (value
+          (list
             (expression
-              (logic
-                (expression
-                  (identifier))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))))))))
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (statement
+        (expression
+          (logic
+            (expression
+              (identifier))
+            (logic_operator)
+            (expression
+              (value
+                (integer)))))))))
 
 ==================
-Remove Loop Assignment
+Nested Remove
 ==================
 
-removed = remove i from ["one", "two", "three"] {
-  i == "two"
+removed = remove i from big_list {
+  remove j from i {
+    j != 42
+  }
 }
 
 ---
 
 (root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (remove
-            (identifier)
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string))))))
-            (item
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (remove
+          (identifier)
+          (expression
+            (identifier))
+          (statement
+            (remove
+              (identifier)
+              (expression
+                (identifier))
               (statement
                 (expression
                   (logic
@@ -76,4 +69,4 @@ removed = remove i from ["one", "two", "three"] {
                     (logic_operator)
                     (expression
                       (value
-                        (string)))))))))))))
+                        (integer)))))))))))))

@@ -1,5 +1,5 @@
 ==================
-Reduce Loop
+Simple Reduce Loop
 ==================
 
 reduce i to acc in [1, 2, 3] {
@@ -9,69 +9,61 @@ reduce i to acc in [1, 2, 3] {
 ---
 
 (root
-  (item
-    (statement
-      (reduce
-        (identifier)
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (item
+  (statement
+    (reduce
+      (identifier)
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (statement
+        (assignment
+          (identifier)
+          (assignment_operator)
           (statement
-            (assignment
-              (identifier)
-              (assignment_operator)
-              (statement
-                (expression
-                  (identifier))))))))))
+            (expression
+              (identifier))))))))
 
 ==================
-Reduce Loop Assignment
+Nested Reduce Loop
 ==================
 
-together = reduce i to acc in ["one", "two", "three"] {
+reduce i to acc in ["one", "two", "three"] {
   acc += i
 }
 
 ---
 
 (root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (reduce
-            (identifier)
-            (identifier)
+  (statement
+    (reduce
+      (identifier)
+      (identifier)
+      (expression
+        (value
+          (list
             (expression
               (value
-                (list
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string))))))
-            (item
-              (statement
-                (assignment
-                  (identifier)
-                  (assignment_operator)
-                  (statement
-                    (expression
-                      (identifier))))))))))))
+                (string)))
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (string))))))
+      (statement
+        (assignment
+          (identifier)
+          (assignment_operator)
+          (statement
+            (expression
+              (identifier))))))))
