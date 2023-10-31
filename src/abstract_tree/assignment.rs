@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Value};
-
-use super::{identifier::Identifier, statement::Statement};
+use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {

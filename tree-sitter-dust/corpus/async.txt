@@ -7,14 +7,16 @@ async { (output 'Whaddup') }
 ---
 
 (root
-  (statement
-    (async
-      (statement
-        (expression
-          (tool
+  (block
+    (statement
+      (async
+        (block
+          (statement
             (expression
-              (value
-                (string)))))))))
+              (tool
+                (expression
+                  (value
+                    (string)))))))))))
 
 ==================
 Complex Async Statements
@@ -33,35 +35,40 @@ async {
 ---
 
 (root
-  (statement
-    (async
-      (statement
-        (if_else
-          (if
-            (expression
-              (logic
+  (block
+    (statement
+      (async
+        (block
+          (statement
+            (if_else
+              (if
                 (expression
-                  (math
+                  (logic
                     (expression
-                      (value
-                        (integer)))
-                    (math_operator)
+                      (math
+                        (expression
+                          (value
+                            (integer)))
+                        (math_operator)
+                        (expression
+                          (value
+                            (integer)))))
+                    (logic_operator)
                     (expression
                       (value
                         (integer)))))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))
-            (statement
-              (expression
-                (value
-                  (boolean)))))
-          (else
-            (statement
-              (expression
-                (value
-                  (boolean))))))
-        (expression
-          (value
-            (string)))))))
+                (block
+                  (statement
+                    (expression
+                      (value
+                        (boolean))))))
+              (else
+                (block
+                  (statement
+                    (expression
+                      (value
+                        (boolean))))))))
+          (statement
+            (expression
+              (value
+                (string)))))))))

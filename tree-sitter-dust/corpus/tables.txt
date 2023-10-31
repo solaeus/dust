@@ -11,42 +11,44 @@ table <messages, numbers> [
 ---
 
 (root
-  (statement
-    (expression
-      (value
-        (table
-          (identifier)
-          (identifier)
-          (expression
-            (value
-              (list
-                (expression
-                  (value
-                    (list
-                      (expression
-                        (value
-                          (string)))
-                      (expression
-                        (value
-                          (integer))))))
-                (expression
-                  (value
-                    (list
-                      (expression
-                        (value
-                          (string)))
-                      (expression
-                        (value
-                          (integer))))))
-                (expression
-                  (value
-                    (list
-                      (expression
-                        (value
-                          (string)))
-                      (expression
-                        (value
-                          (float))))))))))))))
+  (block
+    (statement
+      (expression
+        (value
+          (table
+            (identifier)
+            (identifier)
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (string)))
+                        (expression
+                          (value
+                            (integer))))))
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (string)))
+                        (expression
+                          (value
+                            (integer))))))
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (string)))
+                        (expression
+                          (value
+                            (float)))))))))))))))
+
 ==================
 Table Access
 ==================
@@ -58,20 +60,22 @@ select <number> from foobar {
 ---
 
 (root
-  (statement
-    (select
-      (identifier)
-      (expression
-        (identifier))
-      (statement
+  (block
+    (statement
+      (select
+        (identifier)
         (expression
-          (logic
+          (identifier))
+        (block
+          (statement
             (expression
-              (identifier))
-            (logic_operator)
-            (expression
-              (value
-                (string)))))))))
+              (logic
+                (expression
+                  (identifier))
+                (logic_operator)
+                (expression
+                  (value
+                    (string)))))))))))
 
 ==================
 Table Insert
@@ -84,18 +88,19 @@ insert into foobar [
 ---
 
 (root
-  (statement
-    (insert
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (integer))))))))))))
+  (block
+    (statement
+      (insert
+        (identifier)
+        (expression
+          (value
+            (list
+              (expression
+                (value
+                  (list
+                    (expression
+                      (value
+                        (string)))
+                    (expression
+                      (value
+                        (integer)))))))))))))

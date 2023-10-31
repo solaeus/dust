@@ -11,38 +11,39 @@ foobar:1:42
 ---
 
 (root
-  (statement
-    (expression
-      (index
+  (block
+    (statement
+      (expression
+        (index
+          (expression
+            (index
+              (expression
+                (identifier))
+              (expression
+                (value
+                  (integer)))))
+          (expression
+            (identifier)))))
+    (statement
+      (expression
+        (index
+          (expression
+            (identifier))
+          (expression
+            (identifier)))))
+      (statement
         (expression
           (index
             (expression
-              (identifier))
+              (index
+                (expression
+                  (identifier))
+                (expression
+                  (value
+                    (integer)))))
             (expression
               (value
-                (integer)))))
-        (expression
-          (identifier)))))
-  (statement
-    (expression
-      (index
-        (expression
-          (identifier))
-        (expression
-          (identifier)))))
-  (statement
-    (expression
-      (index
-        (expression
-          (index
-            (expression
-              (identifier))
-            (expression
-              (value
-                (integer)))))
-        (expression
-          (value
-            (integer)))))))
+                (integer))))))))
 
 ==================
 Nested Indexes
@@ -53,40 +54,41 @@ Nested Indexes
 ---
 
 (root
-  (statement
-    (expression
-      (index
+    (block
+      (statement
         (expression
           (index
             (expression
               (index
                 (expression
-                  (value
-                    (list
-                      (expression
-                        (value
-                          (list
-                            (expression
-                              (value
-                                (string)))
-                            (expression
-                              (value
-                                (string))))))
-                      (expression
-                        (value
-                          (integer)))
-                      (expression
-                        (value
-                          (integer))))))
+                  (index
+                    (expression
+                      (value
+                        (list
+                          (expression
+                            (value
+                              (list
+                                (expression
+                                  (value
+                                    (string)))
+                                (expression
+                                  (value
+                                    (string))))))
+                          (expression
+                            (value
+                              (integer)))
+                          (expression
+                            (value
+                              (integer))))))
+                    (expression
+                      (value
+                        (integer)))))
                 (expression
                   (value
                     (integer)))))
             (expression
               (value
-                (integer)))))
-        (expression
-          (value
-            (integer)))
-        (expression
-          (value
-            (integer)))))))
+                (integer)))
+            (expression
+              (value
+                (integer))))))))

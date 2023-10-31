@@ -1,5 +1,5 @@
 ==================
-Equality
+\==
 ==================
 
 3 == 1 + 1 + 1
@@ -7,28 +7,29 @@ Equality
 ---
 
 (root
-  (statement
-    (expression
-      (logic
-        (expression
-          (value
-            (integer)))
-        (logic_operator)
-        (expression
-          (math
-            (expression
-              (math
-                (expression
-                  (value
-                    (integer)))
-                (math_operator)
-                (expression
-                  (value
-                    (integer)))))
-            (math_operator)
-            (expression
-              (value
-                (integer)))))))))
+  (block
+    (statement
+      (expression
+        (logic
+          (expression
+            (value
+              (integer)))
+          (logic_operator)
+          (expression
+            (math
+              (expression
+                (math
+                  (expression
+                    (value
+                      (integer)))
+                  (math_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (math_operator)
+              (expression
+                (value
+                  (integer))))))))))
 
 ==================
 &&
@@ -39,28 +40,29 @@ Equality
 ---
 
 (root
-  (statement
-    (expression
-      (logic
-        (expression
-          (math
-            (expression
-              (value
-                (integer)))
-            (math_operator)
-            (expression
-              (value
-                (integer)))))
-        (logic_operator)
-        (expression
-          (logic
-            (expression
-              (value
-                (integer)))
-            (logic_operator)
-            (expression
-              (value
-                (boolean)))))))))
+  (block
+    (statement
+      (expression
+        (logic
+          (expression
+            (math
+              (expression
+                (value
+                  (integer)))
+              (math_operator)
+              (expression
+                (value
+                  (integer)))))
+          (logic_operator)
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (boolean))))))))))
 
 ==================
 \||
@@ -71,25 +73,26 @@ Equality
 ---
 
 (root
-  (statement
-    (expression
-      (logic
-        (expression
-          (math
-            (expression
-              (value
-                (integer)))
-            (math_operator)
-            (expression
-              (value
-                (integer)))))
-        (logic_operator)
-        (expression
-          (logic
-            (expression
-              (value
-                (integer)))
-            (logic_operator)
-            (expression
-              (value
-                (boolean)))))))))
+  (block
+    (statement
+      (expression
+        (logic
+          (expression
+            (math
+              (expression
+                (value
+                  (integer)))
+              (math_operator)
+              (expression
+                (value
+                  (integer)))))
+          (logic_operator)
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (boolean))))))))))

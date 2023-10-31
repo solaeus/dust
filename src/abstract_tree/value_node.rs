@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Function, Identifier, Item, List, Map, Result, Table, Value,
-    ValueType,
+    AbstractTree, Error, Expression, Function, Identifier, List, Map, Result, Statement, Table,
+    Value, ValueType,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -102,7 +102,7 @@ impl AbstractTree for ValueNode {
                 let mut identifiers = Vec::new();
 
                 let item_node = child.child(child.child_count() - 2).unwrap();
-                let item = Item::from_syntax_node(source, item_node)?;
+                let item = Statement::from_syntax_node(source, item_node)?;
 
                 for index in 1..child.child_count() - 3 {
                     let child_node = child.child(index).unwrap();

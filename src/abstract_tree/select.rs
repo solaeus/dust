@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Map, Result, Table, Value};
+use crate::{AbstractTree, Expression, Identifier, Map, Result, Statement, Table, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Select {
     identifiers: Vec<Identifier>,
     expression: Expression,
-    item: Option<Item>,
+    item: Option<Statement>,
 }
 
 impl AbstractTree for Select {
@@ -33,7 +33,7 @@ impl AbstractTree for Select {
         let item = if final_node.kind() == "}" {
             let item_node = node.child(child_count - 2).unwrap();
 
-            Some(Item::from_syntax_node(source, item_node)?)
+            Some(Statement::from_syntax_node(source, item_node)?)
         } else {
             None
         };

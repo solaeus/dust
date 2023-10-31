@@ -12,7 +12,6 @@ use crate::{
 /// Expression, it will always return a non-empty value when run.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
-    Comment(String),
     Assignment(Box<Assignment>),
     Expression(Expression),
     IfElse(Box<IfElse>),
@@ -35,12 +34,6 @@ impl AbstractTree for Statement {
         let child = node.child(0).unwrap();
 
         match child.kind() {
-            "comment" => {
-                let comment_node = node.child(0).unwrap();
-                let text = &source[comment_node.byte_range()];
-
-                Ok(Statement::Comment(text.to_string()))
-            }
             "assignment" => Ok(Statement::Assignment(Box::new(
                 Assignment::from_syntax_node(source, child)?,
             ))),
@@ -81,7 +74,7 @@ impl AbstractTree for Statement {
                 source, child,
             )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
-                expected: "comment, assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select or insert",
+                expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select or insert",
                 actual: child.kind(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),
@@ -91,7 +84,6 @@ impl AbstractTree for Statement {
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
-            Statement::Comment(comment) => Ok(Value::String(comment.clone())),
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),
             Statement::IfElse(if_else) => if_else.run(source, context),

@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, Identifier, Item, Map, Result, Value};
+use crate::{AbstractTree, Expression, Identifier, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Remove {
     identifier: Identifier,
     expression: Expression,
-    item: Item,
+    item: Statement,
 }
 
 impl AbstractTree for Remove {
@@ -19,7 +19,7 @@ impl AbstractTree for Remove {
         let expression = Expression::from_syntax_node(source, expression_node)?;
 
         let item_node = node.child(5).unwrap();
-        let item = Item::from_syntax_node(source, item_node)?;
+        let item = Statement::from_syntax_node(source, item_node)?;
 
         Ok(Remove {
             identifier,

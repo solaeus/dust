@@ -9,26 +9,28 @@ for i in [1, 2, 3] {
 ---
 
 (root
-  (statement
-    (for
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer))))))
-      (statement
+  (block
+    (statement
+      (for
+        (identifier)
         (expression
-          (tool
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (block
+          (statement
             (expression
-              (identifier))))))))
+              (tool
+                (expression
+                  (identifier))))))))))
 
 ==================
 Nested For Loop
@@ -43,18 +45,21 @@ for list in list_of_lists {
 ---
 
 (root
-  (statement
-    (for
-      (identifier)
-      (expression
-        (identifier))
-      (statement
-        (for
-          (identifier)
-          (expression
-            (identifier))
+  (block
+    (statement
+      (for
+        (identifier)
+        (expression
+          (identifier))
+        (block
           (statement
-            (expression
-              (tool
-                (expression
-                  (identifier))))))))))
+            (for
+              (identifier)
+              (expression
+                (identifier))
+              (block
+                (statement
+                  (expression
+                    (tool
+                      (expression
+                        (identifier)))))))))))))

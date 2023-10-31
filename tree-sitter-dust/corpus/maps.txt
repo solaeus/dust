@@ -7,14 +7,15 @@ Simple Map
 ---
 
 (root
-  (statement
-    (expression
-      (value
-        (map
-          (identifier)
-          (expression
-            (value
-              (integer))))))))
+  (block
+    (statement
+      (expression
+        (value
+          (map
+            (identifier)
+            (expression
+              (value
+                (integer)))))))))
 
 ==================
 Nested Maps
@@ -33,31 +34,32 @@ x = {
 ---
 
 (root
-  (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (map
-              (identifier)
-              (expression
-                (value
-                  (map
-                    (identifier)
-                    (expression
-                      (value
-                        (string)))
-                    (identifier)
-                    (expression
-                      (value
-                        (map
-                          (identifier)
-                          (expression
-                            (value
-                              (string)))))))))
-              (identifier)
-              (expression
-                (value
-                  (integer))))))))))
+  (block
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (value
+              (map
+                (identifier)
+                (expression
+                  (value
+                    (map
+                      (identifier)
+                      (expression
+                        (value
+                          (string)))
+                      (identifier)
+                      (expression
+                        (value
+                          (map
+                            (identifier)
+                            (expression
+                              (value
+                                (string)))))))))
+                (identifier)
+                (expression
+                  (value
+                    (integer)))))))))))

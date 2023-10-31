@@ -2,14 +2,14 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Identifier, Item, Map, Result, Value};
+use crate::{AbstractTree, Error, Expression, Identifier, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct For {
     is_async: bool,
     identifier: Identifier,
     expression: Expression,
-    item: Item,
+    item: Statement,
 }
 
 impl AbstractTree for For {
@@ -34,7 +34,7 @@ impl AbstractTree for For {
         let expression = Expression::from_syntax_node(source, expression_node)?;
 
         let item_node = node.child(5).unwrap();
-        let item = Item::from_syntax_node(source, item_node)?;
+        let item = Statement::from_syntax_node(source, item_node)?;
 
         Ok(For {
             is_async,

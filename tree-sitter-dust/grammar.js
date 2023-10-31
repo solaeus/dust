@@ -6,16 +6,16 @@ module.exports = grammar({
   extras: $ => [ /\s/, $.comment ],
 
   rules: {
-    root: $ => repeat1($.statement),
+    root: $ => repeat1($.block),
 
     comment: $ => /[#][^#\n]*[#|\n]/,
 
-    statement: $ => prec.left(choice(
-      repeat1($._statement_kind),
-      seq('{', repeat1($._statement_kind), '}'),
+    block: $ => prec.right(choice(
+      repeat1($.statement),
+      seq('{', repeat1($.statement), '}'),
     )),
 
-    _statement_kind: $ => prec.left(choice(
+    statement: $ => prec.left(choice(
       $.assignment,
       $.async,
       $.expression,
@@ -37,7 +37,7 @@ module.exports = grammar({
       seq('(', $._expression_kind, ')'),
     ),
 
-    _expression_kind: $ => prec.right(choice(
+    _expression_kind: $ => prec.left(choice(
       $.function_call,
       $.identifier,
       $.index,
@@ -89,12 +89,12 @@ module.exports = grammar({
 
     map: $ => seq(
       '{',
-      repeat(seq(
+      repeat(prec(1, seq(
         $.identifier,
         '=',
         $.expression,
         optional(',')
-      )),
+      ))),
       '}',
     ),
 
@@ -111,9 +111,7 @@ module.exports = grammar({
     function: $ => seq(
       'function',
       optional(seq('<', repeat(seq($.identifier, optional(','))), '>')),
-      '{',
-      $.statement,
-      '}',
+      $.block,
     ),
 
     table: $ => prec.left(seq(
@@ -128,13 +126,13 @@ module.exports = grammar({
       $.expression,
     )),
 
-    math_operator: $ => token(choice(
+    math_operator: $ => choice(
       '+',
       '-',
       '*',
       '/',
       '%',
-    )),
+    ),
 
     logic: $ => prec.right(seq(
       $.expression,
@@ -142,7 +140,7 @@ module.exports = grammar({
       $.expression,
     )),
 
-    logic_operator: $ => token(choice(
+    logic_operator: $ => choice(
       '==',
       '!=',
       '&&',
@@ -151,19 +149,19 @@ module.exports = grammar({
       '<',
       ">=",
       "<=",
-    )),
+    ),
 
-    assignment: $ => prec.right(seq(
+    assignment: $ => seq(
       $.identifier,
       $.assignment_operator,
       $.statement,
-    )),
+    ),
 
-    assignment_operator: $ => token(choice(
+    assignment_operator: $ => choice(
       "=",
       "+=",
       "-=",
-    )),
+    ),
 
     if_else: $ => prec.left(seq(
       $.if,
@@ -175,7 +173,7 @@ module.exports = grammar({
       'if',
       $.expression,
       '{',
-      $.statement,
+      $.block,
       '}',
     ),
 
@@ -183,14 +181,14 @@ module.exports = grammar({
       'else if',
       $.expression,
       '{',
-      $.statement,
+      $.block,
       '}',
     ),
 
     else: $ => seq(
       'else',
       '{',
-      $.statement,
+      $.block,
       '}',
     ),
 
@@ -208,7 +206,7 @@ module.exports = grammar({
       repeat1(seq(
         $.expression,
         '=>',
-        $.statement,
+        $.block,
       )),
       '}',
     ),
@@ -216,9 +214,7 @@ module.exports = grammar({
     while: $ => seq(
       'while',
       $.expression,
-      '{',
-      $.statement,
-      '}',      
+      $.block,
     ),
 
     for: $ => seq(
@@ -226,9 +222,7 @@ module.exports = grammar({
       $.identifier,
       'in',
       $.expression,
-      '{',
-      $.statement,
-      '}',
+      $.block,
     ),
 
     transform: $ => seq(
@@ -236,9 +230,7 @@ module.exports = grammar({
       $.identifier,
       'in',
       $.expression,
-      '{',
-      $.statement,
-      '}',
+      $.block,
     ),
 
     filter: $ => seq(
@@ -247,9 +239,7 @@ module.exports = grammar({
       field('statement_id', $.identifier),
       'in',
       field('collection', $.expression),
-      '{',
-      field('predicate', $.statement),
-      '}',
+      field('predicate', $.block),
     ),
 
     find: $ => seq(
@@ -257,9 +247,7 @@ module.exports = grammar({
       $.identifier,
       'in',
       $.expression,
-      '{',
-      $.statement,
-      '}',
+      $.block,
     ),
 
     remove: $ => seq(
@@ -267,9 +255,7 @@ module.exports = grammar({
       $.identifier,
       'from',
       $.expression,
-      '{',
-      $.statement,
-      '}',
+      $.block,
     ),
 
     reduce: $ => seq(
@@ -279,9 +265,7 @@ module.exports = grammar({
       $.identifier,
       'in',
       $.expression,
-      '{',
-      $.statement,
-      '}',
+      $.block,
     ),
 
     select: $ => prec.right(seq(
@@ -291,7 +275,7 @@ module.exports = grammar({
       '>',
       'from',
       $.expression,
-      optional(seq('{', $.statement, '}')),
+      optional($.block),
     )),
 
     insert: $ => prec.right(seq(
@@ -303,15 +287,15 @@ module.exports = grammar({
 
     async: $ => seq(
       'async', 
-      '{', 
-      $.statement, 
-      '}'
+      $.block,
     ),
 
-    tool: $ => prec.right(seq(
+    tool: $ => seq(
+      '(',
       $._tool_kind,
-      repeat(prec.left(seq($.expression, optional(',')))),
-    )),
+      repeat(seq($.expression, optional(','))),
+      ')',
+    ),
 
     _tool_kind: $ => choice(
       // General

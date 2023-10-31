@@ -9,30 +9,32 @@ filter i in [1, 2, 3] {
 ---
 
 (root
-  (statement
-    (filter
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer))))))
-      (statement
+  (block
+    (statement
+      (filter
+        (identifier)
         (expression
-          (logic
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (block
+          (statement
             (expression
-              (identifier))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))))))
+              (logic
+                (expression
+                  (identifier))
+                (logic_operator)
+                (expression
+                  (value
+                    (integer)))))))))))
 
 ==================
 Nested Filter Loop
@@ -47,22 +49,25 @@ filter i in big_list {
 ---
 
 (root
-  (statement
-    (filter
-      (identifier)
-      (expression
-        (identifier))
-      (statement
-        (filter
-          (identifier)
-          (expression
-            (identifier))
+  (block
+    (statement
+      (filter
+        (identifier)
+        (expression
+          (identifier))
+        (block
           (statement
-            (expression
-              (logic
-                (expression
-                  (identifier))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))))))))
+            (filter
+              (identifier)
+              (expression
+                (identifier))
+              (block
+                (statement
+                  (expression
+                    (logic
+                      (expression
+                        (identifier))
+                      (logic_operator)
+                      (expression
+                        (value
+                          (integer))))))))))))))

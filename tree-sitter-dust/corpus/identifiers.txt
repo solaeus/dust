@@ -9,12 +9,13 @@ __xyz__
 ---
 
 (root
-  (statement
-    (expression
-      (identifier)))
-  (statement
-    (expression
-      (identifier)))
-  (statement
-    (expression
-      (identifier))))
+  (block
+    (statement
+      (expression
+        (identifier)))
+    (statement
+      (expression
+        (identifier)))
+    (statement
+      (expression
+        (identifier)))))

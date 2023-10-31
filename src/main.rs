@@ -1,5 +1,5 @@
 //! Command line interface for the dust programming language.
-use async_std::{fs::read_to_string, prelude::*};
+use async_std::fs::read_to_string;
 use clap::Parser;
 use rustyline::{
     completion::FilenameCompleter,

@@ -9,30 +9,32 @@ find i in [1, 2, 3] {
 ---
 
 (root
-  (statement
-    (find
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer))))))
-      (statement
+  (block
+    (statement
+      (find
+        (identifier)
         (expression
-          (logic
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (block
+          (statement
             (expression
-              (identifier))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))))))
+              (logic
+                (expression
+                  (identifier))
+                (logic_operator)
+                (expression
+                  (value
+                    (integer)))))))))))
 
 ==================
 Nested Find Loop
@@ -54,57 +56,63 @@ find i in ["one", "two", "three"] {
 ---
 
 (root
-  (statement
-    (find
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (string))))))
-      (statement
-        (assignment
-          (identifier)
-          (assignment_operator)
-          (statement
-            (find
-              (identifier)
+  (block
+    (statement
+      (find
+        (identifier)
+        (expression
+          (value
+            (list
               (expression
-                (identifier))
+                (value
+                  (string)))
+              (expression
+                (value
+                  (string)))
+              (expression
+                (value
+                  (string))))))
+        (block
+          (statement
+            (assignment
+              (identifier)
+              (assignment_operator)
               (statement
+                (find
+                  (identifier)
+                  (expression
+                    (identifier))
+                  (block
+                    (statement
+                      (expression
+                        (logic
+                          (expression
+                            (identifier))
+                          (logic_operator)
+                          (expression
+                            (value
+                              (string)))))))))))
+          (statement
+            (if_else
+              (if
                 (expression
                   (logic
                     (expression
-                      (identifier))
+                      (tool
+                        (expression
+                          (identifier))))
                     (logic_operator)
                     (expression
                       (value
-                        (string)))))))))
-        (if_else
-          (if
-            (expression
-              (logic
-                (expression
-                  (tool
+                        (string)))))
+                (block
+                  (statement
                     (expression
-                      (identifier))))
-                (logic_operator)
-                (expression
-                  (value
-                    (string)))))
-            (statement
-              (expression
-                (value
-                  (boolean)))))
-          (else
-            (statement
-              (expression
-                (value
-                  (boolean))))))))))
+                      (value
+                        (boolean))))))
+              (else
+                (block
+                  (statement
+                    (expression
+                      (value
+                        (boolean)))))))))))))

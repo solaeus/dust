@@ -17,7 +17,6 @@ pub mod identifier;
 pub mod if_else;
 pub mod index;
 pub mod insert;
-pub mod item;
 pub mod logic;
 pub mod r#match;
 pub mod math;
@@ -32,7 +31,7 @@ pub mod r#while;
 
 pub use {
     assignment::*, expression::*, filter::*, find::*, function_call::*, identifier::*, if_else::*,
-    index::*, insert::*, item::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*,
+    index::*, insert::*, logic::*, math::*, r#async::*, r#for::*, r#match::*, r#while::*,
     remove::*, select::*, statement::*, sublist::*, tool::*, transform::*, value_node::*,
 };
 

@@ -1,6 +1,6 @@
 list = [1 2 1 3]
 
-removed = remove i in list {
+removed = remove i from list {
 	i == 3
 }
 

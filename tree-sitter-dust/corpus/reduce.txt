@@ -9,29 +9,31 @@ reduce i to acc in [1, 2, 3] {
 ---
 
 (root
-  (statement
-    (reduce
-      (identifier)
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer))))))
-      (statement
-        (assignment
-          (identifier)
-          (assignment_operator)
+  (block
+    (statement
+      (reduce
+        (identifier)
+        (identifier)
+        (expression
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (block
           (statement
-            (expression
-              (identifier))))))))
+            (assignment
+              (identifier)
+              (assignment_operator)
+              (statement
+                (expression
+                  (identifier))))))))))
 
 ==================
 Nested Reduce Loop
@@ -44,26 +46,28 @@ reduce i to acc in ["one", "two", "three"] {
 ---
 
 (root
-  (statement
-    (reduce
-      (identifier)
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (string))))))
-      (statement
-        (assignment
-          (identifier)
-          (assignment_operator)
+  (block
+    (statement
+      (reduce
+        (identifier)
+        (identifier)
+        (expression
+          (value
+            (list
+              (expression
+                (value
+                  (string)))
+              (expression
+                (value
+                  (string)))
+              (expression
+                (value
+                  (string))))))
+        (block
           (statement
-            (expression
-              (identifier))))))))
+            (assignment
+              (identifier)
+              (assignment_operator)
+              (statement
+                (expression
+                  (identifier))))))))))

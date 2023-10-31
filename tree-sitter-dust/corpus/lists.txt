@@ -7,16 +7,17 @@ List Declaration
 ---
 
 (root
-  (statement
-    (expression
-      (value
-        (list
-          (expression
-            (value
-              (string)))
-          (expression
-            (value
-              (integer))))))))
+  (block
+    (statement
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (integer)))))))))
 
 ==================
 List Nesting
@@ -27,22 +28,23 @@ List Nesting
 ---
 
 (root
-  (statement
-    (expression
-      (value
-        (list
-          (expression
-            (value
-              (string)))
-          (expression
-            (value
-              (list
-                (expression
-                  (value
-                    (integer)))
-                (expression
-                  (value
-                    (list
-                      (expression
-                        (value
-                          (integer))))))))))))))
+  (block
+    (statement
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (integer)))
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (integer)))))))))))))))

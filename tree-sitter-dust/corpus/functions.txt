@@ -7,15 +7,17 @@ function { "Hiya" }
 ---
 
 (root
-  (statement
-    (expression
-      (value
-        (function
-          (statement
-            (expression
-              (value
-                (string)))))))))
-
+  (block
+    (statement
+      (expression
+        (value
+          (function
+            (block
+              (statement
+                (expression
+                  (value
+                    (string)))))))))))
+                        
 ==================
 Function Call
 ==================
@@ -25,13 +27,14 @@ Function Call
 ---
 
 (root
-  (statement
-    (expression
-      (function_call
-        (identifier)
-        (expression
-          (value
-            (string)))))))
+  (block
+    (statement
+      (expression
+        (function_call
+          (identifier)
+          (expression
+            (value
+              (string))))))))
 
 ==================
 Complex Function
@@ -45,21 +48,24 @@ function <message number> {
 ---
 
 (root
-  (statement
-    (expression
-      (value
-        (function
-          (identifier)
-          (identifier)
-          (statement
-            (expression
-              (tool
+  (block
+    (statement
+      (expression
+        (value
+          (function
+            (identifier)
+            (identifier)
+            (block
+              (statement
                 (expression
-                  (identifier))))
-            (expression
-              (tool
+                  (tool
+                    (expression
+                      (identifier)))))
+              (statement
                 (expression
-                  (identifier))))))))))
+                  (tool
+                    (expression
+                      (identifier))))))))))))
 
 ==================
 Complex Function Call
@@ -77,24 +83,25 @@ Complex Function Call
 ---
 
 (root
-  (statement
-    (expression
-      (function_call
-        (identifier)
-        (expression
-          (value
-            (string)))
-        (expression
-          (value
-            (integer)))
-        (expression
-          (value
-            (map
-              (identifier)
-              (expression
-                (value
-                  (integer)))
-              (identifier)
-              (expression
-                (value
-                  (integer))))))))))
+  (block
+    (statement
+      (expression
+        (function_call
+          (identifier)
+          (expression
+            (value
+              (string)))
+          (expression
+            (value
+              (integer)))
+          (expression
+            (value
+              (map
+                (identifier)
+                (expression
+                  (value
+                    (integer)))
+                (identifier)
+                (expression
+                  (value
+                    (integer)))))))))))

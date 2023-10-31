@@ -9,30 +9,32 @@ remove i from [1, 2, 3] {
 ---
 
 (root
-  (statement
-    (remove
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer))))))
-      (statement
+  (block
+    (statement
+      (remove
+        (identifier)
         (expression
-          (logic
+          (value
+            (list
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (block
+          (statement
             (expression
-              (identifier))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))))))
+              (logic
+                (expression
+                  (identifier))
+                (logic_operator)
+                (expression
+                  (value
+                    (integer)))))))))))
 
 ==================
 Nested Remove
@@ -47,26 +49,29 @@ removed = remove i from big_list {
 ---
 
 (root
-  (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (remove
-          (identifier)
-          (expression
-            (identifier))
-          (statement
-            (remove
-              (identifier)
-              (expression
-                (identifier))
+  (block
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (remove
+            (identifier)
+            (expression
+              (identifier))
+            (block
               (statement
-                (expression
-                  (logic
-                    (expression
-                      (identifier))
-                    (logic_operator)
-                    (expression
-                      (value
-                        (integer)))))))))))))
+                (remove
+                  (identifier)
+                  (expression
+                    (identifier))
+                  (block
+                    (statement
+                      (expression
+                        (logic
+                          (expression
+                            (identifier))
+                          (logic_operator)
+                          (expression
+                            (value
+                              (integer))))))))))))))))

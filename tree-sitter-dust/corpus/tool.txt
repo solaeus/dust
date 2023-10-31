@@ -1,0 +1,35 @@
+==================
+Simple Tool Call
+==================
+
+(output 'hi')
+
+---
+
+(root
+  (block
+    (statement
+      (expression
+        (tool
+          (expression
+            (value
+              (string))))))))
+
+==================
+Nested Tool Call
+==================
+
+(assert_equal random_integer, 4)
+
+---
+
+(root
+  (block
+    (statement
+      (expression
+        (tool
+          (expression
+            (identifier))
+          (expression
+            (value
+              (integer))))))))

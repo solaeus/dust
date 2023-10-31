@@ -71,7 +71,7 @@ impl AbstractTree for Tool {
             for index in 2..node.child_count() - 1 {
                 let child_node = node.child(index).unwrap();
 
-                if child_node.is_named() {
+                if child_node.kind() == "expression" {
                     let expression = Expression::from_syntax_node(source, child_node)?;
 
                     expressions.push(expression);

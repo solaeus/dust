@@ -9,25 +9,26 @@ while true {
 ---
 
 (root
-  (statement
-    (while
-      (expression
-        (value
-          (boolean)))
-      (statement
+  (block
+    (statement
+      (while
         (expression
-          (tool
+          (value
+            (boolean)))
+        (block
+          (statement
             (expression
-              (value
-                (string)))))))))
+              (tool
+                (expression
+                  (value
+                    (string)))))))))))
 
 ==================
 Nested While Loop
 ==================
 
-while true {
-  x = 4
-  while x > 0 {
+while (true) {
+  while (x > 0) {
     x -= 1
   }
 }
@@ -35,33 +36,29 @@ while true {
 ---
 
 (root
-  (statement
-    (while
-      (expression
-        (value
-          (boolean)))
-      (statement
-        (assignment
-          (identifier)
-          (assignment_operator)
+  (block
+    (statement
+      (while
+        (expression
+          (value
+            (boolean)))
+        (block
           (statement
-            (expression
-              (value
-                (integer)))))
-        (while
-          (expression
-            (logic
+            (while
               (expression
-                (identifier))
-              (logic_operator)
-              (expression
-                (value
-                  (integer)))))
-          (statement
-            (assignment
-              (identifier)
-              (assignment_operator)
-              (statement
-                (expression
-                  (value
-                    (integer)))))))))))
+                (logic
+                  (expression
+                    (identifier))
+                  (logic_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (block
+                (statement
+                  (assignment
+                    (identifier)
+                    (assignment_operator)
+                    (statement
+                      (expression
+                        (value
+                          (integer))))))))))))))

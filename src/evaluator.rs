@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use tree_sitter::{Parser, Tree as TSTree};
 
-use crate::{abstract_tree::item::Item, language, AbstractTree, Map, Result, Value};
+use crate::{language, AbstractTree, Map, Result, Statement, Value};
 
 /// Evaluate the given source code.
 ///
@@ -86,7 +86,7 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         let mut prev_result = Ok(Value::Empty);
 
         for item_node in root_node.children(&mut cursor) {
-            let item = Item::from_syntax_node(self.source, item_node)?;
+            let item = Statement::from_syntax_node(self.source, item_node)?;
             prev_result = item.run(self.source, self.context);
         }
 
