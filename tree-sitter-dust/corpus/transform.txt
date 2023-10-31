@@ -9,63 +9,74 @@ transform i in [1, 2, 3] {
 ---
 
 (root
-  (item
-    (statement
-      (transform
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (item
-          (statement
+  (statement
+    (transform
+      (identifier)
+      (expression
+        (value
+          (list
             (expression
-              (tool
-                (expression
-                  (identifier))))))))))
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (statement
+        (expression
+          (tool
+            (expression
+              (identifier))))))))
 
 ==================
-Transform Loop Assignment
+Nested Transform Loop
 ==================
 
-list = transform i in ["one", "two", "three"] {
-  (output i)
+transform i in [['one'] ['two'] ['three']] {
+  transform j in i {
+    j += 'foobar'
+  }
 }
 
 ---
 
 (root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (transform
-            (identifier)
+  (statement
+    (transform
+      (identifier)
+      (expression
+        (value
+          (list
             (expression
               (value
                 (list
                   (expression
                     (value
-                      (string)))
-                  (expression
-                    (value
-                      (string)))
+                      (string))))))
+            (expression
+              (value
+                (list
                   (expression
                     (value
                       (string))))))
-            (item
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))))))))
+      (statement
+        (transform
+          (identifier)
+          (expression
+            (identifier))
+          (statement
+            (assignment
+              (identifier)
+              (assignment_operator)
               (statement
                 (expression
-                  (tool
-                    (expression
-                      (identifier))))))))))))
+                  (value
+                    (string)))))))))))

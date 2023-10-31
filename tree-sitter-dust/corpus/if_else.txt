@@ -1,0 +1,242 @@
+==================
+Simple If
+==================
+
+if true { "True" }
+
+---
+
+(root
+  (statement
+    (if_else
+      (if
+        (expression
+          (value
+            (boolean)))
+        (statement
+          (expression
+            (value
+              (string))))))))
+
+==================
+Complex If
+==================
+
+if 1 == 1 && 2 == 2 && 3 == 3 { "True" }
+
+---
+
+(root
+  (statement
+    (if_else
+      (if
+        (expression
+          (logic
+            (expression
+              (value
+                (integer)))
+            (logic_operator)
+            (expression
+              (logic
+                (expression
+                  (value
+                    (integer)))
+                (logic_operator)
+                (expression
+                  (logic
+                    (expression
+                      (value
+                        (integer)))
+                    (logic_operator)
+                    (expression
+                      (logic
+                        (expression
+                          (value
+                            (integer)))
+                        (logic_operator)
+                        (expression
+                          (logic
+                            (expression
+                              (value
+                                (integer)))
+                            (logic_operator)
+                            (expression
+                              (value
+                                (integer)))))))))))))
+        (statement
+          (expression
+            (value
+              (string))))))))
+
+==================
+Nested If
+==================
+
+if true { 
+  if 42 == 12 {
+    'hiya'
+  } else {
+    'bye'
+  }
+}
+
+---
+
+(root
+  (statement
+    (if_else
+      (if
+        (expression
+          (value
+            (boolean)))
+        (statement
+          (if_else
+            (if
+              (expression
+                (logic
+                  (expression
+                    (value
+                      (integer)))
+                  (logic_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (statement
+                (expression
+                  (value
+                    (string)))))
+            (else
+              (statement
+                (expression
+                  (value
+                    (string)))))))))))
+
+==================
+If Else
+==================
+
+if false { "True" } else { "False" }
+
+---
+
+(root
+  (statement
+    (if_else
+      (if
+        (expression
+          (value
+            (boolean)))
+        (statement
+          (expression
+            (value
+              (string)))))
+      (else
+        (statement
+          (expression
+            (value
+              (string))))))))
+
+==================
+If Else If
+==================
+
+if 1 == 1 {
+  "math is fun"
+} else if 4 == 9 {
+  "math is broken"
+}
+
+---
+
+(root
+  (statement
+    (if_else
+      (if
+        (expression
+          (logic
+            (expression
+              (value
+                (integer)))
+            (logic_operator)
+            (expression
+              (value
+                (integer)))))
+        (statement
+          (expression
+            (value
+              (string)))))
+      (else_if
+        (expression
+          (logic
+            (expression
+              (value
+                (integer)))
+            (logic_operator)
+            (expression
+              (value
+                (integer)))))
+        (statement
+          (expression
+            (value
+              (string))))))))
+
+==================
+If Else Else If Else
+==================
+
+if false {
+  "no"
+} else if false {
+  "no"
+} else if 1 + 1 == 9 {
+  "not the answer"
+} else {
+  "42"
+}
+
+---
+
+(root
+  (statement
+    (if_else
+      (if
+        (expression
+          (value
+            (boolean)))
+        (statement
+          (expression
+            (value
+              (string)))))
+      (else_if
+        (expression
+          (value
+            (boolean)))
+        (statement
+          (expression
+            (value
+              (string)))))
+      (else_if
+        (expression
+          (logic
+            (expression
+              (math
+                (expression
+                  (value
+                    (integer)))
+                (math_operator)
+                (expression
+                  (value
+                    (integer)))))
+            (logic_operator)
+            (expression
+              (value
+                (integer)))))
+        (statement
+          (expression
+            (value
+              (string)))))
+      (else
+        (statement
+          (expression
+            (value
+              (string))))))))

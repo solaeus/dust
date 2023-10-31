@@ -9,15 +9,12 @@ __xyz__
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (identifier))))
-  (item
-    (statement
-      (expression
-        (identifier))))
-  (item
-    (statement
-      (expression
-        (identifier)))))
+  (statement
+    (expression
+      (identifier)))
+  (statement
+    (expression
+      (identifier)))
+  (statement
+    (expression
+      (identifier))))

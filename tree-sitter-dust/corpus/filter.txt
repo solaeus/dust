@@ -1,5 +1,5 @@
 ==================
-Filter Loop
+Simple Filter Loop
 ==================
 
 filter i in [1, 2, 3] {
@@ -9,23 +9,54 @@ filter i in [1, 2, 3] {
 ---
 
 (root
-  (item
-    (statement
-      (filter
-        (identifier)
+  (statement
+    (filter
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (statement
         (expression
-          (value
-            (list
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (item
+          (logic
+            (expression
+              (identifier))
+            (logic_operator)
+            (expression
+              (value
+                (integer)))))))))
+
+==================
+Nested Filter Loop
+==================
+
+filter i in big_list {
+  filter j in i {
+    i != 42
+  }
+}
+
+---
+
+(root
+  (statement
+    (filter
+      (identifier)
+      (expression
+        (identifier))
+      (statement
+        (filter
+          (identifier)
+          (expression
+            (identifier))
           (statement
             (expression
               (logic
@@ -35,45 +66,3 @@ filter i in [1, 2, 3] {
                 (expression
                   (value
                     (integer)))))))))))
-
-==================
-Filter Loop Assignment
-==================
-
-list = filter i in ["one", "two", "three"] {
-  i == "one"
-}
-
----
-
-(root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (filter
-            (identifier)
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string))))))
-            (item
-              (statement
-                (expression
-                  (logic
-                    (expression
-                      (identifier))
-                    (logic_operator)
-                    (expression
-                      (value
-                        (string)))))))))))))

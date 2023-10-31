@@ -34,30 +34,32 @@ y = "one"
 ---
 
 (root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (expression
-            (value
-              (integer)))))))
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (expression
-            (value
-              (string))))))))
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (integer))))))
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (string)))))))
 
 ==================
 Complex Assignment
 ==================
 
-x = 1 + 1
+x = if 1 + 1 == 2 {
+  'yo'
+} else {
+  'no'
+}
 
 ---
 
@@ -82,35 +84,34 @@ x = 1 + 1
 Expression Precedence
 ==================
 
-x = (3 == (1 + (2 + 2)))
+x = 3 == 1 + 2 + 2
 
 ---
 
 (root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (expression
-            (logic
-              (expression
-                (value
-                  (integer)))
-              (logic_operator)
-              (expression
-                (math
-                  (expression
-                    (value
-                      (integer)))
-                  (math_operator)
-                  (expression
-                    (math
-                      (expression
-                        (value
-                          (integer)))
-                      (math_operator)
-                      (expression
-                        (value
-                          (integer))))))))))))))
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (logic
+            (expression
+              (value
+                (integer)))
+            (logic_operator)
+            (expression
+              (math
+                (expression
+                  (math
+                    (expression
+                      (value
+                        (integer)))
+                    (math_operator)
+                    (expression
+                      (value
+                        (integer)))))
+                (math_operator)
+                (expression
+                  (value
+                    (integer)))))))))))

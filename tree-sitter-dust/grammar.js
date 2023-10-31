@@ -11,8 +11,8 @@ module.exports = grammar({
     comment: $ => /[#][^#\n]*[#|\n]/,
 
     statement: $ => prec.left(choice(
-      $._statement_kind,
-      seq('{', $._statement_kind, '}'),
+      repeat1($._statement_kind),
+      seq('{', repeat1($._statement_kind), '}'),
     )),
 
     _statement_kind: $ => prec.left(choice(
@@ -37,7 +37,7 @@ module.exports = grammar({
       seq('(', $._expression_kind, ')'),
     ),
 
-    _expression_kind: $ => prec.left(choice(
+    _expression_kind: $ => prec.right(choice(
       $.function_call,
       $.identifier,
       $.index,
@@ -60,9 +60,19 @@ module.exports = grammar({
       $.map,
     ),
 
-    integer: $ => /0[bB][01](_?[01])*|0[oO]?[0-7](_?[0-7])*|(0[dD])?\d(_?\d)*|0[xX][0-9a-fA-F](_?[0-9a-fA-F])*/,
+    integer: $ => prec.left(token(seq(
+      optional('-'),
+      repeat1(
+        choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
+      ),
+    ))),
 
-    float: $ => /\d(_?\d)*(\.\d)?(_?\d)*([eE][\+-]?\d(_?\d)*)?/,
+    float: $ => prec.left(token(seq(
+      optional('-'),
+      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
+      '.',
+      repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
+    ))),
 
     string: $ => /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
@@ -73,13 +83,18 @@ module.exports = grammar({
 
     list: $ => seq(
       '[',
-      repeat(seq($.expression, optional(','))),
+      repeat(prec.left(seq($.expression, optional(',')))),
       ']',
     ),
 
     map: $ => seq(
       '{',
-      $.assignment,
+      repeat(seq(
+        $.identifier,
+        '=',
+        $.expression,
+        optional(',')
+      )),
       '}',
     ),
 
@@ -113,13 +128,13 @@ module.exports = grammar({
       $.expression,
     )),
 
-    math_operator: $ => choice(
+    math_operator: $ => token(choice(
       '+',
       '-',
       '*',
       '/',
       '%',
-    ),
+    )),
 
     logic: $ => prec.right(seq(
       $.expression,
@@ -127,7 +142,7 @@ module.exports = grammar({
       $.expression,
     )),
 
-    logic_operator: $ => choice(
+    logic_operator: $ => token(choice(
       '==',
       '!=',
       '&&',
@@ -136,7 +151,7 @@ module.exports = grammar({
       '<',
       ">=",
       "<=",
-    ),
+    )),
 
     assignment: $ => prec.right(seq(
       $.identifier,
@@ -144,11 +159,11 @@ module.exports = grammar({
       $.statement,
     )),
 
-    assignment_operator: $ => choice(
+    assignment_operator: $ => token(choice(
       "=",
       "+=",
       "-=",
-    ),
+    )),
 
     if_else: $ => prec.left(seq(
       $.if,
@@ -182,7 +197,7 @@ module.exports = grammar({
     function_call: $ => seq(
       '(',
       $.identifier,
-      repeat(seq($.expression, optional(','))),
+      repeat(prec.left(seq($.expression, optional(',')))),
       ')',
     ),
 
@@ -294,10 +309,8 @@ module.exports = grammar({
     ),
 
     tool: $ => prec.right(seq(
-      '(',
       $._tool_kind,
-      repeat(seq($.expression, optional(','))),
-      ')',
+      repeat(prec.left(seq($.expression, optional(',')))),
     )),
 
     _tool_kind: $ => choice(
@@ -317,7 +330,6 @@ module.exports = grammar({
       'metadata',
       'move',
       'read',
-      'remove',
       'write',
 
       // Format conversion

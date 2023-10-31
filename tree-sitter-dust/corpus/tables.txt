@@ -11,79 +11,42 @@ table <messages, numbers> [
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (table
-            (identifier)
-            (identifier)
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (string)))
-                        (expression
-                          (value
-                            (integer))))))
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (string)))
-                        (expression
-                          (value
-                            (integer))))))
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (string)))
-                        (expression
-                          (value
-                            (float)))))))))))))))
-
-==================
-Table Assignment
-==================
-
-foobar = table <text, number> [
-    ['answer', 42]
-]
-
----
-
-(root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
+  (statement
+    (expression
+      (value
+        (table
+          (identifier)
+          (identifier)
           (expression
             (value
-              (table
-                (identifier)
-                (identifier)
+              (list
                 (expression
                   (value
                     (list
                       (expression
                         (value
-                          (list
-                            (expression
-                              (value
-                                (string)))
-                            (expression
-                              (value
-                                (integer)))))))))))))))))
-
+                          (string)))
+                      (expression
+                        (value
+                          (integer))))))
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (string)))
+                      (expression
+                        (value
+                          (integer))))))
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (string)))
+                      (expression
+                        (value
+                          (float))))))))))))))
 ==================
 Table Access
 ==================
@@ -95,22 +58,20 @@ select <number> from foobar {
 ---
 
 (root
-  (item
-    (statement
-      (select
-        (identifier)
-        (expression 
-          (identifier))
-        (item
-          (statement
+  (statement
+    (select
+      (identifier)
+      (expression
+        (identifier))
+      (statement
+        (expression
+          (logic
             (expression
-              (logic
-                (expression
-                  (identifier))
-                (logic_operator)
-                (expression
-                  (value
-                    (string)))))))))))
+              (identifier))
+            (logic_operator)
+            (expression
+              (value
+                (string)))))))))
 
 ==================
 Table Insert
@@ -123,19 +84,18 @@ insert into foobar [
 ---
 
 (root
-  (item
-    (statement
-      (insert
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (list
-                    (expression
-                      (value
-                        (string)))
-                    (expression
-                      (value
-                        (integer)))))))))))))
+  (statement
+    (insert
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (integer))))))))))))

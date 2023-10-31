@@ -2,44 +2,62 @@
 Simple Map
 ==================
 
-{
-    answer = 42
-}
+{ answer = 42 }
 
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (map
-            (identifier)
-            (expression
-              (value
-                (integer)))))))))
+  (statement
+    (expression
+      (value
+        (map
+          (identifier)
+          (expression
+            (value
+              (integer))))))))
 
 ==================
-Map Assignment
+Nested Maps
 ==================
 
 x = {
-    answer = 42
+  y = {
+    foo = 'bar'
+    z = {
+      message = 'hiya'
+    }
+  }
+  f = 12
 }
 
 ---
 
 (root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (expression
-            (value
-              (map
-                (identifier)
-                (expression
-                  (value
-                    (integer)))))))))))
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (map
+              (identifier)
+              (expression
+                (value
+                  (map
+                    (identifier)
+                    (expression
+                      (value
+                        (string)))
+                    (identifier)
+                    (expression
+                      (value
+                        (map
+                          (identifier)
+                          (expression
+                            (value
+                              (string)))))))))
+              (identifier)
+              (expression
+                (value
+                  (integer))))))))))

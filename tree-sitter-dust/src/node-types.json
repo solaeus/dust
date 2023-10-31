@@ -23,11 +23,6 @@
     }
   },
   {
-    "type": "assignment_operator",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "async",
     "named": true,
     "fields": {},
@@ -190,6 +185,11 @@
     }
   },
   {
+    "type": "float",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "for",
     "named": true,
     "fields": {},
@@ -327,6 +327,11 @@
     }
   },
   {
+    "type": "integer",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "list",
     "named": true,
     "fields": {},
@@ -361,20 +366,19 @@
     }
   },
   {
-    "type": "logic_operator",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "map",
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
-      "required": true,
+      "multiple": true,
+      "required": false,
       "types": [
         {
-          "type": "assignment",
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
           "named": true
         }
       ]
@@ -417,11 +421,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "math_operator",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "reduce",
@@ -512,7 +511,7 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "types": [
         {
@@ -694,18 +693,6 @@
     }
   },
   {
-    "type": "!=",
-    "named": false
-  },
-  {
-    "type": "%",
-    "named": false
-  },
-  {
-    "type": "&&",
-    "named": false
-  },
-  {
     "type": "(",
     "named": false
   },
@@ -714,35 +701,11 @@
     "named": false
   },
   {
-    "type": "*",
-    "named": false
-  },
-  {
-    "type": "+",
-    "named": false
-  },
-  {
-    "type": "+=",
-    "named": false
-  },
-  {
     "type": ",",
     "named": false
   },
   {
-    "type": "-",
-    "named": false
-  },
-  {
-    "type": "-=",
-    "named": false
-  },
-  {
     "type": "..",
-    "named": false
-  },
-  {
-    "type": "/",
     "named": false
   },
   {
@@ -754,15 +717,7 @@
     "named": false
   },
   {
-    "type": "<=",
-    "named": false
-  },
-  {
     "type": "=",
-    "named": false
-  },
-  {
-    "type": "==",
     "named": false
   },
   {
@@ -771,10 +726,6 @@
   },
   {
     "type": ">",
-    "named": false
-  },
-  {
-    "type": ">=",
     "named": false
   },
   {
@@ -796,6 +747,10 @@
   {
     "type": "assert_equal",
     "named": false
+  },
+  {
+    "type": "assignment_operator",
+    "named": true
   },
   {
     "type": "async",
@@ -842,10 +797,6 @@
     "named": false
   },
   {
-    "type": "float",
-    "named": true
-  },
-  {
     "type": "for",
     "named": false
   },
@@ -882,10 +833,6 @@
     "named": false
   },
   {
-    "type": "integer",
-    "named": true
-  },
-  {
     "type": "into",
     "named": false
   },
@@ -894,8 +841,16 @@
     "named": false
   },
   {
+    "type": "logic_operator",
+    "named": true
+  },
+  {
     "type": "match",
     "named": false
+  },
+  {
+    "type": "math_operator",
+    "named": true
   },
   {
     "type": "metadata",
@@ -1015,10 +970,6 @@
   },
   {
     "type": "{",
-    "named": false
-  },
-  {
-    "type": "||",
     "named": false
   },
   {

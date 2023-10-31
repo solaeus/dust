@@ -1,5 +1,5 @@
 ==================
-Indexing
+Simple Indexes
 ==================
 
 dust_data:1:name
@@ -11,70 +11,82 @@ foobar:1:42
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (index
-          (expression
-            (index
-              (expression
-                (identifier))
-              (expression
-                (value
-                  (integer)))))
-          (expression
-            (identifier))))))
-  (item
-    (statement
-      (expression
-        (index
-          (expression
-            (identifier))
-          (expression
-            (identifier))))))
-  (item
-    (statement
-      (expression
-        (index
-          (expression
-            (index
-              (expression
-                (identifier))
-              (expression
-                (value
-                  (integer)))))
-          (expression
-            (value
-              (integer))))))))
-              
+  (statement
+    (expression
+      (index
+        (expression
+          (index
+            (expression
+              (identifier))
+            (expression
+              (value
+                (integer)))))
+        (expression
+          (identifier)))))
+  (statement
+    (expression
+      (index
+        (expression
+          (identifier))
+        (expression
+          (identifier)))))
+  (statement
+    (expression
+      (index
+        (expression
+          (index
+            (expression
+              (identifier))
+            (expression
+              (value
+                (integer)))))
+        (expression
+          (value
+            (integer)))))))
+
 ==================
-Sublist
+Nested Indexes
 ==================
 
-['answers', 42, 666]:1..2
+[['answers' 'foobar'], 42, 666]:0:1:0..2
 
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (index
-          (expression
-            (value
-              (list
+  (statement
+    (expression
+      (index
+        (expression
+          (index
+            (expression
+              (index
                 (expression
                   (value
-                    (string)))
+                    (list
+                      (expression
+                        (value
+                          (list
+                            (expression
+                              (value
+                                (string)))
+                            (expression
+                              (value
+                                (string))))))
+                      (expression
+                        (value
+                          (integer)))
+                      (expression
+                        (value
+                          (integer))))))
                 (expression
                   (value
-                    (integer)))
-                (expression
-                  (value
-                    (integer))))))
-          (expression
-            (value
-              (integer)))
-          (expression
-            (value
-              (integer))))))))
+                    (integer)))))
+            (expression
+              (value
+                (integer)))))
+        (expression
+          (value
+            (integer)))
+        (expression
+          (value
+            (integer)))))))

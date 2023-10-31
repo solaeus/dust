@@ -7,49 +7,16 @@ List Declaration
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (integer)))))))))
-
-==================
-List Assignment
-==================
-
-empty = []
-foobar = ['foobar']
-
----
-
-(root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
+  (statement
+    (expression
+      (value
+        (list
           (expression
             (value
-              (list)))))))
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
+              (string)))
           (expression
             (value
-              (list
-                (expression
-                  (value
-                    (string)))))))))))
+              (integer))))))))
 
 ==================
 List Nesting
@@ -60,23 +27,22 @@ List Nesting
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (integer)))
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (integer)))))))))))))))
+  (statement
+    (expression
+      (value
+        (list
+          (expression
+            (value
+              (string)))
+          (expression
+            (value
+              (list
+                (expression
+                  (value
+                    (integer)))
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (integer))))))))))))))

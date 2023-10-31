@@ -1,73 +1,83 @@
 ==================
-Find Loop
+Simple Find Loop
 ==================
 
 find i in [1, 2, 3] {
-  i <= 3 
+  i <= 3
 }
 
 ---
 
 (root
-  (item
-    (statement
-      (find
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (item
-          (statement
-            (expression
-              (logic
-                (expression
-                  (identifier))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))))))))
-
-==================
-Find Loop Assignment
-==================
-
-found = find i in ["one", "two", "three"] {
-  i == "three"
-}
-
----
-
-(root
-  (item
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (find
-            (identifier)
+  (statement
+    (find
+      (identifier)
+      (expression
+        (value
+          (list
             (expression
               (value
-                (list
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string))))))
-            (item
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (statement
+        (expression
+          (logic
+            (expression
+              (identifier))
+            (logic_operator)
+            (expression
+              (value
+                (integer)))))))))
+
+==================
+Nested Find Loop
+==================
+
+find i in ["one", "two", "three"] {
+  found = find j in i {
+    i == "e"
+  }
+
+  if (type found) != 'empty' {
+    true
+  } else {
+    false
+  }
+}
+
+
+---
+
+(root
+  (statement
+    (find
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (string))))))
+      (statement
+        (assignment
+          (identifier)
+          (assignment_operator)
+          (statement
+            (find
+              (identifier)
+              (expression
+                (identifier))
               (statement
                 (expression
                   (logic
@@ -76,4 +86,25 @@ found = find i in ["one", "two", "three"] {
                     (logic_operator)
                     (expression
                       (value
-                        (string)))))))))))))
+                        (string)))))))))
+        (if_else
+          (if
+            (expression
+              (logic
+                (expression
+                  (tool
+                    (expression
+                      (identifier))))
+                (logic_operator)
+                (expression
+                  (value
+                    (string)))))
+            (statement
+              (expression
+                (value
+                  (boolean)))))
+          (else
+            (statement
+              (expression
+                (value
+                  (boolean))))))))))
