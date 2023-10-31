@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{value_node::ValueNode, Expression, Function, Identifier, Value};
+use crate::{value_node::ValueNode, Expression, Function, Identifier, Statement, Value};
 
 /// The type of a `Value`.
 #[derive(Clone, Serialize, Deserialize, PartialOrd, Ord)]
@@ -17,7 +17,7 @@ pub enum ValueType {
     Boolean,
     List(Vec<Expression>),
     Empty,
-    Map(BTreeMap<String, Expression>),
+    Map(BTreeMap<String, Statement>),
     Table {
         column_names: Vec<Identifier>,
         rows: Box<Expression>,
@@ -117,9 +117,9 @@ impl From<&Value> for ValueType {
                 for (key, value) in map.variables().iter() {
                     let value_type = value.value_type();
                     let value_node = ValueNode::new(value_type, 0, 0);
-                    let expression = Expression::Value(value_node);
+                    let statement = Statement::Expression(Expression::Value(value_node));
 
-                    value_nodes.insert(key.to_string(), expression);
+                    value_nodes.insert(key.to_string(), statement);
                 }
 
                 ValueType::Map(value_nodes)

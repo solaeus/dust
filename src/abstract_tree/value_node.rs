@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Table, Value,
-    ValueType,
+    AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Statement,
+    Table, Value, ValueType,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -88,11 +88,11 @@ impl AbstractTree for ValueNode {
                             Identifier::from_syntax_node(source, child_syntax_node)?.take_inner();
                     }
 
-                    if child_syntax_node.kind() == "expression" {
+                    if child_syntax_node.kind() == "statement" {
                         let key = current_key.clone();
-                        let expression = Expression::from_syntax_node(source, child_syntax_node)?;
+                        let statement = Statement::from_syntax_node(source, child_syntax_node)?;
 
-                        child_nodes.insert(key, expression);
+                        child_nodes.insert(key, statement);
                     }
                 }
 

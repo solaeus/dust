@@ -65,7 +65,17 @@
   {
     "type": "built_in_function",
     "named": true,
-    "fields": {}
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        }
+      ]
+    }
   },
   {
     "type": "else",
@@ -204,11 +214,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "float",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "for",
@@ -350,11 +355,6 @@
         }
       ]
     }
-  },
-  {
-    "type": "integer",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "list",
@@ -769,10 +769,6 @@
     "named": false
   },
   {
-    "type": ";",
-    "named": false
-  },
-  {
     "type": "<",
     "named": false
   },
@@ -865,6 +861,10 @@
     "named": false
   },
   {
+    "type": "float",
+    "named": true
+  },
+  {
     "type": "for",
     "named": false
   },
@@ -899,6 +899,10 @@
   {
     "type": "insert",
     "named": false
+  },
+  {
+    "type": "integer",
+    "named": true
   },
   {
     "type": "into",

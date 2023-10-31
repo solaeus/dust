@@ -154,7 +154,7 @@ mod tests {
         map.variables_mut()
             .insert("foo".to_string(), Value::String("bar".to_string()));
 
-        assert_eq!(evaluate("{ x = 1 foo = 'bar' }"), Ok(Value::Map(map)));
+        assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
     }
 
     #[test]
@@ -256,7 +256,7 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_tool_call() {
+    fn evaluate_built_in_function_call() {
         assert_eq!(evaluate("(output 'Hiya')"), Ok(Value::Empty));
     }
 }

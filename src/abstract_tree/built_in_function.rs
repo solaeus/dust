@@ -14,7 +14,7 @@ use tree_sitter::Node;
 use crate::{AbstractTree, Error, Expression, List, Map, Result, Table, Value, ValueType};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Tool {
+pub enum BuiltInFunction {
     // General
     Assert(Vec<Expression>),
     AssertEqual(Vec<Expression>),
@@ -61,14 +61,14 @@ pub enum Tool {
     Reverse(Expression, Option<(Expression, Expression)>),
 }
 
-impl AbstractTree for Tool {
+impl AbstractTree for BuiltInFunction {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        debug_assert_eq!("tool", node.kind());
+        debug_assert_eq!("built_in_function", node.kind());
 
         fn parse_expressions(source: &str, node: Node) -> Result<Vec<Expression>> {
             let mut expressions = Vec::new();
 
-            for index in 2..node.child_count() - 1 {
+            for index in 1..node.child_count() {
                 let child_node = node.child(index).unwrap();
 
                 if child_node.kind() == "expression" {
@@ -81,23 +81,23 @@ impl AbstractTree for Tool {
             Ok(expressions)
         }
 
-        let tool_node = node.child(1).unwrap();
+        let tool_node = node.child(0).unwrap();
         let tool = match tool_node.kind() {
             "assert" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Assert(expressions)
+                BuiltInFunction::Assert(expressions)
             }
             "assert_equal" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::AssertEqual(expressions)
+                BuiltInFunction::AssertEqual(expressions)
             }
             "download" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Download(expression)
+                BuiltInFunction::Download(expression)
             }
             "help" => {
                 let child_node = node.child(2).unwrap();
@@ -107,138 +107,138 @@ impl AbstractTree for Tool {
                     None
                 };
 
-                Tool::Help(expression)
+                BuiltInFunction::Help(expression)
             }
             "length" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Length(expression)
+                BuiltInFunction::Length(expression)
             }
             "output" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Output(expressions)
+                BuiltInFunction::Output(expressions)
             }
             "output_error" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::OutputError(expressions)
+                BuiltInFunction::OutputError(expressions)
             }
             "type" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Type(expression)
+                BuiltInFunction::Type(expression)
             }
-            "workdir" => Tool::Workdir,
+            "workdir" => BuiltInFunction::Workdir,
             "append" => {
                 let expressions = parse_expressions(source, node)?;
 
                 Error::expect_tool_argument_amount("append", 2, expressions.len())?;
 
-                Tool::Append(expressions)
+                BuiltInFunction::Append(expressions)
             }
             "metadata" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Metadata(expression)
+                BuiltInFunction::Metadata(expression)
             }
             "move" => {
                 let expressions = parse_expressions(source, node)?;
 
                 Error::expect_tool_argument_amount("move", 2, expressions.len())?;
 
-                Tool::Move(expressions)
+                BuiltInFunction::Move(expressions)
             }
             "read" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Read(expression)
+                BuiltInFunction::Read(expression)
             }
             "remove" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Remove(expression)
+                BuiltInFunction::Remove(expression)
             }
             "write" => {
                 let expressions = parse_expressions(source, node)?;
 
                 Error::expect_tool_argument_amount("write", 2, expressions.len())?;
 
-                Tool::Write(expressions)
+                BuiltInFunction::Write(expressions)
             }
             "from_json" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::FromJson(expression)
+                BuiltInFunction::FromJson(expression)
             }
             "to_json" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::ToJson(expression)
+                BuiltInFunction::ToJson(expression)
             }
             "to_string" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::ToString(expression)
+                BuiltInFunction::ToString(expression)
             }
             "to_float" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::ToFloat(expression)
+                BuiltInFunction::ToFloat(expression)
             }
             "bash" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Bash(expressions)
+                BuiltInFunction::Bash(expressions)
             }
             "fish" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Fish(expressions)
+                BuiltInFunction::Fish(expressions)
             }
             "raw" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Raw(expressions)
+                BuiltInFunction::Raw(expressions)
             }
             "sh" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Sh(expressions)
+                BuiltInFunction::Sh(expressions)
             }
             "zsh" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Zsh(expressions)
+                BuiltInFunction::Zsh(expressions)
             }
             "random" => {
                 let expressions = parse_expressions(source, node)?;
 
-                Tool::Random(expressions)
+                BuiltInFunction::Random(expressions)
             }
-            "random_boolean" => Tool::RandomBoolean,
-            "random_float" => Tool::RandomFloat,
-            "random_integer" => Tool::RandomInteger,
+            "random_boolean" => BuiltInFunction::RandomBoolean,
+            "random_float" => BuiltInFunction::RandomFloat,
+            "random_integer" => BuiltInFunction::RandomInteger,
             "columns" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Columns(expression)
+                BuiltInFunction::Columns(expression)
             }
             "rows" => {
                 let expression_node = node.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                Tool::Rows(expression)
+                BuiltInFunction::Rows(expression)
             }
             "reverse" => {
                 let list_node = node.child(2).unwrap();
@@ -254,11 +254,11 @@ impl AbstractTree for Tool {
                         None
                     };
 
-                Tool::Reverse(list_expression, slice_range_nodes)
+                BuiltInFunction::Reverse(list_expression, slice_range_nodes)
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "built-in tool",
+                    expected: "built-in function",
                     actual: tool_node.kind(),
                     location: tool_node.start_position(),
                     relevant_source: source[tool_node.byte_range()].to_string(),
@@ -271,7 +271,7 @@ impl AbstractTree for Tool {
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
-            Tool::Assert(expressions) => {
+            BuiltInFunction::Assert(expressions) => {
                 for expression in expressions {
                     let value = expression.run(source, context)?;
 
@@ -284,7 +284,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::AssertEqual(expressions) => {
+            BuiltInFunction::AssertEqual(expressions) => {
                 let mut prev_value = None;
                 for expression in expressions {
                     let value = expression.run(source, context)?;
@@ -305,14 +305,14 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Download(expression) => {
+            BuiltInFunction::Download(expression) => {
                 let value = expression.run(source, context)?;
                 let url = value.as_string()?;
                 let data = get(url)?.text()?;
 
                 Ok(Value::String(data))
             }
-            Tool::Length(expression) => {
+            BuiltInFunction::Length(expression) => {
                 let value = expression.run(source, context)?;
                 let length = match value {
                     Value::List(list) => list.items().len(),
@@ -328,7 +328,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Integer(length as i64))
             }
-            Tool::Help(_expression) => {
+            BuiltInFunction::Help(_expression) => {
                 let mut help_table =
                     Table::new(vec!["tool".to_string(), "description".to_string()]);
 
@@ -339,7 +339,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Table(help_table))
             }
-            Tool::Output(expressions) => {
+            BuiltInFunction::Output(expressions) => {
                 for expression in expressions {
                     let value = expression.run(source, context)?;
 
@@ -348,7 +348,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::OutputError(expressions) => {
+            BuiltInFunction::OutputError(expressions) => {
                 for expression in expressions {
                     let value = expression.run(source, context)?;
 
@@ -357,7 +357,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Type(expression) => {
+            BuiltInFunction::Type(expression) => {
                 let run_expression = expression.run(source, context);
                 let value_type = if let Ok(value) = run_expression {
                     value.value_type()
@@ -369,12 +369,12 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(value_type.to_string()))
             }
-            Tool::Workdir => {
+            BuiltInFunction::Workdir => {
                 let workdir = current_dir()?.to_string_lossy().to_string();
 
                 Ok(Value::String(workdir))
             }
-            Tool::Append(expressions) => {
+            BuiltInFunction::Append(expressions) => {
                 let path_value = expressions[0].run(source, context)?;
                 let path = path_value.as_string()?;
                 let data = expressions[1].run(source, context)?.to_string();
@@ -384,7 +384,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Metadata(expression) => {
+            BuiltInFunction::Metadata(expression) => {
                 let path_value = expression.run(source, context)?;
                 let path = path_value.as_string()?;
                 let metadata = metadata(path)?;
@@ -415,7 +415,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Map(metadata_output))
             }
-            Tool::Move(expressions) => {
+            BuiltInFunction::Move(expressions) => {
                 let from_value = expressions[0].run(source, context)?;
                 let from = from_value.as_string()?;
                 let to_value = expressions[1].run(source, context)?;
@@ -426,7 +426,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Read(expression) => {
+            BuiltInFunction::Read(expression) => {
                 let path_value = expression.run(source, context)?;
                 let path = PathBuf::from(path_value.as_string()?);
                 let content = if path.is_dir() {
@@ -447,7 +447,7 @@ impl AbstractTree for Tool {
 
                 Ok(content)
             }
-            Tool::Remove(expression) => {
+            BuiltInFunction::Remove(expression) => {
                 let path_value = expression.run(source, context)?;
                 let path = PathBuf::from(path_value.as_string()?);
 
@@ -455,7 +455,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::Write(expressions) => {
+            BuiltInFunction::Write(expressions) => {
                 let path_value = expressions[0].run(source, context)?;
                 let path = path_value.as_string()?;
                 let data_value = expressions[1].run(source, context)?;
@@ -465,26 +465,26 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Empty)
             }
-            Tool::FromJson(expression) => {
+            BuiltInFunction::FromJson(expression) => {
                 let json_value = expression.run(source, context)?;
                 let json = json_value.as_string()?;
                 let value = serde_json::from_str(json)?;
 
                 Ok(value)
             }
-            Tool::ToJson(expression) => {
+            BuiltInFunction::ToJson(expression) => {
                 let value = expression.run(source, context)?;
                 let json = serde_json::to_string(&value)?;
 
                 Ok(Value::String(json))
             }
-            Tool::ToString(expression) => {
+            BuiltInFunction::ToString(expression) => {
                 let value = expression.run(source, context)?;
                 let string = value.to_string();
 
                 Ok(Value::String(string))
             }
-            Tool::ToFloat(expression) => {
+            BuiltInFunction::ToFloat(expression) => {
                 let value = expression.run(source, context)?;
                 let float = match value {
                     Value::String(string) => string.parse()?,
@@ -495,7 +495,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::Float(float))
             }
-            Tool::Bash(expressions) => {
+            BuiltInFunction::Bash(expressions) => {
                 let mut command = Command::new("bash");
 
                 for expression in expressions {
@@ -509,7 +509,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(String::from_utf8(output)?))
             }
-            Tool::Fish(expressions) => {
+            BuiltInFunction::Fish(expressions) => {
                 let mut command = Command::new("fish");
 
                 for expression in expressions {
@@ -523,7 +523,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(String::from_utf8(output)?))
             }
-            Tool::Raw(expressions) => {
+            BuiltInFunction::Raw(expressions) => {
                 let raw_command = expressions[0].run(source, context)?;
                 let mut command = Command::new(raw_command.as_string()?);
 
@@ -538,7 +538,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(String::from_utf8(output)?))
             }
-            Tool::Sh(expressions) => {
+            BuiltInFunction::Sh(expressions) => {
                 let mut command = Command::new("sh");
 
                 for expression in expressions {
@@ -552,7 +552,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(String::from_utf8(output)?))
             }
-            Tool::Zsh(expressions) => {
+            BuiltInFunction::Zsh(expressions) => {
                 let mut command = Command::new("zsh");
 
                 for expression in expressions {
@@ -566,7 +566,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::String(String::from_utf8(output)?))
             }
-            Tool::Random(expressions) => {
+            BuiltInFunction::Random(expressions) => {
                 if expressions.len() == 1 {
                     let value = expressions[0].run(source, context)?;
                     let list = value.as_list()?.items();
@@ -594,10 +594,10 @@ impl AbstractTree for Tool {
 
                 Ok(value)
             }
-            Tool::RandomBoolean => Ok(Value::Boolean(random())),
-            Tool::RandomFloat => Ok(Value::Float(random())),
-            Tool::RandomInteger => Ok(Value::Integer(random())),
-            Tool::Columns(expression) => {
+            BuiltInFunction::RandomBoolean => Ok(Value::Boolean(random())),
+            BuiltInFunction::RandomFloat => Ok(Value::Float(random())),
+            BuiltInFunction::RandomInteger => Ok(Value::Integer(random())),
+            BuiltInFunction::Columns(expression) => {
                 let column_names = expression
                     .run(source, context)?
                     .as_table()?
@@ -609,7 +609,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::List(List::with_items(column_names)))
             }
-            Tool::Rows(expression) => {
+            BuiltInFunction::Rows(expression) => {
                 let rows = expression
                     .run(source, context)?
                     .as_table()?
@@ -621,7 +621,7 @@ impl AbstractTree for Tool {
 
                 Ok(Value::List(List::with_items(rows)))
             }
-            Tool::Reverse(list_expression, slice_range) => {
+            BuiltInFunction::Reverse(list_expression, slice_range) => {
                 let expression_run = list_expression.run(source, context)?;
                 let list = expression_run.as_list()?;
 

@@ -1,12 +1,10 @@
-==================
+================================================================================
 Simple For Loop
-==================
+================================================================================
 
-for i in [1, 2, 3] {
-  (output i)
-}
+for i in [1, 2, 3] output i
 
----
+--------------------------------------------------------------------------------
 
 (root
   (block
@@ -29,21 +27,17 @@ for i in [1, 2, 3] {
           (statement
             (expression
               (function_call
-                (built_in_function)
-              (expression
-                (identifier))))))))))
+                (built_in_function
+                  (expression
+                    (identifier)))))))))))
 
-==================
+================================================================================
 Nested For Loop
-==================
+================================================================================
 
-for list in list_of_lists {
-  for item in list {
-    (output item)
-  }
-}
+for list in list_of_lists for item in list output item
 
----
+--------------------------------------------------------------------------------
 
 (root
   (block
@@ -62,6 +56,6 @@ for list in list_of_lists {
                 (statement
                   (expression
                     (function_call
-                      (built_in_function)
-                    (expression
-                      (identifier)))))))))))))
+                      (built_in_function
+                        (expression
+                          (identifier))))))))))))))

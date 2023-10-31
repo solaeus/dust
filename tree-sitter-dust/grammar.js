@@ -19,12 +19,7 @@ module.exports = grammar({
       seq('{', repeat1($.statement), '}'),
     )),
 
-    statement: $ => prec.right(seq(
-      $._statement_kind,
-      optional(';'),
-    )),
-
-    _statement_kind: $ => prec.right(choice(
+    statement: $ => prec.right(choice(
       $.assignment,
       $.async,
       $.expression,
@@ -68,14 +63,14 @@ module.exports = grammar({
       $.map,
     ),
 
-    integer: $ => prec.left(token(seq(
+    integer: $ => token(prec.left(seq(
       optional('-'),
       repeat1(
         choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')
       ),
     ))),
 
-    float: $ => prec.left(token(seq(
+    float: $ => token(prec.left(seq(
       optional('-'),
       repeat1(choice('1', '2', '3', '4', '5', '6', '7', '8', '9', '0')),
       '.',
@@ -115,12 +110,6 @@ module.exports = grammar({
         $.expression,
       )),
     )),
- 
-    function: $ => seq(
-      'function',
-      optional(seq('<', repeat(seq($.identifier, optional(','))), '>')),
-      $.block,
-    ),
 
     table: $ => prec.left(seq(
       'table',
@@ -192,11 +181,6 @@ module.exports = grammar({
     else: $ => prec.left(seq(
       'else',
       $.block,
-    )),
-
-    function_call: $ => prec.right(seq(
-      choice($.identifier, $.built_in_function),
-      repeat(prec.right(seq($.expression, optional(',')))),
     )),
 
     match: $ => prec.right(seq(
@@ -287,8 +271,29 @@ module.exports = grammar({
       'async', 
       $.block,
     ),
+ 
+    function: $ => seq(
+      'function',
+      optional(seq('<', repeat(seq($.identifier, optional(','))), '>')),
+      $.block,
+    ),
 
-    built_in_function: $ => choice(
+    function_call: $ => choice(
+      $.built_in_function,
+      $._context_defined_function,
+    ),
+
+    _context_defined_function: $ => prec.right(seq(
+      $.identifier,
+      repeat(prec.right(seq($.expression, optional(',')))),
+    )),
+
+    built_in_function: $ => prec.right(seq(
+      $._built_in_function_name,
+      repeat(prec.right(seq($.expression, optional(',')))),
+    )),
+
+    _built_in_function_name: $ => choice(
       // General
       'assert',
       'assert_equal',
@@ -298,13 +303,13 @@ module.exports = grammar({
       'output',
       'output_error',
       'type',
-      'workdir',
 
       // Filesystem
       'append',
       'metadata',
       'move',
       'read',
+      'workdir',
       'write',
 
       // Format conversion
