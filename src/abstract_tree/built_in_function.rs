@@ -286,6 +286,7 @@ impl AbstractTree for BuiltInFunction {
             }
             BuiltInFunction::AssertEqual(expressions) => {
                 let mut prev_value = None;
+
                 for expression in expressions {
                     let value = expression.run(source, context)?;
 

@@ -6,6 +6,7 @@ module.exports = grammar({
   extras: $ => [ /\s/, $.comment ],
 
   conflicts: $ => [
+    [$.block],
     [$.map, $.assignment_operator],
   ],
 
@@ -14,10 +15,10 @@ module.exports = grammar({
 
     comment: $ => /[#][^#\n]*[#|\n]/,
 
-    block: $ => prec.right(choice(
+    block: $ => choice(
       repeat1($.statement),
       seq('{', repeat1($.statement), '}'),
-    )),
+    ),
 
     statement: $ => prec.right(seq(
       choice(
@@ -114,19 +115,6 @@ module.exports = grammar({
         '..',
         $.expression,
       )),
-    )),
-
-    _identifier_list: $ => repeat1(seq($.identifier, optional(','))),
-
-    parameter_list: $ => prec.right(choice(
-        $._identifier_list,
-        seq('<', $._identifier_list, '>'),
-    )),
-
-    table: $ => prec.right(seq(
-      'table',
-      $.parameter_list,
-      $.expression,
     )),
 
     math: $ => prec.left(seq(
@@ -264,7 +252,7 @@ module.exports = grammar({
 
     select: $ => prec.right(seq(
       'select',
-      $.parameter_list,
+      $.identifier_list,
       'from',
       $.expression,
       optional($.block),
@@ -282,10 +270,24 @@ module.exports = grammar({
       $.block,
     ),
  
+    identifier_list: $ => prec.right(choice(
+      seq(
+        '|',
+        repeat(seq($.identifier, optional(','))),
+        '|',
+      ),
+    )),
+
+    table: $ => prec.right(seq(
+      'table',
+      $.identifier_list,
+      $.expression,
+    )),
+
     function: $ => seq(
-      'function',
-      optional($.parameter_list),
-      $.block,
+      field('parameters', optional($.identifier_list)),
+      '=>',
+      field('body', $.block),
     ),
 
     function_call: $ => choice(

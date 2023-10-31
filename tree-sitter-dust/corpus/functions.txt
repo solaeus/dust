@@ -2,7 +2,7 @@
 Simple Function
 ================================================================================
 
-function { "Hiya" }
+=> "Hiya"
 
 --------------------------------------------------------------------------------
 
@@ -17,6 +17,30 @@ function { "Hiya" }
                 (expression
                   (value
                     (string)))))))))))
+
+================================================================================
+Function Assignment
+================================================================================
+
+x = => "Hiya"
+
+--------------------------------------------------------------------------------
+
+(root
+  (block
+    (statement
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (expression
+            (value
+              (function
+                (block
+                  (statement
+                    (expression
+                      (value
+                        (string)))))))))))))
 
 ================================================================================
 Function Call
@@ -40,7 +64,7 @@ Function Call
 Complex Function
 ================================================================================
 
-function <message number> {
+|message number| => {
   (output message)
   (output number)
 }
@@ -53,7 +77,7 @@ function <message number> {
       (expression
         (value
           (function
-            (parameter_list
+            (identifier_list
               (identifier)
               (identifier))
             (block

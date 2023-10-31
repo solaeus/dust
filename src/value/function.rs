@@ -6,19 +6,19 @@ use crate::{Block, Identifier};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
-    parameters: Vec<Identifier>,
+    parameters: Option<Vec<Identifier>>,
     body: Box<Block>,
 }
 
 impl Function {
-    pub fn new(parameters: Vec<Identifier>, body: Block) -> Self {
+    pub fn new(parameters: Option<Vec<Identifier>>, body: Block) -> Self {
         Function {
             parameters,
             body: Box::new(body),
         }
     }
 
-    pub fn identifiers(&self) -> &Vec<Identifier> {
+    pub fn identifiers(&self) -> &Option<Vec<Identifier>> {
         &self.parameters
     }
 

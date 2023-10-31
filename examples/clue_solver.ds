@@ -3,28 +3,20 @@ suspects = ['White' 'Green']
 weapons = ['Rope' 'Lead_Pipe']
 cards = [rooms suspects weapons]
 
-take_turn = function <current_room opponent_card> {
-	(remove_card opponent_card)
-	(make_guess current_room)
-}
+take_turn = function current_room opponent_card 
+	remove_card opponent_card
+	make_guess current_room
 
-remove_card = function <opponent_card> {
-	for card_list in cards {
-		# removed = remove card from card_list {
+remove_card = function opponent_card 
+	for card_list in cards 
+		removed = remove card from card_list 
 			card == opponent_card
-		}
-	}
 
-	if (type removed) == 'empty' {
-		(output 'Card not found.')
-	}
-}
+	if type removed == 'empty' 
+		output 'Card not found.'
 
-make_guess = function <current_room> {
-	if (length suspects) == 1
-		&& (length rooms) == 1
-		&& (length weapons) == 1
-	{
+make_guess = function current_room
+	if length suspects == 1	&& length rooms == 1 && length weapons == 1
 		(output 'It was '
 			+ suspects:0
 			+ ' in the '
@@ -32,7 +24,7 @@ make_guess = function <current_room> {
 			+ ' with the '
 			+ weapons:0
 			+ '!')
-	} else {
+	else
 		(output 'I accuse '
 			+ (random suspects)
 			+ ' in the '
@@ -40,7 +32,5 @@ make_guess = function <current_room> {
 			+ ' with the '
 			+ (random weapons)
 			+ '!')
-	}
-}
 
 (make_guess 'Library')

@@ -241,20 +241,27 @@
   {
     "type": "function",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "parameter_list",
-          "named": true
-        }
-      ]
+    "fields": {
+      "body": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      },
+      "parameters": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier_list",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -273,6 +280,21 @@
           "type": "expression",
           "named": true
         },
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "identifier_list",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
         {
           "type": "identifier",
           "named": true
@@ -458,21 +480,6 @@
     "fields": {}
   },
   {
-    "type": "parameter_list",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "identifier",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "reduce",
     "named": true,
     "fields": {},
@@ -550,7 +557,7 @@
           "named": true
         },
         {
-          "type": "parameter_list",
+          "type": "identifier_list",
           "named": true
         }
       ]
@@ -636,7 +643,7 @@
           "named": true
         },
         {
-          "type": "parameter_list",
+          "type": "identifier_list",
           "named": true
         }
       ]
@@ -896,10 +903,6 @@
     "named": false
   },
   {
-    "type": "function",
-    "named": false
-  },
-  {
     "type": "help",
     "named": false
   },
@@ -1053,6 +1056,10 @@
   },
   {
     "type": "{",
+    "named": false
+  },
+  {
+    "type": "|",
     "named": false
   },
   {

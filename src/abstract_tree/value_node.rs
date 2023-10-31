@@ -55,21 +55,22 @@ impl AbstractTree for ValueNode {
                 ValueType::List(expressions)
             }
             "table" => {
-                let child_count = child.child_count();
-                let mut column_names = Vec::new();
+                let identifier_list_node = child.child(1).unwrap();
+                let identifier_count = identifier_list_node.child_count();
+                let mut column_names = Vec::with_capacity(identifier_count);
 
-                let expression_node = child.child(child_count - 1).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                for index in 0..identifier_count {
+                    let identifier_node = identifier_list_node.child(index).unwrap();
 
-                for index in 2..child.child_count() - 2 {
-                    let node = child.child(index).unwrap();
-
-                    if node.is_named() {
-                        let identifier = Identifier::from_syntax_node(source, node)?;
+                    if identifier_node.is_named() {
+                        let identifier = Identifier::from_syntax_node(source, identifier_node)?;
 
                         column_names.push(identifier)
                     }
                 }
+
+                let expression_node = child.child(2).unwrap();
+                let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 ValueType::Table {
                     column_names,
@@ -99,24 +100,28 @@ impl AbstractTree for ValueNode {
                 ValueType::Map(child_nodes)
             }
             "function" => {
-                let mut identifiers = Vec::new();
+                let parameters_node = child.child_by_field_name("parameters");
+                let parameters = if let Some(node) = parameters_node {
+                    let mut parameter_list = Vec::new();
 
-                let block_node = child.child(child.child_count() - 1).unwrap();
-                let block = Block::from_syntax_node(source, block_node)?;
+                    for index in 0..node.child_count() {
+                        let child_node = node.child(index).unwrap();
 
-                for index in 1..child.child_count() - 1 {
-                    let child_node = child.child(index).unwrap();
+                        if child_node.is_named() {
+                            let parameter = Identifier::from_syntax_node(source, child_node)?;
 
-                    if child_node.kind() == "identifier" {
-                        let identifier = Identifier::from_syntax_node(source, child_node)?;
-
-                        identifiers.push(identifier);
+                            parameter_list.push(parameter);
+                        }
                     }
-                }
 
-                let function = Function::new(identifiers, block);
+                    Some(parameter_list)
+                } else {
+                    None
+                };
+                let body_node = child.child_by_field_name("body").unwrap();
+                let body = Block::from_syntax_node(source, body_node)?;
 
-                ValueType::Function(function)
+                ValueType::Function(Function::new(parameters, body))
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {

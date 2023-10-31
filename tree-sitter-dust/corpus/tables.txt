@@ -2,7 +2,7 @@
 Table Declaration
 ==================
 
-table messages numbers [
+table |messages numbers| [
     ['hiya' 42]
     ['foo'  57]
     ['bar'  99.99]
@@ -16,7 +16,7 @@ table messages numbers [
       (expression
         (value
           (table
-            (parameter_list
+            (identifier_list
               (identifier)
               (identifier))
             (expression
@@ -54,7 +54,7 @@ table messages numbers [
 Table Access
 ==================
 
-select <number> from foobar {
+select |number| from foobar {
   text == 'answer'
 }
 
@@ -64,7 +64,7 @@ select <number> from foobar {
   (block
     (statement
       (select
-        (parameter_list
+        (identifier_list
           (identifier))
         (expression
           (identifier))

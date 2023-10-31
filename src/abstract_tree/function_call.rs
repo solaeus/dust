@@ -24,7 +24,7 @@ impl AbstractTree for FunctionCall {
         for index in 1..node.child_count() {
             let child = node.child(index).unwrap();
 
-            if child.kind() == "expression" {
+            if child.is_named() {
                 let expression = Expression::from_syntax_node(source, child)?;
 
                 arguments.push(expression);
@@ -59,13 +59,16 @@ impl AbstractTree for FunctionCall {
             return Err(Error::FunctionIdentifierNotFound(name.clone()));
         };
         let mut function_context = Map::clone_from(context);
-        let identifier_expression_pairs = definition.identifiers().iter().zip(arguments.iter());
 
-        for (identifier, expression) in identifier_expression_pairs {
-            let key = identifier.inner().clone();
-            let value = expression.run(source, context)?;
+        if let Some(parameters) = definition.identifiers() {
+            let parameter_expression_pairs = parameters.iter().zip(arguments.iter());
 
-            function_context.variables_mut().insert(key, value);
+            for (identifier, expression) in parameter_expression_pairs {
+                let key = identifier.clone().take_inner();
+                let value = expression.run(source, context)?;
+
+                function_context.variables_mut().insert(key, value);
+            }
         }
 
         definition.body().run(source, &mut function_context)
