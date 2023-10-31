@@ -8,16 +8,14 @@ false
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (boolean)))))
-  (item
-    (statement
-      (expression
-        (value
-          (boolean))))))
+  (statement
+    (expression
+      (value
+        (boolean))))
+  (statement
+    (expression
+      (value
+        (boolean)))))
 
 ==================
 Integers
@@ -29,31 +27,26 @@ Integers
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (integer)))))
-  (item
-    (statement
-      (expression
-        (value
-          (integer)))))
-  (item
-    (statement
-      (expression
-        (value
-          (integer)))))
-  (item
-    (statement
-      (expression
-        (value
-          (integer)))))
-  (item
-    (statement
-      (expression
-        (value
-          (integer))))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer)))))
 
 ==================
 Strings
@@ -64,28 +57,23 @@ Strings
 ---
 
 (root
-  (item
+    (statement
+      (expression
+        (value
+          (string))))
+    (statement
+      (expression
+        (value
+          (string))))
+    (statement
+      (expression
+        (value
+          (string))))
+    (statement
+      (expression
+        (value
+          (string))))
     (statement
       (expression
         (value
           (string)))))
-  (item
-    (statement
-      (expression
-        (value
-          (string)))))
-  (item
-    (statement
-      (expression
-        (value
-          (string)))))
-  (item
-    (statement
-      (expression
-        (value
-          (string)))))
-  (item
-    (statement
-      (expression
-        (value
-          (string))))))

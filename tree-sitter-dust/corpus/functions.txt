@@ -7,16 +7,14 @@ function { "Hiya" }
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (function
-            (item
-              (statement
-                (expression
-                  (value
-                    (string)))))))))))
+  (statement
+    (expression
+      (value
+        (function
+          (statement
+            (expression
+              (value
+                (string)))))))))
 
 ==================
 Function Call
@@ -27,14 +25,13 @@ Function Call
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (function_call
-          (identifier)
-          (expression
-            (value
-              (string))))))))
+  (statement
+    (expression
+      (function_call
+        (identifier)
+        (expression
+          (value
+            (string)))))))
 
 ==================
 Complex Function
@@ -48,24 +45,21 @@ function <message number> {
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (value
-          (function
-            (identifier)
-            (identifier)
-            (item
-              (statement
+  (statement
+    (expression
+      (value
+        (function
+          (identifier)
+          (identifier)
+          (statement
+            (expression
+              (tool
                 (expression
-                  (tool
-                    (expression
-                      (identifier)))))
-              (statement
+                  (identifier))))
+            (expression
+              (tool
                 (expression
-                  (tool
-                    (expression
-                      (identifier))))))))))))
+                  (identifier))))))))))
 
 ==================
 Complex Function Call
@@ -83,25 +77,24 @@ Complex Function Call
 ---
 
 (root
-  (item
-    (statement
-      (expression
-        (function_call
-          (identifier)
-          (expression
-            (value
-              (string)))
-          (expression
-            (value
-              (integer)))
-          (expression
-            (value
-              (map
-                (identifier)
-                (expression
-                  (value
-                    (integer)))
-                (identifier)
-                (expression
-                  (value
-                    (integer)))))))))))
+  (statement
+    (expression
+      (function_call
+        (identifier)
+        (expression
+          (value
+            (string)))
+        (expression
+          (value
+            (integer)))
+        (expression
+          (value
+            (map
+              (identifier)
+              (expression
+                (value
+                  (integer)))
+              (identifier)
+              (expression
+                (value
+                  (integer))))))))))

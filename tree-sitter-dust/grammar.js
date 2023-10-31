@@ -304,7 +304,7 @@ module.exports = grammar({
     async: $ => seq(
       'async', 
       '{', 
-      repeat($.statement), 
+      $.statement, 
       '}'
     ),
 
