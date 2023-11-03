@@ -1,0 +1,45 @@
+(output "This will print first.")
+(output "This will print second.")
+
+create_random_numbers = |count| => {
+	numbers = []
+
+	while (length numbers) < count {
+		numbers += (random_integer)
+	}
+}
+
+do_second = async {
+	{	
+		(create_random_numbers 1000)
+		(output "Made 1000 numbers")
+	}
+	{	
+		(create_random_numbers 100)
+		(output "Made 100 numbers")
+	}
+	{	
+		(create_random_numbers 10)
+		(output "Made 10 numbers")
+	}
+}
+
+do_first = async {
+	{	
+		(create_random_numbers 400)
+		(output "Made 400 numbers")
+	}
+	{	
+		(create_random_numbers 40)
+		(output "Made 40 numbers")
+	}
+	{	
+		(create_random_numbers 4)
+		(output "Made 4 numbers")
+	}
+}
+
+do_first.await
+do_second.await
+
+(output "This will print last.")

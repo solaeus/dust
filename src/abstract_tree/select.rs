@@ -7,49 +7,36 @@ use crate::{AbstractTree, Block, Expression, Identifier, Map, Result, Table, Val
 pub struct Select {
     identifiers: Vec<Identifier>,
     expression: Expression,
-    item: Option<Block>,
+    block: Option<Block>,
 }
 
 impl AbstractTree for Select {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        let child_count = node.child_count();
         let mut identifiers = Vec::new();
+        let identifier_list = node.child(1).unwrap();
 
-        for index in 2..child_count - 4 {
-            let node = node.child(index).unwrap();
+        for index in 1..identifier_list.child_count() - 1 {
+            let node = identifier_list.child(index).unwrap();
 
-            if node.kind() == "identifier" {
+            if node.is_named() {
                 let identifier = Identifier::from_syntax_node(source, node)?;
                 identifiers.push(identifier);
             }
-
-            if node.kind() == ">" {
-                break;
-            }
         }
 
-        let final_node = node.child(child_count - 1).unwrap();
+        let expression_node = node.child(3).unwrap();
+        let expression = Expression::from_syntax_node(source, expression_node)?;
 
-        let item = if final_node.kind() == "}" {
-            let item_node = node.child(child_count - 2).unwrap();
-
-            Some(Block::from_syntax_node(source, item_node)?)
+        let block = if let Some(block_node) = node.child(4) {
+            Some(Block::from_syntax_node(source, block_node)?)
         } else {
             None
         };
 
-        let expression_node = if item.is_some() {
-            node.child(child_count - 4).unwrap()
-        } else {
-            node.child(child_count - 1).unwrap()
-        };
-
-        let expression = Expression::from_syntax_node(source, expression_node)?;
-
         Ok(Select {
             identifiers,
             expression,
-            item,
+            block,
         })
     }
 
@@ -99,7 +86,7 @@ impl AbstractTree for Select {
                 }
             }
 
-            if let Some(where_clause) = &self.item {
+            if let Some(where_clause) = &self.block {
                 let should_include = where_clause.run(source, &mut row_context)?.as_boolean()?;
 
                 if should_include {

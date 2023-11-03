@@ -11,19 +11,18 @@ module.exports = grammar({
   ],
 
   rules: {
-    root: $ => repeat1($.block),
+    root: $ => $.block,
 
     comment: $ => /[#][^#\n]*[#|\n]/,
 
-    block: $ => choice(
+    block: $ => prec.right(choice(
       repeat1($.statement),
       seq('{', repeat1($.statement), '}'),
-    ),
+    )),
 
     statement: $ => prec.right(seq(
       choice(
         $.assignment,
-        $.async,
         $.expression,
         $.filter,
         $.find,
@@ -67,6 +66,7 @@ module.exports = grammar({
       $.function,
       $.table,
       $.map,
+      $.future,
     ),
 
     integer: $ => token(prec.left(seq(
@@ -92,7 +92,7 @@ module.exports = grammar({
 
     list: $ => seq(
       '[',
-      repeat(prec.left(seq($.expression, optional(',')))),
+      $._expression_list,
       ']',
     ),
 
@@ -105,6 +105,11 @@ module.exports = grammar({
         optional(',')
       )),
       '}',
+    ),
+
+    future: $ => seq(
+      'async',
+      $.block,
     ),
  
     index: $ => prec.left(seq(
@@ -265,11 +270,6 @@ module.exports = grammar({
       $.expression,
     )),
 
-    async: $ => seq(
-      'async', 
-      $.block,
-    ),
- 
     identifier_list: $ => prec.right(choice(
       seq(
         '|',

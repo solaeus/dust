@@ -48,8 +48,9 @@ impl AbstractTree for FunctionCall {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+        let mut function_context = Map::clone_from(context);
         let (name, arguments) = match self {
-            FunctionCall::BuiltIn(function) => return function.run(source, context),
+            FunctionCall::BuiltIn(function) => return function.run(source, &mut function_context),
             FunctionCall::ContextDefined { name, arguments } => (name, arguments),
         };
 
@@ -58,7 +59,6 @@ impl AbstractTree for FunctionCall {
         } else {
             return Err(Error::FunctionIdentifierNotFound(name.clone()));
         };
-        let mut function_context = Map::clone_from(context);
 
         if let Some(parameters) = definition.identifiers() {
             let parameter_expression_pairs = parameters.iter().zip(arguments.iter());

@@ -60,6 +60,13 @@ fn remove_loop() {
 }
 
 #[test]
+fn select() {
+    let file_contents = read_to_string("examples/select.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
 fn table() {
     let file_contents = read_to_string("examples/table.ds").unwrap();
 
