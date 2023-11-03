@@ -1,31 +1,31 @@
-my_table = table <text number bool> [
+my_table = table |text number bool| [
 	["a", 1, true]
 	["b", 2, true]
 	["a", 3, true]
 ]
 
-test_table = table <text bool> [
+test_table = table |text bool| [
 	["a", true]
 	["b", true]
 	["a", true]
 ]
 
-test_select = select <text bool> from my_table
+test_select = select |text bool| from my_table
 
 (assert_equal test_select, test_table)
 
-test_table = table <text number bool> [
+test_table = table |text number bool| [
 	[1, true]
 	[3, true]
 ]
 
-test_select_where = select <number, bool> from my_table {
+test_select_where = select |number, bool| from my_table {
 	text == "a"
 }
 
 (assert_equal test_select_where, test_table)
 
-test_table = table <text number bool> [
+test_table = table |text number bool| [
 	["a", 1, true]
 	["b", 2, true]
 	["a", 3, true]

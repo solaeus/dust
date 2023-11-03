@@ -33,7 +33,7 @@ impl AbstractTree for For {
         let expression_node = node.child(3).unwrap();
         let expression = Expression::from_syntax_node(source, expression_node)?;
 
-        let item_node = node.child(5).unwrap();
+        let item_node = node.child(4).unwrap();
         let item = Block::from_syntax_node(source, item_node)?;
 
         Ok(For {

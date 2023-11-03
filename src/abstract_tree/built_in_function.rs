@@ -94,13 +94,13 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::AssertEqual(expressions)
             }
             "download" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::Download(expression)
             }
             "help" => {
-                let child_node = node.child(2).unwrap();
+                let child_node = node.child(1).unwrap();
                 let expression = if child_node.is_named() {
                     Some(Expression::from_syntax_node(source, child_node)?)
                 } else {
@@ -110,7 +110,7 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::Help(expression)
             }
             "length" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::Length(expression)
@@ -126,7 +126,7 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::OutputError(expressions)
             }
             "type" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::Type(expression)
@@ -140,7 +140,7 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::Append(expressions)
             }
             "metadata" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::Metadata(expression)
@@ -153,13 +153,13 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::Move(expressions)
             }
             "read" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::Read(expression)
             }
             "remove" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::Remove(expression)
@@ -172,25 +172,25 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::Write(expressions)
             }
             "from_json" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::FromJson(expression)
             }
             "to_json" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::ToJson(expression)
             }
             "to_string" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::ToString(expression)
             }
             "to_float" => {
-                let expression_node = node.child(2).unwrap();
+                let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
                 BuiltInFunction::ToFloat(expression)
