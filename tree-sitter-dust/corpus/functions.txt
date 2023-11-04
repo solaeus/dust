@@ -101,7 +101,7 @@ Complex Function Call
 (foobar
     "hi"
     42
-    {
+    map {
       x = 1
       y = 2
     }
@@ -124,13 +124,20 @@ Complex Function Call
           (expression
             (value
               (map
-                (identifier)
-                (statement
-                  (expression
-                    (value
-                      (integer))))
-                (identifier)
-                (statement
-                  (expression
-                    (value
-                      (integer))))))))))))
+                (block
+                  (statement
+                    (assignment
+                      (identifier)
+                      (assignment_operator)
+                      (statement
+                        (expression
+                          (value
+                            (integer))))))
+                  (statement
+                    (assignment
+                      (identifier)
+                      (assignment_operator)
+                      (statement
+                        (expression
+                          (value
+                            (integer)))))))))))))))

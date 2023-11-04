@@ -7,7 +7,6 @@ module.exports = grammar({
 
   conflicts: $ => [
     [$.block],
-    [$.map, $.assignment_operator],
   ],
 
   rules: {
@@ -23,6 +22,7 @@ module.exports = grammar({
     statement: $ => prec.right(seq(
       choice(
         $.assignment,
+        $.await,
         $.expression,
         $.filter,
         $.find,
@@ -44,7 +44,7 @@ module.exports = grammar({
       seq('(', $._expression_kind, ')'),
     )),
 
-    _expression_kind: $ => prec.left(1, choice(
+    _expression_kind: $ => prec.right(1, choice(
       $.function_call,
       $.identifier,
       $.index,
@@ -92,24 +92,25 @@ module.exports = grammar({
 
     list: $ => seq(
       '[',
-      $._expression_list,
+      repeat(prec.right(seq($.expression, optional(',')))),
       ']',
     ),
 
     map: $ => seq(
-      '{',
-      repeat(seq(
-        $.identifier,
-        "=",
-        $.statement,
-        optional(',')
-      )),
-      '}',
+      'map',
+      $.block,
     ),
 
     future: $ => seq(
       'async',
       $.block,
+    ),
+
+    await: $ => seq(
+      'await',
+      '{',
+      $._expression_list,
+      '}',
     ),
  
     index: $ => prec.left(seq(

@@ -7,7 +7,7 @@
 //! examples.
 
 pub mod assignment;
-pub mod r#async;
+pub mod r#await;
 pub mod block;
 pub mod built_in_function;
 pub mod expression;
@@ -33,8 +33,8 @@ pub mod r#while;
 pub use {
     assignment::*, block::*, built_in_function::*, expression::*, filter::*, find::*,
     function_call::*, identifier::*, if_else::*, index::*, insert::*, logic::*, math::*,
-    r#async::*, r#for::*, r#match::*, r#while::*, remove::*, select::*, statement::*, sublist::*,
-    transform::*, value_node::*,
+    r#await::*, r#await::*, r#for::*, r#match::*, r#while::*, remove::*, select::*, statement::*,
+    sublist::*, transform::*, value_node::*,
 };
 
 use tree_sitter::Node;

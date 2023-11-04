@@ -28,6 +28,21 @@
     "fields": {}
   },
   {
+    "type": "await",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "block",
     "named": true,
     "fields": {},
@@ -384,7 +399,7 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "expression",
@@ -422,15 +437,11 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
-      "required": false,
+      "multiple": false,
+      "required": true,
       "types": [
         {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "statement",
+          "type": "block",
           "named": true
         }
       ]
@@ -573,6 +584,10 @@
       "types": [
         {
           "type": "assignment",
+          "named": true
+        },
+        {
+          "type": "await",
           "named": true
         },
         {
@@ -847,6 +862,10 @@
     "named": false
   },
   {
+    "type": "await",
+    "named": false
+  },
+  {
     "type": "bash",
     "named": false
   },
@@ -932,6 +951,10 @@
   },
   {
     "type": "length",
+    "named": false
+  },
+  {
+    "type": "map",
     "named": false
   },
   {

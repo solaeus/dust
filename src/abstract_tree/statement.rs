@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Insert, Map,
+    AbstractTree, Assignment, Await, Error, Expression, Filter, Find, For, IfElse, Insert, Map,
     Match, Remove, Result, Select, Transform, Value, While,
 };
 
@@ -13,11 +13,12 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Assignment(Box<Assignment>),
+    Await(Await),
     Expression(Expression),
     IfElse(Box<IfElse>),
     Match(Match),
     While(Box<While>),
-    Async(Box<Async>),
+    Async(Box<Await>),
     For(Box<For>),
     Transform(Box<Transform>),
     Filter(Box<Filter>),
@@ -37,6 +38,7 @@ impl AbstractTree for Statement {
             "assignment" => Ok(Statement::Assignment(Box::new(
                 Assignment::from_syntax_node(source, child)?,
             ))),
+            "await" => Ok(Statement::Await(Await::from_syntax_node(source, child)?)),
             "expression" => Ok(Self::Expression(Expression::from_syntax_node(
                 source, child,
             )?)),
@@ -49,7 +51,7 @@ impl AbstractTree for Statement {
             "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
                 source, child,
             )?))),
-            "async" => Ok(Statement::Async(Box::new(Async::from_syntax_node(
+            "async" => Ok(Statement::Async(Box::new(Await::from_syntax_node(
                 source, child,
             )?))),
             "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
@@ -85,6 +87,7 @@ impl AbstractTree for Statement {
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
+            Statement::Await(r#await) => r#await.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),
             Statement::IfElse(if_else) => if_else.run(source, context),
             Statement::Match(r#match) => r#match.run(source, context),

@@ -244,6 +244,13 @@ impl From<&Value> for Table {
 
                 table
             }
+            Value::Future(block) => {
+                let mut table = Table::new(vec!["future".to_string()]);
+
+                table.insert(vec![Value::Future(block.clone())]).unwrap();
+
+                table
+            }
         }
     }
 }

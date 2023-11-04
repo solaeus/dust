@@ -1,5 +1,5 @@
 ================================================================================
-Simple Async Statements
+Simple Future
 ================================================================================
 
 async { (output 'Whaddup') }
@@ -22,9 +22,8 @@ async { (output 'Whaddup') }
                           (string))))))))))))))
 
 ================================================================================
-Complex Async Statements
+Complex Future
 ================================================================================
-
 async {
   if 1 % 2 == 0 {
     true
@@ -34,6 +33,10 @@ async {
 
   'foobar'
 }
+
+async { 123 }
+
+'foo'
 
 --------------------------------------------------------------------------------
 
@@ -76,4 +79,17 @@ async {
               (statement
                 (expression
                   (value
-                    (string)))))))))))
+                    (string)))))))))
+    (statement
+      (expression
+        (value
+          (future
+            (block
+              (statement
+                (expression
+                  (value
+                    (integer)))))))))
+    (statement
+      (expression
+        (value
+          (string))))))

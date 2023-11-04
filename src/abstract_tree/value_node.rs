@@ -123,15 +123,19 @@ impl AbstractTree for ValueNode {
 
                 ValueType::Function(Function::new(parameters, body))
             }
-            _ => {
-                return Err(Error::UnexpectedSyntaxNode {
-                    expected:
-                        "string, integer, float, boolean, list, table, map, function or empty",
-                    actual: child.kind(),
-                    location: child.start_position(),
-                    relevant_source: source[child.byte_range()].to_string(),
-                })
+            "future" => {
+                let block_node = child.child(1).unwrap();
+                let block = Block::from_syntax_node(source, block_node)?;
+
+                ValueType::Future(block)
             }
+            _ => return Err(Error::UnexpectedSyntaxNode {
+                expected:
+                    "string, integer, float, boolean, list, table, map, function, future or empty",
+                actual: child.kind(),
+                location: child.start_position(),
+                relevant_source: source[child.byte_range()].to_string(),
+            }),
         };
 
         Ok(ValueNode {
@@ -203,6 +207,7 @@ impl AbstractTree for ValueNode {
                 Value::Table(table)
             }
             ValueType::Function(function) => Value::Function(function.clone()),
+            ValueType::Future(block) => Value::Future(block.clone()),
         };
 
         Ok(value)

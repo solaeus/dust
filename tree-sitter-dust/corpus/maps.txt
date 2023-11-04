@@ -1,10 +1,10 @@
-==================
+================================================================================
 Simple Map
-==================
+================================================================================
 
-{ answer = 42 }
+map { answer = 42 }
 
----
+--------------------------------------------------------------------------------
 
 (root
   (block
@@ -12,27 +12,31 @@ Simple Map
       (expression
         (value
           (map
-            (identifier)
-            (statement
-              (expression
-                (value
-                  (integer))))))))))
+            (block
+              (statement
+                (assignment
+                  (identifier)
+                  (assignment_operator)
+                  (statement
+                    (expression
+                      (value
+                        (integer)))))))))))))
 
-==================
+================================================================================
 Nested Maps
-==================
+================================================================================
 
-x = {
-  y = {
+x = map {
+  y = map {
     foo = 'bar'
-    z = {
+    z = map {
       message = 'hiya'
     }
   }
   f = 12
 }
 
----
+--------------------------------------------------------------------------------
 
 (root
   (block
@@ -44,28 +48,46 @@ x = {
           (expression
             (value
               (map
-                (identifier)
-                (statement
-                  (expression
-                    (value
-                      (map
-                        (identifier)
-                        (statement
-                          (expression
-                            (value
-                              (string))))
-                        (identifier)
-                        (statement
-                          (expression
-                            (value
-                              (map
-                                (identifier)
+                (block
+                  (statement
+                    (assignment
+                      (identifier)
+                      (assignment_operator)
+                      (statement
+                        (expression
+                          (value
+                            (map
+                              (block
                                 (statement
-                                  (expression
-                                    (value
-                                      (string))))))))))))
-                (identifier)
-                (statement
-                  (expression
-                    (value
-                      (integer))))))))))))
+                                  (assignment
+                                    (identifier)
+                                    (assignment_operator)
+                                    (statement
+                                      (expression
+                                        (value
+                                          (string))))))
+                                (statement
+                                  (assignment
+                                    (identifier)
+                                    (assignment_operator)
+                                    (statement
+                                      (expression
+                                        (value
+                                          (map
+                                            (block
+                                              (statement
+                                                (assignment
+                                                  (identifier)
+                                                  (assignment_operator)
+                                                  (statement
+                                                    (expression
+                                                      (value
+                                                        (string))))))))))))))))))))
+                  (statement
+                    (assignment
+                      (identifier)
+                      (assignment_operator)
+                      (statement
+                        (expression
+                          (value
+                            (integer)))))))))))))))

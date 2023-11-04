@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, List, Map, Table, ValueType,
+    Block, Function, List, Map, Table, ValueType,
 };
 
 use json::JsonValue;
@@ -32,14 +32,15 @@ pub mod value_type;
 /// value that can be treated as any other.
 #[derive(Debug, Clone, Default)]
 pub enum Value {
+    Boolean(bool),
+    Float(f64),
+    Function(Function),
+    Future(Block),
+    Integer(i64),
     List(List),
     Map(Map),
-    Table(Table),
-    Function(Function),
     String(String),
-    Float(f64),
-    Integer(i64),
-    Boolean(bool),
+    Table(Table),
     #[default]
     Empty,
 }
@@ -391,6 +392,8 @@ impl Ord for Value {
             (Value::Table(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
+            (Value::Future(left), Value::Future(right)) => left.cmp(right),
+            (Value::Future(_), _) => Ordering::Greater,
             (Value::Empty, Value::Empty) => Ordering::Equal,
             (Value::Empty, _) => Ordering::Less,
         }
@@ -421,6 +424,7 @@ impl Serialize for Value {
             Value::Map(inner) => inner.serialize(serializer),
             Value::Table(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
+            Value::Future(inner) => inner.serialize(serializer),
         }
     }
 }
@@ -443,6 +447,7 @@ impl Display for Value {
             Value::Map(map) => write!(f, "{map}"),
             Value::Table(table) => write!(f, "{table}"),
             Value::Function(function) => write!(f, "{function}"),
+            Value::Future(block) => write!(f, "{block:?}"),
         }
     }
 }

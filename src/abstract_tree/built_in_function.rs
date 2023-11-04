@@ -320,11 +320,11 @@ impl AbstractTree for BuiltInFunction {
                     Value::Map(map) => map.len(),
                     Value::Table(table) => table.len(),
                     Value::String(string) => string.chars().count(),
-                    Value::Function(_) => todo!(),
-                    Value::Float(_) => todo!(),
-                    Value::Integer(_) => todo!(),
-                    Value::Boolean(_) => todo!(),
-                    Value::Empty => todo!(),
+                    _ => {
+                        return Err(Error::ExpectedCollection {
+                            actual: value.clone(),
+                        });
+                    }
                 };
 
                 Ok(Value::Integer(length as i64))

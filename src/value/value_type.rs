@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{value_node::ValueNode, Expression, Function, Identifier, Statement, Value};
+use crate::{value_node::ValueNode, Block, Expression, Function, Identifier, Statement, Value};
 
 /// The type of a `Value`.
 #[derive(Clone, Serialize, Deserialize, PartialOrd, Ord)]
@@ -23,6 +23,7 @@ pub enum ValueType {
         rows: Box<Expression>,
     },
     Function(Function),
+    Future(Block),
 }
 
 impl Eq for ValueType {}
@@ -84,6 +85,7 @@ impl Display for ValueType {
                 write!(f, "table")
             }
             ValueType::Function(function) => write!(f, "{function}"),
+            ValueType::Future(_) => write!(f, "future"),
         }
     }
 }
@@ -137,6 +139,7 @@ impl From<&Value> for ValueType {
                 ))),
             },
             Value::Function(function) => ValueType::Function(function.clone()),
+            Value::Future(block) => ValueType::Future(block.clone()),
         }
     }
 }
