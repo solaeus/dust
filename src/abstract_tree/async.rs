@@ -2,43 +2,25 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Error, Map, Result, Value};
+use crate::{AbstractTree, Block, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Async {
-    statements: Vec<Block>,
+    block: Block,
 }
 
 impl AbstractTree for Async {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         debug_assert_eq!("async", node.kind());
 
-        let child_count = node.child_count();
-        let mut statements = Vec::with_capacity(child_count);
+        let block_node = node.child(1).unwrap();
+        let block = Block::from_syntax_node(source, block_node)?;
 
-        for index in 2..child_count - 1 {
-            let child = node.child(index).unwrap();
-
-            let statement = match child.kind() {
-                "statement" => Block::from_syntax_node(source, child)?,
-                _ => {
-                    return Err(Error::UnexpectedSyntaxNode {
-                        expected: "comment or statement",
-                        actual: child.kind(),
-                        location: child.start_position(),
-                        relevant_source: source[child.byte_range()].to_string(),
-                    })
-                }
-            };
-
-            statements.push(statement);
-        }
-
-        Ok(Async { statements })
+        Ok(Async { block })
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let statements = &self.statements;
+        let statements = self.block.statements();
 
         statements
             .into_par_iter()
@@ -47,6 +29,7 @@ impl AbstractTree for Async {
                 let mut context = context.clone();
                 let result = statement.run(source, &mut context);
 
+                result.clone().unwrap();
                 if result.is_err() {
                     Some(result)
                 } else if index == statements.len() - 1 {
@@ -55,6 +38,6 @@ impl AbstractTree for Async {
                     None
                 }
             })
-            .unwrap()
+            .unwrap_or(Ok(Value::Empty))
     }
 }

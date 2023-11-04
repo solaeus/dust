@@ -8,6 +8,12 @@ pub struct Block {
     statements: Vec<Statement>,
 }
 
+impl Block {
+    pub fn statements(&self) -> &Vec<Statement> {
+        &self.statements
+    }
+}
+
 impl AbstractTree for Block {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         debug_assert_eq!("block", node.kind());

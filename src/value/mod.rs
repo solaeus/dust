@@ -219,19 +219,20 @@ impl Add for Value {
     type Output = Result<Value>;
 
     fn add(self, other: Self) -> Self::Output {
-        match (self.as_integer(), other.as_integer()) {
-            (Ok(left), Ok(right)) => return Ok(Value::Integer(left + right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
+            return Ok(Value::Integer(left + right));
         }
 
-        match (self.as_number(), other.as_number()) {
-            (Ok(left), Ok(right)) => return Ok(Value::Float(left + right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
+            return Ok(Value::Float(left + right));
         }
 
-        match (self.as_string(), other.as_string()) {
-            (Ok(left), Ok(right)) => return Ok(Value::String(left.to_string() + right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_string(), other.as_string()) {
+            return Ok(Value::String(left.to_string() + right));
+        }
+
+        if self.is_string() || other.is_string() {
+            return Ok(Value::String(self.to_string() + &other.to_string()));
         }
 
         let non_number_or_string = if !self.is_number() == !self.is_string() {
