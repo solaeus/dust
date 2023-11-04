@@ -1,63 +1,53 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Identifier, Map, Result, Value};
+use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Remove {
-    identifier: Identifier,
-    expression: Expression,
-    item: Block,
+    item_id: Identifier,
+    collection: Expression,
+    predicate: Block,
 }
 
 impl AbstractTree for Remove {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let identifier_node = node.child(1).unwrap();
-        let identifier = Identifier::from_syntax_node(source, identifier_node)?;
+        let item_id = Identifier::from_syntax_node(source, identifier_node)?;
 
         let expression_node = node.child(3).unwrap();
-        let expression = Expression::from_syntax_node(source, expression_node)?;
+        let collection = Expression::from_syntax_node(source, expression_node)?;
 
-        let item_node = node.child(4).unwrap();
-        let item = Block::from_syntax_node(source, item_node)?;
+        let block_node = node.child(4).unwrap();
+        let predicate = Block::from_syntax_node(source, block_node)?;
 
         Ok(Remove {
-            identifier,
-            expression,
-            item,
+            item_id,
+            collection,
+            predicate,
         })
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let expression_run = self.expression.run(source, context)?;
-        let values = expression_run.into_inner_list()?;
-        let key = self.identifier.inner();
-        let mut sub_context = context.clone();
+        let value = self.collection.run(source, context)?;
+        let mut values = value.as_list()?.items_mut();
+        let key = self.item_id.inner();
         let mut should_remove_index = None;
 
-        for (index, value) in values.items().iter().enumerate() {
-            sub_context
-                .variables_mut()
-                .insert(key.clone(), value.clone());
+        values.iter().enumerate().try_for_each(|(index, value)| {
+            context.variables_mut().insert(key.clone(), value.clone());
 
-            let should_remove = self.item.run(source, &mut sub_context)?.as_boolean()?;
+            let should_remove = self.predicate.run(source, context)?.as_boolean()?;
 
             if should_remove {
                 should_remove_index = Some(index);
-
-                match &self.expression {
-                    Expression::Identifier(identifier) => {
-                        sub_context
-                            .variables_mut()
-                            .insert(identifier.inner().clone(), Value::List(values.clone()));
-                    }
-                    _ => {}
-                }
             }
-        }
+
+            Ok::<(), Error>(())
+        })?;
 
         if let Some(index) = should_remove_index {
-            Ok(values.items_mut().remove(index))
+            Ok(values.remove(index))
         } else {
             Ok(Value::Empty)
         }

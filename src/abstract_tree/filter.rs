@@ -19,13 +19,13 @@ impl AbstractTree for Filter {
             None => None,
         };
 
-        let item_id_node = node.child(1).unwrap();
+        let item_id_node = node.child_by_field_name("item_id").unwrap();
         let item_id = Identifier::from_syntax_node(source, item_id_node)?;
 
-        let collection_node = node.child(3).unwrap();
+        let collection_node = node.child_by_field_name("collection").unwrap();
         let collection = Expression::from_syntax_node(source, collection_node)?;
 
-        let predicate_node = node.child(5).unwrap();
+        let predicate_node = node.child_by_field_name("predicate").unwrap();
         let predicate = Block::from_syntax_node(source, predicate_node)?;
 
         Ok(Filter {
@@ -45,6 +45,7 @@ impl AbstractTree for Filter {
             Some(expression) => Some(expression.run(source, context)?.as_integer()? as usize),
             None => None,
         };
+        let loop_context = Map::clone_from(context);
 
         values.par_iter().try_for_each(|value| {
             if let Some(max) = count {
@@ -53,11 +54,16 @@ impl AbstractTree for Filter {
                 }
             }
 
-            let mut context = Map::new();
+            let mut iter_context = loop_context.clone();
 
-            context.variables_mut().insert(key.clone(), value.clone());
+            iter_context
+                .variables_mut()
+                .insert(key.clone(), value.clone());
 
-            let should_include = self.predicate.run(source, &mut context)?.as_boolean()?;
+            let should_include = self
+                .predicate
+                .run(source, &mut iter_context)?
+                .as_boolean()?;
 
             if should_include {
                 new_values.items_mut().push(value.clone());

@@ -33,9 +33,13 @@ pub fn evaluate(source: &str) -> Result<Value> {
 /// # use dust_lang::*;
 /// let mut context = Map::new();
 ///
-/// context.set_value("one".into(), 1.into());
-/// context.set_value("two".into(), 2.into());
-/// context.set_value("three".into(), 3.into());
+/// {
+///     let mut variables = context.variables_mut();
+///
+///     variables.insert("one".into(), 1.into());
+///     variables.insert("two".into(), 2.into());
+///     variables.insert("three".into(), 3.into());
+/// }
 ///
 /// let dust_code = "four = 4 one + two + three + four";
 ///

@@ -3,7 +3,7 @@ module.exports = grammar({
 
   word: $ => $.identifier,
 
-  extras: $ => [ /\s/, $.comment ],
+  extras: $ => [ /\s/, $._comment ],
 
   conflicts: $ => [
     [$.block],
@@ -13,7 +13,7 @@ module.exports = grammar({
   rules: {
     root: $ => repeat1($.block),
 
-    comment: $ => /[#][^#\n]*[#|\n]/,
+    _comment: $ => /[#][^#\n]*[#|\n]/,
 
     block: $ => choice(
       repeat1($.statement),
@@ -200,7 +200,10 @@ module.exports = grammar({
     ),
 
     for: $ => seq(
-      'for',
+      choice(
+        'for',
+        'async for',
+      ),
       $.identifier,
       'in',
       $.expression,
@@ -218,7 +221,7 @@ module.exports = grammar({
     filter: $ => seq(
       'filter',
       field('count', optional($.expression)),
-      field('statement_id', $.identifier),
+      field('item_id', $.identifier),
       'in',
       field('collection', $.expression),
       field('predicate', $.block),

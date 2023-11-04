@@ -7,7 +7,7 @@ use crate::{AbstractTree, Block, Expression, Identifier, Map, Result, Table, Val
 pub struct Select {
     identifiers: Vec<Identifier>,
     expression: Expression,
-    item: Option<Block>,
+    predicate: Option<Block>,
 }
 
 impl AbstractTree for Select {
@@ -15,41 +15,32 @@ impl AbstractTree for Select {
         let child_count = node.child_count();
         let mut identifiers = Vec::new();
 
-        for index in 2..child_count - 4 {
-            let node = node.child(index).unwrap();
+        let identifier_list = node.child(1).unwrap();
 
-            if node.kind() == "identifier" {
+        for index in 1..identifier_list.child_count() - 1 {
+            let node = identifier_list.child(index).unwrap();
+
+            if node.is_named() {
                 let identifier = Identifier::from_syntax_node(source, node)?;
                 identifiers.push(identifier);
             }
-
-            if node.kind() == ">" {
-                break;
-            }
         }
+
+        let expression_node = node.child(3).unwrap();
+        let expression = Expression::from_syntax_node(source, expression_node)?;
 
         let final_node = node.child(child_count - 1).unwrap();
 
-        let item = if final_node.kind() == "}" {
-            let item_node = node.child(child_count - 2).unwrap();
-
-            Some(Block::from_syntax_node(source, item_node)?)
+        let predicate = if final_node.kind() == "block" {
+            Some(Block::from_syntax_node(source, final_node)?)
         } else {
             None
         };
 
-        let expression_node = if item.is_some() {
-            node.child(child_count - 4).unwrap()
-        } else {
-            node.child(child_count - 1).unwrap()
-        };
-
-        let expression = Expression::from_syntax_node(source, expression_node)?;
-
         Ok(Select {
             identifiers,
             expression,
-            item,
+            predicate,
         })
     }
 
@@ -60,7 +51,7 @@ impl AbstractTree for Select {
             self.identifiers
                 .iter()
                 .cloned()
-                .map(|identifierier| identifierier.take_inner())
+                .map(|identifier| identifier.take_inner())
                 .collect()
         } else {
             old_table.headers().clone()
@@ -99,7 +90,7 @@ impl AbstractTree for Select {
                 }
             }
 
-            if let Some(where_clause) = &self.item {
+            if let Some(where_clause) = &self.predicate {
                 let should_include = where_clause.run(source, &mut row_context)?.as_boolean()?;
 
                 if should_include {

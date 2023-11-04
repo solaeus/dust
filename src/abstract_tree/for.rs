@@ -7,9 +7,9 @@ use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Val
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct For {
     is_async: bool,
-    identifier: Identifier,
-    expression: Expression,
-    item: Block,
+    item_id: Identifier,
+    collection: Expression,
+    block: Block,
 }
 
 impl AbstractTree for For {
@@ -17,9 +17,10 @@ impl AbstractTree for For {
         let for_node = node.child(0).unwrap();
         let is_async = match for_node.kind() {
             "for" => false,
+            "async for" => true,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "for",
+                    expected: "for or async for",
                     actual: for_node.kind(),
                     location: for_node.start_position(),
                     relevant_source: source[for_node.byte_range()].to_string(),
@@ -38,32 +39,35 @@ impl AbstractTree for For {
 
         Ok(For {
             is_async,
-            identifier,
-            expression,
-            item,
+            item_id: identifier,
+            collection: expression,
+            block: item,
         })
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let expression_run = self.expression.run(source, context)?;
+        let expression_run = self.collection.run(source, context)?;
         let values = expression_run.as_list()?.items();
-        let key = self.identifier.inner();
+        let key = self.item_id.inner();
+        let mut loop_context = Map::clone_from(context);
 
         if self.is_async {
             values.par_iter().try_for_each(|value| {
-                let mut iter_context = Map::new();
+                let mut iter_context = loop_context.clone();
 
                 iter_context
                     .variables_mut()
                     .insert(key.clone(), value.clone());
 
-                self.item.run(source, &mut iter_context).map(|_value| ())
+                self.block.run(source, &mut iter_context).map(|_value| ())
             })?;
         } else {
             for value in values.iter() {
-                context.variables_mut().insert(key.clone(), value.clone());
+                loop_context
+                    .variables_mut()
+                    .insert(key.clone(), value.clone());
 
-                self.item.run(source, context)?;
+                self.block.run(source, &mut loop_context)?;
             }
         }
 

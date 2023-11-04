@@ -10,11 +10,11 @@ test_table = table |text bool| [
 	["a", true]
 ]
 
-test_select = select |text bool| from my_table
+test_select = select |text bool| from my_table;
 
 (assert_equal test_select, test_table)
 
-test_table = table |text number bool| [
+test_table = table |number bool| [
 	[1, true]
 	[3, true]
 ]

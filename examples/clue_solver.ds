@@ -1,44 +1,63 @@
-rooms = ['Library' 'Kitchen']
-suspects = ['White' 'Green']
-weapons = ['Rope' 'Lead_Pipe']
-cards = [rooms suspects weapons]
+all_rooms = ['Library' 'Kitchen']
+all_suspects = ['White' 'Green']
+all_weapons = ['Rope' 'Lead_Pipe']
 
-take_turn = |current_room opponent_card| => {
-	(remove_card opponent_card)
-	(make_guess current_room)
-} 
-
-remove_card = |opponent_card| => {
-	for card_list in cards {
-		removed = remove card from card_list 
-			card == opponent_card
-	}
-
-	if (type removed) == 'empty' 
-		output 'Card not found.'
+is_ready_to_solve = |state| => {
+	((length state:suspects) == 1)
+	&& ((length state:rooms) == 1)
+	&& ((length state:weapons) == 1)
 }
 
-make_guess = |current_room| => {
-	if ((length suspects) == 1) 
-		&& ((length rooms) == 1)
-		&& ((length weapons) == 1)
+take_turn = |opponent_card state| => {
+	state = (remove_card state opponent_card)
+	(make_guess state)
+	state
+} 
+
+remove_card = |state opponent_card| => {
+	rooms = filter card in state:rooms {
+		card != opponent_card
+	}
+	suspects = filter card in state:suspects {
+		card != opponent_card
+	}
+	weapons = filter card in state:weapons {
+		card != opponent_card
+	}
+
 	{
+		current_room = state:current_room
+		rooms = rooms
+		suspects = suspects
+		weapons = weapons
+	}
+}
+
+make_guess = |state| => {
+	if (is_ready_to_solve state) {
 		(output 'It was '
-			+ suspects:0
-			+ ' in the '
-			+ rooms:0 
-			+ ' with the '
-			+ weapons:0
+			+ state:suspects:0 
+			+ ' in the ' 
+			+ state:rooms:0  
+			+ ' with the ' 
+			+ state:weapons:0 
 			+ '!')
 	} else {
 		(output 'I accuse '
-			+ (random suspects)
+			+ (random state:suspects)
 			+ ' in the '
-			+ current_room
+			# + state:current_room
 			+ ' with the '
-			+ (random weapons)
+			+ (random state:weapons)
 			+ '!')
 	}
 }
 
-(make_guess 'Library')
+init_state = {
+	current_room = 'Library'
+	rooms = all_rooms
+	suspects = all_suspects
+	weapons = all_weapons
+}
+
+(take_turn 'Green' (take_turn 'Kitchen' (take_turn 'Rope' init_state)))

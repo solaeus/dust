@@ -11,6 +11,14 @@ fn clue_solver() {
 
 #[test]
 #[ignore]
+fn download_async() {
+    let file_contents = read_to_string("examples/download_async.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+#[ignore]
 fn fetch() {
     let file_contents = read_to_string("examples/fetch.ds").unwrap();
 
@@ -55,6 +63,13 @@ fn hello_world() {
 #[test]
 fn remove_loop() {
     let file_contents = read_to_string("examples/remove_loop.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn select() {
+    let file_contents = read_to_string("examples/select.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }

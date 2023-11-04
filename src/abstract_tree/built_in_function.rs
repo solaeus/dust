@@ -572,11 +572,8 @@ impl AbstractTree for BuiltInFunction {
                     let value = expressions[0].run(source, context)?;
                     let list = value.as_list()?.items();
 
-                    if list.len() < 2 {
-                        return Err(Error::ExpectedMinLengthList {
-                            minimum_len: 2,
-                            actual_len: list.len(),
-                        });
+                    if list.len() == 1 {
+                        return Ok(list.first().cloned().unwrap());
                     }
 
                     let range = 0..list.len();

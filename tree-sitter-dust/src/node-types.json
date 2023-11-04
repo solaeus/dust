@@ -16,6 +16,10 @@
           "named": true
         },
         {
+          "type": "index",
+          "named": true
+        },
+        {
           "type": "statement",
           "named": true
         }
@@ -170,22 +174,22 @@
           }
         ]
       },
+      "item_id": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
       "predicate": {
         "multiple": false,
         "required": true,
         "types": [
           {
             "type": "block",
-            "named": true
-          }
-        ]
-      },
-      "statement_id": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "identifier",
             "named": true
           }
         ]
@@ -847,16 +851,16 @@
     "named": false
   },
   {
+    "type": "async for",
+    "named": false
+  },
+  {
     "type": "bash",
     "named": false
   },
   {
     "type": "columns",
     "named": false
-  },
-  {
-    "type": "comment",
-    "named": true
   },
   {
     "type": "download",

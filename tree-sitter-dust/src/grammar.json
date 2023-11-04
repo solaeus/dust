@@ -9,7 +9,7 @@
         "name": "block"
       }
     },
-    "comment": {
+    "_comment": {
       "type": "PATTERN",
       "value": "[#][^#\\n]*[#|\\n]"
     },
@@ -708,8 +708,17 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "identifier"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "identifier"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "index"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
@@ -875,8 +884,17 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "for"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "for"
+            },
+            {
+              "type": "STRING",
+              "value": "async for"
+            }
+          ]
         },
         {
           "type": "SYMBOL",
@@ -946,7 +964,7 @@
         },
         {
           "type": "FIELD",
-          "name": "statement_id",
+          "name": "item_id",
           "content": {
             "type": "SYMBOL",
             "name": "identifier"
@@ -1428,7 +1446,7 @@
     },
     {
       "type": "SYMBOL",
-      "name": "comment"
+      "name": "_comment"
     }
   ],
   "conflicts": [

@@ -5,7 +5,7 @@ use crate::{AbstractTree, Result, Statement};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
-    statements: Vec<Statement>,
+    pub statements: Vec<Statement>,
 }
 
 impl Block {

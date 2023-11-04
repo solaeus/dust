@@ -137,8 +137,6 @@ list = [ 1, 2, 3 ]
 for number in list {
     (output number + 1)
 }
-
-# The original list is left unchanged.
 ```
 
 To create a new list, use a **transform** loop, which modifies the values into a new list without changing the original.
@@ -149,6 +147,10 @@ list = [1 2 3]
 new_list = transform number in list {
     number - 1
 }
+
+list
+    -> filter()
+    -> ()
 
 (output new_list)
 # Output: [ 0 1 2 ]

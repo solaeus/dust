@@ -29,7 +29,6 @@ impl AbstractTree for Async {
                 let mut context = context.clone();
                 let result = statement.run(source, &mut context);
 
-                result.clone().unwrap();
                 if result.is_err() {
                     Some(result)
                 } else if index == statements.len() - 1 {

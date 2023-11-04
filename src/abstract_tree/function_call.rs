@@ -22,10 +22,10 @@ impl AbstractTree for FunctionCall {
         let mut arguments = Vec::new();
 
         for index in 1..node.child_count() {
-            let child = node.child(index).unwrap();
+            let node = node.child(index).unwrap();
 
-            if child.is_named() {
-                let expression = Expression::from_syntax_node(source, child)?;
+            if node.is_named() {
+                let expression = Expression::from_syntax_node(source, node)?;
 
                 arguments.push(expression);
             }
