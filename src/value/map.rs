@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::{value::Value, List, Table};
+use crate::{value::Value, List, Result, Table};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -25,34 +25,24 @@ impl Map {
         }
     }
 
-    pub fn clone_from(other: &Self) -> Self {
+    pub fn clone_from(other: &Self) -> Result<Self> {
         let mut new_map = BTreeMap::new();
 
-        for (key, value) in other.variables().iter() {
+        for (key, value) in other.variables()?.iter() {
             new_map.insert(key.clone(), value.clone());
         }
 
-        Map {
+        Ok(Map {
             variables: Arc::new(RwLock::new(new_map)),
-        }
+        })
     }
 
-    pub fn variables(&self) -> RwLockReadGuard<BTreeMap<String, Value>> {
-        self.variables.read().unwrap()
+    pub fn variables(&self) -> Result<RwLockReadGuard<BTreeMap<String, Value>>> {
+        Ok(self.variables.read()?)
     }
 
-    pub fn variables_mut(&self) -> RwLockWriteGuard<BTreeMap<String, Value>> {
-        self.variables.write().unwrap()
-    }
-
-    /// Returns the number of stored variables.
-    pub fn len(&self) -> usize {
-        self.variables.read().unwrap().len()
-    }
-
-    /// Returns true if the length is zero.
-    pub fn is_empty(&self) -> bool {
-        self.variables.read().unwrap().is_empty()
+    pub fn variables_mut(&self) -> Result<RwLockWriteGuard<BTreeMap<String, Value>>> {
+        Ok(self.variables.write()?)
     }
 }
 
@@ -104,12 +94,12 @@ impl Display for Map {
     }
 }
 
-impl From<&Table> for Map {
-    fn from(value: &Table) -> Self {
+impl From<&Table> for Result<Map> {
+    fn from(value: &Table) -> Result<Map> {
         let map = Map::new();
 
         for (row_index, row) in value.rows().iter().enumerate() {
-            map.variables_mut()
+            map.variables_mut()?
                 .insert(
                     row_index.to_string(),
                     Value::List(List::with_items(row.clone())),
@@ -117,7 +107,7 @@ impl From<&Table> for Map {
                 .unwrap();
         }
 
-        map
+        Ok(map)
     }
 }
 

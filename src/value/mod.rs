@@ -4,7 +4,6 @@ use crate::{
     Function, List, Map, Table, ValueType,
 };
 
-use json::JsonValue;
 use serde::{
     de::{MapAccess, SeqAccess, Visitor},
     ser::SerializeTuple,
@@ -207,7 +206,7 @@ impl Value {
         match self {
             Value::Table(table) => Ok(table.clone()),
             Value::List(list) => Ok(Table::from(list)),
-            Value::Map(map) => Ok(Table::from(map)),
+            Value::Map(map) => Result::from(map),
             value => Err(Error::ExpectedTable {
                 actual: value.clone(),
             }),
@@ -496,82 +495,6 @@ impl From<()> for Value {
     }
 }
 
-impl TryFrom<JsonValue> for Value {
-    type Error = Error;
-
-    fn try_from(json_value: JsonValue) -> Result<Self> {
-        use JsonValue::*;
-
-        match json_value {
-            Null => Ok(Value::Empty),
-            Short(short) => Ok(Value::String(short.to_string())),
-            String(string) => Ok(Value::String(string)),
-            Number(number) => Ok(Value::Float(f64::from(number))),
-            Boolean(boolean) => Ok(Value::Boolean(boolean)),
-            Object(object) => {
-                let map = Map::new();
-
-                for (key, node_value) in object.iter() {
-                    let value = Value::try_from(node_value)?;
-
-                    map.variables_mut().insert(key.to_string(), value);
-                }
-
-                Ok(Value::Map(map))
-            }
-            Array(array) => {
-                let mut values = Vec::new();
-
-                for json_value in array {
-                    let value = Value::try_from(json_value)?;
-
-                    values.push(value);
-                }
-
-                Ok(Value::List(List::with_items(values)))
-            }
-        }
-    }
-}
-
-impl TryFrom<&JsonValue> for Value {
-    type Error = Error;
-
-    fn try_from(json_value: &JsonValue) -> Result<Self> {
-        use JsonValue::*;
-
-        match json_value {
-            Null => Ok(Value::Empty),
-            Short(short) => Ok(Value::String(short.to_string())),
-            String(string) => Ok(Value::String(string.clone())),
-            Number(number) => Ok(Value::Float(f64::from(*number))),
-            Boolean(boolean) => Ok(Value::Boolean(*boolean)),
-            Object(object) => {
-                let map = Map::new();
-
-                for (key, node_value) in object.iter() {
-                    let value = Value::try_from(node_value)?;
-
-                    map.variables_mut().insert(key.to_string(), value);
-                }
-
-                Ok(Value::Map(map))
-            }
-            Array(array) => {
-                let mut values = Vec::new();
-
-                for json_value in array {
-                    let value = Value::try_from(json_value)?;
-
-                    values.push(value);
-                }
-
-                Ok(Value::List(List::with_items(values)))
-            }
-        }
-    }
-}
-
 impl TryFrom<Value> for String {
     type Error = Error;
 
@@ -842,8 +765,12 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         let map = Map::new();
 
-        while let Some((key, value)) = access.next_entry()? {
-            map.variables_mut().insert(key, value);
+        {
+            let mut variables = map.variables_mut().unwrap();
+
+            while let Some((key, value)) = access.next_entry()? {
+                variables.insert(key, value);
+            }
         }
 
         Ok(Value::Map(map))

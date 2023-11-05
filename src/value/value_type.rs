@@ -114,7 +114,7 @@ impl From<&Value> for ValueType {
             Value::Map(map) => {
                 let mut value_nodes = BTreeMap::new();
 
-                for (key, value) in map.variables().iter() {
+                for (key, value) in map.variables().unwrap().iter() {
                     let value_type = value.value_type();
                     let value_node = ValueNode::new(value_type, 0, 0);
                     let statement = Statement::Expression(Expression::Value(value_node));

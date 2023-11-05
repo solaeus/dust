@@ -317,7 +317,7 @@ impl AbstractTree for BuiltInFunction {
                 let value = expression.run(source, context)?;
                 let length = match value {
                     Value::List(list) => list.items().len(),
-                    Value::Map(map) => map.len(),
+                    Value::Map(map) => map.variables()?.len(),
                     Value::Table(table) => table.len(),
                     Value::String(string) => string.chars().count(),
                     Value::Function(_) => todo!(),
@@ -405,7 +405,7 @@ impl AbstractTree for BuiltInFunction {
                 let metadata_output = Map::new();
 
                 {
-                    let mut metadata_variables = metadata_output.variables_mut();
+                    let mut metadata_variables = metadata_output.variables_mut()?;
 
                     metadata_variables.insert("type".to_string(), Value::String(file_type));
                     metadata_variables.insert("size".to_string(), Value::Integer(size));

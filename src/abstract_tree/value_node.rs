@@ -168,10 +168,14 @@ impl AbstractTree for ValueNode {
             ValueType::Map(nodes) => {
                 let map = Map::new();
 
-                for (key, node) in nodes {
-                    let value = node.run(source, context)?;
+                {
+                    let mut variables = map.variables_mut()?;
 
-                    map.variables_mut().insert(key.clone(), value);
+                    for (key, node) in nodes {
+                        let value = node.run(source, context)?;
+
+                        variables.insert(key.clone(), value);
+                    }
                 }
 
                 Value::Map(map)

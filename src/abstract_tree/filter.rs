@@ -45,7 +45,7 @@ impl AbstractTree for Filter {
             Some(expression) => Some(expression.run(source, context)?.as_integer()? as usize),
             None => None,
         };
-        let loop_context = Map::clone_from(context);
+        let loop_context = Map::clone_from(context)?;
 
         values.par_iter().try_for_each(|value| {
             if let Some(max) = count {
@@ -57,7 +57,7 @@ impl AbstractTree for Filter {
             let mut iter_context = loop_context.clone();
 
             iter_context
-                .variables_mut()
+                .variables_mut()?
                 .insert(key.clone(), value.clone());
 
             let should_include = self

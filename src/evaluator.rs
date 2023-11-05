@@ -153,10 +153,12 @@ mod tests {
     fn evaluate_map() {
         let map = Map::new();
 
-        map.variables_mut()
-            .insert("x".to_string(), Value::Integer(1));
-        map.variables_mut()
-            .insert("foo".to_string(), Value::String("bar".to_string()));
+        {
+            let mut variables = map.variables_mut().unwrap();
+
+            variables.insert("x".to_string(), Value::Integer(1));
+            variables.insert("foo".to_string(), Value::String("bar".to_string()));
+        }
 
         assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
     }

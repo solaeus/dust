@@ -33,11 +33,15 @@ impl AbstractTree for Remove {
         let mut values = value.as_list()?.items_mut();
         let key = self.item_id.inner();
         let mut should_remove_index = None;
+        let mut variables = context.variables_mut()?;
 
         values.iter().enumerate().try_for_each(|(index, value)| {
-            context.variables_mut().insert(key.clone(), value.clone());
+            variables.insert(key.clone(), value.clone());
 
-            let should_remove = self.predicate.run(source, context)?.as_boolean()?;
+            let should_remove = self
+                .predicate
+                .run(source, &mut context.clone())?
+                .as_boolean()?;
 
             if should_remove {
                 should_remove_index = Some(index);

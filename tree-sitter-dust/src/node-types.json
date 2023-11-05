@@ -16,10 +16,6 @@
           "named": true
         },
         {
-          "type": "index",
-          "named": true
-        },
-        {
           "type": "statement",
           "named": true
         }

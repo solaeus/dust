@@ -36,7 +36,7 @@ impl AbstractTree for Insert {
         }
 
         context
-            .variables_mut()
+            .variables_mut()?
             .insert(table_name, Value::Table(table));
 
         Ok(Value::Empty)

@@ -5,7 +5,7 @@
 
 use crate::{value::Value, Identifier};
 
-use std::{fmt, io, time, string::FromUtf8Error, num::ParseFloatError};
+use std::{fmt, io, time, string::FromUtf8Error, num::ParseFloatError, sync::PoisonError};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -145,6 +145,12 @@ impl Error {
     }
 }
 
+impl<T> From<PoisonError<T>> for Error {
+    fn from(value: PoisonError<T>) -> Self {
+        Error::ToolFailure(value.to_string())
+    }
+}
+
 impl From<FromUtf8Error> for Error {
     fn from(value: FromUtf8Error) -> Self {
         Error::ToolFailure(value.to_string())
@@ -159,12 +165,6 @@ impl From<ParseFloatError> for Error {
 
 impl From<csv::Error> for Error {
     fn from(value: csv::Error) -> Self {
-        Error::ToolFailure(value.to_string())
-    }
-}
-
-impl From<json::Error> for Error {
-    fn from(value: json::Error) -> Self {
         Error::ToolFailure(value.to_string())
     }
 }

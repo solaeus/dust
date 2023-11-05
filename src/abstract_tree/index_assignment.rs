@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Value};
+use crate::{AbstractTree, Error, Index, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Assignment {
-    identifier: Identifier,
+pub struct IndexAssignment {
+    index: Index,
     operator: AssignmentOperator,
     statement: Statement,
 }
@@ -17,10 +17,10 @@ pub enum AssignmentOperator {
     MinusEqual,
 }
 
-impl AbstractTree for Assignment {
+impl AbstractTree for IndexAssignment {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        let identifier_node = node.child(0).unwrap();
-        let identifier = Identifier::from_syntax_node(source, identifier_node)?;
+        let index_node = node.child(0).unwrap();
+        let index = Index::from_syntax_node(source, index_node)?;
 
         let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
@@ -40,39 +40,22 @@ impl AbstractTree for Assignment {
         let statement_node = node.child(2).unwrap();
         let statement = Statement::from_syntax_node(source, statement_node)?;
 
-        Ok(Assignment {
-            identifier,
+        Ok(IndexAssignment {
+            index,
             operator,
             statement,
         })
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let key = self.identifier.inner().clone();
-        let value = self.statement.run(source, context)?;
-        let mut variables = context.variables_mut()?;
+        let mut left = self.index.run(source, context)?;
+        let right = self.statement.run(source, context)?;
 
-        let new_value = match self.operator {
-            AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = variables.get(&key).cloned() {
-                    previous_value += value;
-                    previous_value
-                } else {
-                    Value::Empty
-                }
-            }
-            AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = variables.get(&key).cloned() {
-                    previous_value -= value;
-                    previous_value
-                } else {
-                    Value::Empty
-                }
-            }
-            AssignmentOperator::Equal => value,
-        };
-
-        variables.insert(key, new_value);
+        match self.operator {
+            AssignmentOperator::PlusEqual => left += right,
+            AssignmentOperator::MinusEqual => left -= right,
+            AssignmentOperator::Equal => left = right,
+        }
 
         Ok(Value::Empty)
     }

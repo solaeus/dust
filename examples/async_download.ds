@@ -1,11 +1,13 @@
-data = async { {
+raw_data = async {
+	{
 		cast = (download "https://api.sampleapis.com/futurama/cast")
 		characters = (download "https://api.sampleapis.com/futurama/characters")	
 		episodes = (download "https://api.sampleapis.com/futurama/episodes")
-} }
+	}
+}
 
 cast_len = (length (from_json data:cast))
 characters_len = (length (from_json data:characters))
 episodes_len = (length (from_json data:episodes))
 
-(output [cast_len, characters_len, episodes_len ])
+(output [cast_len, characters_len, episodes_len])

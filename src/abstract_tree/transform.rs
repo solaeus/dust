@@ -36,13 +36,15 @@ impl AbstractTree for Transform {
         let new_values = values
             .par_iter()
             .map(|value| {
-                let mut iter_context = Map::new();
+                let iter_context = Map::new();
+                let mut iter_variables = match iter_context.variables_mut() {
+                    Ok(variables) => variables,
+                    Err(_) => return Value::Empty,
+                };
 
-                iter_context
-                    .variables_mut()
-                    .insert(key.clone(), value.clone());
+                iter_variables.insert(key.clone(), value.clone());
 
-                let item_run = self.item.run(source, &mut iter_context);
+                let item_run = self.item.run(source, &mut iter_context.clone());
 
                 match item_run {
                     Ok(value) => value,

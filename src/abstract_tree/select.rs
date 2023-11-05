@@ -60,14 +60,13 @@ impl AbstractTree for Select {
 
         for row in old_table.rows() {
             let mut new_row = Vec::new();
-            let mut row_context = Map::new();
+            let row_context = Map::new();
+            let mut row_variables = row_context.variables_mut()?;
 
             for (i, value) in row.iter().enumerate() {
                 let column_name = old_table.headers().get(i).unwrap();
 
-                row_context
-                    .variables_mut()
-                    .insert(column_name.clone(), value.clone());
+                row_variables.insert(column_name.clone(), value.clone());
 
                 let new_table_column_index =
                     new_table
@@ -91,7 +90,9 @@ impl AbstractTree for Select {
             }
 
             if let Some(where_clause) = &self.predicate {
-                let should_include = where_clause.run(source, &mut row_context)?.as_boolean()?;
+                let should_include = where_clause
+                    .run(source, &mut row_context.clone())?
+                    .as_boolean()?;
 
                 if should_include {
                     new_table.insert(new_row)?;

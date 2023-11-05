@@ -55,6 +55,7 @@ async fn main() {
     if let Some(input) = args.input {
         context
             .variables_mut()
+            .unwrap()
             .insert("input".to_string(), Value::String(input));
     }
 
@@ -63,6 +64,7 @@ async fn main() {
 
         context
             .variables_mut()
+            .unwrap()
             .insert("input".to_string(), Value::String(file_contents));
     }
 

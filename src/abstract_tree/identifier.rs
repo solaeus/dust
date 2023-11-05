@@ -30,7 +30,7 @@ impl AbstractTree for Identifier {
     }
 
     fn run(&self, _source: &str, context: &mut Map) -> Result<Value> {
-        if let Some(value) = context.variables().get(&self.0) {
+        if let Some(value) = context.variables()?.get(&self.0) {
             Ok(value.clone())
         } else {
             Err(Error::VariableIdentifierNotFound(self.inner().clone()))

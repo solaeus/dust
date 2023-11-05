@@ -158,7 +158,7 @@ impl Display for Table {
 
                         string
                     }
-                    Value::Map(map) => format!("Map ({} items)", map.len()),
+                    Value::Map(map) => format!("Map ({} items)", map.variables().unwrap().len()),
                     Value::Table(table) => format!("Table ({} items)", table.len()),
                     Value::Function(_) => "Function".to_string(),
                     Value::Empty => "Empty".to_string(),
@@ -233,7 +233,7 @@ impl From<&Value> for Table {
             }
             Value::List(list) => Self::from(list),
             Value::Empty => Table::new(Vec::with_capacity(0)),
-            Value::Map(map) => Self::from(map),
+            Value::Map(map) => Result::<Table>::from(map).unwrap(),
             Value::Table(table) => table.clone(),
             Value::Function(function) => {
                 let mut table = Table::new(vec!["function".to_string()]);
@@ -280,39 +280,35 @@ impl From<&mut List> for Table {
     }
 }
 
-impl From<Map> for Table {
+impl From<Map> for Result<Table> {
     fn from(map: Map) -> Self {
-        let variables = map.variables();
+        let variables = map.variables()?;
         let keys = variables.keys().cloned().collect();
         let values = variables.values().cloned().collect();
         let mut table = Table::new(keys);
 
-        table
-            .insert(values)
-            .expect("Failed to create Table from Map. This is a no-op.");
+        table.insert(values)?;
 
-        table
+        Ok(table)
     }
 }
 
-impl From<&Map> for Table {
+impl From<&Map> for Result<Table> {
     fn from(map: &Map) -> Self {
-        let variables = map.variables();
+        let variables = map.variables()?;
         let keys = variables.keys().cloned().collect();
         let values = variables.values().cloned().collect();
         let mut table = Table::new(keys);
 
-        table
-            .insert(values)
-            .expect("Failed to create Table from Map. This is a no-op.");
+        table.insert(values)?;
 
-        table
+        Ok(table)
     }
 }
 
-impl From<&mut Map> for Table {
+impl From<&mut Map> for Result<Table> {
     fn from(map: &mut Map) -> Self {
-        let variables = map.variables();
+        let variables = map.variables()?;
         let keys = variables.keys().cloned().collect();
         let values = variables.values().cloned().collect();
         let mut table = Table::new(keys);
@@ -321,7 +317,7 @@ impl From<&mut Map> for Table {
             .insert(values)
             .expect("Failed to create Table from Map. This is a no-op.");
 
-        table
+        Ok(table)
     }
 }
 
