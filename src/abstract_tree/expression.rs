@@ -12,7 +12,6 @@ use super::{function_call::FunctionCall, logic::Logic, math::Math};
 pub enum Expression {
     Value(ValueNode),
     Identifier(Identifier),
-    Sublist(Box<Sublist>),
     Index(Box<Index>),
     Math(Box<Math>),
     Logic(Box<Logic>),
@@ -30,9 +29,6 @@ impl AbstractTree for Expression {
                 "value" => Expression::Value(ValueNode::from_syntax_node(source, child)?),
                 "identifier" => {
                     Expression::Identifier(Identifier::from_syntax_node(source, child)?)
-                }
-                "sublist" => {
-                    Expression::Sublist(Box::new(Sublist::from_syntax_node(source, child)?))
                 }
                 "index" => Expression::Index(Box::new(Index::from_syntax_node(source, child)?)),
                 "math" => Expression::Math(Box::new(Math::from_syntax_node(source, child)?)),
@@ -63,7 +59,6 @@ impl AbstractTree for Expression {
         match self {
             Expression::Value(value_node) => value_node.run(source, context),
             Expression::Identifier(identifier) => identifier.run(source, context),
-            Expression::Sublist(sublist) => sublist.run(source, context),
             Expression::Math(math) => math.run(source, context),
             Expression::Logic(logic) => logic.run(source, context),
             Expression::FunctionCall(function_call) => function_call.run(source, context),
