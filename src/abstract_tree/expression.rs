@@ -3,7 +3,7 @@ use tree_sitter::Node;
 
 use crate::{
     value_node::ValueNode, AbstractTree, BuiltInFunction, Error, Identifier, Index, Map, Result,
-    Sublist, Value,
+    Value,
 };
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};

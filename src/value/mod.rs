@@ -24,9 +24,9 @@ pub mod map;
 pub mod table;
 pub mod value_type;
 
-/// Whale value representation.
+/// Dust value representation.
 ///
-/// Every whale variable has a key and a Value. Variables are represented by
+/// Every dust variable has a key and a Value. Variables are represented by
 /// storing them in a VariableMap. This means the map of variables is itself a
 /// value that can be treated as any other.
 #[derive(Debug, Clone, Default)]
