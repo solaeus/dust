@@ -61,12 +61,13 @@ impl AbstractTree for Select {
         for row in old_table.rows() {
             let mut new_row = Vec::new();
             let row_context = Map::new();
-            let mut row_variables = row_context.variables_mut()?;
 
             for (i, value) in row.iter().enumerate() {
                 let column_name = old_table.headers().get(i).unwrap();
 
-                row_variables.insert(column_name.clone(), value.clone());
+                row_context
+                    .variables_mut()?
+                    .insert(column_name.clone(), value.clone());
 
                 let new_table_column_index =
                     new_table

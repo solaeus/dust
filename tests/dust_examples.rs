@@ -3,16 +3,23 @@ use std::fs::read_to_string;
 use dust_lang::*;
 
 #[test]
-fn clue_solver() {
-    let file_contents = read_to_string("examples/clue_solver.ds").unwrap();
+fn r#async() {
+    let file_contents = read_to_string("examples/async.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }
 
 #[test]
 #[ignore]
-fn download_async() {
-    let file_contents = read_to_string("examples/download_async.ds").unwrap();
+fn async_download() {
+    let file_contents = read_to_string("examples/async_download.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn clue_solver() {
+    let file_contents = read_to_string("examples/clue_solver.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }
@@ -28,6 +35,13 @@ fn fetch() {
 #[test]
 fn fibonacci() {
     let file_contents = read_to_string("examples/fibonacci.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn filter_loop() {
+    let file_contents = read_to_string("examples/filter_loop.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }
@@ -61,8 +75,43 @@ fn hello_world() {
 }
 
 #[test]
+fn jq_data() {
+    let file_contents = read_to_string("examples/jq_data.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn list() {
+    let file_contents = read_to_string("examples/list.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn map() {
+    let file_contents = read_to_string("examples/map.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn random() {
+    let file_contents = read_to_string("examples/random.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
 fn remove_loop() {
     let file_contents = read_to_string("examples/remove_loop.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn sea_creatures() {
+    let file_contents = read_to_string("examples/sea_creatures.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }
@@ -98,6 +147,13 @@ fn variables() {
 #[test]
 fn while_loop() {
     let file_contents = read_to_string("examples/while_loop.ds").unwrap();
+
+    evaluate(&file_contents).unwrap();
+}
+
+#[test]
+fn r#yield() {
+    let file_contents = read_to_string("examples/yield.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }

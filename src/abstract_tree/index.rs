@@ -50,8 +50,17 @@ impl AbstractTree for Index {
 
                 Ok(item)
             }
-            Value::Map(mut map) => {
-                let value = self.index.run(source, &mut map)?;
+            Value::Map(map) => {
+                let value = if let Expression::Identifier(identifier) = &self.index {
+                    let key = identifier.inner();
+
+                    map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
+                } else {
+                    let value = self.index.run(source, context)?;
+                    let key = value.as_string()?;
+
+                    map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
+                };
 
                 Ok(value)
             }
@@ -63,5 +72,32 @@ impl AbstractTree for Index {
             }
             _ => Err(Error::ExpectedCollection { actual: value }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::evaluate;
+
+    #[test]
+    fn evaluate_list_index() {
+        let test = evaluate("x = [1 [2] 3] x:1:0").unwrap();
+
+        assert_eq!(Value::Integer(2), test);
+    }
+
+    #[test]
+    fn evaluate_map_index() {
+        let test = evaluate("x = {y = {z = 2}} x:y:z").unwrap();
+
+        assert_eq!(Value::Integer(2), test);
+    }
+
+    #[test]
+    fn evaluate_complex_index() {
+        let test = evaluate("{x = [1 2 3]; y = || => {0}; x:((y));}").unwrap();
+
+        assert_eq!(Value::Integer(1), test);
     }
 }

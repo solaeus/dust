@@ -49,11 +49,10 @@ impl AbstractTree for For {
         let expression_run = self.collection.run(source, context)?;
         let values = expression_run.as_list()?.items();
         let key = self.item_id.inner();
-        let loop_context = Map::clone_from(context)?;
 
         if self.is_async {
             values.par_iter().try_for_each(|value| {
-                let mut iter_context = loop_context.clone();
+                let mut iter_context = Map::clone_from(context)?;
 
                 iter_context
                     .variables_mut()?
@@ -62,10 +61,12 @@ impl AbstractTree for For {
                 self.block.run(source, &mut iter_context).map(|_value| ())
             })?;
         } else {
-            let mut variables = loop_context.variables_mut()?;
+            let loop_context = Map::clone_from(context)?;
 
             for value in values.iter() {
-                variables.insert(key.clone(), value.clone());
+                loop_context
+                    .variables_mut()?
+                    .insert(key.clone(), value.clone());
 
                 self.block.run(source, &mut loop_context.clone())?;
             }
@@ -74,3 +75,4 @@ impl AbstractTree for For {
         Ok(Value::Empty)
     }
 }
+

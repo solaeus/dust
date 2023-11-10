@@ -19,6 +19,7 @@ pub enum BuiltInFunction {
     Assert(Vec<Expression>),
     AssertEqual(Vec<Expression>),
     Download(Expression),
+    Context,
     Help(Option<Expression>),
     Length(Expression),
     Output(Vec<Expression>),
@@ -93,6 +94,7 @@ impl AbstractTree for BuiltInFunction {
 
                 BuiltInFunction::AssertEqual(expressions)
             }
+            "context" => BuiltInFunction::Context,
             "download" => {
                 let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
@@ -306,6 +308,7 @@ impl AbstractTree for BuiltInFunction {
 
                 Ok(Value::Empty)
             }
+            BuiltInFunction::Context => Ok(Value::Map(context.clone())),
             BuiltInFunction::Download(expression) => {
                 let value = expression.run(source, context)?;
                 let url = value.as_string()?;

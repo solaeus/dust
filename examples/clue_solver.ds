@@ -1,63 +1,57 @@
-all_rooms = ['Library' 'Kitchen']
-all_suspects = ['White' 'Green']
-all_weapons = ['Rope' 'Lead_Pipe']
-
-is_ready_to_solve = |state| => {
-	((length state:suspects) == 1)
-	&& ((length state:rooms) == 1)
-	&& ((length state:weapons) == 1)
+all_cards = {
+	rooms = ['Library' 'Kitchen' 'Conservatory']
+	suspects = ['White' 'Green' 'Scarlett']
+	weapons = ['Rope' 'Lead_Pipe' 'Knife']
 }
 
-take_turn = |opponent_card state| => {
-	state = (remove_card state opponent_card)
-	(make_guess state)
-	state
+is_ready_to_solve = |cards| => {
+	((length cards:suspects) == 1)
+	&& ((length cards:rooms) == 1)
+	&& ((length cards:weapons) == 1)
+}
+
+take_turn = |opponent_card, current_room, cards| => {
+	(remove_card opponent_card cards)
+	(make_guess current_room cards)
+	cards
 } 
 
-remove_card = |state opponent_card| => {
-	rooms = filter card in state:rooms {
-		card != opponent_card
+remove_card = |opponent_card cards| => {
+	remove card from cards:rooms {
+		card == opponent_card
 	}
-	suspects = filter card in state:suspects {
-		card != opponent_card
+	remove card from cards:weapons {
+		card == opponent_card
 	}
-	weapons = filter card in state:weapons {
-		card != opponent_card
-	}
-
-	{
-		current_room = state:current_room
-		rooms = rooms
-		suspects = suspects
-		weapons = weapons
+	remove card from cards:suspects {
+		card == opponent_card
 	}
 }
 
-make_guess = |state| => {
-	if (is_ready_to_solve state) {
+make_guess = |current_room cards| => {
+	if (is_ready_to_solve cards) {
 		(output 'It was '
-			+ state:suspects:0 
+			+ cards:suspects:0
 			+ ' in the ' 
-			+ state:rooms:0  
+			+ cards:rooms:0  
 			+ ' with the ' 
-			+ state:weapons:0 
+			+ cards:weapons:0 
 			+ '!')
 	} else {
 		(output 'I accuse '
-			+ (random state:suspects)
+			+ (random cards:suspects)
 			+ ' in the '
-			# + state:current_room
+			+ current_room
 			+ ' with the '
-			+ (random state:weapons)
+			+ (random cards:weapons)
 			+ '!')
 	}
 }
 
-init_state = {
-	current_room = 'Library'
-	rooms = all_rooms
-	suspects = all_suspects
-	weapons = all_weapons
-}
+(take_turn 'Rope' 'Kitchen'
+	(take_turn 'Library' 'Kitchen'
+		(take_turn 'Conservatory' 'Kitchen'
+			(take_turn 'White' 'Kitchen'
+				(take_turn 'Green' 'Kitchen'
+					(take_turn 'Knife' 'Kitchen' all_cards))))))
 
-(take_turn 'Green' (take_turn 'Kitchen' (take_turn 'Rope' init_state)))

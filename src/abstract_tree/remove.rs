@@ -1,3 +1,6 @@
+use std::sync::RwLock;
+
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -30,28 +33,41 @@ impl AbstractTree for Remove {
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = self.collection.run(source, context)?;
-        let mut values = value.as_list()?.items_mut();
+        let values = value.as_list()?;
         let key = self.item_id.inner();
-        let mut should_remove_index = None;
-        let mut variables = context.variables_mut()?;
+        let should_remove_index = RwLock::new(None);
 
-        values.iter().enumerate().try_for_each(|(index, value)| {
-            variables.insert(key.clone(), value.clone());
+        values
+            .items()
+            .par_iter()
+            .enumerate()
+            .try_for_each(|(index, value)| {
+                if should_remove_index.read()?.is_some() {
+                    return Ok(());
+                }
 
-            let should_remove = self
-                .predicate
-                .run(source, &mut context.clone())?
-                .as_boolean()?;
+                let iter_context = Map::clone_from(context)?;
 
-            if should_remove {
-                should_remove_index = Some(index);
-            }
+                iter_context
+                    .variables_mut()?
+                    .insert(key.clone(), value.clone());
 
-            Ok::<(), Error>(())
-        })?;
+                let should_remove = self
+                    .predicate
+                    .run(source, &mut iter_context.clone())?
+                    .as_boolean()?;
 
-        if let Some(index) = should_remove_index {
-            Ok(values.remove(index))
+                if should_remove {
+                    let _ = should_remove_index.write()?.insert(index);
+                }
+
+                Ok::<(), Error>(())
+            })?;
+
+        let index = should_remove_index.read()?;
+
+        if let Some(index) = *index {
+            Ok(values.items_mut().remove(index))
         } else {
             Ok(Value::Empty)
         }

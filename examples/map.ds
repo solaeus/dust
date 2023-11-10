@@ -5,7 +5,7 @@ dictionary = {
 
 (output 
 	'Dust is '
-	+ dictionary.dust
+	+ dictionary:dust
 	+ '! The answer is ' 
-	+ dictionary.answer
+	+ dictionary:answer
 )
