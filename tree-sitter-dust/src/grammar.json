@@ -14,36 +14,40 @@
       "value": "[#][^#\\n]*[#|\\n]"
     },
     "block": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "REPEAT1",
-          "content": {
-            "type": "SYMBOL",
-            "name": "statement"
-          }
-        },
-        {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "{"
-            },
-            {
-              "type": "REPEAT1",
-              "content": {
-                "type": "SYMBOL",
-                "name": "statement"
-              }
-            },
-            {
-              "type": "STRING",
-              "value": "}"
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "REPEAT1",
+            "content": {
+              "type": "SYMBOL",
+              "name": "statement"
             }
-          ]
-        }
-      ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "{"
+              },
+              {
+                "type": "REPEAT1",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "statement"
+                }
+              },
+              {
+                "type": "STRING",
+                "value": "}"
+              }
+            ]
+          }
+        ]
+      }
     },
     "statement": {
       "type": "PREC_RIGHT",
@@ -186,6 +190,10 @@
           {
             "type": "SYMBOL",
             "name": "value"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "yield"
           }
         ]
       }
@@ -1208,6 +1216,27 @@
         ]
       }
     },
+    "yield": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "expression"
+          },
+          {
+            "type": "STRING",
+            "value": "->"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "function_call"
+          }
+        ]
+      }
+    },
     "function": {
       "type": "SEQ",
       "members": [
@@ -1445,9 +1474,6 @@
     }
   ],
   "conflicts": [
-    [
-      "block"
-    ],
     [
       "map",
       "assignment_operator"

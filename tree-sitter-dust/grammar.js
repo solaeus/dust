@@ -6,7 +6,6 @@ module.exports = grammar({
   extras: $ => [ /\s/, $._comment ],
 
   conflicts: $ => [
-    [$.block],
     [$.map, $.assignment_operator],
   ],
 
@@ -15,10 +14,10 @@ module.exports = grammar({
 
     _comment: $ => /[#][^#\n]*[#|\n]/,
 
-    block: $ => choice(
+    block: $ => prec.right(choice(
       repeat1($.statement),
       seq('{', repeat1($.statement), '}'),
-    ),
+    )),
 
     statement: $ => prec.right(seq(
       choice(
@@ -52,6 +51,7 @@ module.exports = grammar({
       $.logic,
       $.math,
       $.value,
+      $.yield,
     )),
 
     _expression_list: $ => repeat1(prec.right(seq($.expression, optional(',')))),
@@ -285,6 +285,12 @@ module.exports = grammar({
       'table',
       $.identifier_list,
       $.expression,
+    )),
+
+    yield: $ => prec.left(seq(
+      $.expression,
+      '->',
+      $.function_call,
     )),
 
     function: $ => seq(
