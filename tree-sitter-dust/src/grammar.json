@@ -3,10 +3,14 @@
   "word": "identifier",
   "rules": {
     "root": {
-      "type": "REPEAT1",
+      "type": "PREC",
+      "value": 1,
       "content": {
-        "type": "SYMBOL",
-        "name": "block"
+        "type": "REPEAT1",
+        "content": {
+          "type": "SYMBOL",
+          "name": "statement"
+        }
       }
     },
     "_comment": {
@@ -14,40 +18,24 @@
       "value": "[#][^#\\n]*[#|\\n]"
     },
     "block": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "REPEAT1",
-            "content": {
-              "type": "SYMBOL",
-              "name": "statement"
-            }
-          },
-          {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "{"
-              },
-              {
-                "type": "REPEAT1",
-                "content": {
-                  "type": "SYMBOL",
-                  "name": "statement"
-                }
-              },
-              {
-                "type": "STRING",
-                "value": "}"
-              }
-            ]
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "{"
+        },
+        {
+          "type": "REPEAT1",
+          "content": {
+            "type": "SYMBOL",
+            "name": "statement"
           }
-        ]
-      }
+        },
+        {
+          "type": "STRING",
+          "value": "}"
+        }
+      ]
     },
     "statement": {
       "type": "PREC_RIGHT",
@@ -65,6 +53,10 @@
               {
                 "type": "SYMBOL",
                 "name": "async"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "block"
               },
               {
                 "type": "SYMBOL",

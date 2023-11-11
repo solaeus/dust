@@ -9,29 +9,28 @@ transform i in [1, 2, 3] {
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (transform
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (block
-          (statement
+  (statement
+    (transform
+      (identifier)
+      (expression
+        (value
+          (list
             (expression
-              (function_call
-                (built_in_function
-                  (expression
-                    (identifier)))))))))))
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (block
+        (statement
+          (expression
+            (function_call
+              (built_in_function
+                (expression
+                  (identifier))))))))))
 
 ================================================================================
 Nested Transform Loop
@@ -46,43 +45,42 @@ transform i in [['one'] ['two'] ['three']] {
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (transform
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (list
+  (statement
+    (transform
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string))))))
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string))))))
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))))))))
+      (block
+        (statement
+          (transform
+            (identifier)
+            (expression
+              (identifier))
+            (block
+              (statement
+                (assignment
+                  (identifier)
+                  (assignment_operator)
+                  (statement
                     (expression
                       (value
-                        (string))))))
-              (expression
-                (value
-                  (list
-                    (expression
-                      (value
-                        (string))))))
-              (expression
-                (value
-                  (list
-                    (expression
-                      (value
-                        (string)))))))))
-        (block
-          (statement
-            (transform
-              (identifier)
-              (expression
-                (identifier))
-              (block
-                (statement
-                  (assignment
-                    (identifier)
-                    (assignment_operator)
-                    (statement
-                      (expression
-                        (value
-                          (string))))))))))))))
+                        (string)))))))))))))

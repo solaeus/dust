@@ -7,15 +7,14 @@ Simple Yield
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (yield
-          (expression
-            (value
-              (integer)))
-          (function_call
-            (built_in_function)))))))
+  (statement
+    (expression
+      (yield
+        (expression
+          (value
+            (integer)))
+        (function_call
+          (built_in_function))))))
 
 ================================================================================
 Long Yield
@@ -30,33 +29,32 @@ Long Yield
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (yield
-          (expression
-            (yield
-              (expression
-                (yield
-                  (expression
-                    (yield
-                      (expression
-                        (value
-                          (list
-                            (expression
-                              (value
-                                (integer)))
-                            (expression
-                              (value
-                                (integer)))
-                            (expression
-                              (value
-                                (integer))))))
-                      (function_call
-                        (identifier))))
-                  (function_call
-                    (identifier))))
-              (function_call
-                (identifier))))
-          (function_call
-            (built_in_function)))))))
+  (statement
+    (expression
+      (yield
+        (expression
+          (yield
+            (expression
+              (yield
+                (expression
+                  (yield
+                    (expression
+                      (value
+                        (list
+                          (expression
+                            (value
+                              (integer)))
+                          (expression
+                            (value
+                              (integer)))
+                          (expression
+                            (value
+                              (integer))))))
+                    (function_call
+                      (identifier))))
+                (function_call
+                  (identifier))))
+            (function_call
+              (identifier))))
+        (function_call
+          (built_in_function))))))

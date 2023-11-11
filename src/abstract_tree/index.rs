@@ -50,13 +50,13 @@ impl AbstractTree for Index {
 
                 Ok(item)
             }
-            Value::Map(map) => {
+            Value::Map(mut map) => {
                 let value = if let Expression::Identifier(identifier) = &self.index {
                     let key = identifier.inner();
 
                     map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
                 } else {
-                    let value = self.index.run(source, context)?;
+                    let value = self.index.run(source, &mut map)?;
                     let key = value.as_string()?;
 
                     map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn evaluate_complex_index() {
-        let test = evaluate("{x = [1 2 3]; y = || => {0}; x:((y));}").unwrap();
+        let test = evaluate("x = [1 2 3]; y = || => {0}; x:((y));").unwrap();
 
         assert_eq!(Value::Integer(1), test);
     }

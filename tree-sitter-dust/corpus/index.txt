@@ -1,6 +1,6 @@
-==================
+================================================================================
 Simple Indexes
-==================
+================================================================================
 
 dust_data:1:name
 
@@ -8,87 +8,85 @@ creature:total_clams
 
 foobar:1:42
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (index
-          (expression
-            (index
-              (expression
-                (identifier))
-              (expression
-                (value
-                  (integer)))))
-          (expression
-            (identifier)))))
-    (statement
-      (expression
-        (index
-          (expression
-            (identifier))
-          (expression
-            (identifier)))))
-      (statement
+  (statement
+    (expression
+      (index
         (expression
           (index
             (expression
-              (index
-                (expression
-                  (identifier))
-                (expression
-                  (value
-                    (integer)))))
+              (identifier))
             (expression
               (value
-                (integer))))))))
+                (integer)))))
+        (expression
+          (identifier)))))
+  (statement
+    (expression
+      (index
+        (expression
+          (identifier))
+        (expression
+          (identifier)))))
+  (statement
+    (expression
+      (index
+        (expression
+          (index
+            (expression
+              (identifier))
+            (expression
+              (value
+                (integer)))))
+        (expression
+          (value
+            (integer)))))))
 
-==================
+================================================================================
 Nested Indexes
-==================
+================================================================================
 
 [['answers' 'foobar'], 42, 666]:0:1:0..2
 
----
+--------------------------------------------------------------------------------
 
 (root
-    (block
-      (statement
+  (statement
+    (expression
+      (index
         (expression
           (index
             (expression
               (index
                 (expression
-                  (index
-                    (expression
-                      (value
-                        (list
-                          (expression
-                            (value
-                              (list
-                                (expression
-                                  (value
-                                    (string)))
-                                (expression
-                                  (value
-                                    (string))))))
-                          (expression
-                            (value
-                              (integer)))
-                          (expression
-                            (value
-                              (integer))))))
-                    (expression
-                      (value
-                        (integer)))))
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (list
+                            (expression
+                              (value
+                                (string)))
+                            (expression
+                              (value
+                                (string))))))
+                      (expression
+                        (value
+                          (integer)))
+                      (expression
+                        (value
+                          (integer))))))
                 (expression
                   (value
                     (integer)))))
             (expression
               (value
-                (integer)))
-            (expression
-              (value
-                (integer))))))))
+                (integer)))))
+        (expression
+          (value
+            (integer)))
+        (expression
+          (value
+            (integer)))))))

@@ -10,19 +10,21 @@ module.exports = grammar({
   ],
 
   rules: {
-    root: $ => repeat1($.block),
+    root: $ => prec(1, repeat1($.statement)),
 
     _comment: $ => /[#][^#\n]*[#|\n]/,
 
-    block: $ => prec.right(choice(
+    block: $ => seq(
+      optional('async'),
+      '{',
       repeat1($.statement),
-      seq('{', repeat1($.statement), '}'),
-    )),
+      '}',
+    ),
 
     statement: $ => prec.right(seq(
       choice(
         $.assignment,
-        $.async,
+        $.block,
         $.expression,
         $.filter,
         $.find,
@@ -267,11 +269,6 @@ module.exports = grammar({
       $.identifier,
       $.expression,
     )),
-
-    async: $ => seq(
-      'async', 
-      $.block,
-    ),
  
     identifier_list: $ => prec.right(choice(
       seq(

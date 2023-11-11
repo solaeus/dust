@@ -1,21 +1,20 @@
-==================
+================================================================================
 Simple Identifiers
-==================
+================================================================================
 
 x
 _y
 __xyz__
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (identifier)))
-    (statement
-      (expression
-        (identifier)))
-    (statement
-      (expression
-        (identifier)))))
+  (statement
+    (expression
+      (identifier)))
+  (statement
+    (expression
+      (identifier)))
+  (statement
+    (expression
+      (identifier))))

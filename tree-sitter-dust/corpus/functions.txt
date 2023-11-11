@@ -2,45 +2,43 @@
 Simple Function
 ================================================================================
 
-=> "Hiya"
+=> { "Hiya" }
 
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (function
-            (block
-              (statement
-                (expression
-                  (value
-                    (string)))))))))))
+  (statement
+    (expression
+      (value
+        (function
+          (block
+            (statement
+              (expression
+                (value
+                  (string))))))))))
 
 ================================================================================
 Function Assignment
 ================================================================================
 
-x = => "Hiya"
+x = => { "Hiya" }
 
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (expression
-            (value
-              (function
-                (block
-                  (statement
-                    (expression
-                      (value
-                        (string)))))))))))))
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (function
+              (block
+                (statement
+                  (expression
+                    (value
+                      (string))))))))))))
 
 ================================================================================
 Function Call
@@ -51,14 +49,13 @@ Function Call
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (function_call
-          (identifier)
-          (expression
-            (value
-              (string))))))))
+  (statement
+    (expression
+      (function_call
+        (identifier)
+        (expression
+          (value
+            (string)))))))
 
 ================================================================================
 Complex Function
@@ -72,27 +69,26 @@ Complex Function
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (function
-            (identifier_list
-              (identifier)
-              (identifier))
-            (block
-              (statement
-                (expression
-                  (function_call
-                    (built_in_function
-                      (expression
-                        (identifier))))))
-              (statement
-                (expression
-                  (function_call
-                    (built_in_function
-                      (expression
-                        (identifier)))))))))))))
+  (statement
+    (expression
+      (value
+        (function
+          (identifier_list
+            (identifier)
+            (identifier))
+          (block
+            (statement
+              (expression
+                (function_call
+                  (built_in_function
+                    (expression
+                      (identifier))))))
+            (statement
+              (expression
+                (function_call
+                  (built_in_function
+                    (expression
+                      (identifier))))))))))))
 
 ================================================================================
 Complex Function Call
@@ -110,27 +106,26 @@ Complex Function Call
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (function_call
-          (identifier)
-          (expression
-            (value
-              (string)))
-          (expression
-            (value
-              (integer)))
-          (expression
-            (value
-              (map
-                (identifier)
-                (statement
-                  (expression
-                    (value
-                      (integer))))
-                (identifier)
-                (statement
-                  (expression
-                    (value
-                      (integer))))))))))))
+  (statement
+    (expression
+      (function_call
+        (identifier)
+        (expression
+          (value
+            (string)))
+        (expression
+          (value
+            (integer)))
+        (expression
+          (value
+            (map
+              (identifier)
+              (statement
+                (expression
+                  (value
+                    (integer))))
+              (identifier)
+              (statement
+                (expression
+                  (value
+                    (integer)))))))))))

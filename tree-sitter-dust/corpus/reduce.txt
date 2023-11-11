@@ -1,73 +1,71 @@
-==================
+================================================================================
 Simple Reduce Loop
-==================
+================================================================================
 
 reduce i to acc in [1, 2, 3] {
   acc += i
 }
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (reduce
-        (identifier)
-        (identifier)
-        (expression
-          (value
-            (list
+  (statement
+    (reduce
+      (identifier)
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (block
+        (statement
+          (assignment
+            (identifier)
+            (assignment_operator)
+            (statement
               (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (block
-          (statement
-            (assignment
-              (identifier)
-              (assignment_operator)
-              (statement
-                (expression
-                  (identifier))))))))))
+                (identifier)))))))))
 
-==================
+================================================================================
 Nested Reduce Loop
-==================
+================================================================================
 
 reduce i to acc in ["one", "two", "three"] {
   acc += i
 }
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (reduce
-        (identifier)
-        (identifier)
-        (expression
-          (value
-            (list
+  (statement
+    (reduce
+      (identifier)
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (string))))))
+      (block
+        (statement
+          (assignment
+            (identifier)
+            (assignment_operator)
+            (statement
               (expression
-                (value
-                  (string)))
-              (expression
-                (value
-                  (string)))
-              (expression
-                (value
-                  (string))))))
-        (block
-          (statement
-            (assignment
-              (identifier)
-              (assignment_operator)
-              (statement
-                (expression
-                  (identifier))))))))))
+                (identifier)))))))))

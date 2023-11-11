@@ -1,82 +1,79 @@
-==================
+================================================================================
 Booleans
-==================
+================================================================================
 
 true
 false
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (boolean))))
-    (statement
-      (expression
-        (value
-          (boolean))))))
+  (statement
+    (expression
+      (value
+        (boolean))))
+  (statement
+    (expression
+      (value
+        (boolean)))))
 
-==================
+================================================================================
 Integers
-==================
+================================================================================
 
 1 2 3
 456 7
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (integer))))
-    (statement
-      (expression
-        (value
-          (integer))))
-    (statement
-      (expression
-        (value
-          (integer))))
-    (statement
-      (expression
-        (value
-          (integer))))
-    (statement
-      (expression
-        (value
-          (integer))))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer))))
+  (statement
+    (expression
+      (value
+        (integer)))))
 
-==================
+================================================================================
 Strings
-==================
+================================================================================
 
 "one" 'two' "three" `four` 'five'
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (string))))
-    (statement
-      (expression
-        (value
-          (string))))
-    (statement
-      (expression
-        (value
-          (string))))
-    (statement
-      (expression
-        (value
-          (string))))
-    (statement
-      (expression
-        (value
-          (string))))))
+  (statement
+    (expression
+      (value
+        (string))))
+  (statement
+    (expression
+      (value
+        (string))))
+  (statement
+    (expression
+      (value
+        (string))))
+  (statement
+    (expression
+      (value
+        (string))))
+  (statement
+    (expression
+      (value
+        (string)))))

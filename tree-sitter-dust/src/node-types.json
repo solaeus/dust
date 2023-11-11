@@ -538,7 +538,7 @@
       "required": true,
       "types": [
         {
-          "type": "block",
+          "type": "statement",
           "named": true
         }
       ]
@@ -581,6 +581,10 @@
         },
         {
           "type": "async",
+          "named": true
+        },
+        {
+          "type": "block",
           "named": true
         },
         {

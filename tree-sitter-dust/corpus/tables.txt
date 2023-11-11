@@ -1,6 +1,6 @@
-==================
+================================================================================
 Table Declaration
-==================
+================================================================================
 
 table |messages numbers| [
     ['hiya' 42]
@@ -8,101 +8,98 @@ table |messages numbers| [
     ['bar'  99.99]
 ]
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-   (statement
-      (expression
-        (value
-          (table
-            (identifier_list
-              (identifier)
-              (identifier))
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (string)))
-                        (expression
-                          (value
-                            (integer))))))
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (string)))
-                        (expression
-                          (value
-                            (integer))))))
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (string)))
-                        (expression
-                          (value
-                            (float)))))))))))))))
+  (statement
+    (expression
+      (value
+        (table
+          (identifier_list
+            (identifier)
+            (identifier))
+          (expression
+            (value
+              (list
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (string)))
+                      (expression
+                        (value
+                          (integer))))))
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (string)))
+                      (expression
+                        (value
+                          (integer))))))
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (string)))
+                      (expression
+                        (value
+                          (float))))))))))))))
 
-==================
+================================================================================
 Table Access
-==================
+================================================================================
 
 select |number| from foobar {
   text == 'answer'
 }
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (select
-        (identifier_list
-          (identifier))
-        (expression
-          (identifier))
-        (block
-          (statement
-            (expression
-              (logic
-                (expression
-                  (identifier))
-                (logic_operator)
-                (expression
-                  (value
-                    (string)))))))))))
+  (statement
+    (select
+      (identifier_list
+        (identifier))
+      (expression
+        (identifier))
+      (block
+        (statement
+          (expression
+            (logic
+              (expression
+                (identifier))
+              (logic_operator)
+              (expression
+                (value
+                  (string))))))))))
 
-==================
+================================================================================
 Table Insert
-==================
+================================================================================
 
 insert into foobar [
   ['bob was here', 0]
 ]
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (insert
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (list
-                    (expression
-                      (value
-                        (string)))
-                    (expression
-                      (value
-                        (integer)))))))))))))
+  (statement
+    (insert
+      (identifier)
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (integer))))))))))))

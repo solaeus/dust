@@ -2,60 +2,64 @@
 Simple For Loop
 ================================================================================
 
-for i in [1, 2, 3] output i
+for i in [1, 2, 3] {
+  output i
+}
 
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (for
-        (identifier)
-        (expression
-          (value
-            (list
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer)))
-              (expression
-                (value
-                  (integer))))))
-        (block
-          (statement
+  (statement
+    (for
+      (identifier)
+      (expression
+        (value
+          (list
             (expression
-              (function_call
-                (built_in_function
-                  (expression
-                    (identifier)))))))))))
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer)))
+            (expression
+              (value
+                (integer))))))
+      (block
+        (statement
+          (expression
+            (function_call
+              (built_in_function
+                (expression
+                  (identifier))))))))))
 
 ================================================================================
 Nested For Loop
 ================================================================================
 
-for list in list_of_lists for item in list output item
+for list in list_of_lists {
+  for item in list {
+    (output item)
+  }
+}
 
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (for
-        (identifier)
-        (expression
-          (identifier))
-        (block
-          (statement
-            (for
-              (identifier)
-              (expression
-                (identifier))
-              (block
-                (statement
-                  (expression
-                    (function_call
-                      (built_in_function
-                        (expression
-                          (identifier))))))))))))))
+  (statement
+    (for
+      (identifier)
+      (expression
+        (identifier))
+      (block
+        (statement
+          (for
+            (identifier)
+            (expression
+              (identifier))
+            (block
+              (statement
+                (expression
+                  (function_call
+                    (built_in_function
+                      (expression
+                        (identifier)))))))))))))

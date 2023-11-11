@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Async, Error, Expression, Filter, Find, For, IfElse, Insert, Map,
+    AbstractTree, Assignment, Block, Error, Expression, Filter, Find, For, IfElse, Insert, Map,
     Match, Remove, Result, Select, Transform, Value, While,
 };
 
@@ -17,7 +17,7 @@ pub enum Statement {
     IfElse(Box<IfElse>),
     Match(Match),
     While(Box<While>),
-    Async(Box<Async>),
+    Block(Box<Block>),
     For(Box<For>),
     Transform(Box<Transform>),
     Filter(Box<Filter>),
@@ -49,7 +49,7 @@ impl AbstractTree for Statement {
             "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
                 source, child,
             )?))),
-            "async" => Ok(Statement::Async(Box::new(Async::from_syntax_node(
+            "block" => Ok(Statement::Block(Box::new(Block::from_syntax_node(
                 source, child,
             )?))),
             "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
@@ -89,7 +89,7 @@ impl AbstractTree for Statement {
             Statement::IfElse(if_else) => if_else.run(source, context),
             Statement::Match(r#match) => r#match.run(source, context),
             Statement::While(r#while) => r#while.run(source, context),
-            Statement::Async(run) => run.run(source, context),
+            Statement::Block(block) => block.run(source, context),
             Statement::For(r#for) => r#for.run(source, context),
             Statement::Transform(transform) => transform.run(source, context),
             Statement::Filter(filter) => filter.run(source, context),

@@ -8,10 +8,9 @@ not_a_comment
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (identifier)))))
+  (statement
+    (expression
+      (identifier))))
 
 ================================================================================
 Partial Line Comments
@@ -22,10 +21,9 @@ not_a_comment # comment
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (identifier)))))
+  (statement
+    (expression
+      (identifier))))
 
 ================================================================================
 Multiline Comments
@@ -38,11 +36,10 @@ not_a_comment #
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (identifier)))
-    (statement
-      (expression
-        (value
-          (string))))))
+  (statement
+    (expression
+      (identifier)))
+  (statement
+    (expression
+      (value
+        (string)))))
