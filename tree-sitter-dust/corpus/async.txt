@@ -8,15 +8,14 @@ async { (output 'Whaddup') }
 
 (root
   (statement
-    (async
-      (block
-        (statement
-          (expression
-            (function_call
-              (built_in_function
-                (expression
-                  (value
-                    (string)))))))))))
+    (block
+      (statement
+        (expression
+          (function_call
+            (built_in_function
+              (expression
+                (value
+                  (string))))))))))
 
 ================================================================================
 Complex Async Statements
@@ -36,38 +35,37 @@ async {
 
 (root
   (statement
-    (async
-      (block
-        (statement
-          (if_else
-            (if
-              (expression
-                (logic
-                  (expression
-                    (math
-                      (expression
-                        (value
-                          (integer)))
-                      (math_operator)
-                      (expression
-                        (value
-                          (integer)))))
-                  (logic_operator)
-                  (expression
-                    (value
-                      (integer)))))
-              (block
-                (statement
-                  (expression
-                    (value
-                      (boolean))))))
-            (else
-              (block
-                (statement
-                  (expression
-                    (value
-                      (boolean))))))))
-        (statement
-          (expression
-            (value
-              (string))))))))
+    (block
+      (statement
+        (if_else
+          (if
+            (expression
+              (logic
+                (expression
+                  (math
+                    (expression
+                      (value
+                        (integer)))
+                    (math_operator)
+                    (expression
+                      (value
+                        (integer)))))
+                (logic_operator)
+                (expression
+                  (value
+                    (integer)))))
+            (block
+              (statement
+                (expression
+                  (value
+                    (boolean))))))
+          (else
+            (block
+              (statement
+                (expression
+                  (value
+                    (boolean))))))))
+      (statement
+        (expression
+          (value
+            (string)))))))

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, List, Result, Value};
+use crate::{AbstractTree, Error, Expression, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
@@ -32,8 +32,10 @@ impl AbstractTree for Index {
         })
     }
 
-    fn run(&self, source: &str, context: &mut crate::Map) -> crate::Result<crate::Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = self.collection.run(source, context)?;
+
+        println!("{self:?}");
 
         match value {
             Value::List(list) => {

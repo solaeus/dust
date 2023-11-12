@@ -2,7 +2,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Result, Statement, Value};
+use crate::{AbstractTree, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
@@ -17,13 +17,17 @@ impl AbstractTree for Block {
         let first_child = node.child(0).unwrap();
         let is_async = first_child.kind() == "async";
 
-        let statement_count = node.child_count();
+        let statement_count = if is_async {
+            node.child_count() - 3
+        } else {
+            node.child_count() - 2
+        };
         let mut statements = Vec::with_capacity(statement_count);
 
-        for index in 0..statement_count - 1 {
+        for index in 1..statement_count + 1 {
             let child_node = node.child(index).unwrap();
 
-            if child_node.kind() == "statement" {
+            if child_node.is_named() {
                 let statement = Statement::from_syntax_node(source, child_node)?;
                 statements.push(statement);
             }
@@ -35,7 +39,7 @@ impl AbstractTree for Block {
         })
     }
 
-    fn run(&self, source: &str, context: &mut crate::Map) -> crate::Result<crate::Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         if self.is_async {
             let statements = &self.statements;
 
@@ -56,14 +60,13 @@ impl AbstractTree for Block {
                 })
                 .unwrap_or(Ok(Value::Empty))
         } else {
-            for statement in &self.statements[0..self.statements.len() - 1] {
-                statement.run(source, context)?;
+            let mut prev_result = None;
+
+            for statement in &self.statements {
+                prev_result = Some(statement.run(source, context)?);
             }
 
-            let final_statement = self.statements.last().unwrap();
-            let final_value = final_statement.run(source, context)?;
-
-            Ok(final_value)
+            Ok(prev_result.unwrap_or(Value::Empty))
         }
     }
 }

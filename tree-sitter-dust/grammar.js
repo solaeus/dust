@@ -46,17 +46,19 @@ module.exports = grammar({
       seq('(', $._expression_kind, ')'),
     )),
 
-    _expression_kind: $ => prec.left(1, choice(
+    _expression_kind: $ => prec(1, choice(
       $.function_call,
       $.identifier,
       $.index,
       $.logic,
       $.math,
       $.value,
-      $.yield,
     )),
 
-    _expression_list: $ => repeat1(prec.right(seq($.expression, optional(',')))),
+    _expression_list: $ => repeat1(prec.right(seq(
+      $.expression,
+      optional(','),
+    ))),
 
     identifier: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
 
@@ -282,12 +284,6 @@ module.exports = grammar({
       'table',
       $.identifier_list,
       $.expression,
-    )),
-
-    yield: $ => prec.left(seq(
-      $.expression,
-      '->',
-      $.function_call,
     )),
 
     function: $ => seq(
