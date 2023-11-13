@@ -114,11 +114,17 @@ module.exports = grammar({
     index: $ => prec.left(seq(
       $.expression,
       ':',
-      $.expression,
+      $._index_expression,
       optional(seq(
         '..',
-        $.expression,
+        $._index_expression,
       )),
+    )),
+
+    _index_expression: $ => prec(1,choice(
+      $.integer,
+      $.identifier,
+      $.function_call,
     )),
 
     math: $ => prec.left(seq(

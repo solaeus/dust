@@ -35,8 +35,6 @@ impl AbstractTree for Index {
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = self.collection.run(source, context)?;
 
-        println!("{self:?}");
-
         match value {
             Value::List(list) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
