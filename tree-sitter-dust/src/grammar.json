@@ -1233,17 +1233,29 @@
       ]
     },
     "function_call": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "built_in_function"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "_context_defined_function"
-        }
-      ]
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "("
+          },
+          {
+            "type": "SYMBOL",
+            "name": "built_in_function"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "_context_defined_function"
+          },
+          {
+            "type": "STRING",
+            "value": ")"
+          }
+        ]
+      }
     },
     "_context_defined_function": {
       "type": "PREC_RIGHT",

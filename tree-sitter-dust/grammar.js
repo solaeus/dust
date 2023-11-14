@@ -114,17 +114,11 @@ module.exports = grammar({
     index: $ => prec.left(seq(
       $.expression,
       ':',
-      $._index_expression,
+      $.expression,
       optional(seq(
         '..',
-        $._index_expression,
+        $.expression,
       )),
-    )),
-
-    _index_expression: $ => prec(1,choice(
-      $.integer,
-      $.identifier,
-      $.function_call,
     )),
 
     math: $ => prec.left(seq(
@@ -298,10 +292,12 @@ module.exports = grammar({
       field('body', $.block),
     ),
 
-    function_call: $ => choice(
+    function_call: $ => prec.right(choice(
+      '(',
       $.built_in_function,
       $._context_defined_function,
-    ),
+      ')',
+    )),
 
     _context_defined_function: $ => prec.right(seq(
       $.identifier,

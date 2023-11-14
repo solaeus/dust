@@ -90,3 +90,25 @@ Nested Indexes
         (expression
           (value
             (integer)))))))
+
+================================================================================
+Function Call Index
+================================================================================
+
+x:(y):0
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (index
+        (expression
+          (index
+            (expression
+              (identifier))
+            (expression
+              (function_call))))
+        (expression
+          (value
+            (integer)))))))
