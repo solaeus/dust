@@ -19,6 +19,8 @@ pub enum AssignmentOperator {
 
 impl AbstractTree for Assignment {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        Error::expect_syntax_node(source, "assignment", node)?;
+
         let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(source, identifier_node)?;
 

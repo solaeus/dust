@@ -50,7 +50,7 @@
       ]
     },
     "statement": {
-      "type": "PREC_RIGHT",
+      "type": "PREC_LEFT",
       "value": 0,
       "content": {
         "type": "SEQ",
@@ -85,6 +85,10 @@
               {
                 "type": "SYMBOL",
                 "name": "if_else"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "index_assignment"
               },
               {
                 "type": "SYMBOL",
@@ -708,17 +712,25 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "identifier"
-            },
-            {
-              "type": "SYMBOL",
-              "name": "index"
-            }
-          ]
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "assignment_operator"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "statement"
+        }
+      ]
+    },
+    "index_assignment": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "index"
         },
         {
           "type": "SYMBOL",

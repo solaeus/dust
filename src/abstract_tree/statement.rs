@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Block, Error, Expression, Filter, Find, For, IfElse, Insert, Map,
-    Match, Remove, Result, Select, Transform, Value, While,
+    AbstractTree, Assignment, Block, Error, Expression, Filter, Find, For, IfElse, IndexAssignment,
+    Insert, Map, Match, Remove, Result, Select, Transform, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -25,12 +25,11 @@ pub enum Statement {
     Remove(Box<Remove>),
     Select(Box<Select>),
     Insert(Box<Insert>),
+    IndexAssignment(Box<IndexAssignment>),
 }
 
 impl AbstractTree for Statement {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        debug_assert_eq!("statement", node.kind());
-
         let child = node.child(0).unwrap();
 
         match child.kind() {
@@ -73,12 +72,14 @@ impl AbstractTree for Statement {
             "insert" => Ok(Statement::Insert(Box::new(Insert::from_syntax_node(
                 source, child,
             )?))),
-            _ => Err(Error::UnexpectedSyntaxNode {
-                expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select or insert",
-                actual: child.kind(),
-                location: child.start_position(),
-                relevant_source: source[child.byte_range()].to_string(),
-            }),
+            "index_assignment" => Ok(Statement::IndexAssignment(Box::new(IndexAssignment::from_syntax_node(
+                source, child,
+            )?))),
+            _ => Err(Error::expect_syntax_node(
+                source,
+                "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select, insert or index_assignment",    
+                child
+            ).unwrap_err())
         }
     }
 
@@ -97,6 +98,7 @@ impl AbstractTree for Statement {
             Statement::Remove(remove) => remove.run(source, context),
             Statement::Select(select) => select.run(source, context),
             Statement::Insert(insert) => insert.run(source, context),
+            Statement::IndexAssignment(index_assignment) => index_assignment.run(source, context),
         }
     }
 }

@@ -5,9 +5,9 @@ use crate::{AbstractTree, Error, Expression, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
-    collection: Expression,
-    index: Expression,
-    index_end: Option<Expression>,
+    pub collection: Expression,
+    pub index: Expression,
+    pub index_end: Option<Expression>,
 }
 
 impl AbstractTree for Index {
@@ -50,7 +50,7 @@ impl AbstractTree for Index {
 
                 Ok(item)
             }
-            Value::Map(mut map) => {
+            Value::Map(map) => {
                 let value = if let Expression::Identifier(identifier) = &self.index {
                     let key = identifier.inner();
 

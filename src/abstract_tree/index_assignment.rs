@@ -19,6 +19,8 @@ pub enum AssignmentOperator {
 
 impl AbstractTree for IndexAssignment {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        Error::expect_syntax_node(source, "index_assignment", node)?;
+
         let index_node = node.child(0).unwrap();
         let index = Index::from_syntax_node(source, index_node)?;
 
@@ -48,14 +50,43 @@ impl AbstractTree for IndexAssignment {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let mut left = self.index.run(source, context)?;
-        let right = self.statement.run(source, context)?;
+        let index_collection = self.index.collection.run(source, context)?;
+        let index_context = index_collection.as_map().unwrap_or(&context);
+        let index_key = if let crate::Expression::Identifier(identifier) = &self.index.index {
+            identifier.inner()
+        } else {
+            return Err(Error::VariableIdentifierNotFound(
+                self.index.index.run(source, context)?.to_string(),
+            ));
+        };
 
-        match self.operator {
-            AssignmentOperator::PlusEqual => left += right,
-            AssignmentOperator::MinusEqual => left -= right,
-            AssignmentOperator::Equal => left = right,
-        }
+        let value = self.statement.run(source, &mut context.clone())?;
+
+        let new_value = match self.operator {
+            AssignmentOperator::PlusEqual => {
+                if let Some(mut previous_value) = index_context.variables()?.get(index_key).cloned()
+                {
+                    previous_value += value;
+                    previous_value
+                } else {
+                    Value::Empty
+                }
+            }
+            AssignmentOperator::MinusEqual => {
+                if let Some(mut previous_value) = index_context.variables()?.get(index_key).cloned()
+                {
+                    previous_value -= value;
+                    previous_value
+                } else {
+                    Value::Empty
+                }
+            }
+            AssignmentOperator::Equal => value,
+        };
+
+        context
+            .variables_mut()?
+            .insert(index_key.clone(), new_value);
 
         Ok(Value::Empty)
     }

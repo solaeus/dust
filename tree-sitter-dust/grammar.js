@@ -21,7 +21,7 @@ module.exports = grammar({
       '}',
     ),
 
-    statement: $ => prec.right(seq(
+    statement: $ => prec.left(seq(
       choice(
         $.assignment,
         $.block,
@@ -30,6 +30,7 @@ module.exports = grammar({
         $.find,
         $.for,
         $.if_else,
+        $.index_assignment,
         $.insert,
         $.match,
         $.reduce,
@@ -153,10 +154,13 @@ module.exports = grammar({
     ),
 
     assignment: $ => seq(
-      choice(
-        $.identifier,
-        $.index,
-      ),
+      $.identifier,
+      $.assignment_operator,
+      $.statement,
+    ),
+
+    index_assignment: $ => seq(
+      $.index,
       $.assignment_operator,
       $.statement,
     ),

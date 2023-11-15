@@ -25,7 +25,7 @@ x:y = 1
 
 (root
   (statement
-    (assignment
+    (index_assignment
       (index
         (expression
           (identifier))
@@ -47,7 +47,7 @@ x:9 = 'foobar'
 
 (root
   (statement
-    (assignment
+    (index_assignment
       (index
         (expression
           (identifier))
