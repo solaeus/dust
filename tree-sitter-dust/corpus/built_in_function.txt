@@ -20,7 +20,6 @@ Nested Function Call
 ================================================================================
 
 (assert_equal (random_integer) 4)
-assert_equal random_integer 4
 
 --------------------------------------------------------------------------------
 
@@ -34,14 +33,4 @@ assert_equal random_integer 4
               (built_in_function)))
           (expression
             (value
-              (integer)))))))
-  (statement
-    (expression
-      (function_call
-        (built_in_function
-          (expression
-            (function_call
-              (built_in_function
-                (expression
-                  (value
-                    (integer)))))))))))
+              (integer))))))))

@@ -162,37 +162,33 @@
       }
     },
     "_expression_kind": {
-      "type": "PREC",
-      "value": 1,
-      "content": {
-        "type": "CHOICE",
-        "members": [
-          {
-            "type": "SYMBOL",
-            "name": "function_call"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "identifier"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "index"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "logic"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "math"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "value"
-          }
-        ]
-      }
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "function_call"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "index"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "logic"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "math"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "value"
+        }
+      ]
     },
     "_expression_list": {
       "type": "REPEAT1",
@@ -1236,19 +1232,24 @@
       "type": "PREC_RIGHT",
       "value": 0,
       "content": {
-        "type": "CHOICE",
+        "type": "SEQ",
         "members": [
           {
             "type": "STRING",
             "value": "("
           },
           {
-            "type": "SYMBOL",
-            "name": "built_in_function"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "_context_defined_function"
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "built_in_function"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_context_defined_function"
+              }
+            ]
           },
           {
             "type": "STRING",
@@ -1259,7 +1260,7 @@
     },
     "_context_defined_function": {
       "type": "PREC_RIGHT",
-      "value": 0,
+      "value": 1,
       "content": {
         "type": "SEQ",
         "members": [

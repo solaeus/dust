@@ -3,7 +3,7 @@ Simple For Loop
 ================================================================================
 
 for i in [1, 2, 3] {
-  output(i)
+  (output i)
 }
 
 --------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ Nested For Loop
 
 for list in list_of_lists {
   for item in list {
-    output(item)
+    (output item)
   }
 }
 

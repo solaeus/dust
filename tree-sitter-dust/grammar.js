@@ -46,14 +46,14 @@ module.exports = grammar({
       seq('(', $._expression_kind, ')'),
     )),
 
-    _expression_kind: $ => prec(1, choice(
+    _expression_kind: $ => choice(
       $.function_call,
       $.identifier,
       $.index,
       $.logic,
       $.math,
       $.value,
-    )),
+    ),
 
     _expression_list: $ => repeat1(prec.right(seq(
       $.expression,
@@ -292,14 +292,16 @@ module.exports = grammar({
       field('body', $.block),
     ),
 
-    function_call: $ => prec.right(choice(
+    function_call: $ => prec.right(seq(
       '(',
-      $.built_in_function,
-      $._context_defined_function,
+      choice(
+        $.built_in_function,
+        $._context_defined_function,
+      ),
       ')',
     )),
 
-    _context_defined_function: $ => prec.right(seq(
+    _context_defined_function: $ => prec.right(1, seq(
       $.identifier,
       optional($._expression_list),
     )),
