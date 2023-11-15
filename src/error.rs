@@ -3,9 +3,11 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the ToolFailure variant if the error can only occur inside a tool.
 
+use tree_sitter::Node;
+
 use crate::{value::Value, Identifier};
 
-use std::{fmt, io, time, string::FromUtf8Error, num::ParseFloatError, sync::PoisonError};
+use std::{fmt, io, num::ParseFloatError, string::FromUtf8Error, sync::PoisonError, time};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -128,6 +130,19 @@ pub enum Error {
 }
 
 impl Error {
+    pub fn expect_syntax_node(source: &str, expected: &'static str, actual: Node) -> Result<()> {
+        if expected == actual.kind() {
+            Ok(())
+        } else {
+            Err(Error::UnexpectedSyntaxNode {
+                expected,
+                actual: actual.kind(),
+                location: actual.start_position(),
+                relevant_source: source[actual.byte_range()].to_string(),
+            })
+        }
+    }
+
     pub fn expect_tool_argument_amount(
         tool_name: &'static str,
         expected: usize,
@@ -217,7 +232,7 @@ impl fmt::Display for Error {
 
                 if expected.is_table() {
                     write!(f, "\n{expected}\n")?;
-                } else { 
+                } else {
                     write!(f, " {expected} ")?;
                 }
 
@@ -225,10 +240,10 @@ impl fmt::Display for Error {
 
                 if actual.is_table() {
                     write!(f, "\n{actual}")
-                } else { 
+                } else {
                     write!(f, " {actual}.")
                 }
-            },
+            }
             AssertFailed => write!(
                 f,
                 "Assertion failed. A false value was passed to \"assert\"."
@@ -318,9 +333,12 @@ impl fmt::Display for Error {
                 relevant_source,
             } => write!(
                 f,
-                "Expected syntax node {expected}, but got {actual} at {location}. Code: {relevant_source} ",
+                "Expected {expected}, but got {actual} at {location}. Code: {relevant_source} ",
             ),
-            WrongColumnAmount { expected, actual } => write!(f, "Wrong column amount. Expected {expected} but got {actual}."),
+            WrongColumnAmount { expected, actual } => write!(
+                f,
+                "Wrong column amount. Expected {expected} but got {actual}."
+            ),
             ToolFailure(message) => write!(f, "{message}"),
             CustomMessage(message) => write!(f, "{message}"),
         }

@@ -21,7 +21,7 @@ pub enum Expression {
 
 impl AbstractTree for Expression {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        debug_assert_eq!("expression", node.kind());
+        Error::expect_syntax_node(source, "expression", node)?;
 
         for index in 0..node.child_count() {
             let child = node.child(index).unwrap();
