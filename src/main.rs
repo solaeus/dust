@@ -9,10 +9,11 @@ use rustyline::{
     history::DefaultHistory,
     Completer, Context, Editor, Helper, Validator,
 };
+use tree_sitter::Parser as TSParser;
 
 use std::borrow::Cow;
 
-use dust_lang::{evaluate_with_context, Map, Value};
+use dust_lang::{evaluate_with_context, language, Evaluator, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -29,6 +30,10 @@ struct Args {
     /// A path to file whose contents will be assigned to the "input" variable.
     #[arg(short = 'p', long)]
     input_path: Option<String>,
+
+    /// A path to file whose contents will be assigned to the "input" variable.
+    #[arg(short = 't', long = "tree")]
+    show_syntax_tree: bool,
 
     /// Location of the file to run.
     path: Option<String>,
@@ -68,7 +73,16 @@ async fn main() {
             .insert("input".to_string(), Value::String(file_contents));
     }
 
-    let eval_result = evaluate_with_context(&source, &mut context);
+    let mut parser = TSParser::new();
+    parser.set_language(language()).unwrap();
+
+    let evaluator = Evaluator::new(parser, &mut context, &source);
+
+    if args.show_syntax_tree {
+        println!("{}", evaluator.syntax_tree());
+    }
+
+    let eval_result = evaluator.run();
 
     match eval_result {
         Ok(value) => {

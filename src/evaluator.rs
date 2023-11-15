@@ -73,7 +73,7 @@ impl Debug for Evaluator<'_, '_> {
 }
 
 impl<'context, 'code> Evaluator<'context, 'code> {
-    fn new(mut parser: Parser, context: &'context mut Map, source: &'code str) -> Self {
+    pub fn new(mut parser: Parser, context: &'context mut Map, source: &'code str) -> Self {
         let syntax_tree = parser.parse(source, None).unwrap();
 
         Evaluator {
@@ -84,7 +84,7 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         }
     }
 
-    fn run(self) -> Result<Value> {
+    pub fn run(self) -> Result<Value> {
         let mut cursor = self.syntax_tree.walk();
         let root_node = cursor.node();
         let mut prev_result = Ok(Value::Empty);
@@ -95,6 +95,10 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         }
 
         prev_result
+    }
+
+    pub fn syntax_tree(&self) -> String {
+        self.syntax_tree.root_node().to_sexp()
     }
 }
 
