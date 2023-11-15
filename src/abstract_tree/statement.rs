@@ -30,6 +30,8 @@ pub enum Statement {
 
 impl AbstractTree for Statement {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        Error::expect_syntax_node(source, "statement", node)?;
+
         let child = node.child(0).unwrap();
 
         match child.kind() {
@@ -75,11 +77,12 @@ impl AbstractTree for Statement {
             "index_assignment" => Ok(Statement::IndexAssignment(Box::new(IndexAssignment::from_syntax_node(
                 source, child,
             )?))),
-            _ => Err(Error::expect_syntax_node(
-                source,
-                "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select, insert or index_assignment",    
-                child
-            ).unwrap_err())
+            _ => Err(Error::UnexpectedSyntaxNode {
+                expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select, insert or index_assignment",
+                actual: child.kind(),
+                location: child.start_position(),
+                relevant_source: source[child.byte_range()].to_string(),
+            }),
         }
     }
 
