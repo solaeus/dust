@@ -22,7 +22,7 @@ impl Identifier {
 
 impl AbstractTree for Identifier {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        debug_assert_eq!("identifier", node.kind());
+        Error::expect_syntax_node(source, "identifier", node)?;
 
         let identifier = &source[node.byte_range()];
 

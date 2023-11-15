@@ -1,7 +1,8 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Identifier, Map, Result, Value};
+use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Find {
@@ -32,20 +33,37 @@ impl AbstractTree for Find {
         let value = self.expression.run(source, context)?;
         let values = value.as_list()?.items();
         let key = self.identifier.inner();
+        let loop_context = Map::clone_from(context)?;
 
-        let mut loop_context = Map::clone_from(context)?;
-        let mut variables = context.variables_mut()?;
+        let find_result = values.par_iter().find_map_first(|value| {
+            loop_context
+                .variables_mut()
+                .unwrap()
+                .insert(key.clone(), (*value).clone());
 
-        for value in values.iter() {
-            variables.insert(key.clone(), value.clone());
+            let run_result = self.item.run(source, &mut loop_context.clone());
 
-            let should_return = self.item.run(source, &mut loop_context)?.as_boolean()?;
-
-            if should_return {
-                return Ok(value.clone());
+            if let Ok(run_result_value) = run_result {
+                if let Ok(should_return) = run_result_value.as_boolean() {
+                    if should_return {
+                        Some(Ok(value.clone()))
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(Err(Error::ExpectedBoolean {
+                        actual: value.clone(),
+                    }))
+                }
+            } else {
+                Some(run_result)
             }
-        }
+        });
 
-        Ok(Value::Empty)
+        if let Some(result) = find_result {
+            result
+        } else {
+            Ok(Value::Empty)
+        }
     }
 }
