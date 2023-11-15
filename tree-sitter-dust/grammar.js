@@ -41,6 +41,12 @@ module.exports = grammar({
       ),
       optional(';'),
     )),
+
+    yield: $ => prec.left(seq(
+      $.expression,
+      '->',
+      $.function_call,
+    )),
   
     expression: $ => prec.right(choice(
       $._expression_kind,
@@ -54,6 +60,7 @@ module.exports = grammar({
       $.logic,
       $.math,
       $.value,
+      $.yield,
     ),
 
     _expression_list: $ => repeat1(prec.right(seq(

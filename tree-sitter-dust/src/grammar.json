@@ -135,6 +135,27 @@
         ]
       }
     },
+    "yield": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "expression"
+          },
+          {
+            "type": "STRING",
+            "value": "->"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "function_call"
+          }
+        ]
+      }
+    },
     "expression": {
       "type": "PREC_RIGHT",
       "value": 0,
@@ -191,6 +212,10 @@
         {
           "type": "SYMBOL",
           "name": "value"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "yield"
         }
       ]
     },

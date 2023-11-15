@@ -127,6 +127,10 @@
         {
           "type": "value",
           "named": true
+        },
+        {
+          "type": "yield",
+          "named": true
         }
       ]
     }
@@ -747,6 +751,25 @@
     }
   },
   {
+    "type": "yield",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "function_call",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "!=",
     "named": false
   },
@@ -788,6 +811,10 @@
   },
   {
     "type": "-=",
+    "named": false
+  },
+  {
+    "type": "->",
     "named": false
   },
   {
