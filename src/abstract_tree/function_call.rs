@@ -18,10 +18,10 @@ impl AbstractTree for FunctionCall {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         debug_assert_eq!("function_call", node.kind());
 
-        let function_node = node.child(0).unwrap();
+        let function_node = node.child(1).unwrap();
         let mut arguments = Vec::new();
 
-        for index in 1..node.child_count() {
+        for index in 2..node.child_count() - 1 {
             let node = node.child(index).unwrap();
 
             if node.is_named() {
