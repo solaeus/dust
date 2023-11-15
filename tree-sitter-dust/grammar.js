@@ -153,7 +153,10 @@ module.exports = grammar({
     ),
 
     assignment: $ => seq(
-      $.identifier,
+      choice(
+        $.identifier,
+        $.index,
+      ),
       $.assignment_operator,
       $.statement,
     ),

@@ -1,0 +1,61 @@
+================================================================================
+Simple Assignment
+================================================================================
+
+x = y
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (identifier))))))
+
+================================================================================
+Map Item Assignment
+================================================================================
+
+x:y = 1
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (index
+        (expression
+          (identifier))
+        (expression
+          (identifier)))
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (integer)))))))
+
+================================================================================
+List Item Assignment
+================================================================================
+
+x:9 = 'foobar'
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (index
+        (expression
+          (identifier))
+        (expression
+          (value
+            (integer))))
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (string)))))))
