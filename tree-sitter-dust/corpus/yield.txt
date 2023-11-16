@@ -13,8 +13,7 @@ Simple Yield
         (expression
           (value
             (integer)))
-        (function_call
-          (built_in_function))))))
+        (built_in_function)))))
 
 ================================================================================
 Yield Chain
@@ -34,9 +33,6 @@ x -> (foo) -> (bar) -> (abc)
               (yield
                 (expression
                   (identifier))
-                (function_call
-                  (identifier))))
-            (function_call
-              (identifier))))
-        (function_call
-          (identifier))))))
+                (identifier)))
+            (identifier)))
+        (identifier)))))

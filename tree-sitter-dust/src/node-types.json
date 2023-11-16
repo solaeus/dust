@@ -759,11 +759,15 @@
       "required": true,
       "types": [
         {
+          "type": "built_in_function",
+          "named": true
+        },
+        {
           "type": "expression",
           "named": true
         },
         {
-          "type": "function_call",
+          "type": "identifier",
           "named": true
         }
       ]

@@ -1,9 +1,12 @@
 1 -> (output)
 
-add_one = |list| {
+add_one = |list| => {
 	transform number in list {
 		number + 1
 	}
 }
 
-[1, 2, 3] -> (add_one)
+foo = [1, 2, 3] -> (add_one)
+
+(assert_equal [2 3 4] foo)
+

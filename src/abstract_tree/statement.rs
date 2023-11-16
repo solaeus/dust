@@ -78,7 +78,7 @@ impl AbstractTree for Statement {
                 source, child,
             )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
-                expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select, insert or index_assignment",
+                expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select, insert, index_assignment or yield",
                 actual: child.kind(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),

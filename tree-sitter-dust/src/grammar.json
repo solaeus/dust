@@ -150,8 +150,25 @@
             "value": "->"
           },
           {
-            "type": "SYMBOL",
-            "name": "function_call"
+            "type": "STRING",
+            "value": "("
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "built_in_function"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "_context_defined_function"
+              }
+            ]
+          },
+          {
+            "type": "STRING",
+            "value": ")"
           }
         ]
       }

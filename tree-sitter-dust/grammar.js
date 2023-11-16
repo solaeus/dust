@@ -45,7 +45,12 @@ module.exports = grammar({
     yield: $ => prec.left(seq(
       $.expression,
       '->',
-      $.function_call,
+      '(',
+      choice(
+        $.built_in_function,
+        $._context_defined_function,
+      ),
+      ')',
     )),
   
     expression: $ => prec.right(choice(
