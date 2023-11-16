@@ -59,10 +59,10 @@ pub fn evaluate_with_context(source: &str, context: &mut Map) -> Result<Value> {
 ///
 /// The Evaluator turns a tree sitter concrete syntax tree into a vector of
 /// abstract trees called [Item][]s that can be run to execute the source code.
-pub struct Evaluator<'context, 'code> {
+pub struct Evaluator<'c, 's> {
     _parser: Parser,
-    context: &'context mut Map,
-    source: &'code str,
+    context: &'c mut Map,
+    source: &'s str,
     syntax_tree: TSTree,
 }
 
@@ -72,8 +72,8 @@ impl Debug for Evaluator<'_, '_> {
     }
 }
 
-impl<'context, 'code> Evaluator<'context, 'code> {
-    pub fn new(mut parser: Parser, context: &'context mut Map, source: &'code str) -> Self {
+impl<'c, 's> Evaluator<'c, 's> {
+    pub fn new(mut parser: Parser, context: &'c mut Map, source: &'s str) -> Self {
         let syntax_tree = parser.parse(source, None).unwrap();
 
         Evaluator {

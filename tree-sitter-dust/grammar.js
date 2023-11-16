@@ -41,17 +41,6 @@ module.exports = grammar({
       ),
       optional(';'),
     )),
-
-    yield: $ => prec.left(seq(
-      $.expression,
-      '->',
-      '(',
-      choice(
-        $.built_in_function,
-        $._context_defined_function,
-      ),
-      ')',
-    )),
   
     expression: $ => prec.right(choice(
       $._expression_kind,
@@ -328,6 +317,17 @@ module.exports = grammar({
     built_in_function: $ => prec.right(seq(
       $._built_in_function_name,
       optional($._expression_list),
+    )),
+
+    yield: $ => prec.left(seq(
+      $.expression,
+      '->',
+      '(',
+      choice(
+        $.built_in_function,
+        $._context_defined_function,
+      ),
+      ')',
     )),
 
     _built_in_function_name: $ => choice(
