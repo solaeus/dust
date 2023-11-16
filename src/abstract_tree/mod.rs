@@ -32,9 +32,9 @@ pub mod r#yield;
 
 pub use {
     assignment::*, block::*, built_in_function::*, expression::*, filter::*, find::*,
-    function_call::*, identifier::*, if_else::*, index::*, index_assignment::*, insert::*,
-    logic::*, math::*, r#for::*, r#match::*, r#while::*, r#yield::*, remove::*, select::*,
-    statement::*, transform::*, value_node::*,
+    function_call::*, identifier::*, if_else::*, index::*, index_assignment::IndexAssignment,
+    insert::*, logic::*, math::*, r#for::*, r#match::*, r#while::*, r#yield::*, remove::*,
+    select::*, statement::*, transform::*, value_node::*,
 };
 
 use tree_sitter::Node;
@@ -55,6 +55,6 @@ pub trait AbstractTree: Sized {
     /// node's byte range.
     fn from_syntax_node(source: &str, node: Node) -> Result<Self>;
 
-    /// Execute dust code by traversing the tree
+    /// Execute dust code by traversing the tree.
     fn run(&self, source: &str, context: &mut Map) -> Result<Value>;
 }

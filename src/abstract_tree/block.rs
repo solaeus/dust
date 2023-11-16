@@ -42,8 +42,6 @@ impl AbstractTree for Block {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        println!("Running {} statements.", self.statements.len());
-
         if self.is_async {
             let statements = &self.statements;
             let final_result = RwLock::new(Ok(Value::Empty));
