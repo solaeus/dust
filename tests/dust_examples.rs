@@ -40,20 +40,6 @@ fn fibonacci() {
 }
 
 #[test]
-fn filter_loop() {
-    let file_contents = read_to_string("examples/filter_loop.ds").unwrap();
-
-    evaluate(&file_contents).unwrap();
-}
-
-#[test]
-fn find_loop() {
-    let file_contents = read_to_string("examples/find_loop.ds").unwrap();
-
-    evaluate(&file_contents).unwrap();
-}
-
-#[test]
 fn fizzbuzz() {
     let file_contents = read_to_string("examples/fizzbuzz.ds").unwrap();
 
@@ -103,13 +89,6 @@ fn random() {
 }
 
 #[test]
-fn remove_loop() {
-    let file_contents = read_to_string("examples/remove_loop.ds").unwrap();
-
-    evaluate(&file_contents).unwrap();
-}
-
-#[test]
 fn sea_creatures() {
     let file_contents = read_to_string("examples/sea_creatures.ds").unwrap();
 
@@ -126,13 +105,6 @@ fn select() {
 #[test]
 fn table() {
     let file_contents = read_to_string("examples/table.ds").unwrap();
-
-    evaluate(&file_contents).unwrap();
-}
-
-#[test]
-fn transform_loop() {
-    let file_contents = read_to_string("examples/transform_loop.ds").unwrap();
 
     evaluate(&file_contents).unwrap();
 }

@@ -1,9 +1,13 @@
 1 -> (output)
 
 add_one = |list| => {
-	transform number in list {
-		number + 1
+	new_list = []
+	
+	for number in list {
+		new_list += number + 1
 	}
+
+	new_list
 }
 
 foo = [1, 2, 3] -> (add_one)

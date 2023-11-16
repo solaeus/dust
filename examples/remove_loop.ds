@@ -1,8 +1,0 @@
-list = [1 2 1 3]
-
-removed = remove i from list {
-	i == 3
-}
-
-(assert_equal 3 removed)
-(assert_equal [1 2 1] list)

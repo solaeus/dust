@@ -89,7 +89,7 @@ mod tests {
 
     #[test]
     fn evaluate_map_index() {
-        let test = evaluate("x = {y = {z = 2}} x:y:z").unwrap();
+        let test = evaluate("x = (y = (z = 2)) x:y:z").unwrap();
 
         assert_eq!(Value::Integer(2), test);
     }
