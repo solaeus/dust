@@ -30,12 +30,13 @@ impl AbstractTree for Find {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let value = self.expression.run(source, context)?;
-        let values = value.as_list()?.items();
+        let expression_run = self.expression.run(source, context)?;
+        let list = expression_run.as_list()?.items();
         let key = self.identifier.inner();
-        let loop_context = Map::clone_from(context)?;
 
-        let find_result = values.par_iter().find_map_first(|value| {
+        let find_result = list.par_iter().find_map_first(|value| {
+            let loop_context = Map::clone_from(context).unwrap();
+
             loop_context
                 .variables_mut()
                 .unwrap()

@@ -34,7 +34,7 @@ pub fn evaluate(source: &str) -> Result<Value> {
 /// let mut context = Map::new();
 ///
 /// {
-///     let mut variables = context.variables_mut();
+///     let mut variables = context.variables_mut().unwrap();
 ///
 ///     variables.insert("one".into(), 1.into());
 ///     variables.insert("two".into(), 2.into());

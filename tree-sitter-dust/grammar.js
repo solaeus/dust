@@ -124,7 +124,7 @@ module.exports = grammar({
       '}',
     ),
  
-    index: $ => prec.left(seq(
+    index: $ => prec.left(1, seq(
       $.expression,
       ':',
       $.expression,
