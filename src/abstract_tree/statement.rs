@@ -7,12 +7,10 @@ use crate::{
 };
 
 /// Abstract representation of a statement.
-///
-/// A statement may evaluate to an Empty value when run. If a Statement is an
-/// Expression, it will always return a non-empty value when run.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Assignment(Box<Assignment>),
+    Return(Expression),
     Expression(Expression),
     IfElse(Box<IfElse>),
     Match(Match),
@@ -38,6 +36,11 @@ impl AbstractTree for Statement {
             "assignment" => Ok(Statement::Assignment(Box::new(
                 Assignment::from_syntax_node(source, child)?,
             ))),
+            "return" => {
+                let expression_node = child.child(1).unwrap();
+
+                Ok(Statement::Return(Expression::from_syntax_node(source, expression_node)?))
+            },
             "expression" => Ok(Self::Expression(Expression::from_syntax_node(
                 source, child,
             )?)),
@@ -89,6 +92,7 @@ impl AbstractTree for Statement {
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
+            Statement::Return(expression) => expression.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),
             Statement::IfElse(if_else) => if_else.run(source, context),
             Statement::Match(r#match) => r#match.run(source, context),

@@ -2,17 +2,16 @@
 Simple Map
 ================================================================================
 
-{ answer = 42 }
+( answer = 42 )
 
 --------------------------------------------------------------------------------
 
 (root
   (statement
-    (block
-      (statement
-        (assignment
+    (expression
+      (value
+        (map
           (identifier)
-          (assignment_operator)
           (statement
             (expression
               (value
@@ -22,15 +21,15 @@ Simple Map
 Nested Maps
 ================================================================================
 
-x = {
-  y = {
+x = (
+  y = (
     foo = 'bar'
-    z = {
+    z = (
       message = 'hiya'
-    }
-  }
+    )
+  )
   f = 12
-}
+)
 
 --------------------------------------------------------------------------------
 
@@ -40,11 +39,10 @@ x = {
       (identifier)
       (assignment_operator)
       (statement
-        (block
-          (statement
-            (assignment
+        (expression
+          (value
+            (map
               (identifier)
-              (assignment_operator)
               (statement
                 (expression
                   (value
@@ -63,11 +61,8 @@ x = {
                               (statement
                                 (expression
                                   (value
-                                    (string))))))))))))))
-          (statement
-            (assignment
+                                    (string))))))))))))
               (identifier)
-              (assignment_operator)
               (statement
                 (expression
                   (value

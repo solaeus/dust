@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -24,7 +26,7 @@ impl AbstractTree for Block {
         };
         let mut statements = Vec::with_capacity(statement_count);
 
-        for index in 1..statement_count + 1 {
+        for index in 1..node.child_count() - 1 {
             let child_node = node.child(index).unwrap();
 
             if child_node.is_named() {
@@ -40,33 +42,45 @@ impl AbstractTree for Block {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+        println!("Running {} statements.", self.statements.len());
+
         if self.is_async {
             let statements = &self.statements;
+            let final_result = RwLock::new(Ok(Value::Empty));
 
             statements
                 .into_par_iter()
                 .enumerate()
                 .find_map_first(|(index, statement)| {
-                    let mut context = context.clone();
-                    let result = statement.run(source, &mut context);
+                    if let Statement::Return(expression) = statement {
+                        return Some(expression.run(source, &mut context.clone()));
+                    }
+
+                    let result = statement.run(source, &mut context.clone());
 
                     if result.is_err() {
                         Some(result)
                     } else if index == statements.len() - 1 {
-                        Some(result)
+                        let _ = final_result.write().unwrap().as_mut().map(|_| result);
+
+                        None
                     } else {
                         None
                     }
                 })
-                .unwrap_or(Ok(Value::Empty))
+                .unwrap_or(final_result.into_inner().unwrap())
         } else {
             let mut prev_result = None;
 
             for statement in &self.statements {
-                prev_result = Some(statement.run(source, context)?);
+                if let Statement::Return(expression) = statement {
+                    return expression.run(source, context);
+                }
+
+                prev_result = Some(statement.run(source, context));
             }
 
-            Ok(prev_result.unwrap_or(Value::Empty))
+            prev_result.unwrap_or(Ok(Value::Empty))
         }
     }
 }

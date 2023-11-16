@@ -136,75 +136,6 @@
     }
   },
   {
-    "type": "filter",
-    "named": true,
-    "fields": {
-      "collection": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "expression",
-            "named": true
-          }
-        ]
-      },
-      "count": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "expression",
-            "named": true
-          }
-        ]
-      },
-      "item_id": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "identifier",
-            "named": true
-          }
-        ]
-      },
-      "predicate": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "block",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "find",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "for",
     "named": true,
     "fields": {},
@@ -492,46 +423,15 @@
     "fields": {}
   },
   {
-    "type": "reduce",
+    "type": "return",
     "named": true,
     "fields": {},
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": true,
       "types": [
         {
-          "type": "block",
-          "named": true
-        },
-        {
           "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "remove",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier",
           "named": true
         }
       ]
@@ -596,14 +496,6 @@
           "named": true
         },
         {
-          "type": "filter",
-          "named": true
-        },
-        {
-          "type": "find",
-          "named": true
-        },
-        {
           "type": "for",
           "named": true
         },
@@ -624,19 +516,11 @@
           "named": true
         },
         {
-          "type": "reduce",
-          "named": true
-        },
-        {
-          "type": "remove",
+          "type": "return",
           "named": true
         },
         {
           "type": "select",
-          "named": true
-        },
-        {
-          "type": "transform",
           "named": true
         },
         {
@@ -660,29 +544,6 @@
         },
         {
           "type": "identifier_list",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "transform",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier",
           "named": true
         }
       ]
@@ -922,14 +783,6 @@
     "named": false
   },
   {
-    "type": "filter",
-    "named": false
-  },
-  {
-    "type": "find",
-    "named": false
-  },
-  {
     "type": "fish",
     "named": false
   },
@@ -1026,11 +879,7 @@
     "named": false
   },
   {
-    "type": "reduce",
-    "named": false
-  },
-  {
-    "type": "remove",
+    "type": "return",
     "named": false
   },
   {
@@ -1058,10 +907,6 @@
     "named": false
   },
   {
-    "type": "to",
-    "named": false
-  },
-  {
     "type": "to_float",
     "named": false
   },
@@ -1071,10 +916,6 @@
   },
   {
     "type": "to_string",
-    "named": false
-  },
-  {
-    "type": "transform",
     "named": false
   },
   {

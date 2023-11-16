@@ -26,21 +26,22 @@ module.exports = grammar({
         $.assignment,
         $.block,
         $.expression,
-        $.filter,
-        $.find,
         $.for,
         $.if_else,
         $.index_assignment,
         $.insert,
         $.match,
-        $.reduce,
-        $.remove,
+        $.return,
         $.select,
-        $.transform,
         $.while,
       ),
       optional(';'),
     )),
+
+    return: $ => seq(
+      'return',
+      $.expression,
+    ),
   
     expression: $ => prec.right(choice(
       $._expression_kind,
@@ -103,14 +104,14 @@ module.exports = grammar({
     ),
 
     map: $ => seq(
-      '{',
+      '(',
       repeat(seq(
         $.identifier,
         "=",
         $.statement,
         optional(',')
       )),
-      '}',
+      ')',
     ),
  
     index: $ => prec.left(1, seq(
@@ -216,49 +217,6 @@ module.exports = grammar({
         'for',
         'async for',
       ),
-      $.identifier,
-      'in',
-      $.expression,
-      $.block,
-    ),
-
-    transform: $ => seq(
-      'transform',
-      $.identifier,
-      'in',
-      $.expression,
-      $.block,
-    ),
-
-    filter: $ => seq(
-      'filter',
-      field('count', optional($.expression)),
-      field('item_id', $.identifier),
-      'in',
-      field('collection', $.expression),
-      field('predicate', $.block),
-    ),
-
-    find: $ => seq(
-      'find',
-      $.identifier,
-      'in',
-      $.expression,
-      $.block,
-    ),
-
-    remove: $ => seq(
-      'remove',
-      $.identifier,
-      'from',
-      $.expression,
-      $.block,
-    ),
-
-    reduce: $ => seq(
-      'reduce',
-      $.identifier,
-      'to',
       $.identifier,
       'in',
       $.expression,

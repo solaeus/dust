@@ -62,34 +62,34 @@ To build from source, clone the repository and build the parser. To do so, enter
 
 ## Benchmarks
 
-Dust is at a very early development stage but performs strongly in preliminary benchmarks. The examples given were tested using [Hyperfine] on a single-core cloud instance with 1024 MB RAM. Each test was run 1000 times. The test script is shown below. Each test asks the program to read a JSON file and count the objects. The programs produced identical output with the exception that NodeJS printed in color.
+Dust is at a very early development stage but performs strongly in preliminary benchmarks. The examples given were tested using [Hyperfine] on a single-core cloud instance with 1024 MB RAM. Each test was run 1000 times. The test script is shown below. Each test asks the program to read a JSON file and count the objects. Dust is a command line shell, programming language and data manipulation tool so three appropriate targets were chosen for comparison: nushell, NodeJS and jq. The programs produced identical output with the exception that NodeJS printed in color.
 
 For the first test, a file with four entries was used.
 
-| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |
-|:---|---:|---:|---:|---:|
-| `dust -c '(length (from_json input))' -p seaCreatures.json` | 3.1 ± 0.5 | 2.4 | 8.4 | 1.00 |
-| `jq 'length' seaCreatures.json` | 33.7 ± 2.2 | 30.0 | 61.8 | 10.85 ± 1.87 |
-| `node --eval "require('node:fs').readFile('seaCreatures.json', (err, data)=>{console.log(JSON.parse(data).length)})"` | 226.4 ± 13.1 | 197.6 | 346.2 | 73.02 ± 12.33 |
-| `nu -c 'open seaCreatures.json \| length'` | 51.6 ± 3.7 | 45.4 | 104.3 | 16.65 ± 2.90 |
+| Command | Mean [ms] | Min [ms] | Max [ms] 
+|:---|---:|---:|---:|
+| Dust | 3.1 ± 0.5 | 2.4 | 8.4 |
+| jq | 33.7 ± 2.2 | 30.0 | 61.8 |
+| NodeJS | 226.4 ± 13.1 | 197.6 | 346.2 |
+| Nushell | 51.6 ± 3.7 | 45.4 | 104.3 |
 
 The second set of data is from the GitHub API, it consists of 100 commits from the jq GitHub repo.
 
-| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |
-|:---|---:|---:|---:|---:|
-| `dust -c '(length (from_json input))' -p jq_data.json` | 6.8 ± 0.6 | 5.7 | 12.0 | 2.20 ± 0.40 |
-| `jq 'length' jq_data.json` | 43.3 ± 3.6 | 37.6 | 81.6 | 13.95 ± 2.49 |
-| `node --eval "require('node:fs').readFile('jq_data.json', (err, data)=>{console.log(JSON.parse(data).length)})"` | 224.9 ± 12.3 | 194.8 | 298.5 | 72.52 ± 12.17 |
-| `nu -c 'open jq_data.json \| length'` | 59.2 ± 5.7 | 49.7 | 125.0 | 19.11 ± 3.55 |
+| Command | Mean [ms] | Min [ms] | Max [ms] |
+|:---|---:|---:|---:|
+| Dust | 6.8 ± 0.6 | 5.7 | 12.0 | 2.20 ± 0.40 |
+| jq | 43.3 ± 3.6 | 37.6 | 81.6 | 13.95 ± 2.49 |
+| NodeJS | 224.9 ± 12.3 | 194.8 | 298.5 |
+| Nushell | 59.2 ± 5.7 | 49.7 | 125.0 | 19.11 ± 3.55 |
 
 This data came from CERN, it is a massive file of 100,000 entries.
 
-| Command | Mean [ms] | Min [ms] | Max [ms] | Relative |
-|:---|---:|---:|---:|---:|
-| `dust -c '(length (from_json input))' -p dielectron.json` | 1080.8 ± 38.7 | 975.3 | 1326.6 | 348.61 ± 56.71 |
-| `jq 'length' dielectron.json` | 1305.3 ± 64.3 | 1159.7 | 1925.1 | 421.00 ± 69.94 |
-| `node --eval "require('node:fs').readFile('dielectron.json', (err, data)=>{console.log(JSON.parse(data).length)})"` | 1850.5 ± 72.5 | 1641.9 | 2395.1 | 596.85 ± 97.54 |
-| `nu -c 'open dielectron.json \| length'` | 1850.5 ± 86.2 | 1625.5 | 2400.7 | 596.87 ± 98.70 |
+| Command | Mean [ms] | Min [ms] | Max [ms] |
+|:---|---:|---:|---:|
+| Dust | 1080.8 ± 38.7 | 975.3 | 1326.6 |
+| jq | 1305.3 ± 64.3 | 1159.7 | 1925.1 |
+| NodeJS | 1850.5 ± 72.5 | 1641.9 | 2395.1 |
+| Nushell | 1850.5 ± 86.2 | 1625.5 | 2400.7 |
 
 The tests were run after 5 warmup runs and the cache was cleared before each run.
 
@@ -148,14 +148,14 @@ Note that strings can be wrapped with any kind of quote: single, double or backt
 
 ### Lists
 
-Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position using dot notation with an integer. Dust lists are zero-indexed.
+Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position using a colon `:` followed by an integer. Dust lists are zero-indexed.
 
 ```dust
 list = [true 41 "Ok"]
 
-(assert_equal list.0 true)
+(assert_equal list:0 true)
 
-the_answer = list.1 + 1
+the_answer = list:1 + 1
 
 (assert_equal the_answer, 42) # You can also use commas when passing values to
                               # a function. 
@@ -163,7 +163,7 @@ the_answer = list.1 + 1
 
 ### Maps
 
-Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. A map is created with a pair of curly braces and its entries are variables declared inside those braces. Map contents can be accessed using dot notation.
+Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. A map is created with a pair of curly braces and its entries are variables declared inside those braces. Map contents can be accessed using a colon `:`.
 
 ```dust
 reminder = {
@@ -171,7 +171,7 @@ reminder = {
     tags = ["groceries", "home"]
 }
 
-(output reminder.message)
+(output reminder:message)
 ```
 
 ### Loops
@@ -194,48 +194,6 @@ list = [ 1, 2, 3 ]
 for number in list {
     (output number + 1)
 }
-```
-
-To create a new list, use a **transform** loop, which modifies the values into a new list without changing the original.
-
-```dust
-list = [1 2 3]
-
-new_list = transform number in list {
-    number - 1
-}
-
-list
-    -> filter()
-    -> ()
-
-(output new_list)
-# Output: [ 0 1 2 ]
-
-(output list)
-# Output: [ 1 2 3 ]
-```
-
-To filter out some of the values in a list, use a **filter** loop.
-
-```dust
-list = filter number in [1 2 3] {
-    number >= 2
-}
-
-(output list)
-# Output: [ 2 3 ]
-```
-
-A **find** loop will return a single value, the first item that satisfies the predicate.
-
-```dust
-found = find number in [1 2 1] {
-    number != 1
-}
-
-(output found)
-# Output: 2
 ```
 
 ### Tables
@@ -273,34 +231,31 @@ insert into animals [
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name inside a set of parentheses. You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
+Functions are first-class values in dust, so they are assigned to variables like any other value.
 
 ```dust
-say_hi = function <> {
+# This simple function has no arguments.
+say_hi = || => {
     (output "hi")
 }
 
-add_one = function <number> {
-    (number + 1)
+# This function has one argument and will return a value.
+add_one = |number| => {
+    number + 1
 }
 
 (say_hi)
 (assert_equal (add_one 3), 4)
 ```
 
-This function simply passes the input to the shell's standard output.
-
-```dust
-print = function <input> {
-    (output input)
-}
-```
+You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
 
 ### Concurrency
 
-As a language written in Rust, Dust features effortless concurrency anywhere in your code.
+Dust features effortless concurrency anywhere in your code. Any block of code can be made to run its contents asynchronously. Dust's concurrency is written in safe Rust and uses a thread pool whose size depends on the number of cores available.
 
 ```dust
+# An async block will run each statement in its own thread.
 async {
     (output (random_integer))
     (output (random_float))
@@ -308,7 +263,6 @@ async {
 }
 ```
 
-In an **async** block, each statement is run in parallel. In this case, we want to read from a file and assign the data to a variable. It doesn't matter which statement finishes first, the last statement in the block will be used as the assigned value. If one of the statements in an **async** block produces an error, the other statements will stop running if they have not already finished.
 
 ```dust
 data = async {
@@ -317,8 +271,12 @@ data = async {
 }
 ```
 
+### Acknowledgements
+
+Dust began as a fork of [evalexpr]. Some of the original code is still in place but the project has dramatically changed and no longer uses any of its parsing or interpreting.
+
 [Tree Sitter]: https://tree-sitter.github.io/tree-sitter/
 [Rust]: https://rust-lang.org
-[dnf]: https://dnf.readthedocs.io/en/latest/index.html
 [evalexpr]: https://github.com/ISibboI/evalexpr
 [rustup]: https://rustup.rs
+[Hyperfine]: https://github.com/sharkdp/hyperfine
