@@ -1,4 +1,4 @@
-1 -> output
+1 -> (output)
 
 add_one = |list| {
 	transform number in list {
@@ -6,4 +6,4 @@ add_one = |list| {
 	}
 }
 
-[1, 2, 3] -> add_one
+[1, 2, 3] -> (add_one)

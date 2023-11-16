@@ -6,6 +6,16 @@ Simple Yield
 
 --------------------------------------------------------------------------------
 
+(root
+  (statement
+    (expression
+      (yield
+        (expression
+          (value
+            (integer)))
+        (function_call
+          (built_in_function))))))
+
 ================================================================================
 Yield Chain
 ================================================================================
@@ -13,3 +23,20 @@ Yield Chain
 x -> (foo) -> (bar) -> (abc)
 
 --------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (yield
+        (expression
+          (yield
+            (expression
+              (yield
+                (expression
+                  (identifier))
+                (function_call
+                  (identifier))))
+            (function_call
+              (identifier))))
+        (function_call
+          (identifier))))))
