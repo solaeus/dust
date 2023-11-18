@@ -33,6 +33,7 @@ module.exports = grammar({
         $.match,
         $.return,
         $.select,
+        $.use,
         $.while,
       ),
       optional(';'),
@@ -41,6 +42,11 @@ module.exports = grammar({
     return: $ => seq(
       'return',
       $.expression,
+    ),
+
+    use: $ => seq(
+      'use',
+      $.string,
     ),
   
     expression: $ => prec.right(choice(
@@ -268,7 +274,7 @@ module.exports = grammar({
     )),
 
     _context_defined_function: $ => prec.right(1, seq(
-      $.identifier,
+      $.expression,
       optional($._expression_list),
     )),
 

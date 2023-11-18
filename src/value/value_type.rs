@@ -106,7 +106,12 @@ impl From<&Value> for ValueType {
                 let value_nodes = list
                     .items()
                     .iter()
-                    .map(|value| Expression::Value(ValueNode::new(value.value_type(), 0, 0)))
+                    .map(|value| {
+                        Expression::Value(ValueNode::new(
+                            value.value_type(),
+                            String::with_capacity(0),
+                        ))
+                    })
                     .collect();
 
                 ValueType::List(value_nodes)
@@ -116,7 +121,7 @@ impl From<&Value> for ValueType {
 
                 for (key, value) in map.variables().unwrap().iter() {
                     let value_type = value.value_type();
-                    let value_node = ValueNode::new(value_type, 0, 0);
+                    let value_node = ValueNode::new(value_type, String::with_capacity(0));
                     let statement = Statement::Expression(Expression::Value(value_node));
 
                     value_nodes.insert(key.to_string(), statement);
@@ -132,8 +137,7 @@ impl From<&Value> for ValueType {
                     .collect(),
                 rows: Box::new(Expression::Value(ValueNode::new(
                     ValueType::List(Vec::with_capacity(0)),
-                    0,
-                    0,
+                    String::with_capacity(0),
                 ))),
             },
             Value::Function(function) => ValueType::Function(function.clone()),

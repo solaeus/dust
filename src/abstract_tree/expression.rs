@@ -15,9 +15,9 @@ pub enum Expression {
     Index(Box<Index>),
     Math(Box<Math>),
     Logic(Box<Logic>),
-    FunctionCall(FunctionCall),
+    FunctionCall(Box<FunctionCall>),
     Tool(Box<BuiltInFunction>),
-    Yield(Yield),
+    Yield(Box<Yield>),
 }
 
 impl AbstractTree for Expression {
@@ -37,10 +37,10 @@ impl AbstractTree for Expression {
             "math" => Expression::Math(Box::new(Math::from_syntax_node(source, child)?)),
             "logic" => Expression::Logic(Box::new(Logic::from_syntax_node(source, child)?)),
             "function_call" => {
-                Expression::FunctionCall(FunctionCall::from_syntax_node(source, child)?)
+                Expression::FunctionCall(Box::new(FunctionCall::from_syntax_node(source, child)?))
             }
             "tool" => Expression::Tool(Box::new(BuiltInFunction::from_syntax_node(source, child)?)),
-            "yield" => Expression::Yield(Yield::from_syntax_node(source, child)?),
+            "yield" => Expression::Yield(Box::new(Yield::from_syntax_node(source, child)?)),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "value, identifier, index, math, logic, function_call or yield",

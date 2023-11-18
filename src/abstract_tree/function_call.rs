@@ -3,13 +3,13 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, BuiltInFunction, Error, Map, Result, Value};
 
-use super::{expression::Expression, identifier::Identifier};
+use super::expression::Expression;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum FunctionCall {
     BuiltIn(Box<BuiltInFunction>),
     ContextDefined {
-        name: Identifier,
+        name: Expression,
         arguments: Vec<Expression>,
     },
 }
@@ -36,12 +36,9 @@ impl AbstractTree for FunctionCall {
 
             FunctionCall::BuiltIn(Box::new(function))
         } else {
-            let identifier = Identifier::from_syntax_node(source, function_node)?;
+            let name = Expression::from_syntax_node(source, function_node)?;
 
-            FunctionCall::ContextDefined {
-                name: identifier,
-                arguments,
-            }
+            FunctionCall::ContextDefined { name, arguments }
         };
 
         Ok(function_call)
@@ -53,11 +50,18 @@ impl AbstractTree for FunctionCall {
             FunctionCall::ContextDefined { name, arguments } => (name, arguments),
         };
 
-        let definition = if let Some(value) = context.variables()?.get(name.inner()) {
-            value.as_function().cloned()?
+        let definition = if let Expression::Identifier(identifier) = name {
+            if let Some(value) = context.variables()?.get(identifier.inner()) {
+                value.as_function().cloned()
+            } else {
+                return Err(Error::FunctionIdentifierNotFound(identifier.clone()));
+            }
         } else {
-            return Err(Error::FunctionIdentifierNotFound(name.clone()));
-        };
+            let name_run = name.run(source, context)?;
+
+            name_run.as_function().cloned()
+        }?;
+
         let mut function_context = Map::clone_from(context)?;
 
         if let Some(parameters) = definition.identifiers() {

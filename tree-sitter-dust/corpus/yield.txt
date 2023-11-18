@@ -33,6 +33,9 @@ x -> (foo) -> (bar) -> (abc)
               (yield
                 (expression
                   (identifier))
-                (identifier)))
-            (identifier)))
-        (identifier)))))
+                (expression
+                  (identifier))))
+            (expression
+              (identifier))))
+        (expression
+          (identifier))))))

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, BuiltInFunction, Expression, FunctionCall, Identifier, Result, Value};
+use crate::{AbstractTree, BuiltInFunction, Expression, FunctionCall, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Yield {
@@ -33,12 +33,9 @@ impl AbstractTree for Yield {
 
             FunctionCall::BuiltIn(Box::new(function))
         } else {
-            let identifier = Identifier::from_syntax_node(source, function_node)?;
+            let name = Expression::from_syntax_node(source, function_node)?;
 
-            FunctionCall::ContextDefined {
-                name: identifier,
-                arguments,
-            }
+            FunctionCall::ContextDefined { name, arguments }
         };
 
         Ok(Yield { call })

@@ -100,6 +100,10 @@
               },
               {
                 "type": "SYMBOL",
+                "name": "use"
+              },
+              {
+                "type": "SYMBOL",
                 "name": "while"
               }
             ]
@@ -129,6 +133,19 @@
         {
           "type": "SYMBOL",
           "name": "expression"
+        }
+      ]
+    },
+    "use": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "use"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "string"
         }
       ]
     },
@@ -1127,7 +1144,7 @@
         "members": [
           {
             "type": "SYMBOL",
-            "name": "identifier"
+            "name": "expression"
           },
           {
             "type": "CHOICE",

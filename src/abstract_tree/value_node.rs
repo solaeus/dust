@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, ops::Range};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -11,21 +11,12 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ValueNode {
     value_type: ValueType,
-    start_byte: usize,
-    end_byte: usize,
+    source: String,
 }
 
 impl ValueNode {
-    pub fn new(value_type: ValueType, start_byte: usize, end_byte: usize) -> Self {
-        Self {
-            value_type,
-            start_byte,
-            end_byte,
-        }
-    }
-
-    pub fn byte_range(&self) -> Range<usize> {
-        self.start_byte..self.end_byte
+    pub fn new(value_type: ValueType, source: String) -> Self {
+        Self { value_type, source }
     }
 }
 
@@ -136,23 +127,21 @@ impl AbstractTree for ValueNode {
 
         Ok(ValueNode {
             value_type,
-            start_byte: child.start_byte(),
-            end_byte: child.end_byte(),
+            source: source[child.byte_range()].to_string(),
         })
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let value_source = &source[self.byte_range()];
         let value = match &self.value_type {
             ValueType::Any => todo!(),
             ValueType::String => {
-                let without_quotes = &value_source[1..value_source.len() - 1];
+                let without_quotes = &self.source[1..self.source.len() - 1];
 
                 Value::String(without_quotes.to_string())
             }
-            ValueType::Float => Value::Float(value_source.parse().unwrap()),
-            ValueType::Integer => Value::Integer(value_source.parse().unwrap()),
-            ValueType::Boolean => Value::Boolean(value_source.parse().unwrap()),
+            ValueType::Float => Value::Float(self.source.parse().unwrap()),
+            ValueType::Integer => Value::Integer(self.source.parse().unwrap()),
+            ValueType::Boolean => Value::Boolean(self.source.parse().unwrap()),
             ValueType::List(nodes) => {
                 let mut values = Vec::with_capacity(nodes.len());
 

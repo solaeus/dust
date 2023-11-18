@@ -1,34 +1,32 @@
 use std::fs::read_to_string;
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{evaluate_with_context, AbstractTree, Result, Value, ValueNode, VariableMap};
+use crate::{evaluate_with_context, AbstractTree, Error, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Use {
-    path: ValueNode,
+    path: String,
 }
 
 impl AbstractTree for Use {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        let path_node = node.child(1).unwrap();
-        let value_node = ValueNode::from_syntax_node(source, path_node)?;
+    fn from_syntax_node(source: &str, node: tree_sitter::Node) -> crate::Result<Self> {
+        Error::expect_syntax_node(source, "use", node)?;
 
-        Ok(Use { path: value_node })
+        let string_node = node.child(1).unwrap();
+        let path = source[string_node.start_byte() + 1..string_node.end_byte() - 1].to_string();
+
+        println!("{path}");
+
+        Ok(Use { path })
     }
 
-    fn run(&self, source: &str, context: &mut VariableMap) -> Result<Value> {
-        let run_node = self.path.run(source, context)?;
-        let path = run_node.as_string()?;
-        let file_contents = read_to_string(path)?;
-        let mut temp_context = VariableMap::new();
-        let eval_result = evaluate_with_context(&file_contents, &mut temp_context)?;
+    fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
+        let file_contents = read_to_string(&self.path)?;
+        let mut file_context = Map::new();
 
-        while let Some((key, value)) = temp_context.inner_mut().pop_first() {
-            context.set_value(key, value)?;
-        }
+        evaluate_with_context(&file_contents, &mut file_context)?;
 
-        Ok(eval_result)
+        Ok(Value::Map(file_context))
     }
 }

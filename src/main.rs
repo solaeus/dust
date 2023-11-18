@@ -1,5 +1,4 @@
 //! Command line interface for the dust programming language.
-use async_std::fs::read_to_string;
 use clap::Parser;
 use rustyline::{
     completion::FilenameCompleter,
@@ -11,7 +10,7 @@ use rustyline::{
 };
 use tree_sitter::Parser as TSParser;
 
-use std::borrow::Cow;
+use std::{borrow::Cow, fs::read_to_string};
 
 use dust_lang::{evaluate_with_context, language, Evaluator, Map, Value};
 
@@ -39,8 +38,7 @@ struct Args {
     path: Option<String>,
 }
 
-#[async_std::main]
-async fn main() {
+fn main() {
     let args = Args::parse();
 
     if args.path.is_none() && args.command.is_none() {
@@ -48,7 +46,7 @@ async fn main() {
     }
 
     let source = if let Some(path) = &args.path {
-        read_to_string(path).await.unwrap()
+        read_to_string(path).unwrap()
     } else if let Some(command) = &args.command {
         command.clone()
     } else {
@@ -65,7 +63,7 @@ async fn main() {
     }
 
     if let Some(path) = args.input_path {
-        let file_contents = read_to_string(path).await.unwrap();
+        let file_contents = read_to_string(path).unwrap();
 
         context
             .variables_mut()

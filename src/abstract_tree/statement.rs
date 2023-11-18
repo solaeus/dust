@@ -3,7 +3,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Assignment, Block, Error, Expression, Filter, Find, For, IfElse, IndexAssignment,
-    Insert, Map, Match, Remove, Result, Select, Transform, Value, While,
+    Insert, Map, Match, Remove, Result, Select, Transform, Use, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -21,6 +21,7 @@ pub enum Statement {
     Filter(Box<Filter>),
     Find(Box<Find>),
     Remove(Box<Remove>),
+    Use(Use),
     Select(Box<Select>),
     Insert(Box<Insert>),
     IndexAssignment(Box<IndexAssignment>),
@@ -74,6 +75,7 @@ impl AbstractTree for Statement {
             "select" => Ok(Statement::Select(Box::new(Select::from_syntax_node(
                 source, child,
             )?))),
+            "use" => Ok(Statement::Use(Use::from_syntax_node(source, child)?)),
             "insert" => Ok(Statement::Insert(Box::new(Insert::from_syntax_node(
                 source, child,
             )?))),
@@ -103,6 +105,7 @@ impl AbstractTree for Statement {
             Statement::Filter(filter) => filter.run(source, context),
             Statement::Find(find) => find.run(source, context),
             Statement::Remove(remove) => remove.run(source, context),
+            Statement::Use(run) => run.run(source, context),
             Statement::Select(select) => select.run(source, context),
             Statement::Insert(insert) => insert.run(source, context),
             Statement::IndexAssignment(index_assignment) => index_assignment.run(source, context),
