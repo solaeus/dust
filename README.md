@@ -1,6 +1,6 @@
 # Dust
 
-Dust is a programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a data format. Dust is fast, efficient and easy to learn.
+Dust is a general purpose programming language that emphasises concurrency and correctness.
 
 A basic dust program:
 
@@ -17,7 +17,18 @@ async {
 }
 ```
 
-Dust is an interpreted, general purpose language with first class functions. It is *data-oriented*, with extensive tools to manage structured and relational data. Dust also includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
+You can make *any* block, i.e. `{}`, run its statements in parallel by changing it to `async {}`.
+
+```dust
+if (random_boolean) {
+    (output "Do something...")
+} else async {
+    (output "Do something else instead...")
+    (output "And another thing at the same time...")
+}
+```
+
+Dust is an interpreted, dynamically typed language with first class functions. It emphasises concurrency by allowing any group of statements to be executed in parallel. It is *data-oriented*, with extensive tools to manage structured and relational data. Dust includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
 
 <!--toc:start-->
 - [Dust](#dust)
@@ -262,7 +273,6 @@ async {
     (output (random_boolean))
 }
 ```
-
 
 ```dust
 data = async {
