@@ -264,7 +264,7 @@ module.exports = grammar({
       field('body', $.block),
     ),
 
-    function_call: $ => prec.right(seq(
+    function_call: $ => prec.right(1, seq(
       '(',
       choice(
         $.built_in_function,

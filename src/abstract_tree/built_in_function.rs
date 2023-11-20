@@ -31,7 +31,7 @@ pub enum BuiltInFunction {
     Append(Vec<Expression>),
     Metadata(Expression),
     Move(Vec<Expression>),
-    Read(Expression),
+    Read(Option<Expression>),
     Remove(Expression),
     Write(Vec<Expression>),
 
@@ -155,8 +155,11 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::Move(expressions)
             }
             "read" => {
-                let expression_node = node.child(1).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expression = if let Some(node) = node.child(1) {
+                    Some(Expression::from_syntax_node(source, node)?)
+                } else {
+                    None
+                };
 
                 BuiltInFunction::Read(expression)
             }
@@ -431,8 +434,13 @@ impl AbstractTree for BuiltInFunction {
                 Ok(Value::Empty)
             }
             BuiltInFunction::Read(expression) => {
-                let path_value = expression.run(source, context)?;
-                let path = PathBuf::from(path_value.as_string()?);
+                let path = if let Some(expression) = expression {
+                    let path_value = expression.run(source, context)?;
+
+                    PathBuf::from(path_value.as_string()?)
+                } else {
+                    PathBuf::from(".")
+                };
                 let content = if path.is_dir() {
                     let dir = read_dir(&path)?;
                     let mut contents = Vec::new();

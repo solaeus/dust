@@ -2,13 +2,18 @@
 name = "dust-lang"
 description = "Data-Oriented Programming Language"
 version = "0.3.5"
-repository = "https://github.com/tree-sitter/tree-sitter-dust"
+repository = "https://git.jeffa.io/jeff/dust.git"
 edition = "2021"
 license = "MIT"
 
 [[bin]]
 name = "dust"
 path = "src/main.rs"
+
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3
 
 [dependencies]
 ansi_term = "0.12.1"
