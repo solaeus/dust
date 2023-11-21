@@ -39,16 +39,6 @@ module.exports = grammar({
       optional(';'),
     )),
 
-    return: $ => seq(
-      'return',
-      $.expression,
-    ),
-
-    use: $ => seq(
-      'use',
-      $.string,
-    ),
-  
     expression: $ => prec.right(choice(
       $._expression_kind,
       seq('(', $._expression_kind, ')'),
@@ -258,8 +248,37 @@ module.exports = grammar({
       $.expression,
     )),
 
+    return: $ => seq(
+      'return',
+      $.expression,
+    ),
+
+    use: $ => seq(
+      'use',
+      $.string,
+    ),
+
+    type_definition: $ => choice(
+      'bool',
+      'fn',
+      'int',
+      'list',
+      'map',
+      'str',
+      'table',
+    ),
+  
     function: $ => seq(
-      field('parameters', optional($.identifier_list)),
+      optional(seq(
+        '|',
+        field('parameter', repeat(seq(
+          $.identifier,
+          ':',
+          $.type_definition,
+          optional(',')
+        ))),
+        '|',
+      )),
       '=>',
       field('body', $.block),
     ),

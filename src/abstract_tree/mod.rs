@@ -26,6 +26,7 @@ pub mod remove;
 pub mod select;
 pub mod statement;
 pub mod transform;
+pub mod r#type;
 pub mod r#use;
 pub mod value_node;
 pub mod r#while;
@@ -34,8 +35,8 @@ pub mod r#yield;
 pub use {
     assignment::*, block::*, built_in_function::*, expression::*, filter::*, find::*,
     function_call::*, identifier::*, if_else::*, index::*, index_assignment::IndexAssignment,
-    insert::*, logic::*, math::*, r#for::*, r#match::*, r#use::*, r#while::*, r#yield::*,
-    remove::*, select::*, statement::*, transform::*, value_node::*,
+    insert::*, logic::*, math::*, r#for::*, r#match::*, r#type::*, r#use::*, r#while::*,
+    r#yield::*, remove::*, select::*, statement::*, transform::*, value_node::*,
 };
 
 use tree_sitter::Node;

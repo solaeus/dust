@@ -2,23 +2,23 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Block, Identifier};
+use crate::{Block, Identifier, Type};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
-    parameters: Option<Vec<Identifier>>,
+    parameters: Option<Vec<(Identifier, Type)>>,
     body: Box<Block>,
 }
 
 impl Function {
-    pub fn new(parameters: Option<Vec<Identifier>>, body: Block) -> Self {
+    pub fn new(parameters: Option<Vec<(Identifier, Type)>>, body: Block) -> Self {
         Function {
             parameters,
             body: Box::new(body),
         }
     }
 
-    pub fn identifiers(&self) -> &Option<Vec<Identifier>> {
+    pub fn identifiers(&self) -> &Option<Vec<(Identifier, Type)>> {
         &self.parameters
     }
 

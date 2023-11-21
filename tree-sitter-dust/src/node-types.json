@@ -172,12 +172,24 @@
           }
         ]
       },
-      "parameters": {
-        "multiple": false,
+      "parameter": {
+        "multiple": true,
         "required": false,
         "types": [
           {
-            "type": "identifier_list",
+            "type": ",",
+            "named": false
+          },
+          {
+            "type": ":",
+            "named": false
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_definition",
             "named": true
           }
         ]
@@ -550,6 +562,11 @@
     }
   },
   {
+    "type": "type_definition",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "use",
     "named": true,
     "fields": {},
@@ -770,6 +787,10 @@
     "named": false
   },
   {
+    "type": "bool",
+    "named": false
+  },
+  {
     "type": "columns",
     "named": false
   },
@@ -800,6 +821,10 @@
   {
     "type": "float",
     "named": true
+  },
+  {
+    "type": "fn",
+    "named": false
   },
   {
     "type": "for",
@@ -834,6 +859,10 @@
     "named": false
   },
   {
+    "type": "int",
+    "named": false
+  },
+  {
     "type": "integer",
     "named": true
   },
@@ -843,6 +872,14 @@
   },
   {
     "type": "length",
+    "named": false
+  },
+  {
+    "type": "list",
+    "named": false
+  },
+  {
+    "type": "map",
     "named": false
   },
   {
@@ -907,6 +944,10 @@
   },
   {
     "type": "sh",
+    "named": false
+  },
+  {
+    "type": "str",
     "named": false
   },
   {

@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, List, Map, Table, ValueType,
+    Function, List, Map, Table, Type, ValueType,
 };
 
 use serde::{
@@ -44,6 +44,20 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn r#type(&self) -> Type {
+        match self {
+            Value::List(_) => Type::List,
+            Value::Map(_) => Type::Map,
+            Value::Table(_) => Type::Table,
+            Value::Function(_) => Type::Function,
+            Value::String(_) => Type::String,
+            Value::Float(_) => Type::Float,
+            Value::Integer(_) => todo!(),
+            Value::Boolean(_) => todo!(),
+            Value::Empty => todo!(),
+        }
+    }
+
     pub fn value_type(&self) -> ValueType {
         ValueType::from(self)
     }

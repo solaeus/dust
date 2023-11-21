@@ -68,7 +68,7 @@ impl AbstractTree for FunctionCall {
             let parameter_expression_pairs = parameters.iter().zip(arguments.iter());
             let mut variables = function_context.variables_mut()?;
 
-            for (identifier, expression) in parameter_expression_pairs {
+            for ((identifier, _type), expression) in parameter_expression_pairs {
                 let key = identifier.clone().take_inner();
                 let value = expression.run(source, context)?;
 

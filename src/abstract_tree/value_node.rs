@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Statement,
-    Table, Value, ValueType,
+    Table, Type, Value, ValueType,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -91,26 +91,35 @@ impl AbstractTree for ValueNode {
                 ValueType::Map(child_nodes)
             }
             "function" => {
-                let parameters_node = child.child_by_field_name("parameters");
-                let parameters = if let Some(node) = parameters_node {
-                    let mut parameter_list = Vec::new();
+                let mut parameter_list = Vec::new();
+                let mut index = 0;
 
-                    for index in 0..node.child_count() {
-                        let child_node = node.child(index).unwrap();
+                while index < node.child_count() {
+                    let current_node = node.child(index).unwrap();
+                    let next_node = node.child(index + 1);
 
-                        if child_node.is_named() {
-                            let parameter = Identifier::from_syntax_node(source, child_node)?;
+                    if current_node.kind() == "identifier" {
+                        let parameter = Identifier::from_syntax_node(source, current_node)?;
 
-                            parameter_list.push(parameter);
+                        if let Some(next_node) = next_node {
+                            if next_node.kind() == "type_definition" {
+                                let r#type = Type::from_syntax_node(source, next_node)?;
+
+                                parameter_list.push((parameter, r#type));
+                            }
                         }
                     }
 
-                    Some(parameter_list)
-                } else {
-                    None
-                };
+                    index += 2
+                }
+
                 let body_node = child.child_by_field_name("body").unwrap();
                 let body = Block::from_syntax_node(source, body_node)?;
+                let parameters = if parameter_list.is_empty() {
+                    None
+                } else {
+                    Some(parameter_list)
+                };
 
                 ValueType::Function(Function::new(parameters, body))
             }
