@@ -96,7 +96,7 @@ mod tests {
 
     #[test]
     fn evaluate_complex_index() {
-        let test = evaluate("x = [1 2 3]; y = || => {0}; x:((y));").unwrap();
+        let test = evaluate("x = [1 2 3]; y = || <int> { 0 } x:((y))").unwrap();
 
         assert_eq!(Value::Integer(1), test);
     }

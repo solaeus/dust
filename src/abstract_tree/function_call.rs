@@ -50,7 +50,7 @@ impl AbstractTree for FunctionCall {
             FunctionCall::ContextDefined { name, arguments } => (name, arguments),
         };
 
-        let definition = if let Expression::Identifier(identifier) = name {
+        let function = if let Expression::Identifier(identifier) = name {
             if let Some(value) = context.variables()?.get(identifier.inner()) {
                 value.as_function().cloned()
             } else {
@@ -63,19 +63,17 @@ impl AbstractTree for FunctionCall {
         }?;
 
         let mut function_context = Map::clone_from(context)?;
+        let parameter_expression_pairs = function.parameters().iter().zip(arguments.iter());
 
-        if let Some(parameters) = definition.identifiers() {
-            let parameter_expression_pairs = parameters.iter().zip(arguments.iter());
-            let mut variables = function_context.variables_mut()?;
+        for ((identifier, r#type), expression) in parameter_expression_pairs {
+            let key = identifier.clone().take_inner();
+            let value = expression.run(source, context)?;
 
-            for ((identifier, _type), expression) in parameter_expression_pairs {
-                let key = identifier.clone().take_inner();
-                let value = expression.run(source, context)?;
+            r#type.check(&value)?;
 
-                variables.insert(key, value);
-            }
+            function_context.variables_mut()?.insert(key, value);
         }
 
-        definition.body().run(source, &mut function_context)
+        function.run(source, &mut function_context)
     }
 }

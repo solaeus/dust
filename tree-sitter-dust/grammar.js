@@ -275,17 +275,17 @@ module.exports = grammar({
     ),
   
     function: $ => seq(
-      optional(seq(
-        '|',
-        field('parameter', repeat(seq(
-          $.identifier,
-          $.type,
-          optional(',')
-        ))),
-        '|',
-      )),
-      '=>',
+      '|',
+      repeat($._function_parameters),
+      '|',
+      optional(field('return_type', $.type)),
       field('body', $.block),
+    ),
+
+    _function_parameters: $ => seq(
+      $.identifier,
+      $.type,
+      optional(','),
     ),
 
     function_call: $ => prec.right(1, seq(

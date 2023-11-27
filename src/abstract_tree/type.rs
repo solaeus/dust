@@ -16,6 +16,46 @@ pub enum Type {
     Table,
 }
 
+impl Type {
+    pub fn check(&self, value: &Value) -> Result<()> {
+        match (self, value.r#type()) {
+            (Type::Any, _)
+            | (Type::Boolean, Type::Boolean)
+            | (Type::Float, Type::Float)
+            | (Type::Function, Type::Function)
+            | (Type::Integer, Type::Integer)
+            | (Type::List, Type::List)
+            | (Type::Map, Type::Map)
+            | (Type::String, Type::String)
+            | (Type::Table, Type::Table) => Ok(()),
+            (Type::Boolean, _) => Err(Error::ExpectedBoolean {
+                actual: value.clone(),
+            }),
+            (Type::Float, _) => Err(Error::ExpectedFloat {
+                actual: value.clone(),
+            }),
+            (Type::Function, _) => Err(Error::ExpectedFunction {
+                actual: value.clone(),
+            }),
+            (Type::Integer, _) => Err(Error::ExpectedInteger {
+                actual: value.clone(),
+            }),
+            (Type::List, _) => Err(Error::ExpectedList {
+                actual: value.clone(),
+            }),
+            (Type::Map, _) => Err(Error::ExpectedMap {
+                actual: value.clone(),
+            }),
+            (Type::String, _) => Err(Error::ExpectedString {
+                actual: value.clone(),
+            }),
+            (Type::Table, _) => Err(Error::ExpectedTable {
+                actual: value.clone(),
+            }),
+        }
+    }
+}
+
 impl AbstractTree for Type {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         Error::expect_syntax_node(source, "type", node)?;
@@ -30,7 +70,7 @@ impl AbstractTree for Type {
             "int" => Type::Integer,
             "list" => Type::List,
             "map" => Type::Map,
-            "string" => Type::String,
+            "str" => Type::String,
             "table" => Type::Table,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {

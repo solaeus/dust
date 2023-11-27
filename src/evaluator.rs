@@ -257,7 +257,7 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                foobar = |message| => { message }
+                foobar = |message <str>| <str> { message }
                 (foobar 'Hiya')
                 ",
             ),

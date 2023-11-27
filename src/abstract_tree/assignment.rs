@@ -86,26 +86,8 @@ impl AbstractTree for Assignment {
             AssignmentOperator::Equal => value,
         };
 
-        let expected_type = self.r#type.as_ref().unwrap_or(&Type::Any);
-
-        match (expected_type, new_value.r#type()) {
-            (Type::Any, _)
-            | (Type::Boolean, Type::Boolean)
-            | (Type::Float, Type::Float)
-            | (Type::Function, Type::Function)
-            | (Type::Integer, Type::Integer)
-            | (Type::List, Type::List)
-            | (Type::Map, Type::Map)
-            | (Type::String, Type::String)
-            | (Type::Table, Type::Table) => {}
-            (Type::Boolean, _) => return Err(Error::ExpectedBoolean { actual: new_value }),
-            (Type::Float, _) => return Err(Error::ExpectedFloat { actual: new_value }),
-            (Type::Function, _) => return Err(Error::ExpectedFunction { actual: new_value }),
-            (Type::Integer, _) => return Err(Error::ExpectedInteger { actual: new_value }),
-            (Type::List, _) => return Err(Error::ExpectedList { actual: new_value }),
-            (Type::Map, _) => return Err(Error::ExpectedMap { actual: new_value }),
-            (Type::String, _) => return Err(Error::ExpectedString { actual: new_value }),
-            (Type::Table, _) => return Err(Error::ExpectedTable { actual: new_value }),
+        if let Some(r#type) = &self.r#type {
+            r#type.check(&new_value)?;
         }
 
         context.variables_mut()?.insert(key, new_value);
