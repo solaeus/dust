@@ -259,6 +259,7 @@ module.exports = grammar({
     ),
 
     type_definition: $ => choice(
+      'any',
       'bool',
       'fn',
       'int',

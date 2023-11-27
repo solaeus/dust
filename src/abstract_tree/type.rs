@@ -5,6 +5,7 @@ use crate::{AbstractTree, Error, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
+    Any,
     Boolean,
     Float,
     Function,
@@ -20,6 +21,7 @@ impl AbstractTree for Type {
         Error::expect_syntax_node(source, "type", node)?;
 
         let r#type = match &source[node.byte_range()] {
+            "any" => Type::Any,
             "bool" => Type::Boolean,
             "float" => Type::Float,
             "fn" => Type::Function,
@@ -42,15 +44,6 @@ impl AbstractTree for Type {
     }
 
     fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
-        match self {
-            Type::Boolean => Ok(Value::String("bool".to_string())),
-            Type::Float => Ok(Value::String("float".to_string())),
-            Type::Function => Ok(Value::String("fn".to_string())),
-            Type::Integer => Ok(Value::String("int".to_string())),
-            Type::List => Ok(Value::String("list".to_string())),
-            Type::Map => Ok(Value::String("map".to_string())),
-            Type::String => Ok(Value::String("string".to_string())),
-            Type::Table => Ok(Value::String("table".to_string())),
-        }
+        Ok(Value::Empty)
     }
 }
