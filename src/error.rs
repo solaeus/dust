@@ -303,7 +303,7 @@ impl fmt::Display for Error {
             ExpectedMap { actual } => write!(f, "Expected a map, but got {:?}.", actual),
             ExpectedTable { actual } => write!(f, "Expected a table, but got {:?}.", actual),
             ExpectedFunction { actual } => {
-                write!(f, "Expected Value::Function, but got {:?}.", actual)
+                write!(f, "Expected function, but got {:?}.", actual)
             }
             ExpectedCollection { actual } => {
                 write!(
