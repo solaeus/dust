@@ -1,6 +1,6 @@
 (output "This will print first.")
 
-create_random_numbers = |count| => {
+create_random_numbers = |count <int>| {
 	numbers = [];
 
 	while (length numbers) < count {

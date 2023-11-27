@@ -14,6 +14,8 @@ pub struct For {
 
 impl AbstractTree for For {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        Error::expect_syntax_node(source, "for", node)?;
+
         let for_node = node.child(0).unwrap();
         let is_async = match for_node.kind() {
             "for" => false,

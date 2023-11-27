@@ -4,7 +4,7 @@ add_one = |numbers <list>| <list> {
 	new_numbers = []
 	
 	for number in numbers {
-		new_list += number + 1
+		new_numbers += number + 1
 	}
 
 	new_numbers
@@ -13,4 +13,3 @@ add_one = |numbers <list>| <list> {
 foo = [1, 2, 3] -> (add_one)
 
 (assert_equal [2 3 4] foo)
-

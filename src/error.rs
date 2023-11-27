@@ -3,7 +3,7 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the ToolFailure variant if the error can only occur inside a tool.
 
-use tree_sitter::Node;
+use tree_sitter::{Node, Point};
 
 use crate::{value::Value, Identifier};
 
@@ -16,7 +16,7 @@ pub enum Error {
     UnexpectedSyntaxNode {
         expected: &'static str,
         actual: &'static str,
-        location: tree_sitter::Point,
+        location: Point,
         relevant_source: String,
     },
 
@@ -127,12 +127,23 @@ pub enum Error {
 
     /// A custom error explained by its message.
     CustomMessage(String),
+
+    /// Invalid user input.
+    Syntax {
+        source: String,
+        location: Point,
+    },
 }
 
 impl Error {
     pub fn expect_syntax_node(source: &str, expected: &'static str, actual: Node) -> Result<()> {
         if expected == actual.kind() {
             Ok(())
+        } else if actual.is_error() {
+            Err(Error::Syntax {
+                source: source[actual.byte_range()].to_string(),
+                location: actual.start_position(),
+            })
         } else {
             Err(Error::UnexpectedSyntaxNode {
                 expected,
@@ -337,6 +348,9 @@ impl fmt::Display for Error {
             ),
             ToolFailure(message) => write!(f, "{message}"),
             CustomMessage(message) => write!(f, "{message}"),
+            Syntax { source, location } => {
+                write!(f, "Syntax error at {location}, this is not valid: {source}")
+            }
         }
     }
 }

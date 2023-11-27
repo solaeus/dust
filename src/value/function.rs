@@ -56,8 +56,6 @@ impl AbstractTree for Function {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        println!("{self}");
-
         let return_value = self.body.run(source, context)?;
 
         if let Some(r#type) = &self.return_type {

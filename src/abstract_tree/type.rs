@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -87,5 +89,21 @@ impl AbstractTree for Type {
 
     fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
         Ok(Value::Empty)
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Any => write!(f, "any"),
+            Type::Boolean => write!(f, "bool"),
+            Type::Float => write!(f, "float"),
+            Type::Function => write!(f, "function"),
+            Type::Integer => write!(f, "integer"),
+            Type::List => write!(f, "list"),
+            Type::Map => write!(f, "map"),
+            Type::String => write!(f, "string"),
+            Type::Table => write!(f, "table"),
+        }
     }
 }

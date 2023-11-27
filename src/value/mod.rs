@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, List, Map, Table, Type, ValueType,
+    Function, List, Map, Table, Type,
 };
 
 use serde::{
@@ -22,7 +22,6 @@ pub mod function;
 pub mod list;
 pub mod map;
 pub mod table;
-pub mod value_type;
 
 /// Dust value representation.
 ///
@@ -56,10 +55,6 @@ impl Value {
             Value::Boolean(_) => Type::Boolean,
             Value::Empty => Type::Any,
         }
-    }
-
-    pub fn value_type(&self) -> ValueType {
-        ValueType::from(self)
     }
 
     pub fn is_table(&self) -> bool {
@@ -348,6 +343,17 @@ impl SubAssign for Value {
             (Value::Integer(left), Value::Integer(right)) => *left -= right,
             (Value::Float(left), Value::Float(right)) => *left -= right,
             (Value::Float(left), Value::Integer(right)) => *left -= right as f64,
+            (Value::List(list), value) => {
+                let index_to_remove = list
+                    .items()
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, list_value)| if list_value == &value { Some(i) } else { None });
+
+                if let Some(index) = index_to_remove {
+                    list.items_mut().remove(index);
+                }
+            }
             _ => {}
         }
     }

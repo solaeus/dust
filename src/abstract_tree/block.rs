@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Map, Result, Statement, Value};
+use crate::{AbstractTree, Error, Map, Result, Statement, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
@@ -14,7 +14,7 @@ pub struct Block {
 
 impl AbstractTree for Block {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        debug_assert_eq!("block", node.kind());
+        Error::expect_syntax_node(source, "block", node)?;
 
         let first_child = node.child(0).unwrap();
         let is_async = first_child.kind() == "async";

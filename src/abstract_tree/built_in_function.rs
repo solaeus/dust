@@ -11,7 +11,7 @@ use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, List, Map, Result, Table, Value, ValueType};
+use crate::{AbstractTree, Error, Expression, List, Map, Result, Table, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
@@ -367,9 +367,9 @@ impl AbstractTree for BuiltInFunction {
             BuiltInFunction::Type(expression) => {
                 let run_expression = expression.run(source, context);
                 let value_type = if let Ok(value) = run_expression {
-                    value.value_type()
+                    value.r#type()
                 } else if let Err(Error::VariableIdentifierNotFound(_)) = run_expression {
-                    ValueType::Empty
+                    Type::Any
                 } else {
                     return run_expression;
                 };

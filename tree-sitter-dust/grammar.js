@@ -276,7 +276,7 @@ module.exports = grammar({
   
     function: $ => seq(
       '|',
-      repeat($._function_parameters),
+      field('parameters', repeat($._function_parameters)),
       '|',
       optional(field('return_type', $.type)),
       field('body', $.block),

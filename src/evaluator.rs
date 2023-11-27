@@ -85,16 +85,18 @@ impl<'c, 's> Evaluator<'c, 's> {
     }
 
     pub fn run(self) -> Result<Value> {
-        let mut cursor = self.syntax_tree.walk();
-        let root_node = cursor.node();
-        let mut prev_result = Ok(Value::Empty);
+        let root_node = self.syntax_tree.root_node();
 
-        for statement_node in root_node.children(&mut cursor) {
+        let mut prev_result = Value::Empty;
+
+        for index in 0..root_node.child_count() {
+            let statement_node = root_node.child(index).unwrap();
             let statement = Statement::from_syntax_node(self.source, statement_node)?;
-            prev_result = statement.run(self.source, self.context);
+
+            prev_result = statement.run(self.source, self.context)?;
         }
 
-        prev_result
+        Ok(prev_result)
     }
 
     pub fn syntax_tree(&self) -> String {
