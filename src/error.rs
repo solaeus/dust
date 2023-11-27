@@ -59,7 +59,7 @@ pub enum Error {
         actual: Value,
     },
 
-    ExpectedInt {
+    ExpectedInteger {
         actual: Value,
     },
 
@@ -270,24 +270,20 @@ impl fmt::Display for Error {
                 "{identifier} expected a minimum of {minimum} arguments, but got {actual}.",
             ),
             ExpectedString { actual } => {
-                write!(f, "Expected a Value::String, but got {:?}.", actual)
+                write!(f, "Expected a string but got {:?}.", actual)
             }
-            ExpectedInt { actual } => write!(f, "Expected a Value::Int, but got {:?}.", actual),
-            ExpectedFloat { actual } => write!(f, "Expected a Value::Float, but got {:?}.", actual),
-            ExpectedNumber { actual } => write!(
-                f,
-                "Expected a Value::Float or Value::Int, but got {:?}.",
-                actual
-            ),
-            ExpectedNumberOrString { actual } => write!(
-                f,
-                "Expected a Value::Number or a Value::String, but got {:?}.",
-                actual
-            ),
+            ExpectedInteger { actual } => write!(f, "Expected an integer, but got {:?}.", actual),
+            ExpectedFloat { actual } => write!(f, "Expected a float, but got {:?}.", actual),
+            ExpectedNumber { actual } => {
+                write!(f, "Expected a float or integer but got {:?}.", actual)
+            }
+            ExpectedNumberOrString { actual } => {
+                write!(f, "Expected a number or string, but got {:?}.", actual)
+            }
             ExpectedBoolean { actual } => {
-                write!(f, "Expected a Value::Boolean, but got {:?}.", actual)
+                write!(f, "Expected a boolean, but got {:?}.", actual)
             }
-            ExpectedList { actual } => write!(f, "Expected a Value::List, but got {:?}.", actual),
+            ExpectedList { actual } => write!(f, "Expected a list, but got {:?}.", actual),
             ExpectedMinLengthList {
                 minimum_len,
                 actual_len,
@@ -300,12 +296,12 @@ impl fmt::Display for Error {
                 actual,
             } => write!(
                 f,
-                "Expected a Value::List of len {}, but got {:?}.",
+                "Expected a list of len {}, but got {:?}.",
                 expected_len, actual
             ),
-            ExpectedEmpty { actual } => write!(f, "Expected a Value::Empty, but got {:?}.", actual),
-            ExpectedMap { actual } => write!(f, "Expected a Value::Map, but got {:?}.", actual),
-            ExpectedTable { actual } => write!(f, "Expected a Value::Table, but got {:?}.", actual),
+            ExpectedEmpty { actual } => write!(f, "Expected an empty value, but got {:?}.", actual),
+            ExpectedMap { actual } => write!(f, "Expected a map, but got {:?}.", actual),
+            ExpectedTable { actual } => write!(f, "Expected a table, but got {:?}.", actual),
             ExpectedFunction { actual } => {
                 write!(f, "Expected Value::Function, but got {:?}.", actual)
             }

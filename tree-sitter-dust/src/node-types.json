@@ -2,24 +2,47 @@
   {
     "type": "assignment",
     "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "assignment_operator",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "statement",
-          "named": true
-        }
-      ]
+    "fields": {
+      "assignment_operator": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "assignment_operator",
+            "named": true
+          }
+        ]
+      },
+      "identifier": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "statement": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "statement",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -181,15 +204,11 @@
             "named": false
           },
           {
-            "type": ":",
-            "named": false
-          },
-          {
             "type": "identifier",
             "named": true
           },
           {
-            "type": "type_definition",
+            "type": "type",
             "named": true
           }
         ]
@@ -562,7 +581,7 @@
     }
   },
   {
-    "type": "type_definition",
+    "type": "type",
     "named": true,
     "fields": {}
   },
@@ -760,6 +779,10 @@
   },
   {
     "type": "]",
+    "named": false
+  },
+  {
+    "type": "any",
     "named": false
   },
   {

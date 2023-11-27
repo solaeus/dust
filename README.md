@@ -28,7 +28,7 @@ if (random_boolean) {
 }
 ```
 
-Dust is an interpreted, dynamically typed language with first class functions. It emphasises concurrency by allowing any group of statements to be executed in parallel. It is *data-oriented*, with extensive tools to manage structured and relational data. Dust includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
+Dust is an interpreted, strictly typed language with first class functions. It emphasises concurrency by allowing any group of statements to be executed in parallel. Dust includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
 
 <!--toc:start-->
 - [Dust](#dust)
@@ -50,10 +50,10 @@ Dust is an interpreted, dynamically typed language with first class functions. I
 ## Features
 
 - Simplicity: Dust is designed to be easy to learn.
-- Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness.
-- Data format: Dust is data-oriented, making it a great language for defining data.
-- Format conversion: Effortlessly convert between dust and formats like JSON, CSV and TOML.
-- Structured data: Dust can represent data with more than just strings. Lists, maps and tables are easy to make and manage.
+- Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness. See [Benchmarks] below.
+- Concurrency: Easily and safely write code that runs in parallel.
+- Safety: Written in safe, stable Rust.
+- Correctness: Type checking makes it easy to write good code that works.
 
 ## Usage
 

@@ -44,7 +44,7 @@ module.exports = grammar({
       seq('(', $._expression_kind, ')'),
     )),
 
-    _expression_kind: $ => choice(
+    _expression_kind: $ => prec.right(choice(
       $.function_call,
       $.identifier,
       $.index,
@@ -52,7 +52,7 @@ module.exports = grammar({
       $.math,
       $.value,
       $.yield,
-    ),
+    )),
 
     _expression_list: $ => repeat1(prec.right(seq(
       $.expression,
@@ -152,9 +152,10 @@ module.exports = grammar({
     ),
 
     assignment: $ => seq(
-      $.identifier,
-      $.assignment_operator,
-      $.statement,
+      field('identifier', $.identifier),
+      optional(field('type', $.type)),
+      field('assignment_operator', $.assignment_operator),
+      field('statement', $.statement),
     ),
 
     index_assignment: $ => seq(
@@ -258,15 +259,19 @@ module.exports = grammar({
       $.string,
     ),
 
-    type_definition: $ => choice(
-      'any',
-      'bool',
-      'fn',
-      'int',
-      'list',
-      'map',
-      'str',
-      'table',
+    type: $ => seq(
+      '<',
+      choice(
+        'any',
+        'bool',
+        'fn',
+        'int',
+        'list',
+        'map',
+        'str',
+        'table',
+      ),
+      '>',
     ),
   
     function: $ => seq(
@@ -274,8 +279,7 @@ module.exports = grammar({
         '|',
         field('parameter', repeat(seq(
           $.identifier,
-          ':',
-          $.type_definition,
+          $.type,
           optional(',')
         ))),
         '|',

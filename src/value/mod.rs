@@ -52,9 +52,9 @@ impl Value {
             Value::Function(_) => Type::Function,
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,
-            Value::Integer(_) => todo!(),
-            Value::Boolean(_) => todo!(),
-            Value::Empty => todo!(),
+            Value::Integer(_) => Type::Integer,
+            Value::Boolean(_) => Type::Boolean,
+            Value::Empty => Type::Any,
         }
     }
 
@@ -116,7 +116,7 @@ impl Value {
     pub fn as_integer(&self) -> Result<i64> {
         match self {
             Value::Integer(i) => Ok(*i),
-            value => Err(Error::ExpectedInt {
+            value => Err(Error::ExpectedInteger {
                 actual: value.clone(),
             }),
         }
@@ -540,7 +540,7 @@ impl TryFrom<Value> for i64 {
         if let Value::Integer(value) = value {
             Ok(value)
         } else {
-            Err(Error::ExpectedInt { actual: value })
+            Err(Error::ExpectedInteger { actual: value })
         }
     }
 }

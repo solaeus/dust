@@ -62,7 +62,7 @@ Function Call
 Complex Function
 ================================================================================
 
-|message:str number:int| => {
+|message <str> number <int>| => {
   (output message)
   (output number)
 }
@@ -75,9 +75,9 @@ Complex Function
       (value
         (function
           (identifier)
-          (type_definition)
+          (type)
           (identifier)
-          (type_definition)
+          (type)
           (block
             (statement
               (expression

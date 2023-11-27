@@ -20,7 +20,9 @@ impl AbstractTree for Type {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         Error::expect_syntax_node(source, "type", node)?;
 
-        let r#type = match &source[node.byte_range()] {
+        let range_without_punctuation = node.start_byte() + 1..node.end_byte() - 1;
+
+        let r#type = match &source[range_without_punctuation] {
             "any" => Type::Any,
             "bool" => Type::Boolean,
             "float" => Type::Float,
