@@ -286,79 +286,18 @@ module.exports = grammar({
 
     function_call: $ => prec.right(1, seq(
       '(',
-      choice(
-        $.built_in_function,
-        $._context_defined_function,
-      ),
-      ')',
-    )),
-
-    _context_defined_function: $ => prec.right(1, seq(
       $.expression,
       optional($._expression_list),
-    )),
-
-    built_in_function: $ => prec.right(seq(
-      $._built_in_function_name,
-      optional($._expression_list),
+      ')',
     )),
 
     yield: $ => prec.left(seq(
       $.expression,
       '->',
       '(',
-      choice(
-        $.built_in_function,
-        $._context_defined_function,
-      ),
+      $.expression,
+      optional($._expression_list),
       ')',
     )),
-
-    _built_in_function_name: $ => choice(
-      // General
-      'assert',
-      'assert_equal',
-      'context',
-      'download',
-      'help',
-      'length',
-      'output',
-      'output_error',
-      'type',
-
-      // Filesystem
-      'append',
-      'metadata',
-      'move',
-      'read',
-      'workdir',
-      'write',
-
-      // Format conversion
-      'from_json',
-      'to_json',
-      'to_string',
-      'to_float',
-
-      // Command
-      'bash',
-      'fish',
-      'raw',
-      'sh',
-      'zsh',
-
-      // Random
-      'random',
-      'random_boolean',
-      'random_float',
-      'random_integer',
-      
-      // Tables
-      'columns',
-      'rows',
-      
-      // Lists
-      'reverse',
-    ),
   }
 });

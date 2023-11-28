@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, BuiltInFunction, Expression, FunctionCall, Result, Value};
+use crate::{AbstractTree, Expression, FunctionCall, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Yield {
@@ -14,6 +14,8 @@ impl AbstractTree for Yield {
         let input = Expression::from_syntax_node(source, input_node)?;
 
         let function_node = node.child(3).unwrap();
+        let function = Expression::from_syntax_node(source, function_node)?;
+
         let mut arguments = Vec::new();
 
         arguments.push(input);
@@ -28,15 +30,7 @@ impl AbstractTree for Yield {
             }
         }
 
-        let call = if function_node.kind() == "built_in_function" {
-            let function = BuiltInFunction::from_syntax_node(source, function_node)?;
-
-            FunctionCall::BuiltIn(Box::new(function))
-        } else {
-            let name = Expression::from_syntax_node(source, function_node)?;
-
-            FunctionCall::ContextDefined { name, arguments }
-        };
+        let call = FunctionCall::new(function, arguments);
 
         Ok(Yield { call })
     }

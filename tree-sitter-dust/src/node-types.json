@@ -71,21 +71,6 @@
     "fields": {}
   },
   {
-    "type": "built_in_function",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "else",
     "named": true,
     "fields": {},
@@ -212,10 +197,6 @@
       "multiple": true,
       "required": true,
       "types": [
-        {
-          "type": "built_in_function",
-          "named": true
-        },
         {
           "type": "expression",
           "named": true
@@ -679,10 +660,6 @@
       "required": true,
       "types": [
         {
-          "type": "built_in_function",
-          "named": true
-        },
-        {
           "type": "expression",
           "named": true
         }
@@ -794,18 +771,6 @@
     "named": false
   },
   {
-    "type": "append",
-    "named": false
-  },
-  {
-    "type": "assert",
-    "named": false
-  },
-  {
-    "type": "assert_equal",
-    "named": false
-  },
-  {
     "type": "async",
     "named": false
   },
@@ -814,23 +779,7 @@
     "named": false
   },
   {
-    "type": "bash",
-    "named": false
-  },
-  {
     "type": "bool",
-    "named": false
-  },
-  {
-    "type": "columns",
-    "named": false
-  },
-  {
-    "type": "context",
-    "named": false
-  },
-  {
-    "type": "download",
     "named": false
   },
   {
@@ -843,10 +792,6 @@
   },
   {
     "type": "false",
-    "named": false
-  },
-  {
-    "type": "fish",
     "named": false
   },
   {
@@ -863,14 +808,6 @@
   },
   {
     "type": "from",
-    "named": false
-  },
-  {
-    "type": "from_json",
-    "named": false
-  },
-  {
-    "type": "help",
     "named": false
   },
   {
@@ -902,10 +839,6 @@
     "named": false
   },
   {
-    "type": "length",
-    "named": false
-  },
-  {
     "type": "list",
     "named": false
   },
@@ -918,63 +851,11 @@
     "named": false
   },
   {
-    "type": "metadata",
-    "named": false
-  },
-  {
-    "type": "move",
-    "named": false
-  },
-  {
-    "type": "output",
-    "named": false
-  },
-  {
-    "type": "output_error",
-    "named": false
-  },
-  {
-    "type": "random",
-    "named": false
-  },
-  {
-    "type": "random_boolean",
-    "named": false
-  },
-  {
-    "type": "random_float",
-    "named": false
-  },
-  {
-    "type": "random_integer",
-    "named": false
-  },
-  {
-    "type": "raw",
-    "named": false
-  },
-  {
-    "type": "read",
-    "named": false
-  },
-  {
     "type": "return",
     "named": false
   },
   {
-    "type": "reverse",
-    "named": false
-  },
-  {
-    "type": "rows",
-    "named": false
-  },
-  {
     "type": "select",
-    "named": false
-  },
-  {
-    "type": "sh",
     "named": false
   },
   {
@@ -990,23 +871,7 @@
     "named": false
   },
   {
-    "type": "to_float",
-    "named": false
-  },
-  {
-    "type": "to_json",
-    "named": false
-  },
-  {
-    "type": "to_string",
-    "named": false
-  },
-  {
     "type": "true",
-    "named": false
-  },
-  {
-    "type": "type",
     "named": false
   },
   {
@@ -1015,18 +880,6 @@
   },
   {
     "type": "while",
-    "named": false
-  },
-  {
-    "type": "workdir",
-    "named": false
-  },
-  {
-    "type": "write",
-    "named": false
-  },
-  {
-    "type": "zsh",
     "named": false
   },
   {

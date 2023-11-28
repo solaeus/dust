@@ -256,10 +256,6 @@
         {
           "type": "SYMBOL",
           "name": "map"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "future"
         }
       ]
     },
@@ -486,7 +482,7 @@
         {
           "type": "REPEAT",
           "content": {
-            "type": "PREC_RIGHT",
+            "type": "PREC_LEFT",
             "value": 0,
             "content": {
               "type": "SEQ",
@@ -522,41 +518,39 @@
       "members": [
         {
           "type": "STRING",
-          "value": "map"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "block"
-        }
-      ]
-    },
-    "future": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "async"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "block"
-        }
-      ]
-    },
-    "await": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "await"
-        },
-        {
-          "type": "STRING",
           "value": "{"
         },
         {
-          "type": "SYMBOL",
-          "name": "_expression_list"
+          "type": "REPEAT",
+          "content": {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "identifier"
+              },
+              {
+                "type": "STRING",
+                "value": "="
+              },
+              {
+                "type": "SYMBOL",
+                "name": "statement"
+              },
+              {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": ","
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
+              }
+            ]
+          }
         },
         {
           "type": "STRING",
@@ -1237,32 +1231,6 @@
             "value": "("
           },
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "built_in_function"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "_context_defined_function"
-              }
-            ]
-          },
-          {
-            "type": "STRING",
-            "value": ")"
-          }
-        ]
-      }
-    },
-    "_context_defined_function": {
-      "type": "PREC_RIGHT",
-      "value": 1,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
             "type": "SYMBOL",
             "name": "expression"
           },
@@ -1277,31 +1245,10 @@
                 "type": "BLANK"
               }
             ]
-          }
-        ]
-      }
-    },
-    "built_in_function": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
-            "type": "SYMBOL",
-            "name": "_built_in_function_name"
           },
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "_expression_list"
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
+            "type": "STRING",
+            "value": ")"
           }
         ]
       }
@@ -1325,15 +1272,18 @@
             "value": "("
           },
           {
+            "type": "SYMBOL",
+            "name": "expression"
+          },
+          {
             "type": "CHOICE",
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "built_in_function"
+                "name": "_expression_list"
               },
               {
-                "type": "SYMBOL",
-                "name": "_context_defined_function"
+                "type": "BLANK"
               }
             ]
           },
@@ -1343,135 +1293,6 @@
           }
         ]
       }
-    },
-    "_built_in_function_name": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "assert"
-        },
-        {
-          "type": "STRING",
-          "value": "assert_equal"
-        },
-        {
-          "type": "STRING",
-          "value": "context"
-        },
-        {
-          "type": "STRING",
-          "value": "download"
-        },
-        {
-          "type": "STRING",
-          "value": "help"
-        },
-        {
-          "type": "STRING",
-          "value": "length"
-        },
-        {
-          "type": "STRING",
-          "value": "output"
-        },
-        {
-          "type": "STRING",
-          "value": "output_error"
-        },
-        {
-          "type": "STRING",
-          "value": "type"
-        },
-        {
-          "type": "STRING",
-          "value": "append"
-        },
-        {
-          "type": "STRING",
-          "value": "metadata"
-        },
-        {
-          "type": "STRING",
-          "value": "move"
-        },
-        {
-          "type": "STRING",
-          "value": "read"
-        },
-        {
-          "type": "STRING",
-          "value": "workdir"
-        },
-        {
-          "type": "STRING",
-          "value": "write"
-        },
-        {
-          "type": "STRING",
-          "value": "from_json"
-        },
-        {
-          "type": "STRING",
-          "value": "to_json"
-        },
-        {
-          "type": "STRING",
-          "value": "to_string"
-        },
-        {
-          "type": "STRING",
-          "value": "to_float"
-        },
-        {
-          "type": "STRING",
-          "value": "bash"
-        },
-        {
-          "type": "STRING",
-          "value": "fish"
-        },
-        {
-          "type": "STRING",
-          "value": "raw"
-        },
-        {
-          "type": "STRING",
-          "value": "sh"
-        },
-        {
-          "type": "STRING",
-          "value": "zsh"
-        },
-        {
-          "type": "STRING",
-          "value": "random"
-        },
-        {
-          "type": "STRING",
-          "value": "random_boolean"
-        },
-        {
-          "type": "STRING",
-          "value": "random_float"
-        },
-        {
-          "type": "STRING",
-          "value": "random_integer"
-        },
-        {
-          "type": "STRING",
-          "value": "columns"
-        },
-        {
-          "type": "STRING",
-          "value": "rows"
-        },
-        {
-          "type": "STRING",
-          "value": "reverse"
-        }
-      ]
     }
   },
   "extras": [
