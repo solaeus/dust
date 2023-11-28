@@ -1,3 +1,0 @@
-filter item in (from_json (read 'examples/assets/jq_data.json')) {
-	(length item.commit.committer.name) <= 10 
-}

@@ -1,32 +1,27 @@
-use std::{collections::BTreeMap, ops::Range};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Statement,
-    Table, Value, ValueType,
+    AbstractTree, Error, Expression, Function, Identifier, List, Map, Result, Statement, Table,
+    Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ValueNode {
-    value_type: ValueType,
-    start_byte: usize,
-    end_byte: usize,
-}
-
-impl ValueNode {
-    pub fn new(value_type: ValueType, start_byte: usize, end_byte: usize) -> Self {
-        Self {
-            value_type,
-            start_byte,
-            end_byte,
-        }
-    }
-
-    pub fn byte_range(&self) -> Range<usize> {
-        self.start_byte..self.end_byte
-    }
+pub enum ValueNode {
+    Boolean(String),
+    Float(String),
+    Integer(String),
+    String(String),
+    List(Vec<Expression>),
+    Empty,
+    Map(BTreeMap<String, Statement>),
+    Table {
+        column_names: Vec<Identifier>,
+        rows: Box<Expression>,
+    },
+    Function(Function),
 }
 
 impl AbstractTree for ValueNode {
@@ -34,12 +29,15 @@ impl AbstractTree for ValueNode {
         debug_assert_eq!("value", node.kind());
 
         let child = node.child(0).unwrap();
-        let value_type = match child.kind() {
-            "integer" => ValueType::Integer,
-            "float" => ValueType::Float,
-            "string" => ValueType::String,
-            "boolean" => ValueType::Boolean,
-            "empty" => ValueType::Empty,
+        let value_node = match child.kind() {
+            "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
+            "float" => ValueNode::Float(source[child.byte_range()].to_string()),
+            "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
+            "string" => {
+                let without_quotes = child.start_byte() + 1..child.end_byte() - 1;
+
+                ValueNode::String(source[without_quotes].to_string())
+            }
             "list" => {
                 let mut expressions = Vec::new();
 
@@ -52,7 +50,7 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
-                ValueType::List(expressions)
+                ValueNode::List(expressions)
             }
             "table" => {
                 let identifier_list_node = child.child(1).unwrap();
@@ -72,7 +70,7 @@ impl AbstractTree for ValueNode {
                 let expression_node = child.child(2).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
 
-                ValueType::Table {
+                ValueNode::Table {
                     column_names,
                     rows: Box::new(expression),
                 }
@@ -97,37 +95,17 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
-                ValueType::Map(child_nodes)
+                ValueNode::Map(child_nodes)
             }
-            "function" => {
-                let parameters_node = child.child_by_field_name("parameters");
-                let parameters = if let Some(node) = parameters_node {
-                    let mut parameter_list = Vec::new();
-
-                    for index in 0..node.child_count() {
-                        let child_node = node.child(index).unwrap();
-
-                        if child_node.is_named() {
-                            let parameter = Identifier::from_syntax_node(source, child_node)?;
-
-                            parameter_list.push(parameter);
-                        }
-                    }
-
-                    Some(parameter_list)
-                } else {
-                    None
-                };
-                let body_node = child.child_by_field_name("body").unwrap();
-                let body = Block::from_syntax_node(source, body_node)?;
-
-                ValueType::Function(Function::new(parameters, body))
-            }
-            "future" => {
-                let block_node = child.child(1).unwrap();
-                let block = Block::from_syntax_node(source, block_node)?;
-
-                ValueType::Future(block)
+            "function" => ValueNode::Function(Function::from_syntax_node(source, child)?),
+            _ => {
+                return Err(Error::UnexpectedSyntaxNode {
+                    expected:
+                        "string, integer, float, boolean, list, table, map, function or empty",
+                    actual: child.kind(),
+                    location: child.start_position(),
+                    relevant_source: source[child.byte_range()].to_string(),
+                })
             }
             _ => return Err(Error::UnexpectedSyntaxNode {
                 expected:
@@ -138,29 +116,19 @@ impl AbstractTree for ValueNode {
             }),
         };
 
-        Ok(ValueNode {
-            value_type,
-            start_byte: child.start_byte(),
-            end_byte: child.end_byte(),
-        })
+        Ok(value_node)
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let value_source = &source[self.byte_range()];
-        let value = match &self.value_type {
-            ValueType::Any => todo!(),
-            ValueType::String => {
-                let without_quotes = &value_source[1..value_source.len() - 1];
+        let value = match self {
+            ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
+            ValueNode::Float(value_source) => Value::Float(value_source.parse().unwrap()),
+            ValueNode::Integer(value_source) => Value::Integer(value_source.parse().unwrap()),
+            ValueNode::String(value_source) => Value::String(value_source.parse().unwrap()),
+            ValueNode::List(expressions) => {
+                let mut values = Vec::with_capacity(expressions.len());
 
-                Value::String(without_quotes.to_string())
-            }
-            ValueType::Float => Value::Float(value_source.parse().unwrap()),
-            ValueType::Integer => Value::Integer(value_source.parse().unwrap()),
-            ValueType::Boolean => Value::Boolean(value_source.parse().unwrap()),
-            ValueType::List(nodes) => {
-                let mut values = Vec::with_capacity(nodes.len());
-
-                for node in nodes {
+                for node in expressions {
                     let value = node.run(source, context)?;
 
                     values.push(value);
@@ -168,19 +136,23 @@ impl AbstractTree for ValueNode {
 
                 Value::List(List::with_items(values))
             }
-            ValueType::Empty => Value::Empty,
-            ValueType::Map(nodes) => {
+            ValueNode::Empty => Value::Empty,
+            ValueNode::Map(key_statement_pairs) => {
                 let map = Map::new();
 
-                for (key, node) in nodes {
-                    let value = node.run(source, context)?;
+                {
+                    let mut variables = map.variables_mut()?;
 
-                    map.variables_mut().insert(key.clone(), value);
+                    for (key, statement) in key_statement_pairs {
+                        let value = statement.run(source, context)?;
+
+                        variables.insert(key.clone(), value);
+                    }
                 }
 
                 Value::Map(map)
             }
-            ValueType::Table {
+            ValueNode::Table {
                 column_names,
                 rows: row_expression,
             } => {
@@ -206,8 +178,7 @@ impl AbstractTree for ValueNode {
 
                 Value::Table(table)
             }
-            ValueType::Function(function) => Value::Function(function.clone()),
-            ValueType::Future(block) => Value::Future(block.clone()),
+            ValueNode::Function(function) => Value::Function(function.clone()),
         };
 
         Ok(value)

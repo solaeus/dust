@@ -3,57 +3,57 @@ module.exports = grammar({
 
   word: $ => $.identifier,
 
-  extras: $ => [ /\s/, $.comment ],
-
-  conflicts: $ => [
-    [$.block],
-  ],
+  extras: $ => [ /\s/, $._comment ],
 
   rules: {
-    root: $ => $.block,
+    root: $ => prec(1, repeat1($.statement)),
 
-    comment: $ => /[#][^#\n]*[#|\n]/,
+    _comment: $ => /[#][^#\n]*[#|\n]/,
 
-    block: $ => prec.right(choice(
+    block: $ => seq(
+      optional('async'),
+      '{',
       repeat1($.statement),
-      seq('{', repeat1($.statement), '}'),
-    )),
+      '}',
+    ),
 
-    statement: $ => prec.right(seq(
+    statement: $ => prec.left(seq(
       choice(
         $.assignment,
-        $.await,
+        $.block,
         $.expression,
-        $.filter,
-        $.find,
         $.for,
         $.if_else,
+        $.index_assignment,
         $.insert,
         $.match,
-        $.reduce,
-        $.remove,
+        $.return,
         $.select,
-        $.transform,
+        $.use,
         $.while,
       ),
       optional(';'),
     )),
-  
+
     expression: $ => prec.right(choice(
       $._expression_kind,
       seq('(', $._expression_kind, ')'),
     )),
 
-    _expression_kind: $ => prec.right(1, choice(
+    _expression_kind: $ => prec.right(choice(
       $.function_call,
       $.identifier,
       $.index,
       $.logic,
       $.math,
       $.value,
+      $.yield,
     )),
 
-    _expression_list: $ => repeat1(prec.right(seq($.expression, optional(',')))),
+    _expression_list: $ => repeat1(prec.right(seq(
+      $.expression,
+      optional(','),
+    ))),
 
     identifier: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
 
@@ -113,7 +113,7 @@ module.exports = grammar({
       '}',
     ),
  
-    index: $ => prec.left(seq(
+    index: $ => prec.left(1, seq(
       $.expression,
       ':',
       $.expression,
@@ -155,16 +155,23 @@ module.exports = grammar({
     ),
 
     assignment: $ => seq(
-      $.identifier,
+      field('identifier', $.identifier),
+      optional(field('type', $.type)),
+      field('assignment_operator', $.assignment_operator),
+      field('statement', $.statement),
+    ),
+
+    index_assignment: $ => seq(
+      $.index,
       $.assignment_operator,
       $.statement,
     ),
 
-    assignment_operator: $ => choice(
+    assignment_operator: $ => prec.right(choice(
       "=",
       "+=",
       "-=",
-    ),
+    )),
 
     if_else: $ => prec.right(seq(
       $.if,
@@ -206,50 +213,10 @@ module.exports = grammar({
     ),
 
     for: $ => seq(
-      'for',
-      $.identifier,
-      'in',
-      $.expression,
-      $.block,
-    ),
-
-    transform: $ => seq(
-      'transform',
-      $.identifier,
-      'in',
-      $.expression,
-      $.block,
-    ),
-
-    filter: $ => seq(
-      'filter',
-      field('count', optional($.expression)),
-      field('statement_id', $.identifier),
-      'in',
-      field('collection', $.expression),
-      field('predicate', $.block),
-    ),
-
-    find: $ => seq(
-      'find',
-      $.identifier,
-      'in',
-      $.expression,
-      $.block,
-    ),
-
-    remove: $ => seq(
-      'remove',
-      $.identifier,
-      'from',
-      $.expression,
-      $.block,
-    ),
-
-    reduce: $ => seq(
-      'reduce',
-      $.identifier,
-      'to',
+      choice(
+        'for',
+        'async for',
+      ),
       $.identifier,
       'in',
       $.expression,
@@ -270,7 +237,7 @@ module.exports = grammar({
       $.identifier,
       $.expression,
     )),
-
+ 
     identifier_list: $ => prec.right(choice(
       seq(
         '|',
@@ -285,19 +252,56 @@ module.exports = grammar({
       $.expression,
     )),
 
+    return: $ => seq(
+      'return',
+      $.expression,
+    ),
+
+    use: $ => seq(
+      'use',
+      $.string,
+    ),
+
+    type: $ => seq(
+      '<',
+      choice(
+        'any',
+        'bool',
+        'fn',
+        'int',
+        'list',
+        'map',
+        'str',
+        'table',
+      ),
+      '>',
+    ),
+  
     function: $ => seq(
-      field('parameters', optional($.identifier_list)),
-      '=>',
-      field('body', $.block),
+      '|',
+      repeat($.parameter),
+      '|',
+      optional($.type),
+      $.block,
     ),
 
-    function_call: $ => choice(
-      $.built_in_function,
-      $._context_defined_function,
-    ),
-
-    _context_defined_function: $ => prec.right(seq(
+    parameter: $ => seq(
       $.identifier,
+      $.type,
+      optional(','),
+    ),
+
+    function_call: $ => prec.right(1, seq(
+      '(',
+      choice(
+        $.built_in_function,
+        $._context_defined_function,
+      ),
+      ')',
+    )),
+
+    _context_defined_function: $ => prec.right(1, seq(
+      $.expression,
       optional($._expression_list),
     )),
 
@@ -306,10 +310,22 @@ module.exports = grammar({
       optional($._expression_list),
     )),
 
+    yield: $ => prec.left(seq(
+      $.expression,
+      '->',
+      '(',
+      choice(
+        $.built_in_function,
+        $._context_defined_function,
+      ),
+      ')',
+    )),
+
     _built_in_function_name: $ => choice(
       // General
       'assert',
       'assert_equal',
+      'context',
       'download',
       'help',
       'length',
@@ -352,4 +368,3 @@ module.exports = grammar({
       'reverse',
     ),
   }
-});

@@ -1,4 +1,4 @@
-fib = |i| => {
+fib = |i <int>| <int> {
 	if i <= 1 {
 		1
 	} else {

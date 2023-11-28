@@ -1,6 +1,6 @@
 # Dust
 
-Dust is a programming language and interactive shell. Dust can be used as a replacement for a traditional command line shell, as a scripting language and as a data format. Dust is fast, efficient and easy to learn.
+Dust is a general purpose programming language that emphasises concurrency and correctness.
 
 A basic dust program:
 
@@ -17,30 +17,53 @@ async {
 }
 ```
 
-Dust is an interpreted, general purpose language with first class functions. It is *data-oriented*, with extensive tools to manage structured and relational data. Dust also includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
+You can make *any* block, i.e. `{}`, run its statements in parallel by changing it to `async {}`.
+
+```dust
+if (random_boolean) {
+    (output "Do something...")
+} else async {
+    (output "Do something else instead...")
+    (output "And another thing at the same time...")
+}
+```
+
+Dust enforces strict type checking to make sure your code is correct. Dust does *not* have a null type.
+
+```dust
+fib = |i <int>| <int> {
+    if i <= 1 {
+        1
+    } else {
+        (fib i - 1) + (fib i - 2)
+    }
+}
+```
 
 <!--toc:start-->
 - [Dust](#dust)
   - [Features](#features)
   - [Usage](#usage)
   - [Installation](#installation)
+  - [Benchmarks](#benchmarks)
+  - [Implementation](#implementation)
   - [The Dust Programming Language](#the-dust-programming-language)
     - [Declaring Variables](#declaring-variables)
     - [Lists](#lists)
     - [Maps](#maps)
-    - [Tables](#tables)
+    - [Loops](#loops)
     - [Functions](#functions)
     - [Concurrency](#concurrency)
-  - [Implementation](#implementation)
+  - [Acknowledgements](#acknowledgements)
 <!--toc:end-->
 
 ## Features
 
 - Simplicity: Dust is designed to be easy to learn.
-- Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness.
-- Data format: Dust is data-oriented, making it a great language for defining data.
-- Format conversion: Effortlessly convert between dust and formats like JSON, CSV and TOML.
-- Structured data: Dust can represent data with more than just strings. Lists, maps and tables are easy to make and manage.
+- Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness. See [Benchmarks] below.
+- Concurrency: Easily and safely write code that runs in parallel.
+- Safety: Written in safe, stable Rust.
+- Correctness: Type checking makes it easy to write good code that works.
 
 ## Usage
 
@@ -58,6 +81,61 @@ You must have the default rust toolchain installed and up-to-date. Install [rust
 
 To build from source, clone the repository and build the parser. To do so, enter the `tree-sitter-dust` directory and run `tree-sitter-generate`. In the project root, run `cargo run` to start the shell. To see other command line options, use `cargo run -- --help`.
 
+## Benchmarks
+
+Dust is at a very early development stage but performs strongly in preliminary benchmarks. The examples given were tested using [Hyperfine] on a single-core cloud instance with 1024 MB RAM. Each test was run 1000 times. The test script is shown below. Each test asks the program to read a JSON file and count the objects. Dust is a command line shell, programming language and data manipulation tool so three appropriate targets were chosen for comparison: nushell, NodeJS and jq. The programs produced identical output with the exception that NodeJS printed in color.
+
+For the first test, a file with four entries was used.
+
+| Command | Mean [ms] | Min [ms] | Max [ms] 
+|:---|---:|---:|---:|
+| Dust | 3.1 ± 0.5 | 2.4 | 8.4 |
+| jq | 33.7 ± 2.2 | 30.0 | 61.8 |
+| NodeJS | 226.4 ± 13.1 | 197.6 | 346.2 |
+| Nushell | 51.6 ± 3.7 | 45.4 | 104.3 |
+
+The second set of data is from the GitHub API, it consists of 100 commits from the jq GitHub repo.
+
+| Command | Mean [ms] | Min [ms] | Max [ms] |
+|:---|---:|---:|---:|
+| Dust | 6.8 ± 0.6 | 5.7 | 12.0 | 2.20 ± 0.40 |
+| jq | 43.3 ± 3.6 | 37.6 | 81.6 | 13.95 ± 2.49 |
+| NodeJS | 224.9 ± 12.3 | 194.8 | 298.5 |
+| Nushell | 59.2 ± 5.7 | 49.7 | 125.0 | 19.11 ± 3.55 |
+
+This data came from CERN, it is a massive file of 100,000 entries.
+
+| Command | Mean [ms] | Min [ms] | Max [ms] |
+|:---|---:|---:|---:|
+| Dust | 1080.8 ± 38.7 | 975.3 | 1326.6 |
+| jq | 1305.3 ± 64.3 | 1159.7 | 1925.1 |
+| NodeJS | 1850.5 ± 72.5 | 1641.9 | 2395.1 |
+| Nushell | 1850.5 ± 86.2 | 1625.5 | 2400.7 |
+
+The tests were run after 5 warmup runs and the cache was cleared before each run.
+
+```sh
+hyperfine \
+	--shell none \
+	--warmup 5 \
+	--prepare "rm -rf /root/.cache" \
+	--runs 1000 \
+	--parameter-list data_path seaCreatures.json,jq_data.json,dielectron.json \
+	--export-markdown test_output.md \
+	"dust -c '(length (from_json input))' -p {data_path}" \
+	"jq 'length' {data_path}" \
+	"node --eval \"require('node:fs').readFile('{data_path}',(err,data)=>{console.log(JSON.parse(data).length)})\"" \
+	"nu -c 'open {data_path} | length'"
+```
+
+## Implementation
+
+Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust directory. Tree sitter generates a parser, written in C, from a set of rules defined in JavaScript. Dust itself is a rust binary that calls the C parser using FFI.
+
+Tests are written in three places: in the Rust library, in Dust as examples and in the Tree Sitter test format. Generally, features are added by implementing and testing the syntax in the tree-sitter-dust repository, then writing library tests to evaluate the new syntax. Implementation tests run the Dust files in the "examples" directory and should be used to demonstrate and verify that features work together.
+
+Tree Sitter generates a concrete syntax tree, which Dust traverses to create an abstract syntax tree that can run the Dust code. The CST generation is an extra step but it allows easy testing of the parser, defining the language in one file and makes the syntax easy to modify and expand. Because it uses Tree Sitter, developer-friendly features like syntax highlighting and code navigation are already available in any text editor that supports Tree Sitter.
+
 ## The Dust Programming Language
 
 Dust is easy to learn. Aside from this guide, the best way to learn Dust is to read the examples and tests to get a better idea of what it can do.
@@ -72,7 +150,6 @@ Variables have two parts: a key and a value. The key is always a string. The val
 - boolean
 - list
 - map
-- table
 - function
 
 Here are some examples of variables in dust.
@@ -91,14 +168,14 @@ Note that strings can be wrapped with any kind of quote: single, double or backt
 
 ### Lists
 
-Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position using dot notation with an integer. Dust lists are zero-indexed.
+Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position using a colon `:` followed by an integer. Dust lists are zero-indexed.
 
 ```dust
 list = [true 41 "Ok"]
 
-(assert_equal list.0 true)
+(assert_equal list:0 true)
 
-the_answer = list.1 + 1
+the_answer = list:1 + 1
 
 (assert_equal the_answer, 42) # You can also use commas when passing values to
                               # a function. 
@@ -106,7 +183,7 @@ the_answer = list.1 + 1
 
 ### Maps
 
-Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. A map is created with a pair of curly braces and its entries are variables declared inside those braces. Map contents can be accessed using dot notation.
+Maps are flexible collections with arbitrary key-value pairs, similar to JSON objects. A map is created with a pair of curly braces and its entries are variables declared inside those braces. Map contents can be accessed using a colon `:`.
 
 ```dust
 reminder = {
@@ -114,7 +191,7 @@ reminder = {
     tags = ["groceries", "home"]
 }
 
-(output reminder.message)
+(output reminder:message)
 ```
 
 ### Loops
@@ -137,111 +214,43 @@ list = [ 1, 2, 3 ]
 for number in list {
     (output number + 1)
 }
-
-# The original list is left unchanged.
 ```
 
-To create a new list, use a **transform** loop, which modifies the values into a new list without changing the original.
+An **async for** loop will run the loop operations in parallel using a thread pool.
 
 ```dust
-list = [1 2 3]
-
-new_list = transform number in list {
-    number - 1
+async for i in [1 2 3 4 5 6 7 8 9 0] {
+    (output i) 
 }
-
-(output new_list)
-# Output: [ 0 1 2 ]
-
-(output list)
-# Output: [ 1 2 3 ]
-```
-
-To filter out some of the values in a list, use a **filter** loop.
-
-```dust
-list = filter number in [1 2 3] {
-    number >= 2
-}
-
-(output list)
-# Output: [ 2 3 ]
-```
-
-A **find** loop will return a single value, the first item that satisfies the predicate.
-
-```dust
-found = find number in [1 2 1] {
-    number != 1
-}
-
-(output found)
-# Output: 2
-```
-
-### Tables
-
-Tables are strict collections, each row must have a value for each column. If a value is "missing" it should be set to an appropriate value for that type. For example, a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces, followed by a list of rows.
-
-```dust
-animals = table <name species age> [
-    ["rover" "cat" 14]
-    ["spot" "snake" 9]
-    ["bob" "giraffe" 2]
-]
-```
-
-Querying a table is similar to SQL.
-
-```dust
-names = select name from animals
-youngins = select species from animals {
-    age <= 10
-}
-```
-
-The keywords `table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
-
-```dust
-insert into animals [
-    ["eliza" "ostrich" 4]
-    ["pat" "white rhino" 7]
-    ["jim" "walrus" 9]
-]
-
-(assert_equal 6 (length animals))
 ```
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value. The function body is wrapped in single parentheses. To create a function, use the "function" keyword. The function's arguments are identifiers inside of a set of pointed braces and the function body is enclosed in curly braces. To call a fuction, invoke its variable name inside a set of parentheses. You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
+Functions are first-class values in dust, so they are assigned to variables like any other value.
 
 ```dust
-say_hi = function <> {
+# This simple function has no arguments and no return type.
+say_hi = || {
     (output "hi")
 }
 
-add_one = function <number> {
-    (number + 1)
+# This function has one argument and will return an integer.
+add_one = |number| <int> {
+    number + 1
 }
 
 (say_hi)
-(assert_equal (add_one 3), 4)
+(assert_equal 4 (add_one 3))
 ```
 
-This function simply passes the input to the shell's standard output.
-
-```dust
-print = function <input> {
-    (output input)
-}
-```
+You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
 
 ### Concurrency
 
-As a language written in Rust, Dust features effortless concurrency anywhere in your code.
+Dust features effortless concurrency anywhere in your code. Any block of code can be made to run its contents asynchronously. Dust's concurrency is written in safe Rust and uses a thread pool whose size depends on the number of cores available.
 
 ```dust
+# An async block will run each statement in its own thread.
 async {
     (output (random_integer))
     (output (random_float))
@@ -249,7 +258,7 @@ async {
 }
 ```
 
-In an **async** block, each statement is run in parallel. In this case, we want to read from a file and assign the data to a variable. It doesn't matter which statement finishes first, the last statement in the block will be used as the assigned value. If one of the statements in an **async** block produces an error, the other statements will stop running if they have not already finished.
+If the final statement in an async block creates a value, the block will return that value just like in a normal block.
 
 ```dust
 data = async {
@@ -258,16 +267,12 @@ data = async {
 }
 ```
 
-## Implementation
+## Acknowledgements
 
-Dust is formally defined as a Tree Sitter grammar in the tree-sitter-dust directory. Tree sitter generates a parser, written in C, from a set of rules defined in Javascript. Dust itself is a rust binary that calls the C parser using FFI.
-
-Tests are written in three places: in the Rust library, in Dust as examples and in the Tree Sitter test format. Generally, features are added by implementing and testing the syntax in the tree-sitter-dust repository, then writing library tests to evaluate the new syntax. Implementation tests run the Dust files in the "examples" directory and should be used to demonstrate and verify that features work together.
-
-Tree Sitter generates a concrete syntax tree, which Dust traverses to create an abstract syntax tree that can run the Dust code. The CST generation is an extra step but it allows easy testing of the parser, defining the language in one file and makes the syntax easy to modify and expand. Because it uses Tree Sitter, developer-friendly features like syntax highlighting and code navigation are already available in any text editor that supports Tree Sitter.
+Dust began as a fork of [evalexpr]. Some of the original code is still in place but the project has dramatically changed and no longer uses any of its parsing or interpreting.
 
 [Tree Sitter]: https://tree-sitter.github.io/tree-sitter/
 [Rust]: https://rust-lang.org
-[dnf]: https://dnf.readthedocs.io/en/latest/index.html
 [evalexpr]: https://github.com/ISibboI/evalexpr
 [rustup]: https://rustup.rs
+[Hyperfine]: https://github.com/sharkdp/hyperfine

@@ -1,36 +1,41 @@
 ================================================================================
-Simple Function Call
+Simple Yield
 ================================================================================
 
-(output 'hi')
+1 -> (output)
 
 --------------------------------------------------------------------------------
 
 (root
   (statement
     (expression
-      (function_call
-        (built_in_function
-          (expression
-            (value
-              (string))))))))
+      (yield
+        (expression
+          (value
+            (integer)))
+        (built_in_function)))))
 
 ================================================================================
-Nested Function Call
+Yield Chain
 ================================================================================
 
-(assert_equal (random_integer) 4)
+x -> (foo) -> (bar) -> (abc)
 
 --------------------------------------------------------------------------------
 
 (root
   (statement
     (expression
-      (function_call
-        (built_in_function
-          (expression
-            (function_call
-              (built_in_function)))
-          (expression
-            (value
-              (integer))))))))
+      (yield
+        (expression
+          (yield
+            (expression
+              (yield
+                (expression
+                  (identifier))
+                (expression
+                  (identifier))))
+            (expression
+              (identifier))))
+        (expression
+          (identifier))))))

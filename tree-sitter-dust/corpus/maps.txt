@@ -7,20 +7,15 @@ map { answer = 42 }
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (map
-            (block
-              (statement
-                (assignment
-                  (identifier)
-                  (assignment_operator)
-                  (statement
-                    (expression
-                      (value
-                        (integer)))))))))))))
+  (statement
+    (expression
+      (value
+        (map
+          (identifier)
+          (statement
+            (expression
+              (value
+                (integer)))))))))
 
 ================================================================================
 Nested Maps
@@ -39,55 +34,36 @@ x = map {
 --------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (expression
-            (value
-              (map
-                (block
-                  (statement
-                    (assignment
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (map
+              (identifier)
+              (statement
+                (expression
+                  (value
+                    (map
                       (identifier)
-                      (assignment_operator)
+                      (statement
+                        (expression
+                          (value
+                            (string))))
+                      (identifier)
                       (statement
                         (expression
                           (value
                             (map
-                              (block
-                                (statement
-                                  (assignment
-                                    (identifier)
-                                    (assignment_operator)
-                                    (statement
-                                      (expression
-                                        (value
-                                          (string))))))
-                                (statement
-                                  (assignment
-                                    (identifier)
-                                    (assignment_operator)
-                                    (statement
-                                      (expression
-                                        (value
-                                          (map
-                                            (block
-                                              (statement
-                                                (assignment
-                                                  (identifier)
-                                                  (assignment_operator)
-                                                  (statement
-                                                    (expression
-                                                      (value
-                                                        (string))))))))))))))))))))
-                  (statement
-                    (assignment
-                      (identifier)
-                      (assignment_operator)
-                      (statement
-                        (expression
-                          (value
-                            (integer)))))))))))))))
+                              (identifier)
+                              (statement
+                                (expression
+                                  (value
+                                    (string))))))))))))
+              (identifier)
+              (statement
+                (expression
+                  (value
+                    (integer)))))))))))

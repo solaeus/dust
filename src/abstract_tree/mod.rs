@@ -7,7 +7,6 @@
 //! examples.
 
 pub mod assignment;
-pub mod r#await;
 pub mod block;
 pub mod built_in_function;
 pub mod expression;
@@ -18,6 +17,7 @@ pub mod function_call;
 pub mod identifier;
 pub mod if_else;
 pub mod index;
+pub mod index_assignment;
 pub mod insert;
 pub mod logic;
 pub mod r#match;
@@ -25,16 +25,18 @@ pub mod math;
 pub mod remove;
 pub mod select;
 pub mod statement;
-pub mod sublist;
 pub mod transform;
+pub mod r#type;
+pub mod r#use;
 pub mod value_node;
 pub mod r#while;
+pub mod r#yield;
 
 pub use {
     assignment::*, block::*, built_in_function::*, expression::*, filter::*, find::*,
-    function_call::*, identifier::*, if_else::*, index::*, insert::*, logic::*, math::*,
-    r#await::*, r#await::*, r#for::*, r#match::*, r#while::*, remove::*, select::*, statement::*,
-    sublist::*, transform::*, value_node::*,
+    function_call::*, identifier::*, if_else::*, index::*, index_assignment::IndexAssignment,
+    insert::*, logic::*, math::*, r#for::*, r#match::*, r#type::*, r#use::*, r#while::*,
+    r#yield::*, remove::*, select::*, statement::*, transform::*, value_node::*,
 };
 
 use tree_sitter::Node;
@@ -55,6 +57,6 @@ pub trait AbstractTree: Sized {
     /// node's byte range.
     fn from_syntax_node(source: &str, node: Node) -> Result<Self>;
 
-    /// Execute dust code by traversing the tree
+    /// Execute dust code by traversing the tree.
     fn run(&self, source: &str, context: &mut Map) -> Result<Value>;
 }

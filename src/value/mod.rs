@@ -1,10 +1,9 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Block, Function, List, Map, Table, ValueType,
+    Function, List, Map, Table, Type,
 };
 
-use json::JsonValue;
 use serde::{
     de::{MapAccess, SeqAccess, Visitor},
     ser::SerializeTuple,
@@ -23,11 +22,10 @@ pub mod function;
 pub mod list;
 pub mod map;
 pub mod table;
-pub mod value_type;
 
-/// Whale value representation.
+/// Dust value representation.
 ///
-/// Every whale variable has a key and a Value. Variables are represented by
+/// Every dust variable has a key and a Value. Variables are represented by
 /// storing them in a VariableMap. This means the map of variables is itself a
 /// value that can be treated as any other.
 #[derive(Debug, Clone, Default)]
@@ -46,8 +44,18 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn value_type(&self) -> ValueType {
-        ValueType::from(self)
+    pub fn r#type(&self) -> Type {
+        match self {
+            Value::List(_) => Type::List,
+            Value::Map(_) => Type::Map,
+            Value::Table(_) => Type::Table,
+            Value::Function(_) => Type::Function,
+            Value::String(_) => Type::String,
+            Value::Float(_) => Type::Float,
+            Value::Integer(_) => Type::Integer,
+            Value::Boolean(_) => Type::Boolean,
+            Value::Empty => Type::Any,
+        }
     }
 
     pub fn is_table(&self) -> bool {
@@ -104,7 +112,7 @@ impl Value {
     pub fn as_integer(&self) -> Result<i64> {
         match self {
             Value::Integer(i) => Ok(*i),
-            value => Err(Error::ExpectedInt {
+            value => Err(Error::ExpectedInteger {
                 actual: value.clone(),
             }),
         }
@@ -208,7 +216,7 @@ impl Value {
         match self {
             Value::Table(table) => Ok(table.clone()),
             Value::List(list) => Ok(Table::from(list)),
-            Value::Map(map) => Ok(Table::from(map)),
+            Value::Map(map) => Result::from(map),
             value => Err(Error::ExpectedTable {
                 actual: value.clone(),
             }),
@@ -220,19 +228,20 @@ impl Add for Value {
     type Output = Result<Value>;
 
     fn add(self, other: Self) -> Self::Output {
-        match (self.as_integer(), other.as_integer()) {
-            (Ok(left), Ok(right)) => return Ok(Value::Integer(left + right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
+            return Ok(Value::Integer(left + right));
         }
 
-        match (self.as_number(), other.as_number()) {
-            (Ok(left), Ok(right)) => return Ok(Value::Float(left + right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
+            return Ok(Value::Float(left + right));
         }
 
-        match (self.as_string(), other.as_string()) {
-            (Ok(left), Ok(right)) => return Ok(Value::String(left.to_string() + right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_string(), other.as_string()) {
+            return Ok(Value::String(left.to_string() + right));
+        }
+
+        if self.is_string() || other.is_string() {
+            return Ok(Value::String(self.to_string() + &other.to_string()));
         }
 
         let non_number_or_string = if !self.is_number() == !self.is_string() {
@@ -335,6 +344,17 @@ impl SubAssign for Value {
             (Value::Integer(left), Value::Integer(right)) => *left -= right,
             (Value::Float(left), Value::Float(right)) => *left -= right,
             (Value::Float(left), Value::Integer(right)) => *left -= right as f64,
+            (Value::List(list), value) => {
+                let index_to_remove = list
+                    .items()
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, list_value)| if list_value == &value { Some(i) } else { None });
+
+                if let Some(index) = index_to_remove {
+                    list.items_mut().remove(index);
+                }
+            }
             _ => {}
         }
     }
@@ -500,82 +520,6 @@ impl From<()> for Value {
     }
 }
 
-impl TryFrom<JsonValue> for Value {
-    type Error = Error;
-
-    fn try_from(json_value: JsonValue) -> Result<Self> {
-        use JsonValue::*;
-
-        match json_value {
-            Null => Ok(Value::Empty),
-            Short(short) => Ok(Value::String(short.to_string())),
-            String(string) => Ok(Value::String(string)),
-            Number(number) => Ok(Value::Float(f64::from(number))),
-            Boolean(boolean) => Ok(Value::Boolean(boolean)),
-            Object(object) => {
-                let map = Map::new();
-
-                for (key, node_value) in object.iter() {
-                    let value = Value::try_from(node_value)?;
-
-                    map.variables_mut().insert(key.to_string(), value);
-                }
-
-                Ok(Value::Map(map))
-            }
-            Array(array) => {
-                let mut values = Vec::new();
-
-                for json_value in array {
-                    let value = Value::try_from(json_value)?;
-
-                    values.push(value);
-                }
-
-                Ok(Value::List(List::with_items(values)))
-            }
-        }
-    }
-}
-
-impl TryFrom<&JsonValue> for Value {
-    type Error = Error;
-
-    fn try_from(json_value: &JsonValue) -> Result<Self> {
-        use JsonValue::*;
-
-        match json_value {
-            Null => Ok(Value::Empty),
-            Short(short) => Ok(Value::String(short.to_string())),
-            String(string) => Ok(Value::String(string.clone())),
-            Number(number) => Ok(Value::Float(f64::from(*number))),
-            Boolean(boolean) => Ok(Value::Boolean(*boolean)),
-            Object(object) => {
-                let map = Map::new();
-
-                for (key, node_value) in object.iter() {
-                    let value = Value::try_from(node_value)?;
-
-                    map.variables_mut().insert(key.to_string(), value);
-                }
-
-                Ok(Value::Map(map))
-            }
-            Array(array) => {
-                let mut values = Vec::new();
-
-                for json_value in array {
-                    let value = Value::try_from(json_value)?;
-
-                    values.push(value);
-                }
-
-                Ok(Value::List(List::with_items(values)))
-            }
-        }
-    }
-}
-
 impl TryFrom<Value> for String {
     type Error = Error;
 
@@ -607,7 +551,7 @@ impl TryFrom<Value> for i64 {
         if let Value::Integer(value) = value {
             Ok(value)
         } else {
-            Err(Error::ExpectedInt { actual: value })
+            Err(Error::ExpectedInteger { actual: value })
         }
     }
 }
@@ -846,8 +790,12 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         let map = Map::new();
 
-        while let Some((key, value)) = access.next_entry()? {
-            map.variables_mut().insert(key, value);
+        {
+            let mut variables = map.variables_mut().unwrap();
+
+            while let Some((key, value)) = access.next_entry()? {
+                variables.insert(key, value);
+            }
         }
 
         Ok(Value::Map(map))

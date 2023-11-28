@@ -7,12 +7,14 @@ use crate::{AbstractTree, Block, Expression, Identifier, Map, Result, Table, Val
 pub struct Select {
     identifiers: Vec<Identifier>,
     expression: Expression,
-    block: Option<Block>,
+    predicate: Option<Block>,
 }
 
 impl AbstractTree for Select {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         let mut identifiers = Vec::new();
+        let identifier_list = node.child(1).unwrap();
+
         let identifier_list = node.child(1).unwrap();
 
         for index in 1..identifier_list.child_count() - 1 {
@@ -27,8 +29,10 @@ impl AbstractTree for Select {
         let expression_node = node.child(3).unwrap();
         let expression = Expression::from_syntax_node(source, expression_node)?;
 
-        let block = if let Some(block_node) = node.child(4) {
-            Some(Block::from_syntax_node(source, block_node)?)
+        let final_node = node.child(child_count - 1).unwrap();
+
+        let predicate = if final_node.kind() == "block" {
+            Some(Block::from_syntax_node(source, final_node)?)
         } else {
             None
         };
@@ -36,7 +40,7 @@ impl AbstractTree for Select {
         Ok(Select {
             identifiers,
             expression,
-            block,
+            predicate,
         })
     }
 
@@ -47,7 +51,7 @@ impl AbstractTree for Select {
             self.identifiers
                 .iter()
                 .cloned()
-                .map(|identifierier| identifierier.take_inner())
+                .map(|identifier| identifier.take_inner())
                 .collect()
         } else {
             old_table.headers().clone()
@@ -56,13 +60,13 @@ impl AbstractTree for Select {
 
         for row in old_table.rows() {
             let mut new_row = Vec::new();
-            let mut row_context = Map::new();
+            let row_context = Map::new();
 
             for (i, value) in row.iter().enumerate() {
                 let column_name = old_table.headers().get(i).unwrap();
 
                 row_context
-                    .variables_mut()
+                    .variables_mut()?
                     .insert(column_name.clone(), value.clone());
 
                 let new_table_column_index =
@@ -86,8 +90,10 @@ impl AbstractTree for Select {
                 }
             }
 
-            if let Some(where_clause) = &self.block {
-                let should_include = where_clause.run(source, &mut row_context)?.as_boolean()?;
+            if let Some(where_clause) = &self.predicate {
+                let should_include = where_clause
+                    .run(source, &mut row_context.clone())?
+                    .as_boolean()?;
 
                 if should_include {
                     new_table.insert(new_row)?;

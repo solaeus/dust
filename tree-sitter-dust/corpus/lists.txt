@@ -1,50 +1,48 @@
-==================
+================================================================================
 List Declaration
-==================
+================================================================================
 
 ['answer', 42]
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (integer)))))))))
+  (statement
+    (expression
+      (value
+        (list
+          (expression
+            (value
+              (string)))
+          (expression
+            (value
+              (integer))))))))
 
-==================
+================================================================================
 List Nesting
-==================
+================================================================================
 
 ['answers', [42, [666]]]
 
----
+--------------------------------------------------------------------------------
 
 (root
-  (block
-    (statement
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (string)))
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (integer)))
-                  (expression
-                    (value
-                      (list
-                        (expression
-                          (value
-                            (integer)))))))))))))))
+  (statement
+    (expression
+      (value
+        (list
+          (expression
+            (value
+              (string)))
+          (expression
+            (value
+              (list
+                (expression
+                  (value
+                    (integer)))
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (integer))))))))))))))

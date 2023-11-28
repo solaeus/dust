@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, List, Result, Value};
+use crate::{AbstractTree, Error, Expression, List, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
-    collection: Expression,
-    index: Expression,
-    index_end: Option<Expression>,
+    pub collection: Expression,
+    pub index: Expression,
+    pub index_end: Option<Expression>,
 }
 
 impl AbstractTree for Index {
@@ -32,10 +32,10 @@ impl AbstractTree for Index {
         })
     }
 
-    fn run(&self, source: &str, context: &mut crate::Map) -> crate::Result<crate::Value> {
-        let value = self.collection.run(source, context)?;
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+        let collection = self.collection.run(source, context)?;
 
-        match value {
+        match collection {
             Value::List(list) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
 
@@ -50,8 +50,17 @@ impl AbstractTree for Index {
 
                 Ok(item)
             }
-            Value::Map(mut map) => {
-                let value = self.index.run(source, &mut map)?;
+            Value::Map(map) => {
+                let value = if let Expression::Identifier(identifier) = &self.index {
+                    let key = identifier.inner();
+
+                    map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
+                } else {
+                    let value = self.index.run(source, context)?;
+                    let key = value.as_string()?;
+
+                    map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
+                };
 
                 Ok(value)
             }
@@ -61,7 +70,34 @@ impl AbstractTree for Index {
 
                 Ok(Value::String(item.to_string()))
             }
-            _ => Err(Error::ExpectedCollection { actual: value }),
+            _ => Err(Error::ExpectedCollection { actual: collection }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::evaluate;
+
+    #[test]
+    fn evaluate_list_index() {
+        let test = evaluate("x = [1 [2] 3] x:1:0").unwrap();
+
+        assert_eq!(Value::Integer(2), test);
+    }
+
+    #[test]
+    fn evaluate_map_index() {
+        let test = evaluate("x = {y = {z = 2}} x:y:z").unwrap();
+
+        assert_eq!(Value::Integer(2), test);
+    }
+
+    #[test]
+    fn evaluate_complex_index() {
+        let test = evaluate("x = [1 2 3]; y = || <int> { 0 } x:((y))").unwrap();
+
+        assert_eq!(Value::Integer(1), test);
     }
 }

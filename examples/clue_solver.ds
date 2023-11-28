@@ -1,44 +1,51 @@
-rooms = ['Library' 'Kitchen']
-suspects = ['White' 'Green']
-weapons = ['Rope' 'Lead_Pipe']
-cards = [rooms suspects weapons]
-
-take_turn = |current_room opponent_card| => {
-	(remove_card opponent_card)
-	(make_guess current_room)
-} 
-
-remove_card = |opponent_card| => {
-	for card_list in cards {
-		removed = remove card from card_list 
-			card == opponent_card
-	}
-
-	if (type removed) == 'empty' 
-		output 'Card not found.'
+all_cards = {
+	rooms = ['Library' 'Kitchen' 'Conservatory']
+	suspects = ['White' 'Green' 'Scarlett']
+	weapons = ['Rope' 'Lead_Pipe' 'Knife']
 }
 
-make_guess = |current_room| => {
-	if ((length suspects) == 1) 
-		&& ((length rooms) == 1)
-		&& ((length weapons) == 1)
-	{
+is_ready_to_solve = |cards <map>| <bool> {
+	((length cards:suspects) == 1)
+	&& ((length cards:rooms) == 1)
+	&& ((length cards:weapons) == 1)
+}
+
+take_turn = |opponent_card <str>, current_room <str>, cards <map>| <map> {
+	(remove_card opponent_card cards)
+	(make_guess current_room cards)
+	cards
+}
+
+remove_card = |opponent_card <str>, cards <map>| {
+	cards:rooms -= opponent_card
+	cards:suspects -= opponent_card
+	cards:weapons -= opponent_card
+}
+
+make_guess = |current_room <str>, cards <map>| {
+	if (is_ready_to_solve cards) {
 		(output 'It was '
-			+ suspects:0
-			+ ' in the '
-			+ rooms:0 
-			+ ' with the '
-			+ weapons:0
+			+ cards:suspects:0
+			+ ' in the ' 
+			+ cards:rooms:0  
+			+ ' with the ' 
+			+ cards:weapons:0 
 			+ '!')
 	} else {
 		(output 'I accuse '
-			+ (random suspects)
+			+ (random cards:suspects)
 			+ ' in the '
 			+ current_room
 			+ ' with the '
-			+ (random weapons)
-			+ '!')
+			+ (random cards:weapons)
+			+ '.')
 	}
 }
 
-(make_guess 'Library')
+(take_turn 'Rope' 'Kitchen'
+	(take_turn 'Library' 'Kitchen'
+		(take_turn 'Conservatory' 'Kitchen'
+			(take_turn 'White' 'Kitchen'
+				(take_turn 'Green' 'Kitchen'
+					(take_turn 'Knife' 'Kitchen' all_cards))))))
+

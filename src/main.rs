@@ -1,5 +1,4 @@
 //! Command line interface for the dust programming language.
-use async_std::fs::read_to_string;
 use clap::Parser;
 use rustyline::{
     completion::FilenameCompleter,
@@ -9,10 +8,11 @@ use rustyline::{
     history::DefaultHistory,
     Completer, Context, Editor, Helper, Validator,
 };
+use tree_sitter::Parser as TSParser;
 
-use std::borrow::Cow;
+use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{evaluate_with_context, Map, Value};
+use dust_lang::{evaluate_with_context, language, Evaluator, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -30,12 +30,15 @@ struct Args {
     #[arg(short = 'p', long)]
     input_path: Option<String>,
 
+    /// A path to file whose contents will be assigned to the "input" variable.
+    #[arg(short = 't', long = "tree")]
+    show_syntax_tree: bool,
+
     /// Location of the file to run.
     path: Option<String>,
 }
 
-#[async_std::main]
-async fn main() {
+fn main() {
     let args = Args::parse();
 
     if args.path.is_none() && args.command.is_none() {
@@ -43,7 +46,7 @@ async fn main() {
     }
 
     let source = if let Some(path) = &args.path {
-        read_to_string(path).await.unwrap()
+        read_to_string(path).unwrap()
     } else if let Some(command) = &args.command {
         command.clone()
     } else {
@@ -55,18 +58,29 @@ async fn main() {
     if let Some(input) = args.input {
         context
             .variables_mut()
+            .unwrap()
             .insert("input".to_string(), Value::String(input));
     }
 
     if let Some(path) = args.input_path {
-        let file_contents = read_to_string(path).await.unwrap();
+        let file_contents = read_to_string(path).unwrap();
 
         context
             .variables_mut()
+            .unwrap()
             .insert("input".to_string(), Value::String(file_contents));
     }
 
-    let eval_result = evaluate_with_context(&source, &mut context);
+    let mut parser = TSParser::new();
+    parser.set_language(language()).unwrap();
+
+    let evaluator = Evaluator::new(parser, &mut context, &source);
+
+    if args.show_syntax_tree {
+        println!("{}", evaluator.syntax_tree());
+    }
+
+    let eval_result = evaluator.run();
 
     match eval_result {
         Ok(value) => {

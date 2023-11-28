@@ -3,9 +3,11 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the ToolFailure variant if the error can only occur inside a tool.
 
-use crate::{value::Value, Identifier};
+use tree_sitter::{Node, Point};
 
-use std::{fmt, io, time, string::FromUtf8Error, num::ParseFloatError};
+use crate::{value::Value, Identifier, Type};
+
+use std::{fmt, io, num::ParseFloatError, string::FromUtf8Error, sync::PoisonError, time};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -14,8 +16,13 @@ pub enum Error {
     UnexpectedSyntaxNode {
         expected: &'static str,
         actual: &'static str,
-        location: tree_sitter::Point,
+        location: Point,
         relevant_source: String,
+    },
+
+    TypeCheck {
+        expected: Type,
+        actual: Value,
     },
 
     /// The 'assert' macro did not resolve successfully.
@@ -57,7 +64,7 @@ pub enum Error {
         actual: Value,
     },
 
-    ExpectedInt {
+    ExpectedInteger {
         actual: Value,
     },
 
@@ -125,9 +132,33 @@ pub enum Error {
 
     /// A custom error explained by its message.
     CustomMessage(String),
+
+    /// Invalid user input.
+    Syntax {
+        source: String,
+        location: Point,
+    },
 }
 
 impl Error {
+    pub fn expect_syntax_node(source: &str, expected: &'static str, actual: Node) -> Result<()> {
+        if expected == actual.kind() {
+            Ok(())
+        } else if actual.is_error() {
+            Err(Error::Syntax {
+                source: source[actual.byte_range()].to_string(),
+                location: actual.start_position(),
+            })
+        } else {
+            Err(Error::UnexpectedSyntaxNode {
+                expected,
+                actual: actual.kind(),
+                location: actual.start_position(),
+                relevant_source: source[actual.byte_range()].to_string(),
+            })
+        }
+    }
+
     pub fn expect_tool_argument_amount(
         tool_name: &'static str,
         expected: usize,
@@ -145,6 +176,12 @@ impl Error {
     }
 }
 
+impl<T> From<PoisonError<T>> for Error {
+    fn from(value: PoisonError<T>) -> Self {
+        Error::ToolFailure(value.to_string())
+    }
+}
+
 impl From<FromUtf8Error> for Error {
     fn from(value: FromUtf8Error) -> Self {
         Error::ToolFailure(value.to_string())
@@ -159,12 +196,6 @@ impl From<ParseFloatError> for Error {
 
 impl From<csv::Error> for Error {
     fn from(value: csv::Error) -> Self {
-        Error::ToolFailure(value.to_string())
-    }
-}
-
-impl From<json::Error> for Error {
-    fn from(value: json::Error) -> Self {
         Error::ToolFailure(value.to_string())
     }
 }
@@ -217,7 +248,7 @@ impl fmt::Display for Error {
 
                 if expected.is_table() {
                     write!(f, "\n{expected}\n")?;
-                } else { 
+                } else {
                     write!(f, " {expected} ")?;
                 }
 
@@ -225,10 +256,10 @@ impl fmt::Display for Error {
 
                 if actual.is_table() {
                     write!(f, "\n{actual}")
-                } else { 
+                } else {
                     write!(f, " {actual}.")
                 }
-            },
+            }
             AssertFailed => write!(
                 f,
                 "Assertion failed. A false value was passed to \"assert\"."
@@ -255,24 +286,20 @@ impl fmt::Display for Error {
                 "{identifier} expected a minimum of {minimum} arguments, but got {actual}.",
             ),
             ExpectedString { actual } => {
-                write!(f, "Expected a Value::String, but got {:?}.", actual)
+                write!(f, "Expected a string but got {:?}.", actual)
             }
-            ExpectedInt { actual } => write!(f, "Expected a Value::Int, but got {:?}.", actual),
-            ExpectedFloat { actual } => write!(f, "Expected a Value::Float, but got {:?}.", actual),
-            ExpectedNumber { actual } => write!(
-                f,
-                "Expected a Value::Float or Value::Int, but got {:?}.",
-                actual
-            ),
-            ExpectedNumberOrString { actual } => write!(
-                f,
-                "Expected a Value::Number or a Value::String, but got {:?}.",
-                actual
-            ),
+            ExpectedInteger { actual } => write!(f, "Expected an integer, but got {:?}.", actual),
+            ExpectedFloat { actual } => write!(f, "Expected a float, but got {:?}.", actual),
+            ExpectedNumber { actual } => {
+                write!(f, "Expected a float or integer but got {:?}.", actual)
+            }
+            ExpectedNumberOrString { actual } => {
+                write!(f, "Expected a number or string, but got {:?}.", actual)
+            }
             ExpectedBoolean { actual } => {
-                write!(f, "Expected a Value::Boolean, but got {:?}.", actual)
+                write!(f, "Expected a boolean, but got {:?}.", actual)
             }
-            ExpectedList { actual } => write!(f, "Expected a Value::List, but got {:?}.", actual),
+            ExpectedList { actual } => write!(f, "Expected a list, but got {:?}.", actual),
             ExpectedMinLengthList {
                 minimum_len,
                 actual_len,
@@ -285,14 +312,14 @@ impl fmt::Display for Error {
                 actual,
             } => write!(
                 f,
-                "Expected a Value::List of len {}, but got {:?}.",
+                "Expected a list of len {}, but got {:?}.",
                 expected_len, actual
             ),
-            ExpectedEmpty { actual } => write!(f, "Expected a Value::Empty, but got {:?}.", actual),
-            ExpectedMap { actual } => write!(f, "Expected a Value::Map, but got {:?}.", actual),
-            ExpectedTable { actual } => write!(f, "Expected a Value::Table, but got {:?}.", actual),
+            ExpectedEmpty { actual } => write!(f, "Expected an empty value, but got {:?}.", actual),
+            ExpectedMap { actual } => write!(f, "Expected a map, but got {:?}.", actual),
+            ExpectedTable { actual } => write!(f, "Expected a table, but got {:?}.", actual),
             ExpectedFunction { actual } => {
-                write!(f, "Expected Value::Function, but got {:?}.", actual)
+                write!(f, "Expected function, but got {:?}.", actual)
             }
             ExpectedCollection { actual } => {
                 write!(
@@ -318,11 +345,21 @@ impl fmt::Display for Error {
                 relevant_source,
             } => write!(
                 f,
-                "Expected syntax node {expected}, but got {actual} at {location}. Code: {relevant_source} ",
+                "Expected {expected}, but got {actual} at {location}. Code: {relevant_source} ",
             ),
-            WrongColumnAmount { expected, actual } => write!(f, "Wrong column amount. Expected {expected} but got {actual}."),
+            WrongColumnAmount { expected, actual } => write!(
+                f,
+                "Wrong column amount. Expected {expected} but got {actual}."
+            ),
             ToolFailure(message) => write!(f, "{message}"),
             CustomMessage(message) => write!(f, "{message}"),
+            Syntax { source, location } => {
+                write!(f, "Syntax error at {location}, this is not valid: {source}")
+            }
+            TypeCheck { expected, actual } => write!(
+                f,
+                "Type check error. Expected a {expected} but got {actual}."
+            ),
         }
     }
 }

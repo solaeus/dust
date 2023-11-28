@@ -3,13 +3,13 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, BuiltInFunction, Error, Map, Result, Value};
 
-use super::{expression::Expression, identifier::Identifier};
+use super::expression::Expression;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum FunctionCall {
     BuiltIn(Box<BuiltInFunction>),
     ContextDefined {
-        name: Identifier,
+        name: Expression,
         arguments: Vec<Expression>,
     },
 }
@@ -18,14 +18,14 @@ impl AbstractTree for FunctionCall {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
         debug_assert_eq!("function_call", node.kind());
 
-        let function_node = node.child(0).unwrap();
+        let function_node = node.child(1).unwrap();
         let mut arguments = Vec::new();
 
-        for index in 1..node.child_count() {
-            let child = node.child(index).unwrap();
+        for index in 2..node.child_count() - 1 {
+            let node = node.child(index).unwrap();
 
-            if child.is_named() {
-                let expression = Expression::from_syntax_node(source, child)?;
+            if node.is_named() {
+                let expression = Expression::from_syntax_node(source, node)?;
 
                 arguments.push(expression);
             }
@@ -36,12 +36,9 @@ impl AbstractTree for FunctionCall {
 
             FunctionCall::BuiltIn(Box::new(function))
         } else {
-            let identifier = Identifier::from_syntax_node(source, function_node)?;
+            let name = Expression::from_syntax_node(source, function_node)?;
 
-            FunctionCall::ContextDefined {
-                name: identifier,
-                arguments,
-            }
+            FunctionCall::ContextDefined { name, arguments }
         };
 
         Ok(function_call)
@@ -54,23 +51,30 @@ impl AbstractTree for FunctionCall {
             FunctionCall::ContextDefined { name, arguments } => (name, arguments),
         };
 
-        let definition = if let Some(value) = context.variables().get(name.inner()) {
-            value.as_function().cloned()?
-        } else {
-            return Err(Error::FunctionIdentifierNotFound(name.clone()));
-        };
-
-        if let Some(parameters) = definition.identifiers() {
-            let parameter_expression_pairs = parameters.iter().zip(arguments.iter());
-
-            for (identifier, expression) in parameter_expression_pairs {
-                let key = identifier.clone().take_inner();
-                let value = expression.run(source, context)?;
-
-                function_context.variables_mut().insert(key, value);
+        let function = if let Expression::Identifier(identifier) = name {
+            if let Some(value) = context.variables()?.get(identifier.inner()) {
+                value.as_function().cloned()
+            } else {
+                return Err(Error::FunctionIdentifierNotFound(identifier.clone()));
             }
+        } else {
+            let name_run = name.run(source, context)?;
+
+            name_run.as_function().cloned()
+        }?;
+
+        let mut function_context = Map::clone_from(context)?;
+        let parameter_expression_pairs = function.parameters().iter().zip(arguments.iter());
+
+        for ((identifier, r#type), expression) in parameter_expression_pairs {
+            let key = identifier.clone().take_inner();
+            let value = expression.run(source, context)?;
+
+            r#type.check(&value)?;
+
+            function_context.variables_mut()?.insert(key, value);
         }
 
-        definition.body().run(source, &mut function_context)
+        function.run(source, &mut function_context)
     }
 }

@@ -1,8 +1,10 @@
 raw_data = (download "https://api.sampleapis.com/futurama/cast")
 cast_data = (from_json raw_data)
 
-names = transform cast_member in cast_data {
-	cast_member.name
+names = []
+
+for cast_member in cast_data {
+	names += cast_member:name
 }
 
-(assert_equal "Billy West", names.0)
+(assert_equal "Billy West", names:0)

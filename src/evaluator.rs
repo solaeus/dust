@@ -6,7 +6,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use tree_sitter::{Parser, Tree as TSTree};
 
-use crate::{language, AbstractTree, Block, Map, Result, Value};
+use crate::{language, AbstractTree, Map, Result, Statement, Value};
 
 /// Evaluate the given source code.
 ///
@@ -33,9 +33,13 @@ pub fn evaluate(source: &str) -> Result<Value> {
 /// # use dust_lang::*;
 /// let mut context = Map::new();
 ///
-/// context.set_value("one".into(), 1.into());
-/// context.set_value("two".into(), 2.into());
-/// context.set_value("three".into(), 3.into());
+/// {
+///     let mut variables = context.variables_mut().unwrap();
+///
+///     variables.insert("one".into(), 1.into());
+///     variables.insert("two".into(), 2.into());
+///     variables.insert("three".into(), 3.into());
+/// }
 ///
 /// let dust_code = "four = 4 one + two + three + four";
 ///
@@ -55,10 +59,10 @@ pub fn evaluate_with_context(source: &str, context: &mut Map) -> Result<Value> {
 ///
 /// The Evaluator turns a tree sitter concrete syntax tree into a vector of
 /// abstract trees called [Item][]s that can be run to execute the source code.
-pub struct Evaluator<'context, 'code> {
+pub struct Evaluator<'c, 's> {
     _parser: Parser,
-    context: &'context mut Map,
-    source: &'code str,
+    context: &'c mut Map,
+    source: &'s str,
     syntax_tree: TSTree,
 }
 
@@ -68,8 +72,8 @@ impl Debug for Evaluator<'_, '_> {
     }
 }
 
-impl<'context, 'code> Evaluator<'context, 'code> {
-    fn new(mut parser: Parser, context: &'context mut Map, source: &'code str) -> Self {
+impl<'c, 's> Evaluator<'c, 's> {
+    pub fn new(mut parser: Parser, context: &'c mut Map, source: &'s str) -> Self {
         let syntax_tree = parser.parse(source, None).unwrap();
 
         Evaluator {
@@ -80,17 +84,23 @@ impl<'context, 'code> Evaluator<'context, 'code> {
         }
     }
 
-    fn run(self) -> Result<Value> {
-        let mut cursor = self.syntax_tree.walk();
-        let root_node = cursor.node();
-        let mut prev_result = Ok(Value::Empty);
+    pub fn run(self) -> Result<Value> {
+        let root_node = self.syntax_tree.root_node();
 
-        for block_node in root_node.children(&mut cursor) {
-            let block = Block::from_syntax_node(self.source, block_node)?;
-            prev_result = block.run(self.source, self.context);
+        let mut prev_result = Value::Empty;
+
+        for index in 0..root_node.child_count() {
+            let statement_node = root_node.child(index).unwrap();
+            let statement = Statement::from_syntax_node(self.source, statement_node)?;
+
+            prev_result = statement.run(self.source, self.context)?;
         }
 
-        prev_result
+        Ok(prev_result)
+    }
+
+    pub fn syntax_tree(&self) -> String {
+        self.syntax_tree.root_node().to_sexp()
     }
 }
 
@@ -149,10 +159,12 @@ mod tests {
     fn evaluate_map() {
         let map = Map::new();
 
-        map.variables_mut()
-            .insert("x".to_string(), Value::Integer(1));
-        map.variables_mut()
-            .insert("foo".to_string(), Value::String("bar".to_string()));
+        {
+            let mut variables = map.variables_mut().unwrap();
+
+            variables.insert("x".to_string(), Value::Integer(1));
+            variables.insert("foo".to_string(), Value::String("bar".to_string()));
+        }
 
         assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
     }
@@ -221,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_if_else_else_if_else_if_else_if_else() {
+    fn evaluate_if_else_if_else_if_else_if_else() {
         assert_eq!(
             evaluate(
                 "
@@ -247,7 +259,7 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                foobar = |message| => message
+                foobar = |message <str>| <str> { message }
                 (foobar 'Hiya')
                 ",
             ),

@@ -11,7 +11,7 @@ use reqwest::blocking::get;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, List, Map, Result, Table, Value, ValueType};
+use crate::{AbstractTree, Error, Expression, List, Map, Result, Table, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
@@ -19,6 +19,7 @@ pub enum BuiltInFunction {
     Assert(Vec<Expression>),
     AssertEqual(Vec<Expression>),
     Download(Expression),
+    Context,
     Help(Option<Expression>),
     Length(Expression),
     Output(Vec<Expression>),
@@ -30,7 +31,7 @@ pub enum BuiltInFunction {
     Append(Vec<Expression>),
     Metadata(Expression),
     Move(Vec<Expression>),
-    Read(Expression),
+    Read(Option<Expression>),
     Remove(Expression),
     Write(Vec<Expression>),
 
@@ -93,6 +94,7 @@ impl AbstractTree for BuiltInFunction {
 
                 BuiltInFunction::AssertEqual(expressions)
             }
+            "context" => BuiltInFunction::Context,
             "download" => {
                 let expression_node = node.child(1).unwrap();
                 let expression = Expression::from_syntax_node(source, expression_node)?;
@@ -153,8 +155,11 @@ impl AbstractTree for BuiltInFunction {
                 BuiltInFunction::Move(expressions)
             }
             "read" => {
-                let expression_node = node.child(1).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expression = if let Some(node) = node.child(1) {
+                    Some(Expression::from_syntax_node(source, node)?)
+                } else {
+                    None
+                };
 
                 BuiltInFunction::Read(expression)
             }
@@ -306,6 +311,7 @@ impl AbstractTree for BuiltInFunction {
 
                 Ok(Value::Empty)
             }
+            BuiltInFunction::Context => Ok(Value::Map(context.clone())),
             BuiltInFunction::Download(expression) => {
                 let value = expression.run(source, context)?;
                 let url = value.as_string()?;
@@ -317,7 +323,7 @@ impl AbstractTree for BuiltInFunction {
                 let value = expression.run(source, context)?;
                 let length = match value {
                     Value::List(list) => list.items().len(),
-                    Value::Map(map) => map.len(),
+                    Value::Map(map) => map.variables()?.len(),
                     Value::Table(table) => table.len(),
                     Value::String(string) => string.chars().count(),
                     _ => {
@@ -361,9 +367,9 @@ impl AbstractTree for BuiltInFunction {
             BuiltInFunction::Type(expression) => {
                 let run_expression = expression.run(source, context);
                 let value_type = if let Ok(value) = run_expression {
-                    value.value_type()
+                    value.r#type()
                 } else if let Err(Error::VariableIdentifierNotFound(_)) = run_expression {
-                    ValueType::Empty
+                    Type::Any
                 } else {
                     return run_expression;
                 };
@@ -405,7 +411,7 @@ impl AbstractTree for BuiltInFunction {
                 let metadata_output = Map::new();
 
                 {
-                    let mut metadata_variables = metadata_output.variables_mut();
+                    let mut metadata_variables = metadata_output.variables_mut()?;
 
                     metadata_variables.insert("type".to_string(), Value::String(file_type));
                     metadata_variables.insert("size".to_string(), Value::Integer(size));
@@ -428,8 +434,13 @@ impl AbstractTree for BuiltInFunction {
                 Ok(Value::Empty)
             }
             BuiltInFunction::Read(expression) => {
-                let path_value = expression.run(source, context)?;
-                let path = PathBuf::from(path_value.as_string()?);
+                let path = if let Some(expression) = expression {
+                    let path_value = expression.run(source, context)?;
+
+                    PathBuf::from(path_value.as_string()?)
+                } else {
+                    PathBuf::from(".")
+                };
                 let content = if path.is_dir() {
                     let dir = read_dir(&path)?;
                     let mut contents = Vec::new();
@@ -572,11 +583,8 @@ impl AbstractTree for BuiltInFunction {
                     let value = expressions[0].run(source, context)?;
                     let list = value.as_list()?.items();
 
-                    if list.len() < 2 {
-                        return Err(Error::ExpectedMinLengthList {
-                            minimum_len: 2,
-                            actual_len: list.len(),
-                        });
+                    if list.len() == 1 {
+                        return Ok(list.first().cloned().unwrap());
                     }
 
                     let range = 0..list.len();

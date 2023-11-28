@@ -1,7 +1,8 @@
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Identifier, Map, Result, Value};
+use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Find {
@@ -29,21 +30,41 @@ impl AbstractTree for Find {
     }
 
     fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
-        let value = self.expression.run(source, context)?;
-        let values = value.as_list()?.items();
+        let expression_run = self.expression.run(source, context)?;
+        let list = expression_run.as_list()?.items();
         let key = self.identifier.inner();
-        let mut context = context.clone();
 
-        for value in values.iter() {
-            context.variables_mut().insert(key.clone(), value.clone());
+        let find_result = list.par_iter().find_map_first(|value| {
+            let loop_context = Map::clone_from(context).unwrap();
 
-            let should_return = self.item.run(source, &mut context)?.as_boolean()?;
+            loop_context
+                .variables_mut()
+                .unwrap()
+                .insert(key.clone(), (*value).clone());
 
-            if should_return {
-                return Ok(value.clone());
+            let run_result = self.item.run(source, &mut loop_context.clone());
+
+            if let Ok(run_result_value) = run_result {
+                if let Ok(should_return) = run_result_value.as_boolean() {
+                    if should_return {
+                        Some(Ok(value.clone()))
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(Err(Error::ExpectedBoolean {
+                        actual: value.clone(),
+                    }))
+                }
+            } else {
+                Some(run_result)
             }
-        }
+        });
 
-        Ok(Value::Empty)
+        if let Some(result) = find_result {
+            result
+        } else {
+            Ok(Value::Empty)
+        }
     }
 }
