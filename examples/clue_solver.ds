@@ -1,4 +1,4 @@
-all_cards <map> = {
+all_cards = {
 	rooms = ['Library' 'Kitchen' 'Conservatory']
 	suspects = ['White' 'Green' 'Scarlett']
 	weapons = ['Rope' 'Lead_Pipe' 'Knife']
@@ -38,7 +38,7 @@ make_guess = |current_room <str>, cards <map>| {
 			+ current_room
 			+ ' with the '
 			+ (random cards:weapons)
-			+ '!')
+			+ '.')
 	}
 }
 

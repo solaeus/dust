@@ -5,10 +5,6 @@ module.exports = grammar({
 
   extras: $ => [ /\s/, $._comment ],
 
-  conflicts: $ => [
-    [$.map, $.assignment_operator],
-  ],
-
   rules: {
     root: $ => prec(1, repeat1($.statement)),
 
@@ -100,14 +96,14 @@ module.exports = grammar({
     ),
 
     map: $ => seq(
-      '(',
+      '{',
       repeat(seq(
         $.identifier,
         "=",
         $.statement,
         optional(',')
       )),
-      ')',
+      '}',
     ),
  
     index: $ => prec.left(1, seq(
@@ -164,11 +160,11 @@ module.exports = grammar({
       $.statement,
     ),
 
-    assignment_operator: $ => choice(
+    assignment_operator: $ => prec.right(choice(
       "=",
       "+=",
       "-=",
-    ),
+    )),
 
     if_else: $ => prec.right(seq(
       $.if,
