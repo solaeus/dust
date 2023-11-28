@@ -28,7 +28,17 @@ if (random_boolean) {
 }
 ```
 
-Dust is an interpreted, strictly typed language with first class functions. It emphasises concurrency by allowing any group of statements to be executed in parallel. Dust includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
+Dust enforces strict type checking to make sure your code is correct. Dust does *not* have a null type.
+
+```dust
+fib = |i <int>| <int> {
+    if i <= 1 {
+        1
+    } else {
+        (fib i - 1) + (fib i - 2)
+    }
+}
+```
 
 <!--toc:start-->
 - [Dust](#dust)
@@ -42,9 +52,9 @@ Dust is an interpreted, strictly typed language with first class functions. It e
     - [Lists](#lists)
     - [Maps](#maps)
     - [Loops](#loops)
-    - [Tables](#tables)
     - [Functions](#functions)
     - [Concurrency](#concurrency)
+  - [Acknowledgements](#acknowledgements)
 <!--toc:end-->
 
 ## Features
@@ -140,7 +150,6 @@ Variables have two parts: a key and a value. The key is always a string. The val
 - boolean
 - list
 - map
-- table
 - function
 
 Here are some examples of variables in dust.
@@ -207,37 +216,12 @@ for number in list {
 }
 ```
 
-### Tables
-
-Tables are strict collections, each row must have a value for each column. If a value is "missing" it should be set to an appropriate value for that type. For example, a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces, followed by a list of rows.
+An **async for** loop will run the loop operations in parallel using a thread pool.
 
 ```dust
-animals = table <name species age> [
-    ["rover" "cat" 14]
-    ["spot" "snake" 9]
-    ["bob" "giraffe" 2]
-]
-```
-
-Querying a table is similar to SQL.
-
-```dust
-names = select name from animals
-youngins = select species from animals {
-    age <= 10
+async for i in [1 2 3 4 5 6 7 8 9 0] {
+    (output i) 
 }
-```
-
-The keywords `table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
-
-```dust
-insert into animals [
-    ["eliza" "ostrich" 4]
-    ["pat" "white rhino" 7]
-    ["jim" "walrus" 9]
-]
-
-(assert_equal 6 (length animals))
 ```
 
 ### Functions
@@ -245,18 +229,18 @@ insert into animals [
 Functions are first-class values in dust, so they are assigned to variables like any other value.
 
 ```dust
-# This simple function has no arguments.
-say_hi = || => {
+# This simple function has no arguments and no return type.
+say_hi = || {
     (output "hi")
 }
 
-# This function has one argument and will return a value.
-add_one = |number| => {
+# This function has one argument and will return an integer.
+add_one = |number| <int> {
     number + 1
 }
 
 (say_hi)
-(assert_equal (add_one 3), 4)
+(assert_equal 4 (add_one 3))
 ```
 
 You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
@@ -274,6 +258,8 @@ async {
 }
 ```
 
+If the final statement in an async block creates a value, the block will return that value just like in a normal block.
+
 ```dust
 data = async {
     (output "Reading a file...")
@@ -281,7 +267,7 @@ data = async {
 }
 ```
 
-### Acknowledgements
+## Acknowledgements
 
 Dust began as a fork of [evalexpr]. Some of the original code is still in place but the project has dramatically changed and no longer uses any of its parsing or interpreting.
 
