@@ -14,7 +14,7 @@ impl BuiltInFunction for Read {
     }
 
     fn run(&self, arguments: &[Value]) -> Result<Value> {
-        let path_string = arguments.first().unwrap_or(&Value::Empty).as_string()?;
+        let path_string = arguments.first().unwrap_or_default().as_string()?;
         let path = PathBuf::from(path_string);
 
         if path.is_dir() {
@@ -56,7 +56,7 @@ impl BuiltInFunction for Write {
     }
 
     fn run(&self, arguments: &[Value]) -> Result<Value> {
-        let file_content = arguments.first().unwrap_or(&Value::Empty).as_string()?;
+        let file_content = arguments.first().unwrap_or_default().as_string()?;
         let path = arguments.get(1).unwrap_or(&Value::Empty).as_string()?;
 
         write(path, file_content)?;

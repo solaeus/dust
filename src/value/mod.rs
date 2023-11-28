@@ -223,6 +223,12 @@ impl Value {
     }
 }
 
+impl Default for &Value {
+    fn default() -> Self {
+        &Value::Empty
+    }
+}
+
 impl Add for Value {
     type Output = Result<Value>;
 
