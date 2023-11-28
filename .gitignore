@@ -1,2 +1,3 @@
 target/
 node_modules/
+tree-sitter-dust/src/
