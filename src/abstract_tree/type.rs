@@ -30,28 +30,36 @@ impl Type {
             | (Type::Map, Type::Map)
             | (Type::String, Type::String)
             | (Type::Table, Type::Table) => Ok(()),
-            (Type::Boolean, _) => Err(Error::ExpectedBoolean {
+            (Type::Boolean, _) => Err(Error::TypeCheck {
+                expected: Type::Boolean,
                 actual: value.clone(),
             }),
-            (Type::Float, _) => Err(Error::ExpectedFloat {
+            (Type::Float, _) => Err(Error::TypeCheck {
+                expected: Type::Float,
                 actual: value.clone(),
             }),
-            (Type::Function, _) => Err(Error::ExpectedFunction {
+            (Type::Function, _) => Err(Error::TypeCheck {
+                expected: Type::Function,
                 actual: value.clone(),
             }),
-            (Type::Integer, _) => Err(Error::ExpectedInteger {
+            (Type::Integer, _) => Err(Error::TypeCheck {
+                expected: Type::Integer,
                 actual: value.clone(),
             }),
-            (Type::List, _) => Err(Error::ExpectedList {
+            (Type::List, _) => Err(Error::TypeCheck {
+                expected: Type::List,
                 actual: value.clone(),
             }),
-            (Type::Map, _) => Err(Error::ExpectedMap {
+            (Type::Map, _) => Err(Error::TypeCheck {
+                expected: Type::Map,
                 actual: value.clone(),
             }),
-            (Type::String, _) => Err(Error::ExpectedString {
+            (Type::String, _) => Err(Error::TypeCheck {
+                expected: Type::String,
                 actual: value.clone(),
             }),
-            (Type::Table, _) => Err(Error::ExpectedTable {
+            (Type::Table, _) => Err(Error::TypeCheck {
+                expected: Type::Table,
                 actual: value.clone(),
             }),
         }
@@ -76,7 +84,7 @@ impl AbstractTree for Type {
             "table" => Type::Table,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "bool, fn, int, list, map, string or table",
+                    expected: "any, bool, float, fn, int, list, map, str or table",
                     actual: node.kind(),
                     location: node.start_position(),
                     relevant_source: source[node.byte_range()].to_string(),

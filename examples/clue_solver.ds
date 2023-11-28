@@ -1,4 +1,4 @@
-all_cards = {
+all_cards <map> = {
 	rooms = ['Library' 'Kitchen' 'Conservatory']
 	suspects = ['White' 'Green' 'Scarlett']
 	weapons = ['Rope' 'Lead_Pipe' 'Knife']

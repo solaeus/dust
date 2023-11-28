@@ -76,10 +76,12 @@ Complex Function
     (expression
       (value
         (function
-          (identifier)
-          (type)
-          (identifier)
-          (type)
+          (parameter
+            (identifier)
+            (type))
+          (parameter
+            (identifier)
+            (type))
           (block
             (statement
               (expression

@@ -20,32 +20,41 @@ impl Function {
 
 impl AbstractTree for Function {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        Error::expect_syntax_node(source, "function", node)?;
+
+        let child_count = node.child_count();
         let mut parameters = Vec::new();
-        let mut previous_identifier = None;
 
-        for index in 1..node.child_count() - 2 {
-            let child = node.child(index).unwrap();
+        for index in 1..child_count - 2 {
+            let parameter_node = {
+                let child = node.child(index).unwrap();
 
-            if child.kind() == "identifier" {
-                previous_identifier = Some(Identifier::from_syntax_node(source, child)?);
-            }
+                if child.is_named() {
+                    child
+                } else {
+                    continue;
+                }
+            };
 
-            if child.kind() == "type" {
-                let identifier = previous_identifier.take().unwrap();
-                let r#type = Type::from_syntax_node(source, child)?;
+            Error::expect_syntax_node(source, "parameter", parameter_node)?;
 
-                parameters.push((identifier, r#type))
-            }
+            let identifier_node = parameter_node.child(0).unwrap();
+            let identifier = Identifier::from_syntax_node(source, identifier_node)?;
+
+            let type_node = parameter_node.child(1).unwrap();
+            let r#type = Type::from_syntax_node(source, type_node)?;
+
+            parameters.push((identifier, r#type))
         }
 
-        let return_type_node = node.child_by_field_name("return_type");
-        let return_type = if let Some(child) = return_type_node {
-            Some(Type::from_syntax_node(source, child)?)
+        let return_type_node = node.child(child_count - 2).unwrap();
+        let return_type = if return_type_node.is_named() {
+            Some(Type::from_syntax_node(source, return_type_node)?)
         } else {
             None
         };
 
-        let body_node = node.child_by_field_name("body").unwrap();
+        let body_node = node.child(child_count - 1).unwrap();
         let body = Block::from_syntax_node(source, body_node)?;
 
         Ok(Function {

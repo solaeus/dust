@@ -5,7 +5,7 @@
 
 use tree_sitter::{Node, Point};
 
-use crate::{value::Value, Identifier};
+use crate::{value::Value, Identifier, Type};
 
 use std::{fmt, io, num::ParseFloatError, string::FromUtf8Error, sync::PoisonError, time};
 
@@ -18,6 +18,11 @@ pub enum Error {
         actual: &'static str,
         location: Point,
         relevant_source: String,
+    },
+
+    TypeCheck {
+        expected: Type,
+        actual: Value,
     },
 
     /// The 'assert' macro did not resolve successfully.
@@ -351,6 +356,10 @@ impl fmt::Display for Error {
             Syntax { source, location } => {
                 write!(f, "Syntax error at {location}, this is not valid: {source}")
             }
+            TypeCheck { expected, actual } => write!(
+                f,
+                "Type check error. Expected a {expected} but got {actual}."
+            ),
         }
     }
 }

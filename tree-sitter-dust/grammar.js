@@ -276,13 +276,13 @@ module.exports = grammar({
   
     function: $ => seq(
       '|',
-      field('parameters', repeat($._function_parameters)),
+      repeat($.parameter),
       '|',
-      optional(field('return_type', $.type)),
-      field('body', $.block),
+      optional($.type),
+      $.block,
     ),
 
-    _function_parameters: $ => seq(
+    parameter: $ => seq(
       $.identifier,
       $.type,
       optional(','),
