@@ -2,8 +2,6 @@
 //!
 //! You can use this library externally by calling either of the "eval"
 //! functions or by constructing your own Evaluator.
-use std::fmt::{self, Debug, Formatter};
-
 use tree_sitter::{Parser, Tree as TSTree};
 
 use crate::{language, AbstractTree, Map, Result, Statement, Value};
@@ -55,21 +53,12 @@ pub fn evaluate_with_context(source: &str, context: &mut Map) -> Result<Value> {
     Evaluator::new(parser, context, source).run()
 }
 
-/// A collection of statements and comments interpreted from a syntax tree.
-///
-/// The Evaluator turns a tree sitter concrete syntax tree into a vector of
-/// abstract trees called [Item][]s that can be run to execute the source code.
+/// A source code interpreter for the Dust language.
 pub struct Evaluator<'c, 's> {
     _parser: Parser,
     context: &'c mut Map,
     source: &'s str,
     syntax_tree: TSTree,
-}
-
-impl Debug for Evaluator<'_, '_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Evaluator context: {}", self.context)
-    }
 }
 
 impl<'c, 's> Evaluator<'c, 's> {
@@ -86,17 +75,16 @@ impl<'c, 's> Evaluator<'c, 's> {
 
     pub fn run(self) -> Result<Value> {
         let root_node = self.syntax_tree.root_node();
-
-        let mut prev_result = Value::Empty;
+        let mut value = Value::Empty;
 
         for index in 0..root_node.child_count() {
             let statement_node = root_node.child(index).unwrap();
             let statement = Statement::from_syntax_node(self.source, statement_node)?;
 
-            prev_result = statement.run(self.source, self.context)?;
+            value = statement.run(self.source, self.context)?;
         }
 
-        Ok(prev_result)
+        Ok(value)
     }
 
     pub fn syntax_tree(&self) -> String {
