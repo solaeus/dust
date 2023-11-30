@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, List, Map, Result, TypeDefinition, Value};
+use crate::{AbstractTree, Error, Expression, List, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
@@ -74,7 +74,7 @@ impl AbstractTree for Index {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         self.collection.expected_type(context)
     }
 }
@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn evaluate_complex_index() {
-        let test = evaluate("x = [1 2 3]; y = || <int> { 0 } x:((y))").unwrap();
+        let test = evaluate("x = [1 2 3]; y = || { 0 } x:((y))").unwrap();
 
         assert_eq!(Value::Integer(1), test);
     }

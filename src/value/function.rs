@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Error, Identifier, Map, Result, TypeDefinition, Value};
+use crate::{AbstractTree, Block, Error, Identifier, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
@@ -28,7 +28,7 @@ impl AbstractTree for Function {
         let child_count = node.child_count();
         let mut parameters = Vec::new();
 
-        for index in 0..child_count {
+        for index in 1..child_count - 2 {
             let child = node.child(index).unwrap();
 
             if child.is_named() {
@@ -49,7 +49,7 @@ impl AbstractTree for Function {
         Ok(return_value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         self.body.expected_type(context)
     }
 }

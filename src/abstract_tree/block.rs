@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Statement, TypeDefinition, Value};
+use crate::{AbstractTree, Error, Map, Result, Statement, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
@@ -82,7 +82,7 @@ impl AbstractTree for Block {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         self.statements.last().unwrap().expected_type(context)
     }
 }

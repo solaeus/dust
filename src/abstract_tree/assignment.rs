@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, TypeDefinition, Value};
+use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, TypeDefintion, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    r#type: Option<TypeDefinition>,
+    type_definition: Option<TypeDefintion>,
     operator: AssignmentOperator,
     statement: Statement,
 }
@@ -26,8 +26,8 @@ impl AbstractTree for Assignment {
         let identifier = Identifier::from_syntax_node(source, identifier_node)?;
 
         let type_node = node.child_by_field_name("type");
-        let r#type = if let Some(type_node) = type_node {
-            Some(TypeDefinition::from_syntax_node(source, type_node)?)
+        let type_definition = if let Some(type_node) = type_node {
+            Some(TypeDefintion::from_syntax_node(source, type_node)?)
         } else {
             None
         };
@@ -56,7 +56,7 @@ impl AbstractTree for Assignment {
 
         Ok(Assignment {
             identifier,
-            r#type,
+            type_definition,
             operator,
             statement,
         })
@@ -65,6 +65,10 @@ impl AbstractTree for Assignment {
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
+
+        if let Some(type_definition) = &self.type_definition {
+            type_definition.check(&value, context)?;
+        }
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
@@ -91,7 +95,7 @@ impl AbstractTree for Assignment {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
-        Ok(TypeDefinition::Empty)
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::Empty)
     }
 }

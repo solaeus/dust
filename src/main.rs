@@ -35,7 +35,7 @@ struct Args {
     show_syntax_tree: bool,
 
     /// Launch in interactive mode.
-    #[arg(short, long)]
+    #[arg(short = 'n', long)]
     interactive: bool,
 
     /// Location of the file to run.

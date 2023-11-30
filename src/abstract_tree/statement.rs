@@ -3,7 +3,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Assignment, Block, Error, Expression, For, IfElse, IndexAssignment, Map, Match,
-    Result, TypeDefinition, Use, Value, While,
+    Result, Type, Use, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -82,7 +82,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         match self {
             Statement::Assignment(assignment) => assignment.expected_type(context),
             Statement::Return(expression) => expression.expected_type(context),

@@ -2,9 +2,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{
-    AbstractTree, Block, Error, Expression, Identifier, Map, Result, TypeDefinition, Value,
-};
+use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct For {
@@ -79,7 +77,7 @@ impl AbstractTree for For {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
-        Ok(TypeDefinition::Empty)
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::Empty)
     }
 }

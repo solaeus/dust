@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    AbstractTree, Function, List, Map, Table, TypeDefinition,
+    AbstractTree, Function, List, Map, Table, Type,
 };
 
 use serde::{
@@ -43,19 +43,19 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn r#type(&self, context: &Map) -> Result<TypeDefinition> {
+    pub fn r#type(&self, context: &Map) -> Result<Type> {
         let r#type = match self {
             Value::List(list) => {
                 let first_item_type = if let Some(first) = list.items().first() {
                     first.r#type(context)?
                 } else {
-                    TypeDefinition::Empty
+                    Type::Empty
                 };
 
-                TypeDefinition::List(Box::new(first_item_type))
+                Type::List(Box::new(first_item_type))
             }
-            Value::Map(_) => TypeDefinition::Map,
-            Value::Table(_) => TypeDefinition::Table,
+            Value::Map(_) => Type::Map,
+            Value::Table(_) => Type::Table,
             Value::Function(function) => {
                 let parameter_types = Vec::new();
 
@@ -65,16 +65,16 @@ impl Value {
 
                 let return_type = function.body().expected_type(context)?;
 
-                TypeDefinition::Function {
+                Type::Function {
                     parameter_types,
                     return_type: Box::new(return_type),
                 }
             }
-            Value::String(_) => TypeDefinition::String,
-            Value::Float(_) => TypeDefinition::Float,
-            Value::Integer(_) => TypeDefinition::Integer,
-            Value::Boolean(_) => TypeDefinition::Boolean,
-            Value::Empty => TypeDefinition::Empty,
+            Value::String(_) => Type::String,
+            Value::Float(_) => Type::Float,
+            Value::Integer(_) => Type::Integer,
+            Value::Boolean(_) => Type::Boolean,
+            Value::Empty => Type::Empty,
         };
 
         Ok(r#type)

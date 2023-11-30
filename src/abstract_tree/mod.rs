@@ -66,7 +66,7 @@ impl AbstractTree for Root {
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         self.statements.last().unwrap().expected_type(context)
     }
 }
@@ -88,5 +88,5 @@ pub trait AbstractTree: Sized {
     /// Execute dust code by traversing the tree.
     fn run(&self, source: &str, context: &Map) -> Result<Value>;
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition>;
+    fn expected_type(&self, context: &Map) -> Result<Type>;
 }

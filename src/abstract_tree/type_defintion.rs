@@ -6,129 +6,171 @@ use tree_sitter::Node;
 use crate::{AbstractTree, Error, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum TypeDefinition {
+pub struct TypeDefintion {
+    r#type: Type,
+}
+
+impl AbstractTree for TypeDefintion {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        Error::expect_syntax_node(source, "type_definition", node)?;
+
+        let type_node = node.child(1).unwrap();
+        let r#type = Type::from_syntax_node(source, type_node)?;
+
+        Ok(TypeDefintion { r#type })
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+        self.r#type.run(source, context)
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<Type> {
+        self.r#type.expected_type(context)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub enum Type {
     Any,
     Boolean,
     Empty,
     Float,
     Function {
-        parameter_types: Vec<TypeDefinition>,
-        return_type: Box<TypeDefinition>,
+        parameter_types: Vec<Type>,
+        return_type: Box<Type>,
     },
     Integer,
-    List(Box<TypeDefinition>),
+    List(Box<Type>),
     Map,
     Number,
     String,
     Table,
 }
 
-impl TypeDefinition {
-    //     pub fn check(&self, value: &Value) -> Result<()> {
-    //         match (self, value.r#type()?) {
-    //             (Type::Any, _)
-    //             | (Type::Boolean, Type::Boolean)
-    //             | (Type::Empty, Type::Empty)
-    //             | (Type::Float, Type::Float)
-    //             | (Type::Integer, Type::Integer)
-    //             | (Type::Map, Type::Map)
-    //             | (Type::Number, Type::Number)
-    //             | (Type::Number, Type::Integer)
-    //             | (Type::Number, Type::Float)
-    //             | (Type::Integer, Type::Number)
-    //             | (Type::Float, Type::Number)
-    //             | (Type::String, Type::String)
-    //             | (Type::Table, Type::Table) => Ok(()),
-    //             (Type::List(expected), Type::List(actual)) => {
-    //                 if expected != &actual {
-    //                     Err(Error::TypeCheck {
-    //                         expected: Type::List(expected.clone()),
-    //                         actual: value.clone(),
-    //                     })
-    //                 } else {
-    //                     Ok(())
-    //                 }
-    //             }
-    //             (
-    //                 Type::Function {
-    //                     parameter_types: left_parameters,
-    //                     return_type: left_return,
-    //                 },
-    //                 Type::Function {
-    //                     parameter_types: right_parameters,
-    //                     return_type: right_return,
-    //                 },
-    //             ) => {
-    //                 if left_parameters != &right_parameters || left_return != &right_return {
-    //                     Err(Error::TypeCheck {
-    //                         expected: Type::Function {
-    //                             parameter_types: left_parameters.clone(),
-    //                             return_type: left_return.clone(),
-    //                         },
-    //                         actual: value.clone(),
-    //                     })
-    //                 } else {
-    //                     Ok(())
-    //                 }
-    //             }
-    //             (Type::Boolean, _) => Err(Error::TypeCheck {
-    //                 expected: Type::Boolean,
-    //                 actual: value.clone(),
-    //             }),
-    //             (Type::Empty, _) => Err(Error::TypeCheck {
-    //                 expected: Type::Empty,
-    //                 actual: value.clone(),
-    //             }),
-    //             (Type::Float, _) => Err(Error::TypeCheck {
-    //                 expected: Type::Float,
-    //                 actual: value.clone(),
-    //             }),
-    //             (expected, _) => Err(Error::TypeCheck {
-    //                 expected: expected.clone(),
-    //                 actual: value.clone(),
-    //             }),
-    //             (Type::Integer, _) => Err(Error::TypeCheck {
-    //                 expected: Type::Integer,
-    //                 actual: value.clone(),
-    //             }),
-    //             (expected, _) => Err(Error::TypeCheck {
-    //                 expected: expected.clone(),
-    //                 actual: value.clone(),
-    //             }),
-    //             (Type::Map, _) => Err(Error::TypeCheck {
-    //                 expected: Type::Map,
-    //                 actual: value.clone(),
-    //             }),
-    //             (Type::String, _) => Err(Error::TypeCheck {
-    //                 expected: Type::String,
-    //                 actual: value.clone(),
-    //             }),
-    //             (Type::Table, _) => Err(Error::TypeCheck {
-    //                 expected: Type::Table,
-    //                 actual: value.clone(),
-    //             }),
-    //         }
-    //     }
+impl TypeDefintion {
+    pub fn check(&self, value: &Value, context: &Map) -> Result<()> {
+        match (&self.r#type, value) {
+            (Type::Any, _)
+            | (Type::Boolean, Value::Boolean(_))
+            | (Type::Empty, Value::Empty)
+            | (Type::Float, Value::Float(_))
+            | (Type::Integer, Value::Integer(_))
+            | (Type::Map, Value::Map(_))
+            | (Type::Number, Value::Integer(_))
+            | (Type::Number, Value::Float(_))
+            | (Type::String, Value::String(_))
+            | (Type::Table, Value::Table(_)) => Ok(()),
+            (Type::List(_), Value::List(list)) => {
+                if let Some(first) = list.items().first() {
+                    self.check(first, context)
+                } else {
+                    Ok(())
+                }
+            }
+            (
+                Type::Function {
+                    parameter_types,
+                    return_type,
+                },
+                Value::Function(function),
+            ) => {
+                let parameter_type_count = parameter_types.len();
+                let parameter_count = function.parameters().len();
+
+                if parameter_type_count != parameter_count
+                    || return_type.as_ref() != &function.body().expected_type(context)?
+                {
+                    return Err(Error::TypeCheck {
+                        expected: self.r#type.clone(),
+                        actual: value.clone(),
+                    });
+                }
+
+                Ok(())
+            }
+            (Type::Boolean, _) => Err(Error::TypeCheck {
+                expected: Type::Boolean,
+                actual: value.clone(),
+            }),
+            (Type::Empty, _) => Err(Error::TypeCheck {
+                expected: Type::Empty,
+                actual: value.clone(),
+            }),
+            (Type::Float, _) => Err(Error::TypeCheck {
+                expected: Type::Float,
+                actual: value.clone(),
+            }),
+            (Type::Function { .. }, _) => Err(Error::TypeCheck {
+                expected: self.r#type.clone(),
+                actual: value.clone(),
+            }),
+            (Type::Integer, _) => Err(Error::TypeCheck {
+                expected: Type::Integer,
+                actual: value.clone(),
+            }),
+            (Type::List(_), _) => Err(Error::TypeCheck {
+                expected: self.r#type.clone(),
+                actual: value.clone(),
+            }),
+            (Type::Map, _) => Err(Error::TypeCheck {
+                expected: Type::Map,
+                actual: value.clone(),
+            }),
+            (Type::Number, _) => Err(Error::TypeCheck {
+                expected: Type::Number,
+                actual: value.clone(),
+            }),
+            (Type::String, _) => Err(Error::TypeCheck {
+                expected: Type::String,
+                actual: value.clone(),
+            }),
+            (Type::Table, _) => Err(Error::TypeCheck {
+                expected: Type::Table,
+                actual: value.clone(),
+            }),
+        }
+    }
 }
 
-impl AbstractTree for TypeDefinition {
+impl AbstractTree for Type {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
-        Error::expect_syntax_node(source, "type_definition", node)?;
+        Error::expect_syntax_node(source, "type", node)?;
 
-        let type_node = node.child(1).unwrap();
-        let type_symbol = &source[type_node.byte_range()];
+        let type_node = node.child(0).unwrap();
 
-        let r#type = match type_symbol {
-            "any" => TypeDefinition::Any,
-            "bool" => TypeDefinition::Boolean,
-            "float" => TypeDefinition::Float,
+        let r#type = match type_node.kind() {
+            "any" => Type::Any,
+            "bool" => Type::Boolean,
+            "float" => Type::Float,
             "fn" => {
-                todo!()
+                let child_count = node.child_count();
+                let mut parameter_types = Vec::new();
+
+                for index in 1..child_count - 2 {
+                    let parameter_type_node = node.child(index).unwrap();
+                    let parameter_type = Type::from_syntax_node(source, parameter_type_node)?;
+
+                    parameter_types.push(parameter_type);
+                }
+
+                let return_type_node = node.child(child_count - 1).unwrap();
+                let return_type = Type::from_syntax_node(source, return_type_node)?;
+
+                Type::Function {
+                    parameter_types,
+                    return_type: Box::new(return_type),
+                }
             }
-            "int" => TypeDefinition::Integer,
-            "map" => TypeDefinition::Map,
-            "str" => TypeDefinition::String,
-            "table" => TypeDefinition::Table,
+            "int" => Type::Integer,
+            "list" => {
+                let item_type_node = node.child(1).unwrap();
+                let item_type = Type::from_syntax_node(source, item_type_node)?;
+
+                Type::List(Box::new(item_type))
+            }
+            "map" => Type::Map,
+            "str" => Type::String,
+            "table" => Type::Table,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "any, bool, float, fn, int, list, map, str or table",
@@ -146,25 +188,25 @@ impl AbstractTree for TypeDefinition {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
-        Ok(TypeDefinition::Empty)
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::Empty)
     }
 }
 
-impl Display for TypeDefinition {
+impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            TypeDefinition::Any => write!(f, "any"),
-            TypeDefinition::Boolean => write!(f, "bool"),
-            TypeDefinition::Empty => write!(f, "empty"),
-            TypeDefinition::Float => write!(f, "float"),
-            TypeDefinition::Function { .. } => write!(f, "function"),
-            TypeDefinition::Integer => write!(f, "integer"),
-            TypeDefinition::List(_) => write!(f, "list"),
-            TypeDefinition::Map => write!(f, "map"),
-            TypeDefinition::Number => write!(f, "number"),
-            TypeDefinition::String => write!(f, "string"),
-            TypeDefinition::Table => write!(f, "table"),
+            Type::Any => write!(f, "any"),
+            Type::Boolean => write!(f, "bool"),
+            Type::Empty => write!(f, "empty"),
+            Type::Float => write!(f, "float"),
+            Type::Function { .. } => write!(f, "function"),
+            Type::Integer => write!(f, "integer"),
+            Type::List(_) => write!(f, "list"),
+            Type::Map => write!(f, "map"),
+            Type::Number => write!(f, "number"),
+            Type::String => write!(f, "string"),
+            Type::Table => write!(f, "table"),
         }
     }
 }

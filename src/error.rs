@@ -5,7 +5,7 @@
 
 use tree_sitter::{Node, Point};
 
-use crate::{value::Value, Identifier, TypeDefinition};
+use crate::{value::Value, Identifier, Type};
 
 use std::{fmt, io, num::ParseFloatError, string::FromUtf8Error, sync::PoisonError, time};
 
@@ -21,7 +21,7 @@ pub enum Error {
     },
 
     TypeCheck {
-        expected: TypeDefinition,
+        expected: Type,
         actual: Value,
     },
 

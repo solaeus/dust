@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, TypeDefinition, Value, BUILT_IN_FUNCTIONS};
+use crate::{AbstractTree, Error, Map, Result, Type, Value, BUILT_IN_FUNCTIONS};
 
 use super::expression::Expression;
 
@@ -87,7 +87,7 @@ impl AbstractTree for FunctionCall {
         function.run(source, &mut function_context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         self.function.expected_type(context)
     }
 }

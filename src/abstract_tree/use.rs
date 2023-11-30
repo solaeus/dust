@@ -2,7 +2,7 @@ use std::fs::read_to_string;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{evaluate_with_context, AbstractTree, Error, Map, Result, TypeDefinition, Value};
+use crate::{evaluate_with_context, AbstractTree, Error, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Use {
@@ -30,7 +30,7 @@ impl AbstractTree for Use {
         Ok(Value::Map(file_context))
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
-        Ok(TypeDefinition::Map)
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::Map)
     }
 }
