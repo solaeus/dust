@@ -10,14 +10,14 @@ pub struct While {
 }
 
 impl AbstractTree for While {
-    fn from_syntax_node(source: &str, node: Node) -> crate::Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> crate::Result<Self> {
         debug_assert_eq!("while", node.kind());
 
         let expression_node = node.child(1).unwrap();
-        let expression = Expression::from_syntax_node(source, expression_node)?;
+        let expression = Expression::from_syntax_node(source, expression_node, context)?;
 
         let block_node = node.child(2).unwrap();
-        let block = Block::from_syntax_node(source, block_node)?;
+        let block = Block::from_syntax_node(source, block_node, context)?;
 
         Ok(While { expression, block })
     }

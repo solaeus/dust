@@ -21,19 +21,19 @@ impl FunctionCall {
 }
 
 impl AbstractTree for FunctionCall {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         debug_assert_eq!("function_call", node.kind());
 
         let expression_node = node.child(1).unwrap();
-        let function = Expression::from_syntax_node(source, expression_node)?;
+        let function = Expression::from_syntax_node(source, expression_node, context)?;
 
         let mut arguments = Vec::new();
 
         for index in 2..node.child_count() - 1 {
-            let node = node.child(index).unwrap();
+            let child = node.child(index).unwrap();
 
-            if node.is_named() {
-                let expression = Expression::from_syntax_node(source, node)?;
+            if child.is_named() {
+                let expression = Expression::from_syntax_node(source, child, context)?;
 
                 arguments.push(expression);
             }

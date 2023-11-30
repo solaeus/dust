@@ -13,7 +13,7 @@ pub struct Block {
 }
 
 impl AbstractTree for Block {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "block", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -30,7 +30,7 @@ impl AbstractTree for Block {
             let child_node = node.child(index).unwrap();
 
             if child_node.is_named() {
-                let statement = Statement::from_syntax_node(source, child_node)?;
+                let statement = Statement::from_syntax_node(source, child_node, context)?;
                 statements.push(statement);
             }
         }

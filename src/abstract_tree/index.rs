@@ -11,16 +11,20 @@ pub struct Index {
 }
 
 impl AbstractTree for Index {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         let collection_node = node.child(0).unwrap();
-        let collection = Expression::from_syntax_node(source, collection_node)?;
+        let collection = Expression::from_syntax_node(source, collection_node, context)?;
 
         let index_node = node.child(2).unwrap();
-        let index = Expression::from_syntax_node(source, index_node)?;
+        let index = Expression::from_syntax_node(source, index_node, context)?;
 
         let index_end_node = node.child(4);
         let index_end = if let Some(index_end_node) = index_end_node {
-            Some(Expression::from_syntax_node(source, index_end_node)?)
+            Some(Expression::from_syntax_node(
+                source,
+                index_end_node,
+                context,
+            )?)
         } else {
             None
         };

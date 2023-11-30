@@ -22,7 +22,7 @@ impl Function {
 }
 
 impl AbstractTree for Function {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
@@ -32,13 +32,13 @@ impl AbstractTree for Function {
             let child = node.child(index).unwrap();
 
             if child.is_named() {
-                let identifier = Identifier::from_syntax_node(source, child)?;
+                let identifier = Identifier::from_syntax_node(source, child, context)?;
                 parameters.push(identifier);
             }
         }
 
         let body_node = node.child(child_count - 1).unwrap();
-        let body = Block::from_syntax_node(source, body_node)?;
+        let body = Block::from_syntax_node(source, body_node, context)?;
 
         Ok(Function { parameters, body })
     }

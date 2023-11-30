@@ -19,15 +19,15 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for Assignment {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "assignment", node)?;
 
         let identifier_node = node.child_by_field_name("identifier").unwrap();
-        let identifier = Identifier::from_syntax_node(source, identifier_node)?;
+        let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
 
         let type_node = node.child_by_field_name("type");
         let type_definition = if let Some(type_node) = type_node {
-            Some(TypeDefintion::from_syntax_node(source, type_node)?)
+            Some(TypeDefintion::from_syntax_node(source, type_node, context)?)
         } else {
             None
         };
@@ -52,7 +52,20 @@ impl AbstractTree for Assignment {
         };
 
         let statement_node = node.child_by_field_name("statement").unwrap();
-        let statement = Statement::from_syntax_node(source, statement_node)?;
+        let statement = Statement::from_syntax_node(source, statement_node, context)?;
+
+        if let Some(type_defintion) = &type_definition {
+            let statement_type = statement.expected_type(context)?;
+
+            if type_defintion.r#type() != &statement_type {
+                return Err(Error::TypeCheck {
+                    expected: type_defintion.r#type().clone(),
+                    actual: statement_type,
+                    location: node.start_position(),
+                    source: source[node.byte_range()].to_string(),
+                });
+            }
+        }
 
         Ok(Assignment {
             identifier,

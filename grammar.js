@@ -350,6 +350,7 @@ module.exports = grammar({
         choice(
           "any",
           "bool",
+          "float",
           seq(
             "fn",
             repeat(

@@ -10,12 +10,18 @@ pub struct TypeDefintion {
     r#type: Type,
 }
 
+impl TypeDefintion {
+    pub fn r#type(&self) -> &Type {
+        &self.r#type
+    }
+}
+
 impl AbstractTree for TypeDefintion {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type_definition", node)?;
 
         let type_node = node.child(1).unwrap();
-        let r#type = Type::from_syntax_node(source, type_node)?;
+        let r#type = Type::from_syntax_node(source, type_node, context)?;
 
         Ok(TypeDefintion { r#type })
     }
@@ -52,7 +58,7 @@ impl TypeDefintion {
         if self.r#type == value.r#type(context)? {
             Ok(())
         } else {
-            Err(Error::TypeCheck {
+            Err(Error::RuntimeTypeCheck {
                 expected: self.r#type.clone(),
                 actual: value.clone(),
             })
@@ -61,7 +67,7 @@ impl TypeDefintion {
 }
 
 impl AbstractTree for Type {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
@@ -76,13 +82,14 @@ impl AbstractTree for Type {
 
                 for index in 1..child_count - 2 {
                     let parameter_type_node = node.child(index).unwrap();
-                    let parameter_type = Type::from_syntax_node(source, parameter_type_node)?;
+                    let parameter_type =
+                        Type::from_syntax_node(source, parameter_type_node, context)?;
 
                     parameter_types.push(parameter_type);
                 }
 
                 let return_type_node = node.child(child_count - 1).unwrap();
-                let return_type = Type::from_syntax_node(source, return_type_node)?;
+                let return_type = Type::from_syntax_node(source, return_type_node, context)?;
 
                 Type::Function {
                     parameter_types,
@@ -92,7 +99,7 @@ impl AbstractTree for Type {
             "int" => Type::Integer,
             "list" => {
                 let item_type_node = node.child(1).unwrap();
-                let item_type = Type::from_syntax_node(source, item_type_node)?;
+                let item_type = Type::from_syntax_node(source, item_type_node, context)?;
 
                 Type::List(Box::new(item_type))
             }
@@ -141,6 +148,9 @@ impl PartialEq for Type {
             | (Type::Float, Type::Number)
             | (Type::String, Type::String)
             | (Type::Table, Type::Table) => true,
+            (Type::List(self_item_type), Type::List(other_item_type)) => {
+                self_item_type == other_item_type
+            }
             _ => false,
         }
     }
@@ -166,7 +176,7 @@ impl Display for Type {
                 write!(f, "-> {return_type}")
             }
             Type::Integer => write!(f, "integer"),
-            Type::List(_) => write!(f, "list"),
+            Type::List(item_type) => write!(f, "list {item_type}"),
             Type::Map => write!(f, "map"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),

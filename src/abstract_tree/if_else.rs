@@ -13,12 +13,12 @@ pub struct IfElse {
 }
 
 impl AbstractTree for IfElse {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         let if_expression_node = node.child(0).unwrap().child(1).unwrap();
-        let if_expression = Expression::from_syntax_node(source, if_expression_node)?;
+        let if_expression = Expression::from_syntax_node(source, if_expression_node, context)?;
 
         let if_block_node = node.child(0).unwrap().child(2).unwrap();
-        let if_block = Block::from_syntax_node(source, if_block_node)?;
+        let if_block = Block::from_syntax_node(source, if_block_node, context)?;
 
         let child_count = node.child_count();
         let mut else_if_expressions = Vec::new();
@@ -30,19 +30,19 @@ impl AbstractTree for IfElse {
 
             if child.kind() == "else_if" {
                 let expression_node = child.child(1).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expression = Expression::from_syntax_node(source, expression_node, context)?;
 
                 else_if_expressions.push(expression);
 
                 let block_node = child.child(2).unwrap();
-                let block = Block::from_syntax_node(source, block_node)?;
+                let block = Block::from_syntax_node(source, block_node, context)?;
 
                 else_if_blocks.push(block);
             }
 
             if child.kind() == "else" {
                 let else_node = child.child(1).unwrap();
-                else_block = Some(Block::from_syntax_node(source, else_node)?);
+                else_block = Some(Block::from_syntax_node(source, else_node, context)?);
             }
         }
 

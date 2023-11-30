@@ -21,12 +21,12 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, _context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "identifier", node)?;
 
-        let identifier = &source[node.byte_range()];
+        let text = &source[node.byte_range()];
 
-        Ok(Identifier(identifier.to_string()))
+        Ok(Identifier(text.to_string()))
     }
 
     fn run(&self, _source: &str, context: &Map) -> Result<Value> {

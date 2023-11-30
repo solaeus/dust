@@ -1,6 +1,7 @@
 use std::fs::read_to_string;
 
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node;
 
 use crate::{evaluate_with_context, AbstractTree, Error, Map, Result, Type, Value};
 
@@ -10,13 +11,11 @@ pub struct Use {
 }
 
 impl AbstractTree for Use {
-    fn from_syntax_node(source: &str, node: tree_sitter::Node) -> crate::Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, _context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "use", node)?;
 
         let string_node = node.child(1).unwrap();
         let path = source[string_node.start_byte() + 1..string_node.end_byte() - 1].to_string();
-
-        println!("{path}");
 
         Ok(Use { path })
     }

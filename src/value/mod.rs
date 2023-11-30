@@ -49,7 +49,7 @@ impl Value {
                 let first_item_type = if let Some(first) = list.items().first() {
                     first.r#type(context)?
                 } else {
-                    Type::Empty
+                    Type::Any
                 };
 
                 Type::List(Box::new(first_item_type))

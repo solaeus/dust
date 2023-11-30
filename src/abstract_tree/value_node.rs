@@ -25,7 +25,7 @@ pub enum ValueNode {
 }
 
 impl AbstractTree for ValueNode {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         debug_assert_eq!("value", node.kind());
 
         let child = node.child(0).unwrap();
@@ -45,7 +45,8 @@ impl AbstractTree for ValueNode {
                     let current_node = child.child(index).unwrap();
 
                     if current_node.is_named() {
-                        let expression = Expression::from_syntax_node(source, current_node)?;
+                        let expression =
+                            Expression::from_syntax_node(source, current_node, context)?;
                         expressions.push(expression);
                     }
                 }
@@ -61,14 +62,15 @@ impl AbstractTree for ValueNode {
                     let identifier_node = identifier_list_node.child(index).unwrap();
 
                     if identifier_node.is_named() {
-                        let identifier = Identifier::from_syntax_node(source, identifier_node)?;
+                        let identifier =
+                            Identifier::from_syntax_node(source, identifier_node, context)?;
 
                         column_names.push(identifier)
                     }
                 }
 
                 let expression_node = child.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node)?;
+                let expression = Expression::from_syntax_node(source, expression_node, context)?;
 
                 ValueNode::Table {
                     column_names,
@@ -84,12 +86,14 @@ impl AbstractTree for ValueNode {
 
                     if child_syntax_node.kind() == "identifier" {
                         current_key =
-                            Identifier::from_syntax_node(source, child_syntax_node)?.take_inner();
+                            Identifier::from_syntax_node(source, child_syntax_node, context)?
+                                .take_inner();
                     }
 
                     if child_syntax_node.kind() == "statement" {
                         let key = current_key.clone();
-                        let statement = Statement::from_syntax_node(source, child_syntax_node)?;
+                        let statement =
+                            Statement::from_syntax_node(source, child_syntax_node, context)?;
 
                         child_nodes.insert(key, statement);
                     }
@@ -97,7 +101,7 @@ impl AbstractTree for ValueNode {
 
                 ValueNode::Map(child_nodes)
             }
-            "function" => ValueNode::Function(Function::from_syntax_node(source, child)?),
+            "function" => ValueNode::Function(Function::from_syntax_node(source, child, context)?),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected:
@@ -187,7 +191,7 @@ impl AbstractTree for ValueNode {
                 let first_expression_type = if let Some(first) = expressions.first() {
                     first.expected_type(context)?
                 } else {
-                    Type::Empty
+                    Type::Any
                 };
 
                 Type::List(Box::new(first_expression_type))

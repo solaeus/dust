@@ -12,7 +12,7 @@ use crate::{AbstractTree, Map, Result, Type, Value};
 pub struct Match {}
 
 impl AbstractTree for Match {
-    fn from_syntax_node(_source: &str, _node: Node) -> Result<Self> {
+    fn from_syntax_node(_source: &str, _node: Node, _context: &Map) -> Result<Self> {
         todo!()
     }
 

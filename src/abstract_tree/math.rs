@@ -11,9 +11,9 @@ pub struct Math {
 }
 
 impl AbstractTree for Math {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         let left_node = node.child(0).unwrap();
-        let left = Expression::from_syntax_node(source, left_node)?;
+        let left = Expression::from_syntax_node(source, left_node, context)?;
 
         let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
@@ -33,7 +33,7 @@ impl AbstractTree for Math {
         };
 
         let right_node = node.child(2).unwrap();
-        let right = Expression::from_syntax_node(source, right_node)?;
+        let right = Expression::from_syntax_node(source, right_node, context)?;
 
         Ok(Math {
             left,

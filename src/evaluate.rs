@@ -65,7 +65,7 @@ pub struct Interpreter<'c, 's> {
 impl<'c, 's> Interpreter<'c, 's> {
     pub fn parse(mut parser: Parser, context: &'c mut Map, source: &'s str) -> Result<Self> {
         let syntax_tree = parser.parse(source, None).unwrap();
-        let abstract_tree = Root::from_syntax_node(source, syntax_tree.root_node())?;
+        let abstract_tree = Root::from_syntax_node(source, syntax_tree.root_node(), context)?;
 
         Ok(Interpreter {
             _parser: parser,

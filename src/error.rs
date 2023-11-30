@@ -22,6 +22,13 @@ pub enum Error {
 
     TypeCheck {
         expected: Type,
+        actual: Type,
+        location: Point,
+        source: String,
+    },
+
+    RuntimeTypeCheck {
+        expected: Type,
         actual: Value,
     },
 
@@ -356,9 +363,18 @@ impl fmt::Display for Error {
             Syntax { source, location } => {
                 write!(f, "Syntax error at {location}, this is not valid: {source}")
             }
-            TypeCheck { expected, actual } => write!(
+            TypeCheck {
+                expected,
+                actual,
+                location,
+                source,
+            } => write!(
                 f,
-                "Type check error. Expected a {expected} but got {actual}."
+                "Type check error at {location}. Expected type {expected} but got type {actual}: {source}."
+            ),
+            RuntimeTypeCheck { expected, actual } => write!(
+                f,
+                "Type check error. Expected type {expected} but got value {actual}."
             ),
         }
     }

@@ -18,11 +18,11 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for IndexAssignment {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "index_assignment", node)?;
 
         let index_node = node.child(0).unwrap();
-        let index = Index::from_syntax_node(source, index_node)?;
+        let index = Index::from_syntax_node(source, index_node, context)?;
 
         let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
@@ -40,7 +40,7 @@ impl AbstractTree for IndexAssignment {
         };
 
         let statement_node = node.child(2).unwrap();
-        let statement = Statement::from_syntax_node(source, statement_node)?;
+        let statement = Statement::from_syntax_node(source, statement_node, context)?;
 
         Ok(IndexAssignment {
             index,

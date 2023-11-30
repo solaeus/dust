@@ -22,41 +22,41 @@ pub enum Statement {
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "statement", node)?;
 
         let child = node.child(0).unwrap();
 
         match child.kind() {
             "assignment" => Ok(Statement::Assignment(Box::new(
-                Assignment::from_syntax_node(source, child)?,
+                Assignment::from_syntax_node(source, child, context)?,
             ))),
             "return" => {
                 let expression_node = child.child(1).unwrap();
 
-                Ok(Statement::Return(Expression::from_syntax_node(source, expression_node)?))
+                Ok(Statement::Return(Expression::from_syntax_node(source, expression_node, context)?))
             },
             "expression" => Ok(Self::Expression(Expression::from_syntax_node(
-                source, child,
+                source, child, context
             )?)),
             "if_else" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
-                source, child,
+                source, child, context
             )?))),
             "tool" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
-                source, child,
+                source, child, context
             )?))),
             "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
-                source, child,
+                source, child, context
             )?))),
             "block" => Ok(Statement::Block(Box::new(Block::from_syntax_node(
-                source, child,
+                source, child, context
             )?))),
             "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
-                source, child,
+                source, child, context
             )?))),
-            "use" => Ok(Statement::Use(Use::from_syntax_node(source, child)?)),
+            "use" => Ok(Statement::Use(Use::from_syntax_node(source, child, context)?)),
             "index_assignment" => Ok(Statement::IndexAssignment(Box::new(IndexAssignment::from_syntax_node(
-                source, child,
+                source, child, context
             )?))),
             _ => Err(Error::UnexpectedSyntaxNode {
                 expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select, insert, index_assignment or yield",
