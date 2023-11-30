@@ -13,8 +13,7 @@ Simple Yield
         (expression
           (value
             (integer)))
-        (expression
-          (identifier))))))
+        (identifier)))))
 
 ================================================================================
 Yield Chain
@@ -34,9 +33,6 @@ x -> (foo) -> (bar) -> (abc)
               (yield
                 (expression
                   (identifier))
-                (expression
-                  (identifier))))
-            (expression
-              (identifier))))
-        (expression
-          (identifier))))))
+                (identifier)))
+            (identifier)))
+        (identifier)))))

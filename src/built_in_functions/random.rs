@@ -32,3 +32,31 @@ impl BuiltInFunction for RandomInteger {
         Ok(Value::Integer(random()))
     }
 }
+
+pub struct RandomFloat;
+
+impl BuiltInFunction for RandomFloat {
+    fn name(&self) -> &'static str {
+        "random_float"
+    }
+
+    fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
+        Error::expect_argument_amount(self, 0, arguments.len())?;
+
+        Ok(Value::Float(random()))
+    }
+}
+
+pub struct RandomBoolean;
+
+impl BuiltInFunction for RandomBoolean {
+    fn name(&self) -> &'static str {
+        "random_boolean"
+    }
+
+    fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
+        Error::expect_argument_amount(self, 0, arguments.len())?;
+
+        Ok(Value::Boolean(random()))
+    }
+}
