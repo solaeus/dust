@@ -5,7 +5,7 @@
 
 use tree_sitter::{Node, Point};
 
-use crate::{value::Value, Identifier, TypeDefinition};
+use crate::{value::Value, BuiltInFunction, Identifier, TypeDefinition};
 
 use std::{fmt, io, num::ParseFloatError, string::FromUtf8Error, sync::PoisonError, time};
 
@@ -166,8 +166,8 @@ impl Error {
         }
     }
 
-    pub fn expect_function_argument_amount(
-        tool_name: &'static str,
+    pub fn expect_built_in_function_argument_amount<F: BuiltInFunction>(
+        function: &F,
         expected: usize,
         actual: usize,
     ) -> Result<()> {
@@ -175,7 +175,7 @@ impl Error {
             Ok(())
         } else {
             Err(Error::ExpectedToolArgumentAmount {
-                tool_name,
+                tool_name: function.name(),
                 expected,
                 actual,
             })

@@ -1,10 +1,13 @@
 use crate::{Map, Result, Value};
 
+mod assert;
 mod fs;
 mod output;
 mod r#type;
 
-pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 5] = [
+pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 7] = [
+    &assert::Assert,
+    &assert::AssertEqual,
     &fs::Read,
     &fs::Write,
     &fs::Append,

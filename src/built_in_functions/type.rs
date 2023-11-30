@@ -8,7 +8,7 @@ impl BuiltInFunction for Type {
     }
 
     fn run(&self, arguments: &[Value], context: &Map) -> Result<Value> {
-        Error::expect_function_argument_amount("type", 1, arguments.len())?;
+        Error::expect_built_in_function_argument_amount(self, 1, arguments.len())?;
 
         if arguments.len() == 1 {
             let type_definition = arguments.first().unwrap().r#type(context)?;
