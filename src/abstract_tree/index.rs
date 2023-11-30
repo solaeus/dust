@@ -89,22 +89,29 @@ mod tests {
     use crate::evaluate;
 
     #[test]
-    fn evaluate_list_index() {
+    fn list_index() {
         let test = evaluate("x = [1 [2] 3] x:1:0").unwrap();
 
         assert_eq!(Value::Integer(2), test);
     }
 
     #[test]
-    fn evaluate_map_index() {
+    fn map_index() {
         let test = evaluate("x = {y = {z = 2}} x:y:z").unwrap();
 
         assert_eq!(Value::Integer(2), test);
     }
 
     #[test]
-    fn evaluate_complex_index() {
-        let test = evaluate("x = [1 2 3]; y = || { 0 } x:((y))").unwrap();
+    fn complex_index() {
+        let test = evaluate(
+            "
+            x = [1 2 3]
+            y <fn -> int> || { 0 }
+            x:((y))
+            ",
+        )
+        .unwrap();
 
         assert_eq!(Value::Integer(1), test);
     }

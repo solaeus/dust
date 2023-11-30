@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Function, Identifier, List, Map, Result, Statement, Table,
-    Type, TypeDefinition, Value,
+    AbstractTree, Error, Expression, Identifier, List, Map, Result, Statement, Table, Type,
+    TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -21,12 +21,11 @@ pub enum ValueNode {
         column_names: Vec<Identifier>,
         rows: Box<Expression>,
     },
-    Function(Function),
 }
 
 impl AbstractTree for ValueNode {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
-        debug_assert_eq!("value", node.kind());
+        Error::expect_syntax_node(source, "value", node)?;
 
         let child = node.child(0).unwrap();
         let value_node = match child.kind() {
@@ -101,11 +100,9 @@ impl AbstractTree for ValueNode {
 
                 ValueNode::Map(child_nodes)
             }
-            "function" => ValueNode::Function(Function::from_syntax_node(source, child, context)?),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected:
-                        "string, integer, float, boolean, list, table, map, function or empty",
+                    expected: "string, integer, float, boolean, list, table, map, or empty",
                     actual: child.kind(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
@@ -175,7 +172,6 @@ impl AbstractTree for ValueNode {
 
                 Value::Table(table)
             }
-            ValueNode::Function(function) => Value::Function(function.clone()),
         };
 
         Ok(value)
@@ -214,7 +210,6 @@ impl AbstractTree for ValueNode {
                 column_names: _,
                 rows: _,
             } => TypeDefinition::new(Type::Table),
-            ValueNode::Function(function) => return function.expected_type(context),
         };
 
         Ok(type_definition)

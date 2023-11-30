@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{
-    AbstractTree, Error, Function, Identifier, Map, Result, Statement, Type, TypeDefinition, Value,
-};
+use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
@@ -24,23 +22,25 @@ impl AbstractTree for Assignment {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "assignment", node)?;
 
-        let identifier_node = node.child_by_field_name("identifier").unwrap();
+        let child_count = node.child_count();
+
+        let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
 
-        let type_node = node.child_by_field_name("type");
+        let type_node = node.child(1);
         let type_definition = if let Some(type_node) = type_node {
-            Some(TypeDefinition::from_syntax_node(
-                source, type_node, context,
-            )?)
+            if type_node.kind() == "type_defintion" {
+                Some(TypeDefinition::from_syntax_node(
+                    source, type_node, context,
+                )?)
+            } else {
+                None
+            }
         } else {
             None
         };
 
-        let operator_node = node
-            .child_by_field_name("assignment_operator")
-            .unwrap()
-            .child(0)
-            .unwrap();
+        let operator_node = node.child(child_count - 2).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
             "=" => AssignmentOperator::Equal,
             "+=" => AssignmentOperator::PlusEqual,
@@ -55,7 +55,7 @@ impl AbstractTree for Assignment {
             }
         };
 
-        let statement_node = node.child_by_field_name("statement").unwrap();
+        let statement_node = node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
 
         if let Some(type_definition) = &type_definition {
@@ -145,22 +145,11 @@ impl AbstractTree for Assignment {
             AssignmentOperator::Equal => value,
         };
 
-        let new_value = if let Some(type_definition) = &self.type_definition {
+        if let Some(type_definition) = &self.type_definition {
             let new_value_type = new_value.r#type(context)?;
 
             type_definition.runtime_check(&new_value_type, context)?;
-
-            if let Value::Function(function) = new_value {
-                Value::Function(Function::new(
-                    function.parameters().clone(),
-                    function.body().clone(),
-                ))
-            } else {
-                new_value
-            }
-        } else {
-            new_value
-        };
+        }
 
         context.variables_mut()?.insert(key.clone(), new_value);
 

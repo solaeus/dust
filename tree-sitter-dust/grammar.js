@@ -27,6 +27,7 @@ module.exports = grammar({
             $.block,
             $.expression,
             $.for,
+            $.function_declaration,
             $.if_else,
             $.index_assignment,
             $.match,
@@ -83,8 +84,6 @@ module.exports = grammar({
         $.string,
         $.boolean,
         $.list,
-        $.function,
-        $.table,
         $.map,
       ),
 
@@ -231,21 +230,10 @@ module.exports = grammar({
 
     assignment: $ =>
       seq(
-        field(
-          'identifier',
-          $.identifier,
-        ),
-        optional(
-          field(
-            'type',
-            $.type_definition,
-          ),
-        ),
-        field(
-          'assignment_operator',
-          $.assignment_operator,
-        ),
-        field('statement', $.statement),
+        $.identifier,
+        optional($.type_definition),
+        $.assignment_operator,
+        $.statement,
       ),
 
     index_assignment: $ =>
@@ -328,15 +316,6 @@ module.exports = grammar({
         ),
       ),
 
-    table: $ =>
-      prec.right(
-        seq(
-          'table',
-          $.identifier_list,
-          $.expression,
-        ),
-      ),
-
     return: $ =>
       seq('return', $.expression),
 
@@ -350,6 +329,7 @@ module.exports = grammar({
         choice(
           'any',
           'bool',
+          'float',
           seq(
             'fn',
             repeat(
@@ -366,6 +346,13 @@ module.exports = grammar({
           'num',
           'str',
         ),
+      ),
+
+    function_declaration: $ =>
+      seq(
+        $.identifier,
+        $.type_definition,
+        $.function,
       ),
 
     function: $ =>

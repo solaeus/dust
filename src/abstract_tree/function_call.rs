@@ -77,14 +77,14 @@ impl AbstractTree for FunctionCall {
         let mut function_context = Map::clone_from(context)?;
         let parameter_expression_pairs = function.parameters().iter().zip(self.arguments.iter());
 
-        for (identifier, expression) in parameter_expression_pairs {
+        for ((identifier, _type), expression) in parameter_expression_pairs {
             let key = identifier.clone().take_inner();
             let value = expression.run(source, context)?;
 
             function_context.variables_mut()?.insert(key, value);
         }
 
-        function.run(source, &mut function_context)
+        function.body().run(source, &mut function_context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {

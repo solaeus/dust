@@ -2,47 +2,28 @@
   {
     "type": "assignment",
     "named": true,
-    "fields": {
-      "assignment_operator": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "assignment_operator",
-            "named": true
-          }
-        ]
-      },
-      "identifier": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "identifier",
-            "named": true
-          }
-        ]
-      },
-      "statement": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "statement",
-            "named": true
-          }
-        ]
-      },
-      "type": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "type_definition",
-            "named": true
-          }
-        ]
-      }
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "assignment_operator",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "statement",
+          "named": true
+        },
+        {
+          "type": "type_definition",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -201,15 +182,23 @@
     }
   },
   {
-    "type": "identifier_list",
+    "type": "function_declaration",
     "named": true,
     "fields": {},
     "children": {
       "multiple": true,
-      "required": false,
+      "required": true,
       "types": [
         {
+          "type": "function",
+          "named": true
+        },
+        {
           "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type_definition",
           "named": true
         }
       ]
@@ -451,6 +440,10 @@
           "named": true
         },
         {
+          "type": "function_declaration",
+          "named": true
+        },
+        {
           "type": "if_else",
           "named": true
         },
@@ -472,25 +465,6 @@
         },
         {
           "type": "while",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "table",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier_list",
           "named": true
         }
       ]
@@ -558,10 +532,6 @@
           "named": true
         },
         {
-          "type": "function",
-          "named": true
-        },
-        {
           "type": "integer",
           "named": true
         },
@@ -575,10 +545,6 @@
         },
         {
           "type": "string",
-          "named": true
-        },
-        {
-          "type": "table",
           "named": true
         }
       ]
@@ -751,6 +717,10 @@
     "named": true
   },
   {
+    "type": "float",
+    "named": false
+  },
+  {
     "type": "fn",
     "named": false
   },
@@ -805,10 +775,6 @@
   {
     "type": "string",
     "named": true
-  },
-  {
-    "type": "table",
-    "named": false
   },
   {
     "type": "true",

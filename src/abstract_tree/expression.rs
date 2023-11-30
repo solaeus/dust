@@ -49,7 +49,7 @@ impl AbstractTree for Expression {
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "value, identifier, index, math, logic, function_call or yield",
+                    expected: "value_node, identifier, index, math, logic, function_call or yield",
                     actual: child.kind(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),

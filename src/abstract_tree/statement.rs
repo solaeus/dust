@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Block, Error, Expression, For, IfElse, IndexAssignment, Map, Match,
-    Result, TypeDefinition, Use, Value, While,
+    AbstractTree, Assignment, Block, Error, Expression, For, FunctionDeclaration, IfElse,
+    IndexAssignment, Map, Match, Result, TypeDefinition, Use, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -12,6 +12,7 @@ pub enum Statement {
     Assignment(Box<Assignment>),
     Return(Expression),
     Expression(Expression),
+    FunctionDeclaration(FunctionDeclaration),
     IfElse(Box<IfElse>),
     Match(Match),
     While(Box<While>),
@@ -36,7 +37,10 @@ impl AbstractTree for Statement {
 
                 Ok(Statement::Return(Expression::from_syntax_node(source, expression_node, context)?))
             },
-            "expression" => Ok(Self::Expression(Expression::from_syntax_node(
+            "expression" => Ok(Statement::Expression(Expression::from_syntax_node(
+                source, child, context
+            )?)),
+            "function_declaration" => Ok(Statement::FunctionDeclaration(FunctionDeclaration::from_syntax_node(
                 source, child, context
             )?)),
             "if_else" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
@@ -72,6 +76,9 @@ impl AbstractTree for Statement {
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Return(expression) => expression.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),
+            Statement::FunctionDeclaration(function_declaration) => {
+                function_declaration.run(source, context)
+            }
             Statement::IfElse(if_else) => if_else.run(source, context),
             Statement::Match(r#match) => r#match.run(source, context),
             Statement::While(r#while) => r#while.run(source, context),
@@ -87,6 +94,9 @@ impl AbstractTree for Statement {
             Statement::Assignment(assignment) => assignment.expected_type(context),
             Statement::Return(expression) => expression.expected_type(context),
             Statement::Expression(expression) => expression.expected_type(context),
+            Statement::FunctionDeclaration(function_declaration) => {
+                function_declaration.expected_type(context)
+            }
             Statement::IfElse(if_else) => if_else.expected_type(context),
             Statement::Match(r#match) => r#match.expected_type(context),
             Statement::While(r#while) => r#while.expected_type(context),

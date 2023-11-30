@@ -2,48 +2,23 @@
 Simple Function
 ================================================================================
 
-|| { "Hiya" }
+foo <fn -> str> || { "Hiya" }
 
 --------------------------------------------------------------------------------
 
 (root
   (statement
-    (expression
-      (value
-        (function
-          (block
-            (statement
-              (expression
-                (value
-                  (string))))))))))
-
-================================================================================
-Function Assignment
-================================================================================
-
-x <fn num -> str> = |number| { "Hiya" }
-
---------------------------------------------------------------------------------
-
-(root
-  (statement
-    (assignment
+    (function_declaration
       (identifier)
       (type_definition
         (type
-          (type)
           (type)))
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (function
-              (identifier)
-              (block
-                (statement
-                  (expression
-                    (value
-                      (string))))))))))))
+      (function
+        (block
+          (statement
+            (expression
+              (value
+                (string)))))))))
 
 ================================================================================
 Function Call
@@ -67,7 +42,7 @@ Function Call
 Complex Function
 ================================================================================
 
-|message number| {
+foobar <fn str num> |message number| {
   (output message)
   (output number)
 }
@@ -76,26 +51,30 @@ Complex Function
 
 (root
   (statement
-    (expression
-      (value
-        (function
-          (identifier)
-          (identifier)
-          (block
-            (statement
-              (expression
-                (function_call
-                  (expression
-                    (identifier))
-                  (expression
-                    (identifier)))))
-            (statement
-              (expression
-                (function_call
-                  (expression
-                    (identifier))
-                  (expression
-                    (identifier)))))))))))
+    (function_declaration
+      (identifier)
+      (type_definition
+        (type
+          (type)
+          (type)))
+      (function
+        (identifier)
+        (identifier)
+        (block
+          (statement
+            (expression
+              (function_call
+                (expression
+                  (identifier))
+                (expression
+                  (identifier)))))
+          (statement
+            (expression
+              (function_call
+                (expression
+                  (identifier))
+                (expression
+                  (identifier))))))))))
 
 ================================================================================
 Complex Function Call

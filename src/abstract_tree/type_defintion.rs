@@ -61,6 +61,34 @@ impl TypeDefinition {
 
                 self_defintion.runtime_check(other_definition, context)
             }
+            (
+                Type::Function {
+                    parameter_types: self_parameter_types,
+                    return_type: self_return_type,
+                },
+                Type::Function {
+                    parameter_types: other_parameter_types,
+                    return_type: other_return_type,
+                },
+            ) => {
+                let parameter_type_pairs = self_parameter_types
+                    .iter()
+                    .zip(other_parameter_types.iter());
+
+                for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
+                    TypeDefinition::new(self_parameter_type.clone()).runtime_check(
+                        &TypeDefinition::new(other_parameter_type.clone()),
+                        context,
+                    )?;
+                }
+
+                TypeDefinition::new(self_return_type.as_ref().clone()).runtime_check(
+                    &TypeDefinition::new(other_return_type.as_ref().clone()),
+                    context,
+                )?;
+
+                Ok(())
+            }
             _ => Err(Error::RuntimeTypeCheck {
                 expected: self.clone(),
                 actual: other.clone(),

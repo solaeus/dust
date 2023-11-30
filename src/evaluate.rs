@@ -151,34 +151,6 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_table() {
-        let mut table = Table::new(vec!["messages".to_string(), "numbers".to_string()]);
-
-        table
-            .insert(vec![Value::String("hiya".to_string()), Value::Integer(42)])
-            .unwrap();
-        table
-            .insert(vec![Value::String("foo".to_string()), Value::Integer(57)])
-            .unwrap();
-        table
-            .insert(vec![Value::String("bar".to_string()), Value::Float(99.99)])
-            .unwrap();
-
-        assert_eq!(
-            evaluate(
-                "
-                table |messages numbers| [
-                    ['hiya', 42]
-                    ['foo', 57]
-                    ['bar', 99.99]
-                ]
-                "
-            ),
-            Ok(Value::Table(table))
-        );
-    }
-
-    #[test]
     fn evaluate_if() {
         assert_eq!(
             evaluate("if true { 'true' }"),
