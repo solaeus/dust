@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, Identifier, Index, Map, Result, Type, Value, Yield,
+    value_node::ValueNode, AbstractTree, Error, Identifier, Index, Map, Result, TypeDefinition,
+    Value, Yield,
 };
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
@@ -71,7 +72,7 @@ impl AbstractTree for Expression {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
         match self {
             Expression::Value(value_node) => value_node.expected_type(context),
             Expression::Identifier(identifier) => identifier.expected_type(context),

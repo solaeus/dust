@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Expression, Map, Result, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Math {
@@ -56,7 +56,7 @@ impl AbstractTree for Math {
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
         self.left.expected_type(context)
     }
 }

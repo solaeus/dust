@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Index, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Index, Map, Result, Statement, Type, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IndexAssignment {
@@ -91,7 +91,7 @@ impl AbstractTree for IndexAssignment {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::Empty)
+    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
+        Ok(TypeDefinition::new(Type::Empty))
     }
 }

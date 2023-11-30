@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Error, Expression, Function, Identifier, List, Map, Result, Statement, Table,
-    Type, Value,
+    Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -181,30 +181,42 @@ impl AbstractTree for ValueNode {
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        let r#type = match self {
-            ValueNode::Boolean(_) => Type::Boolean,
-            ValueNode::Float(_) => Type::Float,
-            ValueNode::Integer(_) => Type::Integer,
-            ValueNode::String(_) => Type::String,
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        let type_definition = match self {
+            ValueNode::Boolean(_) => TypeDefinition::new(Type::Boolean),
+            ValueNode::Float(_) => TypeDefinition::new(Type::Float),
+            ValueNode::Integer(_) => TypeDefinition::new(Type::Integer),
+            ValueNode::String(_) => TypeDefinition::new(Type::String),
             ValueNode::List(expressions) => {
-                let first_expression_type = if let Some(first) = expressions.first() {
-                    first.expected_type(context)?
-                } else {
-                    Type::Any
-                };
+                let mut previous_type = None;
 
-                Type::List(Box::new(first_expression_type))
+                for expression in expressions {
+                    let expression_type = expression.expected_type(context)?;
+
+                    if let Some(previous) = previous_type {
+                        if expression_type != previous {
+                            return Ok(TypeDefinition::new(Type::Any));
+                        }
+                    }
+
+                    previous_type = Some(expression_type);
+                }
+
+                if let Some(previous) = previous_type {
+                    previous
+                } else {
+                    TypeDefinition::new(Type::Any)
+                }
             }
-            ValueNode::Empty => Type::Any,
-            ValueNode::Map(_) => Type::Map,
+            ValueNode::Empty => TypeDefinition::new(Type::Any),
+            ValueNode::Map(_) => TypeDefinition::new(Type::Map),
             ValueNode::Table {
                 column_names: _,
                 rows: _,
-            } => Type::Table,
-            ValueNode::Function(function) => function.expected_type(context)?,
+            } => TypeDefinition::new(Type::Table),
+            ValueNode::Function(function) => return function.expected_type(context),
         };
 
-        Ok(r#type)
+        Ok(type_definition)
     }
 }

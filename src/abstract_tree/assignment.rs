@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, TypeDefintion, Value};
+use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    type_definition: Option<TypeDefintion>,
+    type_definition: Option<TypeDefinition>,
     operator: AssignmentOperator,
     statement: Statement,
 }
@@ -27,7 +27,9 @@ impl AbstractTree for Assignment {
 
         let type_node = node.child_by_field_name("type");
         let type_definition = if let Some(type_node) = type_node {
-            Some(TypeDefintion::from_syntax_node(source, type_node, context)?)
+            Some(TypeDefinition::from_syntax_node(
+                source, type_node, context,
+            )?)
         } else {
             None
         };
@@ -57,14 +59,7 @@ impl AbstractTree for Assignment {
         if let Some(type_defintion) = &type_definition {
             let statement_type = statement.expected_type(context)?;
 
-            if type_defintion.r#type() != &statement_type {
-                return Err(Error::TypeCheck {
-                    expected: type_defintion.r#type().clone(),
-                    actual: statement_type,
-                    location: node.start_position(),
-                    source: source[node.byte_range()].to_string(),
-                });
-            }
+            type_defintion.check(&statement_type, context)?;
         }
 
         Ok(Assignment {
@@ -100,7 +95,9 @@ impl AbstractTree for Assignment {
         };
 
         if let Some(type_definition) = &self.type_definition {
-            type_definition.check(&new_value, context)?;
+            let new_value_type = new_value.r#type(context)?;
+
+            type_definition.check(&new_value_type, context)?;
         }
 
         context.variables_mut()?.insert(key.clone(), new_value);
@@ -108,7 +105,7 @@ impl AbstractTree for Assignment {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::Empty)
+    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
+        Ok(TypeDefinition::new(Type::Empty))
     }
 }

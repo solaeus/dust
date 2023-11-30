@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Map, Result, Type, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(String);
@@ -37,11 +37,11 @@ impl AbstractTree for Identifier {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
         if let Some(value) = context.variables()?.get(&self.0) {
-            Ok(value.r#type(context)?)
+            value.r#type(context)
         } else {
-            Ok(Type::Empty)
+            Ok(TypeDefinition::new(Type::Empty))
         }
     }
 }

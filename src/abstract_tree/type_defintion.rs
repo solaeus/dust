@@ -6,44 +6,83 @@ use tree_sitter::Node;
 use crate::{AbstractTree, Error, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct TypeDefintion {
+pub struct TypeDefinition {
     r#type: Type,
 }
 
-impl TypeDefintion {
+impl TypeDefinition {
+    pub fn new(r#type: Type) -> Self {
+        Self { r#type }
+    }
+
     pub fn r#type(&self) -> &Type {
         &self.r#type
     }
+
+    pub fn check(&self, other: &TypeDefinition, context: &Map) -> Result<()> {
+        match (&self.r#type, &other.r#type) {
+            (Type::Any, _)
+            | (_, Type::Any)
+            | (Type::Boolean, Type::Boolean)
+            | (Type::Empty, Type::Empty)
+            | (Type::Float, Type::Float)
+            | (Type::Integer, Type::Integer)
+            | (Type::Map, Type::Map)
+            | (Type::Number, Type::Number)
+            | (Type::Number, Type::Integer)
+            | (Type::Number, Type::Float)
+            | (Type::Integer, Type::Number)
+            | (Type::Float, Type::Number)
+            | (Type::String, Type::String)
+            | (Type::Table, Type::Table) => Ok(()),
+            (Type::List(self_item_type), Type::List(other_item_type)) => {
+                let self_defintion = TypeDefinition::new(self_item_type.as_ref().clone());
+                let other_definition = &TypeDefinition::new(other_item_type.as_ref().clone());
+
+                self_defintion.check(other_definition, context)
+            }
+            _ => Err(Error::RuntimeTypeCheck {
+                expected: self.clone(),
+                actual: other.clone(),
+            }),
+        }
+    }
 }
 
-impl AbstractTree for TypeDefintion {
+impl AbstractTree for TypeDefinition {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type_definition", node)?;
 
         let type_node = node.child(1).unwrap();
         let r#type = Type::from_syntax_node(source, type_node, context)?;
 
-        Ok(TypeDefintion { r#type })
+        Ok(TypeDefinition { r#type })
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         self.r#type.run(source, context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
         self.r#type.expected_type(context)
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialOrd, Ord)]
+impl Display for TypeDefinition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "<{}>", self.r#type)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
     Any,
     Boolean,
     Empty,
     Float,
     Function {
-        parameter_types: Vec<Type>,
-        return_type: Box<Type>,
+        parameter_types: Vec<TypeDefinition>,
+        return_type: Box<TypeDefinition>,
     },
     Integer,
     List(Box<Type>),
@@ -51,19 +90,6 @@ pub enum Type {
     Number,
     String,
     Table,
-}
-
-impl TypeDefintion {
-    pub fn check(&self, value: &Value, context: &Map) -> Result<()> {
-        if self.r#type == value.r#type(context)? {
-            Ok(())
-        } else {
-            Err(Error::RuntimeTypeCheck {
-                expected: self.r#type.clone(),
-                actual: value.clone(),
-            })
-        }
-    }
 }
 
 impl AbstractTree for Type {
@@ -85,7 +111,7 @@ impl AbstractTree for Type {
                     let parameter_type =
                         Type::from_syntax_node(source, parameter_type_node, context)?;
 
-                    parameter_types.push(parameter_type);
+                    parameter_types.push(TypeDefinition::new(parameter_type));
                 }
 
                 let return_type_node = node.child(child_count - 1).unwrap();
@@ -93,7 +119,7 @@ impl AbstractTree for Type {
 
                 Type::Function {
                     parameter_types,
-                    return_type: Box::new(return_type),
+                    return_type: Box::new(TypeDefinition::new(return_type)),
                 }
             }
             "int" => Type::Integer,
@@ -124,35 +150,8 @@ impl AbstractTree for Type {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::Empty)
-    }
-}
-
-impl Eq for Type {}
-
-impl PartialEq for Type {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Type::Any, _)
-            | (_, Type::Any)
-            | (Type::Boolean, Type::Boolean)
-            | (Type::Empty, Type::Empty)
-            | (Type::Float, Type::Float)
-            | (Type::Integer, Type::Integer)
-            | (Type::Map, Type::Map)
-            | (Type::Number, Type::Number)
-            | (Type::Number, Type::Integer)
-            | (Type::Number, Type::Float)
-            | (Type::Integer, Type::Number)
-            | (Type::Float, Type::Number)
-            | (Type::String, Type::String)
-            | (Type::Table, Type::Table) => true,
-            (Type::List(self_item_type), Type::List(other_item_type)) => {
-                self_item_type == other_item_type
-            }
-            _ => false,
-        }
+    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
+        Ok(TypeDefinition::new(Type::Empty))
     }
 }
 
@@ -175,11 +174,11 @@ impl Display for Type {
 
                 write!(f, "-> {return_type}")
             }
-            Type::Integer => write!(f, "integer"),
+            Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "list {item_type}"),
             Type::Map => write!(f, "map"),
-            Type::Number => write!(f, "number"),
-            Type::String => write!(f, "string"),
+            Type::Number => write!(f, "num"),
+            Type::String => write!(f, "str"),
             Type::Table => write!(f, "table"),
         }
     }

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, FunctionCall, Map, Result, Type, Value};
+use crate::{AbstractTree, Expression, FunctionCall, Map, Result, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Yield {
@@ -39,7 +39,7 @@ impl AbstractTree for Yield {
         self.call.run(source, context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
         self.call.expected_type(context)
     }
 }

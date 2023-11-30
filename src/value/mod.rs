@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    AbstractTree, Function, List, Map, Table, Type,
+    AbstractTree, Function, List, Map, Table, Type, TypeDefinition,
 };
 
 use serde::{
@@ -43,16 +43,24 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn r#type(&self, context: &Map) -> Result<Type> {
+    pub fn r#type(&self, context: &Map) -> Result<TypeDefinition> {
         let r#type = match self {
             Value::List(list) => {
-                let first_item_type = if let Some(first) = list.items().first() {
-                    first.r#type(context)?
-                } else {
-                    Type::Any
-                };
+                let mut previous_type = None;
 
-                Type::List(Box::new(first_item_type))
+                for value in list.items().iter() {
+                    let value_type = value.r#type(context)?;
+
+                    if let Some(previous) = &previous_type {
+                        if &value_type != previous {
+                            break;
+                        }
+                    }
+
+                    previous_type = Some(value_type);
+                }
+
+                Type::List(Box::new(Type::Any))
             }
             Value::Map(_) => Type::Map,
             Value::Table(_) => Type::Table,
@@ -77,7 +85,7 @@ impl Value {
             Value::Empty => Type::Empty,
         };
 
-        Ok(r#type)
+        Ok(TypeDefinition::new(r#type))
     }
 
     pub fn is_table(&self) -> bool {
