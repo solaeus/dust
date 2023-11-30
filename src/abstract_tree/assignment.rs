@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, TypeDefinition, Value};
+use crate::{
+    AbstractTree, Error, Function, Identifier, Map, Result, Statement, Type, TypeDefinition, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
@@ -56,6 +58,45 @@ impl AbstractTree for Assignment {
         let statement_node = node.child_by_field_name("statement").unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
 
+        if let Some(type_definition) = &type_definition {
+            let statement_type = statement.expected_type(context)?;
+
+            match operator {
+                AssignmentOperator::Equal => {
+                    type_definition.abstract_check(
+                        &statement_type,
+                        context,
+                        statement_node,
+                        source,
+                    )?;
+                }
+                AssignmentOperator::PlusEqual => {
+                    let identifier_type = identifier.expected_type(context)?;
+
+                    type_definition.abstract_check(
+                        &identifier_type,
+                        context,
+                        type_node.unwrap(),
+                        source,
+                    )?;
+
+                    let type_definition = if let Type::List(item_type) = type_definition.inner() {
+                        TypeDefinition::new(item_type.as_ref().clone())
+                    } else {
+                        type_definition.clone()
+                    };
+
+                    type_definition.abstract_check(
+                        &statement_type,
+                        context,
+                        statement_node,
+                        source,
+                    )?;
+                }
+                AssignmentOperator::MinusEqual => todo!(),
+            }
+        }
+
         Ok(Assignment {
             identifier,
             type_definition,
@@ -72,13 +113,19 @@ impl AbstractTree for Assignment {
             AssignmentOperator::PlusEqual => {
                 if let Some(mut previous_value) = context.variables()?.get(key).cloned() {
                     if let Ok(list) = previous_value.as_list() {
-                        let first_item_type = if let Some(first) = list.items().first() {
+                        let item_type = if let Some(type_defintion) = &self.type_definition {
+                            if let Type::List(item_type) = type_defintion.inner() {
+                                TypeDefinition::new(item_type.as_ref().clone())
+                            } else {
+                                TypeDefinition::new(Type::Empty)
+                            }
+                        } else if let Some(first) = list.items().first() {
                             first.r#type(context)?
                         } else {
                             TypeDefinition::new(Type::Any)
                         };
 
-                        first_item_type.check(&value.r#type(context)?, context)?;
+                        item_type.runtime_check(&value.r#type(context)?, context)?;
                     }
 
                     previous_value += value;
@@ -95,15 +142,24 @@ impl AbstractTree for Assignment {
                     return Err(Error::VariableIdentifierNotFound(key.clone()));
                 }
             }
-            AssignmentOperator::Equal => {
-                if let Some(type_definition) = &self.type_definition {
-                    let new_value_type = value.r#type(context)?;
+            AssignmentOperator::Equal => value,
+        };
 
-                    type_definition.check(&new_value_type, context)?;
-                }
+        let new_value = if let Some(type_definition) = &self.type_definition {
+            let new_value_type = new_value.r#type(context)?;
 
-                value
+            type_definition.runtime_check(&new_value_type, context)?;
+
+            if let Value::Function(function) = new_value {
+                Value::Function(Function::new(
+                    function.parameters().clone(),
+                    function.body().clone(),
+                ))
+            } else {
+                new_value
             }
+        } else {
+            new_value
         };
 
         context.variables_mut()?.insert(key.clone(), new_value);
@@ -113,5 +169,51 @@ impl AbstractTree for Assignment {
 
     fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
         Ok(TypeDefinition::new(Type::Empty))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{evaluate, List, Value};
+
+    #[test]
+    fn simple_assignment() {
+        let test = evaluate("x = 1 x").unwrap();
+
+        assert_eq!(Value::Integer(1), test);
+    }
+
+    #[test]
+    fn simple_assignment_with_type() {
+        let test = evaluate("x <int> = 1 x").unwrap();
+
+        assert_eq!(Value::Integer(1), test);
+    }
+
+    #[test]
+    fn list_add_assign() {
+        let test = evaluate(
+            "
+            x <list int> = []
+            x += 1
+            x
+        ",
+        )
+        .unwrap();
+
+        assert_eq!(Value::List(List::with_items(vec![Value::Integer(1)])), test);
+    }
+
+    #[test]
+    fn function_assignment() {
+        let test = evaluate(
+            "
+            foobar <fn str -> str> = |text| { 'hi' }
+            foobar
+        ",
+        )
+        .unwrap();
+
+        assert_eq!(Value::String("hi".to_string()), test);
     }
 }

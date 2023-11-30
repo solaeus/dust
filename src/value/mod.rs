@@ -69,13 +69,10 @@ impl Value {
             Value::Map(_) => Type::Map,
             Value::Table(_) => Type::Table,
             Value::Function(function) => {
-                let parameter_types = Vec::new();
-
-                for identifier in function.parameters() {
-                    let _type = identifier.expected_type(context)?;
-                }
-
-                let return_type = function.body().expected_type(context)?;
+                let parameters = function.parameters();
+                let parameter_types = vec![Type::Any; parameters.len()];
+                let body = function.body();
+                let return_type = body.expected_type(context)?.take_inner();
 
                 Type::Function {
                     parameter_types,

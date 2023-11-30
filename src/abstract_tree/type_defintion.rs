@@ -23,7 +23,23 @@ impl TypeDefinition {
         self.r#type
     }
 
-    pub fn check(&self, other: &TypeDefinition, context: &Map) -> Result<()> {
+    pub fn abstract_check(
+        &self,
+        other: &TypeDefinition,
+        context: &Map,
+        node: Node,
+        source: &str,
+    ) -> Result<()> {
+        self.runtime_check(other, context)
+            .map_err(|_| Error::TypeCheck {
+                expected: self.clone(),
+                actual: other.clone(),
+                location: node.start_position(),
+                source: source[node.byte_range()].to_string(),
+            })
+    }
+
+    pub fn runtime_check(&self, other: &TypeDefinition, context: &Map) -> Result<()> {
         match (&self.r#type, &other.r#type) {
             (Type::Any, _)
             | (_, Type::Any)
@@ -43,7 +59,7 @@ impl TypeDefinition {
                 let self_defintion = TypeDefinition::new(self_item_type.as_ref().clone());
                 let other_definition = &TypeDefinition::new(other_item_type.as_ref().clone());
 
-                self_defintion.check(other_definition, context)
+                self_defintion.runtime_check(other_definition, context)
             }
             _ => Err(Error::RuntimeTypeCheck {
                 expected: self.clone(),
@@ -85,8 +101,8 @@ pub enum Type {
     Empty,
     Float,
     Function {
-        parameter_types: Vec<TypeDefinition>,
-        return_type: Box<TypeDefinition>,
+        parameter_types: Vec<Type>,
+        return_type: Box<Type>,
     },
     Integer,
     List(Box<Type>),
@@ -115,7 +131,7 @@ impl AbstractTree for Type {
                     let parameter_type =
                         Type::from_syntax_node(source, parameter_type_node, context)?;
 
-                    parameter_types.push(TypeDefinition::new(parameter_type));
+                    parameter_types.push(parameter_type);
                 }
 
                 let return_type_node = node.child(child_count - 1).unwrap();
@@ -123,7 +139,7 @@ impl AbstractTree for Type {
 
                 Type::Function {
                     parameter_types,
-                    return_type: Box::new(TypeDefinition::new(return_type)),
+                    return_type: Box::new(return_type),
                 }
             }
             "int" => Type::Integer,

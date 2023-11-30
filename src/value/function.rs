@@ -12,6 +12,10 @@ pub struct Function {
 }
 
 impl Function {
+    pub fn new(parameters: Vec<Identifier>, body: Block) -> Self {
+        Self { parameters, body }
+    }
+
     pub fn parameters(&self) -> &Vec<Identifier> {
         &self.parameters
     }
@@ -44,13 +48,11 @@ impl AbstractTree for Function {
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        let return_value = self.body.run(source, context)?;
-
-        Ok(return_value)
+        self.body.run(source, context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
-        self.body.expected_type(context)
+        Value::Function(self.clone()).r#type(context)
     }
 }
 
