@@ -1,20 +1,22 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, TypeDefinition, Value, BUILT_IN_FUNCTIONS};
+use crate::{
+    AbstractTree, Error, Identifier, Map, Result, TypeDefinition, Value, BUILT_IN_FUNCTIONS,
+};
 
 use super::expression::Expression;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
-    function: Expression,
+    function_name: Identifier,
     arguments: Vec<Expression>,
 }
 
 impl FunctionCall {
-    pub fn new(function: Expression, arguments: Vec<Expression>) -> Self {
+    pub fn new(function_name: Identifier, arguments: Vec<Expression>) -> Self {
         Self {
-            function,
+            function_name,
             arguments,
         }
     }
@@ -24,8 +26,8 @@ impl AbstractTree for FunctionCall {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         debug_assert_eq!("function_call", node.kind());
 
-        let expression_node = node.child(1).unwrap();
-        let function = Expression::from_syntax_node(source, expression_node, context)?;
+        let identifier_node = node.child(1).unwrap();
+        let function_name = Identifier::from_syntax_node(source, identifier_node, context)?;
 
         let mut arguments = Vec::new();
 
@@ -40,40 +42,36 @@ impl AbstractTree for FunctionCall {
         }
 
         Ok(FunctionCall {
-            function,
+            function_name,
             arguments,
         })
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        let function = if let Expression::Identifier(identifier) = &self.function {
-            let key = identifier.inner();
+        let key = self.function_name.inner();
 
-            for built_in_function in BUILT_IN_FUNCTIONS {
-                if key == built_in_function.name() {
-                    let mut arguments = Vec::with_capacity(self.arguments.len());
+        for built_in_function in BUILT_IN_FUNCTIONS {
+            if key == built_in_function.name() {
+                let mut arguments = Vec::with_capacity(self.arguments.len());
 
-                    for expression in &self.arguments {
-                        let value = expression.run(source, context)?;
+                for expression in &self.arguments {
+                    let value = expression.run(source, context)?;
 
-                        arguments.push(value);
-                    }
-
-                    return built_in_function.run(&arguments, context);
+                    arguments.push(value);
                 }
-            }
 
-            if let Some(value) = context.variables()?.get(key) {
-                value.as_function().cloned()
-            } else {
-                return Err(Error::FunctionIdentifierNotFound(identifier.clone()));
+                return built_in_function.run(&arguments, context);
             }
+        }
+
+        let variables = context.variables()?;
+        let function = if let Some(value) = variables.get(key) {
+            value.as_function()?
         } else {
-            let expression_run = self.function.run(source, context)?;
-
-            expression_run.as_function().cloned()
-        }?;
-
+            return Err(Error::FunctionIdentifierNotFound(
+                self.function_name.clone(),
+            ));
+        };
         let mut function_context = Map::clone_from(context)?;
         let parameter_expression_pairs = function.parameters().iter().zip(self.arguments.iter());
 
@@ -88,7 +86,7 @@ impl AbstractTree for FunctionCall {
     }
 
     fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
-        self.function.expected_type(context)
+        self.function_name.expected_type(context)
     }
 }
 

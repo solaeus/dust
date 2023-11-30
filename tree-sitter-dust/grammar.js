@@ -42,18 +42,6 @@ module.exports = grammar({
     expression: $ =>
       prec.right(
         choice(
-          $._expression_kind,
-          seq(
-            '(',
-            $._expression_kind,
-            ')',
-          ),
-        ),
-      ),
-
-    _expression_kind: $ =>
-      prec.right(
-        choice(
           $.function_call,
           $.identifier,
           $.index,
@@ -197,10 +185,19 @@ module.exports = grammar({
 
     math: $ =>
       prec.left(
-        seq(
-          $.expression,
-          $.math_operator,
-          $.expression,
+        choice(
+          seq(
+            $.expression,
+            $.math_operator,
+            $.expression,
+          ),
+          seq(
+            '(',
+            $.expression,
+            $.math_operator,
+            $.expression,
+            ')',
+          ),
         ),
       ),
 
@@ -209,10 +206,19 @@ module.exports = grammar({
 
     logic: $ =>
       prec.right(
-        seq(
-          $.expression,
-          $.logic_operator,
-          $.expression,
+        choice(
+          seq(
+            $.expression,
+            $.logic_operator,
+            $.expression,
+          ),
+          seq(
+            '(',
+            $.expression,
+            $.logic_operator,
+            $.expression,
+            ')',
+          ),
         ),
       ),
 
@@ -370,10 +376,9 @@ module.exports = grammar({
 
     function_call: $ =>
       prec.right(
-        1,
         seq(
           '(',
-          $.expression,
+          $.identifier,
           optional($._expression_list),
           ')',
         ),
@@ -385,7 +390,7 @@ module.exports = grammar({
           $.expression,
           '->',
           '(',
-          $.expression,
+          $.identifier,
           optional($._expression_list),
           ')',
         ),

@@ -54,15 +54,15 @@ pub enum Error {
     },
 
     /// A function was called with the wrong amount of arguments.
-    ExpectedToolArgumentAmount {
-        tool_name: &'static str,
+    ExpectedArgumentAmount {
+        function_name: &'static str,
         expected: usize,
         actual: usize,
     },
 
     /// A function was called with the wrong amount of arguments.
-    ExpectedAtLeastFunctionArgumentAmount {
-        identifier: String,
+    ExpectedArgumentMinimum {
+        function_name: &'static str,
         minimum: usize,
         actual: usize,
     },
@@ -166,7 +166,7 @@ impl Error {
         }
     }
 
-    pub fn expect_built_in_function_argument_amount<F: BuiltInFunction>(
+    pub fn expect_argument_amount<F: BuiltInFunction>(
         function: &F,
         expected: usize,
         actual: usize,
@@ -174,9 +174,25 @@ impl Error {
         if expected == actual {
             Ok(())
         } else {
-            Err(Error::ExpectedToolArgumentAmount {
-                tool_name: function.name(),
+            Err(Error::ExpectedArgumentAmount {
+                function_name: function.name(),
                 expected,
+                actual,
+            })
+        }
+    }
+
+    pub fn expect_argument_minimum<F: BuiltInFunction>(
+        function: &F,
+        minimum: usize,
+        actual: usize,
+    ) -> Result<()> {
+        if actual < minimum {
+            Ok(())
+        } else {
+            Err(Error::ExpectedArgumentMinimum {
+                function_name: function.name(),
+                minimum,
                 actual,
             })
         }
@@ -276,21 +292,21 @@ impl fmt::Display for Error {
                 "An operator expected {} arguments, but got {}.",
                 expected, actual
             ),
-            ExpectedToolArgumentAmount {
-                tool_name,
+            ExpectedArgumentAmount {
+                function_name: tool_name,
                 expected,
                 actual,
             } => write!(
                 f,
                 "{tool_name} expected {expected} arguments, but got {actual}.",
             ),
-            ExpectedAtLeastFunctionArgumentAmount {
+            ExpectedArgumentMinimum {
+                function_name,
                 minimum,
                 actual,
-                identifier,
             } => write!(
                 f,
-                "{identifier} expected a minimum of {minimum} arguments, but got {actual}.",
+                "{function_name} expected a minimum of {minimum} arguments, but got {actual}.",
             ),
             ExpectedString { actual } => {
                 write!(f, "Expected a string but got {:?}.", actual)

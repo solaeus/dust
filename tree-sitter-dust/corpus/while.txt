@@ -18,8 +18,7 @@ while true {
         (statement
           (expression
             (function_call
-              (expression
-                (identifier))
+              (identifier)
               (expression
                 (value
                   (string))))))))))
@@ -28,8 +27,8 @@ while true {
 Nested While Loop
 ================================================================================
 
-while (true) {
-  while (x > 0) {
+while true {
+  while x > 0 {
     x -= 1
   }
 }

@@ -108,7 +108,7 @@ mod tests {
             "
             x = [1 2 3]
             y <fn -> int> || { 0 }
-            x:((y))
+            x:(y)
             ",
         )
         .unwrap();

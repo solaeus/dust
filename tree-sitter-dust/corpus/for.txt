@@ -28,8 +28,7 @@ for i in [1, 2, 3] {
         (statement
           (expression
             (function_call
-              (expression
-                (identifier))
+              (identifier)
               (expression
                 (identifier)))))))))
 
@@ -61,7 +60,6 @@ for list in list_of_lists {
               (statement
                 (expression
                   (function_call
-                    (expression
-                      (identifier))
+                    (identifier)
                     (expression
                       (identifier))))))))))))

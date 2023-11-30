@@ -8,7 +8,7 @@ impl BuiltInFunction for FromJson {
     }
 
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
-        Error::expect_built_in_function_argument_amount(self, 1, arguments.len())?;
+        Error::expect_argument_amount(self, 1, arguments.len())?;
 
         let json_string = arguments.first().unwrap().as_string()?;
         let value = serde_json::from_str(&json_string)?;
@@ -25,7 +25,7 @@ impl BuiltInFunction for ToJson {
     }
 
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
-        Error::expect_built_in_function_argument_amount(self, 1, arguments.len())?;
+        Error::expect_argument_amount(self, 1, arguments.len())?;
 
         let value = arguments.first().unwrap();
         let json_string = serde_json::to_string(&value)?;

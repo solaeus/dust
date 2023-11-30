@@ -26,7 +26,7 @@ impl BuiltInFunction for AssertEqual {
     }
 
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
-        Error::expect_built_in_function_argument_amount(self, 2, arguments.len())?;
+        Error::expect_argument_amount(self, 2, arguments.len())?;
 
         let left = arguments.get(0).unwrap();
         let right = arguments.get(1).unwrap();

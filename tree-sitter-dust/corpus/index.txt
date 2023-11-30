@@ -108,7 +108,8 @@ x:(y):0
             (expression
               (identifier))
             (expression
-              (identifier))))
+              (function_call
+                (identifier)))))
         (expression
           (value
             (integer)))))))

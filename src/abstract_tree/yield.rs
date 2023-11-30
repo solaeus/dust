@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, FunctionCall, Map, Result, TypeDefinition, Value};
+use crate::{
+    AbstractTree, Expression, FunctionCall, Identifier, Map, Result, TypeDefinition, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Yield {
@@ -14,7 +16,7 @@ impl AbstractTree for Yield {
         let input = Expression::from_syntax_node(source, input_node, context)?;
 
         let function_node = node.child(3).unwrap();
-        let function = Expression::from_syntax_node(source, function_node, context)?;
+        let function = Identifier::from_syntax_node(source, function_node, context)?;
 
         let mut arguments = Vec::new();
 

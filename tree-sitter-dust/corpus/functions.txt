@@ -32,8 +32,7 @@ Function Call
   (statement
     (expression
       (function_call
-        (expression
-          (identifier))
+        (identifier)
         (expression
           (value
             (string)))))))
@@ -64,15 +63,13 @@ foobar <fn str num> |message number| {
           (statement
             (expression
               (function_call
-                (expression
-                  (identifier))
+                (identifier)
                 (expression
                   (identifier)))))
           (statement
             (expression
               (function_call
-                (expression
-                  (identifier))
+                (identifier)
                 (expression
                   (identifier))))))))))
 
@@ -95,8 +92,7 @@ Complex Function Call
   (statement
     (expression
       (function_call
-        (expression
-          (identifier))
+        (identifier)
         (expression
           (value
             (string)))
