@@ -53,14 +53,18 @@ impl Value {
 
                     if let Some(previous) = &previous_type {
                         if &value_type != previous {
-                            break;
+                            return Ok(TypeDefinition::new(Type::List(Box::new(Type::Any))));
                         }
                     }
 
                     previous_type = Some(value_type);
                 }
 
-                Type::List(Box::new(Type::Any))
+                if let Some(previous) = previous_type {
+                    Type::List(Box::new(previous.take_inner()))
+                } else {
+                    Type::List(Box::new(Type::Any))
+                }
             }
             Value::Map(_) => Type::Map,
             Value::Table(_) => Type::Table,

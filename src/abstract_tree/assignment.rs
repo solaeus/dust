@@ -56,12 +56,6 @@ impl AbstractTree for Assignment {
         let statement_node = node.child_by_field_name("statement").unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
 
-        if let Some(type_defintion) = &type_definition {
-            let statement_type = statement.expected_type(context)?;
-
-            type_defintion.check(&statement_type, context)?;
-        }
-
         Ok(Assignment {
             identifier,
             type_definition,
@@ -77,6 +71,16 @@ impl AbstractTree for Assignment {
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
                 if let Some(mut previous_value) = context.variables()?.get(key).cloned() {
+                    if let Ok(list) = previous_value.as_list() {
+                        let first_item_type = if let Some(first) = list.items().first() {
+                            first.r#type(context)?
+                        } else {
+                            TypeDefinition::new(Type::Any)
+                        };
+
+                        first_item_type.check(&value.r#type(context)?, context)?;
+                    }
+
                     previous_value += value;
                     previous_value
                 } else {
@@ -91,14 +95,16 @@ impl AbstractTree for Assignment {
                     return Err(Error::VariableIdentifierNotFound(key.clone()));
                 }
             }
-            AssignmentOperator::Equal => value,
+            AssignmentOperator::Equal => {
+                if let Some(type_definition) = &self.type_definition {
+                    let new_value_type = value.r#type(context)?;
+
+                    type_definition.check(&new_value_type, context)?;
+                }
+
+                value
+            }
         };
-
-        if let Some(type_definition) = &self.type_definition {
-            let new_value_type = new_value.r#type(context)?;
-
-            type_definition.check(&new_value_type, context)?;
-        }
 
         context.variables_mut()?.insert(key.clone(), new_value);
 

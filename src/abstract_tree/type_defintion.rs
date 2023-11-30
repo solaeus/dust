@@ -15,8 +15,12 @@ impl TypeDefinition {
         Self { r#type }
     }
 
-    pub fn r#type(&self) -> &Type {
+    pub fn inner(&self) -> &Type {
         &self.r#type
+    }
+
+    pub fn take_inner(self) -> Type {
+        self.r#type
     }
 
     pub fn check(&self, other: &TypeDefinition, context: &Map) -> Result<()> {

@@ -166,7 +166,7 @@ impl Error {
         }
     }
 
-    pub fn expect_tool_argument_amount(
+    pub fn expect_function_argument_amount(
         tool_name: &'static str,
         expected: usize,
         actual: usize,
@@ -374,7 +374,7 @@ impl fmt::Display for Error {
             ),
             RuntimeTypeCheck { expected, actual } => write!(
                 f,
-                "Type check error. Expected type {expected} but got value {actual}."
+                "Type check error. Expected type {expected} but got value with type {actual}."
             ),
         }
     }

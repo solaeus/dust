@@ -59,7 +59,7 @@ impl AbstractTree for FunctionCall {
                         arguments.push(value);
                     }
 
-                    return built_in_function.run(&arguments);
+                    return built_in_function.run(&arguments, context);
                 }
             }
 

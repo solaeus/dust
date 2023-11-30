@@ -203,9 +203,9 @@ impl AbstractTree for ValueNode {
                 }
 
                 if let Some(previous) = previous_type {
-                    previous
+                    TypeDefinition::new(Type::List(Box::new(previous.take_inner())))
                 } else {
-                    TypeDefinition::new(Type::Any)
+                    TypeDefinition::new(Type::List(Box::new(Type::Any)))
                 }
             }
             ValueNode::Empty => TypeDefinition::new(Type::Any),

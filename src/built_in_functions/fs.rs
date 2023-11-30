@@ -13,7 +13,7 @@ impl BuiltInFunction for Read {
         "read"
     }
 
-    fn run(&self, arguments: &[Value]) -> Result<Value> {
+    fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
         let path_string = arguments.first().unwrap_or_default().as_string()?;
         let path = PathBuf::from(path_string);
 
@@ -55,7 +55,7 @@ impl BuiltInFunction for Write {
         "write"
     }
 
-    fn run(&self, arguments: &[Value]) -> Result<Value> {
+    fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
         let file_content = arguments.first().unwrap_or_default().as_string()?;
         let path = arguments.get(1).unwrap_or(&Value::Empty).as_string()?;
 
@@ -72,7 +72,7 @@ impl BuiltInFunction for Append {
         "append"
     }
 
-    fn run(&self, arguments: &[Value]) -> Result<Value> {
+    fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
         let file_content = arguments.first().unwrap_or(&Value::Empty).as_string()?;
         let path = arguments.get(1).unwrap_or(&Value::Empty).as_string()?;
 

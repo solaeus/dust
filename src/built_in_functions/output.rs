@@ -1,4 +1,4 @@
-use crate::{BuiltInFunction, Result, Value};
+use crate::{BuiltInFunction, Map, Result, Value};
 
 pub struct Output;
 
@@ -7,7 +7,7 @@ impl BuiltInFunction for Output {
         "output"
     }
 
-    fn run(&self, arguments: &[Value]) -> Result<Value> {
+    fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
         for argument in arguments {
             println!("{argument}");
         }
