@@ -749,10 +749,6 @@
     "named": true
   },
   {
-    "type": "list",
-    "named": false
-  },
-  {
     "type": "map",
     "named": false
   },

@@ -215,3 +215,68 @@ impl AbstractTree for ValueNode {
         Ok(type_definition)
     }
 }
+#[cfg(test)]
+mod tests {
+    use crate::{evaluate, List};
+
+    use super::*;
+
+    #[test]
+    fn evaluate_empty() {
+        assert_eq!(evaluate("x = 9"), Ok(Value::Empty));
+        assert_eq!(evaluate("x = 1 + 1"), Ok(Value::Empty));
+    }
+
+    #[test]
+    fn evaluate_integer() {
+        assert_eq!(evaluate("1"), Ok(Value::Integer(1)));
+        assert_eq!(evaluate("123"), Ok(Value::Integer(123)));
+        assert_eq!(evaluate("-666"), Ok(Value::Integer(-666)));
+    }
+
+    #[test]
+    fn evaluate_float() {
+        assert_eq!(evaluate("0.1"), Ok(Value::Float(0.1)));
+        assert_eq!(evaluate("12.3"), Ok(Value::Float(12.3)));
+        assert_eq!(evaluate("-6.66"), Ok(Value::Float(-6.66)));
+    }
+
+    #[test]
+    fn evaluate_string() {
+        assert_eq!(evaluate("\"one\""), Ok(Value::String("one".to_string())));
+        assert_eq!(evaluate("'one'"), Ok(Value::String("one".to_string())));
+        assert_eq!(evaluate("`one`"), Ok(Value::String("one".to_string())));
+        assert_eq!(evaluate("`'one'`"), Ok(Value::String("'one'".to_string())));
+        assert_eq!(evaluate("'`one`'"), Ok(Value::String("`one`".to_string())));
+        assert_eq!(
+            evaluate("\"'one'\""),
+            Ok(Value::String("'one'".to_string()))
+        );
+    }
+
+    #[test]
+    fn evaluate_list() {
+        assert_eq!(
+            evaluate("[1, 2, 'foobar']"),
+            Ok(Value::List(List::with_items(vec![
+                Value::Integer(1),
+                Value::Integer(2),
+                Value::String("foobar".to_string()),
+            ])))
+        );
+    }
+
+    #[test]
+    fn evaluate_map() {
+        let map = Map::new();
+
+        {
+            let mut variables = map.variables_mut().unwrap();
+
+            variables.insert("x".to_string(), Value::Integer(1));
+            variables.insert("foo".to_string(), Value::String("bar".to_string()));
+        }
+
+        assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
+    }
+}

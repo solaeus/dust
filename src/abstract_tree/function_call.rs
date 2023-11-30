@@ -91,3 +91,26 @@ impl AbstractTree for FunctionCall {
         self.function.expected_type(context)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{evaluate, Value};
+
+    #[test]
+    fn evaluate_function_call() {
+        assert_eq!(
+            evaluate(
+                "
+                foobar <fn str -> str> |message| { message }
+                (foobar 'Hiya')
+                ",
+            ),
+            Ok(Value::String("Hiya".to_string()))
+        );
+    }
+
+    #[test]
+    fn evaluate_built_in_function_call() {
+        assert_eq!(evaluate("(output 'Hiya')"), Ok(Value::Empty));
+    }
+}

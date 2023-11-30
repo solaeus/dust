@@ -186,23 +186,10 @@ mod tests {
             x <list int> = []
             x += 1
             x
-        ",
+            ",
         )
         .unwrap();
 
         assert_eq!(Value::List(List::with_items(vec![Value::Integer(1)])), test);
-    }
-
-    #[test]
-    fn function_assignment() {
-        let test = evaluate(
-            "
-            foobar <fn str -> str> = |text| { 'hi' }
-            foobar
-        ",
-        )
-        .unwrap();
-
-        assert_eq!(Value::String("hi".to_string()), test);
     }
 }

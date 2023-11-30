@@ -4,25 +4,25 @@ all_cards = {
 	weapons = ['Rope' 'Lead_Pipe' 'Knife']
 }
 
-is_ready_to_solve = |cards <map>| <bool> {
+is_ready_to_solve <fn map -> bool> |cards| {
 	((length cards:suspects) == 1)
 	&& ((length cards:rooms) == 1)
 	&& ((length cards:weapons) == 1)
 }
 
-take_turn = |opponent_card <str>, current_room <str>, cards <map>| <map> {
+take_turn <fn str str map -> map> |opponent_card current_room cards| {
 	(remove_card opponent_card cards)
 	(make_guess current_room cards)
 	cards
 }
 
-remove_card = |opponent_card <str>, cards <map>| {
+remove_card <fn str map> |opponent_card cards| {
 	cards:rooms -= opponent_card
 	cards:suspects -= opponent_card
 	cards:weapons -= opponent_card
 }
 
-make_guess = |current_room <str>, cards <map>| {
+make_guess <fn str map> |current_room cards| {
 	if (is_ready_to_solve cards) {
 		(output 'It was '
 			+ cards:suspects:0

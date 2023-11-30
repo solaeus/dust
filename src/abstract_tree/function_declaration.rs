@@ -100,7 +100,7 @@ mod tests {
     fn simple_function_declaration() {
         let test = evaluate(
             "
-                fn foo <fn int -> int> = |x| { x }
+                foo <fn int -> int> |x| { x }
                 (foo 42)
             ",
         )

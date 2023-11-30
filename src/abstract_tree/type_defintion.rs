@@ -147,6 +147,12 @@ impl AbstractTree for Type {
         let type_node = node.child(0).unwrap();
 
         let r#type = match type_node.kind() {
+            "[" => {
+                let item_type_node = node.child(1).unwrap();
+                let item_type = Type::from_syntax_node(source, item_type_node, context)?;
+
+                Type::List(Box::new(item_type))
+            }
             "any" => Type::Any,
             "bool" => Type::Boolean,
             "float" => Type::Float,
@@ -171,12 +177,6 @@ impl AbstractTree for Type {
                 }
             }
             "int" => Type::Integer,
-            "list" => {
-                let item_type_node = node.child(1).unwrap();
-                let item_type = Type::from_syntax_node(source, item_type_node, context)?;
-
-                Type::List(Box::new(item_type))
-            }
             "map" => Type::Map,
             "num" => Type::Number,
             "str" => Type::String,

@@ -1096,11 +1096,15 @@
             "members": [
               {
                 "type": "STRING",
-                "value": "list"
+                "value": "["
               },
               {
                 "type": "SYMBOL",
                 "name": "type"
+              },
+              {
+                "type": "STRING",
+                "value": "]"
               }
             ]
           },

@@ -341,7 +341,7 @@ module.exports = grammar({
             optional(seq('->', $.type)),
           ),
           'int',
-          seq('list', $.type),
+          seq('[', $.type, ']'),
           'map',
           'num',
           'str',
