@@ -2,7 +2,9 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Value};
+use crate::{
+    AbstractTree, Block, Error, Expression, Identifier, Map, Result, TypeDefinition, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct For {
@@ -47,7 +49,7 @@ impl AbstractTree for For {
         })
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let expression_run = self.collection.run(source, context)?;
         let values = expression_run.as_list()?.items();
         let key = self.item_id.inner();
@@ -75,5 +77,9 @@ impl AbstractTree for For {
         }
 
         Ok(Value::Empty)
+    }
+
+    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
+        Ok(TypeDefinition::Empty)
     }
 }

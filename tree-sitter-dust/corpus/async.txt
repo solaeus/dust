@@ -12,10 +12,11 @@ async { (output 'Whaddup') }
       (statement
         (expression
           (function_call
-            (built_in_function
-              (expression
-                (value
-                  (string))))))))))
+            (expression
+              (identifier))
+            (expression
+              (value
+                (string)))))))))
 
 ================================================================================
 Complex Async Statements

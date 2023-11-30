@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Error, Expression, Function, Identifier, List, Map, Result, Statement, Table,
-    Value,
+    TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -112,7 +112,7 @@ impl AbstractTree for ValueNode {
         Ok(value_node)
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let value = match self {
             ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
             ValueNode::Float(value_source) => Value::Float(value_source.parse().unwrap()),
@@ -175,5 +175,32 @@ impl AbstractTree for ValueNode {
         };
 
         Ok(value)
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        let r#type = match self {
+            ValueNode::Boolean(_) => TypeDefinition::Boolean,
+            ValueNode::Float(_) => TypeDefinition::Float,
+            ValueNode::Integer(_) => TypeDefinition::Integer,
+            ValueNode::String(_) => TypeDefinition::String,
+            ValueNode::List(expressions) => {
+                let first_expression_type = if let Some(first) = expressions.first() {
+                    first.expected_type(context)?
+                } else {
+                    TypeDefinition::Empty
+                };
+
+                TypeDefinition::List(Box::new(first_expression_type))
+            }
+            ValueNode::Empty => TypeDefinition::Any,
+            ValueNode::Map(_) => TypeDefinition::Map,
+            ValueNode::Table {
+                column_names: _,
+                rows: _,
+            } => TypeDefinition::Table,
+            ValueNode::Function(function) => function.expected_type(context)?,
+        };
+
+        Ok(r#type)
     }
 }

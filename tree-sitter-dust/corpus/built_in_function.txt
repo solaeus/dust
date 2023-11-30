@@ -10,10 +10,11 @@ Simple Function Call
   (statement
     (expression
       (function_call
-        (built_in_function
-          (expression
-            (value
-              (string))))))))
+        (expression
+          (identifier))
+        (expression
+          (value
+            (string)))))))
 
 ================================================================================
 Nested Function Call
@@ -27,10 +28,10 @@ Nested Function Call
   (statement
     (expression
       (function_call
-        (built_in_function
-          (expression
-            (function_call
-              (built_in_function)))
-          (expression
-            (value
-              (integer))))))))
+        (expression
+          (identifier))
+        (expression
+          (identifier))
+        (expression
+          (value
+            (integer)))))))

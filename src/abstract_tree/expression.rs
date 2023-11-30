@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, Identifier, Index, Map, Result, Value, Yield,
+    value_node::ValueNode, AbstractTree, Error, Identifier, Index, Map, Result, TypeDefinition,
+    Value, Yield,
 };
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
@@ -51,7 +52,7 @@ impl AbstractTree for Expression {
         Ok(expression)
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         match self {
             Expression::Value(value_node) => value_node.run(source, context),
             Expression::Identifier(identifier) => identifier.run(source, context),
@@ -60,6 +61,18 @@ impl AbstractTree for Expression {
             Expression::FunctionCall(function_call) => function_call.run(source, context),
             Expression::Index(index) => index.run(source, context),
             Expression::Yield(r#yield) => r#yield.run(source, context),
+        }
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        match self {
+            Expression::Value(value_node) => value_node.expected_type(context),
+            Expression::Identifier(identifier) => identifier.expected_type(context),
+            Expression::Math(math) => math.expected_type(context),
+            Expression::Logic(logic) => logic.expected_type(context),
+            Expression::FunctionCall(function_call) => function_call.expected_type(context),
+            Expression::Index(index) => index.expected_type(context),
+            Expression::Yield(r#yield) => r#yield.expected_type(context),
         }
     }
 }

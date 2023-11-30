@@ -1,5 +1,5 @@
 module.exports = grammar({
-  name: 'dust',
+  name: "dust",
 
   word: $ => $.identifier,
 
@@ -13,10 +13,10 @@ module.exports = grammar({
 
     block: $ =>
       seq(
-        optional('async'),
-        '{',
+        optional("async"),
+        "{",
         repeat1($.statement),
-        '}',
+        "}",
       ),
 
     statement: $ =>
@@ -34,7 +34,7 @@ module.exports = grammar({
             $.use,
             $.while,
           ),
-          optional(';'),
+          optional(";"),
         ),
       ),
 
@@ -43,9 +43,9 @@ module.exports = grammar({
         choice(
           $._expression_kind,
           seq(
-            '(',
+            "(",
             $._expression_kind,
-            ')',
+            ")",
           ),
         ),
       ),
@@ -68,7 +68,7 @@ module.exports = grammar({
         prec.right(
           seq(
             $.expression,
-            optional(','),
+            optional(","),
           ),
         ),
       ),
@@ -92,19 +92,19 @@ module.exports = grammar({
       token(
         prec.left(
           seq(
-            optional('-'),
+            optional("-"),
             repeat1(
               choice(
-                '1',
-                '2',
-                '3',
-                '4',
-                '5',
-                '6',
-                '7',
-                '8',
-                '9',
-                '0',
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "0",
               ),
             ),
           ),
@@ -115,34 +115,34 @@ module.exports = grammar({
       token(
         prec.left(
           seq(
-            optional('-'),
+            optional("-"),
             repeat1(
               choice(
-                '1',
-                '2',
-                '3',
-                '4',
-                '5',
-                '6',
-                '7',
-                '8',
-                '9',
-                '0',
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "0",
               ),
             ),
-            '.',
+            ".",
             repeat1(
               choice(
-                '1',
-                '2',
-                '3',
-                '4',
-                '5',
-                '6',
-                '7',
-                '8',
-                '9',
-                '0',
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "0",
               ),
             ),
           ),
@@ -153,34 +153,34 @@ module.exports = grammar({
       /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
     boolean: $ =>
-      choice('true', 'false'),
+      choice("true", "false"),
 
     list: $ =>
       seq(
-        '[',
+        "[",
         repeat(
           prec.left(
             seq(
               $.expression,
-              optional(','),
+              optional(","),
             ),
           ),
         ),
-        ']',
+        "]",
       ),
 
     map: $ =>
       seq(
-        '{',
+        "{",
         repeat(
           seq(
             $.identifier,
-            '=',
+            "=",
             $.statement,
-            optional(','),
+            optional(","),
           ),
         ),
-        '}',
+        "}",
       ),
 
     index: $ =>
@@ -188,10 +188,10 @@ module.exports = grammar({
         1,
         seq(
           $.expression,
-          ':',
+          ":",
           $.expression,
           optional(
-            seq('..', $.expression),
+            seq("..", $.expression),
           ),
         ),
       ),
@@ -206,7 +206,7 @@ module.exports = grammar({
       ),
 
     math_operator: $ =>
-      choice('+', '-', '*', '/', '%'),
+      choice("+", "-", "*", "/", "%"),
 
     logic: $ =>
       prec.right(
@@ -219,33 +219,33 @@ module.exports = grammar({
 
     logic_operator: $ =>
       choice(
-        '==',
-        '!=',
-        '&&',
-        '||',
-        '>',
-        '<',
-        '>=',
-        '<=',
+        "==",
+        "!=",
+        "&&",
+        "||",
+        ">",
+        "<",
+        ">=",
+        "<=",
       ),
 
     assignment: $ =>
       seq(
         field(
-          'identifier',
+          "identifier",
           $.identifier,
         ),
         optional(
           field(
-            'type',
+            "type",
             $.type_definition,
           ),
         ),
         field(
-          'assignment_operator',
+          "assignment_operator",
           $.assignment_operator,
         ),
-        field('statement', $.statement),
+        field("statement", $.statement),
       ),
 
     index_assignment: $ =>
@@ -257,7 +257,7 @@ module.exports = grammar({
 
     assignment_operator: $ =>
       prec.right(
-        choice('=', '+=', '-='),
+        choice("=", "+=", "-="),
       ),
 
     if_else: $ =>
@@ -270,26 +270,26 @@ module.exports = grammar({
       ),
 
     if: $ =>
-      seq('if', $.expression, $.block),
+      seq("if", $.expression, $.block),
 
     else_if: $ =>
       seq(
-        'else if',
+        "else if",
         $.expression,
         $.block,
       ),
 
-    else: $ => seq('else', $.block),
+    else: $ => seq("else", $.block),
 
     match: $ =>
       prec.right(
         seq(
-          'match',
+          "match",
           $.expression,
           repeat1(
             seq(
               $.expression,
-              '=>',
+              "=>",
               $.block,
             ),
           ),
@@ -298,16 +298,16 @@ module.exports = grammar({
 
     while: $ =>
       seq(
-        'while',
+        "while",
         $.expression,
         $.block,
       ),
 
     for: $ =>
       seq(
-        choice('for', 'async for'),
+        choice("for", "async for"),
         $.identifier,
-        'in',
+        "in",
         $.expression,
         $.block,
       ),
@@ -316,14 +316,14 @@ module.exports = grammar({
       prec.right(
         choice(
           seq(
-            '|',
+            "|",
             repeat(
               seq(
                 $.identifier,
-                optional(','),
+                optional(","),
               ),
             ),
-            '|',
+            "|",
           ),
         ),
       ),
@@ -331,53 +331,53 @@ module.exports = grammar({
     table: $ =>
       prec.right(
         seq(
-          'table',
+          "table",
           $.identifier_list,
           $.expression,
         ),
       ),
 
     return: $ =>
-      seq('return', $.expression),
+      seq("return", $.expression),
 
-    use: $ => seq('use', $.string),
+    use: $ => seq("use", $.string),
 
     type_definition: $ =>
-      seq('<', $.type, '>'),
+      seq("<", $.type, ">"),
 
     type: $ =>
       prec.right(
         choice(
-          'any',
-          'bool',
+          "any",
+          "bool",
           seq(
-            'fn',
+            "fn",
             repeat(
               seq(
                 $.type,
-                optional(','),
+                optional(","),
               ),
             ),
-            optional(seq('->', $.type)),
+            optional(seq("->", $.type)),
           ),
-          'int',
-          seq('list', $.type),
-          'map',
-          'num',
-          'str',
+          "int",
+          seq("list", $.type),
+          "map",
+          "num",
+          "str",
         ),
       ),
 
     function: $ =>
       seq(
-        '|',
+        "|",
         repeat(
           seq(
             $.identifier,
-            optional(','),
+            optional(","),
           ),
         ),
-        '|',
+        "|",
         $.block,
       ),
 
@@ -385,10 +385,10 @@ module.exports = grammar({
       prec.right(
         1,
         seq(
-          '(',
+          "(",
           $.expression,
           optional($._expression_list),
-          ')',
+          ")",
         ),
       ),
 
@@ -396,11 +396,11 @@ module.exports = grammar({
       prec.left(
         seq(
           $.expression,
-          '->',
-          '(',
+          "->",
+          "(",
           $.expression,
           optional($._expression_list),
-          ')',
+          ")",
         ),
       ),
   },

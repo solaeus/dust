@@ -2,7 +2,7 @@
 Simple Function
 ================================================================================
 
-|| <str> { "Hiya" }
+|| { "Hiya" }
 
 --------------------------------------------------------------------------------
 
@@ -11,7 +11,6 @@ Simple Function
     (expression
       (value
         (function
-          (type)
           (block
             (statement
               (expression
@@ -22,7 +21,7 @@ Simple Function
 Function Assignment
 ================================================================================
 
-x = || <str> { "Hiya" }
+x <fn num -> str> = |number| { "Hiya" }
 
 --------------------------------------------------------------------------------
 
@@ -30,12 +29,16 @@ x = || <str> { "Hiya" }
   (statement
     (assignment
       (identifier)
+      (type_definition
+        (type
+          (type)
+          (type)))
       (assignment_operator)
       (statement
         (expression
           (value
             (function
-              (type)
+              (identifier)
               (block
                 (statement
                   (expression
@@ -64,7 +67,7 @@ Function Call
 Complex Function
 ================================================================================
 
-|message <str> number <int>| {
+|message number| {
   (output message)
   (output number)
 }
@@ -76,25 +79,23 @@ Complex Function
     (expression
       (value
         (function
-          (parameter
-            (identifier)
-            (type))
-          (parameter
-            (identifier)
-            (type))
+          (identifier)
+          (identifier)
           (block
             (statement
               (expression
                 (function_call
-                  (built_in_function
-                    (expression
-                      (identifier))))))
+                  (expression
+                    (identifier))
+                  (expression
+                    (identifier)))))
             (statement
               (expression
                 (function_call
-                  (built_in_function
-                    (expression
-                      (identifier))))))))))))
+                  (expression
+                    (identifier))
+                  (expression
+                    (identifier)))))))))))
 
 ================================================================================
 Complex Function Call

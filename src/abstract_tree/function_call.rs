@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Value, BUILT_IN_FUNCTIONS};
+use crate::{AbstractTree, Error, Map, Result, TypeDefinition, Value, BUILT_IN_FUNCTIONS};
 
 use super::expression::Expression;
 
@@ -45,7 +45,7 @@ impl AbstractTree for FunctionCall {
         })
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let function = if let Expression::Identifier(identifier) = &self.function {
             let key = identifier.inner();
 
@@ -77,15 +77,17 @@ impl AbstractTree for FunctionCall {
         let mut function_context = Map::clone_from(context)?;
         let parameter_expression_pairs = function.parameters().iter().zip(self.arguments.iter());
 
-        for ((identifier, r#type), expression) in parameter_expression_pairs {
+        for (identifier, expression) in parameter_expression_pairs {
             let key = identifier.clone().take_inner();
             let value = expression.run(source, context)?;
-
-            r#type.check(&value)?;
 
             function_context.variables_mut()?.insert(key, value);
         }
 
         function.run(source, &mut function_context)
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        self.function.expected_type(context)
     }
 }

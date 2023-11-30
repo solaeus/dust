@@ -9,38 +9,67 @@
 pub mod assignment;
 pub mod block;
 pub mod expression;
-pub mod filter;
-pub mod find;
 pub mod r#for;
 pub mod function_call;
 pub mod identifier;
 pub mod if_else;
 pub mod index;
 pub mod index_assignment;
-pub mod insert;
 pub mod logic;
 pub mod r#match;
 pub mod math;
-pub mod remove;
-pub mod select;
 pub mod statement;
-pub mod transform;
-pub mod r#type;
+pub mod type_defintion;
 pub mod r#use;
 pub mod value_node;
 pub mod r#while;
 pub mod r#yield;
 
 pub use {
-    assignment::*, block::*, expression::*, filter::*, find::*, function_call::*, identifier::*,
-    if_else::*, index::*, index_assignment::IndexAssignment, insert::*, logic::*, math::*,
-    r#for::*, r#match::*, r#type::*, r#use::*, r#while::*, r#yield::*, remove::*, select::*,
-    statement::*, transform::*, value_node::*,
+    assignment::*, block::*, expression::*, function_call::*, identifier::*, if_else::*, index::*,
+    index_assignment::IndexAssignment, logic::*, math::*, r#for::*, r#match::*, r#use::*,
+    r#while::*, r#yield::*, statement::*, type_defintion::*, value_node::*,
 };
 
 use tree_sitter::Node;
 
-use crate::{Map, Result, Value};
+use crate::{Error, Map, Result, Value};
+
+pub struct Root {
+    statements: Vec<Statement>,
+}
+
+impl AbstractTree for Root {
+    fn from_syntax_node(source: &str, node: Node) -> Result<Self> {
+        Error::expect_syntax_node(source, "root", node)?;
+
+        let statement_count = node.child_count();
+        let mut statements = Vec::with_capacity(statement_count);
+
+        for index in 0..statement_count {
+            let statement_node = node.child(index).unwrap();
+            let statement = Statement::from_syntax_node(source, statement_node)?;
+
+            statements.push(statement);
+        }
+
+        Ok(Root { statements })
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+        let mut value = Value::Empty;
+
+        for statement in &self.statements {
+            value = statement.run(source, context)?;
+        }
+
+        Ok(value)
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        self.statements.last().unwrap().expected_type(context)
+    }
+}
 
 /// This trait is implemented by the Evaluator's internal types to form an
 /// executable tree that resolves to a single value.
@@ -57,5 +86,7 @@ pub trait AbstractTree: Sized {
     fn from_syntax_node(source: &str, node: Node) -> Result<Self>;
 
     /// Execute dust code by traversing the tree.
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value>;
+    fn run(&self, source: &str, context: &Map) -> Result<Value>;
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition>;
 }

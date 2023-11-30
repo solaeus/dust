@@ -4,7 +4,7 @@
 //! functions or by constructing your own Evaluator.
 use tree_sitter::{Parser, Tree as TSTree};
 
-use crate::{language, AbstractTree, Map, Result, Statement, Value};
+use crate::{language, AbstractTree, Map, Result, Root, Value};
 
 /// Evaluate the given source code.
 ///
@@ -50,41 +50,34 @@ pub fn evaluate_with_context(source: &str, context: &mut Map) -> Result<Value> {
     let mut parser = Parser::new();
     parser.set_language(language()).unwrap();
 
-    Evaluator::new(parser, context, source).run()
+    Interpreter::parse(parser, context, source)?.run()
 }
 
 /// A source code interpreter for the Dust language.
-pub struct Evaluator<'c, 's> {
+pub struct Interpreter<'c, 's> {
     _parser: Parser,
     context: &'c mut Map,
     source: &'s str,
     syntax_tree: TSTree,
+    abstract_tree: Root,
 }
 
-impl<'c, 's> Evaluator<'c, 's> {
-    pub fn new(mut parser: Parser, context: &'c mut Map, source: &'s str) -> Self {
+impl<'c, 's> Interpreter<'c, 's> {
+    pub fn parse(mut parser: Parser, context: &'c mut Map, source: &'s str) -> Result<Self> {
         let syntax_tree = parser.parse(source, None).unwrap();
+        let abstract_tree = Root::from_syntax_node(source, syntax_tree.root_node())?;
 
-        Evaluator {
+        Ok(Interpreter {
             _parser: parser,
             context,
             source,
             syntax_tree,
-        }
+            abstract_tree,
+        })
     }
 
-    pub fn run(self) -> Result<Value> {
-        let root_node = self.syntax_tree.root_node();
-        let mut value = Value::Empty;
-
-        for index in 0..root_node.child_count() {
-            let statement_node = root_node.child(index).unwrap();
-            let statement = Statement::from_syntax_node(self.source, statement_node)?;
-
-            value = statement.run(self.source, self.context)?;
-        }
-
-        Ok(value)
+    pub fn run(&mut self) -> Result<Value> {
+        self.abstract_tree.run(self.source, self.context)
     }
 
     pub fn syntax_tree(&self) -> String {
@@ -247,7 +240,7 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                foobar = |message <str>| <str> { message }
+                foobar <fn str -> str> = |message| { message }
                 (foobar 'Hiya')
                 ",
             ),

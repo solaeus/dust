@@ -13,7 +13,8 @@ Simple Yield
         (expression
           (value
             (integer)))
-        (built_in_function)))))
+        (expression
+          (identifier))))))
 
 ================================================================================
 Yield Chain

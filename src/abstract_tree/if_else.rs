@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Map, Result, Value};
+use crate::{AbstractTree, Block, Expression, Map, Result, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
@@ -55,7 +55,7 @@ impl AbstractTree for IfElse {
         })
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let if_boolean = self.if_expression.run(source, context)?.as_boolean()?;
 
         if if_boolean {
@@ -79,5 +79,9 @@ impl AbstractTree for IfElse {
                 Ok(Value::Empty)
             }
         }
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        self.if_block.expected_type(context)
     }
 }

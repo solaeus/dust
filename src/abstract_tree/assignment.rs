@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    r#type: Option<Type>,
+    r#type: Option<TypeDefinition>,
     operator: AssignmentOperator,
     statement: Statement,
 }
@@ -27,7 +27,7 @@ impl AbstractTree for Assignment {
 
         let type_node = node.child_by_field_name("type");
         let r#type = if let Some(type_node) = type_node {
-            Some(Type::from_syntax_node(source, type_node)?)
+            Some(TypeDefinition::from_syntax_node(source, type_node)?)
         } else {
             None
         };
@@ -62,7 +62,7 @@ impl AbstractTree for Assignment {
         })
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
 
@@ -86,12 +86,12 @@ impl AbstractTree for Assignment {
             AssignmentOperator::Equal => value,
         };
 
-        if let Some(r#type) = &self.r#type {
-            r#type.check(&new_value)?;
-        }
-
         context.variables_mut()?.insert(key.clone(), new_value);
 
         Ok(Value::Empty)
+    }
+
+    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
+        Ok(TypeDefinition::Empty)
     }
 }

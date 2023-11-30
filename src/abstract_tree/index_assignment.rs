@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Index, Map, Result, Statement, Value};
+use crate::{AbstractTree, Error, Index, Map, Result, Statement, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IndexAssignment {
@@ -49,7 +49,7 @@ impl AbstractTree for IndexAssignment {
         })
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let index_collection = self.index.collection.run(source, context)?;
         let index_context = index_collection.as_map().unwrap_or(&context);
         let index_key = if let crate::Expression::Identifier(identifier) = &self.index.index {
@@ -89,5 +89,9 @@ impl AbstractTree for IndexAssignment {
             .insert(index_key.clone(), new_value);
 
         Ok(Value::Empty)
+    }
+
+    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
+        Ok(TypeDefinition::Empty)
     }
 }

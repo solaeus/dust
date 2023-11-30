@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Statement, Value};
+use crate::{AbstractTree, Error, Map, Result, Statement, TypeDefinition, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
@@ -41,7 +41,7 @@ impl AbstractTree for Block {
         })
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         if self.is_async {
             let statements = &self.statements;
             let final_result = RwLock::new(Ok(Value::Empty));
@@ -80,5 +80,9 @@ impl AbstractTree for Block {
 
             prev_result.unwrap_or(Ok(Value::Empty))
         }
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        self.statements.last().unwrap().expected_type(context)
     }
 }

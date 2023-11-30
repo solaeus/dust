@@ -12,7 +12,7 @@ use tree_sitter::Parser as TSParser;
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{evaluate_with_context, language, Evaluator, Map, Value};
+use dust_lang::{evaluate_with_context, language, Interpreter, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -30,9 +30,13 @@ struct Args {
     #[arg(short = 'p', long)]
     input_path: Option<String>,
 
-    /// A path to file whose contents will be assigned to the "input" variable.
+    /// Show the syntax tree.
     #[arg(short = 't', long = "tree")]
     show_syntax_tree: bool,
+
+    /// Launch in interactive mode.
+    #[arg(short, long)]
+    interactive: bool,
 
     /// Location of the file to run.
     path: Option<String>,
@@ -74,13 +78,21 @@ fn main() {
     let mut parser = TSParser::new();
     parser.set_language(language()).unwrap();
 
-    let evaluator = Evaluator::new(parser, &mut context, &source);
+    let mut interpreter = Interpreter::parse(parser, &mut context, &source).unwrap();
 
-    if args.show_syntax_tree {
-        println!("{}", evaluator.syntax_tree());
+    if args.interactive {
+        loop {
+            let result = interpreter.run();
+
+            println!("{result:?}")
+        }
     }
 
-    let eval_result = evaluator.run();
+    if args.show_syntax_tree {
+        println!("{}", interpreter.syntax_tree());
+    }
+
+    let eval_result = interpreter.run();
 
     match eval_result {
         Ok(value) => {

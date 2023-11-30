@@ -18,6 +18,7 @@
     "nan": "^2.18.0"
   },
   "devDependencies": {
+    "prettier": "3.1.0",
     "tree-sitter-cli": "^0.20.8"
   },
   "main": "bindings/node"

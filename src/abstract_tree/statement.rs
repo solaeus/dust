@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Block, Error, Expression, Filter, Find, For, IfElse, IndexAssignment,
-    Insert, Map, Match, Remove, Result, Select, Transform, Use, Value, While,
+    AbstractTree, Assignment, Block, Error, Expression, For, IfElse, IndexAssignment, Map, Match,
+    Result, TypeDefinition, Use, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -17,13 +17,7 @@ pub enum Statement {
     While(Box<While>),
     Block(Box<Block>),
     For(Box<For>),
-    Transform(Box<Transform>),
-    Filter(Box<Filter>),
-    Find(Box<Find>),
-    Remove(Box<Remove>),
     Use(Use),
-    Select(Box<Select>),
-    Insert(Box<Insert>),
     IndexAssignment(Box<IndexAssignment>),
 }
 
@@ -60,25 +54,7 @@ impl AbstractTree for Statement {
             "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
                 source, child,
             )?))),
-            "transform" => Ok(Statement::Transform(Box::new(Transform::from_syntax_node(
-                source, child,
-            )?))),
-            "filter" => Ok(Statement::Filter(Box::new(Filter::from_syntax_node(
-                source, child,
-            )?))),
-            "find" => Ok(Statement::Find(Box::new(Find::from_syntax_node(
-                source, child,
-            )?))),
-            "remove" => Ok(Statement::Remove(Box::new(Remove::from_syntax_node(
-                source, child,
-            )?))),
-            "select" => Ok(Statement::Select(Box::new(Select::from_syntax_node(
-                source, child,
-            )?))),
             "use" => Ok(Statement::Use(Use::from_syntax_node(source, child)?)),
-            "insert" => Ok(Statement::Insert(Box::new(Insert::from_syntax_node(
-                source, child,
-            )?))),
             "index_assignment" => Ok(Statement::IndexAssignment(Box::new(IndexAssignment::from_syntax_node(
                 source, child,
             )?))),
@@ -91,7 +67,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Return(expression) => expression.run(source, context),
@@ -101,14 +77,23 @@ impl AbstractTree for Statement {
             Statement::While(r#while) => r#while.run(source, context),
             Statement::Block(block) => block.run(source, context),
             Statement::For(r#for) => r#for.run(source, context),
-            Statement::Transform(transform) => transform.run(source, context),
-            Statement::Filter(filter) => filter.run(source, context),
-            Statement::Find(find) => find.run(source, context),
-            Statement::Remove(remove) => remove.run(source, context),
             Statement::Use(run) => run.run(source, context),
-            Statement::Select(select) => select.run(source, context),
-            Statement::Insert(insert) => insert.run(source, context),
             Statement::IndexAssignment(index_assignment) => index_assignment.run(source, context),
+        }
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+        match self {
+            Statement::Assignment(assignment) => assignment.expected_type(context),
+            Statement::Return(expression) => expression.expected_type(context),
+            Statement::Expression(expression) => expression.expected_type(context),
+            Statement::IfElse(if_else) => if_else.expected_type(context),
+            Statement::Match(r#match) => r#match.expected_type(context),
+            Statement::While(r#while) => r#while.expected_type(context),
+            Statement::Block(block) => block.expected_type(context),
+            Statement::For(r#for) => r#for.expected_type(context),
+            Statement::Use(r#use) => r#use.expected_type(context),
+            Statement::IndexAssignment(index_assignment) => index_assignment.expected_type(context),
         }
     }
 }

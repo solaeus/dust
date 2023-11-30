@@ -27,7 +27,8 @@ x <int> = y
   (statement
     (assignment
       (identifier)
-      (type)
+      (type_definition
+        (type))
       (assignment_operator)
       (statement
         (expression
