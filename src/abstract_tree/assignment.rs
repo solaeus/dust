@@ -66,10 +66,6 @@ impl AbstractTree for Assignment {
         let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
 
-        if let Some(type_definition) = &self.type_definition {
-            type_definition.check(&value, context)?;
-        }
-
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
                 if let Some(mut previous_value) = context.variables()?.get(key).cloned() {
@@ -89,6 +85,10 @@ impl AbstractTree for Assignment {
             }
             AssignmentOperator::Equal => value,
         };
+
+        if let Some(type_definition) = &self.type_definition {
+            type_definition.check(&new_value, context)?;
+        }
 
         context.variables_mut()?.insert(key.clone(), new_value);
 

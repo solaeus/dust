@@ -56,8 +56,8 @@ impl AbstractTree for Math {
         Ok(value)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::Number)
+    fn expected_type(&self, context: &Map) -> Result<Type> {
+        self.left.expected_type(context)
     }
 }
 
