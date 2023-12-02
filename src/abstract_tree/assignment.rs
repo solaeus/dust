@@ -29,7 +29,7 @@ impl AbstractTree for Assignment {
 
         let type_node = node.child(1);
         let type_definition = if let Some(type_node) = type_node {
-            if type_node.kind() == "type_defintion" {
+            if type_node.kind() == "type_definition" {
                 Some(TypeDefinition::from_syntax_node(
                     source, type_node, context,
                 )?)
@@ -63,35 +63,30 @@ impl AbstractTree for Assignment {
 
             match operator {
                 AssignmentOperator::Equal => {
-                    type_definition.abstract_check(
-                        &statement_type,
-                        context,
-                        statement_node,
-                        source,
-                    )?;
+                    type_definition.check(&statement_type, context, statement_node, source)?;
                 }
                 AssignmentOperator::PlusEqual => {
                     let identifier_type = identifier.expected_type(context)?;
 
-                    type_definition.abstract_check(
-                        &identifier_type,
-                        context,
-                        type_node.unwrap(),
-                        source,
-                    )?;
+                    if let Type::List(item_type) = type_definition.inner() {
+                        let item_type_definition = TypeDefinition::new(*item_type.clone());
 
-                    let type_definition = if let Type::List(item_type) = type_definition.inner() {
-                        TypeDefinition::new(item_type.as_ref().clone())
+                        item_type_definition.check(&identifier_type, context, node, source)?;
+                        item_type_definition.check(
+                            &statement_type,
+                            context,
+                            statement_node,
+                            source,
+                        )?;
                     } else {
-                        type_definition.clone()
-                    };
-
-                    type_definition.abstract_check(
-                        &statement_type,
-                        context,
-                        statement_node,
-                        source,
-                    )?;
+                        type_definition.check(
+                            &identifier_type,
+                            context,
+                            identifier_node,
+                            source,
+                        )?;
+                        type_definition.check(&statement_type, context, statement_node, source)?;
+                    }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
             }
@@ -112,22 +107,6 @@ impl AbstractTree for Assignment {
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
                 if let Some(mut previous_value) = context.variables()?.get(key).cloned() {
-                    if let Ok(list) = previous_value.as_list() {
-                        let item_type = if let Some(type_defintion) = &self.type_definition {
-                            if let Type::List(item_type) = type_defintion.inner() {
-                                TypeDefinition::new(item_type.as_ref().clone())
-                            } else {
-                                TypeDefinition::new(Type::Empty)
-                            }
-                        } else if let Some(first) = list.items().first() {
-                            first.r#type(context)?
-                        } else {
-                            TypeDefinition::new(Type::Any)
-                        };
-
-                        item_type.runtime_check(&value.r#type(context)?, context)?;
-                    }
-
                     previous_value += value;
                     previous_value
                 } else {
@@ -144,12 +123,6 @@ impl AbstractTree for Assignment {
             }
             AssignmentOperator::Equal => value,
         };
-
-        if let Some(type_definition) = &self.type_definition {
-            let new_value_type = new_value.r#type(context)?;
-
-            type_definition.runtime_check(&new_value_type, context)?;
-        }
 
         context.variables_mut()?.insert(key.clone(), new_value);
 
@@ -183,7 +156,7 @@ mod tests {
     fn list_add_assign() {
         let test = evaluate(
             "
-            x <list int> = []
+            x <[int]> = []
             x += 1
             x
             ",

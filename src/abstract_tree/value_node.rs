@@ -195,7 +195,7 @@ impl AbstractTree for ValueNode {
 
                     if let Some(previous) = previous_type {
                         if expression_type != previous {
-                            return Ok(TypeDefinition::new(Type::Any));
+                            return Ok(TypeDefinition::new(Type::List(Box::new(Type::Any))));
                         }
                     }
 

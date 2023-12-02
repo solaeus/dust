@@ -23,79 +23,14 @@ impl TypeDefinition {
         self.r#type
     }
 
-    pub fn abstract_check(
+    pub fn check(
         &self,
         other: &TypeDefinition,
         context: &Map,
         node: Node,
         source: &str,
     ) -> Result<()> {
-        self.runtime_check(other, context)
-            .map_err(|_| Error::TypeCheck {
-                expected: self.clone(),
-                actual: other.clone(),
-                location: node.start_position(),
-                source: source[node.byte_range()].to_string(),
-            })
-    }
-
-    pub fn runtime_check(&self, other: &TypeDefinition, context: &Map) -> Result<()> {
-        // match (&self.r#type, &other.r#type) {
-        //     (Type::Any, _)
-        //     | (_, Type::Any)
-        //     | (Type::Boolean, Type::Boolean)
-        //     | (Type::Empty, Type::Empty)
-        //     | (Type::Float, Type::Float)
-        //     | (Type::Integer, Type::Integer)
-        //     | (Type::Map, Type::Map)
-        //     | (Type::Number, Type::Number)
-        //     | (Type::Number, Type::Integer)
-        //     | (Type::Number, Type::Float)
-        //     | (Type::Integer, Type::Number)
-        //     | (Type::Float, Type::Number)
-        //     | (Type::String, Type::String)
-        //     | (Type::Table, Type::Table) => Ok(()),
-        //     (Type::List(self_item_type), Type::List(other_item_type)) => {
-        //         let self_defintion = TypeDefinition::new(self_item_type.as_ref().clone());
-        //         let other_definition = &TypeDefinition::new(other_item_type.as_ref().clone());
-
-        //         self_defintion.runtime_check(other_definition, context)
-        //     }
-        //     (
-        //         Type::Function {
-        //             parameter_types: self_parameter_types,
-        //             return_type: self_return_type,
-        //         },
-        //         Type::Function {
-        //             parameter_types: other_parameter_types,
-        //             return_type: other_return_type,
-        //         },
-        //     ) => {
-        //         let parameter_type_pairs = self_parameter_types
-        //             .iter()
-        //             .zip(other_parameter_types.iter());
-
-        //         for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
-        //             TypeDefinition::new(self_parameter_type.clone()).runtime_check(
-        //                 &TypeDefinition::new(other_parameter_type.clone()),
-        //                 context,
-        //             )?;
-        //         }
-
-        //         TypeDefinition::new(self_return_type.as_ref().clone()).runtime_check(
-        //             &TypeDefinition::new(other_return_type.as_ref().clone()),
-        //             context,
-        //         )?;
-
-        //         Ok(())
-        //     }
-        //     _ => Err(Error::RuntimeTypeCheck {
-        //         expected: self.clone(),
-        //         actual: other.clone(),
-        //     }),
-        // }
-
-        Ok(())
+        self.r#type.check(&other.r#type, context, node, source)
     }
 }
 
@@ -142,6 +77,58 @@ pub enum Type {
     Table,
 }
 
+impl Type {
+    pub fn check(&self, other: &Type, context: &Map, node: Node, source: &str) -> Result<()> {
+        match (self, other) {
+            (Type::Any, _)
+            | (_, Type::Any)
+            | (Type::Boolean, Type::Boolean)
+            | (Type::Empty, Type::Empty)
+            | (Type::Float, Type::Float)
+            | (Type::Integer, Type::Integer)
+            | (Type::Map, Type::Map)
+            | (Type::Number, Type::Number)
+            | (Type::Number, Type::Integer)
+            | (Type::Number, Type::Float)
+            | (Type::Integer, Type::Number)
+            | (Type::Float, Type::Number)
+            | (Type::String, Type::String)
+            | (Type::Table, Type::Table) => Ok(()),
+            (Type::List(self_item_type), Type::List(other_item_type)) => {
+                self_item_type.check(&other_item_type, context, node, source)
+            }
+            (
+                Type::Function {
+                    parameter_types: self_parameter_types,
+                    return_type: self_return_type,
+                },
+                Type::Function {
+                    parameter_types: other_parameter_types,
+                    return_type: other_return_type,
+                },
+            ) => {
+                let parameter_type_pairs = self_parameter_types
+                    .iter()
+                    .zip(other_parameter_types.iter());
+
+                for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
+                    self_parameter_type.check(&other_parameter_type, context, node, source)?;
+                }
+
+                self_return_type.check(other_return_type, context, node, source)?;
+
+                Ok(())
+            }
+            _ => Err(Error::TypeCheck {
+                expected: self.clone(),
+                actual: other.clone(),
+                location: node.start_position(),
+                source: source[node.byte_range()].to_string(),
+            }),
+        }
+    }
+}
+
 impl AbstractTree for Type {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type", node)?;
@@ -182,7 +169,6 @@ impl AbstractTree for Type {
             "map" => Type::Map,
             "num" => Type::Number,
             "str" => Type::String,
-            "table" => Type::Table,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "any, bool, float, fn, int, list, map, num, str or table",
@@ -225,7 +211,7 @@ impl Display for Type {
                 write!(f, "-> {return_type}")
             }
             Type::Integer => write!(f, "int"),
-            Type::List(item_type) => write!(f, "list {item_type}"),
+            Type::List(item_type) => write!(f, "[{item_type}]"),
             Type::Map => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::String => write!(f, "str"),

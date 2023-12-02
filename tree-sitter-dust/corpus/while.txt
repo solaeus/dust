@@ -18,7 +18,8 @@ while true {
         (statement
           (expression
             (function_call
-              (identifier)
+              (expression
+                (identifier))
               (expression
                 (value
                   (string))))))))))

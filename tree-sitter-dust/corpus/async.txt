@@ -12,7 +12,8 @@ async { (output 'Whaddup') }
       (statement
         (expression
           (function_call
-            (identifier)
+            (expression
+              (identifier))
             (expression
               (value
                 (string)))))))))

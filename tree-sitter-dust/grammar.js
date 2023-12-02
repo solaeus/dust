@@ -361,24 +361,22 @@ module.exports = grammar({
     function: $ =>
       seq(
         $.type_definition,
-        seq(
-          '|',
-          repeat(
-            seq(
-              $.identifier,
-              optional(','),
-            ),
+        '|',
+        repeat(
+          seq(
+            $.identifier,
+            optional(','),
           ),
-          '|',
-          $.block,
         ),
+        '|',
+        $.block,
       ),
 
     function_call: $ =>
       prec.right(
         seq(
           '(',
-          $.identifier,
+          $.expression,
           optional($._expression_list),
           ')',
         ),
@@ -390,7 +388,7 @@ module.exports = grammar({
           $.expression,
           '->',
           '(',
-          $.identifier,
+          $.expression,
           optional($._expression_list),
           ')',
         ),

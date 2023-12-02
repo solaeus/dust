@@ -5,7 +5,7 @@
 
 use tree_sitter::{Node, Point};
 
-use crate::{value::Value, BuiltInFunction, Identifier, TypeDefinition};
+use crate::{value::Value, BuiltInFunction, Identifier, Type};
 
 use std::{fmt, io, num::ParseFloatError, string::FromUtf8Error, sync::PoisonError, time};
 
@@ -21,15 +21,15 @@ pub enum Error {
     },
 
     TypeCheck {
-        expected: TypeDefinition,
-        actual: TypeDefinition,
+        expected: Type,
+        actual: Type,
         location: Point,
         source: String,
     },
 
     RuntimeTypeCheck {
-        expected: TypeDefinition,
-        actual: TypeDefinition,
+        expected: Type,
+        actual: Type,
     },
 
     /// The 'assert' macro did not resolve successfully.

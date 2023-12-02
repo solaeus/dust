@@ -2,8 +2,10 @@ cast = (download "https://api.sampleapis.com/futurama/cast")
 characters = (download "https://api.sampleapis.com/futurama/characters")	
 episodes = (download "https://api.sampleapis.com/futurama/episodes")
 
-cast_len = (length (from_json cast))
-characters_len = (length (from_json characters))
-episodes_len = (length (from_json episodes))
+async {	
+	cast_len = (length (from_json cast))
+	characters_len = (length (from_json characters))
+	episodes_len = (length (from_json episodes))
+}
 
 (output [cast_len, characters_len, episodes_len])

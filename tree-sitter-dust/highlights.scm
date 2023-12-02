@@ -36,7 +36,6 @@
       "if"
       "else"
       "for"
-      "transform"
       "in"
       "function"
 ] @keyword

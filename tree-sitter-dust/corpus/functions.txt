@@ -58,7 +58,8 @@ Function Call
   (statement
     (expression
       (function_call
-        (identifier)
+        (expression
+          (identifier))
         (expression
           (value
             (string)))))))
@@ -89,13 +90,15 @@ Complex Function
             (statement
               (expression
                 (function_call
-                  (identifier)
+                  (expression
+                    (identifier))
                   (expression
                     (identifier)))))
             (statement
               (expression
                 (function_call
-                  (identifier)
+                  (expression
+                    (identifier))
                   (expression
                     (identifier)))))))))))
 
@@ -118,7 +121,8 @@ Complex Function Call
   (statement
     (expression
       (function_call
-        (identifier)
+        (expression
+          (identifier))
         (expression
           (value
             (string)))

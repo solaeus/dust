@@ -62,14 +62,10 @@ impl Function {
 
             println!("{key} {value}");
 
-            type_definition.runtime_check(&value.r#type(context)?, context)?;
             function_context.variables_mut()?.insert(key.clone(), value);
         }
 
         let return_value = self.body.run(source, &function_context)?;
-
-        self.return_type
-            .runtime_check(&return_value.r#type(context)?, context)?;
 
         Ok(return_value)
     }
@@ -90,11 +86,11 @@ impl AbstractTree for Function {
             (parameter_types, return_type)
         } else {
             return Err(Error::TypeCheck {
-                expected: TypeDefinition::new(Type::Function {
+                expected: Type::Function {
                     parameter_types: Vec::with_capacity(0),
                     return_type: Box::new(Type::Empty),
-                }),
-                actual: type_definition,
+                },
+                actual: type_definition.take_inner(),
                 location: type_node.start_position(),
                 source: source[type_node.byte_range()].to_string(),
             });

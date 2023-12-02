@@ -1,8 +1,8 @@
-use crate::{BuiltInFunction, Error, List, Map, Result, Value};
+use crate::{BuiltInFunction, Error, List, Map, Result, Type, TypeDefinition, Value};
 
-pub struct Type;
+pub struct TypeFunction;
 
-impl BuiltInFunction for Type {
+impl BuiltInFunction for TypeFunction {
     fn name(&self) -> &'static str {
         "type"
     }
@@ -33,6 +33,9 @@ impl BuiltInFunction for Type {
     }
 
     fn type_definition(&self) -> crate::TypeDefinition {
-        todo!()
+        TypeDefinition::new(Type::Function {
+            parameter_types: vec![Type::String],
+            return_type: Box::new(Type::Any),
+        })
     }
 }

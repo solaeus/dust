@@ -47,7 +47,7 @@ impl AbstractTree for Identifier {
                 }
             }
 
-            Ok(TypeDefinition::new(Type::Empty))
+            Ok(TypeDefinition::new(Type::Any))
         }
     }
 }
