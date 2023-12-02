@@ -162,6 +162,10 @@
         {
           "type": "identifier",
           "named": true
+        },
+        {
+          "type": "type_definition",
+          "named": true
         }
       ]
     }
@@ -180,29 +184,6 @@
         },
         {
           "type": "identifier",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "function_declaration",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "function",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "type_definition",
           "named": true
         }
       ]
@@ -444,10 +425,6 @@
           "named": true
         },
         {
-          "type": "function_declaration",
-          "named": true
-        },
-        {
           "type": "if_else",
           "named": true
         },
@@ -533,6 +510,10 @@
         },
         {
           "type": "float",
+          "named": true
+        },
+        {
+          "type": "function",
           "named": true
         },
         {

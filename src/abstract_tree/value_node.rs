@@ -4,14 +4,15 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Identifier, List, Map, Result, Statement, Table, Type,
-    TypeDefinition, Value,
+    AbstractTree, Error, Expression, Function, Identifier, List, Map, Result, Statement, Table,
+    Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum ValueNode {
     Boolean(String),
     Float(String),
+    Function(Function),
     Integer(String),
     String(String),
     List(Vec<Expression>),
@@ -31,6 +32,7 @@ impl AbstractTree for ValueNode {
         let value_node = match child.kind() {
             "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
             "float" => ValueNode::Float(source[child.byte_range()].to_string()),
+            "function" => ValueNode::Function(Function::from_syntax_node(source, child, context)?),
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {
                 let without_quotes = child.start_byte() + 1..child.end_byte() - 1;
@@ -117,6 +119,7 @@ impl AbstractTree for ValueNode {
         let value = match self {
             ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
             ValueNode::Float(value_source) => Value::Float(value_source.parse().unwrap()),
+            ValueNode::Function(function) => Value::Function(function.clone()),
             ValueNode::Integer(value_source) => Value::Integer(value_source.parse().unwrap()),
             ValueNode::String(value_source) => Value::String(value_source.parse().unwrap()),
             ValueNode::List(expressions) => {
@@ -181,6 +184,7 @@ impl AbstractTree for ValueNode {
         let type_definition = match self {
             ValueNode::Boolean(_) => TypeDefinition::new(Type::Boolean),
             ValueNode::Float(_) => TypeDefinition::new(Type::Float),
+            ValueNode::Function(function) => Value::Function(function.clone()).r#type(context)?,
             ValueNode::Integer(_) => TypeDefinition::new(Type::Integer),
             ValueNode::String(_) => TypeDefinition::new(Type::String),
             ValueNode::List(expressions) => {

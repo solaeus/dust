@@ -108,7 +108,7 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                foobar <fn str -> str> |message| { message }
+                foobar = <fn str -> str> |message| { message }
                 (foobar 'Hiya')
                 ",
             ),

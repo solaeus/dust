@@ -27,7 +27,6 @@ module.exports = grammar({
             $.block,
             $.expression,
             $.for,
-            $.function_declaration,
             $.if_else,
             $.index_assignment,
             $.match,
@@ -69,6 +68,7 @@ module.exports = grammar({
       choice(
         $.integer,
         $.float,
+        $.function,
         $.string,
         $.boolean,
         $.list,
@@ -223,15 +223,17 @@ module.exports = grammar({
       ),
 
     logic_operator: $ =>
-      choice(
-        '==',
-        '!=',
-        '&&',
-        '||',
-        '>',
-        '<',
-        '>=',
-        '<=',
+      prec.left(
+        choice(
+          '==',
+          '!=',
+          '&&',
+          '||',
+          '>',
+          '<',
+          '>=',
+          '<=',
+        ),
       ),
 
     assignment: $ =>
@@ -323,7 +325,9 @@ module.exports = grammar({
       ),
 
     return: $ =>
-      seq('return', $.expression),
+      prec.right(
+        seq('return', $.expression),
+      ),
 
     use: $ => seq('use', $.string),
 
@@ -354,24 +358,20 @@ module.exports = grammar({
         ),
       ),
 
-    function_declaration: $ =>
-      seq(
-        $.identifier,
-        $.type_definition,
-        $.function,
-      ),
-
     function: $ =>
       seq(
-        '|',
-        repeat(
-          seq(
-            $.identifier,
-            optional(','),
+        $.type_definition,
+        seq(
+          '|',
+          repeat(
+            seq(
+              $.identifier,
+              optional(','),
+            ),
           ),
+          '|',
+          $.block,
         ),
-        '|',
-        $.block,
       ),
 
     function_call: $ =>
