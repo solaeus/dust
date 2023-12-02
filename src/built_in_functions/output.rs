@@ -1,4 +1,4 @@
-use crate::{BuiltInFunction, Map, Result, Value};
+use crate::{BuiltInFunction, Map, Result, Type, TypeDefinition, Value};
 
 pub struct Output;
 
@@ -13,5 +13,12 @@ impl BuiltInFunction for Output {
         }
 
         Ok(Value::Empty)
+    }
+
+    fn type_definition(&self) -> crate::TypeDefinition {
+        TypeDefinition::new(Type::Function {
+            parameter_types: vec![Type::Any],
+            return_type: Box::new(Type::Empty),
+        })
     }
 }

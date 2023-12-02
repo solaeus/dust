@@ -41,10 +41,20 @@ impl AbstractTree for FunctionCall {
             }
         }
 
-        Ok(FunctionCall {
+        let function_type = function_name.expected_type(context)?;
+        let function_call = FunctionCall {
             function_name,
             arguments,
-        })
+        };
+
+        function_type.abstract_check(
+            &function_call.expected_type(context)?,
+            context,
+            node,
+            source,
+        )?;
+
+        Ok(function_call)
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
@@ -72,21 +82,20 @@ impl AbstractTree for FunctionCall {
                 self.function_name.clone(),
             ));
         };
-        let mut function_context = Map::clone_from(context)?;
-        let parameter_expression_pairs = function.parameters().iter().zip(self.arguments.iter());
 
-        for ((identifier, _type), expression) in parameter_expression_pairs {
-            let key = identifier.clone().take_inner();
-            let value = expression.run(source, context)?;
-
-            function_context.variables_mut()?.insert(key, value);
-        }
-
-        function.body().run(source, &mut function_context)
+        function.call(&self.arguments, source, context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
-        self.function_name.expected_type(context)
+        let function_name = self.function_name.inner();
+
+        if let Some(value) = context.variables()?.get(function_name) {
+            let return_type = value.as_function()?.return_type();
+
+            Ok(return_type.clone())
+        } else {
+            self.function_name.expected_type(context)
+        }
     }
 }
 

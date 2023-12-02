@@ -31,4 +31,8 @@ impl BuiltInFunction for Type {
             Ok(Value::List(List::with_items(answers)))
         }
     }
+
+    fn type_definition(&self) -> crate::TypeDefinition {
+        todo!()
+    }
 }

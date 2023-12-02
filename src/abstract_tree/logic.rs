@@ -12,10 +12,23 @@ pub struct Logic {
 
 impl AbstractTree for Logic {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
-        let left_node = node.child(0).unwrap();
+        let first_node = node.child(0).unwrap();
+        let (left_node, operator_node, right_node) = {
+            if first_node.is_named() {
+                (
+                    first_node,
+                    node.child(1).unwrap().child(0).unwrap(),
+                    node.child(2).unwrap(),
+                )
+            } else {
+                (
+                    node.child(1).unwrap(),
+                    node.child(2).unwrap().child(0).unwrap(),
+                    node.child(3).unwrap(),
+                )
+            }
+        };
         let left = Expression::from_syntax_node(source, left_node, context)?;
-
-        let operator_node = node.child(1).unwrap().child(0).unwrap();
         let operator = match operator_node.kind() {
             "==" => LogicOperator::Equal,
             "!=" => LogicOperator::NotEqual,
@@ -34,8 +47,6 @@ impl AbstractTree for Logic {
                 })
             }
         };
-
-        let right_node = node.child(2).unwrap();
         let right = Expression::from_syntax_node(source, right_node, context)?;
 
         Ok(Logic {

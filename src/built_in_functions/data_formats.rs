@@ -15,6 +15,10 @@ impl BuiltInFunction for FromJson {
 
         Ok(value)
     }
+
+    fn type_definition(&self) -> crate::TypeDefinition {
+        todo!()
+    }
 }
 
 pub struct ToJson;
@@ -31,5 +35,9 @@ impl BuiltInFunction for ToJson {
         let json_string = serde_json::to_string(&value)?;
 
         Ok(Value::String(json_string))
+    }
+
+    fn type_definition(&self) -> crate::TypeDefinition {
+        todo!()
     }
 }

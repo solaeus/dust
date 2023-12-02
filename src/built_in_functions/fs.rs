@@ -46,6 +46,10 @@ impl BuiltInFunction for Read {
 
         Ok(Value::String(file_content))
     }
+
+    fn type_definition(&self) -> crate::TypeDefinition {
+        todo!()
+    }
 }
 
 pub struct Write;
@@ -62,6 +66,10 @@ impl BuiltInFunction for Write {
         write(path, file_content)?;
 
         Ok(Value::Empty)
+    }
+
+    fn type_definition(&self) -> crate::TypeDefinition {
+        todo!()
     }
 }
 
@@ -83,5 +91,9 @@ impl BuiltInFunction for Append {
             .write_all(file_content.as_bytes())?;
 
         Ok(Value::Empty)
+    }
+
+    fn type_definition(&self) -> crate::TypeDefinition {
+        todo!()
     }
 }

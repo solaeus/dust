@@ -8,7 +8,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionDeclaration {
     name: Identifier,
-    _type_definition: TypeDefinition,
+    type_definition: TypeDefinition,
     function: Function,
 }
 
@@ -72,7 +72,7 @@ impl AbstractTree for FunctionDeclaration {
 
         Ok(FunctionDeclaration {
             name,
-            _type_definition: type_definition,
+            type_definition,
             function,
         })
     }

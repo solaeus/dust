@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Type, TypeDefinition, Value};
+use crate::{AbstractTree, Error, Map, Result, Type, TypeDefinition, Value, BUILT_IN_FUNCTIONS};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(String);
@@ -41,6 +41,12 @@ impl AbstractTree for Identifier {
         if let Some(value) = context.variables()?.get(&self.0) {
             value.r#type(context)
         } else {
+            for built_in_function in BUILT_IN_FUNCTIONS {
+                if self.0 == built_in_function.name() {
+                    return Ok(built_in_function.type_definition());
+                }
+            }
+
             Ok(TypeDefinition::new(Type::Empty))
         }
     }
