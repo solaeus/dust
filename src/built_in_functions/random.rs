@@ -10,7 +10,7 @@ impl BuiltInFunction for Random {
     }
 
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
-        Error::expect_argument_minimum(self, 1, arguments.len())?;
+        Error::expect_argument_amount(self, 1, arguments.len())?;
 
         let list = arguments.first().unwrap().as_list()?;
         let items = list.items();
@@ -42,7 +42,10 @@ impl BuiltInFunction for RandomInteger {
     }
 
     fn type_definition(&self) -> crate::TypeDefinition {
-        todo!()
+        TypeDefinition::new(Type::Function {
+            parameter_types: Vec::with_capacity(0),
+            return_type: Box::new(Type::Integer),
+        })
     }
 }
 
@@ -60,7 +63,10 @@ impl BuiltInFunction for RandomFloat {
     }
 
     fn type_definition(&self) -> crate::TypeDefinition {
-        todo!()
+        TypeDefinition::new(Type::Function {
+            parameter_types: Vec::with_capacity(0),
+            return_type: Box::new(Type::Float),
+        })
     }
 }
 
@@ -78,6 +84,9 @@ impl BuiltInFunction for RandomBoolean {
     }
 
     fn type_definition(&self) -> crate::TypeDefinition {
-        todo!()
+        TypeDefinition::new(Type::Function {
+            parameter_types: Vec::with_capacity(0),
+            return_type: Box::new(Type::Boolean),
+        })
     }
 }

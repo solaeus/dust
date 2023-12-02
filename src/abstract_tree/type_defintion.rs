@@ -40,60 +40,62 @@ impl TypeDefinition {
     }
 
     pub fn runtime_check(&self, other: &TypeDefinition, context: &Map) -> Result<()> {
-        match (&self.r#type, &other.r#type) {
-            (Type::Any, _)
-            | (_, Type::Any)
-            | (Type::Boolean, Type::Boolean)
-            | (Type::Empty, Type::Empty)
-            | (Type::Float, Type::Float)
-            | (Type::Integer, Type::Integer)
-            | (Type::Map, Type::Map)
-            | (Type::Number, Type::Number)
-            | (Type::Number, Type::Integer)
-            | (Type::Number, Type::Float)
-            | (Type::Integer, Type::Number)
-            | (Type::Float, Type::Number)
-            | (Type::String, Type::String)
-            | (Type::Table, Type::Table) => Ok(()),
-            (Type::List(self_item_type), Type::List(other_item_type)) => {
-                let self_defintion = TypeDefinition::new(self_item_type.as_ref().clone());
-                let other_definition = &TypeDefinition::new(other_item_type.as_ref().clone());
+        // match (&self.r#type, &other.r#type) {
+        //     (Type::Any, _)
+        //     | (_, Type::Any)
+        //     | (Type::Boolean, Type::Boolean)
+        //     | (Type::Empty, Type::Empty)
+        //     | (Type::Float, Type::Float)
+        //     | (Type::Integer, Type::Integer)
+        //     | (Type::Map, Type::Map)
+        //     | (Type::Number, Type::Number)
+        //     | (Type::Number, Type::Integer)
+        //     | (Type::Number, Type::Float)
+        //     | (Type::Integer, Type::Number)
+        //     | (Type::Float, Type::Number)
+        //     | (Type::String, Type::String)
+        //     | (Type::Table, Type::Table) => Ok(()),
+        //     (Type::List(self_item_type), Type::List(other_item_type)) => {
+        //         let self_defintion = TypeDefinition::new(self_item_type.as_ref().clone());
+        //         let other_definition = &TypeDefinition::new(other_item_type.as_ref().clone());
 
-                self_defintion.runtime_check(other_definition, context)
-            }
-            (
-                Type::Function {
-                    parameter_types: self_parameter_types,
-                    return_type: self_return_type,
-                },
-                Type::Function {
-                    parameter_types: other_parameter_types,
-                    return_type: other_return_type,
-                },
-            ) => {
-                let parameter_type_pairs = self_parameter_types
-                    .iter()
-                    .zip(other_parameter_types.iter());
+        //         self_defintion.runtime_check(other_definition, context)
+        //     }
+        //     (
+        //         Type::Function {
+        //             parameter_types: self_parameter_types,
+        //             return_type: self_return_type,
+        //         },
+        //         Type::Function {
+        //             parameter_types: other_parameter_types,
+        //             return_type: other_return_type,
+        //         },
+        //     ) => {
+        //         let parameter_type_pairs = self_parameter_types
+        //             .iter()
+        //             .zip(other_parameter_types.iter());
 
-                for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
-                    TypeDefinition::new(self_parameter_type.clone()).runtime_check(
-                        &TypeDefinition::new(other_parameter_type.clone()),
-                        context,
-                    )?;
-                }
+        //         for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
+        //             TypeDefinition::new(self_parameter_type.clone()).runtime_check(
+        //                 &TypeDefinition::new(other_parameter_type.clone()),
+        //                 context,
+        //             )?;
+        //         }
 
-                TypeDefinition::new(self_return_type.as_ref().clone()).runtime_check(
-                    &TypeDefinition::new(other_return_type.as_ref().clone()),
-                    context,
-                )?;
+        //         TypeDefinition::new(self_return_type.as_ref().clone()).runtime_check(
+        //             &TypeDefinition::new(other_return_type.as_ref().clone()),
+        //             context,
+        //         )?;
 
-                Ok(())
-            }
-            _ => Err(Error::RuntimeTypeCheck {
-                expected: self.clone(),
-                actual: other.clone(),
-            }),
-        }
+        //         Ok(())
+        //     }
+        //     _ => Err(Error::RuntimeTypeCheck {
+        //         expected: self.clone(),
+        //         actual: other.clone(),
+        //     }),
+        // }
+
+        Ok(())
     }
 }
 

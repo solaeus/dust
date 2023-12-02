@@ -1,15 +1,17 @@
 use crate::{Map, Result, TypeDefinition, Value};
 
 mod assert;
+mod collections;
 mod data_formats;
 mod fs;
 mod output;
 mod random;
 mod r#type;
 
-pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 13] = [
+pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 14] = [
     &assert::Assert,
     &assert::AssertEqual,
+    &collections::Length,
     &data_formats::FromJson,
     &data_formats::ToJson,
     &fs::Read,
