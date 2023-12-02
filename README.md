@@ -42,18 +42,18 @@ Dust is an interpreted, strictly typed language with first class functions. It e
     - [Lists](#lists)
     - [Maps](#maps)
     - [Loops](#loops)
-    - [Tables](#tables)
     - [Functions](#functions)
     - [Concurrency](#concurrency)
+    - [Acknowledgements](#acknowledgements)
 <!--toc:end-->
 
 ## Features
 
 - Simplicity: Dust is designed to be easy to learn.
 - Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness. See [Benchmarks] below.
-- Concurrency: Easily and safely write code that runs in parallel.
+- Concurrency: A safe approach to parallelism.
 - Safety: Written in safe, stable Rust.
-- Correctness: Type checking makes it easy to write good code that works.
+- Correctness: Type checking makes it easy to write good code.
 
 ## Usage
 
@@ -136,17 +136,16 @@ Variables have two parts: a key and a value. The key is always a string. The val
 
 - string
 - integer
-- floating point value
+- float
 - boolean
 - list
 - map
-- table
 - function
 
 Here are some examples of variables in dust.
 
 ```dust
-string = "The answer is 42."
+string = "foobar"
 integer = 42
 float = 42.42
 list = [1 2 string integer float] # Commas are optional when writing lists.
@@ -207,51 +206,18 @@ for number in list {
 }
 ```
 
-### Tables
-
-Tables are strict collections, each row must have a value for each column. If a value is "missing" it should be set to an appropriate value for that type. For example, a string can be empty and a number can be set to zero. Dust table declarations consist of a list of column names, which are identifiers enclosed in pointed braces, followed by a list of rows.
-
-```dust
-animals = table <name species age> [
-    ["rover" "cat" 14]
-    ["spot" "snake" 9]
-    ["bob" "giraffe" 2]
-]
-```
-
-Querying a table is similar to SQL.
-
-```dust
-names = select name from animals
-youngins = select species from animals {
-    age <= 10
-}
-```
-
-The keywords `table` and `insert` make sure that all of the memory used to hold the rows is allocated at once, so it is good practice to group your rows together instead of using a call for each row.
-
-```dust
-insert into animals [
-    ["eliza" "ostrich" 4]
-    ["pat" "white rhino" 7]
-    ["jim" "walrus" 9]
-]
-
-(assert_equal 6 (length animals))
-```
-
 ### Functions
 
 Functions are first-class values in dust, so they are assigned to variables like any other value.
 
 ```dust
 # This simple function has no arguments.
-say_hi = || => {
+say_hi = <fn> || {
     (output "hi")
 }
 
 # This function has one argument and will return a value.
-add_one = |number| => {
+add_one = <fn int -> int> |number| {
     number + 1
 }
 
