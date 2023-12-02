@@ -1,5 +1,5 @@
-create_random_numbers <fn int> |count| {
-mnumbers = [];
+create_random_numbers = <fn int> |count| {
+	numbers = [];
 
 	while (length numbers) < count {
 		numbers += (random_integer)

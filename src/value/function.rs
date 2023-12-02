@@ -39,8 +39,21 @@ impl Function {
         &self.return_type
     }
 
+    pub fn r#type(&self) -> TypeDefinition {
+        let mut parameter_types = Vec::with_capacity(self.parameters.len());
+
+        for (_, type_definition) in &self.parameters {
+            parameter_types.push(type_definition.inner().clone());
+        }
+
+        TypeDefinition::new(Type::Function {
+            parameter_types,
+            return_type: Box::new(self.return_type.inner().clone()),
+        })
+    }
+
     pub fn call(&self, arguments: &[Expression], source: &str, context: &Map) -> Result<Value> {
-        let function_context = Map::new();
+        let function_context = Map::clone_from(context)?;
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
         for ((identifier, type_definition), expression) in parameter_argument_pairs {
@@ -123,6 +136,7 @@ impl AbstractTree for Function {
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", Value::Function(self.clone()))?;
         write!(
             f,
             "Function {{ parameters: {:?}, body: {:?} }}",

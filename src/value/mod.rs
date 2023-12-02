@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    AbstractTree, Function, List, Map, Table, Type, TypeDefinition,
+    Function, List, Map, Table, Type, TypeDefinition,
 };
 
 use serde::{
@@ -68,17 +68,7 @@ impl Value {
             }
             Value::Map(_) => Type::Map,
             Value::Table(_) => Type::Table,
-            Value::Function(function) => {
-                let parameters = function.parameters();
-                let parameter_types = vec![Type::Any; parameters.len()];
-                let body = function.body();
-                let return_type = body.expected_type(context)?.take_inner();
-
-                Type::Function {
-                    parameter_types,
-                    return_type: Box::new(return_type),
-                }
-            }
+            Value::Function(function) => return Ok(function.r#type()),
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,
             Value::Integer(_) => Type::Integer,
