@@ -196,13 +196,18 @@ impl Display for Type {
                 parameter_types,
                 return_type,
             } => {
-                write!(f, "fn ")?;
+                write!(f, "(")?;
 
                 for parameter_type in parameter_types {
-                    write!(f, "{parameter_type} ")?;
+                    write!(f, "{parameter_type}")?;
+
+                    if parameter_type != parameter_types.last().unwrap() {
+                        write!(f, " ")?;
+                    }
                 }
 
-                write!(f, "-> {return_type}")
+                write!(f, ")")?;
+                write!(f, " -> {return_type}")
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),

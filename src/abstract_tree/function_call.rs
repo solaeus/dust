@@ -43,7 +43,7 @@ impl AbstractTree for FunctionCall {
 
         if let Type::Function {
             parameter_types,
-            return_type,
+            return_type: _,
         } = function_type
         {
             let argument_type_pairs = arguments.iter().zip(parameter_types.iter());
@@ -51,7 +51,11 @@ impl AbstractTree for FunctionCall {
             for (argument, r#type) in argument_type_pairs {
                 let argument_type = argument.expected_type(context)?;
 
-                r#type.check(&argument_type, context, node, source)?;
+                if let Type::Function { return_type, .. } = argument_type {
+                    r#type.check(&return_type, context, node, source)?;
+                } else {
+                    r#type.check(&argument_type, context, node, source)?;
+                }
             }
         }
 
@@ -84,6 +88,7 @@ impl AbstractTree for FunctionCall {
                 }
 
                 let variables = context.variables()?;
+
                 if let Some(value) = variables.get(key) {
                     value.clone()
                 } else {
