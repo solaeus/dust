@@ -22,16 +22,6 @@ impl TypeDefinition {
     pub fn take_inner(self) -> Type {
         self.r#type
     }
-
-    pub fn check(
-        &self,
-        other: &TypeDefinition,
-        context: &Map,
-        node: Node,
-        source: &str,
-    ) -> Result<()> {
-        self.r#type.check(&other.r#type, context, node, source)
-    }
 }
 
 impl AbstractTree for TypeDefinition {
@@ -48,7 +38,7 @@ impl AbstractTree for TypeDefinition {
         self.r#type.run(source, context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         self.r#type.expected_type(context)
     }
 }
@@ -175,7 +165,7 @@ impl AbstractTree for Type {
             "str" => Type::String,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "any, bool, float, fn, int, list, map, num, str or table",
+                    expected: "any, bool, float, fn, int, list, map, num or str",
                     actual: type_node.kind(),
                     location: type_node.start_position(),
                     relevant_source: source[type_node.byte_range()].to_string(),
@@ -190,8 +180,8 @@ impl AbstractTree for Type {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
-        Ok(TypeDefinition::new(Type::Empty))
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::Empty)
     }
 }
 

@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, List, Map, Type, TypeDefinition,
+    Function, List, Map, Type,
 };
 
 use serde::{
@@ -42,7 +42,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn r#type(&self, context: &Map) -> Result<TypeDefinition> {
+    pub fn r#type(&self, context: &Map) -> Result<Type> {
         let r#type = match self {
             Value::List(list) => {
                 let mut previous_type = None;
@@ -52,7 +52,7 @@ impl Value {
 
                     if let Some(previous) = &previous_type {
                         if &value_type != previous {
-                            return Ok(TypeDefinition::new(Type::List(Box::new(Type::Any))));
+                            return Ok(Type::List(Box::new(Type::Any)));
                         }
                     }
 
@@ -60,13 +60,13 @@ impl Value {
                 }
 
                 if let Some(previous) = previous_type {
-                    Type::List(Box::new(previous.take_inner()))
+                    Type::List(Box::new(previous))
                 } else {
                     Type::List(Box::new(Type::Any))
                 }
             }
             Value::Map(_) => Type::Map,
-            Value::Function(function) => return Ok(TypeDefinition::new(function.r#type().clone())),
+            Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,
             Value::Integer(_) => Type::Integer,
@@ -74,7 +74,7 @@ impl Value {
             Value::Empty => Type::Empty,
         };
 
-        Ok(TypeDefinition::new(r#type))
+        Ok(r#type)
     }
 
     pub fn is_string(&self) -> bool {

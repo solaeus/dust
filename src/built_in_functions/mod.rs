@@ -1,4 +1,4 @@
-use crate::{Map, Result, TypeDefinition, Value};
+use crate::{Map, Result, Type, Value};
 
 mod assert;
 mod collections;
@@ -29,5 +29,5 @@ pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 14] = [
 pub trait BuiltInFunction {
     fn name(&self) -> &'static str;
     fn run(&self, arguments: &[Value], context: &Map) -> Result<Value>;
-    fn type_definition(&self) -> TypeDefinition;
+    fn r#type(&self) -> Type;
 }

@@ -1,6 +1,6 @@
 use rand::{random, thread_rng, Rng};
 
-use crate::{BuiltInFunction, Error, Map, Result, Type, TypeDefinition, Value};
+use crate::{BuiltInFunction, Error, Map, Result, Type, Value};
 
 pub struct Random;
 
@@ -20,11 +20,11 @@ impl BuiltInFunction for Random {
         Ok(random_argument.clone())
     }
 
-    fn type_definition(&self) -> TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::List(Box::new(Type::Any))],
             return_type: Box::new(Type::Any),
-        })
+        }
     }
 }
 
@@ -41,11 +41,11 @@ impl BuiltInFunction for RandomInteger {
         Ok(Value::Integer(random()))
     }
 
-    fn type_definition(&self) -> crate::TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: Vec::with_capacity(0),
             return_type: Box::new(Type::Integer),
-        })
+        }
     }
 }
 
@@ -62,11 +62,11 @@ impl BuiltInFunction for RandomFloat {
         Ok(Value::Float(random()))
     }
 
-    fn type_definition(&self) -> crate::TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: Vec::with_capacity(0),
             return_type: Box::new(Type::Float),
-        })
+        }
     }
 }
 
@@ -83,10 +83,10 @@ impl BuiltInFunction for RandomBoolean {
         Ok(Value::Boolean(random()))
     }
 
-    fn type_definition(&self) -> crate::TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: Vec::with_capacity(0),
             return_type: Box::new(Type::Boolean),
-        })
+        }
     }
 }

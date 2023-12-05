@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Map, Result, TypeDefinition, Value};
+use crate::{AbstractTree, Block, Expression, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
@@ -30,7 +30,7 @@ impl AbstractTree for While {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         self.block.expected_type(context)
     }
 }

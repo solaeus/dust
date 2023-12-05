@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Type, TypeDefinition, Value};
+use crate::{AbstractTree, Error, Expression, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Logic {
@@ -85,8 +85,8 @@ impl AbstractTree for Logic {
         Ok(Value::Boolean(result))
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
-        Ok(TypeDefinition::new(Type::Boolean))
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::Boolean)
     }
 }
 

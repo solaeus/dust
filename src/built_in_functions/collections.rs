@@ -1,4 +1,4 @@
-use crate::{BuiltInFunction, Error, Map, Result, Type, TypeDefinition, Value};
+use crate::{BuiltInFunction, Error, Map, Result, Type, Value};
 
 pub struct Length;
 
@@ -15,10 +15,10 @@ impl BuiltInFunction for Length {
         Ok(Value::Integer(length as i64))
     }
 
-    fn type_definition(&self) -> TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::List(Box::new(Type::Any))],
             return_type: Box::new(Type::Integer),
-        })
+        }
     }
 }

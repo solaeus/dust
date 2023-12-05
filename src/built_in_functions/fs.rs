@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{BuiltInFunction, List, Map, Result, Type, TypeDefinition, Value};
+use crate::{BuiltInFunction, List, Map, Result, Type, Value};
 
 pub struct Read;
 
@@ -47,11 +47,11 @@ impl BuiltInFunction for Read {
         Ok(Value::String(file_content))
     }
 
-    fn type_definition(&self) -> TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::String],
             return_type: Box::new(Type::String),
-        })
+        }
     }
 }
 
@@ -71,11 +71,11 @@ impl BuiltInFunction for Write {
         Ok(Value::Empty)
     }
 
-    fn type_definition(&self) -> crate::TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::String],
             return_type: Box::new(Type::Empty),
-        })
+        }
     }
 }
 
@@ -99,10 +99,10 @@ impl BuiltInFunction for Append {
         Ok(Value::Empty)
     }
 
-    fn type_definition(&self) -> crate::TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::String, Type::String],
             return_type: Box::new(Type::Empty),
-        })
+        }
     }
 }

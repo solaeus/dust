@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Statement,
-    Type, TypeDefinition, Value,
+    Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -144,13 +144,13 @@ impl AbstractTree for ValueNode {
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         let type_definition = match self {
-            ValueNode::Boolean(_) => TypeDefinition::new(Type::Boolean),
-            ValueNode::Float(_) => TypeDefinition::new(Type::Float),
-            ValueNode::Function(function) => TypeDefinition::new(function.r#type().clone()),
-            ValueNode::Integer(_) => TypeDefinition::new(Type::Integer),
-            ValueNode::String(_) => TypeDefinition::new(Type::String),
+            ValueNode::Boolean(_) => Type::Boolean,
+            ValueNode::Float(_) => Type::Float,
+            ValueNode::Function(function) => function.r#type().clone(),
+            ValueNode::Integer(_) => Type::Integer,
+            ValueNode::String(_) => Type::String,
             ValueNode::List(expressions) => {
                 let mut previous_type = None;
 
@@ -159,7 +159,7 @@ impl AbstractTree for ValueNode {
 
                     if let Some(previous) = previous_type {
                         if expression_type != previous {
-                            return Ok(TypeDefinition::new(Type::List(Box::new(Type::Any))));
+                            return Ok(Type::List(Box::new(Type::Any)));
                         }
                     }
 
@@ -167,13 +167,13 @@ impl AbstractTree for ValueNode {
                 }
 
                 if let Some(previous) = previous_type {
-                    TypeDefinition::new(Type::List(Box::new(previous.take_inner())))
+                    Type::List(Box::new(previous))
                 } else {
-                    TypeDefinition::new(Type::List(Box::new(Type::Any)))
+                    Type::List(Box::new(Type::Any))
                 }
             }
-            ValueNode::Empty => TypeDefinition::new(Type::Any),
-            ValueNode::Map(_) => TypeDefinition::new(Type::Map),
+            ValueNode::Empty => Type::Any,
+            ValueNode::Map(_) => Type::Map,
         };
 
         Ok(type_definition)

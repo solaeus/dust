@@ -1,4 +1,4 @@
-use crate::{BuiltInFunction, Error, Map, Result, Type, TypeDefinition, Value};
+use crate::{BuiltInFunction, Error, Map, Result, Type, Value};
 
 pub struct Assert;
 
@@ -17,11 +17,11 @@ impl BuiltInFunction for Assert {
         Ok(Value::Empty)
     }
 
-    fn type_definition(&self) -> TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::Any],
             return_type: Box::new(Type::Empty),
-        })
+        }
     }
 }
 
@@ -48,10 +48,10 @@ impl BuiltInFunction for AssertEqual {
         }
     }
 
-    fn type_definition(&self) -> TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::Any, Type::Any],
             return_type: Box::new(Type::Boolean),
-        })
+        }
     }
 }

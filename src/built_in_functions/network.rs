@@ -1,6 +1,6 @@
 use reqwest::blocking::get;
 
-use crate::{BuiltInFunction, Error, Map, Result, Type, TypeDefinition, Value};
+use crate::{BuiltInFunction, Error, Map, Result, Type, Value};
 
 pub struct Download;
 
@@ -18,10 +18,10 @@ impl BuiltInFunction for Download {
         Ok(Value::String(response.text()?))
     }
 
-    fn type_definition(&self) -> TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::String],
             return_type: Box::new(Type::String),
-        })
+        }
     }
 }

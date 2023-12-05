@@ -1,4 +1,4 @@
-use crate::{BuiltInFunction, Error, Map, Result, Type, TypeDefinition, Value};
+use crate::{BuiltInFunction, Error, Map, Result, Type, Value};
 
 pub struct FromJson;
 
@@ -16,11 +16,11 @@ impl BuiltInFunction for FromJson {
         Ok(value)
     }
 
-    fn type_definition(&self) -> crate::TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::String],
             return_type: Box::new(Type::Any),
-        })
+        }
     }
 }
 
@@ -40,10 +40,10 @@ impl BuiltInFunction for ToJson {
         Ok(Value::String(json_string))
     }
 
-    fn type_definition(&self) -> crate::TypeDefinition {
-        TypeDefinition::new(Type::Function {
+    fn r#type(&self) -> Type {
+        Type::Function {
             parameter_types: vec![Type::Any],
             return_type: Box::new(Type::String),
-        })
+        }
     }
 }

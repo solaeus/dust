@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{
-    AbstractTree, Error, Map, Result, Type, TypeDefinition, Value, ValueNode, BUILT_IN_FUNCTIONS,
-};
+use crate::{AbstractTree, Error, Map, Result, Type, Value, ValueNode, BUILT_IN_FUNCTIONS};
 
 use super::expression::Expression;
 
@@ -41,7 +39,7 @@ impl AbstractTree for FunctionCall {
             }
         }
 
-        let function_type = function_expression.expected_type(context)?.take_inner();
+        let function_type = function_expression.expected_type(context)?;
 
         if let Type::Function {
             parameter_types,
@@ -53,7 +51,7 @@ impl AbstractTree for FunctionCall {
             for (argument, r#type) in argument_type_pairs {
                 let argument_type = argument.expected_type(context)?;
 
-                r#type.check(argument_type.inner(), context, node, source)?;
+                r#type.check(&argument_type, context, node, source)?;
             }
         }
 
@@ -102,28 +100,18 @@ impl AbstractTree for FunctionCall {
         value.as_function()?.call(&self.arguments, source, context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
+    fn expected_type(&self, context: &Map) -> Result<Type> {
         match &self.function_expression {
             Expression::Value(value_node) => {
                 if let ValueNode::Function(function) = value_node {
                     let return_type = function.return_type()?.clone();
 
-                    Ok(TypeDefinition::new(return_type))
+                    Ok(return_type)
                 } else {
                     value_node.expected_type(context)
                 }
             }
-            Expression::Identifier(identifier) => {
-                let function_name = identifier.inner();
-
-                if let Some(value) = context.variables()?.get(function_name) {
-                    let return_type = value.as_function()?.return_type()?.clone();
-
-                    Ok(TypeDefinition::new(return_type))
-                } else {
-                    self.function_expression.expected_type(context)
-                }
-            }
+            Expression::Identifier(identifier) => identifier.expected_type(context),
             Expression::Index(index) => index.expected_type(context),
             Expression::Math(math) => math.expected_type(context),
             Expression::Logic(logic) => logic.expected_type(context),

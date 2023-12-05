@@ -63,7 +63,12 @@ impl AbstractTree for Assignment {
 
             match operator {
                 AssignmentOperator::Equal => {
-                    type_definition.check(&statement_type, context, statement_node, source)?;
+                    type_definition.inner().check(
+                        &statement_type,
+                        context,
+                        statement_node,
+                        source,
+                    )?;
                 }
                 AssignmentOperator::PlusEqual => {
                     let identifier_type = identifier.expected_type(context)?;
@@ -71,26 +76,31 @@ impl AbstractTree for Assignment {
                     if let Type::List(item_type) = type_definition.inner() {
                         let item_type_definition = TypeDefinition::new(*item_type.clone());
 
-                        item_type_definition.check(
+                        item_type_definition.inner().check(
                             &identifier_type,
                             context,
                             identifier_node,
                             source,
                         )?;
-                        item_type_definition.check(
+                        item_type_definition.inner().check(
                             &statement_type,
                             context,
                             statement_node,
                             source,
                         )?;
                     } else {
-                        type_definition.check(
+                        type_definition.inner().check(
                             &identifier_type,
                             context,
                             identifier_node,
                             source,
                         )?;
-                        type_definition.check(&statement_type, context, statement_node, source)?;
+                        type_definition.inner().check(
+                            &statement_type,
+                            context,
+                            statement_node,
+                            source,
+                        )?;
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
@@ -134,8 +144,8 @@ impl AbstractTree for Assignment {
         Ok(Value::Empty)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<TypeDefinition> {
-        Ok(TypeDefinition::new(Type::Empty))
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::Empty)
     }
 }
 
