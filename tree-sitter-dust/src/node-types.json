@@ -162,10 +162,6 @@
         {
           "type": "identifier",
           "named": true
-        },
-        {
-          "type": "type_definition",
-          "named": true
         }
       ]
     }

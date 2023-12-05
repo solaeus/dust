@@ -308,22 +308,6 @@ module.exports = grammar({
         $.block,
       ),
 
-    identifier_list: $ =>
-      prec.right(
-        choice(
-          seq(
-            '|',
-            repeat(
-              seq(
-                $.identifier,
-                optional(','),
-              ),
-            ),
-            '|',
-          ),
-        ),
-      ),
-
     return: $ =>
       prec.right(
         seq('return', $.expression),
@@ -341,13 +325,14 @@ module.exports = grammar({
           'bool',
           'float',
           seq(
-            'fn',
+            '(',
             repeat(
               seq(
                 $.type,
                 optional(','),
               ),
             ),
+            ')',
             optional(seq('->', $.type)),
           ),
           'int',
@@ -360,7 +345,7 @@ module.exports = grammar({
 
     function: $ =>
       seq(
-        $.type_definition,
+        'fn',
         '|',
         repeat(
           seq(

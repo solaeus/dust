@@ -2,7 +2,7 @@
 Simple Function
 ================================================================================
 
-<fn -> str> || { "Hiya" }
+fn || { "Hiya" }
 
 --------------------------------------------------------------------------------
 
@@ -11,9 +11,6 @@ Simple Function
     (expression
       (value
         (function
-          (type_definition
-            (type
-              (type)))
           (block
             (statement
               (expression
@@ -24,7 +21,7 @@ Simple Function
 Function Assignment
 ================================================================================
 
-foobar = <fn -> str> |text| { text }
+foobar <(str) -> str> = fn |text| { text }
 
 --------------------------------------------------------------------------------
 
@@ -32,14 +29,15 @@ foobar = <fn -> str> |text| { text }
   (statement
     (assignment
       (identifier)
+      (type_definition
+        (type
+          (type)
+          (type)))
       (assignment_operator)
       (statement
         (expression
           (value
             (function
-              (type_definition
-                (type
-                  (type)))
               (identifier)
               (block
                 (statement
@@ -68,7 +66,7 @@ Function Call
 Complex Function
 ================================================================================
 
-<fn str num> |message number| {
+fn |message number| {
   (output message)
   (output number)
 }
@@ -80,10 +78,6 @@ Complex Function
     (expression
       (value
         (function
-          (type_definition
-            (type
-              (type)
-              (type)))
           (identifier)
           (identifier)
           (block
@@ -142,3 +136,50 @@ Complex Function Call
                 (expression
                   (value
                     (integer)))))))))))
+
+================================================================================
+Callback Function
+================================================================================
+
+foobar <(() -> str) -> str> = fn |cb| {
+    (cb)
+}
+
+(foobar fn || { 'Hiya' })
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (type_definition
+        (type
+          (type
+            (type))
+          (type)))
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (function
+              (identifier)
+              (block
+                (statement
+                  (expression
+                    (function_call
+                      (expression
+                        (identifier))))))))))))
+  (statement
+    (expression
+      (function_call
+        (expression
+          (identifier))
+        (expression
+          (value
+            (function
+              (block
+                (statement
+                  (expression
+                    (value
+                      (string))))))))))))

@@ -1,33 +1,31 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{
-    AbstractTree, Block, Error, Expression, Identifier, Map, Result, Type, TypeDefinition, Value,
-};
+use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
-    parameters: Vec<(Identifier, TypeDefinition)>,
+    parameters: Vec<Identifier>,
     body: Block,
-    return_type: TypeDefinition,
+    r#type: Type,
 }
 
 impl Function {
-    pub fn new(
-        parameters: Vec<(Identifier, TypeDefinition)>,
-        body: Block,
-        return_type: TypeDefinition,
-    ) -> Self {
+    pub fn new(parameters: Vec<Identifier>, body: Block, r#type: Option<Type>) -> Self {
+        let r#type = r#type.unwrap_or(Type::Function {
+            parameter_types: vec![Type::Any; parameters.len()],
+            return_type: Box::new(Type::Any),
+        });
+
         Self {
             parameters,
             body,
-            return_type,
+            r#type,
         }
     }
 
-    pub fn parameters(&self) -> &Vec<(Identifier, TypeDefinition)> {
+    pub fn parameters(&self) -> &Vec<Identifier> {
         &self.parameters
     }
 
@@ -35,126 +33,129 @@ impl Function {
         &self.body
     }
 
-    pub fn return_type(&self) -> &TypeDefinition {
-        &self.return_type
+    pub fn r#type(&self) -> &Type {
+        &self.r#type
     }
 
-    pub fn r#type(&self) -> TypeDefinition {
-        let mut parameter_types = Vec::with_capacity(self.parameters.len());
-
-        for (_, type_definition) in &self.parameters {
-            parameter_types.push(type_definition.inner().clone());
+    pub fn return_type(&self) -> Result<&Type> {
+        match &self.r#type {
+            Type::Function {
+                parameter_types: _,
+                return_type,
+            } => Ok(return_type.as_ref()),
+            _ => todo!(),
         }
-
-        TypeDefinition::new(Type::Function {
-            parameter_types,
-            return_type: Box::new(self.return_type.inner().clone()),
-        })
     }
 
     pub fn call(&self, arguments: &[Expression], source: &str, context: &Map) -> Result<Value> {
         let function_context = Map::clone_from(context)?;
-        let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
-        for ((identifier, type_definition), expression) in parameter_argument_pairs {
-            let key = identifier.inner();
+        let (parameter_types, return_type) = if let Type::Function {
+            parameter_types,
+            return_type,
+        } = &self.r#type
+        {
+            (parameter_types, return_type)
+        } else {
+            todo!()
+        };
+
+        if self.parameters.len() != arguments.len() {
+            return Err(Error::ExpectedArgumentAmount {
+                function_name: "",
+                expected: self.parameters.len(),
+                actual: arguments.len(),
+            });
+        }
+
+        let parameter_argument_pairs = self
+            .parameters
+            .iter()
+            .zip(parameter_types.iter())
+            .zip(arguments.iter());
+
+        for ((identifier, argument_type), expression) in parameter_argument_pairs {
             let value = expression.run(source, context)?;
 
-            println!("{key} {value}");
+            match argument_type {
+                Type::Any => {}
+                Type::Boolean => {
+                    value.as_boolean()?;
+                }
+                Type::Empty => {
+                    value.as_empty()?;
+                }
+                Type::Float => {
+                    value.as_float()?;
+                }
+                Type::Function { .. } => {
+                    value.as_function()?;
+                }
+                Type::Integer => {
+                    value.as_integer()?;
+                }
+                Type::List(_) => {
+                    value.as_list()?;
+                }
+                Type::Map => {
+                    value.as_map()?;
+                }
+                Type::Number => {
+                    value.as_number()?;
+                }
+                Type::String => {
+                    value.as_string()?;
+                }
+            };
 
-            function_context.variables_mut()?.insert(key.clone(), value);
+            let key = identifier.inner().clone();
+
+            function_context.variables_mut()?.insert(key, value);
         }
 
         let return_value = self.body.run(source, &function_context)?;
+
+        match return_type.as_ref() {
+            Type::Any => {}
+            Type::Boolean => {
+                return_value.as_boolean()?;
+            }
+            Type::Empty => {
+                return_value.as_empty()?;
+            }
+            Type::Float => {
+                return_value.as_float()?;
+            }
+            Type::Function { .. } => {
+                return_value.as_function()?;
+            }
+            Type::Integer => {
+                return_value.as_integer()?;
+            }
+            Type::List(_) => {
+                return_value.as_list()?;
+            }
+            Type::Map => {
+                return_value.as_map()?;
+            }
+            Type::Number => {
+                return_value.as_number()?;
+            }
+            Type::String => {
+                return_value.as_string()?;
+            }
+        };
 
         Ok(return_value)
     }
 }
 
-impl AbstractTree for Function {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
-        Error::expect_syntax_node(source, "function", node)?;
-
-        let type_node = node.child(0).unwrap();
-        let type_definition = TypeDefinition::from_syntax_node(source, type_node, context)?;
-
-        let (parameter_types, return_type) = if let Type::Function {
-            parameter_types,
-            return_type,
-        } = type_definition.inner()
-        {
-            (parameter_types, return_type)
-        } else {
-            return Err(Error::TypeCheck {
-                expected: Type::Function {
-                    parameter_types: Vec::with_capacity(0),
-                    return_type: Box::new(Type::Empty),
-                },
-                actual: type_definition.take_inner(),
-                location: type_node.start_position(),
-                source: source[type_node.byte_range()].to_string(),
-            });
-        };
-
-        let child_count = node.child_count();
-        let mut parameters = Vec::new();
-
-        for index in 2..child_count - 2 {
-            let child = node.child(index).unwrap();
-
-            let parameter_index = parameters.len();
-            let parameter_type = parameter_types.get(parameter_index).unwrap_or(&Type::Empty);
-
-            if child.is_named() {
-                let identifier = Identifier::from_syntax_node(source, child, context)?;
-                parameters.push((identifier, TypeDefinition::new(parameter_type.clone())));
-            }
-        }
-
-        let body_node = node.child(child_count - 1).unwrap();
-        let body = Block::from_syntax_node(source, body_node, context)?;
-
-        Ok(Function::new(
-            parameters,
-            body,
-            TypeDefinition::new(return_type.as_ref().clone()),
-        ))
-    }
-
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        Ok(Value::Function(self.clone()))
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<TypeDefinition> {
-        Value::Function(self.clone()).r#type(context)
-    }
-}
-
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", Value::Function(self.clone()))?;
         write!(
             f,
             "Function {{ parameters: {:?}, body: {:?} }}",
             self.parameters, self.body
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{evaluate, Value};
-
-    #[test]
-    fn simple_function_declaration() {
-        let test = evaluate(
-            "
-                foo = <fn int -> int> |x| { x }
-                (foo 42)
-            ",
-        )
-        .unwrap();
-
-        assert_eq!(Value::Integer(42), test);
     }
 }

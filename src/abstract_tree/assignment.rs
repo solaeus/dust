@@ -71,7 +71,12 @@ impl AbstractTree for Assignment {
                     if let Type::List(item_type) = type_definition.inner() {
                         let item_type_definition = TypeDefinition::new(*item_type.clone());
 
-                        item_type_definition.check(&identifier_type, context, node, source)?;
+                        item_type_definition.check(
+                            &identifier_type,
+                            context,
+                            identifier_node,
+                            source,
+                        )?;
                         item_type_definition.check(
                             &statement_type,
                             context,

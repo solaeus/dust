@@ -1,4 +1,4 @@
-fib = <fn int -> int> |i| {
+fib <(int) -> int> = fn |i| {
 	if i <= 1 {
 		1
 	} else {

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Map, Result, TypeDefinition, Value, ValueNode, BUILT_IN_FUNCTIONS,
+    AbstractTree, Error, Map, Result, Type, TypeDefinition, Value, ValueNode, BUILT_IN_FUNCTIONS,
 };
 
 use super::expression::Expression;
@@ -41,18 +41,26 @@ impl AbstractTree for FunctionCall {
             }
         }
 
-        let function_type = function_expression.expected_type(context)?;
+        let function_type = function_expression.expected_type(context)?.take_inner();
+
+        if let Type::Function {
+            parameter_types,
+            return_type,
+        } = function_type
+        {
+            let argument_type_pairs = arguments.iter().zip(parameter_types.iter());
+
+            for (argument, r#type) in argument_type_pairs {
+                let argument_type = argument.expected_type(context)?;
+
+                r#type.check(argument_type.inner(), context, node, source)?;
+            }
+        }
+
         let function_call = FunctionCall {
             function_expression,
             arguments,
         };
-
-        function_type.check(
-            &function_call.expected_type(context)?,
-            context,
-            node,
-            source,
-        )?;
 
         Ok(function_call)
     }
@@ -98,7 +106,9 @@ impl AbstractTree for FunctionCall {
         match &self.function_expression {
             Expression::Value(value_node) => {
                 if let ValueNode::Function(function) = value_node {
-                    Ok(function.return_type().clone())
+                    let return_type = function.return_type()?.clone();
+
+                    Ok(TypeDefinition::new(return_type))
                 } else {
                     value_node.expected_type(context)
                 }
@@ -107,9 +117,9 @@ impl AbstractTree for FunctionCall {
                 let function_name = identifier.inner();
 
                 if let Some(value) = context.variables()?.get(function_name) {
-                    let return_type = value.as_function()?.return_type();
+                    let return_type = value.as_function()?.return_type()?.clone();
 
-                    Ok(return_type.clone())
+                    Ok(TypeDefinition::new(return_type))
                 } else {
                     self.function_expression.expected_type(context)
                 }
@@ -132,8 +142,24 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                foobar = <fn str -> str> |message| { message }
+                foobar <(str) -> str> = fn |message| { message }
                 (foobar 'Hiya')
+                ",
+            ),
+            Ok(Value::String("Hiya".to_string()))
+        );
+    }
+
+    #[test]
+    fn evaluate_callback() {
+        assert_eq!(
+            evaluate(
+                "
+                foobar <(() -> str) -> str> = fn |cb| {
+                    (cb)
+                }
+
+                (foobar fn || { 'Hiya' })
                 ",
             ),
             Ok(Value::String("Hiya".to_string()))

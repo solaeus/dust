@@ -74,7 +74,6 @@ pub enum Type {
     Map,
     Number,
     String,
-    Table,
 }
 
 impl Type {
@@ -92,8 +91,7 @@ impl Type {
             | (Type::Number, Type::Float)
             | (Type::Integer, Type::Number)
             | (Type::Float, Type::Number)
-            | (Type::String, Type::String)
-            | (Type::Table, Type::Table) => Ok(()),
+            | (Type::String, Type::String) => Ok(()),
             (Type::List(self_item_type), Type::List(other_item_type)) => {
                 self_item_type.check(&other_item_type, context, node, source)
             }
@@ -145,20 +143,26 @@ impl AbstractTree for Type {
             "any" => Type::Any,
             "bool" => Type::Boolean,
             "float" => Type::Float,
-            "fn" => {
+            "(" => {
                 let child_count = node.child_count();
                 let mut parameter_types = Vec::new();
 
                 for index in 1..child_count - 2 {
-                    let parameter_type_node = node.child(index).unwrap();
-                    let parameter_type =
-                        Type::from_syntax_node(source, parameter_type_node, context)?;
+                    let child = node.child(index).unwrap();
 
-                    parameter_types.push(parameter_type);
+                    if child.is_named() {
+                        let parameter_type = Type::from_syntax_node(source, child, context)?;
+
+                        parameter_types.push(parameter_type);
+                    }
                 }
 
-                let return_type_node = node.child(child_count - 1).unwrap();
-                let return_type = Type::from_syntax_node(source, return_type_node, context)?;
+                let final_node = node.child(child_count - 1).unwrap();
+                let return_type = if final_node.is_named() {
+                    Type::from_syntax_node(source, final_node, context)?
+                } else {
+                    Type::Empty
+                };
 
                 Type::Function {
                     parameter_types,
@@ -215,7 +219,6 @@ impl Display for Type {
             Type::Map => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::String => write!(f, "str"),
-            Type::Table => write!(f, "table"),
         }
     }
 }

@@ -1,6 +1,6 @@
 data = (from_json (read 'examples/assets/jq_data.json'))
 
-new_data = [];
+new_data = []
 
 for commit_data in data {	
 	new_data += {

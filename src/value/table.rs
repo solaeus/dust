@@ -159,7 +159,6 @@ impl Display for Table {
                         string
                     }
                     Value::Map(map) => format!("Map ({} items)", map.variables().unwrap().len()),
-                    Value::Table(table) => format!("Table ({} items)", table.len()),
                     Value::Function(_) => "Function".to_string(),
                     Value::Empty => "Empty".to_string(),
                     value => value.to_string(),
@@ -234,7 +233,6 @@ impl From<&Value> for Table {
             Value::List(list) => Self::from(list),
             Value::Empty => Table::new(Vec::with_capacity(0)),
             Value::Map(map) => Result::<Table>::from(map).unwrap(),
-            Value::Table(table) => table.clone(),
             Value::Function(function) => {
                 let mut table = Table::new(vec!["function".to_string()]);
 

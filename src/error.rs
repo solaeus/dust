@@ -268,20 +268,9 @@ impl fmt::Display for Error {
         match self {
             AssertEqualFailed { expected, actual } => {
                 write!(f, "Equality assertion failed")?;
-
-                if expected.is_table() {
-                    write!(f, "\n{expected}\n")?;
-                } else {
-                    write!(f, " {expected} ")?;
-                }
-
+                write!(f, " {expected} ")?;
                 write!(f, "does not equal")?;
-
-                if actual.is_table() {
-                    write!(f, "\n{actual}")
-                } else {
-                    write!(f, " {actual}.")
-                }
+                write!(f, " {actual}.")
             }
             AssertFailed => write!(
                 f,

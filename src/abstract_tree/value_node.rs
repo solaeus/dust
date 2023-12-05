@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Function, Identifier, List, Map, Result, Statement, Table,
+    AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Statement,
     Type, TypeDefinition, Value,
 };
 
@@ -18,10 +18,6 @@ pub enum ValueNode {
     List(Vec<Expression>),
     Empty,
     Map(BTreeMap<String, Statement>),
-    Table {
-        column_names: Vec<Identifier>,
-        rows: Box<Expression>,
-    },
 }
 
 impl AbstractTree for ValueNode {
@@ -32,7 +28,25 @@ impl AbstractTree for ValueNode {
         let value_node = match child.kind() {
             "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
             "float" => ValueNode::Float(source[child.byte_range()].to_string()),
-            "function" => ValueNode::Function(Function::from_syntax_node(source, child, context)?),
+            "function" => {
+                let child_count = child.child_count();
+                let mut parameters = Vec::new();
+
+                for index in 2..child_count - 1 {
+                    let child = child.child(index).unwrap();
+
+                    if child.is_named() {
+                        let identifier = Identifier::from_syntax_node(source, child, context)?;
+
+                        parameters.push(identifier);
+                    }
+                }
+
+                let body_node = child.child(child_count - 1).unwrap();
+                let body = Block::from_syntax_node(source, body_node, context)?;
+
+                ValueNode::Function(Function::new(parameters, body, None))
+            }
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {
                 let without_quotes = child.start_byte() + 1..child.end_byte() - 1;
@@ -53,30 +67,6 @@ impl AbstractTree for ValueNode {
                 }
 
                 ValueNode::List(expressions)
-            }
-            "table" => {
-                let identifier_list_node = child.child(1).unwrap();
-                let identifier_count = identifier_list_node.child_count();
-                let mut column_names = Vec::with_capacity(identifier_count);
-
-                for index in 0..identifier_count {
-                    let identifier_node = identifier_list_node.child(index).unwrap();
-
-                    if identifier_node.is_named() {
-                        let identifier =
-                            Identifier::from_syntax_node(source, identifier_node, context)?;
-
-                        column_names.push(identifier)
-                    }
-                }
-
-                let expression_node = child.child(2).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node, context)?;
-
-                ValueNode::Table {
-                    column_names,
-                    rows: Box::new(expression),
-                }
             }
             "map" => {
                 let mut child_nodes = BTreeMap::new();
@@ -104,7 +94,7 @@ impl AbstractTree for ValueNode {
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "string, integer, float, boolean, list, table, map, or empty",
+                    expected: "string, integer, float, boolean, list, map, or empty",
                     actual: child.kind(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
@@ -149,32 +139,6 @@ impl AbstractTree for ValueNode {
 
                 Value::Map(map)
             }
-            ValueNode::Table {
-                column_names,
-                rows: row_expression,
-            } => {
-                let mut headers = Vec::with_capacity(column_names.len());
-                let mut rows = Vec::new();
-
-                for identifier in column_names {
-                    let name = identifier.inner().clone();
-
-                    headers.push(name)
-                }
-
-                let _row_values = row_expression.run(source, context)?;
-                let row_values = _row_values.as_list()?.items();
-
-                for value in row_values.iter() {
-                    let row = value.as_list()?.items().clone();
-
-                    rows.push(row)
-                }
-
-                let table = Table::from_raw_parts(headers, rows);
-
-                Value::Table(table)
-            }
         };
 
         Ok(value)
@@ -184,7 +148,7 @@ impl AbstractTree for ValueNode {
         let type_definition = match self {
             ValueNode::Boolean(_) => TypeDefinition::new(Type::Boolean),
             ValueNode::Float(_) => TypeDefinition::new(Type::Float),
-            ValueNode::Function(function) => Value::Function(function.clone()).r#type(context)?,
+            ValueNode::Function(function) => TypeDefinition::new(function.r#type().clone()),
             ValueNode::Integer(_) => TypeDefinition::new(Type::Integer),
             ValueNode::String(_) => TypeDefinition::new(Type::String),
             ValueNode::List(expressions) => {
@@ -210,10 +174,6 @@ impl AbstractTree for ValueNode {
             }
             ValueNode::Empty => TypeDefinition::new(Type::Any),
             ValueNode::Map(_) => TypeDefinition::new(Type::Map),
-            ValueNode::Table {
-                column_names: _,
-                rows: _,
-            } => TypeDefinition::new(Type::Table),
         };
 
         Ok(type_definition)

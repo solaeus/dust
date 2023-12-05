@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, List, Map, Table, Type, TypeDefinition,
+    Function, List, Map, Type, TypeDefinition,
 };
 
 use serde::{
@@ -32,7 +32,6 @@ pub mod table;
 pub enum Value {
     List(List),
     Map(Map),
-    Table(Table),
     Function(Function),
     String(String),
     Float(f64),
@@ -67,8 +66,7 @@ impl Value {
                 }
             }
             Value::Map(_) => Type::Map,
-            Value::Table(_) => Type::Table,
-            Value::Function(function) => return Ok(function.r#type()),
+            Value::Function(function) => return Ok(TypeDefinition::new(function.r#type().clone())),
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,
             Value::Integer(_) => Type::Integer,
@@ -77,10 +75,6 @@ impl Value {
         };
 
         Ok(TypeDefinition::new(r#type))
-    }
-
-    pub fn is_table(&self) -> bool {
-        matches!(self, Value::Table(_))
     }
 
     pub fn is_string(&self) -> bool {
@@ -201,16 +195,6 @@ impl Value {
         }
     }
 
-    /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::Table`.
-    pub fn as_table(&self) -> Result<&Table> {
-        match self {
-            Value::Table(table) => Ok(table),
-            value => Err(Error::ExpectedTable {
-                actual: value.clone(),
-            }),
-        }
-    }
-
     /// Borrows the value stored in `self` as `Function`, or returns `Err` if
     /// `self` is not a `Value::Function`.
     pub fn as_function(&self) -> Result<&Function> {
@@ -227,18 +211,6 @@ impl Value {
         match self {
             Value::Empty => Ok(()),
             value => Err(Error::ExpectedEmpty {
-                actual: value.clone(),
-            }),
-        }
-    }
-
-    /// Returns an owned table, either by cloning or converting the inner value.
-    pub fn to_table(&self) -> Result<Table> {
-        match self {
-            Value::Table(table) => Ok(table.clone()),
-            Value::List(list) => Ok(Table::from(list)),
-            Value::Map(map) => Result::from(map),
-            value => Err(Error::ExpectedTable {
                 actual: value.clone(),
             }),
         }
@@ -398,7 +370,6 @@ impl PartialEq for Value {
             (Value::String(left), Value::String(right)) => left == right,
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
-            (Value::Table(left), Value::Table(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Empty, Value::Empty) => true,
             _ => false,
@@ -435,8 +406,6 @@ impl Ord for Value {
             (Value::List(_), _) => Ordering::Greater,
             (Value::Map(left), Value::Map(right)) => left.cmp(right),
             (Value::Map(_), _) => Ordering::Greater,
-            (Value::Table(left), Value::Table(right)) => left.cmp(right),
-            (Value::Table(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
             (Value::Empty, Value::Empty) => Ordering::Equal,
@@ -467,7 +436,6 @@ impl Serialize for Value {
             }
             Value::Empty => todo!(),
             Value::Map(inner) => inner.serialize(serializer),
-            Value::Table(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
         }
     }
@@ -489,7 +457,6 @@ impl Display for Value {
                 write!(f, "]")
             }
             Value::Map(map) => write!(f, "{map}"),
-            Value::Table(table) => write!(f, "{table}"),
             Value::Function(function) => write!(f, "{function}"),
         }
     }
