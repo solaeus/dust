@@ -1,0 +1,34 @@
+================================================================================
+Match Values
+================================================================================
+
+match x {
+  1 => {
+    true
+  }
+  2 => false
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (match
+      (expression
+        (identifier))
+      (expression
+        (value
+          (integer)))
+      (statement
+        (block
+          (statement
+            (expression
+              (value
+                (boolean))))))
+      (expression
+        (value
+          (integer)))
+      (statement
+        (expression
+          (value
+            (boolean)))))))

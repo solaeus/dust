@@ -4,6 +4,7 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Type, Value};
 
+/// Abstract representation of a for loop statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct For {
     is_async: bool,

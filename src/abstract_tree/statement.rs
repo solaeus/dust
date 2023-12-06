@@ -34,32 +34,39 @@ impl AbstractTree for Statement {
             "return" => {
                 let expression_node = child.child(1).unwrap();
 
-                Ok(Statement::Return(Expression::from_syntax_node(source, expression_node, context)?))
-            },
+                Ok(Statement::Return(Expression::from_syntax_node(
+                    source,
+                    expression_node,
+                    context,
+                )?))
+            }
             "expression" => Ok(Statement::Expression(Expression::from_syntax_node(
-                source, child, context
+                source, child, context,
             )?)),
             "if_else" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
-                source, child, context
-            )?))),
-            "tool" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
-                source, child, context
+                source, child, context,
             )?))),
             "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
-                source, child, context
+                source, child, context,
             )?))),
             "block" => Ok(Statement::Block(Box::new(Block::from_syntax_node(
-                source, child, context
+                source, child, context,
             )?))),
             "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
-                source, child, context
+                source, child, context,
             )?))),
-            "use" => Ok(Statement::Use(Use::from_syntax_node(source, child, context)?)),
-            "index_assignment" => Ok(Statement::IndexAssignment(Box::new(IndexAssignment::from_syntax_node(
-                source, child, context
-            )?))),
+            "use" => Ok(Statement::Use(Use::from_syntax_node(
+                source, child, context,
+            )?)),
+            "index_assignment" => Ok(Statement::IndexAssignment(Box::new(
+                IndexAssignment::from_syntax_node(source, child, context)?,
+            ))),
+            "match" => Ok(Statement::Match(Match::from_syntax_node(
+                source, child, context,
+            )?)),
             _ => Err(Error::UnexpectedSyntaxNode {
-                expected: "assignment, expression, if...else, while, for, transform, filter, tool, async, find, remove, select, insert, index_assignment or yield",
+                expected:
+                    "assignment, expression, block, return, if...else, while, for, index_assignment or match",
                 actual: child.kind(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),

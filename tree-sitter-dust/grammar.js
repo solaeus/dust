@@ -282,13 +282,15 @@ module.exports = grammar({
         seq(
           'match',
           $.expression,
+          '{',
           repeat1(
             seq(
               $.expression,
               '=>',
-              $.block,
+              $.statement,
             ),
           ),
+          '}',
         ),
       ),
 

@@ -1,3 +1,4 @@
+/// Built-in functions that are available to all Dust programs.
 use crate::{Map, Result, Type, Value};
 
 mod assert;
@@ -9,7 +10,11 @@ mod output;
 mod random;
 mod r#type;
 
-pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 14] = [
+/// All built-in functions recognized by the interpreter.
+///
+/// This is the public interface to access built-in functions by iterating over
+/// the references it holds.
+pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 15] = [
     &assert::Assert,
     &assert::AssertEqual,
     &collections::Length,
@@ -18,6 +23,7 @@ pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 14] = [
     &fs::Read,
     &fs::Write,
     &fs::Append,
+    &network::Download,
     &output::Output,
     &random::Random,
     &random::RandomBoolean,

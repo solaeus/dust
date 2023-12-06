@@ -5,6 +5,11 @@ use tree_sitter::Node;
 
 use crate::{evaluate_with_context, AbstractTree, Error, Map, Result, Type, Value};
 
+/// Abstract representation of a use statement.
+///
+/// Use will evaluate the Dust file at the given path. It will create an empty
+/// context to do so, then apply every value from that context to the current
+/// context.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Use {
     path: String,
@@ -20,11 +25,15 @@ impl AbstractTree for Use {
         Ok(Use { path })
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, context: &Map) -> Result<Value> {
         let file_contents = read_to_string(&self.path)?;
         let mut file_context = Map::new();
 
         evaluate_with_context(&file_contents, &mut file_context)?;
+
+        for (key, value) in file_context.variables()?.iter() {
+            context.variables_mut()?.insert(key.clone(), value.clone());
+        }
 
         Ok(Value::Map(file_context))
     }

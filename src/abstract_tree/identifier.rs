@@ -3,6 +3,10 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Error, Map, Result, Type, Value, BUILT_IN_FUNCTIONS};
 
+/// A string by which a variable is known to a context.
+///
+/// Every variable is a key-value pair. An identifier holds the key part of that
+/// pair. Its inner value can be used to retrieve a Value instance from a Map.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(String);
 
