@@ -3,6 +3,9 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Expression, FunctionCall, Map, Result, Type, Value};
 
+/// Abstract representation of a yield expression.
+///
+/// Yield is an alternate means of calling and passing values to a function.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Yield {
     call: FunctionCall,

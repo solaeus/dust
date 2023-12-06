@@ -3,6 +3,9 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Block, Expression, Map, Result, Type, Value};
 
+/// Abstract representation of a while loop.
+///
+/// While executes its block repeatedly until its expression evaluates to true.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
     expression: Expression,

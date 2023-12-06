@@ -3,6 +3,7 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Error, Expression, Map, Result, Type, Value};
 
+/// Abstract representation of a logic expression.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Logic {
     left: Expression,

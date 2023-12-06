@@ -6,6 +6,14 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Error, Map, Result, Statement, Type, Value};
 
+/// Abstract representation of a block.
+///
+/// A block is almost identical to the root except that it must have curly
+/// braces and can optionally be asynchronous. A block evaluates to the value of
+/// its final statement but an async block will short-circuit if a statement
+/// results in an error. Note that this will be the first statement to encounter
+/// an error at runtime, not necessarilly the first statement as they are
+/// written.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
     is_async: bool,

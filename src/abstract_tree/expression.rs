@@ -7,6 +7,11 @@ use crate::{
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
 
+/// Abstract representation of an expression statement.
+///
+/// Unlike statements, which can involve complex logic, an expression is
+/// expected to evaluate to a value. However, an expression can still contain
+/// nested statements and may evaluate to an empty value.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression {
     Value(ValueNode),

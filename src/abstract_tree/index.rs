@@ -3,6 +3,9 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Error, Expression, List, Map, Result, Type, Value};
 
+/// Abstract representation of an index expression.
+///
+/// An index is a means of accessing values stored in list, maps and strings.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
     pub collection: Expression,

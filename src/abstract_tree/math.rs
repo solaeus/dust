@@ -3,6 +3,10 @@ use tree_sitter::Node;
 
 use crate::{AbstractTree, Error, Expression, Map, Result, Type, Value};
 
+/// Abstract representation of a math operation.
+///
+/// Dust currently supports the four basic operations and the modulo (or
+/// remainder) operator.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Math {
     left: Expression,
