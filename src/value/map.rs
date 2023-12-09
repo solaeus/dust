@@ -41,8 +41,13 @@ impl Map {
         Ok(self.variables.read()?)
     }
 
-    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
-        let value_type = value.r#type();
+    pub fn set(
+        &self,
+        key: String,
+        value: Value,
+        r#type: Option<Type>,
+    ) -> Result<Option<(Value, Type)>> {
+        let value_type = r#type.unwrap_or(value.r#type());
         let previous = self
             .variables
             .write()?

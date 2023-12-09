@@ -58,18 +58,6 @@ impl AbstractTree for Assignment {
         let statement_node = node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
 
-        if let Some((_previous_value, previous_type)) = context.variables()?.get(identifier.inner())
-        {
-            let type_check = previous_type.check(&statement.expected_type(context)?);
-
-            if let Err(error) = type_check {
-                return Err(error.with_context(
-                    statement_node.start_position(),
-                    source[statement_node.byte_range()].to_string(),
-                ));
-            }
-        }
-
         if let Some(type_definition) = &type_definition {
             let statement_type = statement.expected_type(context)?;
 
@@ -81,8 +69,6 @@ impl AbstractTree for Assignment {
                     let identifier_type = identifier.expected_type(context)?;
 
                     if let Type::List(item_type) = type_definition.inner() {
-                        println!("{item_type}");
-
                         item_type.check(&identifier_type)?;
                         item_type.check(&statement_type)?;
                     } else {
@@ -91,6 +77,22 @@ impl AbstractTree for Assignment {
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
+            }
+        } else if let Some((_previous_value, previous_type)) =
+            context.variables()?.get(identifier.inner())
+        {
+            let statement_type = statement.expected_type(context)?;
+            let type_check = if let Type::List(item_type) = previous_type {
+                item_type.check(&statement_type)
+            } else {
+                previous_type.check(&statement_type)
+            };
+
+            if let Err(error) = type_check {
+                return Err(error.with_context(
+                    statement_node.start_position(),
+                    source[statement_node.byte_range()].to_string(),
+                ));
             }
         }
 
@@ -126,7 +128,11 @@ impl AbstractTree for Assignment {
             AssignmentOperator::Equal => value,
         };
 
-        context.set(key.clone(), new_value)?;
+        if let Some(type_defintion) = &self.type_definition {
+            context.set(key.clone(), new_value, Some(type_defintion.inner().clone()))?;
+        } else {
+            context.set(key.clone(), new_value, None)?;
+        }
 
         Ok(Value::Empty)
     }
@@ -175,11 +181,13 @@ mod tests {
             x <[str]> = []
             x += 1
             ",
-        );
+        )
+        .unwrap_err();
 
-        if let Err(Error::TypeCheck { .. }) = test {
-        } else {
-            panic!()
+        match test {
+            Error::WithContext { .. } => {}
+            Error::TypeCheck { .. } => {}
+            _ => panic!(),
         }
     }
 }
