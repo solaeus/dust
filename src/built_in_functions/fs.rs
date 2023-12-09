@@ -31,9 +31,16 @@ impl BuiltInFunction for Read {
                     let created = metadata.created()?.elapsed()?.as_secs() as i64;
                     let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
 
-                    file_data_variables.insert("name".to_string(), Value::String(name));
-                    file_data_variables.insert("created".to_string(), Value::Integer(created));
-                    file_data_variables.insert("modified".to_string(), Value::Integer(modified));
+                    file_data_variables
+                        .insert("name".to_string(), (Value::String(name), Type::String));
+                    file_data_variables.insert(
+                        "created".to_string(),
+                        (Value::Integer(created), Type::Integer),
+                    );
+                    file_data_variables.insert(
+                        "modified".to_string(),
+                        (Value::Integer(modified), Type::Integer),
+                    );
                 }
 
                 files.items_mut().push(Value::Map(file_data));

@@ -89,7 +89,7 @@ impl AbstractTree for FunctionCall {
 
                 let variables = context.variables()?;
 
-                if let Some(value) = variables.get(key) {
+                if let Some((value, _)) = variables.get(key) {
                     value.clone()
                 } else {
                     return Err(Error::FunctionIdentifierNotFound(identifier.clone()));

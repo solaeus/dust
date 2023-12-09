@@ -64,7 +64,8 @@ impl AbstractTree for IndexAssignment {
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = index_context.variables()?.get(index_key).cloned()
+                if let Some((mut previous_value, _)) =
+                    index_context.variables()?.get(index_key).cloned()
                 {
                     previous_value += value;
                     previous_value
@@ -73,7 +74,8 @@ impl AbstractTree for IndexAssignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = index_context.variables()?.get(index_key).cloned()
+                if let Some((mut previous_value, _)) =
+                    index_context.variables()?.get(index_key).cloned()
                 {
                     previous_value -= value;
                     previous_value
@@ -83,10 +85,11 @@ impl AbstractTree for IndexAssignment {
             }
             AssignmentOperator::Equal => value,
         };
+        let new_value_type = new_value.r#type(context)?;
 
         index_context
             .variables_mut()?
-            .insert(index_key.clone(), new_value);
+            .insert(index_key.clone(), (new_value, new_value_type));
 
         Ok(Value::Empty)
     }

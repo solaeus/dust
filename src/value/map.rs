@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::{value::Value, List, Result, Table};
+use crate::{value::Value, Result, Type};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -14,7 +14,7 @@ use crate::{value::Value, List, Result, Table};
 /// to one another.
 #[derive(Clone, Debug)]
 pub struct Map {
-    variables: Arc<RwLock<BTreeMap<String, Value>>>,
+    variables: Arc<RwLock<BTreeMap<String, (Value, Type)>>>,
 }
 
 impl Map {
@@ -28,8 +28,8 @@ impl Map {
     pub fn clone_from(other: &Self) -> Result<Self> {
         let mut new_map = BTreeMap::new();
 
-        for (key, value) in other.variables()?.iter() {
-            new_map.insert(key.clone(), value.clone());
+        for (key, (value, r#type)) in other.variables()?.iter() {
+            new_map.insert(key.clone(), (value.clone(), r#type.clone()));
         }
 
         Ok(Map {
@@ -37,11 +37,11 @@ impl Map {
         })
     }
 
-    pub fn variables(&self) -> Result<RwLockReadGuard<BTreeMap<String, Value>>> {
+    pub fn variables(&self) -> Result<RwLockReadGuard<BTreeMap<String, (Value, Type)>>> {
         Ok(self.variables.read()?)
     }
 
-    pub fn variables_mut(&self) -> Result<RwLockWriteGuard<BTreeMap<String, Value>>> {
+    pub fn variables_mut(&self) -> Result<RwLockWriteGuard<BTreeMap<String, (Value, Type)>>> {
         Ok(self.variables.write()?)
     }
 }
@@ -87,27 +87,10 @@ impl Display for Map {
 
         let variables = self.variables.read().unwrap().clone().into_iter();
 
-        for (key, value) in variables {
+        for (key, (value, _)) in variables {
             writeln!(f, "  {key} = {value}")?;
         }
         write!(f, "}}")
-    }
-}
-
-impl From<&Table> for Result<Map> {
-    fn from(value: &Table) -> Result<Map> {
-        let map = Map::new();
-
-        for (row_index, row) in value.rows().iter().enumerate() {
-            map.variables_mut()?
-                .insert(
-                    row_index.to_string(),
-                    Value::List(List::with_items(row.clone())),
-                )
-                .unwrap();
-        }
-
-        Ok(map)
     }
 }
 

@@ -34,7 +34,7 @@ impl AbstractTree for Identifier {
     }
 
     fn run(&self, _source: &str, context: &Map) -> Result<Value> {
-        if let Some(value) = context.variables()?.get(&self.0) {
+        if let Some((value, _)) = context.variables()?.get(&self.0) {
             Ok(value.clone())
         } else {
             Err(Error::VariableIdentifierNotFound(self.inner().clone()))
@@ -42,7 +42,7 @@ impl AbstractTree for Identifier {
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
-        if let Some(value) = context.variables()?.get(&self.0) {
+        if let Some((value, _)) = context.variables()?.get(&self.0) {
             value.r#type(context)
         } else {
             for built_in_function in BUILT_IN_FUNCTIONS {

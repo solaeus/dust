@@ -61,12 +61,18 @@ impl AbstractTree for Index {
                 let value = if let Expression::Identifier(identifier) = &self.index {
                     let key = identifier.inner();
 
-                    map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
+                    map.variables()?
+                        .get(key)
+                        .map(|(value, _)| value.clone())
+                        .unwrap_or_default()
                 } else {
                     let value = self.index.run(source, context)?;
                     let key = value.as_string()?;
 
-                    map.variables()?.get(key).cloned().unwrap_or(Value::Empty)
+                    map.variables()?
+                        .get(key)
+                        .map(|(value, _)| value.clone())
+                        .unwrap_or_default()
                 };
 
                 Ok(value)

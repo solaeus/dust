@@ -74,20 +74,10 @@ impl AbstractTree for Assignment {
                     let identifier_type = identifier.expected_type(context)?;
 
                     if let Type::List(item_type) = type_definition.inner() {
-                        let item_type_definition = TypeDefinition::new(*item_type.clone());
+                        println!("{item_type}");
 
-                        item_type_definition.inner().check(
-                            &identifier_type,
-                            context,
-                            identifier_node,
-                            source,
-                        )?;
-                        item_type_definition.inner().check(
-                            &statement_type,
-                            context,
-                            statement_node,
-                            source,
-                        )?;
+                        item_type.check(&identifier_type, context, identifier_node, source)?;
+                        item_type.check(&statement_type, context, statement_node, source)?;
                     } else {
                         type_definition.inner().check(
                             &identifier_type,
@@ -121,7 +111,7 @@ impl AbstractTree for Assignment {
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = context.variables()?.get(key).cloned() {
+                if let Some((mut previous_value, _)) = context.variables()?.get(key).cloned() {
                     previous_value += value;
                     previous_value
                 } else {
@@ -129,7 +119,7 @@ impl AbstractTree for Assignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = context.variables()?.get(key).cloned() {
+                if let Some((mut previous_value, _)) = context.variables()?.get(key).cloned() {
                     previous_value -= value;
                     previous_value
                 } else {
@@ -138,8 +128,11 @@ impl AbstractTree for Assignment {
             }
             AssignmentOperator::Equal => value,
         };
+        let new_value_type = new_value.r#type(context)?;
 
-        context.variables_mut()?.insert(key.clone(), new_value);
+        context
+            .variables_mut()?
+            .insert(key.clone(), (new_value, new_value_type));
 
         Ok(Value::Empty)
     }
@@ -151,7 +144,7 @@ impl AbstractTree for Assignment {
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, List, Value};
+    use crate::{evaluate, Error, List, Value};
 
     #[test]
     fn simple_assignment() {
@@ -179,5 +172,20 @@ mod tests {
         .unwrap();
 
         assert_eq!(Value::List(List::with_items(vec![Value::Integer(1)])), test);
+    }
+
+    #[test]
+    fn list_add_wrong_type() {
+        let test = evaluate(
+            "
+            x <[str]> = []
+            x += 1
+            ",
+        );
+
+        if let Err(Error::TypeCheck { .. }) = test {
+        } else {
+            panic!()
+        }
     }
 }

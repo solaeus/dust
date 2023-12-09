@@ -76,6 +76,7 @@ impl Function {
 
         for ((identifier, argument_type), expression) in parameter_argument_pairs {
             let value = expression.run(source, context)?;
+            let value_type = value.r#type(context)?;
 
             match argument_type {
                 Type::Any => {}
@@ -110,7 +111,9 @@ impl Function {
 
             let key = identifier.inner().clone();
 
-            function_context.variables_mut()?.insert(key, value);
+            function_context
+                .variables_mut()?
+                .insert(key, (value, value_type));
         }
 
         let return_value = self.body.run(source, &function_context)?;

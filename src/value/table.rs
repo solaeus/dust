@@ -282,7 +282,7 @@ impl From<Map> for Result<Table> {
     fn from(map: Map) -> Self {
         let variables = map.variables()?;
         let keys = variables.keys().cloned().collect();
-        let values = variables.values().cloned().collect();
+        let values = variables.values().map(|(value, _)| value.clone()).collect();
         let mut table = Table::new(keys);
 
         table.insert(values)?;
@@ -295,7 +295,7 @@ impl From<&Map> for Result<Table> {
     fn from(map: &Map) -> Self {
         let variables = map.variables()?;
         let keys = variables.keys().cloned().collect();
-        let values = variables.values().cloned().collect();
+        let values = variables.values().map(|(value, _)| value.clone()).collect();
         let mut table = Table::new(keys);
 
         table.insert(values)?;
@@ -308,7 +308,7 @@ impl From<&mut Map> for Result<Table> {
     fn from(map: &mut Map) -> Self {
         let variables = map.variables()?;
         let keys = variables.keys().cloned().collect();
-        let values = variables.values().cloned().collect();
+        let values = variables.values().map(|(value, _)| value.clone()).collect();
         let mut table = Table::new(keys);
 
         table
