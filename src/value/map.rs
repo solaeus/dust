@@ -41,6 +41,20 @@ impl Map {
         Ok(self.variables.read()?)
     }
 
+    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
+        let value_type = value.r#type();
+        let previous = self
+            .variables
+            .write()?
+            .insert(key, (value, value_type.clone()));
+
+        if let Some((_previous_value, previous_type)) = previous.clone() {
+            previous_type.check(&value_type)?;
+        }
+
+        Ok(previous)
+    }
+
     pub fn variables_mut(&self) -> Result<RwLockWriteGuard<BTreeMap<String, (Value, Type)>>> {
         Ok(self.variables.write()?)
     }

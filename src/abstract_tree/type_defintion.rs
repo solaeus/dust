@@ -67,7 +67,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn check(&self, other: &Type, context: &Map, node: Node, source: &str) -> Result<()> {
+    pub fn check(&self, other: &Type) -> Result<()> {
         match (self, other) {
             (Type::Any, _)
             | (_, Type::Any)
@@ -83,7 +83,7 @@ impl Type {
             | (Type::Float, Type::Number)
             | (Type::String, Type::String) => Ok(()),
             (Type::List(self_item_type), Type::List(other_item_type)) => {
-                self_item_type.check(&other_item_type, context, node, source)
+                self_item_type.check(&other_item_type)
             }
             (
                 Type::Function {
@@ -100,18 +100,16 @@ impl Type {
                     .zip(other_parameter_types.iter());
 
                 for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
-                    self_parameter_type.check(&other_parameter_type, context, node, source)?;
+                    self_parameter_type.check(&other_parameter_type)?;
                 }
 
-                self_return_type.check(other_return_type, context, node, source)?;
+                self_return_type.check(other_return_type)?;
 
                 Ok(())
             }
             _ => Err(Error::TypeCheck {
                 expected: self.clone(),
                 actual: other.clone(),
-                location: node.start_position(),
-                source: source[node.byte_range()].to_string(),
             }),
         }
     }

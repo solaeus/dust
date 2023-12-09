@@ -12,7 +12,7 @@ use tree_sitter::Parser as TSParser;
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{evaluate_with_context, language, Interpreter, Map, Value};
+use dust_lang::{evaluate_with_context, language, Interpreter, Map, Type, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -63,16 +63,16 @@ fn main() {
         context
             .variables_mut()
             .unwrap()
-            .insert("input".to_string(), Value::String(input));
+            .insert("input".to_string(), (Value::String(input), Type::String));
     }
 
     if let Some(path) = args.input_path {
         let file_contents = read_to_string(path).unwrap();
 
-        context
-            .variables_mut()
-            .unwrap()
-            .insert("input".to_string(), Value::String(file_contents));
+        context.variables_mut().unwrap().insert(
+            "input".to_string(),
+            (Value::String(file_contents), Type::String),
+        );
     }
 
     let mut parser = TSParser::new();

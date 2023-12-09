@@ -76,7 +76,7 @@ impl Function {
 
         for ((identifier, argument_type), expression) in parameter_argument_pairs {
             let value = expression.run(source, context)?;
-            let value_type = value.r#type(context)?;
+            let value_type = value.r#type();
 
             match argument_type {
                 Type::Any => {}

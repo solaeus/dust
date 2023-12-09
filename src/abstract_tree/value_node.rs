@@ -132,7 +132,7 @@ impl AbstractTree for ValueNode {
 
                     for (key, statement) in key_statement_pairs {
                         let value = statement.run(source, context)?;
-                        let value_type = value.r#type(context)?;
+                        let value_type = value.r#type();
 
                         variables.insert(key.clone(), (value, value_type));
                     }

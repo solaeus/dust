@@ -42,17 +42,17 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn r#type(&self, context: &Map) -> Result<Type> {
+    pub fn r#type(&self) -> Type {
         let r#type = match self {
             Value::List(list) => {
                 let mut previous_type = None;
 
                 for value in list.items().iter() {
-                    let value_type = value.r#type(context)?;
+                    let value_type = value.r#type();
 
                     if let Some(previous) = &previous_type {
                         if &value_type != previous {
-                            return Ok(Type::List(Box::new(Type::Any)));
+                            return Type::List(Box::new(Type::Any));
                         }
                     }
 
@@ -74,7 +74,7 @@ impl Value {
             Value::Empty => Type::Empty,
         };
 
-        Ok(r#type)
+        r#type
     }
 
     pub fn is_string(&self) -> bool {

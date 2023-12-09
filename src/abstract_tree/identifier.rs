@@ -43,7 +43,7 @@ impl AbstractTree for Identifier {
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
         if let Some((value, _)) = context.variables()?.get(&self.0) {
-            value.r#type(context)
+            Ok(value.r#type())
         } else {
             for built_in_function in BUILT_IN_FUNCTIONS {
                 if self.0 == built_in_function.name() {

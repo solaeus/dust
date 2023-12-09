@@ -52,9 +52,9 @@ impl AbstractTree for FunctionCall {
                 let argument_type = argument.expected_type(context)?;
 
                 if let Type::Function { return_type, .. } = argument_type {
-                    r#type.check(&return_type, context, node, source)?;
+                    r#type.check(&return_type)?;
                 } else {
-                    r#type.check(&argument_type, context, node, source)?;
+                    r#type.check(&argument_type)?;
                 }
             }
         }

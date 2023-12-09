@@ -59,7 +59,7 @@ impl AbstractTree for For {
 
                 iter_context
                     .variables_mut()?
-                    .insert(key.clone(), (value.clone(), value.r#type(context)?));
+                    .insert(key.clone(), (value.clone(), value.r#type()));
 
                 self.block.run(source, &mut iter_context).map(|_value| ())
             })?;
@@ -69,7 +69,7 @@ impl AbstractTree for For {
             for value in values.iter() {
                 loop_context
                     .variables_mut()?
-                    .insert(key.clone(), (value.clone(), value.r#type(context)?));
+                    .insert(key.clone(), (value.clone(), value.r#type()));
 
                 self.block.run(source, &mut loop_context.clone())?;
             }

@@ -13,6 +13,12 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, PartialEq)]
 pub enum Error {
+    WithContext {
+        error: Box<Error>,
+        location: Point,
+        source: String,
+    },
+
     UnexpectedSyntaxNode {
         expected: &'static str,
         actual: &'static str,
@@ -21,13 +27,6 @@ pub enum Error {
     },
 
     TypeCheck {
-        expected: Type,
-        actual: Type,
-        location: Point,
-        source: String,
-    },
-
-    RuntimeTypeCheck {
         expected: Type,
         actual: Type,
     },
@@ -148,6 +147,14 @@ pub enum Error {
 }
 
 impl Error {
+    pub fn with_context(self, location: Point, source: String) -> Self {
+        Error::WithContext {
+            error: Box::new(self),
+            location,
+            source,
+        }
+    }
+
     pub fn expect_syntax_node(source: &str, expected: &'static str, actual: Node) -> Result<()> {
         if expected == actual.kind() {
             Ok(())
@@ -368,19 +375,15 @@ impl fmt::Display for Error {
             Syntax { source, location } => {
                 write!(f, "Syntax error at {location}, this is not valid: {source}")
             }
-            TypeCheck {
-                expected,
-                actual,
+            TypeCheck { expected, actual } => write!(
+                f,
+                "Type check error. Expected type {expected} but got type {actual}."
+            ),
+            WithContext {
+                error,
                 location,
                 source,
-            } => write!(
-                f,
-                "Type check error at {location}. Expected type {expected} but got type {actual}: {source}."
-            ),
-            RuntimeTypeCheck { expected, actual } => write!(
-                f,
-                "Type check error. Expected type {expected} but got value with type {actual}."
-            ),
+            } => write!(f, "{error} Occured at {location}: \"{source}\""),
         }
     }
 }
