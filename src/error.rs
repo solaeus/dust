@@ -5,9 +5,16 @@
 
 use tree_sitter::{Node, Point};
 
-use crate::{value::Value, BuiltInFunction, Identifier, Type};
+use crate::{value::Value, BuiltInFunction, Type};
 
-use std::{fmt, io, num::ParseFloatError, string::FromUtf8Error, sync::PoisonError, time};
+use std::{
+    fmt::{self, Formatter},
+    io,
+    num::ParseFloatError,
+    string::FromUtf8Error,
+    sync::PoisonError,
+    time,
+};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -131,10 +138,10 @@ pub enum Error {
     VariableIdentifierNotFound(String),
 
     /// A `FunctionIdentifier` operation did not find its value in the context.
-    FunctionIdentifierNotFound(Identifier),
+    FunctionIdentifierNotFound(String),
 
     /// The function failed due to an external error.
-    ToolFailure(String),
+    External(String),
 
     /// A custom error explained by its message.
     CustomMessage(String),
@@ -144,6 +151,8 @@ pub enum Error {
         source: String,
         location: Point,
     },
+
+    SerdeJson(String),
 }
 
 impl Error {
@@ -208,55 +217,55 @@ impl Error {
 
 impl<T> From<PoisonError<T>> for Error {
     fn from(value: PoisonError<T>) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
 impl From<FromUtf8Error> for Error {
     fn from(value: FromUtf8Error) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
 impl From<ParseFloatError> for Error {
     fn from(value: ParseFloatError) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
 impl From<csv::Error> for Error {
     fn from(value: csv::Error) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
 impl From<io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
 impl From<reqwest::Error> for Error {
     fn from(value: reqwest::Error) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
 impl From<serde_json::Error> for Error {
     fn from(value: serde_json::Error) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::SerdeJson(value.to_string())
     }
 }
 
 impl From<time::SystemTimeError> for Error {
     fn from(value: time::SystemTimeError) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
 impl From<toml::de::Error> for Error {
     fn from(value: toml::de::Error) -> Self {
-        Error::ToolFailure(value.to_string())
+        Error::External(value.to_string())
     }
 }
 
@@ -269,15 +278,15 @@ impl fmt::Debug for Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
 
         match self {
             AssertEqualFailed { expected, actual } => {
-                write!(f, "Equality assertion failed")?;
-                write!(f, " {expected} ")?;
-                write!(f, "does not equal")?;
-                write!(f, " {actual}.")
+                write!(
+                    f,
+                    "Equality assertion failed. {expected} does not equal {actual}."
+                )
             }
             AssertFailed => write!(
                 f,
@@ -305,20 +314,20 @@ impl fmt::Display for Error {
                 "{function_name} expected a minimum of {minimum} arguments, but got {actual}.",
             ),
             ExpectedString { actual } => {
-                write!(f, "Expected a string but got {:?}.", actual)
+                write!(f, "Expected a string but got {actual}.")
             }
-            ExpectedInteger { actual } => write!(f, "Expected an integer, but got {:?}.", actual),
-            ExpectedFloat { actual } => write!(f, "Expected a float, but got {:?}.", actual),
+            ExpectedInteger { actual } => write!(f, "Expected an integer, but got {actual}."),
+            ExpectedFloat { actual } => write!(f, "Expected a float, but got {actual}."),
             ExpectedNumber { actual } => {
-                write!(f, "Expected a float or integer but got {:?}.", actual)
+                write!(f, "Expected a float or integer but got {actual}.",)
             }
             ExpectedNumberOrString { actual } => {
-                write!(f, "Expected a number or string, but got {:?}.", actual)
+                write!(f, "Expected a number or string, but got {actual}.")
             }
             ExpectedBoolean { actual } => {
-                write!(f, "Expected a boolean, but got {:?}.", actual)
+                write!(f, "Expected a boolean, but got {actual}.")
             }
-            ExpectedList { actual } => write!(f, "Expected a list, but got {:?}.", actual),
+            ExpectedList { actual } => write!(f, "Expected a list, but got {actual}."),
             ExpectedMinLengthList {
                 minimum_len,
                 actual_len,
@@ -334,28 +343,25 @@ impl fmt::Display for Error {
                 "Expected a list of len {}, but got {:?}.",
                 expected_len, actual
             ),
-            ExpectedEmpty { actual } => write!(f, "Expected an empty value, but got {:?}.", actual),
-            ExpectedMap { actual } => write!(f, "Expected a map, but got {:?}.", actual),
-            ExpectedTable { actual } => write!(f, "Expected a table, but got {:?}.", actual),
+            ExpectedEmpty { actual } => write!(f, "Expected an empty value, but got {actual}."),
+            ExpectedMap { actual } => write!(f, "Expected a map, but got {actual}."),
+            ExpectedTable { actual } => write!(f, "Expected a table, but got {actual}."),
             ExpectedFunction { actual } => {
-                write!(f, "Expected function, but got {:?}.", actual)
+                write!(f, "Expected function, but got {actual}.")
             }
             ExpectedCollection { actual } => {
                 write!(
                     f,
-                    "Expected a string, list, map or table, but got {:?}.",
-                    actual
+                    "Expected a string, list, map or table, but got {actual}.",
                 )
             }
-            VariableIdentifierNotFound(identifier) => write!(
+            VariableIdentifierNotFound(key) => write!(
                 f,
-                "Variable identifier is not bound to anything by context: {}.",
-                identifier
+                "Variable identifier is not bound to anything by context: {key}.",
             ),
-            FunctionIdentifierNotFound(identifier) => write!(
+            FunctionIdentifierNotFound(key) => write!(
                 f,
-                "Function identifier is not bound to anything by context: {}.",
-                identifier.inner()
+                "Function identifier is not bound to anything by context: {key}."
             ),
             UnexpectedSyntaxNode {
                 expected,
@@ -370,7 +376,7 @@ impl fmt::Display for Error {
                 f,
                 "Wrong column amount. Expected {expected} but got {actual}."
             ),
-            ToolFailure(message) => write!(f, "{message}"),
+            External(message) => write!(f, "External error: {message}"),
             CustomMessage(message) => write!(f, "{message}"),
             Syntax { source, location } => {
                 write!(f, "Syntax error at {location}, this is not valid: {source}")
@@ -384,6 +390,7 @@ impl fmt::Display for Error {
                 location,
                 source,
             } => write!(f, "{error} Occured at {location}: \"{source}\""),
+            SerdeJson(message) => write!(f, "JSON processing error: {message}"),
         }
     }
 }

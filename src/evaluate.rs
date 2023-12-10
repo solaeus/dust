@@ -34,9 +34,9 @@ pub fn evaluate(source: &str) -> Result<Value> {
 /// {
 ///     let mut variables = context.variables_mut().unwrap();
 ///
-///     variables.insert("one".into(), 1.into());
-///     variables.insert("two".into(), 2.into());
-///     variables.insert("three".into(), 3.into());
+///     variables.insert("one".into(), (1.into(), Type::Integer));
+///     variables.insert("two".into(), (2.into(), Type::Integer));
+///     variables.insert("three".into(), (3.into(), Type::Integer));
 /// }
 ///
 /// let dust_code = "four = 4 one + two + three + four";

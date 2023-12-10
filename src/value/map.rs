@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{ser::SerializeMap, Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
@@ -118,6 +118,13 @@ impl Serialize for Map {
     where
         S: serde::Serializer,
     {
-        self.variables.serialize(serializer)
+        let variables = self.variables.read().unwrap();
+        let mut map = serializer.serialize_map(Some(variables.len()))?;
+
+        for (key, (value, _type)) in variables.iter() {
+            map.serialize_entry(key, value)?;
+        }
+
+        map.end()
     }
 }

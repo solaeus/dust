@@ -92,7 +92,9 @@ impl AbstractTree for FunctionCall {
                 if let Some((value, _)) = variables.get(key) {
                     value.clone()
                 } else {
-                    return Err(Error::FunctionIdentifierNotFound(identifier.clone()));
+                    return Err(Error::FunctionIdentifierNotFound(
+                        identifier.inner().clone(),
+                    ));
                 }
             }
             Expression::Index(index) => index.run(source, context)?,
