@@ -156,6 +156,19 @@ map = {
 
 Note that strings can be wrapped with any kind of quote: single, double or backticks. Numbers are always integers by default. Floats are declared by adding a decimal. If you divide integers or do any kind of math with a float, you will create a float value.
 
+Dust enforces strict type checking, but you don't usually need to write the type, dust can figure it out on its own. The **number** and **any** types are special types that allow you to relax the type bounds.
+
+```dust
+string <string> = "foobar"
+integer <int> = 42
+float <float> = 42.42
+
+numbers <[number]> = [integer float]
+
+stuff <[any]> = [string integer float]
+```
+
+
 ### Lists
 
 Lists are sequential collections. They can be built by grouping values with square brackets. Commas are optional. Values can be indexed by their position using a colon `:` followed by an integer. Dust lists are zero-indexed.
@@ -208,16 +221,16 @@ for number in list {
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value.
+Functions are first-class values in dust, so they are assigned to variables like any other value. It is good practice to write the type definition for functions, otherwise the argument types and return type are set to `any`.
 
 ```dust
 # This simple function has no arguments.
-say_hi = <fn> || {
+say_hi = fn || {
     (output "hi")
 }
 
 # This function has one argument and will return a value.
-add_one = <fn int -> int> |number| {
+add_one <(int) -> int> = fn |number| {
     number + 1
 }
 
