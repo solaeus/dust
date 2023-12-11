@@ -1,7 +1,7 @@
 module.exports = grammar({
   name: 'dust',
 
-  word: $ => $.identifier,
+  word: $ => $._identifier_pattern,
 
   extras: $ => [/\s/, $._comment],
 
@@ -31,7 +31,6 @@ module.exports = grammar({
             $.index_assignment,
             $.match,
             $.return,
-            $.use,
             $.while,
           ),
           optional(';'),
@@ -61,8 +60,12 @@ module.exports = grammar({
         ),
       ),
 
-    identifier: $ =>
-      /[_a-zA-Z]+[_a-zA-Z0-9]?/,
+    identifier: $ => choice(
+      $._identifier_pattern,
+      $.built_in_function,
+    ),
+
+    _identifier_pattern: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
 
     value: $ =>
       choice(
@@ -319,8 +322,6 @@ module.exports = grammar({
         seq('return', $.expression),
       ),
 
-    use: $ => seq('use', $.string),
-
     type_definition: $ =>
       seq('<', $.type, '>'),
 
@@ -383,6 +384,23 @@ module.exports = grammar({
           optional($._expression_list),
           ')',
         ),
+      ),
+
+    built_in_function: $ =>
+      choice(
+        "assert",
+        "assert_equal",
+        "bash",
+        "download",
+        "fish",
+        "length",
+        "metadata",
+        "output",
+        "output_error",
+        "random",
+        "random_boolean",
+        "random_float",
+        "random_integer",
       ),
   },
 });

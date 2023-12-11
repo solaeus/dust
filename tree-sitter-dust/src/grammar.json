@@ -1,6 +1,6 @@
 {
   "name": "dust",
-  "word": "identifier",
+  "word": "_identifier_pattern",
   "rules": {
     "root": {
       "type": "PREC",
@@ -92,10 +92,6 @@
               },
               {
                 "type": "SYMBOL",
-                "name": "use"
-              },
-              {
-                "type": "SYMBOL",
                 "name": "while"
               }
             ]
@@ -181,6 +177,19 @@
       }
     },
     "identifier": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_identifier_pattern"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "built_in_function"
+        }
+      ]
+    },
+    "_identifier_pattern": {
       "type": "PATTERN",
       "value": "[_a-zA-Z]+[_a-zA-Z0-9]?"
     },
@@ -1006,19 +1015,6 @@
         ]
       }
     },
-    "use": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "use"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "string"
-        }
-      ]
-    },
     "type_definition": {
       "type": "SEQ",
       "members": [
@@ -1266,6 +1262,63 @@
           }
         ]
       }
+    },
+    "built_in_function": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "assert"
+        },
+        {
+          "type": "STRING",
+          "value": "assert_equal"
+        },
+        {
+          "type": "STRING",
+          "value": "bash"
+        },
+        {
+          "type": "STRING",
+          "value": "download"
+        },
+        {
+          "type": "STRING",
+          "value": "fish"
+        },
+        {
+          "type": "STRING",
+          "value": "length"
+        },
+        {
+          "type": "STRING",
+          "value": "metadata"
+        },
+        {
+          "type": "STRING",
+          "value": "output"
+        },
+        {
+          "type": "STRING",
+          "value": "output_error"
+        },
+        {
+          "type": "STRING",
+          "value": "random"
+        },
+        {
+          "type": "STRING",
+          "value": "random_boolean"
+        },
+        {
+          "type": "STRING",
+          "value": "random_float"
+        },
+        {
+          "type": "STRING",
+          "value": "random_integer"
+        }
+      ]
     }
   },
   "extras": [

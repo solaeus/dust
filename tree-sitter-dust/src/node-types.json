@@ -52,6 +52,11 @@
     "fields": {}
   },
   {
+    "type": "built_in_function",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "else",
     "named": true,
     "fields": {},
@@ -176,6 +181,21 @@
       "types": [
         {
           "type": "expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "identifier",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "built_in_function",
           "named": true
         }
       ]
@@ -433,10 +453,6 @@
           "named": true
         },
         {
-          "type": "use",
-          "named": true
-        },
-        {
           "type": "while",
           "named": true
         }
@@ -468,21 +484,6 @@
       "types": [
         {
           "type": "type",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "use",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "string",
           "named": true
         }
       ]
@@ -666,6 +667,14 @@
     "named": false
   },
   {
+    "type": "assert",
+    "named": false
+  },
+  {
+    "type": "assert_equal",
+    "named": false
+  },
+  {
     "type": "async",
     "named": false
   },
@@ -674,7 +683,15 @@
     "named": false
   },
   {
+    "type": "bash",
+    "named": false
+  },
+  {
     "type": "bool",
+    "named": false
+  },
+  {
+    "type": "download",
     "named": false
   },
   {
@@ -690,12 +707,16 @@
     "named": false
   },
   {
-    "type": "float",
-    "named": true
+    "type": "fish",
+    "named": false
   },
   {
     "type": "float",
     "named": false
+  },
+  {
+    "type": "float",
+    "named": true
   },
   {
     "type": "fn",
@@ -704,10 +725,6 @@
   {
     "type": "for",
     "named": false
-  },
-  {
-    "type": "identifier",
-    "named": true
   },
   {
     "type": "if",
@@ -726,6 +743,10 @@
     "named": true
   },
   {
+    "type": "length",
+    "named": false
+  },
+  {
     "type": "map",
     "named": false
   },
@@ -734,7 +755,35 @@
     "named": false
   },
   {
+    "type": "metadata",
+    "named": false
+  },
+  {
     "type": "num",
+    "named": false
+  },
+  {
+    "type": "output",
+    "named": false
+  },
+  {
+    "type": "output_error",
+    "named": false
+  },
+  {
+    "type": "random",
+    "named": false
+  },
+  {
+    "type": "random_boolean",
+    "named": false
+  },
+  {
+    "type": "random_float",
+    "named": false
+  },
+  {
+    "type": "random_integer",
     "named": false
   },
   {
@@ -751,10 +800,6 @@
   },
   {
     "type": "true",
-    "named": false
-  },
-  {
-    "type": "use",
     "named": false
   },
   {

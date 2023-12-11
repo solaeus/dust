@@ -1,6 +1,5 @@
 (expression) @expression
 (value) @value
-(comment) @comment
 (identifier) @identifier
 (value) @value
 (string) @string
@@ -24,6 +23,8 @@
       "}"
       "<"
       ">"
+      "("
+      ")"
 ] @punctuation.bracket
 
 [
@@ -33,38 +34,22 @@
 ] @operator
 
 [
-      "if"
+      "any"
+      "async"
       "else"
+      "false"
+      "float"
+      "fn"
       "for"
+      "if"
       "in"
-      "function"
+      "int"
+      "map"
+      "match"
+      "num"
+      "str"
+      "true"
+      "while"
 ] @keyword
 
-[
-      "assert"
-      "assert_equal"
-      "download"
-      "help"
-      "length"
-      "output"
-      "output_error"
-      "type"
-      "workdir"
-      "append"
-      "metadata"
-      "move"
-      "read"
-      "remove"
-      "write"
-      "bash"
-      "fish"
-      "raw"
-      "sh"
-      "zsh"
-      "random"
-      "random_boolean"
-      "random_float"
-      "random_integer"
-      "columns"
-      "rows"
-] @function.builtin
+(built_in_function) @function.builtin
