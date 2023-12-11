@@ -13,6 +13,7 @@ use crate::{AbstractTree, Error, Expression, Map, Result, Statement, Type, Value
 pub struct Match {
     matcher: Expression,
     options: Vec<(Expression, Statement)>,
+    fallback: Option<Box<Statement>>,
 }
 
 impl AbstractTree for Match {
@@ -24,24 +25,37 @@ impl AbstractTree for Match {
 
         let mut options = Vec::new();
         let mut previous_expression = None;
+        let mut next_statement_is_fallback = false;
+        let mut fallback = None;
 
         for index in 2..node.child_count() {
             let child = node.child(index).unwrap();
+
+            if child.kind() == "*" {
+                next_statement_is_fallback = true;
+            }
 
             if child.kind() == "expression" {
                 previous_expression = Some(Expression::from_syntax_node(source, child, context)?);
             }
 
             if child.kind() == "statement" {
-                if let Some(expression) = &previous_expression {
-                    let statement = Statement::from_syntax_node(source, child, context)?;
+                let statement = Statement::from_syntax_node(source, child, context)?;
 
+                if next_statement_is_fallback {
+                    fallback = Some(Box::new(statement));
+                    next_statement_is_fallback = false;
+                } else if let Some(expression) = &previous_expression {
                     options.push((expression.clone(), statement));
                 }
             }
         }
 
-        Ok(Match { matcher, options })
+        Ok(Match {
+            matcher,
+            options,
+            fallback,
+        })
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
@@ -55,7 +69,11 @@ impl AbstractTree for Match {
             }
         }
 
-        Ok(Value::Empty)
+        if let Some(fallback) = &self.fallback {
+            fallback.run(source, context)
+        } else {
+            Ok(Value::Empty)
+        }
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {

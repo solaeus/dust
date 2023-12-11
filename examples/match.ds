@@ -1,0 +1,12 @@
+foo_or_bar = match (random_boolean) {
+	true => "foo"
+	false => "bar"
+}
+
+num = match (random_integer) {
+	1 => "one",
+	2 => { "two" },
+	* => "neither",
+}
+
+[foo_or_bar, num]

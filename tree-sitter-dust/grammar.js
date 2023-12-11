@@ -285,9 +285,13 @@ module.exports = grammar({
           '{',
           repeat1(
             seq(
-              $.expression,
+              choice(
+                $.expression,
+                '*',
+              ),
               '=>',
               $.statement,
+              optional(','),
             ),
           ),
           '}',

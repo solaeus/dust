@@ -1,4 +1,4 @@
-use serde::{ser::SerializeMap, Deserialize, Serialize};
+use serde::{ser::SerializeMap, Serialize};
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
