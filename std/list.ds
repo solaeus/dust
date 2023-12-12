@@ -1,0 +1,29 @@
+contains <([any], any) -> bool> = fn |list, target| {
+	for item in list {
+		if item == target {
+			return true;
+		}
+	}
+
+	false
+}
+
+find <([any], any) -> bool> = fn |list, target| {
+	for item in list {
+		if item == target {
+			return item;
+		}
+	}
+}
+
+reverse <([any]) -> [any]> = fn |list| {
+	new_list = []
+	index = (length list) - 1;
+	
+	while index >= 0 {
+		new_list += list:index
+		index -= 1
+	}
+
+	new_list
+}

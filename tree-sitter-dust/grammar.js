@@ -69,9 +69,9 @@ module.exports = grammar({
 
     value: $ =>
       choice(
+        $.function,
         $.integer,
         $.float,
-        $.function,
         $.string,
         $.boolean,
         $.list,
@@ -352,15 +352,17 @@ module.exports = grammar({
 
     function: $ =>
       seq(
+        '(',
         'fn',
-        '|',
         repeat(
           seq(
             $.identifier,
+            $.type_definition,
             optional(','),
           ),
         ),
-        '|',
+        ')',
+        $.type_definition,
         $.block,
       ),
 

@@ -78,36 +78,7 @@ impl Function {
             let value = expression.run(source, context)?;
             let value_type = value.r#type();
 
-            match argument_type {
-                Type::Any => {}
-                Type::Boolean => {
-                    value.as_boolean()?;
-                }
-                Type::Empty => {
-                    value.as_empty()?;
-                }
-                Type::Float => {
-                    value.as_float()?;
-                }
-                Type::Function { .. } => {
-                    value.as_function()?;
-                }
-                Type::Integer => {
-                    value.as_integer()?;
-                }
-                Type::List(_) => {
-                    value.as_list()?;
-                }
-                Type::Map => {
-                    value.as_map()?;
-                }
-                Type::Number => {
-                    value.as_number()?;
-                }
-                Type::String => {
-                    value.as_string()?;
-                }
-            };
+            argument_type.check(&value_type)?;
 
             let key = identifier.inner().clone();
 
@@ -118,36 +89,7 @@ impl Function {
 
         let return_value = self.body.run(source, &function_context)?;
 
-        match return_type.as_ref() {
-            Type::Any => {}
-            Type::Boolean => {
-                return_value.as_boolean()?;
-            }
-            Type::Empty => {
-                return_value.as_empty()?;
-            }
-            Type::Float => {
-                return_value.as_float()?;
-            }
-            Type::Function { .. } => {
-                return_value.as_function()?;
-            }
-            Type::Integer => {
-                return_value.as_integer()?;
-            }
-            Type::List(_) => {
-                return_value.as_list()?;
-            }
-            Type::Map => {
-                return_value.as_map()?;
-            }
-            Type::Number => {
-                return_value.as_number()?;
-            }
-            Type::String => {
-                return_value.as_string()?;
-            }
-        };
+        return_type.check(&return_value.r#type())?;
 
         Ok(return_value)
     }

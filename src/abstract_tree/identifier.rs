@@ -42,8 +42,8 @@ impl AbstractTree for Identifier {
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
-        if let Some((value, _)) = context.variables()?.get(&self.0) {
-            Ok(value.r#type())
+        if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
+            Ok(r#type.clone())
         } else {
             for built_in_function in BUILT_IN_FUNCTIONS {
                 if self.0 == built_in_function.name() {
@@ -51,7 +51,7 @@ impl AbstractTree for Identifier {
                 }
             }
 
-            Ok(Type::Any)
+            Ok(Type::Empty)
         }
     }
 }

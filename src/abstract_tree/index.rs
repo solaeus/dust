@@ -116,7 +116,7 @@ mod tests {
         let test = evaluate(
             "
             x = [1 2 3]
-            y <() -> int> = fn || { 0 }
+            y = (fn) <int> { 0 }
             x:(y)
             ",
         )

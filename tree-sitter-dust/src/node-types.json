@@ -167,6 +167,10 @@
         {
           "type": "identifier",
           "named": true
+        },
+        {
+          "type": "type_definition",
+          "named": true
         }
       ]
     }
@@ -808,10 +812,6 @@
   },
   {
     "type": "{",
-    "named": false
-  },
-  {
-    "type": "|",
     "named": false
   },
   {

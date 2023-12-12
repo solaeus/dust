@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Statement,
-    Type, Value,
+    Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -31,21 +31,38 @@ impl AbstractTree for ValueNode {
             "function" => {
                 let child_count = child.child_count();
                 let mut parameters = Vec::new();
+                let mut parameter_types = Vec::new();
 
                 for index in 2..child_count - 1 {
                     let child = child.child(index).unwrap();
 
-                    if child.is_named() {
+                    if child.kind() == "identifier" {
                         let identifier = Identifier::from_syntax_node(source, child, context)?;
 
                         parameters.push(identifier);
                     }
+
+                    if child.kind() == "type_definition" {
+                        let type_definition =
+                            TypeDefinition::from_syntax_node(source, child, context)?;
+
+                        parameter_types.push(type_definition.take_inner());
+                    }
                 }
+
+                let return_type_node = child.child(child_count - 2).unwrap();
+                let return_type =
+                    TypeDefinition::from_syntax_node(source, return_type_node, context)?;
 
                 let body_node = child.child(child_count - 1).unwrap();
                 let body = Block::from_syntax_node(source, body_node, context)?;
 
-                ValueNode::Function(Function::new(parameters, body, None))
+                let r#type = Type::Function {
+                    parameter_types,
+                    return_type: Box::new(return_type.take_inner()),
+                };
+
+                ValueNode::Function(Function::new(parameters, body, Some(r#type)))
             }
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {

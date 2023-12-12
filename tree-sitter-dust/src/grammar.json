@@ -198,15 +198,15 @@
       "members": [
         {
           "type": "SYMBOL",
+          "name": "function"
+        },
+        {
+          "type": "SYMBOL",
           "name": "integer"
         },
         {
           "type": "SYMBOL",
           "name": "float"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "function"
         },
         {
           "type": "SYMBOL",
@@ -1149,11 +1149,11 @@
       "members": [
         {
           "type": "STRING",
-          "value": "fn"
+          "value": "("
         },
         {
           "type": "STRING",
-          "value": "|"
+          "value": "fn"
         },
         {
           "type": "REPEAT",
@@ -1163,6 +1163,10 @@
               {
                 "type": "SYMBOL",
                 "name": "identifier"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "type_definition"
               },
               {
                 "type": "CHOICE",
@@ -1181,7 +1185,11 @@
         },
         {
           "type": "STRING",
-          "value": "|"
+          "value": ")"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "type_definition"
         },
         {
           "type": "SYMBOL",

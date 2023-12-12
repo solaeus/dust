@@ -51,20 +51,14 @@ impl AbstractTree for FunctionCall {
             for (argument, r#type) in argument_type_pairs {
                 let argument_type = argument.expected_type(context)?;
 
-                if let Type::Function { return_type, .. } = argument_type {
-                    r#type.check(&return_type)?;
-                } else {
-                    r#type.check(&argument_type)?;
-                }
+                r#type.check(&argument_type)?;
             }
         }
 
-        let function_call = FunctionCall {
+        Ok(FunctionCall {
             function_expression,
             arguments,
-        };
-
-        Ok(function_call)
+        })
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
@@ -137,7 +131,7 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                foobar <(str) -> str> = fn |message| { message }
+                foobar = (fn message <str>) <str> { message }
                 (foobar 'Hiya')
                 ",
             ),
@@ -150,11 +144,11 @@ mod tests {
         assert_eq!(
             evaluate(
                 "
-                foobar <(() -> str) -> str> = fn |cb| {
+                foobar = (fn cb <() -> str>) <str> {
                     (cb)
                 }
 
-                (foobar fn || { 'Hiya' })
+                (foobar (fn) <str> { 'Hiya' })
                 ",
             ),
             Ok(Value::String("Hiya".to_string()))
