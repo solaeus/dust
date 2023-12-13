@@ -145,13 +145,10 @@ impl AbstractTree for ValueNode {
                 let map = Map::new();
 
                 {
-                    let mut variables = map.variables_mut()?;
-
                     for (key, statement) in key_statement_pairs {
                         let value = statement.run(source, context)?;
-                        let value_type = value.r#type();
 
-                        variables.insert(key.clone(), (value, value_type));
+                        map.set(key.clone(), value, None)?;
                     }
                 }
 
@@ -252,15 +249,9 @@ mod tests {
     fn evaluate_map() {
         let map = Map::new();
 
-        {
-            let mut variables = map.variables_mut().unwrap();
-
-            variables.insert("x".to_string(), (Value::Integer(1), Type::Integer));
-            variables.insert(
-                "foo".to_string(),
-                (Value::String("bar".to_string()), Type::String),
-            );
-        }
+        map.set("x".to_string(), Value::Integer(1), None).unwrap();
+        map.set("foo".to_string(), Value::String("bar".to_string()), None)
+            .unwrap();
 
         assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
     }

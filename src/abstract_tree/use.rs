@@ -31,8 +31,8 @@ impl AbstractTree for Use {
 
         evaluate_with_context(&file_contents, &mut file_context)?;
 
-        for (key, value) in file_context.variables()?.iter() {
-            context.variables_mut()?.insert(key.clone(), value.clone());
+        for (key, (value, r#type)) in file_context.variables()?.iter() {
+            context.set(key.clone(), value.clone(), Some(r#type.clone()))?;
         }
 
         Ok(Value::Map(file_context))

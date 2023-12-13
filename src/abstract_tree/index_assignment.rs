@@ -85,11 +85,8 @@ impl AbstractTree for IndexAssignment {
             }
             AssignmentOperator::Equal => value,
         };
-        let new_value_type = new_value.r#type();
 
-        index_context
-            .variables_mut()?
-            .insert(index_key.clone(), (new_value, new_value_type));
+        index_context.set(index_key.clone(), new_value, None)?;
 
         Ok(Value::Empty)
     }

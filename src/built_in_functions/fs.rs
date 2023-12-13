@@ -24,24 +24,14 @@ impl BuiltInFunction for Read {
                 let entry = entry?;
                 let file_data = Map::new();
 
-                {
-                    let mut file_data_variables = file_data.variables_mut()?;
-                    let name = entry.file_name().to_string_lossy().to_string();
-                    let metadata = entry.metadata()?;
-                    let created = metadata.created()?.elapsed()?.as_secs() as i64;
-                    let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
+                let name = entry.file_name().to_string_lossy().to_string();
+                let metadata = entry.metadata()?;
+                let created = metadata.created()?.elapsed()?.as_secs() as i64;
+                let modified = metadata.modified()?.elapsed()?.as_secs() as i64;
 
-                    file_data_variables
-                        .insert("name".to_string(), (Value::String(name), Type::String));
-                    file_data_variables.insert(
-                        "created".to_string(),
-                        (Value::Integer(created), Type::Integer),
-                    );
-                    file_data_variables.insert(
-                        "modified".to_string(),
-                        (Value::Integer(modified), Type::Integer),
-                    );
-                }
+                file_data.set("name".to_string(), Value::String(name), None)?;
+                file_data.set("created".to_string(), Value::Integer(created), None)?;
+                file_data.set("modified".to_string(), Value::Integer(modified), None)?;
 
                 files.items_mut().push(Value::Map(file_data));
             }

@@ -57,9 +57,7 @@ impl AbstractTree for For {
             values.par_iter().try_for_each(|value| {
                 let mut iter_context = Map::clone_from(context)?;
 
-                iter_context
-                    .variables_mut()?
-                    .insert(key.clone(), (value.clone(), value.r#type()));
+                iter_context.set(key.clone(), value.clone(), None)?;
 
                 self.block.run(source, &mut iter_context).map(|_value| ())
             })?;
@@ -67,9 +65,7 @@ impl AbstractTree for For {
             let loop_context = Map::clone_from(context)?;
 
             for value in values.iter() {
-                loop_context
-                    .variables_mut()?
-                    .insert(key.clone(), (value.clone(), value.r#type()));
+                loop_context.set(key.clone(), value.clone(), None)?;
 
                 self.block.run(source, &mut loop_context.clone())?;
             }

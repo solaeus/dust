@@ -100,10 +100,24 @@ impl Type {
                     .zip(other_parameter_types.iter());
 
                 for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
-                    self_parameter_type.check(&other_parameter_type)?;
+                    let check = self_parameter_type.check(&other_parameter_type);
+
+                    if let Err(Error::TypeCheck { .. }) = check {
+                        return Err(Error::TypeCheck {
+                            expected: self.clone(),
+                            actual: other.clone(),
+                        });
+                    }
                 }
 
-                self_return_type.check(other_return_type)?;
+                let check = self_return_type.check(other_return_type);
+
+                if let Err(Error::TypeCheck { .. }) = check {
+                    return Err(Error::TypeCheck {
+                        expected: self.clone(),
+                        actual: other.clone(),
+                    });
+                }
 
                 Ok(())
             }

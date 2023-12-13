@@ -76,8 +76,10 @@ impl AbstractTree for Match {
         }
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        todo!()
+    fn expected_type(&self, context: &Map) -> Result<Type> {
+        let (_, first_statement) = self.options.first().unwrap();
+
+        first_statement.expected_type(context)
     }
 }
 

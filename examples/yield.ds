@@ -1,6 +1,6 @@
 1 -> (output)
 
-add_one <([int]) -> [int]> = fn |numbers| {
+add_one = (fn numbers <[int]>) <[int]> {
 	new_numbers = []
 	
 	for number in numbers {

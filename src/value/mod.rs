@@ -781,11 +781,8 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let map = Map::new();
 
         {
-            let mut variables = map.variables_mut().unwrap();
-
             while let Some((key, value)) = access.next_entry::<String, Value>()? {
-                let r#type = value.r#type();
-                variables.insert(key, (value, r#type));
+                map.set(key, value, None).unwrap();
             }
         }
 

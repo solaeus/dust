@@ -3,7 +3,7 @@ use std::{
     cmp::Ordering,
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use crate::{value::Value, Result, Type};
@@ -58,10 +58,6 @@ impl Map {
         }
 
         Ok(previous)
-    }
-
-    pub fn variables_mut(&self) -> Result<RwLockWriteGuard<BTreeMap<String, (Value, Type)>>> {
-        Ok(self.variables.write()?)
     }
 }
 

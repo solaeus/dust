@@ -47,7 +47,9 @@ impl AbstractTree for Identifier {
         } else {
             for built_in_function in BUILT_IN_FUNCTIONS {
                 if self.0 == built_in_function.name() {
-                    return Ok(built_in_function.r#type());
+                    if let Type::Function { return_type, .. } = built_in_function.r#type() {
+                        return Ok(*return_type);
+                    }
                 }
             }
 

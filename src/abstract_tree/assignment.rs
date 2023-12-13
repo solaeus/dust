@@ -57,9 +57,14 @@ impl AbstractTree for Assignment {
 
         let statement_node = node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
+        let statement_type = statement.expected_type(context)?;
 
         if let Some(type_definition) = &type_definition {
-            let statement_type = statement.expected_type(context)?;
+            context.set(
+                identifier.inner().clone(),
+                Value::Empty,
+                Some(type_definition.inner().clone()),
+            )?;
 
             match operator {
                 AssignmentOperator::Equal => {
@@ -77,22 +82,6 @@ impl AbstractTree for Assignment {
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
-            }
-        } else if let Some((_previous_value, previous_type)) =
-            context.variables()?.get(identifier.inner())
-        {
-            let statement_type = statement.expected_type(context)?;
-            let type_check = if let Type::List(item_type) = previous_type {
-                item_type.check(&statement_type)
-            } else {
-                previous_type.check(&statement_type)
-            };
-
-            if let Err(error) = type_check {
-                return Err(error.with_context(
-                    statement_node.start_position(),
-                    source[statement_node.byte_range()].to_string(),
-                ));
             }
         }
 
@@ -129,6 +118,8 @@ impl AbstractTree for Assignment {
         };
 
         if let Some(type_defintion) = &self.type_definition {
+            type_defintion.inner().check(&new_value.r#type())?;
+
             context.set(key.clone(), new_value, Some(type_defintion.inner().clone()))?;
         } else {
             context.set(key.clone(), new_value, None)?;

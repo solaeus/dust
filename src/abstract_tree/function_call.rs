@@ -26,6 +26,7 @@ impl AbstractTree for FunctionCall {
 
         let expression_node = node.child(1).unwrap();
         let function_expression = Expression::from_syntax_node(source, expression_node, context)?;
+        let function_type = function_expression.expected_type(context)?;
 
         let mut arguments = Vec::new();
 
@@ -34,24 +35,28 @@ impl AbstractTree for FunctionCall {
 
             if child.is_named() {
                 let expression = Expression::from_syntax_node(source, child, context)?;
+                let expression_type = expression.expected_type(context)?;
+                let argument_index = arguments.len();
+
+                if let Type::Function {
+                    parameter_types,
+                    return_type: _,
+                } = &function_type
+                {
+                    let expected_type = parameter_types.get(argument_index).unwrap();
+
+                    println!("{expected_type} {expression_type}");
+
+                    expected_type
+                        .check(&expression_type)
+                        .map_err(|error| Error::WithContext {
+                            error: Box::new(error),
+                            location: child.start_position(),
+                            source: source[child.byte_range()].to_string(),
+                        })?;
+                }
 
                 arguments.push(expression);
-            }
-        }
-
-        let function_type = function_expression.expected_type(context)?;
-
-        if let Type::Function {
-            parameter_types,
-            return_type: _,
-        } = function_type
-        {
-            let argument_type_pairs = arguments.iter().zip(parameter_types.iter());
-
-            for (argument, r#type) in argument_type_pairs {
-                let argument_type = argument.expected_type(context)?;
-
-                r#type.check(&argument_type)?;
             }
         }
 

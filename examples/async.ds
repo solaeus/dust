@@ -1,4 +1,4 @@
-create_random_numbers <(int)> = fn |count| {
+create_random_numbers = (fn count <int>) <any> {
 	numbers = []
 
 	while (length numbers) < count {

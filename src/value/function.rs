@@ -82,9 +82,7 @@ impl Function {
 
             let key = identifier.inner().clone();
 
-            function_context
-                .variables_mut()?
-                .insert(key, (value, value_type));
+            function_context.set(key, value, Some(value_type))?;
         }
 
         let return_value = self.body.run(source, &function_context)?;
