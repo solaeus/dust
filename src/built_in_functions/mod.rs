@@ -3,6 +3,7 @@ use crate::{Map, Result, Type, Value};
 
 mod assert;
 mod collections;
+mod commands;
 mod data_formats;
 mod fs;
 mod network;
@@ -14,10 +15,11 @@ mod r#type;
 ///
 /// This is the public interface to access built-in functions by iterating over
 /// the references it holds.
-pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 15] = [
+pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 16] = [
     &assert::Assert,
     &assert::AssertEqual,
     &collections::Length,
+    &commands::Sh,
     &data_formats::FromJson,
     &data_formats::ToJson,
     &fs::Read,
