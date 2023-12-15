@@ -225,12 +225,12 @@ Functions are first-class values in dust, so they are assigned to variables like
 
 ```dust
 # This simple function has no arguments.
-say_hi = fn || {
+say_hi = (fn) {
     (output "hi")
 }
 
 # This function has one argument and will return a value.
-add_one <(int) -> int> = fn |number| {
+add_one = (fn number <num>) <num> {
     number + 1
 }
 
