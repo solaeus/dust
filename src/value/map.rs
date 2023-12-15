@@ -53,10 +53,6 @@ impl Map {
             .write()?
             .insert(key, (value, value_type.clone()));
 
-        if let Some((_previous_value, previous_type)) = previous.clone() {
-            previous_type.check(&value_type)?;
-        }
-
         Ok(previous)
     }
 }

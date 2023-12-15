@@ -68,17 +68,30 @@ impl AbstractTree for Assignment {
 
             match operator {
                 AssignmentOperator::Equal => {
-                    type_definition.inner().check(&statement_type)?;
+                    type_definition
+                        .inner()
+                        .check(&statement_type)
+                        .map_err(|error| error.at_node(statement_node, source))?;
                 }
                 AssignmentOperator::PlusEqual => {
                     let identifier_type = identifier.expected_type(context)?;
 
                     if let Type::List(item_type) = type_definition.inner() {
-                        item_type.check(&identifier_type)?;
-                        item_type.check(&statement_type)?;
+                        item_type
+                            .check(&identifier_type)
+                            .map_err(|error| error.at_node(identifier_node, source))?;
+                        item_type
+                            .check(&statement_type)
+                            .map_err(|error| error.at_node(statement_node, source))?;
                     } else {
-                        type_definition.inner().check(&identifier_type)?;
-                        type_definition.inner().check(&statement_type)?;
+                        type_definition
+                            .inner()
+                            .check(&identifier_type)
+                            .map_err(|error| error.at_node(identifier_node, source))?;
+                        type_definition
+                            .inner()
+                            .check(&statement_type)
+                            .map_err(|error| error.at_node(statement_node, source))?;
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
@@ -118,8 +131,6 @@ impl AbstractTree for Assignment {
         };
 
         if let Some(type_defintion) = &self.type_definition {
-            type_defintion.inner().check(&new_value.r#type())?;
-
             context.set(key.clone(), new_value, Some(type_defintion.inner().clone()))?;
         } else {
             context.set(key.clone(), new_value, None)?;
@@ -135,7 +146,7 @@ impl AbstractTree for Assignment {
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, Error, List, Value};
+    use crate::{evaluate, Error, List, Type, Value};
 
     #[test]
     fn simple_assignment() {
@@ -167,18 +178,19 @@ mod tests {
 
     #[test]
     fn list_add_wrong_type() {
-        let test = evaluate(
+        let result = evaluate(
             "
             x <[str]> = []
             x += 1
             ",
-        )
-        .unwrap_err();
+        );
 
-        match test {
-            Error::WithContext { .. } => {}
-            Error::TypeCheck { .. } => {}
-            _ => panic!(),
-        }
+        assert_eq!(
+            Err(Error::TypeCheck {
+                expected: Type::String,
+                actual: Type::Integer
+            }),
+            result
+        )
     }
 }

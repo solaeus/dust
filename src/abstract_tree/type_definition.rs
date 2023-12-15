@@ -83,7 +83,14 @@ impl Type {
             | (Type::Float, Type::Number)
             | (Type::String, Type::String) => Ok(()),
             (Type::List(self_item_type), Type::List(other_item_type)) => {
-                self_item_type.check(&other_item_type)
+                if self_item_type.check(&other_item_type).is_err() {
+                    Err(Error::TypeCheck {
+                        expected: self.clone(),
+                        actual: other.clone(),
+                    })
+                } else {
+                    Ok(())
+                }
             }
             (
                 Type::Function {
@@ -100,9 +107,7 @@ impl Type {
                     .zip(other_parameter_types.iter());
 
                 for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
-                    let check = self_parameter_type.check(&other_parameter_type);
-
-                    if let Err(Error::TypeCheck { .. }) = check {
+                    if self_parameter_type.check(&other_parameter_type).is_err() {
                         return Err(Error::TypeCheck {
                             expected: self.clone(),
                             actual: other.clone(),
@@ -110,16 +115,14 @@ impl Type {
                     }
                 }
 
-                let check = self_return_type.check(other_return_type);
-
-                if let Err(Error::TypeCheck { .. }) = check {
-                    return Err(Error::TypeCheck {
+                if self_return_type.check(other_return_type).is_err() {
+                    Err(Error::TypeCheck {
                         expected: self.clone(),
                         actual: other.clone(),
-                    });
+                    })
+                } else {
+                    Ok(())
                 }
-
-                Ok(())
             }
             _ => Err(Error::TypeCheck {
                 expected: self.clone(),
@@ -227,5 +230,51 @@ impl Display for Type {
             Type::Number => write!(f, "num"),
             Type::String => write!(f, "str"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::evaluate;
+
+    use super::*;
+
+    #[test]
+    fn simple_type_check() {
+        let result = evaluate("x <bool> = 1");
+
+        assert_eq!(
+            Err(Error::TypeCheck {
+                expected: Type::Boolean,
+                actual: Type::Integer
+            }),
+            result
+        );
+    }
+
+    #[test]
+    fn callback_type_check() {
+        let result = evaluate(
+            "
+            x = (fn cb <() -> bool>) <bool> {
+                (cb)
+            }
+            (x (fn) <int> { 1 })
+            ",
+        );
+
+        assert_eq!(
+            Err(Error::TypeCheck {
+                expected: Type::Function {
+                    parameter_types: vec![],
+                    return_type: Box::new(Type::Boolean),
+                },
+                actual: Type::Function {
+                    parameter_types: vec![],
+                    return_type: Box::new(Type::Integer),
+                },
+            }),
+            result
+        );
     }
 }

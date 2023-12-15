@@ -50,16 +50,6 @@ impl Function {
     pub fn call(&self, arguments: &[Expression], source: &str, context: &Map) -> Result<Value> {
         let function_context = Map::clone_from(context)?;
 
-        let (parameter_types, return_type) = if let Type::Function {
-            parameter_types,
-            return_type,
-        } = &self.r#type
-        {
-            (parameter_types, return_type)
-        } else {
-            todo!()
-        };
-
         if self.parameters.len() != arguments.len() {
             return Err(Error::ExpectedArgumentAmount {
                 function_name: "",
@@ -68,26 +58,17 @@ impl Function {
             });
         }
 
-        let parameter_argument_pairs = self
-            .parameters
-            .iter()
-            .zip(parameter_types.iter())
-            .zip(arguments.iter());
+        let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
-        for ((identifier, argument_type), expression) in parameter_argument_pairs {
+        for (identifier, expression) in parameter_argument_pairs {
             let value = expression.run(source, context)?;
-            let value_type = value.r#type();
-
-            argument_type.check(&value_type)?;
 
             let key = identifier.inner().clone();
 
-            function_context.set(key, value, Some(value_type))?;
+            function_context.set(key, value, None)?;
         }
 
         let return_value = self.body.run(source, &function_context)?;
-
-        return_type.check(&return_value.r#type())?;
 
         Ok(return_value)
     }

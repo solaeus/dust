@@ -114,3 +114,52 @@ Complex Function Call
                 (expression
                   (value
                     (integer)))))))))))
+
+================================================================================
+Callback Function Call
+================================================================================
+
+x = (fn cb <() -> bool>) <bool> {
+    (cb)
+}
+
+(x (fn) <bool> { true })
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (function
+              (identifier)
+              (type_definition
+                (type
+                  (type)))
+              (type_definition
+                (type))
+              (block
+                (statement
+                  (expression
+                    (function_call
+                      (expression
+                        (identifier))))))))))))
+  (statement
+    (expression
+      (function_call
+        (expression
+          (identifier))
+        (expression
+          (value
+            (function
+              (type_definition
+                (type))
+              (block
+                (statement
+                  (expression
+                    (value
+                      (boolean))))))))))))

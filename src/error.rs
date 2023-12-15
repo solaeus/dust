@@ -156,11 +156,11 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn with_context(self, location: Point, source: String) -> Self {
+    pub fn at_node(self, node: Node, source: &str) -> Self {
         Error::WithContext {
             error: Box::new(self),
-            location,
-            source,
+            location: node.start_position(),
+            source: source[node.byte_range()].to_string(),
         }
     }
 

@@ -49,11 +49,7 @@ impl AbstractTree for FunctionCall {
 
                     expected_type
                         .check(&expression_type)
-                        .map_err(|error| Error::WithContext {
-                            error: Box::new(error),
-                            location: child.start_position(),
-                            source: source[child.byte_range()].to_string(),
-                        })?;
+                        .map_err(|error| error.at_node(child, source))?;
                 }
 
                 arguments.push(expression);
