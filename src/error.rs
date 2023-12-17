@@ -216,8 +216,16 @@ impl Error {
 
     pub fn is_type_check_error(&self, other: &Error) -> bool {
         match self {
-            Error::WithContext { error, .. } => error.as_ref() == other,
-            _ => self == other,
+            Error::WithContext { error, .. } => {
+                debug_assert_eq!(error.as_ref(), other);
+
+                error.as_ref() == other
+            }
+            _ => {
+                debug_assert_eq!(self, other);
+
+                self == other
+            }
         }
     }
 }
