@@ -213,6 +213,14 @@ impl Error {
             })
         }
     }
+
+    pub fn is_type_check_error(&self) -> bool {
+        match self {
+            Error::TypeCheck { .. } => true,
+            Error::WithContext { error, .. } => error.is_type_check_error(),
+            _ => false,
+        }
+    }
 }
 
 impl<T> From<PoisonError<T>> for Error {

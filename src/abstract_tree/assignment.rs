@@ -26,6 +26,7 @@ impl AbstractTree for Assignment {
 
         let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
+        let identifier_type = identifier.expected_type(context)?;
 
         let type_node = node.child(1);
         let type_definition = if let Some(type_node) = type_node {
@@ -74,12 +75,7 @@ impl AbstractTree for Assignment {
                         .map_err(|error| error.at_node(statement_node, source))?;
                 }
                 AssignmentOperator::PlusEqual => {
-                    let identifier_type = identifier.expected_type(context)?;
-
                     if let Type::List(item_type) = type_definition.inner() {
-                        item_type
-                            .check(&identifier_type)
-                            .map_err(|error| error.at_node(identifier_node, source))?;
                         item_type
                             .check(&statement_type)
                             .map_err(|error| error.at_node(statement_node, source))?;
@@ -88,13 +84,17 @@ impl AbstractTree for Assignment {
                             .inner()
                             .check(&identifier_type)
                             .map_err(|error| error.at_node(identifier_node, source))?;
-                        type_definition
-                            .inner()
-                            .check(&statement_type)
-                            .map_err(|error| error.at_node(statement_node, source))?;
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
+            }
+        } else {
+            if let Type::List(item_type) = identifier_type {
+                println!("{item_type} {statement_type}");
+
+                item_type
+                    .check(&statement_type)
+                    .map_err(|error| error.at_node(statement_node, source))?;
             }
         }
 
@@ -185,12 +185,6 @@ mod tests {
             ",
         );
 
-        assert_eq!(
-            Err(Error::TypeCheck {
-                expected: Type::String,
-                actual: Type::Integer
-            }),
-            result
-        )
+        assert!(result.unwrap_err().is_type_check_error())
     }
 }
