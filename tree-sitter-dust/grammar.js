@@ -60,12 +60,14 @@ module.exports = grammar({
         ),
       ),
 
-    identifier: $ => choice(
-      $._identifier_pattern,
-      $.built_in_function,
-    ),
+    identifier: $ =>
+      choice(
+        $._identifier_pattern,
+        $.built_in_function,
+      ),
 
-    _identifier_pattern: $ => /[_a-zA-Z]+[_a-zA-Z0-9]?/,
+    _identifier_pattern: $ =>
+      /[_a-zA-Z]+[_a-zA-Z0-9]?/,
 
     value: $ =>
       choice(
@@ -288,10 +290,7 @@ module.exports = grammar({
           '{',
           repeat1(
             seq(
-              choice(
-                $.expression,
-                '*',
-              ),
+              choice($.expression, '*'),
               '=>',
               $.statement,
               optional(','),
@@ -390,19 +389,23 @@ module.exports = grammar({
 
     built_in_function: $ =>
       choice(
-        "assert",
-        "assert_equal",
-        "bash",
-        "download",
-        "fish",
-        "length",
-        "metadata",
-        "output",
-        "output_error",
-        "random",
-        "random_boolean",
-        "random_float",
-        "random_integer",
+        'assert',
+        'assert_equal',
+        'bash',
+        'download',
+        'fish',
+        'from_json',
+        'length',
+        'metadata',
+        'output',
+        'output_error',
+        'random',
+        'random_boolean',
+        'random_float',
+        'random_integer',
+        'read',
+        'to_json',
+        'write',
       ),
   },
 });

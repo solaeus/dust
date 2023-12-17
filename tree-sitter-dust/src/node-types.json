@@ -716,11 +716,11 @@
   },
   {
     "type": "float",
-    "named": false
+    "named": true
   },
   {
     "type": "float",
-    "named": true
+    "named": false
   },
   {
     "type": "fn",
@@ -728,6 +728,10 @@
   },
   {
     "type": "for",
+    "named": false
+  },
+  {
+    "type": "from_json",
     "named": false
   },
   {
@@ -791,6 +795,10 @@
     "named": false
   },
   {
+    "type": "read",
+    "named": false
+  },
+  {
     "type": "return",
     "named": false
   },
@@ -803,11 +811,19 @@
     "named": true
   },
   {
+    "type": "to_json",
+    "named": false
+  },
+  {
     "type": "true",
     "named": false
   },
   {
     "type": "while",
+    "named": false
+  },
+  {
+    "type": "write",
     "named": false
   },
   {

@@ -111,7 +111,21 @@ impl AbstractTree for FunctionCall {
                     value_node.expected_type(context)
                 }
             }
-            Expression::Identifier(identifier) => identifier.expected_type(context),
+            Expression::Identifier(identifier) => {
+                for built_in_function in BUILT_IN_FUNCTIONS {
+                    if identifier.inner() == built_in_function.name() {
+                        if let Type::Function {
+                            parameter_types: _,
+                            return_type,
+                        } = built_in_function.r#type()
+                        {
+                            return Ok(*return_type);
+                        }
+                    }
+                }
+
+                identifier.expected_type(context)
+            }
             Expression::Index(index) => index.expected_type(context),
             Expression::Math(math) => math.expected_type(context),
             Expression::Logic(logic) => logic.expected_type(context),

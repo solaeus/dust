@@ -163,3 +163,27 @@ x = (fn cb <() -> bool>) <bool> {
                   (expression
                     (value
                       (boolean))))))))))))
+
+================================================================================
+Nested Function Call
+================================================================================
+
+(from_json (read 'file.json'))
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (function_call
+        (expression
+          (identifier
+            (built_in_function)))
+        (expression
+          (function_call
+            (expression
+              (identifier
+                (built_in_function)))
+            (expression
+              (value
+                (string)))))))))

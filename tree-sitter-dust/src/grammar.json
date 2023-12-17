@@ -1296,6 +1296,10 @@
         },
         {
           "type": "STRING",
+          "value": "from_json"
+        },
+        {
+          "type": "STRING",
           "value": "length"
         },
         {
@@ -1325,6 +1329,18 @@
         {
           "type": "STRING",
           "value": "random_integer"
+        },
+        {
+          "type": "STRING",
+          "value": "read"
+        },
+        {
+          "type": "STRING",
+          "value": "to_json"
+        },
+        {
+          "type": "STRING",
+          "value": "write"
         }
       ]
     }
