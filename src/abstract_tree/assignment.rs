@@ -61,12 +61,6 @@ impl AbstractTree for Assignment {
         let statement_type = statement.expected_type(context)?;
 
         if let Some(type_definition) = &type_definition {
-            context.set(
-                identifier.inner().clone(),
-                Value::Empty,
-                Some(type_definition.inner().clone()),
-            )?;
-
             match operator {
                 AssignmentOperator::Equal => {
                     type_definition
@@ -97,6 +91,15 @@ impl AbstractTree for Assignment {
                     .map_err(|error| error.at_node(statement_node, source))?;
             }
         }
+
+        let variable_key = identifier.inner().clone();
+        let variable_type = if let Some(definition) = &type_definition {
+            definition.inner().clone()
+        } else {
+            statement_type
+        };
+
+        context.set(variable_key, Value::Empty, Some(variable_type))?;
 
         Ok(Assignment {
             identifier,

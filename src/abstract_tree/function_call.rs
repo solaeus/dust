@@ -45,8 +45,6 @@ impl AbstractTree for FunctionCall {
                 {
                     let expected_type = parameter_types.get(argument_index).unwrap();
 
-                    println!("{expected_type} {expression_type}");
-
                     expected_type
                         .check(&expression_type)
                         .map_err(|error| error.at_node(child, source))?;

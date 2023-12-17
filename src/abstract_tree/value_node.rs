@@ -255,4 +255,24 @@ mod tests {
 
         assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
     }
+
+    #[test]
+    fn evaluate_function() {
+        let result = evaluate("(fn) <bool> {true}");
+        let value = result.unwrap();
+        let function = value.as_function().unwrap();
+
+        assert_eq!(&Vec::<Identifier>::with_capacity(0), function.parameters());
+        assert_eq!(Ok(&Type::Boolean), function.return_type());
+
+        let result = evaluate("(fn x <bool>) <bool> {true}");
+        let value = result.unwrap();
+        let function = value.as_function().unwrap();
+
+        assert_eq!(
+            &vec![Identifier::new("x".to_string())],
+            function.parameters()
+        );
+        assert_eq!(Ok(&Type::Boolean), function.return_type());
+    }
 }

@@ -260,18 +260,15 @@ mod tests {
             ",
         );
 
-        assert_eq!(
-            Err(Error::TypeCheck {
-                expected: Type::Function {
-                    parameter_types: vec![],
-                    return_type: Box::new(Type::Boolean),
-                },
-                actual: Type::Function {
-                    parameter_types: vec![],
-                    return_type: Box::new(Type::Integer),
-                },
-            }),
-            result
-        );
+        assert!(result.unwrap_err().is_type_check_error(&Error::TypeCheck {
+            expected: Type::Function {
+                parameter_types: vec![],
+                return_type: Box::new(Type::Boolean),
+            },
+            actual: Type::Function {
+                parameter_types: vec![],
+                return_type: Box::new(Type::Integer),
+            },
+        }));
     }
 }
