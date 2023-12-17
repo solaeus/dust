@@ -84,8 +84,6 @@ impl AbstractTree for Assignment {
             }
         } else {
             if let Type::List(item_type) = identifier_type {
-                println!("{item_type} {statement_type}");
-
                 item_type
                     .check(&statement_type)
                     .map_err(|error| error.at_node(statement_node, source))?;

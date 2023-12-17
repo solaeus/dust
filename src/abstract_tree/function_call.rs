@@ -44,6 +44,11 @@ impl AbstractTree for FunctionCall {
                 } = &function_type
                 {
                     let expected_type = parameter_types.get(argument_index).unwrap();
+                    let expected_type = if let Type::List(item_type) = expected_type {
+                        item_type
+                    } else {
+                        expected_type
+                    };
 
                     expected_type
                         .check(&expression_type)
