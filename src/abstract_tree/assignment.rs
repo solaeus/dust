@@ -185,6 +185,9 @@ mod tests {
             ",
         );
 
-        assert!(result.unwrap_err().is_type_check_error())
+        assert!(result.unwrap_err().is_type_check_error(&Error::TypeCheck {
+            expected: Type::String,
+            actual: Type::Integer
+        }))
     }
 }

@@ -214,11 +214,10 @@ impl Error {
         }
     }
 
-    pub fn is_type_check_error(&self) -> bool {
+    pub fn is_type_check_error(&self, other: &Error) -> bool {
         match self {
-            Error::TypeCheck { .. } => true,
-            Error::WithContext { error, .. } => error.is_type_check_error(),
-            _ => false,
+            Error::WithContext { error, .. } => error.as_ref() == other,
+            _ => self == other,
         }
     }
 }

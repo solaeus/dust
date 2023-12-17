@@ -243,13 +243,10 @@ mod tests {
     fn simple_type_check() {
         let result = evaluate("x <bool> = 1");
 
-        assert_eq!(
-            Err(Error::TypeCheck {
-                expected: Type::Boolean,
-                actual: Type::Integer
-            }),
-            result
-        );
+        assert!(result.unwrap_err().is_type_check_error(&Error::TypeCheck {
+            expected: Type::Boolean,
+            actual: Type::Integer
+        }));
     }
 
     #[test]
