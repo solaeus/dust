@@ -2,17 +2,23 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Type, Value};
+use crate::{AbstractTree, Block, Error, Identifier, Map, Result, Type, Value};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 pub struct Function {
     parameters: Vec<Identifier>,
     body: Block,
     r#type: Type,
+    context: Map,
 }
 
 impl Function {
-    pub fn new(parameters: Vec<Identifier>, body: Block, r#type: Option<Type>) -> Self {
+    pub fn new(
+        parameters: Vec<Identifier>,
+        body: Block,
+        r#type: Option<Type>,
+        context: Map,
+    ) -> Self {
         let r#type = r#type.unwrap_or(Type::Function {
             parameter_types: vec![Type::Any; parameters.len()],
             return_type: Box::new(Type::Any),
@@ -22,6 +28,7 @@ impl Function {
             parameters,
             body,
             r#type,
+            context,
         }
     }
 
@@ -47,9 +54,7 @@ impl Function {
         }
     }
 
-    pub fn call(&self, arguments: &[Expression], source: &str, context: &Map) -> Result<Value> {
-        let function_context = Map::clone_from(context)?;
-
+    pub fn call(&self, arguments: &[Value], source: &str, context: &Map) -> Result<Value> {
         if self.parameters.len() != arguments.len() {
             return Err(Error::ExpectedArgumentAmount {
                 function_name: "",
@@ -58,19 +63,34 @@ impl Function {
             });
         }
 
-        let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
+        for (key, (value, r#type)) in context.variables()?.iter() {
+            if self.context.variables()?.contains_key(key) {
+                continue;
+            }
 
-        for (identifier, expression) in parameter_argument_pairs {
-            let value = expression.run(source, context)?;
-
-            let key = identifier.inner().clone();
-
-            function_context.set(key, value, None)?;
+            self.context
+                .set(key.clone(), value.clone(), Some(r#type.clone()))?;
         }
 
-        let return_value = self.body.run(source, &function_context)?;
+        let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
+
+        for (identifier, value) in parameter_argument_pairs {
+            let key = identifier.inner().clone();
+
+            self.context.set(key, value.clone(), None)?;
+        }
+
+        let return_value = self.body.run(source, &self.context)?;
 
         Ok(return_value)
+    }
+}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.r#type.eq(&other.r#type)
+            && self.parameters.eq(&other.parameters)
+            && self.body.eq(&other.body)
     }
 }
 

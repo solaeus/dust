@@ -1,4 +1,4 @@
-use serde::{ser::SerializeMap, Serialize};
+use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize};
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
@@ -118,5 +118,14 @@ impl Serialize for Map {
         }
 
         map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Map {
+    fn deserialize<D>(_deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        todo!()
     }
 }

@@ -50,19 +50,36 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
+                let function_context = Map::clone_from(context)?;
+
+                for (parameter_name, parameter_type) in
+                    parameters.iter().zip(parameter_types.iter())
+                {
+                    function_context.set(
+                        parameter_name.inner().clone(),
+                        Value::Empty,
+                        Some(parameter_type.clone()),
+                    )?;
+                }
+
                 let return_type_node = child.child(child_count - 2).unwrap();
                 let return_type =
                     TypeDefinition::from_syntax_node(source, return_type_node, context)?;
 
                 let body_node = child.child(child_count - 1).unwrap();
-                let body = Block::from_syntax_node(source, body_node, context)?;
+                let body = Block::from_syntax_node(source, body_node, &function_context)?;
 
                 let r#type = Type::Function {
                     parameter_types,
                     return_type: Box::new(return_type.take_inner()),
                 };
 
-                ValueNode::Function(Function::new(parameters, body, Some(r#type)))
+                ValueNode::Function(Function::new(
+                    parameters,
+                    body,
+                    Some(r#type),
+                    function_context,
+                ))
             }
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {

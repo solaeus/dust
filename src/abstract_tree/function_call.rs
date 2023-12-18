@@ -102,7 +102,15 @@ impl AbstractTree for FunctionCall {
             Expression::Yield(r#yield) => r#yield.run(source, context)?,
         };
 
-        value.as_function()?.call(&self.arguments, source, context)
+        let mut arguments = Vec::with_capacity(self.arguments.len());
+
+        for expression in &self.arguments {
+            let value = expression.run(source, context)?;
+
+            arguments.push(value);
+        }
+
+        value.as_function()?.call(&arguments, source, context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {

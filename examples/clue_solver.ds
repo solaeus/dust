@@ -11,8 +11,8 @@ is_ready_to_solve = (fn cards <map>) <bool> {
 }
 
 take_turn = (fn cards <map>, opponent_card <str>, current_room <str>) <map> {
-	cards = (remove_card opponent_card cards)
-	cards = (make_guess current_room cards)
+	cards = (remove_card cards opponent_card)
+	cards = (make_guess cards current_room)
 	cards
 }
 
@@ -23,7 +23,7 @@ remove_card = (fn cards <map>, opponent_card <str>) <map> {
 	cards
 }
 
-make_guess = (fn cards <map> current_room <str>) <map> {
+make_guess = (fn cards <map>, current_room <str>) <map> {
 	if (is_ready_to_solve cards) {
 		(output 'It was '
 			+ cards:suspects:0
