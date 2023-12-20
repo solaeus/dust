@@ -128,6 +128,10 @@ impl AbstractTree for ValueNode {
                         let statement =
                             Statement::from_syntax_node(source, child_syntax_node, context)?;
 
+                        if let Some(type_definition) = &current_type {
+                            type_definition.check(&statement.expected_type(context)?)?;
+                        }
+
                         child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
                     }
                 }
@@ -298,6 +302,16 @@ mod tests {
             evaluate("{ x <int> = 1, foo <str> = 'bar' }"),
             Ok(Value::Map(map))
         );
+    }
+
+    #[test]
+    fn evaluate_map_type_errors() {
+        assert!(evaluate("{ foo <bool> = 'bar' }")
+            .unwrap_err()
+            .is_type_check_error(&Error::TypeCheck {
+                expected: Type::Boolean,
+                actual: Type::String
+            }))
     }
 
     #[test]
