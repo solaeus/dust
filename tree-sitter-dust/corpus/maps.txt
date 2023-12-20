@@ -18,6 +18,44 @@ Simple Map
                 (integer)))))))))
 
 ================================================================================
+Map with Types
+================================================================================
+
+{
+  answer <num> = 42
+  stuff <[str]> = [ "some" "stuff" ]
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (value
+        (map
+          (identifier)
+          (type_definition
+            (type))
+          (statement
+            (expression
+              (value
+                (integer))))
+          (identifier)
+          (type_definition
+            (type
+              (type)))
+          (statement
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (string))))))))))))
+
+================================================================================
 Nested Maps
 ================================================================================
 

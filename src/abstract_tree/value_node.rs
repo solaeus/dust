@@ -17,7 +17,7 @@ pub enum ValueNode {
     String(String),
     List(Vec<Expression>),
     Empty,
-    Map(BTreeMap<String, Statement>),
+    Map(BTreeMap<String, (Statement, Option<Type>)>),
 }
 
 impl AbstractTree for ValueNode {
@@ -105,6 +105,7 @@ impl AbstractTree for ValueNode {
             "map" => {
                 let mut child_nodes = BTreeMap::new();
                 let mut current_key = "".to_string();
+                let mut current_type = None;
 
                 for index in 0..child.child_count() - 1 {
                     let child_syntax_node = child.child(index).unwrap();
@@ -113,14 +114,21 @@ impl AbstractTree for ValueNode {
                         current_key =
                             Identifier::from_syntax_node(source, child_syntax_node, context)?
                                 .take_inner();
+                        current_type = None;
+                    }
+
+                    if child_syntax_node.kind() == "type_definition" {
+                        current_type = Some(
+                            TypeDefinition::from_syntax_node(source, child_syntax_node, context)?
+                                .take_inner(),
+                        );
                     }
 
                     if child_syntax_node.kind() == "statement" {
-                        let key = current_key.clone();
                         let statement =
                             Statement::from_syntax_node(source, child_syntax_node, context)?;
 
-                        child_nodes.insert(key, statement);
+                        child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
                     }
                 }
 
@@ -162,10 +170,10 @@ impl AbstractTree for ValueNode {
                 let map = Map::new();
 
                 {
-                    for (key, statement) in key_statement_pairs {
+                    for (key, (statement, r#type)) in key_statement_pairs {
                         let value = statement.run(source, context)?;
 
-                        map.set(key.clone(), value, None)?;
+                        map.set(key.clone(), value, r#type.clone())?;
                     }
                 }
 
@@ -271,6 +279,25 @@ mod tests {
             .unwrap();
 
         assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
+    }
+
+    #[test]
+    fn evaluate_map_types() {
+        let map = Map::new();
+
+        map.set("x".to_string(), Value::Integer(1), Some(Type::Integer))
+            .unwrap();
+        map.set(
+            "foo".to_string(),
+            Value::String("bar".to_string()),
+            Some(Type::String),
+        )
+        .unwrap();
+
+        assert_eq!(
+            evaluate("{ x <int> = 1, foo <str> = 'bar' }"),
+            Ok(Value::Map(map))
+        );
     }
 
     #[test]

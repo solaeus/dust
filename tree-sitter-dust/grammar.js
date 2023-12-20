@@ -167,6 +167,7 @@ module.exports = grammar({
         repeat(
           seq(
             $.identifier,
+            optional($.type_definition),
             '=',
             $.statement,
             optional(','),
