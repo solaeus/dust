@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AbstractTree, Block, Error, Identifier, Map, Result, Type, Value};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Function {
     parameters: Vec<Identifier>,
     body: Block,
@@ -47,7 +47,7 @@ impl Function {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], source: &str) -> Result<Value> {
+    pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
         if self.parameters.len() != arguments.len() {
             return Err(Error::ExpectedFunctionArgumentAmount {
                 source: "unknown".to_string(),
@@ -56,7 +56,7 @@ impl Function {
             });
         }
 
-        let context = Map::new();
+        let context = Map::clone_from(outer_context)?;
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
         for (identifier, value) in parameter_argument_pairs {
@@ -68,14 +68,6 @@ impl Function {
         let return_value = self.body.run(source, &context)?;
 
         Ok(return_value)
-    }
-}
-
-impl PartialEq for Function {
-    fn eq(&self, other: &Self) -> bool {
-        self.r#type.eq(&other.r#type)
-            && self.parameters.eq(&other.parameters)
-            && self.body.eq(&other.body)
     }
 }
 

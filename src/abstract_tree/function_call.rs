@@ -117,7 +117,7 @@ impl AbstractTree for FunctionCall {
             arguments.push(value);
         }
 
-        value.as_function()?.call(&arguments, source)
+        value.as_function()?.call(&arguments, source, context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {

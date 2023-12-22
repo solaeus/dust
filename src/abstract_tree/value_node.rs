@@ -50,12 +50,12 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
-                let function_context_types = Map::clone_from(context)?;
+                let function_context = Map::clone_from(context)?;
 
                 for (parameter_name, parameter_type) in
                     parameters.iter().zip(parameter_types.iter())
                 {
-                    function_context_types.set(
+                    function_context.set(
                         parameter_name.inner().clone(),
                         Value::Option(None),
                         Some(parameter_type.clone()),
@@ -67,7 +67,7 @@ impl AbstractTree for ValueNode {
                     TypeDefinition::from_syntax_node(source, return_type_node, context)?;
 
                 let body_node = child.child(child_count - 1).unwrap();
-                let body = Block::from_syntax_node(source, body_node, &function_context_types)?;
+                let body = Block::from_syntax_node(source, body_node, &function_context)?;
 
                 let r#type = Type::Function {
                     parameter_types,
