@@ -16,7 +16,7 @@ pub enum ValueNode {
     Integer(String),
     String(String),
     List(Vec<Expression>),
-    Empty,
+    Option(Option<Box<Expression>>),
     Map(BTreeMap<String, (Statement, Option<Type>)>),
 }
 
@@ -50,14 +50,14 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
-                let function_context = Map::clone_from(context)?;
+                let function_context_types = Map::clone_from(context)?;
 
                 for (parameter_name, parameter_type) in
                     parameters.iter().zip(parameter_types.iter())
                 {
-                    function_context.set(
+                    function_context_types.set(
                         parameter_name.inner().clone(),
-                        Value::Empty,
+                        Value::Option(None),
                         Some(parameter_type.clone()),
                     )?;
                 }
@@ -67,19 +67,14 @@ impl AbstractTree for ValueNode {
                     TypeDefinition::from_syntax_node(source, return_type_node, context)?;
 
                 let body_node = child.child(child_count - 1).unwrap();
-                let body = Block::from_syntax_node(source, body_node, &function_context)?;
+                let body = Block::from_syntax_node(source, body_node, &function_context_types)?;
 
                 let r#type = Type::Function {
                     parameter_types,
                     return_type: Box::new(return_type.take_inner()),
                 };
 
-                ValueNode::Function(Function::new(
-                    parameters,
-                    body,
-                    Some(r#type),
-                    function_context,
-                ))
+                ValueNode::Function(Function::new(parameters, body, Some(r#type)))
             }
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {
@@ -138,9 +133,22 @@ impl AbstractTree for ValueNode {
 
                 ValueNode::Map(child_nodes)
             }
+            "option" => {
+                let first_grandchild = child.child(0).unwrap();
+
+                if first_grandchild.kind() == "none" {
+                    ValueNode::Option(None)
+                } else {
+                    let expression_node = child.child(2).unwrap();
+                    let expression =
+                        Expression::from_syntax_node(source, expression_node, context)?;
+
+                    ValueNode::Option(Some(Box::new(expression)))
+                }
+            }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "string, integer, float, boolean, list, map, or empty",
+                    expected: "string, integer, float, boolean, list, map, or option",
                     actual: child.kind(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
@@ -169,7 +177,15 @@ impl AbstractTree for ValueNode {
 
                 Value::List(List::with_items(values))
             }
-            ValueNode::Empty => Value::Empty,
+            ValueNode::Option(option) => {
+                let option_value = if let Some(expression) = option {
+                    Some(Box::new(expression.run(source, context)?))
+                } else {
+                    None
+                };
+
+                Value::Option(option_value)
+            }
             ValueNode::Map(key_statement_pairs) => {
                 let map = Map::new();
 
@@ -216,7 +232,13 @@ impl AbstractTree for ValueNode {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            ValueNode::Empty => Type::Any,
+            ValueNode::Option(option) => {
+                if let Some(expression) = option {
+                    Type::Option(Some(Box::new(expression.expected_type(context)?)))
+                } else {
+                    Type::Option(None)
+                }
+            }
             ValueNode::Map(_) => Type::Map,
         };
 
@@ -231,8 +253,8 @@ mod tests {
 
     #[test]
     fn evaluate_empty() {
-        assert_eq!(evaluate("x = 9"), Ok(Value::Empty));
-        assert_eq!(evaluate("x = 1 + 1"), Ok(Value::Empty));
+        assert_eq!(evaluate("x = 9"), Ok(Value::Option(None)));
+        assert_eq!(evaluate("x = 1 + 1"), Ok(Value::Option(None)));
     }
 
     #[test]
@@ -332,5 +354,12 @@ mod tests {
             function.parameters()
         );
         assert_eq!(Ok(&Type::Boolean), function.return_type());
+    }
+
+    #[test]
+    fn evaluate_option() {
+        let result = evaluate("x <option(int)> = some(1); x").unwrap();
+
+        assert_eq!(Value::Option(Some(Box::new(Value::Integer(1)))), result);
     }
 }

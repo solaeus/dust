@@ -30,7 +30,7 @@ impl AbstractTree for While {
             self.block.run(source, context)?;
         }
 
-        Ok(Value::Empty)
+        Ok(Value::Option(None))
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
@@ -40,10 +40,10 @@ impl AbstractTree for While {
 
 #[cfg(test)]
 mod tests {
-    use crate::evaluate;
+    use crate::{evaluate, Value};
 
     #[test]
     fn evalualate_while_loop() {
-        assert_eq!(evaluate("while false { 'foo' }"), Ok(crate::Value::Empty))
+        assert_eq!(evaluate("while false { 'foo' }"), Ok(Value::Option(None)))
     }
 }

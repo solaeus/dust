@@ -9,7 +9,7 @@ pub use crate::{
     built_in_functions::{BuiltInFunction, BUILT_IN_FUNCTIONS},
     error::*,
     evaluate::*,
-    value::{function::Function, list::List, map::Map, table::Table, Value},
+    value::{function::Function, list::List, map::Map, Value},
 };
 
 mod abstract_tree;

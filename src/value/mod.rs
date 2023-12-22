@@ -21,14 +21,13 @@ use std::{
 pub mod function;
 pub mod list;
 pub mod map;
-pub mod table;
 
 /// Dust value representation.
 ///
 /// Every dust variable has a key and a Value. Variables are represented by
 /// storing them in a VariableMap. This means the map of variables is itself a
 /// value that can be treated as any other.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub enum Value {
     List(List),
     Map(Map),
@@ -37,8 +36,13 @@ pub enum Value {
     Float(f64),
     Integer(i64),
     Boolean(bool),
-    #[default]
-    Empty,
+    Option(Option<Box<Value>>),
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::Option(None)
+    }
 }
 
 impl Value {
@@ -71,7 +75,13 @@ impl Value {
             Value::Float(_) => Type::Float,
             Value::Integer(_) => Type::Integer,
             Value::Boolean(_) => Type::Boolean,
-            Value::Empty => Type::Empty,
+            Value::Option(option) => {
+                if let Some(value) = option {
+                    Type::Option(Some(Box::new(value.r#type())))
+                } else {
+                    Type::Option(None)
+                }
+            }
         };
 
         r#type
@@ -101,8 +111,12 @@ impl Value {
         matches!(self, Value::List(_))
     }
 
-    pub fn is_empty(&self) -> bool {
-        matches!(self, Value::Empty)
+    pub fn is_option(&self) -> bool {
+        matches!(self, Value::Option(_))
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Value::Option(None))
     }
 
     pub fn is_map(&self) -> bool {
@@ -206,11 +220,19 @@ impl Value {
         }
     }
 
-    /// Returns `()`, or returns`Err` if `self` is not a `Value::Empty`.
-    pub fn as_empty(&self) -> Result<()> {
+    /// Returns `()`, or returns `Err` if `self` is not a `Value::Option(None)`.
+    pub fn as_none(&self) -> Result<()> {
         match self {
-            Value::Empty => Ok(()),
-            value => Err(Error::ExpectedEmpty {
+            Value::Option(option) => {
+                if option.is_none() {
+                    Ok(())
+                } else {
+                    Err(Error::ExpectedNone {
+                        actual: self.clone(),
+                    })
+                }
+            }
+            value => Err(Error::ExpectedNone {
                 actual: value.clone(),
             }),
         }
@@ -219,7 +241,7 @@ impl Value {
 
 impl Default for &Value {
     fn default() -> Self {
-        &Value::Empty
+        &Value::Option(None)
     }
 }
 
@@ -371,7 +393,7 @@ impl PartialEq for Value {
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
-            (Value::Empty, Value::Empty) => true,
+            (Value::Option(left), Value::Option(right)) => left == right,
             _ => false,
         }
     }
@@ -408,8 +430,8 @@ impl Ord for Value {
             (Value::Map(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
-            (Value::Empty, Value::Empty) => Ordering::Equal,
-            (Value::Empty, _) => Ordering::Less,
+            (Value::Option(left), Value::Option(right)) => left.cmp(right),
+            (Value::Option(_), _) => Ordering::Less,
         }
     }
 }
@@ -434,7 +456,7 @@ impl Serialize for Value {
 
                 list.end()
             }
-            Value::Empty => todo!(),
+            Value::Option(inner) => inner.serialize(serializer),
             Value::Map(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
         }
@@ -448,7 +470,13 @@ impl Display for Value {
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(int) => write!(f, "{int}"),
             Value::Boolean(boolean) => write!(f, "{boolean}"),
-            Value::Empty => write!(f, "empty"),
+            Value::Option(option) => {
+                if let Some(value) = option {
+                    write!(f, "some({})", value)
+                } else {
+                    write!(f, "none")
+                }
+            }
             Value::List(list) => {
                 write!(f, "[")?;
                 for value in list.items().iter() {
@@ -506,7 +534,7 @@ impl From<Value> for Result<Value> {
 
 impl From<()> for Value {
     fn from(_: ()) -> Self {
-        Value::Empty
+        Value::Option(None)
     }
 }
 
@@ -729,7 +757,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Empty)
+        Ok(Value::Option(None))
     }
 
     fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
@@ -747,7 +775,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Empty)
+        Ok(Value::Option(None))
     }
 
     fn visit_newtype_struct<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>

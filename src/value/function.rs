@@ -9,16 +9,10 @@ pub struct Function {
     parameters: Vec<Identifier>,
     body: Block,
     r#type: Type,
-    context: Map,
 }
 
 impl Function {
-    pub fn new(
-        parameters: Vec<Identifier>,
-        body: Block,
-        r#type: Option<Type>,
-        context: Map,
-    ) -> Self {
+    pub fn new(parameters: Vec<Identifier>, body: Block, r#type: Option<Type>) -> Self {
         let r#type = r#type.unwrap_or(Type::Function {
             parameter_types: vec![Type::Any; parameters.len()],
             return_type: Box::new(Type::Any),
@@ -28,7 +22,6 @@ impl Function {
             parameters,
             body,
             r#type,
-            context,
         }
     }
 
@@ -54,33 +47,25 @@ impl Function {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], source: &str, context: &Map) -> Result<Value> {
+    pub fn call(&self, arguments: &[Value], source: &str) -> Result<Value> {
         if self.parameters.len() != arguments.len() {
-            return Err(Error::ExpectedArgumentAmount {
-                function_name: "",
+            return Err(Error::ExpectedFunctionArgumentAmount {
+                source: "unknown".to_string(),
                 expected: self.parameters.len(),
                 actual: arguments.len(),
             });
         }
 
-        for (key, (value, r#type)) in context.variables()?.iter() {
-            if self.context.variables()?.contains_key(key) {
-                continue;
-            }
-
-            self.context
-                .set(key.clone(), value.clone(), Some(r#type.clone()))?;
-        }
-
+        let context = Map::new();
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
 
-            self.context.set(key, value.clone(), None)?;
+            context.set(key, value.clone(), None)?;
         }
 
-        let return_value = self.body.run(source, &self.context)?;
+        let return_value = self.body.run(source, &context)?;
 
         Ok(return_value)
     }

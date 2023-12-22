@@ -55,6 +55,12 @@ impl Map {
 
         Ok(previous)
     }
+
+    pub fn clear(&self) -> Result<()> {
+        self.variables.write()?.clear();
+
+        Ok(())
+    }
 }
 
 impl Default for Map {

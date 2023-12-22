@@ -14,7 +14,7 @@ impl BuiltInFunction for Assert {
             }
         }
 
-        Ok(Value::Empty)
+        Ok(Value::Option(None))
     }
 
     fn r#type(&self) -> Type {
@@ -39,7 +39,7 @@ impl BuiltInFunction for AssertEqual {
         let right = arguments.get(1).unwrap();
 
         if left == right {
-            Ok(Value::Empty)
+            Ok(Value::Option(None))
         } else {
             Err(Error::AssertEqualFailed {
                 expected: left.clone(),

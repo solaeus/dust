@@ -64,6 +64,7 @@ pub enum Type {
     Map,
     Number,
     String,
+    Option(Option<Box<Type>>),
 }
 
 impl Type {
@@ -82,6 +83,16 @@ impl Type {
             | (Type::Integer, Type::Number)
             | (Type::Float, Type::Number)
             | (Type::String, Type::String) => Ok(()),
+            (Type::Option(left), Type::Option(right)) => {
+                if left == right {
+                    Ok(())
+                } else {
+                    Err(Error::TypeCheck {
+                        expected: self.clone(),
+                        actual: other.clone(),
+                    })
+                }
+            }
             (Type::List(self_item_type), Type::List(other_item_type)) => {
                 if self_item_type.check(&other_item_type).is_err() {
                     Err(Error::TypeCheck {
@@ -178,9 +189,15 @@ impl AbstractTree for Type {
             "map" => Type::Map,
             "num" => Type::Number,
             "str" => Type::String,
+            "option" => {
+                let inner_type_node = node.child(2).unwrap();
+                let inner_type = Type::from_syntax_node(source, inner_type_node, context)?;
+
+                Type::Option(Some(Box::new(inner_type)))
+            }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "any, bool, float, fn, int, list, map, num or str",
+                    expected: "any, bool, float, function, int, list, map, num, str or option",
                     actual: type_node.kind(),
                     location: type_node.start_position(),
                     relevant_source: source[type_node.byte_range()].to_string(),
@@ -192,7 +209,7 @@ impl AbstractTree for Type {
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        Ok(Value::Empty)
+        Ok(Value::Option(None))
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
@@ -229,6 +246,13 @@ impl Display for Type {
             Type::Map => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::String => write!(f, "str"),
+            Type::Option(option) => {
+                if let Some(r#type) = option {
+                    write!(f, "some({})", r#type)
+                } else {
+                    write!(f, "none")
+                }
+            }
         }
     }
 }

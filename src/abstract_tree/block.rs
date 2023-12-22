@@ -52,7 +52,7 @@ impl AbstractTree for Block {
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         if self.is_async {
             let statements = &self.statements;
-            let final_result = RwLock::new(Ok(Value::Empty));
+            let final_result = RwLock::new(Ok(Value::Option(None)));
 
             statements
                 .into_par_iter()
@@ -86,7 +86,7 @@ impl AbstractTree for Block {
                 prev_result = Some(statement.run(source, context));
             }
 
-            prev_result.unwrap_or(Ok(Value::Empty))
+            prev_result.unwrap_or(Ok(Value::Option(None)))
         }
     }
 

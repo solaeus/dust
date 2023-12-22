@@ -94,7 +94,7 @@ fn main() {
 
     match eval_result {
         Ok(value) => {
-            if !value.is_empty() {
+            if !value.is_none() {
                 println!("{value}")
             }
         }

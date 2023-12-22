@@ -76,7 +76,7 @@ impl AbstractTree for IfElse {
             if let Some(block) = &self.else_block {
                 block.run(source, context)
             } else {
-                Ok(Value::Empty)
+                Ok(Value::Option(None))
             }
         }
     }

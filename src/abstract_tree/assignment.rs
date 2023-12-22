@@ -35,7 +35,10 @@ impl AbstractTree for Assignment {
                     source, type_node, context,
                 )?)
             } else {
-                None
+                context
+                    .variables()?
+                    .get(identifier.inner())
+                    .map(|(_, r#type)| TypeDefinition::new(r#type.clone()))
             }
         } else {
             None
@@ -83,10 +86,17 @@ impl AbstractTree for Assignment {
                 AssignmentOperator::MinusEqual => todo!(),
             }
         } else {
-            if let Type::List(item_type) = identifier_type {
-                item_type
-                    .check(&statement_type)
-                    .map_err(|error| error.at_node(statement_node, source))?;
+            match operator {
+                AssignmentOperator::Equal => {}
+                AssignmentOperator::PlusEqual => {
+                    if let Type::List(item_type) = identifier_type {
+                        println!("{item_type} {statement_type}");
+                        item_type
+                            .check(&statement_type)
+                            .map_err(|error| error.at_node(statement_node, source))?;
+                    }
+                }
+                AssignmentOperator::MinusEqual => todo!(),
             }
         }
 
@@ -97,7 +107,7 @@ impl AbstractTree for Assignment {
             statement_type
         };
 
-        context.set(variable_key, Value::Empty, Some(variable_type))?;
+        context.set(variable_key, Value::Option(None), Some(variable_type))?;
 
         Ok(Assignment {
             identifier,
@@ -137,7 +147,7 @@ impl AbstractTree for Assignment {
             context.set(key.clone(), new_value, None)?;
         }
 
-        Ok(Value::Empty)
+        Ok(Value::Option(None))
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {

@@ -12,7 +12,7 @@ impl BuiltInFunction for Output {
             println!("{argument}");
         }
 
-        Ok(Value::Empty)
+        Ok(Value::Option(None))
     }
 
     fn r#type(&self) -> Type {

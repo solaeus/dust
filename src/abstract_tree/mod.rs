@@ -57,7 +57,7 @@ impl AbstractTree for Root {
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        let mut value = Value::Empty;
+        let mut value = Value::Option(None);
 
         for statement in &self.statements {
             value = statement.run(source, context)?;

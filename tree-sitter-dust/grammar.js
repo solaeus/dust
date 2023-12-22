@@ -78,6 +78,7 @@ module.exports = grammar({
         $.boolean,
         $.list,
         $.map,
+        $.option
       ),
 
     integer: $ =>
@@ -174,6 +175,18 @@ module.exports = grammar({
           ),
         ),
         '}',
+      ),
+
+
+    option: $ =>
+      choice(
+        'none',
+        seq(
+          'some',
+          '(',
+          $.expression,
+          ')',
+        ),
       ),
 
     index: $ =>
@@ -331,6 +344,11 @@ module.exports = grammar({
           'any',
           'bool',
           'float',
+          'int',
+          'map',
+          'num',
+          'str',
+          seq('[', $.type, ']'),
           seq(
             '(',
             repeat(
@@ -342,11 +360,12 @@ module.exports = grammar({
             ')',
             optional(seq('->', $.type)),
           ),
-          'int',
-          seq('[', $.type, ']'),
-          'map',
-          'num',
-          'str',
+          seq(
+            'option',
+            '(',
+            $.type,
+            ')',
+          )
         ),
       ),
 

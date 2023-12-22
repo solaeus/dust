@@ -60,8 +60,15 @@ pub enum Error {
     },
 
     /// A function was called with the wrong amount of arguments.
-    ExpectedArgumentAmount {
+    ExpectedBuiltInFunctionArgumentAmount {
         function_name: &'static str,
+        expected: usize,
+        actual: usize,
+    },
+
+    /// A function was called with the wrong amount of arguments.
+    ExpectedFunctionArgumentAmount {
+        source: String,
         expected: usize,
         actual: usize,
     },
@@ -113,7 +120,7 @@ pub enum Error {
         actual: Value,
     },
 
-    ExpectedEmpty {
+    ExpectedNone {
         actual: Value,
     },
 
@@ -190,7 +197,7 @@ impl Error {
         if expected == actual {
             Ok(())
         } else {
-            Err(Error::ExpectedArgumentAmount {
+            Err(Error::ExpectedBuiltInFunctionArgumentAmount {
                 function_name: function.name(),
                 expected,
                 actual,
@@ -312,13 +319,21 @@ impl fmt::Display for Error {
                 "An operator expected {} arguments, but got {}.",
                 expected, actual
             ),
-            ExpectedArgumentAmount {
+            ExpectedBuiltInFunctionArgumentAmount {
                 function_name: tool_name,
                 expected,
                 actual,
             } => write!(
                 f,
                 "{tool_name} expected {expected} arguments, but got {actual}.",
+            ),
+            ExpectedFunctionArgumentAmount {
+                source,
+                expected,
+                actual,
+            } => write!(
+                f,
+                "{source} expected {expected} arguments, but got {actual}.",
             ),
             ExpectedArgumentMinimum {
                 function_name,
@@ -358,7 +373,7 @@ impl fmt::Display for Error {
                 "Expected a list of len {}, but got {:?}.",
                 expected_len, actual
             ),
-            ExpectedEmpty { actual } => write!(f, "Expected an empty value, but got {actual}."),
+            ExpectedNone { actual } => write!(f, "Expected an empty value, but got {actual}."),
             ExpectedMap { actual } => write!(f, "Expected a map, but got {actual}."),
             ExpectedTable { actual } => write!(f, "Expected a table, but got {actual}."),
             ExpectedFunction { actual } => {

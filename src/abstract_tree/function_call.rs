@@ -39,23 +39,30 @@ impl AbstractTree for FunctionCall {
                 let argument_index = arguments.len();
 
                 if let Type::Function {
-                    parameter_types,
-                    return_type: _,
+                    parameter_types, ..
                 } = &function_type
                 {
-                    let expected_type = parameter_types.get(argument_index).unwrap();
-                    let expected_type = if let Type::List(item_type) = expected_type {
-                        item_type
-                    } else {
-                        expected_type
-                    };
-
-                    expected_type
-                        .check(&expression_type)
-                        .map_err(|error| error.at_node(child, source))?;
+                    if let Some(r#type) = parameter_types.get(argument_index) {
+                        r#type
+                            .check(&expression_type)
+                            .map_err(|error| error.at_node(child, source))?;
+                    }
                 }
 
                 arguments.push(expression);
+            }
+        }
+
+        if let Type::Function {
+            parameter_types, ..
+        } = &function_type
+        {
+            if arguments.len() != parameter_types.len() {
+                return Err(Error::ExpectedFunctionArgumentAmount {
+                    source: source[expression_node.byte_range()].to_string(),
+                    expected: parameter_types.len(),
+                    actual: arguments.len(),
+                });
             }
         }
 
@@ -110,7 +117,7 @@ impl AbstractTree for FunctionCall {
             arguments.push(value);
         }
 
-        value.as_function()?.call(&arguments, source, context)
+        value.as_function()?.call(&arguments, source)
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
@@ -183,6 +190,6 @@ mod tests {
 
     #[test]
     fn evaluate_built_in_function_call() {
-        assert_eq!(evaluate("(output 'Hiya')"), Ok(Value::Empty));
+        assert_eq!(evaluate("(output 'Hiya')"), Ok(Value::Option(None)));
     }
 }

@@ -72,7 +72,7 @@ impl AbstractTree for Match {
         if let Some(fallback) = &self.fallback {
             fallback.run(source, context)
         } else {
-            Ok(Value::Empty)
+            Ok(Value::Option(None))
         }
     }
 

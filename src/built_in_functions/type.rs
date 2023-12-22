@@ -1,4 +1,4 @@
-use crate::{BuiltInFunction, Error, List, Map, Result, Type, Value};
+use crate::{BuiltInFunction, Error, Map, Result, Type, Value};
 
 pub struct TypeFunction;
 
@@ -10,32 +10,15 @@ impl BuiltInFunction for TypeFunction {
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
         Error::expect_argument_amount(self, 1, arguments.len())?;
 
-        if arguments.len() == 1 {
-            let type_definition = arguments.first().unwrap().r#type();
-            let type_text = type_definition.to_string();
-            let text_without_brackets = &type_text[1..type_text.len() - 1];
+        let type_text = arguments.first().unwrap().r#type().to_string();
 
-            Ok(Value::String(text_without_brackets.to_string()))
-        } else {
-            let mut answers = Vec::new();
-
-            for value in arguments {
-                let type_definition = value.r#type();
-                let type_text = type_definition.to_string();
-                let text_without_brackets = &type_text[1..type_text.len() - 1];
-                let text_as_value = Value::String(text_without_brackets.to_string());
-
-                answers.push(text_as_value);
-            }
-
-            Ok(Value::List(List::with_items(answers)))
-        }
+        Ok(Value::String(type_text))
     }
 
     fn r#type(&self) -> Type {
         Type::Function {
-            parameter_types: vec![Type::String],
-            return_type: Box::new(Type::Any),
+            parameter_types: vec![Type::Any],
+            return_type: Box::new(Type::String),
         }
     }
 }

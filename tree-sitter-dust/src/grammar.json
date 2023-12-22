@@ -223,6 +223,10 @@
         {
           "type": "SYMBOL",
           "name": "map"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "option"
         }
       ]
     },
@@ -534,6 +538,36 @@
         {
           "type": "STRING",
           "value": "}"
+        }
+      ]
+    },
+    "option": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "none"
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "some"
+            },
+            {
+              "type": "STRING",
+              "value": "("
+            },
+            {
+              "type": "SYMBOL",
+              "name": "expression"
+            },
+            {
+              "type": "STRING",
+              "value": ")"
+            }
+          ]
         }
       ]
     },
@@ -1063,6 +1097,39 @@
             "value": "float"
           },
           {
+            "type": "STRING",
+            "value": "int"
+          },
+          {
+            "type": "STRING",
+            "value": "map"
+          },
+          {
+            "type": "STRING",
+            "value": "num"
+          },
+          {
+            "type": "STRING",
+            "value": "str"
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "["
+              },
+              {
+                "type": "SYMBOL",
+                "name": "type"
+              },
+              {
+                "type": "STRING",
+                "value": "]"
+              }
+            ]
+          },
+          {
             "type": "SEQ",
             "members": [
               {
@@ -1121,15 +1188,15 @@
             ]
           },
           {
-            "type": "STRING",
-            "value": "int"
-          },
-          {
             "type": "SEQ",
             "members": [
               {
                 "type": "STRING",
-                "value": "["
+                "value": "option"
+              },
+              {
+                "type": "STRING",
+                "value": "("
               },
               {
                 "type": "SYMBOL",
@@ -1137,21 +1204,9 @@
               },
               {
                 "type": "STRING",
-                "value": "]"
+                "value": ")"
               }
             ]
-          },
-          {
-            "type": "STRING",
-            "value": "map"
-          },
-          {
-            "type": "STRING",
-            "value": "num"
-          },
-          {
-            "type": "STRING",
-            "value": "str"
           }
         ]
       }
