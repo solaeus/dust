@@ -53,7 +53,6 @@ impl Display for TypeDefinition {
 pub enum Type {
     Any,
     Boolean,
-    Empty,
     Float,
     Function {
         parameter_types: Vec<Type>,
@@ -62,9 +61,10 @@ pub enum Type {
     Integer,
     List(Box<Type>),
     Map,
+    None,
     Number,
     String,
-    Option(Option<Box<Type>>),
+    Option(Box<Type>),
 }
 
 impl Type {
@@ -73,7 +73,6 @@ impl Type {
             (Type::Any, _)
             | (_, Type::Any)
             | (Type::Boolean, Type::Boolean)
-            | (Type::Empty, Type::Empty)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
             | (Type::Map, Type::Map)
@@ -82,6 +81,7 @@ impl Type {
             | (Type::Number, Type::Float)
             | (Type::Integer, Type::Number)
             | (Type::Float, Type::Number)
+            | (Type::None, Type::None)
             | (Type::String, Type::String) => Ok(()),
             (Type::Option(left), Type::Option(right)) => {
                 if left == right {
@@ -177,7 +177,7 @@ impl AbstractTree for Type {
                 let return_type = if final_node.is_named() {
                     Type::from_syntax_node(source, final_node, context)?
                 } else {
-                    Type::Empty
+                    Type::None
                 };
 
                 Type::Function {
@@ -188,12 +188,13 @@ impl AbstractTree for Type {
             "int" => Type::Integer,
             "map" => Type::Map,
             "num" => Type::Number,
+            "none" => Type::None,
             "str" => Type::String,
             "option" => {
                 let inner_type_node = node.child(2).unwrap();
                 let inner_type = Type::from_syntax_node(source, inner_type_node, context)?;
 
-                Type::Option(Some(Box::new(inner_type)))
+                Type::Option(Box::new(inner_type))
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
@@ -213,7 +214,7 @@ impl AbstractTree for Type {
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::Empty)
+        Ok(Type::None)
     }
 }
 
@@ -222,7 +223,6 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
-            Type::Empty => write!(f, "empty"),
             Type::Float => write!(f, "float"),
             Type::Function {
                 parameter_types,
@@ -245,13 +245,10 @@ impl Display for Type {
             Type::List(item_type) => write!(f, "[{item_type}]"),
             Type::Map => write!(f, "map"),
             Type::Number => write!(f, "num"),
+            Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),
-            Type::Option(option) => {
-                if let Some(r#type) = option {
-                    write!(f, "some({})", r#type)
-                } else {
-                    write!(f, "none")
-                }
+            Type::Option(inner_type) => {
+                write!(f, "option({})", inner_type)
             }
         }
     }

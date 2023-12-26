@@ -51,7 +51,7 @@ impl AbstractTree for Identifier {
                 }
             }
 
-            Ok(Type::Empty)
+            Ok(Type::None)
         }
     }
 }

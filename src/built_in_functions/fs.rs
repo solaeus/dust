@@ -71,7 +71,7 @@ impl BuiltInFunction for Write {
     fn r#type(&self) -> Type {
         Type::Function {
             parameter_types: vec![Type::String],
-            return_type: Box::new(Type::Empty),
+            return_type: Box::new(Type::None),
         }
     }
 }
@@ -105,7 +105,7 @@ impl BuiltInFunction for Append {
     fn r#type(&self) -> Type {
         Type::Function {
             parameter_types: vec![Type::String, Type::String],
-            return_type: Box::new(Type::Empty),
+            return_type: Box::new(Type::None),
         }
     }
 }

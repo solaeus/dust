@@ -234,9 +234,9 @@ impl AbstractTree for ValueNode {
             }
             ValueNode::Option(option) => {
                 if let Some(expression) = option {
-                    Type::Option(Some(Box::new(expression.expected_type(context)?)))
+                    Type::Option(Box::new(expression.expected_type(context)?))
                 } else {
-                    Type::Option(None)
+                    Type::None
                 }
             }
             ValueNode::Map(_) => Type::Map,

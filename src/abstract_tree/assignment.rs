@@ -151,7 +151,7 @@ impl AbstractTree for Assignment {
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::Empty)
+        Ok(Type::None)
     }
 }
 

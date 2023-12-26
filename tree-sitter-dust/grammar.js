@@ -346,6 +346,7 @@ module.exports = grammar({
           'float',
           'int',
           'map',
+          'none',
           'num',
           'str',
           seq('[', $.type, ']'),

@@ -77,9 +77,9 @@ impl Value {
             Value::Boolean(_) => Type::Boolean,
             Value::Option(option) => {
                 if let Some(value) = option {
-                    Type::Option(Some(Box::new(value.r#type())))
+                    Type::Option(Box::new(value.r#type()))
                 } else {
-                    Type::Option(None)
+                    Type::None
                 }
             }
         };

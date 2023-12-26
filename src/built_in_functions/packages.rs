@@ -29,7 +29,7 @@ impl BuiltInFunction for InstallPackages {
     fn r#type(&self) -> Type {
         Type::Function {
             parameter_types: vec![Type::List(Box::new(Type::String))],
-            return_type: Box::new(Type::Empty),
+            return_type: Box::new(Type::None),
         }
     }
 }

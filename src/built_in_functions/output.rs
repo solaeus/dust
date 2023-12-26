@@ -18,7 +18,7 @@ impl BuiltInFunction for Output {
     fn r#type(&self) -> Type {
         Type::Function {
             parameter_types: vec![Type::Any],
-            return_type: Box::new(Type::Empty),
+            return_type: Box::new(Type::None),
         }
     }
 }
