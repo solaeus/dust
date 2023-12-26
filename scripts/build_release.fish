@@ -1,5 +1,5 @@
 #!/bin/fish
-# Build the project in debug mode.
+# Build the project in release mode.
 
 cd tree-sitter-dust/
 tree-sitter generate --no-bindings
