@@ -10,12 +10,6 @@ is_ready_to_solve = (fn cards <map>) <bool> {
 	&& ((length cards:weapons) == 1)
 }
 
-take_turn = (fn cards <map>, opponent_card <str>, current_room <str>) <map> {
-	cards = (remove_card cards opponent_card)
-	cards = (make_guess cards current_room)
-	cards
-}
-
 remove_card = (fn cards <map>, opponent_card <str>) <map> {
 	cards:rooms -= opponent_card
 	cards:suspects -= opponent_card
@@ -41,6 +35,12 @@ make_guess = (fn cards <map>, current_room <str>) <map> {
 			+ (random cards:weapons)
 			+ '.')
 	}
+	cards
+}
+
+take_turn = (fn cards <map>, opponent_card <str>, current_room <str>) <map> {
+	cards = (remove_card cards opponent_card)
+	cards = (make_guess cards current_room)
 	cards
 }
 

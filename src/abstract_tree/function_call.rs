@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Type, Value, ValueNode, BUILT_IN_FUNCTIONS};
-
-use super::expression::Expression;
+use crate::{
+    AbstractTree, Error, Expression, Map, Result, Type, Value, ValueNode, BUILT_IN_FUNCTIONS,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
@@ -144,7 +144,19 @@ impl AbstractTree for FunctionCall {
                     }
                 }
 
-                identifier.expected_type(context)
+                let identifier_type = identifier.expected_type(context)?;
+
+                println!("{identifier_type:?}");
+
+                if let Type::Function {
+                    parameter_types: _,
+                    return_type,
+                } = &identifier_type
+                {
+                    Ok(*return_type.clone())
+                } else {
+                    Ok(identifier_type)
+                }
             }
             Expression::Index(index) => index.expected_type(context),
             Expression::Math(math) => math.expected_type(context),
