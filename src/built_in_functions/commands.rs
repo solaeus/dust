@@ -41,13 +41,17 @@ impl BuiltInFunction for Sh {
     }
 
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
-        Error::expect_argument_amount(self, 1, arguments.len())?;
-
         let command_text = arguments.first().unwrap().as_string()?;
         let mut command = Command::new("sh");
 
         command.arg("-c");
         command.arg(command_text);
+
+        let extra_command_text = arguments.get(1).unwrap_or_default().as_option()?;
+
+        if let Some(text) = extra_command_text {
+            command.args(["--", text.as_string()?]);
+        }
 
         let output = command.spawn()?.wait_with_output()?.stdout;
 
@@ -56,7 +60,7 @@ impl BuiltInFunction for Sh {
 
     fn r#type(&self) -> crate::Type {
         Type::Function {
-            parameter_types: vec![Type::String],
+            parameter_types: vec![Type::String, Type::Option(Box::new(Type::String))],
             return_type: Box::new(Type::String),
         }
     }

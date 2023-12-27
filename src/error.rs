@@ -74,9 +74,9 @@ pub enum Error {
     },
 
     /// A function was called with the wrong amount of arguments.
-    ExpectedArgumentMinimum {
-        function_name: &'static str,
-        minimum: usize,
+    ExpectedFunctionArgumentMinimum {
+        source: String,
+        minumum_expected: usize,
         actual: usize,
     },
 
@@ -133,6 +133,10 @@ pub enum Error {
     },
 
     ExpectedFunction {
+        actual: Value,
+    },
+
+    ExpectedOption {
         actual: Value,
     },
 
@@ -200,22 +204,6 @@ impl Error {
             Err(Error::ExpectedBuiltInFunctionArgumentAmount {
                 function_name: function.name(),
                 expected,
-                actual,
-            })
-        }
-    }
-
-    pub fn expect_argument_minimum<F: BuiltInFunction>(
-        function: &F,
-        minimum: usize,
-        actual: usize,
-    ) -> Result<()> {
-        if actual < minimum {
-            Ok(())
-        } else {
-            Err(Error::ExpectedArgumentMinimum {
-                function_name: function.name(),
-                minimum,
                 actual,
             })
         }
@@ -335,14 +323,16 @@ impl fmt::Display for Error {
                 f,
                 "{source} expected {expected} arguments, but got {actual}.",
             ),
-            ExpectedArgumentMinimum {
-                function_name,
-                minimum,
+            ExpectedFunctionArgumentMinimum {
+                source,
+                minumum_expected,
                 actual,
-            } => write!(
-                f,
-                "{function_name} expected a minimum of {minimum} arguments, but got {actual}.",
-            ),
+            } => {
+                write!(
+                    f,
+                    "{source} expected at least {minumum_expected} arguments, but got {actual}."
+                )
+            }
             ExpectedString { actual } => {
                 write!(f, "Expected a string but got {actual}.")
             }
@@ -379,6 +369,7 @@ impl fmt::Display for Error {
             ExpectedFunction { actual } => {
                 write!(f, "Expected function, but got {actual}.")
             }
+            ExpectedOption { actual } => write!(f, "Expected option, but got {actual}."),
             ExpectedCollection { actual } => {
                 write!(
                     f,

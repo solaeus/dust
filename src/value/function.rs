@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Block, Error, Identifier, Map, Result, Type, Value};
+use crate::{AbstractTree, Block, Identifier, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Function {
@@ -48,14 +48,6 @@ impl Function {
     }
 
     pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
-        if self.parameters.len() != arguments.len() {
-            return Err(Error::ExpectedFunctionArgumentAmount {
-                source: "unknown".to_string(),
-                expected: self.parameters.len(),
-                actual: arguments.len(),
-            });
-        }
-
         let context = Map::clone_from(outer_context)?;
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 

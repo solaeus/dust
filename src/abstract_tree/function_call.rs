@@ -28,6 +28,7 @@ impl AbstractTree for FunctionCall {
         let function_expression = Expression::from_syntax_node(source, expression_node, context)?;
         let function_type = function_expression.expected_type(context)?;
 
+        let mut minimum_parameter_count = 0;
         let mut arguments = Vec::new();
 
         for index in 2..node.child_count() - 1 {
@@ -43,6 +44,11 @@ impl AbstractTree for FunctionCall {
                 } = &function_type
                 {
                     if let Some(r#type) = parameter_types.get(argument_index) {
+                        if let Type::Option(_) = r#type {
+                        } else {
+                            minimum_parameter_count += 1;
+                        }
+
                         r#type
                             .check(&expression_type)
                             .map_err(|error| error.at_node(child, source))?;
@@ -54,13 +60,13 @@ impl AbstractTree for FunctionCall {
         }
 
         if let Type::Function {
-            parameter_types, ..
+            parameter_types: _, ..
         } = &function_type
         {
-            if arguments.len() != parameter_types.len() {
-                return Err(Error::ExpectedFunctionArgumentAmount {
+            if arguments.len() < minimum_parameter_count {
+                return Err(Error::ExpectedFunctionArgumentMinimum {
                     source: source[expression_node.byte_range()].to_string(),
-                    expected: parameter_types.len(),
+                    minumum_expected: minimum_parameter_count,
                     actual: arguments.len(),
                 });
             }

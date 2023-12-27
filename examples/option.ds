@@ -1,0 +1,6 @@
+create_user = (fn email <string>, name <option(string)>) <map> {
+	{
+		email = email
+		username = (either_or username email)
+	}
+}

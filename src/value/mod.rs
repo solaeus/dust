@@ -220,6 +220,16 @@ impl Value {
         }
     }
 
+    /// Returns `Option`, or returns `Err` if `self` is not a `Value::Option`.
+    pub fn as_option(&self) -> Result<&Option<Box<Value>>> {
+        match self {
+            Value::Option(option) => Ok(option),
+            value => Err(Error::ExpectedOption {
+                actual: value.clone(),
+            }),
+        }
+    }
+
     /// Returns `()`, or returns `Err` if `self` is not a `Value::Option(None)`.
     pub fn as_none(&self) -> Result<()> {
         match self {
