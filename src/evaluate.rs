@@ -2,9 +2,11 @@
 //!
 //! You can use this library externally by calling either of the "eval"
 //! functions or by constructing your own Evaluator.
+use std::cell::RefCell;
+
 use tree_sitter::{Parser, Tree as TSTree};
 
-use crate::{language, AbstractTree, Map, Result, Root, Value};
+use crate::{language, AbstractTree, Error, Map, Result, Root, Value};
 
 /// Evaluate the given source code.
 ///
@@ -43,28 +45,37 @@ pub fn evaluate(source: &str) -> Result<Value> {
 /// );
 /// ```
 pub fn evaluate_with_context(source: &str, context: &mut Map) -> Result<Value> {
-    let mut parser = Parser::new();
-    parser.set_language(language()).unwrap();
-
-    Interpreter::parse(parser, context, source)?.run()
+    Interpreter::parse(context, &RefCell::new(source.to_string()))?.run()
 }
 
 /// A source code interpreter for the Dust language.
 pub struct Interpreter<'c, 's> {
-    _parser: Parser,
+    parser: Parser,
     context: &'c mut Map,
-    source: &'s str,
-    syntax_tree: TSTree,
-    abstract_tree: Root,
+    source: &'s RefCell<String>,
+    syntax_tree: Option<TSTree>,
+    abstract_tree: Option<Root>,
 }
 
 impl<'c, 's> Interpreter<'c, 's> {
-    pub fn parse(mut parser: Parser, context: &'c mut Map, source: &'s str) -> Result<Self> {
-        let syntax_tree = parser.parse(source, None).unwrap();
-        let abstract_tree = Root::from_syntax_node(source, syntax_tree.root_node(), context)?;
+    pub fn parse(context: &'c mut Map, source: &'s RefCell<String>) -> Result<Self> {
+        let mut parser = Parser::new();
+
+        parser.set_language(language()).unwrap();
+
+        let syntax_tree = parser.parse(source.borrow().as_str(), None);
+        let abstract_tree = if let Some(syntax_tree) = &syntax_tree {
+            Some(Root::from_syntax_node(
+                source.borrow().as_str(),
+                syntax_tree.root_node(),
+                context,
+            )?)
+        } else {
+            panic!()
+        };
 
         Ok(Interpreter {
-            _parser: parser,
+            parser,
             context,
             source,
             syntax_tree,
@@ -72,11 +83,38 @@ impl<'c, 's> Interpreter<'c, 's> {
         })
     }
 
+    pub fn update(&mut self) -> Result<()> {
+        let source = self.source.borrow();
+        let syntax_tree = self.parser.parse(source.as_str(), None);
+        let abstract_tree = if let Some(syntax_tree) = &syntax_tree {
+            Some(Root::from_syntax_node(
+                source.as_str(),
+                syntax_tree.root_node(),
+                self.context,
+            )?)
+        } else {
+            None
+        };
+
+        self.syntax_tree = syntax_tree;
+        self.abstract_tree = abstract_tree;
+
+        Ok(())
+    }
+
     pub fn run(&mut self) -> Result<Value> {
-        self.abstract_tree.run(self.source, self.context)
+        if let Some(abstract_tree) = &self.abstract_tree {
+            abstract_tree.run(self.source.borrow().as_ref(), self.context)
+        } else {
+            Err(Error::NoUserInput)
+        }
     }
 
     pub fn syntax_tree(&self) -> String {
-        self.syntax_tree.root_node().to_sexp()
+        if let Some(syntax_tree) = &self.syntax_tree {
+            syntax_tree.root_node().to_sexp()
+        } else {
+            "".to_string()
+        }
     }
 }

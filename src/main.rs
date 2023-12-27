@@ -1,16 +1,19 @@
 //! Command line interface for the dust programming language.
 use clap::Parser;
 use crossterm::{
-    event::{self, KeyCode, KeyEventKind},
+    event::{poll, read, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     ExecutableCommand,
 };
-use ratatui::{prelude::CrosstermBackend, style::Stylize, widgets::Paragraph, Terminal};
-use tree_sitter::Parser as TSParser;
+use ratatui::{
+    prelude::{CrosstermBackend, Rect},
+    widgets::Paragraph,
+    Terminal,
+};
+use std::{cell::RefCell, fs::read_to_string, io::stdout, time::Duration};
+use tui_textarea::TextArea;
 
-use std::{fs::read_to_string, io::stdout};
-
-use dust_lang::{language, Interpreter, Map, Result, Value};
+use dust_lang::{Interpreter, Map, Result, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -44,16 +47,19 @@ fn main() {
     let args = Args::parse();
 
     if args.path.is_none() && args.command.is_none() {
-        return run_cli_shell().unwrap();
+        run_tui().unwrap();
+
+        return;
     }
 
-    let source = if let Some(path) = &args.path {
+    let source_input = if let Some(path) = &args.path {
         read_to_string(path).unwrap()
     } else if let Some(command) = &args.command {
         command.clone()
     } else {
-        "".to_string()
+        "(output 'Hello dust!')".to_string()
     };
+    let source = RefCell::new(source_input);
 
     let mut context = Map::new();
 
@@ -71,10 +77,7 @@ fn main() {
             .unwrap();
     }
 
-    let mut parser = TSParser::new();
-    parser.set_language(language()).unwrap();
-
-    let mut interpreter = Interpreter::parse(parser, &mut context, &source).unwrap();
+    let mut interpreter = Interpreter::parse(&mut context, &source).unwrap();
 
     if args.interactive {
         loop {
@@ -100,30 +103,59 @@ fn main() {
     }
 }
 
-fn run_cli_shell() -> Result<()> {
-    let mut _context = Map::new();
+fn run_tui() -> Result<()> {
+    let user_input = RefCell::new("(output 'Hello dust!')".to_string());
+    let mut context = Map::new();
+    let mut interpreter = Interpreter::parse(&mut context, &user_input)?;
+
+    interpreter.update()?;
+
+    let mut interpreter_output = interpreter.run();
 
     stdout().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+    let mut textarea = TextArea::default();
 
     loop {
         terminal.draw(|frame| {
-            let area = frame.size();
-            frame.render_widget(
-                Paragraph::new("Hello Ratatui! (press 'q' to quit)")
-                    .white()
-                    .on_blue(),
-                area,
-            );
+            let input_area = Rect {
+                x: 0,
+                y: 0,
+                width: frame.size().width,
+                height: frame.size().height / 2,
+            };
+
+            frame.render_widget(textarea.widget(), input_area);
+
+            let output_area = Rect {
+                x: input_area.left(),
+                y: input_area.bottom(),
+                width: frame.size().width,
+                height: frame.size().height / 2,
+            };
+
+            match &interpreter_output {
+                Ok(value) => frame.render_widget(Paragraph::new(value.to_string()), output_area),
+                Err(error) => frame.render_widget(Paragraph::new(error.to_string()), output_area),
+            }
         })?;
 
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
+        if poll(Duration::from_millis(16))? {
+            if let Event::Key(key) = read()? {
+                if key.code == KeyCode::Esc {
                     break;
                 }
+                if key.code == KeyCode::Enter {
+                    let input = textarea.lines().join("\n");
+
+                    user_input.replace(input);
+                    interpreter.update()?;
+                    interpreter_output = interpreter.run();
+                }
+
+                textarea.input(key);
             }
         }
     }

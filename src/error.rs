@@ -20,6 +20,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, PartialEq)]
 pub enum Error {
+    NoUserInput,
+
     WithContext {
         error: Box<Error>,
         location: Point,
@@ -412,6 +414,7 @@ impl fmt::Display for Error {
                 source,
             } => write!(f, "{error} Occured at {location}: \"{source}\""),
             SerdeJson(message) => write!(f, "JSON processing error: {message}"),
+            NoUserInput => write!(f, "No input was provided."),
         }
     }
 }
