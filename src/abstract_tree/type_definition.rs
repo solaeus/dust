@@ -86,6 +86,10 @@ impl Type {
             (Type::Option(left), Type::Option(right)) => {
                 if left == right {
                     Ok(())
+                } else if let Type::Any = left.as_ref() {
+                    Ok(())
+                } else if let Type::Any = right.as_ref() {
+                    Ok(())
                 } else {
                     Err(Error::TypeCheck {
                         expected: self.clone(),
@@ -93,6 +97,7 @@ impl Type {
                     })
                 }
             }
+            (Type::Option(_), Type::None) | (Type::None, Type::Option(_)) => Ok(()),
             (Type::List(self_item_type), Type::List(other_item_type)) => {
                 if self_item_type.check(&other_item_type).is_err() {
                     Err(Error::TypeCheck {

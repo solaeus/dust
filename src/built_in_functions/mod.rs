@@ -7,6 +7,7 @@ mod commands;
 mod data_formats;
 mod fs;
 mod network;
+mod option;
 mod output;
 mod packages;
 mod random;
@@ -16,7 +17,7 @@ mod r#type;
 ///
 /// This is the public interface to access built-in functions by iterating over
 /// the references it holds.
-pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 18] = [
+pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 21] = [
     &assert::Assert,
     &assert::AssertEqual,
     &collections::Length,
@@ -28,6 +29,9 @@ pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 18] = [
     &fs::Write,
     &fs::Append,
     &network::Download,
+    &option::EitherOr,
+    &option::IsNone,
+    &option::IsSome,
     &output::Output,
     &packages::InstallPackages,
     &random::Random,

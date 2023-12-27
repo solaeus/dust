@@ -152,8 +152,6 @@ impl AbstractTree for FunctionCall {
 
                 let identifier_type = identifier.expected_type(context)?;
 
-                println!("{identifier_type:?}");
-
                 if let Type::Function {
                     parameter_types: _,
                     return_type,

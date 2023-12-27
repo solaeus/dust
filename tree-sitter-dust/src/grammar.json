@@ -1363,11 +1363,23 @@
         },
         {
           "type": "STRING",
+          "value": "either_or"
+        },
+        {
+          "type": "STRING",
           "value": "fish"
         },
         {
           "type": "STRING",
           "value": "from_json"
+        },
+        {
+          "type": "STRING",
+          "value": "is_none"
+        },
+        {
+          "type": "STRING",
+          "value": "is_some"
         },
         {
           "type": "STRING",

@@ -1,6 +1,22 @@
-create_user = (fn email <string>, name <option(string)>) <map> {
+create_user = (fn email <str>, name <option(str)>) <map> {
 	{
 		email = email
-		username = (either_or username email)
+		username = (either_or name email)
 	}
 }
+
+(assert_equal
+	{
+		email = "bob@example.com"
+		username = "bob"
+	},
+	(create_user "bob@example.com" some("bob"))
+)
+
+(assert_equal
+	{
+		email = "sue@example.com"
+		username = "sue@example.com"
+	},
+	(create_user "sue@example.com" none)
+)
