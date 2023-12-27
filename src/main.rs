@@ -1,18 +1,16 @@
 //! Command line interface for the dust programming language.
 use clap::Parser;
-use rustyline::{
-    completion::FilenameCompleter,
-    error::ReadlineError,
-    highlight::Highlighter,
-    hint::{Hint, Hinter, HistoryHinter},
-    history::DefaultHistory,
-    Completer, Context, Editor, Helper, Validator,
+use crossterm::{
+    event::{self, KeyCode, KeyEventKind},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand,
 };
+use ratatui::{prelude::CrosstermBackend, style::Stylize, widgets::Paragraph, Terminal};
 use tree_sitter::Parser as TSParser;
 
-use std::{borrow::Cow, fs::read_to_string};
+use std::{fs::read_to_string, io::stdout};
 
-use dust_lang::{evaluate_with_context, language, Interpreter, Map, Value};
+use dust_lang::{language, Interpreter, Map, Result, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -46,7 +44,7 @@ fn main() {
     let args = Args::parse();
 
     if args.path.is_none() && args.command.is_none() {
-        return run_cli_shell();
+        return run_cli_shell().unwrap();
     }
 
     let source = if let Some(path) = &args.path {
@@ -102,111 +100,37 @@ fn main() {
     }
 }
 
-#[derive(Helper, Completer, Validator)]
-struct DustReadline {
-    #[rustyline(Completer)]
-    completer: FilenameCompleter,
+fn run_cli_shell() -> Result<()> {
+    let mut _context = Map::new();
 
-    tool_hints: Vec<ToolHint>,
+    stdout().execute(EnterAlternateScreen)?;
+    enable_raw_mode()?;
 
-    #[rustyline(Hinter)]
-    _hinter: HistoryHinter,
-}
-
-impl DustReadline {
-    fn new() -> Self {
-        Self {
-            completer: FilenameCompleter::new(),
-            _hinter: HistoryHinter {},
-            tool_hints: Vec::new(),
-        }
-    }
-}
-
-struct ToolHint {
-    display: String,
-    complete_to: usize,
-}
-
-impl Hint for ToolHint {
-    fn display(&self) -> &str {
-        &self.display
-    }
-
-    fn completion(&self) -> Option<&str> {
-        if self.complete_to > 0 {
-            Some(&self.display[..self.complete_to])
-        } else {
-            None
-        }
-    }
-}
-
-impl ToolHint {
-    fn suffix(&self, strip_chars: usize) -> ToolHint {
-        ToolHint {
-            display: self.display[strip_chars..].to_string(),
-            complete_to: self.complete_to.saturating_sub(strip_chars),
-        }
-    }
-}
-
-impl Hinter for DustReadline {
-    type Hint = ToolHint;
-
-    fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<Self::Hint> {
-        if line.is_empty() || pos < line.len() {
-            return None;
-        }
-
-        self.tool_hints.iter().find_map(|tool_hint| {
-            if tool_hint.display.starts_with(line) {
-                Some(tool_hint.suffix(pos))
-            } else {
-                None
-            }
-        })
-    }
-}
-
-impl Highlighter for DustReadline {
-    fn highlight_hint<'h>(&self, hint: &'h str) -> std::borrow::Cow<'h, str> {
-        let highlighted = ansi_term::Colour::Red.paint(hint).to_string();
-
-        Cow::Owned(highlighted)
-    }
-}
-
-fn run_cli_shell() {
-    let mut context = Map::new();
-    let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
-
-    rl.set_helper(Some(DustReadline::new()));
-
-    if rl.load_history("target/history.txt").is_err() {
-        println!("No previous history.");
-    }
+    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
 
     loop {
-        let readline = rl.readline("* ");
-        match readline {
-            Ok(line) => {
-                let line = line.as_str();
+        terminal.draw(|frame| {
+            let area = frame.size();
+            frame.render_widget(
+                Paragraph::new("Hello Ratatui! (press 'q' to quit)")
+                    .white()
+                    .on_blue(),
+                area,
+            );
+        })?;
 
-                rl.add_history_entry(line).unwrap();
-
-                let eval_result = evaluate_with_context(line, &mut context);
-
-                match eval_result {
-                    Ok(value) => println!("{value}"),
-                    Err(error) => eprintln!("{error}"),
+        if event::poll(std::time::Duration::from_millis(16))? {
+            if let event::Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
+                    break;
                 }
             }
-            Err(ReadlineError::Interrupted) => break,
-            Err(ReadlineError::Eof) => break,
-            Err(error) => eprintln!("{error}"),
         }
     }
 
-    rl.save_history("target/history.txt").unwrap();
+    terminal.clear()?;
+    stdout().execute(LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+
+    Ok(())
 }
