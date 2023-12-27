@@ -51,7 +51,7 @@ Dust is an interpreted, strictly typed language with first class functions. It e
 
 - Simplicity: Dust is designed to be easy to learn.
 - Speed: Dust is built on [Tree Sitter] and [Rust] to prioritize performance and correctness. See [Benchmarks] below.
-- Concurrency: A safe approach to parallelism.
+- Concurrency: Safe, effortless parallel code using thread pools.
 - Safety: Written in safe, stable Rust.
 - Correctness: Type checking makes it easy to write good code.
 
@@ -59,10 +59,9 @@ Dust is an interpreted, strictly typed language with first class functions. It e
 
 Dust is an experimental project under active development. At this stage, features come and go and the API is always changing. It should not be considered for serious use yet.
 
-To get help with the shell you can use the "help" tool.
-
-```dust
-(help) # Returns a table with tool info.
+```sh
+cargo install dust-lang
+dust -c "(output 'Hello world!')"
 ```
 
 ## Installation
@@ -140,6 +139,7 @@ Variables have two parts: a key and a value. The key is always a string. The val
 - boolean
 - list
 - map
+- option
 - function
 
 Here are some examples of variables in dust.
@@ -167,7 +167,6 @@ numbers <[number]> = [integer float]
 
 stuff <[any]> = [string integer float]
 ```
-
 
 ### Lists
 
@@ -221,10 +220,10 @@ for number in list {
 
 ### Functions
 
-Functions are first-class values in dust, so they are assigned to variables like any other value. It is good practice to write the type definition for functions, otherwise the argument types and return type are set to `any`.
+Functions are first-class values in dust, so they are assigned to variables like any other value.
 
 ```dust
-# This simple function has no arguments.
+# This simple function has no arguments and no return value.
 say_hi = (fn) {
     (output "hi")
 }
@@ -239,6 +238,22 @@ add_one = (fn number <num>) <num> {
 ```
 
 You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
+
+### Option
+
+The **option** type represents a value that may not be present. It has two variants: **some** and **none**. Dust includes built-in functions to work with option values: `is_none`, `is_some` and `either_or`.
+
+```dust
+say_something = (fn message <option(str)>) <str> {
+    (either_or message, "hiya")
+}
+
+(say_something some("goodbye"))
+# goodbye
+
+(say_something none)
+# hiya
+```
 
 ### Concurrency
 
