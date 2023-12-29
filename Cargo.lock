@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "dust-lang"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "ansi_term",
  "cc",

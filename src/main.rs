@@ -12,7 +12,7 @@ use tree_sitter::Parser as TSParser;
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{evaluate_with_context, language, Interpreter, Map, Value};
+use dust_lang::{interpret_with_context, language, Interpreter, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -195,7 +195,7 @@ fn run_cli_shell() {
 
                 rl.add_history_entry(line).unwrap();
 
-                let eval_result = evaluate_with_context(line, &mut context);
+                let eval_result = interpret_with_context(line, &mut context);
 
                 match eval_result {
                     Ok(value) => println!("{value}"),

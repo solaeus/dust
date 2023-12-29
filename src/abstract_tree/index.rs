@@ -100,25 +100,25 @@ impl AbstractTree for Index {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evaluate;
+    use crate::interpret;
 
     #[test]
     fn list_index() {
-        let test = evaluate("x = [1 [2] 3] x:1:0").unwrap();
+        let test = interpret("x = [1 [2] 3] x:1:0").unwrap();
 
         assert_eq!(Value::Integer(2), test);
     }
 
     #[test]
     fn map_index() {
-        let test = evaluate("x = {y = {z = 2}} x:y:z").unwrap();
+        let test = interpret("x = {y = {z = 2}} x:y:z").unwrap();
 
         assert_eq!(Value::Integer(2), test);
     }
 
     #[test]
     fn complex_index() {
-        let test = evaluate(
+        let test = interpret(
             "
             x = [1 2 3]
             y = (fn) <int> { 0 }

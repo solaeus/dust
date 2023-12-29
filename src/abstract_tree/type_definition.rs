@@ -261,13 +261,13 @@ impl Display for Type {
 
 #[cfg(test)]
 mod tests {
-    use crate::evaluate;
+    use crate::interpret;
 
     use super::*;
 
     #[test]
     fn simple_type_check() {
-        let result = evaluate("x <bool> = 1");
+        let result = interpret("x <bool> = 1");
 
         assert!(result.unwrap_err().is_type_check_error(&Error::TypeCheck {
             expected: Type::Boolean,
@@ -277,7 +277,7 @@ mod tests {
 
     #[test]
     fn callback_type_check() {
-        let result = evaluate(
+        let result = interpret(
             "
             x = (fn cb <() -> bool>) <bool> {
                 (cb)

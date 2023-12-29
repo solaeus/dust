@@ -153,25 +153,25 @@ impl AbstractTree for Assignment {
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, Error, List, Type, Value};
+    use crate::{interpret, Error, List, Type, Value};
 
     #[test]
     fn simple_assignment() {
-        let test = evaluate("x = 1 x").unwrap();
+        let test = interpret("x = 1 x").unwrap();
 
         assert_eq!(Value::Integer(1), test);
     }
 
     #[test]
     fn simple_assignment_with_type() {
-        let test = evaluate("x <int> = 1 x").unwrap();
+        let test = interpret("x <int> = 1 x").unwrap();
 
         assert_eq!(Value::Integer(1), test);
     }
 
     #[test]
     fn list_add_assign() {
-        let test = evaluate(
+        let test = interpret(
             "
             x <[int]> = []
             x += 1
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn list_add_wrong_type() {
-        let result = evaluate(
+        let result = interpret(
             "
             x <[str]> = []
             x += 1

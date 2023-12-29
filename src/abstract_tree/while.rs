@@ -40,10 +40,10 @@ impl AbstractTree for While {
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, Value};
+    use crate::{interpret, Value};
 
     #[test]
     fn evalualate_while_loop() {
-        assert_eq!(evaluate("while false { 'foo' }"), Ok(Value::Option(None)))
+        assert_eq!(interpret("while false { 'foo' }"), Ok(Value::Option(None)))
     }
 }

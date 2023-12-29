@@ -8,14 +8,14 @@ pub use crate::{
     abstract_tree::*,
     built_in_functions::{BuiltInFunction, BUILT_IN_FUNCTIONS},
     error::*,
-    evaluate::*,
+    interpret::*,
     value::{function::Function, list::List, map::Map, Value},
 };
 
 mod abstract_tree;
 pub mod built_in_functions;
 mod error;
-mod evaluate;
+mod interpret;
 mod value;
 
 use tree_sitter::Language;

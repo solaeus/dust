@@ -173,12 +173,12 @@ impl AbstractTree for FunctionCall {
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, Value};
+    use crate::{interpret, Value};
 
     #[test]
     fn evaluate_function_call() {
         assert_eq!(
-            evaluate(
+            interpret(
                 "
                 foobar = (fn message <str>) <str> { message }
                 (foobar 'Hiya')
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn evaluate_callback() {
         assert_eq!(
-            evaluate(
+            interpret(
                 "
                 foobar = (fn cb <() -> str>) <str> {
                     (cb)
@@ -206,6 +206,6 @@ mod tests {
 
     #[test]
     fn evaluate_built_in_function_call() {
-        assert_eq!(evaluate("(output 'Hiya')"), Ok(Value::Option(None)));
+        assert_eq!(interpret("(output 'Hiya')"), Ok(Value::Option(None)));
     }
 }

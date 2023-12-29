@@ -88,21 +88,24 @@ impl AbstractTree for IfElse {
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, Value};
+    use crate::{interpret, Value};
 
     #[test]
     fn evaluate_if() {
         assert_eq!(
-            evaluate("if true { 'true' }"),
+            interpret("if true { 'true' }"),
             Ok(Value::String("true".to_string()))
         );
     }
 
     #[test]
     fn evaluate_if_else() {
-        assert_eq!(evaluate("if false { 1 } else { 2 }"), Ok(Value::Integer(2)));
         assert_eq!(
-            evaluate("if true { 1.0 } else { 42.0 }"),
+            interpret("if false { 1 } else { 2 }"),
+            Ok(Value::Integer(2))
+        );
+        assert_eq!(
+            interpret("if true { 1.0 } else { 42.0 }"),
             Ok(Value::Float(1.0))
         );
     }
@@ -110,7 +113,7 @@ mod tests {
     #[test]
     fn evaluate_if_else_else_if_else() {
         assert_eq!(
-            evaluate(
+            interpret(
                 "
                     if false {
                         'no'
@@ -128,7 +131,7 @@ mod tests {
     #[test]
     fn evaluate_if_else_if_else_if_else_if_else() {
         assert_eq!(
-            evaluate(
+            interpret(
                 "
                     if false {
                         'no'

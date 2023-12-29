@@ -3,7 +3,7 @@ use std::fs::read_to_string;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{evaluate_with_context, AbstractTree, Error, Map, Result, Type, Value};
+use crate::{interpret_with_context, AbstractTree, Error, Map, Result, Type, Value};
 
 /// Abstract representation of a use statement.
 ///
@@ -29,7 +29,7 @@ impl AbstractTree for Use {
         let file_contents = read_to_string(&self.path)?;
         let mut file_context = Map::new();
 
-        evaluate_with_context(&file_contents, &mut file_context)?;
+        interpret_with_context(&file_contents, &mut file_context)?;
 
         for (key, (value, r#type)) in file_context.variables()?.iter() {
             context.set(key.clone(), value.clone(), Some(r#type.clone()))?;

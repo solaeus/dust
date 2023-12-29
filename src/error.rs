@@ -3,7 +3,7 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the ToolFailure variant if the error can only occur inside a tool.
 
-use tree_sitter::{Node, Point};
+use tree_sitter::{LanguageError, Node, Point};
 
 use crate::{value::Value, BuiltInFunction, Type};
 
@@ -164,6 +164,8 @@ pub enum Error {
     },
 
     SerdeJson(String),
+
+    ParserCancelled,
 }
 
 impl Error {
@@ -222,6 +224,12 @@ impl Error {
                 self == other
             }
         }
+    }
+}
+
+impl From<LanguageError> for Error {
+    fn from(value: LanguageError) -> Self {
+        Error::External(value.to_string())
     }
 }
 
@@ -412,6 +420,10 @@ impl fmt::Display for Error {
                 source,
             } => write!(f, "{error} Occured at {location}: \"{source}\""),
             SerdeJson(message) => write!(f, "JSON processing error: {message}"),
+            ParserCancelled => write!(
+                f,
+                "Parsing was cancelled either manually or because it took too long."
+            ),
         }
     }
 }

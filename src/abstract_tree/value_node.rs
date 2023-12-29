@@ -247,39 +247,39 @@ impl AbstractTree for ValueNode {
 }
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, List};
+    use crate::{interpret, List};
 
     use super::*;
 
     #[test]
     fn evaluate_empty() {
-        assert_eq!(evaluate("x = 9"), Ok(Value::Option(None)));
-        assert_eq!(evaluate("x = 1 + 1"), Ok(Value::Option(None)));
+        assert_eq!(interpret("x = 9"), Ok(Value::Option(None)));
+        assert_eq!(interpret("x = 1 + 1"), Ok(Value::Option(None)));
     }
 
     #[test]
     fn evaluate_integer() {
-        assert_eq!(evaluate("1"), Ok(Value::Integer(1)));
-        assert_eq!(evaluate("123"), Ok(Value::Integer(123)));
-        assert_eq!(evaluate("-666"), Ok(Value::Integer(-666)));
+        assert_eq!(interpret("1"), Ok(Value::Integer(1)));
+        assert_eq!(interpret("123"), Ok(Value::Integer(123)));
+        assert_eq!(interpret("-666"), Ok(Value::Integer(-666)));
     }
 
     #[test]
     fn evaluate_float() {
-        assert_eq!(evaluate("0.1"), Ok(Value::Float(0.1)));
-        assert_eq!(evaluate("12.3"), Ok(Value::Float(12.3)));
-        assert_eq!(evaluate("-6.66"), Ok(Value::Float(-6.66)));
+        assert_eq!(interpret("0.1"), Ok(Value::Float(0.1)));
+        assert_eq!(interpret("12.3"), Ok(Value::Float(12.3)));
+        assert_eq!(interpret("-6.66"), Ok(Value::Float(-6.66)));
     }
 
     #[test]
     fn evaluate_string() {
-        assert_eq!(evaluate("\"one\""), Ok(Value::String("one".to_string())));
-        assert_eq!(evaluate("'one'"), Ok(Value::String("one".to_string())));
-        assert_eq!(evaluate("`one`"), Ok(Value::String("one".to_string())));
-        assert_eq!(evaluate("`'one'`"), Ok(Value::String("'one'".to_string())));
-        assert_eq!(evaluate("'`one`'"), Ok(Value::String("`one`".to_string())));
+        assert_eq!(interpret("\"one\""), Ok(Value::String("one".to_string())));
+        assert_eq!(interpret("'one'"), Ok(Value::String("one".to_string())));
+        assert_eq!(interpret("`one`"), Ok(Value::String("one".to_string())));
+        assert_eq!(interpret("`'one'`"), Ok(Value::String("'one'".to_string())));
+        assert_eq!(interpret("'`one`'"), Ok(Value::String("`one`".to_string())));
         assert_eq!(
-            evaluate("\"'one'\""),
+            interpret("\"'one'\""),
             Ok(Value::String("'one'".to_string()))
         );
     }
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn evaluate_list() {
         assert_eq!(
-            evaluate("[1, 2, 'foobar']"),
+            interpret("[1, 2, 'foobar']"),
             Ok(Value::List(List::with_items(vec![
                 Value::Integer(1),
                 Value::Integer(2),
@@ -304,7 +304,7 @@ mod tests {
         map.set("foo".to_string(), Value::String("bar".to_string()), None)
             .unwrap();
 
-        assert_eq!(evaluate("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
+        assert_eq!(interpret("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
     }
 
     #[test]
@@ -321,14 +321,14 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            evaluate("{ x <int> = 1, foo <str> = 'bar' }"),
+            interpret("{ x <int> = 1, foo <str> = 'bar' }"),
             Ok(Value::Map(map))
         );
     }
 
     #[test]
     fn evaluate_map_type_errors() {
-        assert!(evaluate("{ foo <bool> = 'bar' }")
+        assert!(interpret("{ foo <bool> = 'bar' }")
             .unwrap_err()
             .is_type_check_error(&Error::TypeCheck {
                 expected: Type::Boolean,
@@ -338,14 +338,14 @@ mod tests {
 
     #[test]
     fn evaluate_function() {
-        let result = evaluate("(fn) <int> { 1 }");
+        let result = interpret("(fn) <int> { 1 }");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
 
         assert_eq!(&Vec::<Identifier>::with_capacity(0), function.parameters());
         assert_eq!(Ok(&Type::Integer), function.return_type());
 
-        let result = evaluate("(fn x <bool>) <bool> {true}");
+        let result = interpret("(fn x <bool>) <bool> {true}");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
 
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn evaluate_option() {
-        let result = evaluate("x <option(int)> = some(1); x").unwrap();
+        let result = interpret("x <option(int)> = some(1); x").unwrap();
 
         assert_eq!(Value::Option(Some(Box::new(Value::Integer(1)))), result);
     }

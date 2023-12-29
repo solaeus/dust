@@ -85,11 +85,11 @@ impl AbstractTree for Match {
 
 #[cfg(test)]
 mod tests {
-    use crate::{evaluate, Value};
+    use crate::{interpret, Value};
 
     #[test]
     fn evaluate_match() {
-        let test = evaluate(
+        let test = interpret(
             "
                 match 1 {
                     3 => false
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn evaluate_match_assignment() {
-        let test = evaluate(
+        let test = interpret(
             "
                 x = match 1 {
                     3 => false
