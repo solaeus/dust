@@ -18,9 +18,7 @@ use crate::{language, AbstractTree, Error, Map, Result, Root, Value};
 /// assert_eq!(interpret("1 + 2 + 3"), Ok(Value::Integer(6)));
 /// ```
 pub fn interpret(source: &str) -> Result<Value> {
-    let mut context = Map::new();
-
-    interpret_with_context(source, &mut context)
+    interpret_with_context(source, Map::new())
 }
 
 /// Interpret the given source code with the given context.
@@ -29,7 +27,7 @@ pub fn interpret(source: &str) -> Result<Value> {
 ///
 /// ```rust
 /// # use dust_lang::*;
-/// let mut context = Map::new();
+/// let context = Map::new();
 ///
 /// context.set("one".into(), 1.into(), None);
 /// context.set("two".into(), 2.into(), None);
@@ -38,11 +36,11 @@ pub fn interpret(source: &str) -> Result<Value> {
 /// let dust_code = "four = 4 one + two + three + four";
 ///
 /// assert_eq!(
-///     interpret_with_context(dust_code, &mut context),
+///     interpret_with_context(dust_code, context),
 ///     Ok(Value::Integer(10))
 /// );
 /// ```
-pub fn interpret_with_context(source: &str, context: &mut Map) -> Result<Value> {
+pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
     let mut parser = Parser::new();
     parser.set_language(language())?;
 
@@ -53,16 +51,16 @@ pub fn interpret_with_context(source: &str, context: &mut Map) -> Result<Value> 
 }
 
 /// A source code interpreter for the Dust language.
-pub struct Interpreter<'c, 's> {
+pub struct Interpreter<'s> {
     parser: Parser,
-    context: &'c mut Map,
+    context: Map,
     source: &'s str,
     syntax_tree: Option<TSTree>,
     abstract_tree: Option<Root>,
 }
 
-impl<'c, 's> Interpreter<'c, 's> {
-    pub fn new(context: &'c mut Map, source: &'s str) -> Result<Self> {
+impl<'s> Interpreter<'s> {
+    pub fn new(context: Map, source: &'s str) -> Result<Self> {
         let mut parser = Parser::new();
 
         parser.set_language(language())?;

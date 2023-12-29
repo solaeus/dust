@@ -57,7 +57,7 @@ fn main() {
         "".to_string()
     };
 
-    let mut context = Map::new();
+    let context = Map::new();
 
     if let Some(input) = args.input {
         context
@@ -76,7 +76,7 @@ fn main() {
     let mut parser = TSParser::new();
     parser.set_language(language()).unwrap();
 
-    let mut interpreter = Interpreter::new(&mut context, &source).unwrap();
+    let mut interpreter = Interpreter::new(context, &source).unwrap();
 
     if args.interactive {
         loop {
@@ -180,7 +180,7 @@ impl Highlighter for DustReadline {
 }
 
 fn run_cli_shell() {
-    let mut context = Map::new();
+    let context = Map::new();
     let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
 
     rl.set_helper(Some(DustReadline::new()));
@@ -197,7 +197,7 @@ fn run_cli_shell() {
 
                 rl.add_history_entry(line).unwrap();
 
-                let eval_result = interpret_with_context(line, &mut context);
+                let eval_result = interpret_with_context(line, context.clone());
 
                 match eval_result {
                     Ok(value) => println!("{value}"),

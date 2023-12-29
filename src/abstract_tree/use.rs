@@ -27,9 +27,9 @@ impl AbstractTree for Use {
 
     fn run(&self, _source: &str, context: &Map) -> Result<Value> {
         let file_contents = read_to_string(&self.path)?;
-        let mut file_context = Map::new();
+        let file_context = Map::new();
 
-        interpret_with_context(&file_contents, &mut file_context)?;
+        interpret_with_context(&file_contents, file_context.clone())?;
 
         for (key, (value, r#type)) in file_context.variables()?.iter() {
             context.set(key.clone(), value.clone(), Some(r#type.clone()))?;
