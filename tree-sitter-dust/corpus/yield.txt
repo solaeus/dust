@@ -13,7 +13,7 @@ Simple Yield
         (expression
           (value
             (integer)))
-        (expression
+        (function_expression
           (identifier
             (built_in_function)))))))
 
@@ -35,9 +35,9 @@ x -> (foo) -> (bar) -> (abc)
               (yield
                 (expression
                   (identifier))
-                (expression
+                (function_expression
                   (identifier))))
-            (expression
+            (function_expression
               (identifier))))
-        (expression
+        (function_expression
           (identifier))))))

@@ -1268,6 +1268,19 @@
         }
       ]
     },
+    "function_expression": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "identifier"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "function_call"
+        }
+      ]
+    },
     "function_call": {
       "type": "PREC_RIGHT",
       "value": 0,
@@ -1280,7 +1293,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "expression"
+            "name": "function_expression"
           },
           {
             "type": "CHOICE",
@@ -1321,7 +1334,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "expression"
+            "name": "function_expression"
           },
           {
             "type": "CHOICE",

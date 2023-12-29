@@ -2,17 +2,18 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Map, Result, Type, Value, ValueNode, BUILT_IN_FUNCTIONS,
+    AbstractTree, Error, Expression, FunctionExpression, Map, Result, Type, Value,
+    BUILT_IN_FUNCTIONS,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
-    function_expression: Expression,
+    function_expression: FunctionExpression,
     arguments: Vec<Expression>,
 }
 
 impl FunctionCall {
-    pub fn new(function_expression: Expression, arguments: Vec<Expression>) -> Self {
+    pub fn new(function_expression: FunctionExpression, arguments: Vec<Expression>) -> Self {
         Self {
             function_expression,
             arguments,
@@ -22,10 +23,11 @@ impl FunctionCall {
 
 impl AbstractTree for FunctionCall {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
-        debug_assert_eq!("function_call", node.kind());
+        Error::expect_syntax_node(source, "function_call", node)?;
 
-        let expression_node = node.child(1).unwrap();
-        let function_expression = Expression::from_syntax_node(source, expression_node, context)?;
+        let function_node = node.child(1).unwrap();
+        let function_expression =
+            FunctionExpression::from_syntax_node(source, function_node, context)?;
         let function_type = function_expression.expected_type(context)?;
 
         let mut minimum_parameter_count = 0;
@@ -65,7 +67,7 @@ impl AbstractTree for FunctionCall {
         {
             if arguments.len() < minimum_parameter_count {
                 return Err(Error::ExpectedFunctionArgumentMinimum {
-                    source: source[expression_node.byte_range()].to_string(),
+                    source: source[function_node.byte_range()].to_string(),
                     minumum_expected: minimum_parameter_count,
                     actual: arguments.len(),
                 });
@@ -80,8 +82,7 @@ impl AbstractTree for FunctionCall {
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let value = match &self.function_expression {
-            Expression::Value(value_node) => value_node.run(source, context)?,
-            Expression::Identifier(identifier) => {
+            FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
 
                 for built_in_function in BUILT_IN_FUNCTIONS {
@@ -108,11 +109,9 @@ impl AbstractTree for FunctionCall {
                     ));
                 }
             }
-            Expression::Index(index) => index.run(source, context)?,
-            Expression::Math(math) => math.run(source, context)?,
-            Expression::Logic(logic) => logic.run(source, context)?,
-            Expression::FunctionCall(function_call) => function_call.run(source, context)?,
-            Expression::Yield(r#yield) => r#yield.run(source, context)?,
+            FunctionExpression::FunctionCall(function_call) => {
+                function_call.run(source, context)?
+            }
         };
 
         let mut arguments = Vec::with_capacity(self.arguments.len());
@@ -128,16 +127,7 @@ impl AbstractTree for FunctionCall {
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
         match &self.function_expression {
-            Expression::Value(value_node) => {
-                if let ValueNode::Function(function) = value_node {
-                    let return_type = function.return_type()?.clone();
-
-                    Ok(return_type)
-                } else {
-                    value_node.expected_type(context)
-                }
-            }
-            Expression::Identifier(identifier) => {
+            FunctionExpression::Identifier(identifier) => {
                 for built_in_function in BUILT_IN_FUNCTIONS {
                     if identifier.inner() == built_in_function.name() {
                         if let Type::Function {
@@ -162,11 +152,7 @@ impl AbstractTree for FunctionCall {
                     Ok(identifier_type)
                 }
             }
-            Expression::Index(index) => index.expected_type(context),
-            Expression::Math(math) => math.expected_type(context),
-            Expression::Logic(logic) => logic.expected_type(context),
-            Expression::FunctionCall(function_call) => function_call.expected_type(context),
-            Expression::Yield(r#yield) => r#yield.expected_type(context),
+            FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
         }
     }
 }

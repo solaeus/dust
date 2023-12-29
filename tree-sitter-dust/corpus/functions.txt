@@ -68,7 +68,7 @@ Function Call
   (statement
     (expression
       (function_call
-        (expression
+        (function_expression
           (identifier))
         (expression
           (value
@@ -93,7 +93,7 @@ Complex Function Call
   (statement
     (expression
       (function_call
-        (expression
+        (function_expression
           (identifier))
         (expression
           (value
@@ -146,12 +146,12 @@ x = (fn cb <() -> bool>) <bool> {
                 (statement
                   (expression
                     (function_call
-                      (expression
+                      (function_expression
                         (identifier))))))))))))
   (statement
     (expression
       (function_call
-        (expression
+        (function_expression
           (identifier))
         (expression
           (value
@@ -176,12 +176,12 @@ Nested Function Call
   (statement
     (expression
       (function_call
-        (expression
+        (function_expression
           (identifier
             (built_in_function)))
         (expression
           (function_call
-            (expression
+            (function_expression
               (identifier
                 (built_in_function)))
             (expression

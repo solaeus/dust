@@ -385,12 +385,18 @@ module.exports = grammar({
         $.type_definition,
         $.block,
       ),
+  
+    function_expression: $ =>
+      choice(
+        $.identifier,
+        $.function_call,
+      ),
 
     function_call: $ =>
       prec.right(
         seq(
           '(',
-          $.expression,
+          $.function_expression,
           optional($._expression_list),
           ')',
         ),
@@ -402,7 +408,7 @@ module.exports = grammar({
           $.expression,
           '->',
           '(',
-          $.expression,
+          $.function_expression,
           optional($._expression_list),
           ')',
         ),

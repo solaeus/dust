@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Expression, FunctionCall, Map, Result, Type, Value};
+use crate::{
+    function_expression::FunctionExpression, AbstractTree, Expression, FunctionCall, Map, Result,
+    Type, Value,
+};
 
 /// Abstract representation of a yield expression.
 ///
@@ -17,7 +20,8 @@ impl AbstractTree for Yield {
         let input = Expression::from_syntax_node(source, input_node, context)?;
 
         let expression_node = node.child(3).unwrap();
-        let function_expression = Expression::from_syntax_node(source, expression_node, context)?;
+        let function_expression =
+            FunctionExpression::from_syntax_node(source, expression_node, context)?;
 
         let mut arguments = Vec::new();
 
