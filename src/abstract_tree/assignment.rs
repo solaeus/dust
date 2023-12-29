@@ -35,10 +35,7 @@ impl AbstractTree for Assignment {
                     source, type_node, context,
                 )?)
             } else {
-                context
-                    .variables()?
-                    .get(identifier.inner())
-                    .map(|(_, r#type)| TypeDefinition::new(r#type.clone()))
+                None
             }
         } else {
             None
