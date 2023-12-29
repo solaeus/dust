@@ -28,17 +28,17 @@ impl AbstractTree for Assignment {
         let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
         let identifier_type = identifier.expected_type(context)?;
 
-        let type_node = node.child(1);
-        let type_definition = if let Some(type_node) = type_node {
-            if type_node.kind() == "type_definition" {
-                Some(TypeDefinition::from_syntax_node(
-                    source, type_node, context,
-                )?)
+        let type_node = node.child(1).unwrap();
+        let type_definition = if type_node.kind() == "type_definition" {
+            Some(TypeDefinition::from_syntax_node(
+                source, type_node, context,
+            )?)
+        } else {
+            if let Some((_, r#type)) = context.variables()?.get(identifier.inner()) {
+                Some(TypeDefinition::new(r#type.clone()))
             } else {
                 None
             }
-        } else {
-            None
         };
 
         let operator_node = node.child(child_count - 2).unwrap().child(0).unwrap();
@@ -87,6 +87,8 @@ impl AbstractTree for Assignment {
                 AssignmentOperator::Equal => {}
                 AssignmentOperator::PlusEqual => {
                     if let Type::List(item_type) = identifier_type {
+                        println!("{item_type} {statement_type}");
+
                         item_type
                             .check(&statement_type)
                             .map_err(|error| error.at_node(statement_node, source))?;

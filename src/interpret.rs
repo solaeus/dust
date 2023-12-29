@@ -4,7 +4,7 @@
 //! functions or by constructing your own Evaluator.
 use tree_sitter::{Parser, Tree as TSTree};
 
-use crate::{language, AbstractTree, Map, Result, Root, Value};
+use crate::{language, AbstractTree, Error, Map, Result, Root, Value};
 
 /// Interpret the given source code.
 ///
@@ -54,7 +54,7 @@ pub fn interpret_with_context(source: &str, context: &mut Map) -> Result<Value> 
 
 /// A source code interpreter for the Dust language.
 pub struct Interpreter<'c, 's> {
-    _parser: Parser,
+    parser: Parser,
     context: &'c mut Map,
     source: &'s str,
     syntax_tree: Option<TSTree>,
@@ -68,7 +68,7 @@ impl<'c, 's> Interpreter<'c, 's> {
         parser.set_language(language())?;
 
         Ok(Interpreter {
-            _parser: parser,
+            parser,
             context,
             source,
             syntax_tree: None,
@@ -80,8 +80,12 @@ impl<'c, 's> Interpreter<'c, 's> {
         self.source = source;
     }
 
+    pub fn parse_only(&mut self) {
+        self.syntax_tree = self.parser.parse(self.source, self.syntax_tree.as_ref());
+    }
+
     pub fn run(&mut self) -> Result<Value> {
-        self.syntax_tree = self._parser.parse(self.source, self.syntax_tree.as_ref());
+        self.syntax_tree = self.parser.parse(self.source, self.syntax_tree.as_ref());
         self.abstract_tree = if let Some(syntax_tree) = &self.syntax_tree {
             Some(Root::from_syntax_node(
                 self.source,
@@ -89,7 +93,7 @@ impl<'c, 's> Interpreter<'c, 's> {
                 &self.context,
             )?)
         } else {
-            return Err(crate::Error::ParserCancelled);
+            return Err(Error::ParserCancelled);
         };
 
         if let Some(abstract_tree) = &self.abstract_tree {
@@ -99,11 +103,11 @@ impl<'c, 's> Interpreter<'c, 's> {
         }
     }
 
-    pub fn syntax_tree(&self) -> Option<String> {
+    pub fn syntax_tree(&self) -> Result<String> {
         if let Some(syntax_tree) = &self.syntax_tree {
-            Some(syntax_tree.root_node().to_sexp())
+            Ok(syntax_tree.root_node().to_sexp())
         } else {
-            None
+            Err(Error::ParserCancelled)
         }
     }
 }

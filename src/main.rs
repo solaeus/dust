@@ -76,7 +76,7 @@ fn main() {
     let mut parser = TSParser::new();
     parser.set_language(language()).unwrap();
 
-    let mut interpreter = Interpreter::parse(parser, &mut context, &source).unwrap();
+    let mut interpreter = Interpreter::new(&mut context, &source).unwrap();
 
     if args.interactive {
         loop {
@@ -87,7 +87,9 @@ fn main() {
     }
 
     if args.show_syntax_tree {
-        println!("{}", interpreter.syntax_tree());
+        interpreter.parse_only();
+
+        println!("{}", interpreter.syntax_tree().unwrap());
     }
 
     let eval_result = interpreter.run();
