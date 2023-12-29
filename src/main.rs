@@ -34,10 +34,6 @@ struct Args {
     #[arg(short = 't', long = "tree")]
     show_syntax_tree: bool,
 
-    /// Launch in interactive mode.
-    #[arg(short = 'n', long)]
-    interactive: bool,
-
     /// Location of the file to run.
     path: Option<String>,
 }
@@ -76,23 +72,15 @@ fn main() {
     let mut parser = TSParser::new();
     parser.set_language(language()).unwrap();
 
-    let mut interpreter = Interpreter::new(context, &source).unwrap();
-
-    if args.interactive {
-        loop {
-            let result = interpreter.run();
-
-            println!("{result:?}")
-        }
-    }
+    let mut interpreter = Interpreter::new(context).unwrap();
 
     if args.show_syntax_tree {
-        interpreter.parse_only();
+        interpreter.parse_only(&source);
 
         println!("{}", interpreter.syntax_tree().unwrap());
     }
 
-    let eval_result = interpreter.run();
+    let eval_result = interpreter.run(&source);
 
     match eval_result {
         Ok(value) => {

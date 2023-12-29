@@ -44,23 +44,22 @@ pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
     let mut parser = Parser::new();
     parser.set_language(language())?;
 
-    let mut interpreter = Interpreter::new(context, source)?;
-    let value = interpreter.run()?;
+    let mut interpreter = Interpreter::new(context)?;
+    let value = interpreter.run(source)?;
 
     Ok(value)
 }
 
 /// A source code interpreter for the Dust language.
-pub struct Interpreter<'s> {
+pub struct Interpreter {
     parser: Parser,
     context: Map,
-    source: &'s str,
     syntax_tree: Option<TSTree>,
     abstract_tree: Option<Root>,
 }
 
-impl<'s> Interpreter<'s> {
-    pub fn new(context: Map, source: &'s str) -> Result<Self> {
+impl Interpreter {
+    pub fn new(context: Map) -> Result<Self> {
         let mut parser = Parser::new();
 
         parser.set_language(language())?;
@@ -68,25 +67,20 @@ impl<'s> Interpreter<'s> {
         Ok(Interpreter {
             parser,
             context,
-            source,
             syntax_tree: None,
             abstract_tree: None,
         })
     }
 
-    pub fn set_source(&mut self, source: &'s str) {
-        self.source = source;
+    pub fn parse_only(&mut self, source: &str) {
+        self.syntax_tree = self.parser.parse(source, self.syntax_tree.as_ref());
     }
 
-    pub fn parse_only(&mut self) {
-        self.syntax_tree = self.parser.parse(self.source, self.syntax_tree.as_ref());
-    }
-
-    pub fn run(&mut self) -> Result<Value> {
-        self.syntax_tree = self.parser.parse(self.source, self.syntax_tree.as_ref());
+    pub fn run(&mut self, source: &str) -> Result<Value> {
+        self.syntax_tree = self.parser.parse(source, self.syntax_tree.as_ref());
         self.abstract_tree = if let Some(syntax_tree) = &self.syntax_tree {
             Some(Root::from_syntax_node(
-                self.source,
+                source,
                 syntax_tree.root_node(),
                 &self.context,
             )?)
@@ -95,7 +89,7 @@ impl<'s> Interpreter<'s> {
         };
 
         if let Some(abstract_tree) = &self.abstract_tree {
-            abstract_tree.run(self.source, &self.context)
+            abstract_tree.run(source, &self.context)
         } else {
             Ok(Value::Option(None))
         }
