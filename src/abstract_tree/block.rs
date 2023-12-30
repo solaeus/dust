@@ -59,10 +59,10 @@ impl AbstractTree for Block {
                 .enumerate()
                 .find_map_first(|(index, statement)| {
                     if let Statement::Return(expression) = statement {
-                        return Some(expression.run(source, &mut context.clone()));
+                        return Some(expression.run(source, context));
                     }
 
-                    let result = statement.run(source, &mut context.clone());
+                    let result = statement.run(source, context);
 
                     if result.is_err() {
                         Some(result)

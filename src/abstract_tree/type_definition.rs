@@ -99,7 +99,7 @@ impl Type {
             }
             (Type::Option(_), Type::None) | (Type::None, Type::Option(_)) => Ok(()),
             (Type::List(self_item_type), Type::List(other_item_type)) => {
-                if self_item_type.check(&other_item_type).is_err() {
+                if self_item_type.check(other_item_type).is_err() {
                     Err(Error::TypeCheck {
                         expected: self.clone(),
                         actual: other.clone(),
@@ -123,7 +123,7 @@ impl Type {
                     .zip(other_parameter_types.iter());
 
                 for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
-                    if self_parameter_type.check(&other_parameter_type).is_err() {
+                    if self_parameter_type.check(other_parameter_type).is_err() {
                         return Err(Error::TypeCheck {
                             expected: self.clone(),
                             actual: other.clone(),
@@ -149,7 +149,7 @@ impl Type {
 }
 
 impl AbstractTree for Type {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, _context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
@@ -157,7 +157,7 @@ impl AbstractTree for Type {
         let r#type = match type_node.kind() {
             "[" => {
                 let item_type_node = node.child(1).unwrap();
-                let item_type = Type::from_syntax_node(source, item_type_node, context)?;
+                let item_type = Type::from_syntax_node(source, item_type_node, _context)?;
 
                 Type::List(Box::new(item_type))
             }
@@ -172,7 +172,7 @@ impl AbstractTree for Type {
                     let child = node.child(index).unwrap();
 
                     if child.is_named() {
-                        let parameter_type = Type::from_syntax_node(source, child, context)?;
+                        let parameter_type = Type::from_syntax_node(source, child, _context)?;
 
                         parameter_types.push(parameter_type);
                     }
@@ -180,7 +180,7 @@ impl AbstractTree for Type {
 
                 let final_node = node.child(child_count - 1).unwrap();
                 let return_type = if final_node.is_named() {
-                    Type::from_syntax_node(source, final_node, context)?
+                    Type::from_syntax_node(source, final_node, _context)?
                 } else {
                     Type::None
                 };
@@ -197,7 +197,7 @@ impl AbstractTree for Type {
             "str" => Type::String,
             "option" => {
                 let inner_type_node = node.child(2).unwrap();
-                let inner_type = Type::from_syntax_node(source, inner_type_node, context)?;
+                let inner_type = Type::from_syntax_node(source, inner_type_node, _context)?;
 
                 Type::Option(Box::new(inner_type))
             }

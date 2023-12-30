@@ -8,6 +8,12 @@ use crate::Value;
 #[derive(Debug, Clone)]
 pub struct List(Arc<RwLock<Vec<Value>>>);
 
+impl Default for List {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl List {
     pub fn new() -> Self {
         List(Arc::new(RwLock::new(Vec::new())))
@@ -52,9 +58,6 @@ impl Ord for List {
 
 impl PartialOrd for List {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let left = self.0.read().unwrap().clone().into_iter();
-        let right = other.0.read().unwrap().clone().into_iter();
-
-        left.partial_cmp(right)
+        Some(self.cmp(other))
     }
 }

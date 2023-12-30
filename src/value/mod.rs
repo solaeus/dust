@@ -291,14 +291,12 @@ impl Sub for Value {
     type Output = Result<Self>;
 
     fn sub(self, other: Self) -> Self::Output {
-        match (self.as_integer(), other.as_integer()) {
-            (Ok(left), Ok(right)) => return Ok(Value::Integer(left - right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
+            return Ok(Value::Integer(left - right));
         }
 
-        match (self.as_number(), other.as_number()) {
-            (Ok(left), Ok(right)) => return Ok(Value::Float(left - right)),
-            _ => {}
+        if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
+            return Ok(Value::Float(left - right));
         }
 
         let non_number = if !self.is_number() { self } else { other };

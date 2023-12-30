@@ -51,7 +51,7 @@ impl AbstractTree for IndexAssignment {
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let index_collection = self.index.collection.run(source, context)?;
-        let index_context = index_collection.as_map().unwrap_or(&context);
+        let index_context = index_collection.as_map().unwrap_or(context);
         let index_key = if let crate::Expression::Identifier(identifier) = &self.index.index {
             identifier.inner()
         } else {
@@ -60,7 +60,7 @@ impl AbstractTree for IndexAssignment {
             ));
         };
 
-        let value = self.statement.run(source, &mut context.clone())?;
+        let value = self.statement.run(source, context)?;
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {

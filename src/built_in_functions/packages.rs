@@ -15,7 +15,7 @@ impl BuiltInFunction for InstallPackages {
         let mut command = Command::new("sudo");
         let argument_list = arguments.first().unwrap().as_list()?;
 
-        command.args(&["dnf", "-y", "install"]);
+        command.args(["dnf", "-y", "install"]);
 
         for argument in argument_list.items().iter() {
             command.arg(argument.as_string()?);

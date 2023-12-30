@@ -99,10 +99,7 @@ impl Ord for Map {
 
 impl PartialOrd for Map {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let left = self.variables.read().unwrap().clone().into_iter();
-        let right = other.variables.read().unwrap().clone().into_iter();
-
-        left.partial_cmp(right)
+        Some(self.cmp(other))
     }
 }
 

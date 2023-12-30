@@ -33,12 +33,10 @@ impl AbstractTree for Assignment {
             Some(TypeDefinition::from_syntax_node(
                 source, type_node, context,
             )?)
+        } else if let Some((_, r#type)) = context.variables()?.get(identifier.inner()) {
+            Some(TypeDefinition::new(r#type.clone()))
         } else {
-            if let Some((_, r#type)) = context.variables()?.get(identifier.inner()) {
-                Some(TypeDefinition::new(r#type.clone()))
-            } else {
-                None
-            }
+            None
         };
 
         let operator_node = node.child(child_count - 2).unwrap().child(0).unwrap();

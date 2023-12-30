@@ -11,7 +11,7 @@ impl BuiltInFunction for FromJson {
         Error::expect_argument_amount(self, 1, arguments.len())?;
 
         let json_string = arguments.first().unwrap().as_string()?;
-        let value = serde_json::from_str(&json_string)?;
+        let value = serde_json::from_str(json_string)?;
 
         Ok(value)
     }
