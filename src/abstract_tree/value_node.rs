@@ -33,7 +33,7 @@ impl AbstractTree for ValueNode {
                 let mut parameters = Vec::new();
                 let mut parameter_types = Vec::new();
 
-                for index in 2..child_count - 2 {
+                for index in 1..child_count - 3 {
                     let child = child.child(index).unwrap();
 
                     if child.kind() == "identifier" {
@@ -338,14 +338,14 @@ mod tests {
 
     #[test]
     fn evaluate_function() {
-        let result = interpret("(fn) <int> { 1 }");
+        let result = interpret("() -> <int> { 1 }");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
 
         assert_eq!(&Vec::<Identifier>::with_capacity(0), function.parameters());
         assert_eq!(Ok(&Type::Integer), function.return_type());
 
-        let result = interpret("(fn x <bool>) <bool> {true}");
+        let result = interpret("(x <bool>) -> <bool> {true}");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
 

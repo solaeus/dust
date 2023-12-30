@@ -2,7 +2,7 @@
 Anonymous Function
 ================================================================================
 
-(fn) <str> { "Hiya" }
+() <str> { "Hiya" }
 
 --------------------------------------------------------------------------------
 
@@ -20,10 +20,10 @@ Anonymous Function
                   (string))))))))))
 
 ================================================================================
-Function Declaration
+Function Assignment
 ================================================================================
 
-foobar = (fn x <int>, y <int>) <int> {
+foobar = (x <int>, y <int>) <int> {
   x + y
 }
 
@@ -57,10 +57,10 @@ foobar = (fn x <int>, y <int>) <int> {
                         (identifier)))))))))))))
 
 ================================================================================
-Function Call
+Identifier Function Call
 ================================================================================
 
-(foobar "Hiya")
+foobar("Hiya")
 
 --------------------------------------------------------------------------------
 
@@ -75,37 +75,36 @@ Function Call
             (string)))))))
 
 ================================================================================
-Function Expressions
+Index Function Call
 ================================================================================
 
-(foobar "Hiya")
-(foo:bar "Hiya")
-((foobar) "Hiya")
-((fn msg <str>) <str> { msg } "Hiya")
+foo:bar("Hiya")
 
 --------------------------------------------------------------------------------
 
 (root
   (statement
     (expression
-      (function_call
-        (function_expression
+      (index
+        (expression
           (identifier))
         (expression
-          (value
-            (string))))))
-  (statement
-    (expression
-      (function_call
-        (function_expression
-          (index
-            (expression
+          (function_call
+            (function_expression
               (identifier))
             (expression
-              (identifier))))
-        (expression
-          (value
-            (string))))))
+              (value
+                (string)))))))))
+
+================================================================================
+Double Function Call
+================================================================================
+
+foobar()("Hiya")
+
+--------------------------------------------------------------------------------
+
+(root
   (statement
     (expression
       (function_call
@@ -115,22 +114,31 @@ Function Expressions
               (identifier))))
         (expression
           (value
-            (string))))))
+            (string)))))))
+
+================================================================================
+Anonymous Function Call
+================================================================================
+
+(msg <str>) <str> { msg } ("Hiya");
+
+--------------------------------------------------------------------------------
+
+(root
   (statement
     (expression
       (function_call
         (function_expression
-          (value
-            (function
-              (identifier)
-              (type_definition
-                (type))
-              (type_definition
-                (type))
-              (block
-                (statement
-                  (expression
-                    (identifier)))))))
+          (function
+            (identifier)
+            (type_definition
+              (type))
+            (type_definition
+              (type))
+            (block
+              (statement
+                (expression
+                  (identifier))))))
         (expression
           (value
             (string)))))))
@@ -139,7 +147,7 @@ Function Expressions
 Complex Function Call
 ================================================================================
 
-(foobar
+foobar(
     "hi"
     42
     {
@@ -180,35 +188,11 @@ Complex Function Call
 Callback Function Call
 ================================================================================
 
-x = (fn cb <() -> bool>) <bool> {
-    (cb)
-}
-
-(x (fn) <bool> { true })
+x(() <bool> { true })
 
 --------------------------------------------------------------------------------
 
 (root
-  (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (function
-              (identifier)
-              (type_definition
-                (type
-                  (type)))
-              (type_definition
-                (type))
-              (block
-                (statement
-                  (expression
-                    (function_call
-                      (function_expression
-                        (identifier))))))))))))
   (statement
     (expression
       (function_call
@@ -229,7 +213,7 @@ x = (fn cb <() -> bool>) <bool> {
 Nested Function Call
 ================================================================================
 
-(from_json (read 'file.json'))
+from_json(read('file.json'))
 
 --------------------------------------------------------------------------------
 

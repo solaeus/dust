@@ -279,10 +279,10 @@ mod tests {
     fn callback_type_check() {
         let result = interpret(
             "
-            x = (fn cb <() -> bool>) <bool> {
-                (cb)
+            x = (cb <() -> bool>) <bool> {
+                cb()
             }
-            (x (fn) <int> { 1 })
+            x(() <int> { 1 })
             ",
         );
 

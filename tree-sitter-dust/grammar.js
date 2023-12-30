@@ -78,7 +78,7 @@ module.exports = grammar({
         $.boolean,
         $.list,
         $.map,
-        $.option
+        $.option,
       ),
 
     integer: $ =>
@@ -177,7 +177,6 @@ module.exports = grammar({
         '}',
       ),
 
-
     option: $ =>
       choice(
         'none',
@@ -191,7 +190,7 @@ module.exports = grammar({
 
     index: $ =>
       prec.left(
-        1,
+        2,
         seq(
           $.expression,
           ':',
@@ -366,14 +365,13 @@ module.exports = grammar({
             '(',
             $.type,
             ')',
-          )
+          ),
         ),
       ),
 
     function: $ =>
       seq(
         '(',
-        'fn',
         repeat(
           seq(
             $.identifier,
@@ -385,20 +383,23 @@ module.exports = grammar({
         $.type_definition,
         $.block,
       ),
-  
+
     function_expression: $ =>
-      choice(
-        $.function_call,
-        $.identifier,
-        $.index,
-        $.value,
+      prec(
+        1,
+        choice(
+          $.function,
+          $.function_call,
+          $.identifier,
+          $.index,
+        ),
       ),
 
     function_call: $ =>
       prec.right(
         seq(
-          '(',
           $.function_expression,
+          '(',
           optional($._expression_list),
           ')',
         ),

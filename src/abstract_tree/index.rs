@@ -121,8 +121,8 @@ mod tests {
         let test = interpret(
             "
             x = [1 2 3]
-            y = (fn) <int> { 0 }
-            x:(y)
+            y = () -> <int> { 0 }
+            x:y()
             ",
         )
         .unwrap();

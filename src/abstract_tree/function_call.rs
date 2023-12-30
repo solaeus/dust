@@ -25,7 +25,7 @@ impl AbstractTree for FunctionCall {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function_call", node)?;
 
-        let function_node = node.child(1).unwrap();
+        let function_node = node.child(0).unwrap();
         let function_expression =
             FunctionExpression::from_syntax_node(source, function_node, context)?;
         let function_type = function_expression.expected_type(context)?;
@@ -170,8 +170,8 @@ mod tests {
         assert_eq!(
             interpret(
                 "
-                foobar = (fn message <str>) <str> { message }
-                (foobar 'Hiya')
+                foobar = (message <str>) -> <str> { message }
+                foobar('Hiya')
                 ",
             ),
             Ok(Value::String("Hiya".to_string()))
@@ -183,11 +183,10 @@ mod tests {
         assert_eq!(
             interpret(
                 "
-                foobar = (fn cb <() -> str>) <str> {
-                    (cb)
+                foobar = (cb <() -> str>) <str> {
+                    cb()
                 }
-
-                (foobar (fn) <str> { 'Hiya' })
+                foobar(() <str> { 'Hiya' })
                 ",
             ),
             Ok(Value::String("Hiya".to_string()))
@@ -196,6 +195,6 @@ mod tests {
 
     #[test]
     fn evaluate_built_in_function_call() {
-        assert_eq!(interpret("(output 'Hiya')"), Ok(Value::Option(None)));
+        assert_eq!(interpret("output('Hiya')"), Ok(Value::Option(None)));
     }
 }
