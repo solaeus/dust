@@ -13,6 +13,8 @@ pub struct Logic {
 
 impl AbstractTree for Logic {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+        Error::expect_syntax_node(source, "logic", node)?;
+
         let first_node = node.child(0).unwrap();
         let (left_node, operator_node, right_node) = {
             if first_node.is_named() {

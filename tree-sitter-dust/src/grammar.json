@@ -617,49 +617,19 @@
       "type": "PREC_LEFT",
       "value": 0,
       "content": {
-        "type": "CHOICE",
+        "type": "SEQ",
         "members": [
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "math_operator"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              }
-            ]
+            "type": "SYMBOL",
+            "name": "expression"
           },
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "("
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "math_operator"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "STRING",
-                "value": ")"
-              }
-            ]
+            "type": "SYMBOL",
+            "name": "math_operator"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "expression"
           }
         ]
       }
@@ -693,49 +663,19 @@
       "type": "PREC_RIGHT",
       "value": 0,
       "content": {
-        "type": "CHOICE",
+        "type": "SEQ",
         "members": [
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "logic_operator"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              }
-            ]
+            "type": "SYMBOL",
+            "name": "expression"
           },
           {
-            "type": "SEQ",
-            "members": [
-              {
-                "type": "STRING",
-                "value": "("
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "logic_operator"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "STRING",
-                "value": ")"
-              }
-            ]
+            "type": "SYMBOL",
+            "name": "logic_operator"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "expression"
           }
         ]
       }
@@ -1285,6 +1225,10 @@
           {
             "type": "SYMBOL",
             "name": "index"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "yield"
           }
         ]
       }
@@ -1324,7 +1268,7 @@
     },
     "yield": {
       "type": "PREC_LEFT",
-      "value": 0,
+      "value": 1,
       "content": {
         "type": "SEQ",
         "members": [
@@ -1337,10 +1281,6 @@
             "value": "->"
           },
           {
-            "type": "STRING",
-            "value": "("
-          },
-          {
             "type": "SYMBOL",
             "name": "function_expression"
           },
@@ -1348,17 +1288,26 @@
             "type": "CHOICE",
             "members": [
               {
-                "type": "SYMBOL",
-                "name": "_expression_list"
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "("
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "_expression_list"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": ")"
+                  }
+                ]
               },
               {
                 "type": "BLANK"
               }
             ]
-          },
-          {
-            "type": "STRING",
-            "value": ")"
           }
         ]
       }

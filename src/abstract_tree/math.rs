@@ -16,6 +16,8 @@ pub struct Math {
 
 impl AbstractTree for Math {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+        Error::expect_syntax_node(source, "math", node)?;
+
         let left_node = node.child(0).unwrap();
         let left = Expression::from_syntax_node(source, left_node, context)?;
 

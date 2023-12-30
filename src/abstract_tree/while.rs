@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Map, Result, Type, Value};
+use crate::{AbstractTree, Block, Error, Expression, Map, Result, Type, Value};
 
 /// Abstract representation of a while loop.
 ///
@@ -14,7 +14,7 @@ pub struct While {
 
 impl AbstractTree for While {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> crate::Result<Self> {
-        debug_assert_eq!("while", node.kind());
+        Error::expect_syntax_node(source, "while", node)?;
 
         let expression_node = node.child(1).unwrap();
         let expression = Expression::from_syntax_node(source, expression_node, context)?;

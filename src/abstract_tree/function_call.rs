@@ -114,6 +114,7 @@ impl AbstractTree for FunctionCall {
             }
             FunctionExpression::Value(value_node) => value_node.run(source, context)?,
             FunctionExpression::Index(index) => index.run(source, context)?,
+            FunctionExpression::Yield(r#yield) => r#yield.run(source, context)?,
         };
 
         let mut arguments = Vec::with_capacity(self.arguments.len());
@@ -157,6 +158,7 @@ impl AbstractTree for FunctionCall {
             FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
             FunctionExpression::Value(value_node) => value_node.expected_type(context),
             FunctionExpression::Index(index) => index.expected_type(context),
+            FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
         }
     }
 }

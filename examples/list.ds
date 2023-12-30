@@ -4,4 +4,4 @@ x = numbers:0
 y = numbers:1
 z = numbers:2
 
-(assert_equal x + y, z)
+assert_equal(x + y, z)

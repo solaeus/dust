@@ -3,7 +3,7 @@ dictionary = {
 	answer = 42
 }
 
-(output 
+output( 
 	'Dust is '
 	+ dictionary:dust
 	+ '! The answer is ' 

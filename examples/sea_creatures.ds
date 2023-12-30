@@ -1,5 +1,5 @@
-raw_data = (read 'examples/assets/seaCreatures.json')
-sea_creatures = (from_json raw_data)
+raw_data = read('examples/assets/seaCreatures.json')
+sea_creatures = from_json(raw_data)
 
 data = {
 	creatures = []

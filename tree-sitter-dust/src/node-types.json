@@ -217,6 +217,10 @@
         {
           "type": "index",
           "named": true
+        },
+        {
+          "type": "yield",
+          "named": true
         }
       ]
     }

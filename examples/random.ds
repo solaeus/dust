@@ -1,13 +1,13 @@
 stuff = [
-	(random_integer)
-	(random_integer)
-	(random_integer)
-	(random_float)
-	(random_float)
-	(random_float)
-	(random_boolean)
-	(random_boolean)
-	(random_boolean)
+	random_integer()
+	random_integer()
+	random_integer()
+	random_float()
+	random_float()
+	random_float()
+	random_boolean()
+	random_boolean()
+	random_boolean()
 ]
 
-(random stuff)
+random(stuff)

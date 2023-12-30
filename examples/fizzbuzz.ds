@@ -5,13 +5,13 @@ while count <= 15 {
 	divides_by_5 = count % 5 == 0
 
 	if divides_by_3 && divides_by_5 { 
-		(output 'fizzbuzz')
+		output('fizzbuzz')
 	} else if divides_by_3 { 
-		(output 'fizz')
+		output('fizz')
 	} else if divides_by_5 {
-		(output 'buzz')
+		output('buzz')
 	} else { 
-		(output count)
+		output(count)
 	}
 	
 	count += 1

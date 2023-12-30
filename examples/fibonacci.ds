@@ -1,9 +1,9 @@
-fib = (fn i <int>) <int> {
+fib = (i <int>) <int> {
 	if i <= 1 {
 		1
 	} else {
-		(fib i - 1) + (fib i - 2)
+		fib(i - 1) + fib(i - 2)
 	}
 }
 
-(fib 5)
+fib(5)

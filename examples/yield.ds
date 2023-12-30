@@ -1,6 +1,4 @@
-1 -> (output)
-
-add_one = (fn numbers <[int]>) <[int]> {
+add_one = (numbers <[int]>) <[int]> {
 	new_numbers = []
 	
 	for number in numbers {
@@ -10,6 +8,6 @@ add_one = (fn numbers <[int]>) <[int]> {
 	new_numbers
 }
 
-foo = [1, 2, 3] -> (add_one)
+foo = [1, 2, 3] -> add_one
 
-(assert_equal [2 3 4] foo)
+assert_equal([2 3 4] foo)

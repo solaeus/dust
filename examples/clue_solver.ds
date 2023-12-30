@@ -1,54 +1,54 @@
-all_cards = {
+cards = {
 	rooms = ['Library' 'Kitchen' 'Conservatory']
 	suspects = ['White' 'Green' 'Scarlett']
 	weapons = ['Rope' 'Lead_Pipe' 'Knife']
 }
 
-is_ready_to_solve = (fn cards <map>) <bool> {
-	((length cards:suspects) == 1)
-	&& ((length cards:rooms) == 1)
-	&& ((length cards:weapons) == 1)
+is_ready_to_solve = (cards <map>) <bool> {
+	length(cards:suspects) == 1
+	&& length(cards:rooms) == 1
+	&& length(cards:weapons) == 1
 }
 
-remove_card = (fn cards <map>, opponent_card <str>) <map> {
+remove_card = (cards <map>, opponent_card <str>) <none> {
 	cards:rooms -= opponent_card
 	cards:suspects -= opponent_card
 	cards:weapons -= opponent_card
-	cards
 }
 
-make_guess = (fn cards <map>, current_room <str>) <map> {
-	if (is_ready_to_solve cards) {
-		(output 'It was '
+make_guess = (cards <map>, current_room <str>) <none> {
+	if is_ready_to_solve(cards) {
+		output(
+			'It was '
 			+ cards:suspects:0
 			+ ' in the ' 
 			+ cards:rooms:0  
 			+ ' with the ' 
 			+ cards:weapons:0 
-			+ '!')
+			+ '!'
+		)
 	} else {
-		(output 'I accuse '
-			+ (random cards:suspects)
+		output(
+			'I accuse '
+			+ random(cards:suspects)
 			+ ' in the '
 			+ current_room
 			+ ' with the '
-			+ (random cards:weapons)
-			+ '.')
+			+ random(cards:weapons)
+			+ '.'
+		)
 	}
-	cards
 }
 
-take_turn = (fn cards <map>, opponent_card <str>, current_room <str>) <map> {
-	cards = (remove_card cards opponent_card)
-	cards = (make_guess cards current_room)
-	cards
+take_turn = (cards <map>, opponent_card <str>, current_room <str>) <none> {
+	remove_card(cards opponent_card)
+	make_guess(cards current_room)
 }
 
-all_cards
-	-> (take_turn 'Rope' 'Kitchen')
-    -> (take_turn 'Library' 'Kitchen')
-    -> (take_turn 'Conservatory' 'Kitchen')
-    -> (take_turn 'White' 'Kitchen')
-    -> (take_turn 'Green' 'Kitchen')
-    -> (take_turn 'Knife' 'Kitchen')
+take_turn(cards 'Rope' 'Kitchen')
+take_turn(cards 'Library' 'Kitchen')
+take_turn(cards 'Conservatory' 'Kitchen')
+take_turn(cards 'White' 'Kitchen')
+take_turn(cards 'Green' 'Kitchen')
+take_turn(cards 'Knife' 'Kitchen')
 

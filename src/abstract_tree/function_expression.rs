@@ -3,6 +3,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Error, FunctionCall, Identifier, Index, Map, Result, Type, Value, ValueNode,
+    Yield,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -11,6 +12,7 @@ pub enum FunctionExpression {
     FunctionCall(Box<FunctionCall>),
     Value(ValueNode),
     Index(Index),
+    Yield(Box<Yield>),
 }
 
 impl AbstractTree for FunctionExpression {
@@ -30,6 +32,9 @@ impl AbstractTree for FunctionExpression {
                 FunctionExpression::Value(ValueNode::from_syntax_node(source, child, context)?)
             }
             "index" => FunctionExpression::Index(Index::from_syntax_node(source, child, context)?),
+            "yield" => FunctionExpression::Yield(Box::new(Yield::from_syntax_node(
+                source, child, context,
+            )?)),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "identifier, function call, value or index",
@@ -49,6 +54,7 @@ impl AbstractTree for FunctionExpression {
             FunctionExpression::FunctionCall(function_call) => function_call.run(source, context),
             FunctionExpression::Value(value_node) => value_node.run(source, context),
             FunctionExpression::Index(index) => index.run(source, context),
+            FunctionExpression::Yield(r#yield) => r#yield.run(source, context),
         }
     }
 
@@ -58,6 +64,7 @@ impl AbstractTree for FunctionExpression {
             FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
             FunctionExpression::Value(value_node) => value_node.expected_type(context),
             FunctionExpression::Index(index) => index.expected_type(context),
+            FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
         }
     }
 }

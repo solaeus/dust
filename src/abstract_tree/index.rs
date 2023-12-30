@@ -15,6 +15,8 @@ pub struct Index {
 
 impl AbstractTree for Index {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+        Error::expect_syntax_node(source, "index", node)?;
+
         let collection_node = node.child(0).unwrap();
         let collection = Expression::from_syntax_node(source, collection_node, context)?;
 
