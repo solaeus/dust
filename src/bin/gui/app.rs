@@ -1,28 +1,50 @@
-use dust_lang::{interpret, Result, Value};
+use std::{fs::read_to_string, path::PathBuf};
+
+use dust_lang::{Interpreter, Map, Result, Value};
+use egui::{Align, Layout};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
 pub struct App {
+    path: String,
     source: String,
+    context: Map,
+    #[serde(skip)]
+    interpreter: Interpreter,
     output: Result<Value>,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, source: String) -> Self {
-        // This is also where you can customize the look and feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
+    pub fn new(cc: &eframe::CreationContext<'_>, path: PathBuf) -> Self {
+        fn create_app(path: PathBuf) -> App {
+            let context = Map::new();
+            let mut interpreter = Interpreter::new(context.clone());
+            let read_source = read_to_string(&path);
+            let source = if let Ok(source) = read_source {
+                source
+            } else {
+                String::new()
+            };
+            let output = interpreter.run(&source);
 
-        cc.egui_ctx.set_zoom_factor(1.5);
+            App {
+                path: path.to_string_lossy().to_string(),
+                source,
+                context,
+                interpreter,
+                output,
+            }
+        }
 
-        let app = App {
-            source,
-            output: Ok(Value::default()),
-        };
-
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or(app);
+        if path.is_file() {
+            create_app(path)
         } else {
-            app
+            if let Some(storage) = cc.storage {
+                return eframe::get_value(storage, eframe::APP_KEY)
+                    .unwrap_or_else(|| create_app(path));
+            } else {
+                create_app(path)
+            }
         }
     }
 }
@@ -43,28 +65,37 @@ impl eframe::App for App {
                 ui.add_space(16.0);
 
                 egui::widgets::global_dark_light_mode_buttons(ui);
+
+                ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+                    egui::warn_if_debug_build(ui);
+                    ui.hyperlink_to("source code", "https://git.jeffa.io/jeff/dust");
+                });
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.code_editor(&mut self.source);
+            ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+                ui.with_layout(Layout::top_down(Align::Min).with_main_justify(true), |ui| {
+                    ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+                        ui.text_edit_singleline(&mut self.path);
 
-            if ui.button("run").clicked() {
-                self.output = interpret(&self.source);
-            }
+                        if ui.button("read").clicked() {
+                            self.source = read_to_string(&self.path).unwrap();
+                        }
 
-            ui.separator();
+                        if ui.button("run").clicked() {
+                            self.output = self.interpreter.run(&self.source);
+                        }
+                    });
+                    ui.code_editor(&mut self.source);
+                });
 
-            let output_text = match &self.output {
-                Ok(value) => value.to_string(),
-                Err(error) => error.to_string(),
-            };
+                let output_text = match &self.output {
+                    Ok(value) => value.to_string(),
+                    Err(error) => error.to_string(),
+                };
 
-            ui.label(output_text);
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                egui::warn_if_debug_build(ui);
-                ui.hyperlink_to("source code", "https://git.jeffa.io/jeff/dust");
+                ui.label(output_text);
             });
         });
     }

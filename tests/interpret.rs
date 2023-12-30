@@ -154,7 +154,7 @@ mod value {
         let function = value.as_function().unwrap();
 
         assert_eq!(&Vec::<Identifier>::with_capacity(0), function.parameters());
-        assert_eq!(Ok(&Type::Integer), function.return_type());
+        assert_eq!(&Type::Integer, function.return_type());
 
         let result = interpret("(x <bool>) -> <bool> {true}");
         let value = result.unwrap();
@@ -164,7 +164,7 @@ mod value {
             &vec![Identifier::new("x".to_string())],
             function.parameters()
         );
-        assert_eq!(Ok(&Type::Boolean), function.return_type());
+        assert_eq!(&Type::Boolean, function.return_type());
     }
 
     #[test]

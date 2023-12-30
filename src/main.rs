@@ -72,7 +72,7 @@ fn main() {
     let mut parser = TSParser::new();
     parser.set_language(language()).unwrap();
 
-    let mut interpreter = Interpreter::new(context).unwrap();
+    let mut interpreter = Interpreter::new(context);
 
     if args.show_syntax_tree {
         interpreter.parse_only(&source);

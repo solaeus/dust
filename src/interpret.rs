@@ -41,7 +41,7 @@ pub fn interpret(source: &str) -> Result<Value> {
 /// );
 /// ```
 pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
-    let mut interpreter = Interpreter::new(context)?;
+    let mut interpreter = Interpreter::new(context);
     let value = interpreter.run(source)?;
 
     Ok(value)
@@ -56,25 +56,27 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
-    pub fn new(context: Map) -> Result<Self> {
+    pub fn new(context: Map) -> Self {
         let mut parser = Parser::new();
 
-        parser.set_language(language())?;
+        parser
+            .set_language(language())
+            .expect("Language version is incompatible with tree sitter version.");
 
-        Ok(Interpreter {
+        Interpreter {
             parser,
             context,
             syntax_tree: None,
             abstract_tree: None,
-        })
+        }
     }
 
     pub fn parse_only(&mut self, source: &str) {
-        self.syntax_tree = self.parser.parse(source, self.syntax_tree.as_ref());
+        self.syntax_tree = self.parser.parse(source, None);
     }
 
     pub fn run(&mut self, source: &str) -> Result<Value> {
-        self.syntax_tree = self.parser.parse(source, self.syntax_tree.as_ref());
+        self.syntax_tree = self.parser.parse(source, None);
         self.abstract_tree = if let Some(syntax_tree) = &self.syntax_tree {
             Some(Root::from_syntax_node(
                 source,
@@ -98,5 +100,11 @@ impl Interpreter {
         } else {
             Err(Error::ParserCancelled)
         }
+    }
+}
+
+impl Default for Interpreter {
+    fn default() -> Self {
+        Interpreter::new(Map::new())
     }
 }
