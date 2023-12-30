@@ -5,26 +5,26 @@ Dust is a general purpose programming language that emphasises concurrency and c
 A basic dust program:
 
 ```dust
-(output  "Hello world!")
+output("Hello world!")
 ```
 
 Dust can do two (or more) things at the same time with effortless concurrency:
 
 ```dust
 async {
-    (output 'will this one finish first?')
-    (output 'or will this one?')
+    output('will this one finish first?')
+    output('or will this one?')
 }
 ```
 
 You can make *any* block, i.e. `{}`, run its statements in parallel by changing it to `async {}`.
 
 ```dust
-if (random_boolean) {
-    (output "Do something...")
+if random_boolean() {
+    output("Do something...")
 } else async {
-    (output "Do something else instead...")
-    (output "And another thing at the same time...")
+    output("Do something else instead...")
+    output("And another thing at the same time...")
 }
 ```
 
@@ -43,8 +43,9 @@ Dust is an interpreted, strictly typed language with first class functions. It e
     - [Maps](#maps)
     - [Loops](#loops)
     - [Functions](#functions)
+    - [Option](#option)
     - [Concurrency](#concurrency)
-    - [Acknowledgements](#acknowledgements)
+  - [Acknowledgements](#acknowledgements)
 <!--toc:end-->
 
 ## Features
@@ -61,7 +62,24 @@ Dust is an experimental project under active development. At this stage, feature
 
 ```sh
 cargo install dust-lang
-dust -c "(output 'Hello world!')"
+dust -c "output('Hello world!')"
+```
+
+```txt
+General purpose programming language
+
+Usage: dust [OPTIONS] [PATH]
+
+Arguments:
+  [PATH]  Location of the file to run
+
+Options:
+  -c, --command <COMMAND>        Dust source code to evaluate
+  -i, --input <INPUT>            Data to assign to the "input" variable
+  -p, --input-path <INPUT_PATH>  A path to file whose contents will be assigned to the "input" variable
+  -t, --tree                     Show the syntax tree
+  -h, --help                     Print help
+  -V, --version                  Print version    
 ```
 
 ## Installation
@@ -159,7 +177,7 @@ Note that strings can be wrapped with any kind of quote: single, double or backt
 Dust enforces strict type checking, but you don't usually need to write the type, dust can figure it out on its own. The **number** and **any** types are special types that allow you to relax the type bounds.
 
 ```dust
-string <string> = "foobar"
+string <str> = "foobar"
 integer <int> = 42
 float <float> = 42.42
 
@@ -175,12 +193,11 @@ Lists are sequential collections. They can be built by grouping values with squa
 ```dust
 list = [true 41 "Ok"]
 
-(assert_equal list:0 true)
+assert_equal(list:0 true)
 
 the_answer = list:1 + 1
 
-(assert_equal the_answer, 42) # You can also use commas when passing values to
-                              # a function. 
+assert_equal(the_answer, 42) # You can use commas when passing values a function. 
 ```
 
 ### Maps
@@ -193,7 +210,7 @@ reminder = {
     tags = ["groceries", "home"]
 }
 
-(output reminder:message)
+output(reminder:message)
 ```
 
 ### Loops
@@ -203,7 +220,7 @@ A **while** loop continues until a predicate is false.
 ```dust
 i = 0
 while i < 10 {
-    (output i)
+    output(i)
     i += 1
 }
 ```
@@ -214,7 +231,7 @@ A **for** loop operates on a list without mutating it or the items inside. It do
 list = [ 1, 2, 3 ]
 
 for number in list {
-    (output number + 1)
+    output(number + 1)
 }
 ```
 
@@ -224,8 +241,8 @@ Functions are first-class values in dust, so they are assigned to variables like
 
 ```dust
 # This simple function has no arguments and no return value.
-say_hi = (fn) {
-    (output "hi")
+say_hi = () <none> {
+    output("hi")
 }
 
 # This function has one argument and will return a value.
@@ -233,25 +250,25 @@ add_one = (fn number <num>) <num> {
     number + 1
 }
 
-(say_hi)
-(assert_equal (add_one 3), 4)
+say_hi()
+assert_equal(add_one(3), 4)
 ```
 
 You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
 
 ### Option
 
-The **option** type represents a value that may not be present. It has two variants: **some** and **none**. Dust includes built-in functions to work with option values: `is_none`, `is_some` and `either_or`.
+An **option** represents a value that may not be present. It has two variants: **some** and **none**. Dust includes built-in functions to work with option values: `is_none`, `is_some` and `either_or`.
 
 ```dust
-say_something = (fn message <option(str)>) <str> {
-    (either_or message, "hiya")
+say_something = (message <option(str)>) <str> {
+    either_or(message, "hiya")
 }
 
-(say_something some("goodbye"))
+say_something(some("goodbye"))
 # goodbye
 
-(say_something none)
+say_something(none)
 # hiya
 ```
 
@@ -262,20 +279,20 @@ Dust features effortless concurrency anywhere in your code. Any block of code ca
 ```dust
 # An async block will run each statement in its own thread.
 async {
-    (output (random_integer))
-    (output (random_float))
-    (output (random_boolean))
+    output(random_integer())
+    output(random_float())
+    output(random_boolean())
 }
 ```
 
 ```dust
 data = async {
-    (output "Reading a file...")
-    (read "examples/assets/faithful.csv")
+    output("Reading a file...")
+    read("examples/assets/faithful.csv")
 }
 ```
 
-### Acknowledgements
+## Acknowledgements
 
 Dust began as a fork of [evalexpr]. Some of the original code is still in place but the project has dramatically changed and no longer uses any of its parsing or interpreting.
 
