@@ -39,7 +39,6 @@
       "else"
       "false"
       "float"
-      "fn"
       "for"
       "if"
       "in"
@@ -50,6 +49,8 @@
       "str"
       "true"
       "while"
+      "->"
+      "=>"
 ] @keyword
 
 (built_in_function) @function.builtin
