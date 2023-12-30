@@ -41,7 +41,7 @@ pub enum Value {
 
 impl Default for Value {
     fn default() -> Self {
-        Value::Option(None)
+        Value::none()
     }
 }
 
@@ -85,6 +85,10 @@ impl Value {
         };
 
         r#type
+    }
+
+    pub fn none() -> Self {
+        Value::Option(None)
     }
 
     pub fn is_string(&self) -> bool {

@@ -37,6 +37,7 @@
       "any"
       "async"
       "else"
+      "else if"
       "false"
       "float"
       "for"
