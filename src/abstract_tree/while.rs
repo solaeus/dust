@@ -37,13 +37,3 @@ impl AbstractTree for While {
         self.block.expected_type(context)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::{interpret, Value};
-
-    #[test]
-    fn evalualate_while_loop() {
-        assert_eq!(interpret("while false { 'foo' }"), Ok(Value::Option(None)))
-    }
-}

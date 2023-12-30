@@ -1,6 +1,6 @@
 [package]
 name = "dust-lang"
-description = "Data-Oriented Programming Language"
+description = "General purpose programming language"
 version = "0.3.92"
 repository = "https://git.jeffa.io/jeff/dust.git"
 edition = "2021"
