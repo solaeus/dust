@@ -23,8 +23,8 @@ impl AbstractTree for For {
             "async for" => true,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "for or async for",
-                    actual: for_node.kind(),
+                    expected: "for or async for".to_string(),
+                    actual: for_node.kind().to_string(),
                     location: for_node.start_position(),
                     relevant_source: source[for_node.byte_range()].to_string(),
                 })

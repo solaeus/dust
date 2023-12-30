@@ -203,8 +203,9 @@ impl AbstractTree for Type {
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "any, bool, float, function, int, list, map, num, str or option",
-                    actual: type_node.kind(),
+                    expected: "any, bool, float, function, int, list, map, num, str or option"
+                        .to_string(),
+                    actual: type_node.kind().to_string(),
                     location: type_node.start_position(),
                     relevant_source: source[type_node.byte_range()].to_string(),
                 })

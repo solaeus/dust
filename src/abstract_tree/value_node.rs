@@ -148,8 +148,8 @@ impl AbstractTree for ValueNode {
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "string, integer, float, boolean, list, map, or option",
-                    actual: child.kind(),
+                    expected: "string, integer, float, boolean, list, map, or option".to_string(),
+                    actual: child.kind().to_string(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
                 })

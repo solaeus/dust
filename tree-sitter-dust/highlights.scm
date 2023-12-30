@@ -1,6 +1,6 @@
 (expression) @expression
 (value) @value
-(identifier) @identifier
+(identifier) @variable
 (value) @value
 (string) @string
 
@@ -14,7 +14,7 @@
 (boolean) @boolean
 (list) @list
 
-"," @punctuation.delimiter
+["," ":" ";"] @punctuation.delimiter
 
 [
       "["
@@ -28,25 +28,22 @@
 ] @punctuation.bracket
 
 [
-      (assignment_operator)
-      (logic_operator)
-      (math_operator)
-] @operator
+      (type)
+      (type_definition)
+] @type
+
+(assignment_operator) @operator.assignment
+(logic_operator) @operator.logic
+(math_operator) @operator.math
 
 [
-      "any"
       "async"
       "else"
       "false"
-      "float"
       "for"
       "if"
       "in"
-      "int"
-      "map"
       "match"
-      "num"
-      "str"
       "true"
       "while"
       "->"
@@ -54,3 +51,4 @@
 ] @keyword
 
 (built_in_function) @function.builtin
+(function_call) @function.call

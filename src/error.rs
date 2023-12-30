@@ -3,6 +3,7 @@
 //! To deal with errors from dependencies, either create a new error variant
 //! or use the ToolFailure variant if the error can only occur inside a tool.
 
+use serde::{Deserialize, Serialize};
 use tree_sitter::{LanguageError, Node, Point};
 
 use crate::{value::Value, BuiltInFunction, Type};
@@ -18,17 +19,19 @@ use std::{
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum Error {
     WithContext {
         error: Box<Error>,
+        #[serde(skip)]
         location: Point,
         source: String,
     },
 
     UnexpectedSyntaxNode {
-        expected: &'static str,
-        actual: &'static str,
+        expected: String,
+        actual: String,
+        #[serde(skip)]
         location: Point,
         relevant_source: String,
     },
@@ -61,7 +64,7 @@ pub enum Error {
 
     /// A function was called with the wrong amount of arguments.
     ExpectedBuiltInFunctionArgumentAmount {
-        function_name: &'static str,
+        function_name: String,
         expected: usize,
         actual: usize,
     },
@@ -160,6 +163,7 @@ pub enum Error {
     /// Invalid user input.
     Syntax {
         source: String,
+        #[serde(skip)]
         location: Point,
     },
 
@@ -177,7 +181,7 @@ impl Error {
         }
     }
 
-    pub fn expect_syntax_node(source: &str, expected: &'static str, actual: Node) -> Result<()> {
+    pub fn expect_syntax_node(source: &str, expected: &str, actual: Node) -> Result<()> {
         if expected == actual.kind() {
             Ok(())
         } else if actual.is_error() {
@@ -187,8 +191,8 @@ impl Error {
             })
         } else {
             Err(Error::UnexpectedSyntaxNode {
-                expected,
-                actual: actual.kind(),
+                expected: expected.to_string(),
+                actual: actual.kind().to_string(),
                 location: actual.start_position(),
                 relevant_source: source[actual.byte_range()].to_string(),
             })
@@ -204,7 +208,7 @@ impl Error {
             Ok(())
         } else {
             Err(Error::ExpectedBuiltInFunctionArgumentAmount {
-                function_name: function.name(),
+                function_name: function.name().to_string(),
                 expected,
                 actual,
             })

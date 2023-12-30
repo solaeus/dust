@@ -66,8 +66,8 @@ impl AbstractTree for Statement {
             )?)),
             _ => Err(Error::UnexpectedSyntaxNode {
                 expected:
-                    "assignment, expression, block, return, if...else, while, for, index_assignment or match",
-                actual: child.kind(),
+                    "assignment, expression, block, return, if...else, while, for, index_assignment or match".to_string(),
+                actual: child.kind().to_string(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),
             }),
