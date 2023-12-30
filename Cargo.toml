@@ -1,7 +1,7 @@
 [package]
 name = "dust-lang"
 description = "General purpose programming language"
-version = "0.3.92"
+version = "0.4.0"
 repository = "https://git.jeffa.io/jeff/dust.git"
 edition = "2021"
 license = "MIT"
@@ -9,6 +9,9 @@ license = "MIT"
 [[bin]]
 name = "dust"
 path = "src/main.rs"
+
+[[bin]]
+name = "tui"
 
 [profile.dev]
 opt-level = 1
@@ -18,17 +21,30 @@ opt-level = 3
 [dependencies]
 ansi_term = "0.12.1"
 clap = { version = "4.4.4", features = ["derive"] }
+color-eyre = "0.6.2"
 comfy-table = "7.0.1"
+crossterm = { version = "0.27.0", features = ["serde", "event-stream"] }
 csv = "1.2.2"
+directories = "5.0.1"
+futures = "0.3.30"
 git2 = "0.18.1"
+lazy_static = "1.4.0"
 rand = "0.8.5"
+ratatui = "0.25.0"
 rayon = "1.8.0"
 reqwest = { version = "0.11.20", features = ["blocking", "json"] }
 rustyline = { version = "12.0.0", features = ["derive", "with-file-history"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
+signal-hook = "0.3.17"
+tokio = { version = "1.35.1", features = ["signal-hook-registry", "macros", "signal", "rt", "time", "rt-multi-thread"] }
+tokio-util = "0.7.10"
 toml = "0.8.1"
+tracing = "0.1.40"
+tracing-error = "0.2.0"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tree-sitter = "0.20.10"
+tui-textarea = { version = "0.4.0", features = ["search"] }
 
 [build-dependencies]
 cc = "1.0"

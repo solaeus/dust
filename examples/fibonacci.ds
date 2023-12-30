@@ -6,4 +6,4 @@ fib = (i <int>) <int> {
 	}
 }
 
-fib(5)
+fib(8)
