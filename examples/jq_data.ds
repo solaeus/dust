@@ -1,4 +1,4 @@
-data = (from_json (read 'examples/assets/jq_data.json'))
+data = from_json(read('examples/assets/jq_data.json'))
 
 new_data = []
 

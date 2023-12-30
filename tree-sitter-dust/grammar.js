@@ -38,6 +38,16 @@ module.exports = grammar({
       ),
 
     expression: $ =>
+      choice(
+        $._expression_kind,
+        seq(
+          '(',
+          $._expression_kind,
+          ')',
+        ),
+      ),
+
+    _expression_kind: $ =>
       prec.right(
         choice(
           $.function_call,
@@ -214,7 +224,7 @@ module.exports = grammar({
       choice('+', '-', '*', '/', '%'),
 
     logic: $ =>
-      prec.right(
+      prec.left(
         seq(
           $.expression,
           $.logic_operator,

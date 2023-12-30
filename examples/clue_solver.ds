@@ -5,9 +5,9 @@ cards = {
 }
 
 is_ready_to_solve = (cards <map>) <bool> {
-	length(cards:suspects) == 1
-	&& length(cards:rooms) == 1
-	&& length(cards:weapons) == 1
+	(length(cards:suspects) == 1)
+	&& (length(cards:rooms) == 1)
+	&& (length(cards:weapons) == 1)
 }
 
 remove_card = (cards <map>, opponent_card <str>) <none> {
@@ -19,7 +19,7 @@ remove_card = (cards <map>, opponent_card <str>) <none> {
 make_guess = (cards <map>, current_room <str>) <none> {
 	if is_ready_to_solve(cards) {
 		output(
-			'It was '
+			'I accuse '
 			+ cards:suspects:0
 			+ ' in the ' 
 			+ cards:rooms:0  
@@ -29,7 +29,7 @@ make_guess = (cards <map>, current_room <str>) <none> {
 		)
 	} else {
 		output(
-			'I accuse '
+			'I question '
 			+ random(cards:suspects)
 			+ ' in the '
 			+ current_room

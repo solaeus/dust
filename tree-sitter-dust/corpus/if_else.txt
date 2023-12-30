@@ -34,27 +34,11 @@ if 1 == 1 && 2 == 2 && 3 == 3 { "True" }
         (expression
           (logic
             (expression
-              (value
-                (integer)))
-            (logic_operator)
-            (expression
               (logic
-                (expression
-                  (value
-                    (integer)))
-                (logic_operator)
                 (expression
                   (logic
                     (expression
-                      (value
-                        (integer)))
-                    (logic_operator)
-                    (expression
                       (logic
-                        (expression
-                          (value
-                            (integer)))
-                        (logic_operator)
                         (expression
                           (logic
                             (expression
@@ -63,7 +47,23 @@ if 1 == 1 && 2 == 2 && 3 == 3 { "True" }
                             (logic_operator)
                             (expression
                               (value
-                                (integer)))))))))))))
+                                (integer)))))
+                        (logic_operator)
+                        (expression
+                          (value
+                            (integer)))))
+                    (logic_operator)
+                    (expression
+                      (value
+                        (integer)))))
+                (logic_operator)
+                (expression
+                  (value
+                    (integer)))))
+            (logic_operator)
+            (expression
+              (value
+                (integer)))))
         (block
           (statement
             (expression

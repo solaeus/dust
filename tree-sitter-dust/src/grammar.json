@@ -112,6 +112,32 @@
       }
     },
     "expression": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_expression_kind"
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "("
+            },
+            {
+              "type": "SYMBOL",
+              "name": "_expression_kind"
+            },
+            {
+              "type": "STRING",
+              "value": ")"
+            }
+          ]
+        }
+      ]
+    },
+    "_expression_kind": {
       "type": "PREC_RIGHT",
       "value": 0,
       "content": {
@@ -660,7 +686,7 @@
       ]
     },
     "logic": {
-      "type": "PREC_RIGHT",
+      "type": "PREC_LEFT",
       "value": 0,
       "content": {
         "type": "SEQ",

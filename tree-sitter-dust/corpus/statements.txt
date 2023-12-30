@@ -110,23 +110,23 @@ x = 3 == 1 + 2 + 2
       (assignment_operator)
       (statement
         (expression
-          (logic
-            (expression
-              (value
-                (integer)))
-            (logic_operator)
+          (math
             (expression
               (math
                 (expression
-                  (math
+                  (logic
                     (expression
                       (value
                         (integer)))
-                    (math_operator)
+                    (logic_operator)
                     (expression
                       (value
                         (integer)))))
                 (math_operator)
                 (expression
                   (value
-                    (integer)))))))))))
+                    (integer)))))
+            (math_operator)
+            (expression
+              (value
+                (integer)))))))))
