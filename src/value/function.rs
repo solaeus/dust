@@ -37,13 +37,13 @@ impl Function {
         &self.r#type
     }
 
-    pub fn return_type(&self) -> Result<&Type> {
+    pub fn return_type(&self) -> &Type {
         match &self.r#type {
             Type::Function {
                 parameter_types: _,
                 return_type,
-            } => Ok(return_type.as_ref()),
-            _ => todo!(),
+            } => return_type.as_ref(),
+            _ => &Type::None,
         }
     }
 
@@ -65,10 +65,31 @@ impl Function {
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Function {{ parameters: {:?}, body: {:?} }}",
-            self.parameters, self.body
-        )
+        write!(f, "(")?;
+
+        let (parameter_types, return_type) = if let Type::Function {
+            parameter_types,
+            return_type,
+        } = &self.r#type
+        {
+            (parameter_types, return_type)
+        } else {
+            return Err(fmt::Error);
+        };
+
+        for (index, (parameter, r#type)) in self
+            .parameters
+            .iter()
+            .zip(parameter_types.iter())
+            .enumerate()
+        {
+            write!(f, "{} <{}>", parameter.inner(), r#type)?;
+
+            if index != self.parameters.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+
+        write!(f, ") -> {}", return_type)
     }
 }

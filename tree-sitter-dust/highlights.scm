@@ -39,6 +39,7 @@
 [
       "async"
       "else"
+      "else if"
       "false"
       "for"
       "if"

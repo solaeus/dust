@@ -41,9 +41,6 @@ pub fn interpret(source: &str) -> Result<Value> {
 /// );
 /// ```
 pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
-    let mut parser = Parser::new();
-    parser.set_language(language())?;
-
     let mut interpreter = Interpreter::new(context)?;
     let value = interpreter.run(source)?;
 
@@ -91,7 +88,7 @@ impl Interpreter {
         if let Some(abstract_tree) = &self.abstract_tree {
             abstract_tree.run(source, &self.context)
         } else {
-            Ok(Value::Option(None))
+            Ok(Value::none())
         }
     }
 

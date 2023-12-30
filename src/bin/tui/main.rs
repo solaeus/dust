@@ -1,67 +1,46 @@
-pub mod app;
-pub mod interpreter_display;
-pub mod log;
-pub mod terminal;
-pub mod value_display;
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
 
-use std::path::PathBuf;
+pub mod action;
+pub mod app;
+pub mod cli;
+pub mod components;
+pub mod config;
+pub mod mode;
+pub mod tui;
+pub mod utils;
+
+use std::env;
+
+use clap::Parser;
+use cli::Cli;
+use color_eyre::eyre::Result;
 
 use crate::{
     app::App,
-    log::{get_data_dir, initialize_logging},
+    utils::{initialize_logging, initialize_panic_handler, version},
 };
-use clap::Parser;
-use color_eyre::Result;
-use crossterm::event::{KeyEvent, MouseEvent};
-use dust_lang::Value;
-use ratatui::Frame;
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
 
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Cli {
-    /// File with source to be run and watched by the shell.
-    path: Option<String>,
-}
+async fn tokio_main() -> Result<()> {
+    initialize_panic_handler()?;
+    initialize_logging()?;
 
-pub trait Elm {
-    fn update(&mut self, message: Action) -> Result<Option<Action>>;
-    fn view(&self, frame: &mut Frame);
-}
+    env::set_var("DUST_OUTPUT_MODE", "SILENT");
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Action {
-    Init,
-    Quit,
-    Error,
-    Closed,
-    Tick,
-    Render,
-    FocusGained,
-    FocusLost,
-    Paste(String),
-    Key(KeyEvent),
-    Mouse(MouseEvent),
-    Resize(u16, u16),
-    UpdateValue(Value),
+    let args = Cli::parse();
+    let mut app = App::new(args.path)?;
+    app.run().await?;
+
+    Ok(())
 }
 
 #[tokio::main]
-async fn main() {
-    initialize_logging().unwrap();
-
-    let args = Cli::parse();
-    let (action_tx, action_rx) = mpsc::unbounded_channel();
-    let path = if let Some(path) = args.path {
-        PathBuf::from(path)
+async fn main() -> Result<()> {
+    if let Err(e) = tokio_main().await {
+        eprintln!("{} error: Something went wrong", env!("CARGO_PKG_NAME"));
+        Err(e)
     } else {
-        PathBuf::from(format!("{}/scratch.ds", get_data_dir().to_string_lossy()))
-    };
-    let mut app = App::new(action_rx, action_tx, path).unwrap();
-    let run_result = app.run().await;
-
-    if let Err(report) = run_result {
-        eprintln!("{report}")
+        Ok(())
     }
 }
