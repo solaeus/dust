@@ -1273,11 +1273,19 @@
       "members": [
         {
           "type": "SYMBOL",
+          "name": "function_call"
+        },
+        {
+          "type": "SYMBOL",
           "name": "identifier"
         },
         {
           "type": "SYMBOL",
-          "name": "function_call"
+          "name": "index"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "value"
         }
       ]
     },

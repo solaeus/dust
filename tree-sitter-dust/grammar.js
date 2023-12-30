@@ -388,8 +388,10 @@ module.exports = grammar({
   
     function_expression: $ =>
       choice(
-        $.identifier,
         $.function_call,
+        $.identifier,
+        $.index,
+        $.value,
       ),
 
     function_call: $ =>

@@ -209,6 +209,14 @@
         {
           "type": "identifier",
           "named": true
+        },
+        {
+          "type": "index",
+          "named": true
+        },
+        {
+          "type": "value",
+          "named": true
         }
       ]
     }

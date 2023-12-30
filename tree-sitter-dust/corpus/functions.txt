@@ -75,6 +75,67 @@ Function Call
             (string)))))))
 
 ================================================================================
+Function Expressions
+================================================================================
+
+(foobar "Hiya")
+(foo:bar "Hiya")
+((foobar) "Hiya")
+((fn msg <str>) <str> { msg } "Hiya")
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (function_call
+        (function_expression
+          (identifier))
+        (expression
+          (value
+            (string))))))
+  (statement
+    (expression
+      (function_call
+        (function_expression
+          (index
+            (expression
+              (identifier))
+            (expression
+              (identifier))))
+        (expression
+          (value
+            (string))))))
+  (statement
+    (expression
+      (function_call
+        (function_expression
+          (function_call
+            (function_expression
+              (identifier))))
+        (expression
+          (value
+            (string))))))
+  (statement
+    (expression
+      (function_call
+        (function_expression
+          (value
+            (function
+              (identifier)
+              (type_definition
+                (type))
+              (type_definition
+                (type))
+              (block
+                (statement
+                  (expression
+                    (identifier)))))))
+        (expression
+          (value
+            (string)))))))
+
+================================================================================
 Complex Function Call
 ================================================================================
 
