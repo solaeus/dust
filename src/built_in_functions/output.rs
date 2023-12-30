@@ -1,25 +1,4 @@
-use lazy_static::lazy_static;
-
 use crate::{BuiltInFunction, Error, Map, Result, Type, Value};
-
-lazy_static! {
-    static ref OUTPUT_MODE: OutputMode = {
-        if let Ok(variable) = std::env::var("DUST_OUTPUT_MODE") {
-            if variable == "SILENT" {
-                OutputMode::Silent
-            } else {
-                OutputMode::Normal
-            }
-        } else {
-            OutputMode::Normal
-        }
-    };
-}
-
-pub enum OutputMode {
-    Normal,
-    Silent,
-}
 
 pub struct Output;
 
@@ -33,9 +12,7 @@ impl BuiltInFunction for Output {
 
         let value = arguments.first().unwrap();
 
-        if let OutputMode::Normal = *OUTPUT_MODE {
-            println!("{value}");
-        }
+        println!("{value}");
 
         Ok(Value::default())
     }
