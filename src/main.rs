@@ -75,7 +75,7 @@ fn main() {
     let mut interpreter = Interpreter::new(context).unwrap();
 
     if args.show_syntax_tree {
-        interpreter.parse_only(&source);
+        interpreter.parse(&source).unwrap();
 
         println!("{}", interpreter.syntax_tree().unwrap());
     }

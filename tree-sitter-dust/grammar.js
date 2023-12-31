@@ -11,14 +11,6 @@ module.exports = grammar({
 
     _comment: $ => /[#][^#\n]*[#|\n]/,
 
-    block: $ =>
-      seq(
-        optional('async'),
-        '{',
-        repeat1($.statement),
-        '}',
-      ),
-
     statement: $ =>
       prec.left(
         seq(
@@ -68,6 +60,14 @@ module.exports = grammar({
             optional(','),
           ),
         ),
+      ),
+
+    block: $ =>
+      seq(
+        optional('async'),
+        '{',
+        repeat($.statement),
+        '}',
       ),
 
     identifier: $ =>
@@ -175,7 +175,7 @@ module.exports = grammar({
     map: $ =>
       seq(
         '{',
-        repeat(
+        repeat1(
           seq(
             $.identifier,
             optional($.type_definition),
