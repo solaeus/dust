@@ -23,7 +23,7 @@ impl BuiltInFunction for InstallPackages {
 
         command.spawn()?.wait()?;
 
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn r#type(&self) -> Type {

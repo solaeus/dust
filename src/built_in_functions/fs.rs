@@ -65,7 +65,7 @@ impl BuiltInFunction for Write {
 
         write(path, file_content)?;
 
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn r#type(&self) -> Type {
@@ -86,11 +86,11 @@ impl BuiltInFunction for Append {
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
         let file_content = arguments
             .first()
-            .unwrap_or(&Value::Option(None))
+            .unwrap_or(&Value::none())
             .as_string()?;
         let path = arguments
             .get(1)
-            .unwrap_or(&Value::Option(None))
+            .unwrap_or(&Value::none())
             .as_string()?;
 
         File::options()
@@ -99,7 +99,7 @@ impl BuiltInFunction for Append {
             .open(path)?
             .write_all(file_content.as_bytes())?;
 
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn r#type(&self) -> Type {

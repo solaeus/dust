@@ -57,7 +57,7 @@ impl AbstractTree for ValueNode {
                 {
                     function_context.set(
                         parameter_name.inner().clone(),
-                        Value::Option(None),
+                        Value::none(),
                         Some(parameter_type.clone()),
                     )?;
                 }

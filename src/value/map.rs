@@ -58,7 +58,7 @@ impl Map {
 
     pub fn unset_all(&self) -> Result<()> {
         for (_key, (value, r#_type)) in self.variables.write()?.iter_mut() {
-            *value = Value::Option(None);
+            *value = Value::none();
         }
 
         Ok(())

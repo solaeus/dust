@@ -30,7 +30,7 @@ impl AbstractTree for While {
             self.block.run(source, context)?;
         }
 
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
