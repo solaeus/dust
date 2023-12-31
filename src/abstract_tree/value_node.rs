@@ -69,7 +69,9 @@ impl AbstractTree for ValueNode {
                 let body_node = child.child(child_count - 1).unwrap();
                 let body = Block::from_syntax_node(source, body_node, &function_context)?;
 
-                return_type.inner().check(&body.expected_type(context)?)?;
+                return_type
+                    .inner()
+                    .check(&body.expected_type(&function_context)?)?;
 
                 let r#type = Type::Function {
                     parameter_types,
@@ -207,7 +209,7 @@ impl AbstractTree for ValueNode {
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
-        let type_definition = match self {
+        let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::Float(_) => Type::Float,
             ValueNode::Function(function) => function.r#type().clone(),
@@ -244,6 +246,6 @@ impl AbstractTree for ValueNode {
             ValueNode::Map(_) => Type::Map,
         };
 
-        Ok(type_definition)
+        Ok(r#type)
     }
 }

@@ -100,7 +100,15 @@ impl AbstractTree for Block {
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
-        if let Some(statement) = self.statements.last() {
+        if let Some(statement) = self.statements.iter().find(|statement| {
+            if let Statement::Return(_) = statement {
+                true
+            } else {
+                false
+            }
+        }) {
+            statement.expected_type(context)
+        } else if let Some(statement) = self.statements.last() {
             statement.expected_type(context)
         } else {
             Ok(Type::None)
