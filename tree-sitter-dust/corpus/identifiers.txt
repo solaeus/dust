@@ -5,10 +5,14 @@ Simple Identifiers
 x
 _y
 __xyz__
+x123x
 
 --------------------------------------------------------------------------------
 
 (root
+  (statement
+    (expression
+      (identifier)))
   (statement
     (expression
       (identifier)))

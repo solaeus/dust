@@ -77,7 +77,7 @@ module.exports = grammar({
       ),
 
     _identifier_pattern: $ =>
-      /[_a-zA-Z]+[_a-zA-Z0-9]?/,
+      /[_a-zA-Z]+[_a-zA-Z0-9]*[_a-zA-Z]?/,
 
     value: $ =>
       choice(
