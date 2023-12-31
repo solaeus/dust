@@ -47,6 +47,50 @@ mod assignment {
     }
 }
 
+mod for_loop {
+    use dust_lang::*;
+
+    #[test]
+    fn simple_for_loop() {
+        let result = interpret("for i in [1 2 3] { output(i) }");
+
+        assert_eq!(Ok(Value::none()), result);
+    }
+
+    #[test]
+    fn modify_value() {
+        let result = interpret(
+            "
+            list = []
+            for i in [1 2 3] { list += i }
+            list
+            ",
+        );
+
+        assert_eq!(
+            Ok(Value::List(List::with_items(vec![
+                Value::Integer(1),
+                Value::Integer(2),
+                Value::Integer(3),
+            ]))),
+            result
+        );
+    }
+
+    #[test]
+    fn modify_value_async() {
+        let result = interpret(
+            "
+            list = []
+            async for i in [1 2 3] { list += i }
+            length(list)
+            ",
+        );
+
+        assert_eq!(Ok(Value::Integer(3)), result);
+    }
+}
+
 mod logic {
     use dust_lang::*;
 
@@ -154,7 +198,7 @@ mod value {
         let function = value.as_function().unwrap();
 
         assert_eq!(&Vec::<Identifier>::with_capacity(0), function.parameters());
-        assert_eq!(Ok(&Type::Integer), function.return_type());
+        assert_eq!(&Type::Integer, function.return_type());
 
         let result = interpret("(x <bool>) -> <bool> {true}");
         let value = result.unwrap();
@@ -164,7 +208,7 @@ mod value {
             &vec![Identifier::new("x".to_string())],
             function.parameters()
         );
-        assert_eq!(Ok(&Type::Boolean), function.return_type());
+        assert_eq!(&Type::Boolean, function.return_type());
     }
 
     #[test]
