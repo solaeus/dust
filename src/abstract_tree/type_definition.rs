@@ -215,7 +215,7 @@ impl AbstractTree for Type {
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {

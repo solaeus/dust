@@ -71,7 +71,7 @@ impl AbstractTree for For {
             }
         }
 
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {

@@ -70,7 +70,7 @@ impl AbstractTree for IndexAssignment {
                     previous_value += value;
                     previous_value
                 } else {
-                    Value::Option(None)
+                    Value::none()
                 }
             }
             AssignmentOperator::MinusEqual => {
@@ -80,7 +80,7 @@ impl AbstractTree for IndexAssignment {
                     previous_value -= value;
                     previous_value
                 } else {
-                    Value::Option(None)
+                    Value::none()
                 }
             }
             AssignmentOperator::Equal => value,
@@ -88,7 +88,7 @@ impl AbstractTree for IndexAssignment {
 
         index_context.set(index_key.clone(), new_value, None)?;
 
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {

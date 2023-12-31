@@ -88,7 +88,7 @@ impl Value {
     }
 
     pub fn none() -> Self {
-        Value::Option(None)
+        Value::none()
     }
 
     pub fn is_string(&self) -> bool {
@@ -120,7 +120,7 @@ impl Value {
     }
 
     pub fn is_none(&self) -> bool {
-        matches!(self, Value::Option(None))
+        matches!(self, Value::none())
     }
 
     pub fn is_map(&self) -> bool {
@@ -234,7 +234,7 @@ impl Value {
         }
     }
 
-    /// Returns `()`, or returns `Err` if `self` is not a `Value::Option(None)`.
+    /// Returns `()`, or returns `Err` if `self` is not a `Value::none()`.
     pub fn as_none(&self) -> Result<()> {
         match self {
             Value::Option(option) => {
@@ -255,7 +255,7 @@ impl Value {
 
 impl Default for &Value {
     fn default() -> Self {
-        &Value::Option(None)
+        &Value::none()
     }
 }
 
@@ -546,7 +546,7 @@ impl From<Value> for Result<Value> {
 
 impl From<()> for Value {
     fn from(_: ()) -> Self {
-        Value::Option(None)
+        Value::none()
     }
 }
 
@@ -769,7 +769,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn visit_some<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
@@ -787,7 +787,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn visit_newtype_struct<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
