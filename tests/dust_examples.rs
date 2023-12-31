@@ -82,6 +82,13 @@ fn map() {
 }
 
 #[test]
+fn r#match() {
+    let file_contents = read_to_string("examples/match.ds").unwrap();
+
+    interpret(&file_contents).unwrap();
+}
+
+#[test]
 fn random() {
     let file_contents = read_to_string("examples/random.ds").unwrap();
 
