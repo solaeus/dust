@@ -33,8 +33,6 @@ impl AbstractTree for Assignment {
             Some(TypeDefinition::from_syntax_node(
                 source, type_node, context,
             )?)
-        } else if let Some((_, r#type)) = context.variables()?.get(identifier.inner()) {
-            Some(TypeDefinition::new(r#type.clone()))
         } else {
             None
         };
@@ -99,6 +97,8 @@ impl AbstractTree for Assignment {
         let variable_key = identifier.inner().clone();
         let variable_type = if let Some(definition) = &type_definition {
             definition.inner().clone()
+        } else if let Some((_, r#type)) = context.variables()?.get(identifier.inner()) {
+            r#type.clone()
         } else {
             statement_type
         };
