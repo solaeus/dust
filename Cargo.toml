@@ -6,6 +6,7 @@ repository = "https://git.jeffa.io/jeff/dust.git"
 edition = "2021"
 license = "MIT"
 authors = ["Jeff Anderson"]
+default-run = "dust"
 
 [[bin]]
 name = "dust"
