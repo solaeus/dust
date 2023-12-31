@@ -17,8 +17,16 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
+ansi_term = "0.12.1"
 clap = { version = "4.4.4", features = ["derive"] }
 csv = "1.2.2"
+egui = "0.24.1"
+eframe = { version = "0.24.1", default-features = false, features = [
+    "accesskit",
+    "default_fonts", 
+    "glow",   
+    "persistence",
+] }
 libc = "0.2.148"
 log = "0.4.20"
 rand = "0.8.5"
@@ -29,13 +37,6 @@ serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 toml = "0.8.1"
 tree-sitter = "0.20.10"
-egui = "0.24.1"
-eframe = { version = "0.24.1", default-features = false, features = [
-    "default_fonts", # Embed the default egui fonts.
-    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
-    "persistence",   # Enable restoring app state when restarting the app.
-] }
-ansi_term = "0.12.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 env_logger = "0.10"

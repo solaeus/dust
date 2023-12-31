@@ -614,7 +614,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     type Value = Value;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("Any valid whale data.")
+        formatter.write_str("Dust-compatible data format.")
     }
 
     fn visit_bool<E>(self, v: bool) -> std::result::Result<Self::Value, E>
@@ -776,11 +776,9 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         D: serde::Deserializer<'de>,
     {
-        let _ = deserializer;
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Option,
-            &self,
-        ))
+        Ok(Value::Option(Some(Box::new(Value::deserialize(
+            deserializer,
+        )?))))
     }
 
     fn visit_unit<E>(self) -> std::result::Result<Self::Value, E>
@@ -820,10 +818,8 @@ impl<'de> Visitor<'de> for ValueVisitor {
     {
         let map = Map::new();
 
-        {
-            while let Some((key, value)) = access.next_entry::<String, Value>()? {
-                map.set(key, value, None).unwrap();
-            }
+        while let Some((key, value)) = access.next_entry::<String, Value>()? {
+            map.set(key, value, None).unwrap();
         }
 
         Ok(Value::Map(map))

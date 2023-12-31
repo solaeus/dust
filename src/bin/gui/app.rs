@@ -1,7 +1,7 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use dust_lang::{Interpreter, Map, Result, Value};
-use egui::{Align, Layout};
+use egui::{Align, Color32, Layout, RichText};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -36,6 +36,8 @@ impl App {
             }
         }
 
+        cc.egui_ctx.set_zoom_factor(1.2);
+
         if path.is_file() {
             create_app(path)
         } else {
@@ -62,6 +64,7 @@ impl eframe::App for App {
                 if ui.button("Quit").clicked() {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
+
                 ui.add_space(16.0);
 
                 egui::widgets::global_dark_light_mode_buttons(ui);
@@ -90,13 +93,44 @@ impl eframe::App for App {
                     ui.code_editor(&mut self.source);
                 });
 
-                let output_text = match &self.output {
-                    Ok(value) => value.to_string(),
-                    Err(error) => error.to_string(),
-                };
-
-                ui.label(output_text);
+                match &self.output {
+                    Ok(value) => {
+                        display_value(value, ui);
+                    }
+                    Err(error) => {
+                        ui.label(error.to_string());
+                    }
+                }
             });
         });
+    }
+}
+
+fn display_value(value: &Value, ui: &mut egui::Ui) {
+    match value {
+        Value::List(list) => {
+            ui.collapsing("list", |ui| {
+                for value in list.items().iter() {
+                    display_value(value, ui);
+                }
+            });
+        }
+        Value::Map(_) => todo!(),
+        Value::Function(function) => {
+            ui.label(function.to_string());
+        }
+        Value::String(string) => {
+            ui.label(RichText::new(string).color(Color32::GREEN));
+        }
+        Value::Float(float) => {
+            ui.label(float.to_string());
+        }
+        Value::Integer(integer) => {
+            ui.label(RichText::new(integer.to_string()).color(Color32::BLUE));
+        }
+        Value::Boolean(boolean) => {
+            ui.label(RichText::new(boolean.to_string()).color(Color32::RED));
+        }
+        Value::Option(_) => todo!(),
     }
 }

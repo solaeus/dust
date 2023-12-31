@@ -1,8 +1,13 @@
-use serde::{ser::SerializeMap, Deserialize, Deserializer, Serialize};
+use serde::{
+    de::{MapAccess, Visitor},
+    ser::SerializeMap,
+    Deserialize, Serialize,
+};
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
+    marker::PhantomData,
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
@@ -132,11 +137,46 @@ impl Serialize for Map {
     }
 }
 
-impl<'de> Deserialize<'de> for Map {
-    fn deserialize<D>(_deserializer: D) -> std::result::Result<Self, D::Error>
+struct MapVisitor {
+    marker: PhantomData<fn() -> Map>,
+}
+
+impl MapVisitor {
+    fn new() -> Self {
+        MapVisitor {
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'de> Visitor<'de> for MapVisitor {
+    type Value = Map;
+
+    fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter.write_str("Any valid whale data.")
+    }
+
+    fn visit_map<M>(self, mut access: M) -> std::result::Result<Map, M::Error>
     where
-        D: Deserializer<'de>,
+        M: MapAccess<'de>,
     {
-        todo!()
+        let map = Map::new();
+
+        {
+            while let Some((key, value)) = access.next_entry::<String, Value>()? {
+                map.set(key, value, None).unwrap();
+            }
+        }
+
+        Ok(map)
+    }
+}
+
+impl<'de> Deserialize<'de> for Map {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        deserializer.deserialize_any(MapVisitor::new())
     }
 }

@@ -69,6 +69,8 @@ impl AbstractTree for ValueNode {
                 let body_node = child.child(child_count - 1).unwrap();
                 let body = Block::from_syntax_node(source, body_node, &function_context)?;
 
+                return_type.inner().check(&body.expected_type(context)?)?;
+
                 let r#type = Type::Function {
                     parameter_types,
                     return_type: Box::new(return_type.take_inner()),
