@@ -21,7 +21,6 @@ pub mod r#match;
 pub mod math;
 pub mod statement;
 pub mod type_definition;
-pub mod r#use;
 pub mod value_node;
 pub mod r#while;
 pub mod r#yield;
@@ -29,8 +28,7 @@ pub mod r#yield;
 pub use {
     assignment::*, block::*, expression::*, function_call::*, function_expression::*,
     identifier::*, if_else::*, index::*, index_assignment::IndexAssignment, logic::*, math::*,
-    r#for::*, r#match::*, r#use::*, r#while::*, r#yield::*, statement::*, type_definition::*,
-    value_node::*,
+    r#for::*, r#match::*, r#while::*, r#yield::*, statement::*, type_definition::*, value_node::*,
 };
 
 use tree_sitter::Node;

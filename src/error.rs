@@ -401,10 +401,14 @@ impl fmt::Display for Error {
                 actual,
                 location,
                 relevant_source,
-            } => write!(
-                f,
-                "Expected {expected}, but got {actual} at {location}. Code: {relevant_source} ",
-            ),
+            } => {
+                let location = get_position(location);
+
+                write!(
+                    f,
+                    "Expected {expected}, but got {actual} at {location}. Code: {relevant_source} ",
+                )
+            }
             WrongColumnAmount { expected, actual } => write!(
                 f,
                 "Wrong column amount. Expected {expected} but got {actual}."
@@ -412,7 +416,9 @@ impl fmt::Display for Error {
             External(message) => write!(f, "External error: {message}"),
             CustomMessage(message) => write!(f, "{message}"),
             Syntax { source, location } => {
-                write!(f, "Syntax error at {location}, this is not valid: {source}")
+                let location = get_position(location);
+
+                write!(f, "Syntax error at {location}: {source}")
             }
             TypeCheck { expected, actual } => write!(
                 f,
@@ -422,7 +428,11 @@ impl fmt::Display for Error {
                 error,
                 location,
                 source,
-            } => write!(f, "{error} Occured at {location}: \"{source}\""),
+            } => {
+                let location = get_position(location);
+
+                write!(f, "{error} Occured at {location}: \"{source}\"")
+            }
             SerdeJson(message) => write!(f, "JSON processing error: {message}"),
             ParserCancelled => write!(
                 f,
@@ -430,4 +440,8 @@ impl fmt::Display for Error {
             ),
         }
     }
+}
+
+fn get_position(position: &Point) -> String {
+    format!("column {}, row {}", position.row + 1, position.column)
 }

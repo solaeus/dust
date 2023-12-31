@@ -84,14 +84,8 @@ impl BuiltInFunction for Append {
     }
 
     fn run(&self, arguments: &[Value], _context: &Map) -> Result<Value> {
-        let file_content = arguments
-            .first()
-            .unwrap_or(&Value::none())
-            .as_string()?;
-        let path = arguments
-            .get(1)
-            .unwrap_or(&Value::none())
-            .as_string()?;
+        let file_content = arguments.get(0).unwrap_or_default().as_string()?;
+        let path = arguments.get(1).unwrap_or_default().as_string()?;
 
         File::options()
             .append(true)

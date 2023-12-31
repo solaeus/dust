@@ -30,6 +30,12 @@ impl AbstractTree for Identifier {
 
         let text = &source[node.byte_range()];
 
+        if text.is_empty() {
+            println!("{node:?}");
+        }
+
+        debug_assert!(!text.is_empty());
+
         Ok(Identifier(text.to_string()))
     }
 

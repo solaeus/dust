@@ -11,14 +11,6 @@ module.exports = grammar({
 
     _comment: $ => /[#][^#\n]*[#|\n]/,
 
-    block: $ =>
-      seq(
-        optional('async'),
-        '{',
-        repeat1($.statement),
-        '}',
-      ),
-
     statement: $ =>
       prec.left(
         seq(
@@ -70,6 +62,14 @@ module.exports = grammar({
         ),
       ),
 
+    block: $ =>
+      seq(
+        optional('async'),
+        '{',
+        repeat($.statement),
+        '}',
+      ),
+
     identifier: $ =>
       choice(
         $._identifier_pattern,
@@ -77,7 +77,7 @@ module.exports = grammar({
       ),
 
     _identifier_pattern: $ =>
-      /[_a-zA-Z]+[_a-zA-Z0-9]?/,
+      /[_a-zA-Z]+[_a-zA-Z0-9]*[_a-zA-Z]?/,
 
     value: $ =>
       choice(
@@ -175,7 +175,7 @@ module.exports = grammar({
     map: $ =>
       seq(
         '{',
-        repeat(
+        repeat1(
           seq(
             $.identifier,
             optional($.type_definition),

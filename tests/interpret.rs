@@ -76,19 +76,6 @@ mod for_loop {
             result
         );
     }
-
-    #[test]
-    fn modify_value_async() {
-        let result = interpret(
-            "
-            fn = (x <int>) <none> {}
-
-            fn(1)
-            ",
-        );
-
-        assert_eq!(Ok(Value::none()), result);
-    }
 }
 
 mod logic {
@@ -107,27 +94,27 @@ mod value {
     use dust_lang::*;
 
     #[test]
-    fn interpret_empty() {
+    fn empty() {
         assert_eq!(interpret("x = 9"), Ok(Value::Option(None)));
         assert_eq!(interpret("x = 1 + 1"), Ok(Value::Option(None)));
     }
 
     #[test]
-    fn interpret_integer() {
+    fn integer() {
         assert_eq!(interpret("1"), Ok(Value::Integer(1)));
         assert_eq!(interpret("123"), Ok(Value::Integer(123)));
         assert_eq!(interpret("-666"), Ok(Value::Integer(-666)));
     }
 
     #[test]
-    fn interpret_float() {
+    fn float() {
         assert_eq!(interpret("0.1"), Ok(Value::Float(0.1)));
         assert_eq!(interpret("12.3"), Ok(Value::Float(12.3)));
         assert_eq!(interpret("-6.66"), Ok(Value::Float(-6.66)));
     }
 
     #[test]
-    fn interpret_string() {
+    fn string() {
         assert_eq!(interpret("\"one\""), Ok(Value::String("one".to_string())));
         assert_eq!(interpret("'one'"), Ok(Value::String("one".to_string())));
         assert_eq!(interpret("`one`"), Ok(Value::String("one".to_string())));
@@ -140,7 +127,7 @@ mod value {
     }
 
     #[test]
-    fn interpret_list() {
+    fn list() {
         assert_eq!(
             interpret("[1, 2, 'foobar']"),
             Ok(Value::List(List::with_items(vec![
@@ -152,7 +139,7 @@ mod value {
     }
 
     #[test]
-    fn interpret_map() {
+    fn map() {
         let map = Map::new();
 
         map.set("x".to_string(), Value::Integer(1), None).unwrap();
@@ -163,7 +150,7 @@ mod value {
     }
 
     #[test]
-    fn interpret_map_types() {
+    fn map_types() {
         let map = Map::new();
 
         map.set("x".to_string(), Value::Integer(1), Some(Type::Integer))
@@ -182,7 +169,7 @@ mod value {
     }
 
     #[test]
-    fn interpret_map_type_errors() {
+    fn map_type_errors() {
         assert!(interpret("{ foo <bool> = 'bar' }")
             .unwrap_err()
             .is_type_check_error(&Error::TypeCheck {
@@ -192,15 +179,15 @@ mod value {
     }
 
     #[test]
-    fn interpret_function() {
-        let result = interpret("() -> <int> { 1 }");
+    fn function() {
+        let result = interpret("() <int> { 1 }");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
 
         assert_eq!(&Vec::<Identifier>::with_capacity(0), function.parameters());
         assert_eq!(&Type::Integer, function.return_type());
 
-        let result = interpret("(x <bool>) -> <bool> {true}");
+        let result = interpret("(x <bool>) <bool> { true }");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
 
@@ -212,7 +199,7 @@ mod value {
     }
 
     #[test]
-    fn interpret_option() {
+    fn option() {
         let result = interpret("x <option(int)> = some(1); x").unwrap();
 
         assert_eq!(Value::Option(Some(Box::new(Value::Integer(1)))), result);
@@ -223,11 +210,11 @@ mod function_call {
     use dust_lang::*;
 
     #[test]
-    fn interpret_function_call() {
+    fn function_call() {
         assert_eq!(
             interpret(
                 "
-                foobar = (message <str>) -> <str> { message }
+                foobar = (message <str>) <str> { message }
                 foobar('Hiya')
                 ",
             ),
@@ -236,7 +223,20 @@ mod function_call {
     }
 
     #[test]
-    fn interpret_callback() {
+    fn call_empty_function() {
+        assert_eq!(
+            interpret(
+                "
+                foobar = (message <str>) <none> {}
+                foobar('Hiya')
+                ",
+            ),
+            Ok(Value::none())
+        );
+    }
+
+    #[test]
+    fn callback() {
         assert_eq!(
             interpret(
                 "
@@ -251,7 +251,7 @@ mod function_call {
     }
 
     #[test]
-    fn interpret_built_in_function_call() {
+    fn built_in_function_call() {
         assert_eq!(interpret("output('Hiya')"), Ok(Value::Option(None)));
     }
 }
@@ -260,7 +260,7 @@ mod if_else {
     use dust_lang::*;
 
     #[test]
-    fn interpret_if() {
+    fn r#if() {
         assert_eq!(
             interpret("if true { 'true' }"),
             Ok(Value::String("true".to_string()))
@@ -268,7 +268,7 @@ mod if_else {
     }
 
     #[test]
-    fn interpret_if_else() {
+    fn if_else() {
         assert_eq!(
             interpret("if false { 1 } else { 2 }"),
             Ok(Value::Integer(2))
@@ -280,7 +280,7 @@ mod if_else {
     }
 
     #[test]
-    fn interpret_if_else_else_if_else() {
+    fn if_else_else_if_else() {
         assert_eq!(
             interpret(
                 "
@@ -298,7 +298,7 @@ mod if_else {
     }
 
     #[test]
-    fn interpret_if_else_if_else_if_else_if_else() {
+    fn if_else_if_else_if_else_if_else() {
         assert_eq!(
             interpret(
                 "
@@ -342,13 +342,13 @@ mod index {
         let test = interpret(
             "
             x = [1 2 3]
-            y = () -> <int> { 0 }
+            y = () <int> { 2 }
             x:y()
             ",
         )
         .unwrap();
 
-        assert_eq!(Value::Integer(1), test);
+        assert_eq!(Value::Integer(3), test);
     }
 }
 
@@ -356,7 +356,7 @@ mod r#match {
     use dust_lang::*;
 
     #[test]
-    fn interpret_match() {
+    fn r#match() {
         let test = interpret(
             "
                 match 1 {
@@ -372,7 +372,7 @@ mod r#match {
     }
 
     #[test]
-    fn interpret_match_assignment() {
+    fn match_assignment() {
         let test = interpret(
             "
                 x = match 1 {
@@ -393,7 +393,7 @@ mod r#while {
     use dust_lang::*;
 
     #[test]
-    fn interpret_while_loop() {
+    fn while_loop() {
         assert_eq!(interpret("while false { 'foo' }"), Ok(Value::Option(None)))
     }
 

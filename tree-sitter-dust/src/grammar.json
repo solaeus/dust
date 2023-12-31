@@ -17,38 +17,6 @@
       "type": "PATTERN",
       "value": "[#][^#\\n]*[#|\\n]"
     },
-    "block": {
-      "type": "SEQ",
-      "members": [
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "async"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "STRING",
-          "value": "{"
-        },
-        {
-          "type": "REPEAT1",
-          "content": {
-            "type": "SYMBOL",
-            "name": "statement"
-          }
-        },
-        {
-          "type": "STRING",
-          "value": "}"
-        }
-      ]
-    },
     "statement": {
       "type": "PREC_LEFT",
       "value": 0,
@@ -202,6 +170,38 @@
         }
       }
     },
+    "block": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "async"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "STRING",
+          "value": "{"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "statement"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": "}"
+        }
+      ]
+    },
     "identifier": {
       "type": "CHOICE",
       "members": [
@@ -217,7 +217,7 @@
     },
     "_identifier_pattern": {
       "type": "PATTERN",
-      "value": "[_a-zA-Z]+[_a-zA-Z0-9]?"
+      "value": "[_a-zA-Z]+[_a-zA-Z0-9]*[_a-zA-Z]?"
     },
     "value": {
       "type": "CHOICE",
@@ -518,7 +518,7 @@
           "value": "{"
         },
         {
-          "type": "REPEAT",
+          "type": "REPEAT1",
           "content": {
             "type": "SEQ",
             "members": [
