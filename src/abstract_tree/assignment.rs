@@ -103,7 +103,7 @@ impl AbstractTree for Assignment {
             statement_type
         };
 
-        context.set(variable_key, Value::Option(None), Some(variable_type))?;
+        context.set(variable_key, Value::none(), Some(variable_type))?;
 
         Ok(Assignment {
             identifier,
@@ -143,7 +143,7 @@ impl AbstractTree for Assignment {
             context.set(key.clone(), new_value, None)?;
         }
 
-        Ok(Value::Option(None))
+        Ok(Value::none())
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {

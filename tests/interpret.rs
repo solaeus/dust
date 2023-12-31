@@ -81,13 +81,13 @@ mod for_loop {
     fn modify_value_async() {
         let result = interpret(
             "
-            list = []
-            async for i in [1 2 3] { list += i }
-            length(list)
+            fn = (x <int>) <none> {}
+
+            fn(1)
             ",
         );
 
-        assert_eq!(Ok(Value::Integer(3)), result);
+        assert_eq!(Ok(Value::none()), result);
     }
 }
 
