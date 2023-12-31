@@ -60,7 +60,11 @@ impl AbstractTree for Root {
         let mut value = Value::none();
 
         for statement in &self.statements {
-            value = statement.run(source, context)?;
+            if let Statement::Return(inner_statement) = statement {
+                return inner_statement.run(source, context);
+            } else {
+                value = statement.run(source, context)?;
+            }
         }
 
         Ok(value)
