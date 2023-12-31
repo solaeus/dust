@@ -313,18 +313,14 @@ impl Mul for Value {
     type Output = Result<Self>;
 
     fn mul(self, other: Self) -> Self::Output {
-        if self.is_integer() && other.is_integer() {
-            let left = self.as_integer().unwrap();
-            let right = other.as_integer().unwrap();
-            let value = Value::Integer(left.saturating_mul(right));
-
-            Ok(value)
+        if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
+            Ok(Value::Integer(left.saturating_mul(right)))
+        } else if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
+            Ok(Value::Float(left * right))
         } else {
-            let left = self.as_number()?;
-            let right = other.as_number()?;
-            let value = Value::Float(left * right);
+            let non_number = if !self.is_number() { self } else { other };
 
-            Ok(value)
+            Err(Error::ExpectedNumber { actual: non_number })
         }
     }
 }
@@ -333,16 +329,20 @@ impl Div for Value {
     type Output = Result<Self>;
 
     fn div(self, other: Self) -> Self::Output {
-        let left = self.as_number()?;
-        let right = other.as_number()?;
-        let result = left / right;
-        let value = if result % 2.0 == 0.0 {
-            Value::Integer(result as i64)
-        } else {
-            Value::Float(result)
-        };
+        if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
+            let divided = left / right;
+            let is_even = divided % 2.0 == 0.0;
 
-        Ok(value)
+            if self.is_integer() && other.is_integer() && is_even {
+                Ok(Value::Integer(divided as i64))
+            } else {
+                Ok(Value::Float(divided))
+            }
+        } else {
+            let non_number = if !self.is_number() { self } else { other };
+
+            Err(Error::ExpectedNumber { actual: non_number })
+        }
     }
 }
 
