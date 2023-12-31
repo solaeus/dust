@@ -76,19 +76,6 @@ mod for_loop {
             result
         );
     }
-
-    #[test]
-    fn modify_value_async() {
-        let result = interpret(
-            "
-            fn = (x <int>) <none> {}
-
-            fn(1)
-            ",
-        );
-
-        assert_eq!(Ok(Value::none()), result);
-    }
 }
 
 mod logic {
@@ -440,5 +427,20 @@ mod type_definition {
                 return_type: Box::new(Type::Integer),
             },
         }));
+    }
+
+    #[test]
+    fn modify_value_async() {
+        let result = interpret(
+            "
+            fn = (x <int>) <none> {
+                
+            }
+
+            fn(1)
+            ",
+        );
+
+        assert_eq!(Ok(Value::none()), result);
     }
 }

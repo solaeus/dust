@@ -58,10 +58,6 @@ impl AbstractTree for Block {
                 .into_par_iter()
                 .enumerate()
                 .find_map_first(|(index, statement)| {
-                    if let Statement::Return(expression) = statement {
-                        return Some(expression.run(source, context));
-                    }
-
                     let result = statement.run(source, context);
 
                     if result.is_err() {
@@ -79,10 +75,6 @@ impl AbstractTree for Block {
             let mut prev_result = None;
 
             for statement in &self.statements {
-                if let Statement::Return(expression) = statement {
-                    return expression.run(source, context);
-                }
-
                 prev_result = Some(statement.run(source, context));
             }
 
@@ -91,10 +83,6 @@ impl AbstractTree for Block {
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
-        if self.is_async {
-            Ok(Type::Any)
-        } else {
-            self.statements.last().unwrap().expected_type(context)
-        }
+        self.statements.last().unwrap().expected_type(context)
     }
 }
