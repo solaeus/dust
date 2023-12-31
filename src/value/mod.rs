@@ -88,7 +88,7 @@ impl Value {
     }
 
     pub fn none() -> Self {
-        Value::none()
+        Value::Option(None)
     }
 
     pub fn is_string(&self) -> bool {
@@ -120,7 +120,7 @@ impl Value {
     }
 
     pub fn is_none(&self) -> bool {
-        matches!(self, Value::none())
+        matches!(self, Value::Option(None))
     }
 
     pub fn is_map(&self) -> bool {
@@ -255,7 +255,7 @@ impl Value {
 
 impl Default for &Value {
     fn default() -> Self {
-        &Value::none()
+        &Value::Option(None)
     }
 }
 
