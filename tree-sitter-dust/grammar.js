@@ -323,7 +323,7 @@ module.exports = grammar({
 
     return: $ =>
       prec.right(
-        seq('return', $.expression),
+        seq('return', $.statement),
       ),
 
     type_definition: $ =>

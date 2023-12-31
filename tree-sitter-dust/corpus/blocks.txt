@@ -1,0 +1,52 @@
+================================================================================
+Simple Block
+================================================================================
+
+{
+	output(123)
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (block
+      (statement
+        (expression
+          (function_call
+            (function_expression
+              (identifier
+                (built_in_function)))
+            (expression
+              (value
+                (integer)))))))))
+
+================================================================================
+Block with Return
+================================================================================
+
+{
+	1
+    return 4
+    5
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (block
+      (statement
+        (expression
+          (value
+            (integer))))
+      (statement
+        (return
+          (statement
+            (expression
+              (value
+                (integer))))))
+      (statement
+        (expression
+          (value
+            (integer)))))))

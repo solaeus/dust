@@ -37,8 +37,9 @@ impl AbstractTree for Block {
         for index in 1..node.child_count() - 1 {
             let child_node = node.child(index).unwrap();
 
-            if child_node.is_named() {
+            if child_node.kind() == "statement" {
                 let statement = Statement::from_syntax_node(source, child_node, context)?;
+
                 statements.push(statement);
             }
         }
@@ -59,13 +60,25 @@ impl AbstractTree for Block {
                 .enumerate()
                 .find_map_first(|(index, statement)| {
                     let result = statement.run(source, context);
+                    let is_last_statement = index == statements.len() - 1;
+                    let is_return_statement = if let Statement::Return(_) = statement {
+                        true
+                    } else {
+                        false
+                    };
 
-                    if result.is_err() {
+                    if is_return_statement || result.is_err() {
                         Some(result)
-                    } else if index == statements.len() - 1 {
-                        let _ = final_result.write().unwrap().as_mut().map(|_| result);
+                    } else if is_last_statement {
+                        let get_write_lock = final_result.write();
 
-                        None
+                        match get_write_lock {
+                            Ok(mut final_result) => {
+                                *final_result = result;
+                                None
+                            }
+                            Err(error) => Some(Err(error.into())),
+                        }
                     } else {
                         None
                     }
@@ -75,6 +88,10 @@ impl AbstractTree for Block {
             let mut prev_result = None;
 
             for statement in &self.statements {
+                if let Statement::Return(inner_statement) = statement {
+                    return inner_statement.run(source, context);
+                }
+
                 prev_result = Some(statement.run(source, context));
             }
 

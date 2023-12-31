@@ -1022,7 +1022,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "expression"
+            "name": "statement"
           }
         ]
       }

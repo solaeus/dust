@@ -15,6 +15,7 @@ pub enum Statement {
     Match(Match),
     While(Box<While>),
     Block(Box<Block>),
+    Return(Box<Statement>),
     For(Box<For>),
     IndexAssignment(Box<IndexAssignment>),
 }
@@ -50,9 +51,14 @@ impl AbstractTree for Statement {
             "match" => Ok(Statement::Match(Match::from_syntax_node(
                 source, child, context,
             )?)),
+            "return" => {
+                let statement_node = child.child(1).unwrap();
+
+                Ok(Statement::Return(Box::new(Statement::from_syntax_node(source, statement_node, context)?)))
+            },
             _ => Err(Error::UnexpectedSyntaxNode {
                 expected:
-                    "assignment, expression, block, return, if...else, while, for, index_assignment or match".to_string(),
+                    "assignment, index assignment, expression, block, return, if...else, while, for or match".to_string(),
                 actual: child.kind().to_string(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),
@@ -70,6 +76,7 @@ impl AbstractTree for Statement {
             Statement::Block(block) => block.run(source, context),
             Statement::For(r#for) => r#for.run(source, context),
             Statement::IndexAssignment(index_assignment) => index_assignment.run(source, context),
+            Statement::Return(statement) => statement.run(source, context),
         }
     }
 
@@ -83,6 +90,7 @@ impl AbstractTree for Statement {
             Statement::Block(block) => block.expected_type(context),
             Statement::For(r#for) => r#for.expected_type(context),
             Statement::IndexAssignment(index_assignment) => index_assignment.expected_type(context),
+            Statement::Return(statement) => statement.expected_type(context),
         }
     }
 }
