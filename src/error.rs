@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::{LanguageError, Node, Point};
 
-use crate::{value::Value, BuiltInFunction, Type};
+use crate::{value::Value, Type};
 
 use std::{
     fmt::{self, Formatter},
@@ -200,7 +200,7 @@ impl Error {
     }
 
     pub fn expect_argument_amount(
-        function: &BuiltInFunction,
+        function_name: &str,
         expected: usize,
         actual: usize,
     ) -> Result<()> {
@@ -208,7 +208,7 @@ impl Error {
             Ok(())
         } else {
             Err(Error::ExpectedBuiltInFunctionArgumentAmount {
-                function_name: function.name().to_string(),
+                function_name: function_name.to_string(),
                 expected,
                 actual,
             })

@@ -1431,6 +1431,10 @@
         {
           "type": "STRING",
           "value": "random"
+        },
+        {
+          "type": "STRING",
+          "value": "string"
         }
       ]
     }

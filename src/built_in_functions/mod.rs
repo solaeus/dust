@@ -1,9 +1,13 @@
+mod string;
+
 use std::fs::read_to_string;
 
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Map, Result, Type, Value};
+
+pub use string::{string_functions, StringFunction};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
@@ -16,6 +20,7 @@ pub enum BuiltInFunction {
     RandomFloat,
     RandomFrom,
     RandomInteger,
+    String(StringFunction),
 }
 
 impl BuiltInFunction {
@@ -30,6 +35,7 @@ impl BuiltInFunction {
             BuiltInFunction::RandomFloat => "float",
             BuiltInFunction::RandomFrom => "from",
             BuiltInFunction::RandomInteger => "integer",
+            BuiltInFunction::String(string_function) => string_function.name(),
         }
     }
 
@@ -44,13 +50,14 @@ impl BuiltInFunction {
             BuiltInFunction::RandomFloat => Type::function(vec![], Type::Float),
             BuiltInFunction::RandomFrom => Type::function(vec![Type::Collection], Type::Any),
             BuiltInFunction::RandomInteger => Type::function(vec![], Type::Integer),
+            BuiltInFunction::String(string_function) => string_function.r#type(),
         }
     }
 
     pub fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
         match self {
             BuiltInFunction::AssertEqual => {
-                Error::expect_argument_amount(self, 2, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let left = arguments.get(0).unwrap();
                 let right = arguments.get(1).unwrap();
@@ -58,7 +65,7 @@ impl BuiltInFunction {
                 Ok(Value::Boolean(left == right))
             }
             BuiltInFunction::FsRead => {
-                Error::expect_argument_amount(self, 1, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let path = arguments.first().unwrap().as_string()?;
                 let file_content = read_to_string(path)?;
@@ -66,7 +73,7 @@ impl BuiltInFunction {
                 Ok(Value::String(file_content))
             }
             BuiltInFunction::JsonParse => {
-                Error::expect_argument_amount(self, 1, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let value = serde_json::from_str(&string)?;
@@ -74,7 +81,7 @@ impl BuiltInFunction {
                 Ok(value)
             }
             BuiltInFunction::Length => {
-                Error::expect_argument_amount(self, 1, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
                 let length = if let Ok(list) = value.as_list() {
@@ -92,7 +99,7 @@ impl BuiltInFunction {
                 Ok(Value::Integer(length as i64))
             }
             BuiltInFunction::Output => {
-                Error::expect_argument_amount(self, 1, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
 
@@ -101,17 +108,17 @@ impl BuiltInFunction {
                 Ok(Value::none())
             }
             BuiltInFunction::RandomBoolean => {
-                Error::expect_argument_amount(self, 0, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 0, arguments.len())?;
 
                 Ok(Value::Boolean(random()))
             }
             BuiltInFunction::RandomFloat => {
-                Error::expect_argument_amount(self, 0, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 0, arguments.len())?;
 
                 Ok(Value::Float(random()))
             }
             BuiltInFunction::RandomFrom => {
-                Error::expect_argument_amount(self, 1, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
 
@@ -131,9 +138,12 @@ impl BuiltInFunction {
                 }
             }
             BuiltInFunction::RandomInteger => {
-                Error::expect_argument_amount(self, 0, arguments.len())?;
+                Error::expect_argument_amount(self.name(), 0, arguments.len())?;
 
                 Ok(Value::Integer(random()))
+            }
+            BuiltInFunction::String(string_function) => {
+                string_function.call(arguments, _source, _outer_context)
             }
         }
     }

@@ -3,12 +3,16 @@ use std::{env::args, sync::OnceLock};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, BuiltInFunction, Function, List, Map, Result, Type, Value};
+use crate::{
+    built_in_functions::{string_functions, StringFunction},
+    AbstractTree, BuiltInFunction, Function, List, Map, Result, Type, Value,
+};
 
 static ARGS: OnceLock<Value> = OnceLock::new();
 static FS: OnceLock<Value> = OnceLock::new();
 static JSON: OnceLock<Value> = OnceLock::new();
 static RANDOM: OnceLock<Value> = OnceLock::new();
+static STRING: OnceLock<Value> = OnceLock::new();
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInValue {
@@ -19,6 +23,7 @@ pub enum BuiltInValue {
     Length,
     Output,
     Random,
+    String,
 }
 
 impl BuiltInValue {
@@ -31,6 +36,7 @@ impl BuiltInValue {
             BuiltInValue::Length => BuiltInFunction::Length.r#type(),
             BuiltInValue::Output => BuiltInFunction::Output.r#type(),
             BuiltInValue::Random => Type::Map,
+            BuiltInValue::String => Type::Map,
         }
     }
 
@@ -94,6 +100,25 @@ impl BuiltInValue {
 
                 Value::Map(random_context)
             }),
+            BuiltInValue::String => STRING.get_or_init(|| {
+                let string_context = Map::new();
+
+                {
+                    let mut variables = string_context.variables_mut().unwrap();
+
+                    for string_function in [StringFunction::AsBytes] {
+                        let key = string_function.name().to_string();
+                        let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
+                            string_function,
+                        )));
+                        let r#type = string_function.r#type();
+
+                        variables.insert(key, (value, r#type));
+                    }
+                }
+
+                Value::Map(string_context)
+            }),
         }
     }
 }
@@ -108,6 +133,7 @@ impl AbstractTree for BuiltInValue {
             "length" => BuiltInValue::Length,
             "output" => BuiltInValue::Output,
             "random" => BuiltInValue::Random,
+            "string" => BuiltInValue::String,
             _ => todo!(),
         };
 
