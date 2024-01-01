@@ -11,13 +11,14 @@ mod option;
 mod output;
 mod packages;
 mod random;
+mod std;
 mod r#type;
 
 /// All built-in functions recognized by the interpreter.
 ///
 /// This is the public interface to access built-in functions by iterating over
 /// the references it holds.
-pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 21] = [
+pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 22] = [
     &assert::Assert,
     &assert::AssertEqual,
     &collections::Length,
@@ -38,6 +39,7 @@ pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 21] = [
     &random::RandomBoolean,
     &random::RandomFloat,
     &random::RandomInteger,
+    &std::Std,
     &r#type::TypeFunction,
 ];
 
