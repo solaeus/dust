@@ -69,7 +69,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn list_of(item_type: Type) -> Self {
+    pub fn list(item_type: Type) -> Self {
         Type::List(Box::new(item_type))
     }
 
@@ -78,6 +78,10 @@ impl Type {
             parameter_types,
             return_type: Box::new(return_type),
         }
+    }
+
+    pub fn option(optional_type: Type) -> Self {
+        Type::Option(Box::new(optional_type))
     }
 
     pub fn check(&self, other: &Type) -> Result<()> {
@@ -257,10 +261,10 @@ impl Display for Type {
             } => {
                 write!(f, "(")?;
 
-                for parameter_type in parameter_types {
+                for (index, parameter_type) in parameter_types.iter().enumerate() {
                     write!(f, "{parameter_type}")?;
 
-                    if parameter_type != parameter_types.last().unwrap() {
+                    if index != parameter_types.len() - 1 {
                         write!(f, " ")?;
                     }
                 }

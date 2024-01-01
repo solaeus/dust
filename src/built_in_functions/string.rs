@@ -43,68 +43,104 @@ impl StringFunction {
     pub fn name(&self) -> &'static str {
         match self {
             StringFunction::AsBytes => "as_bytes",
-            StringFunction::EndsWith => todo!(),
-            StringFunction::Find => todo!(),
-            StringFunction::IsAscii => todo!(),
-            StringFunction::IsEmpty => todo!(),
-            StringFunction::Lines => todo!(),
-            StringFunction::Matches => todo!(),
-            StringFunction::Split => todo!(),
-            StringFunction::SplitAt => todo!(),
-            StringFunction::SplitInclusive => todo!(),
-            StringFunction::SplitN => todo!(),
-            StringFunction::SplitOnce => todo!(),
-            StringFunction::SplitTerminator => todo!(),
-            StringFunction::SplitWhitespace => todo!(),
-            StringFunction::StartsWith => todo!(),
-            StringFunction::StripPrefix => todo!(),
-            StringFunction::ToLowercase => todo!(),
-            StringFunction::ToUppercase => todo!(),
-            StringFunction::Trim => todo!(),
-            StringFunction::TrimEnd => todo!(),
-            StringFunction::TrimEndMatches => todo!(),
-            StringFunction::TrimLeft => todo!(),
-            StringFunction::TrimLeftMatches => todo!(),
-            StringFunction::TrimMatches => todo!(),
-            StringFunction::TrimRight => todo!(),
-            StringFunction::TrimRightMatches => todo!(),
-            StringFunction::TrimStart => todo!(),
-            StringFunction::TrimStartMatches => todo!(),
+            StringFunction::EndsWith => "ends_with",
+            StringFunction::Find => "find",
+            StringFunction::IsAscii => "is_ascii",
+            StringFunction::IsEmpty => "is_empty",
+            StringFunction::Lines => "lines",
+            StringFunction::Matches => "matches",
+            StringFunction::Split => "split",
+            StringFunction::SplitAt => "split_at",
+            StringFunction::SplitInclusive => "split_inclusive",
+            StringFunction::SplitN => "split_n",
+            StringFunction::SplitOnce => "split_once",
+            StringFunction::SplitTerminator => "split_terminator",
+            StringFunction::SplitWhitespace => "split_whitespace",
+            StringFunction::StartsWith => "starts_with",
+            StringFunction::StripPrefix => "strip_prefix",
+            StringFunction::ToLowercase => "to_lowercase",
+            StringFunction::ToUppercase => "to_uppercase",
+            StringFunction::Trim => "trim",
+            StringFunction::TrimEnd => "trim_end",
+            StringFunction::TrimEndMatches => "trim_end_matches",
+            StringFunction::TrimLeft => "trim_left",
+            StringFunction::TrimLeftMatches => "trim_left_matches",
+            StringFunction::TrimMatches => "trim_matches",
+            StringFunction::TrimRight => "trim_right",
+            StringFunction::TrimRightMatches => "trim_right_matches",
+            StringFunction::TrimStart => "trim_start",
+            StringFunction::TrimStartMatches => "trim_start_matches",
         }
     }
 
     pub fn r#type(&self) -> Type {
         match self {
             StringFunction::AsBytes => {
-                Type::function(vec![Type::String], Type::list_of(Type::Integer))
+                Type::function(vec![Type::String], Type::list(Type::Integer))
             }
-            StringFunction::EndsWith => todo!(),
-            StringFunction::Find => todo!(),
-            StringFunction::IsAscii => todo!(),
-            StringFunction::IsEmpty => todo!(),
-            StringFunction::Lines => todo!(),
-            StringFunction::Matches => todo!(),
-            StringFunction::Split => todo!(),
-            StringFunction::SplitAt => todo!(),
-            StringFunction::SplitInclusive => todo!(),
-            StringFunction::SplitN => todo!(),
-            StringFunction::SplitOnce => todo!(),
-            StringFunction::SplitTerminator => todo!(),
-            StringFunction::SplitWhitespace => todo!(),
-            StringFunction::StartsWith => todo!(),
-            StringFunction::StripPrefix => todo!(),
-            StringFunction::ToLowercase => todo!(),
-            StringFunction::ToUppercase => todo!(),
-            StringFunction::Trim => todo!(),
-            StringFunction::TrimEnd => todo!(),
-            StringFunction::TrimEndMatches => todo!(),
-            StringFunction::TrimLeft => todo!(),
-            StringFunction::TrimLeftMatches => todo!(),
-            StringFunction::TrimMatches => todo!(),
-            StringFunction::TrimRight => todo!(),
-            StringFunction::TrimRightMatches => todo!(),
-            StringFunction::TrimStart => todo!(),
-            StringFunction::TrimStartMatches => todo!(),
+            StringFunction::EndsWith => {
+                Type::function(vec![Type::String, Type::String], Type::Boolean)
+            }
+            StringFunction::Find => Type::function(
+                vec![Type::String, Type::String],
+                Type::option(Type::Integer),
+            ),
+            StringFunction::IsAscii => Type::function(vec![Type::String], Type::Boolean),
+            StringFunction::IsEmpty => Type::function(vec![Type::String], Type::Boolean),
+            StringFunction::Lines => Type::function(vec![Type::String], Type::list(Type::String)),
+            StringFunction::Matches => {
+                Type::function(vec![Type::String, Type::String], Type::list(Type::String))
+            }
+            StringFunction::Split => {
+                Type::function(vec![Type::String, Type::String], Type::list(Type::String))
+            }
+            StringFunction::SplitAt => {
+                Type::function(vec![Type::String, Type::Integer], Type::list(Type::String))
+            }
+            StringFunction::SplitInclusive => {
+                Type::function(vec![Type::String, Type::String], Type::list(Type::String))
+            }
+            StringFunction::SplitN => Type::function(
+                vec![Type::String, Type::Integer, Type::String],
+                Type::list(Type::String),
+            ),
+            StringFunction::SplitOnce => {
+                Type::function(vec![Type::String, Type::String], Type::list(Type::String))
+            }
+            StringFunction::SplitTerminator => {
+                Type::function(vec![Type::String, Type::String], Type::list(Type::String))
+            }
+            StringFunction::SplitWhitespace => {
+                Type::function(vec![Type::String], Type::list(Type::String))
+            }
+            StringFunction::StartsWith => {
+                Type::function(vec![Type::String, Type::String], Type::Boolean)
+            }
+            StringFunction::StripPrefix => {
+                Type::function(vec![Type::String, Type::String], Type::option(Type::String))
+            }
+            StringFunction::ToLowercase => Type::function(vec![Type::String], Type::String),
+            StringFunction::ToUppercase => Type::function(vec![Type::String], Type::String),
+            StringFunction::Trim => Type::function(vec![Type::String], Type::String),
+            StringFunction::TrimEnd => Type::function(vec![Type::String], Type::String),
+            StringFunction::TrimEndMatches => {
+                Type::function(vec![Type::String, Type::String], Type::String)
+            }
+            StringFunction::TrimLeft => Type::function(vec![Type::String], Type::String),
+            StringFunction::TrimLeftMatches => {
+                Type::function(vec![Type::String, Type::String], Type::String)
+            }
+            StringFunction::TrimMatches => {
+                Type::function(vec![Type::String, Type::String], Type::String)
+            }
+            StringFunction::TrimRight => Type::function(vec![Type::String], Type::String),
+            StringFunction::TrimRightMatches => {
+                Type::function(vec![Type::String, Type::String], Type::String)
+            }
+            StringFunction::TrimStart => Type::function(vec![Type::String], Type::String),
+            StringFunction::TrimStartMatches => {
+                Type::function(vec![Type::String, Type::String], Type::String)
+            }
         }
     }
 
@@ -138,7 +174,13 @@ impl StringFunction {
             StringFunction::StripPrefix => todo!(),
             StringFunction::ToLowercase => todo!(),
             StringFunction::ToUppercase => todo!(),
-            StringFunction::Trim => todo!(),
+            StringFunction::Trim => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let trimmed = arguments.first().unwrap().as_string()?.trim().to_string();
+
+                Ok(Value::String(trimmed))
+            }
             StringFunction::TrimEnd => todo!(),
             StringFunction::TrimEndMatches => todo!(),
             StringFunction::TrimLeft => todo!(),

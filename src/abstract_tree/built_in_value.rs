@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    built_in_functions::{string_functions, StringFunction},
-    AbstractTree, BuiltInFunction, Function, List, Map, Result, Type, Value,
+    built_in_functions::string_functions, AbstractTree, BuiltInFunction, Function, List, Map,
+    Result, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -29,7 +29,7 @@ pub enum BuiltInValue {
 impl BuiltInValue {
     fn r#type(&self) -> Type {
         match self {
-            BuiltInValue::Args => Type::list_of(Type::String),
+            BuiltInValue::Args => Type::list(Type::String),
             BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
             BuiltInValue::Fs => Type::Map,
             BuiltInValue::Json => Type::Map,
@@ -106,7 +106,7 @@ impl BuiltInValue {
                 {
                     let mut variables = string_context.variables_mut().unwrap();
 
-                    for string_function in [StringFunction::AsBytes] {
+                    for string_function in string_functions() {
                         let key = string_function.name().to_string();
                         let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
                             string_function,
