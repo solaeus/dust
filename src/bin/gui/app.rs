@@ -1,7 +1,8 @@
 use std::{fs::read_to_string, path::PathBuf};
 
 use dust_lang::{Interpreter, Map, Result, Value};
-use egui::{Align, Color32, Layout, RichText};
+use egui::{Align, Color32, Layout, RichText, ScrollArea};
+use egui_extras::{Column, TableBuilder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -12,6 +13,7 @@ pub struct App {
     #[serde(skip)]
     interpreter: Interpreter,
     output: Result<Value>,
+    error: Option<String>,
 }
 
 impl App {
@@ -33,6 +35,7 @@ impl App {
                 context,
                 interpreter,
                 output,
+                error: None,
             }
         }
 
@@ -77,30 +80,50 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-                ui.with_layout(Layout::top_down(Align::Min).with_main_justify(true), |ui| {
-                    ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+            ui.columns(2, |columns| {
+                ScrollArea::vertical()
+                    .id_source("source")
+                    .show(&mut columns[0], |ui| {
+                        if let Some(error) = &self.error {
+                            ui.label(RichText::new(error).color(Color32::LIGHT_RED));
+                        }
+
                         ui.text_edit_singleline(&mut self.path);
+                        ui.code_editor(&mut self.source);
 
                         if ui.button("read").clicked() {
-                            self.source = read_to_string(&self.path).unwrap();
+                            match read_to_string(&self.path) {
+                                Ok(source) => {
+                                    self.source = source;
+                                    self.error = None;
+                                }
+                                Err(error) => self.error = Some(error.to_string()),
+                            }
                         }
 
                         if ui.button("run").clicked() {
                             self.output = self.interpreter.run(&self.source);
                         }
                     });
-                    ui.code_editor(&mut self.source);
-                });
+                ScrollArea::vertical()
+                    .id_source("output")
+                    .show(&mut columns[1], |ui| match &self.output {
+                        Ok(value) => display_value(value, ui),
+                        Err(error) => {
+                            ui.label(RichText::new(error.to_string()).color(Color32::LIGHT_RED));
 
-                match &self.output {
-                    Ok(value) => {
-                        display_value(value, ui);
-                    }
-                    Err(error) => {
-                        ui.label(error.to_string());
-                    }
-                }
+                            display_value(&Value::Map(self.context.clone()), ui);
+
+                            match &self.output {
+                                Ok(value) => {
+                                    display_value(value, ui);
+                                }
+                                Err(error) => {
+                                    ui.label(error.to_string());
+                                }
+                            }
+                        }
+                    });
             });
         });
     }
@@ -109,13 +132,57 @@ impl eframe::App for App {
 fn display_value(value: &Value, ui: &mut egui::Ui) {
     match value {
         Value::List(list) => {
-            ui.collapsing("list", |ui| {
-                for value in list.items().iter() {
-                    display_value(value, ui);
-                }
-            });
+            let table = TableBuilder::new(ui)
+                .striped(true)
+                .resizable(true)
+                .column(Column::auto())
+                .column(Column::auto());
+
+            table
+                .header(20.0, |mut header| {
+                    header.col(|ui| {
+                        ui.strong("index");
+                    });
+                })
+                .body(|mut body| {
+                    for (index, value) in list.items().iter().enumerate() {
+                        body.row(20.0, |mut row| {
+                            row.col(|ui| {
+                                ui.label(index.to_string());
+                            });
+                            row.col(|ui| {
+                                display_value(value, ui);
+                            });
+                        });
+                    }
+                });
         }
-        Value::Map(_) => todo!(),
+        Value::Map(map) => {
+            let table = TableBuilder::new(ui)
+                .striped(true)
+                .resizable(true)
+                .column(Column::auto())
+                .column(Column::auto());
+
+            table
+                .header(20.0, |mut header| {
+                    header.col(|ui| {
+                        ui.strong("key");
+                    });
+                })
+                .body(|mut body| {
+                    for (key, (value, _)) in map.variables().unwrap().iter() {
+                        body.row(20.0, |mut row| {
+                            row.col(|ui| {
+                                ui.label(key);
+                            });
+                            row.col(|ui| {
+                                display_value(value, ui);
+                            });
+                        });
+                    }
+                });
+        }
         Value::Function(function) => {
             ui.label(function.to_string());
         }
@@ -131,6 +198,30 @@ fn display_value(value: &Value, ui: &mut egui::Ui) {
         Value::Boolean(boolean) => {
             ui.label(RichText::new(boolean.to_string()).color(Color32::RED));
         }
-        Value::Option(_) => todo!(),
+        Value::Option(option) => match option {
+            Some(value) => {
+                let table = TableBuilder::new(ui)
+                    .striped(true)
+                    .resizable(true)
+                    .column(Column::auto());
+
+                table
+                    .header(20.0, |mut header| {
+                        header.col(|ui| {
+                            ui.strong("some");
+                        });
+                    })
+                    .body(|mut body| {
+                        body.row(20.0, |mut row| {
+                            row.col(|ui| {
+                                display_value(value, ui);
+                            });
+                        });
+                    });
+            }
+            None => {
+                ui.label("none");
+            }
+        },
     }
 }
