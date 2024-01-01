@@ -303,8 +303,35 @@ impl StringFunction {
                     Value::none()
                 }
             }
-            StringFunction::ReplaceRange => todo!(),
-            StringFunction::Retain => todo!(),
+            StringFunction::ReplaceRange => {
+                Error::expect_argument_amount(self.name(), 3, arguments.len())?;
+
+                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let range = arguments.get(1).unwrap().as_list()?.items();
+                let start = range.get(0).unwrap_or_default().as_integer()? as usize;
+                let end = range.get(1).unwrap_or_default().as_integer()? as usize;
+                let pattern = arguments.get(2).unwrap().as_string()?;
+
+                string.replace_range(start..end, &pattern);
+
+                Value::none()
+            }
+            StringFunction::Retain => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let predicate = arguments.get(1).unwrap().as_function()?;
+
+                string.retain(|char| {
+                    predicate
+                        .call(None, &[Value::string(char)], _source, _outer_context)
+                        .unwrap()
+                        .as_boolean()
+                        .unwrap()
+                });
+
+                Value::none()
+            }
             StringFunction::Split => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
