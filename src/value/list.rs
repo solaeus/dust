@@ -1,5 +1,6 @@
 use std::{
     cmp::Ordering,
+    fmt::{self, Display, Formatter},
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
@@ -59,5 +60,23 @@ impl Ord for List {
 impl PartialOrd for List {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl Display for List {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let items = self.items();
+
+        write!(f, "[")?;
+
+        for (index, value) in items.iter().enumerate() {
+            write!(f, "{value}")?;
+
+            if index != items.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+
+        write!(f, "]")
     }
 }

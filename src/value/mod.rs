@@ -489,13 +489,7 @@ impl Display for Value {
                     write!(f, "none")
                 }
             }
-            Value::List(list) => {
-                write!(f, "[")?;
-                for value in list.items().iter() {
-                    write!(f, " {value} ")?;
-                }
-                write!(f, "]")
-            }
+            Value::List(list) => write!(f, "{list}"),
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
         }
