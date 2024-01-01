@@ -30,11 +30,7 @@ pub enum StringFunction {
     Trim,
     TrimEnd,
     TrimEndMatches,
-    TrimLeft,
-    TrimLeftMatches,
     TrimMatches,
-    TrimRight,
-    TrimRightMatches,
     TrimStart,
     TrimStartMatches,
 }
@@ -63,11 +59,7 @@ impl StringFunction {
             StringFunction::Trim => "trim",
             StringFunction::TrimEnd => "trim_end",
             StringFunction::TrimEndMatches => "trim_end_matches",
-            StringFunction::TrimLeft => "trim_left",
-            StringFunction::TrimLeftMatches => "trim_left_matches",
             StringFunction::TrimMatches => "trim_matches",
-            StringFunction::TrimRight => "trim_right",
-            StringFunction::TrimRightMatches => "trim_right_matches",
             StringFunction::TrimStart => "trim_start",
             StringFunction::TrimStartMatches => "trim_start_matches",
         }
@@ -126,15 +118,7 @@ impl StringFunction {
             StringFunction::TrimEndMatches => {
                 Type::function(vec![Type::String, Type::String], Type::String)
             }
-            StringFunction::TrimLeft => Type::function(vec![Type::String], Type::String),
-            StringFunction::TrimLeftMatches => {
-                Type::function(vec![Type::String, Type::String], Type::String)
-            }
             StringFunction::TrimMatches => {
-                Type::function(vec![Type::String, Type::String], Type::String)
-            }
-            StringFunction::TrimRight => Type::function(vec![Type::String], Type::String),
-            StringFunction::TrimRightMatches => {
                 Type::function(vec![Type::String, Type::String], Type::String)
             }
             StringFunction::TrimStart => Type::function(vec![Type::String], Type::String),
@@ -220,7 +204,7 @@ impl StringFunction {
                 let pattern = arguments.get(1).unwrap().as_string()?;
                 let sections = string
                     .split(pattern)
-                    .map(|pattern| Value::String(pattern.to_string()))
+                    .map(|section| Value::String(section.to_string()))
                     .collect();
 
                 Value::List(List::with_items(sections))
@@ -276,12 +260,64 @@ impl StringFunction {
 
                 Value::option(sections)
             }
-            StringFunction::SplitTerminator => todo!(),
-            StringFunction::SplitWhitespace => todo!(),
-            StringFunction::StartsWith => todo!(),
-            StringFunction::StripPrefix => todo!(),
-            StringFunction::ToLowercase => todo!(),
-            StringFunction::ToUppercase => todo!(),
+            StringFunction::SplitTerminator => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+                let sections = string
+                    .split_terminator(pattern)
+                    .map(|section| Value::String(section.to_string()))
+                    .collect();
+
+                Value::List(List::with_items(sections))
+            }
+            StringFunction::SplitWhitespace => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let sections = string
+                    .split_whitespace()
+                    .map(|section| Value::String(section.to_string()))
+                    .collect();
+
+                Value::List(List::with_items(sections))
+            }
+            StringFunction::StartsWith => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+
+                Value::Boolean(string.starts_with(pattern))
+            }
+            StringFunction::StripPrefix => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let prefix = arguments.get(1).unwrap().as_string()?;
+                let stripped = string
+                    .strip_prefix(prefix)
+                    .map(|remainder| Value::String(remainder.to_string()));
+
+                Value::option(stripped)
+            }
+            StringFunction::ToLowercase => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let lowercase = string.to_lowercase();
+
+                Value::String(lowercase)
+            }
+            StringFunction::ToUppercase => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let uppercase = string.to_uppercase();
+
+                Value::String(uppercase)
+            }
             StringFunction::Trim => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
@@ -289,14 +325,53 @@ impl StringFunction {
 
                 Value::String(trimmed)
             }
-            StringFunction::TrimEnd => todo!(),
-            StringFunction::TrimEndMatches => todo!(),
-            StringFunction::TrimLeft => todo!(),
-            StringFunction::TrimLeftMatches => todo!(),
-            StringFunction::TrimMatches => todo!(),
-            StringFunction::TrimRight => todo!(),
-            StringFunction::TrimRightMatches => todo!(),
-            StringFunction::TrimStart => todo!(),
+            StringFunction::TrimEnd => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let trimmed = arguments
+                    .first()
+                    .unwrap()
+                    .as_string()?
+                    .trim_end()
+                    .to_string();
+
+                Value::String(trimmed)
+            }
+            StringFunction::TrimEndMatches => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+                let trimmed = string.trim_end_matches(pattern).to_string();
+
+                Value::String(trimmed)
+            }
+            StringFunction::TrimMatches => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments
+                    .get(1)
+                    .unwrap()
+                    .as_string()?
+                    .chars()
+                    .collect::<Vec<char>>();
+                let trimmed = string.trim_matches(pattern.as_slice()).to_string();
+
+                Value::String(trimmed)
+            }
+            StringFunction::TrimStart => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let trimmed = arguments
+                    .first()
+                    .unwrap()
+                    .as_string()?
+                    .trim_start()
+                    .to_string();
+
+                Value::String(trimmed)
+            }
             StringFunction::TrimStartMatches => todo!(),
         };
 
