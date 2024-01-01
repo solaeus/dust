@@ -145,7 +145,7 @@ impl StringFunction {
     }
 
     pub fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
-        match self {
+        let value = match self {
             StringFunction::AsBytes => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
@@ -155,7 +155,7 @@ impl StringFunction {
                     .map(|byte| Value::Integer(byte as i64))
                     .collect();
 
-                Ok(Value::List(List::with_items(bytes)))
+                Value::List(List::with_items(bytes))
             }
             StringFunction::EndsWith => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
@@ -163,7 +163,7 @@ impl StringFunction {
                 let string = arguments.get(0).unwrap().as_string()?;
                 let pattern = arguments.get(1).unwrap().as_string()?;
 
-                Ok(Value::Boolean(string.ends_with(pattern)))
+                Value::Boolean(string.ends_with(pattern))
             }
             StringFunction::Find => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
@@ -174,17 +174,108 @@ impl StringFunction {
                     .find(pattern)
                     .map(|index| Box::new(Value::Integer(index as i64)));
 
-                Ok(Value::Option(find))
+                Value::Option(find)
             }
-            StringFunction::IsAscii => todo!(),
-            StringFunction::IsEmpty => todo!(),
-            StringFunction::Lines => todo!(),
-            StringFunction::Matches => todo!(),
-            StringFunction::Split => todo!(),
-            StringFunction::SplitAt => todo!(),
-            StringFunction::SplitInclusive => todo!(),
-            StringFunction::SplitN => todo!(),
-            StringFunction::SplitOnce => todo!(),
+            StringFunction::IsAscii => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let string = arguments.first().unwrap().as_string()?;
+
+                Value::Boolean(string.is_ascii())
+            }
+            StringFunction::IsEmpty => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let string = arguments.first().unwrap().as_string()?;
+
+                Value::Boolean(string.is_empty())
+            }
+            StringFunction::Lines => {
+                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+
+                let string = arguments.first().unwrap().as_string()?;
+                let lines = string
+                    .lines()
+                    .map(|line| Value::String(line.to_string()))
+                    .collect();
+
+                Value::List(List::with_items(lines))
+            }
+            StringFunction::Matches => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+                let matches = string
+                    .matches(pattern)
+                    .map(|pattern| Value::String(pattern.to_string()))
+                    .collect();
+
+                Value::List(List::with_items(matches))
+            }
+            StringFunction::Split => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+                let sections = string
+                    .split(pattern)
+                    .map(|pattern| Value::String(pattern.to_string()))
+                    .collect();
+
+                Value::List(List::with_items(sections))
+            }
+            StringFunction::SplitAt => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let index = arguments.get(1).unwrap().as_integer()?;
+                let (left, right) = string.split_at(index as usize);
+
+                Value::List(List::with_items(vec![
+                    Value::String(left.to_string()),
+                    Value::String(right.to_string()),
+                ]))
+            }
+            StringFunction::SplitInclusive => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+                let sections = string
+                    .split(pattern)
+                    .map(|pattern| Value::String(pattern.to_string()))
+                    .collect();
+
+                Value::List(List::with_items(sections))
+            }
+            StringFunction::SplitN => {
+                Error::expect_argument_amount(self.name(), 3, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let count = arguments.get(1).unwrap().as_integer()?;
+                let pattern = arguments.get(2).unwrap().as_string()?;
+                let sections = string
+                    .splitn(count as usize, pattern)
+                    .map(|pattern| Value::String(pattern.to_string()))
+                    .collect();
+
+                Value::List(List::with_items(sections))
+            }
+            StringFunction::SplitOnce => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+                let sections = string.split_once(pattern).map(|(left, right)| {
+                    Value::List(List::with_items(vec![
+                        Value::String(left.to_string()),
+                        Value::String(right.to_string()),
+                    ]))
+                });
+
+                Value::option(sections)
+            }
             StringFunction::SplitTerminator => todo!(),
             StringFunction::SplitWhitespace => todo!(),
             StringFunction::StartsWith => todo!(),
@@ -196,7 +287,7 @@ impl StringFunction {
 
                 let trimmed = arguments.first().unwrap().as_string()?.trim().to_string();
 
-                Ok(Value::String(trimmed))
+                Value::String(trimmed)
             }
             StringFunction::TrimEnd => todo!(),
             StringFunction::TrimEndMatches => todo!(),
@@ -207,6 +298,8 @@ impl StringFunction {
             StringFunction::TrimRightMatches => todo!(),
             StringFunction::TrimStart => todo!(),
             StringFunction::TrimStartMatches => todo!(),
-        }
+        };
+
+        Ok(value)
     }
 }

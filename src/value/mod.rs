@@ -91,6 +91,10 @@ impl Value {
         Value::Option(None)
     }
 
+    pub fn option(option: Option<Value>) -> Self {
+        Value::Option(option.map(|value| Box::new(value)))
+    }
+
     pub fn is_string(&self) -> bool {
         matches!(self, Value::String(_))
     }
