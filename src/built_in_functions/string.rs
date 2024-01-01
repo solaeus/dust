@@ -515,8 +515,34 @@ impl StringFunction {
 
                 Value::string(trimmed)
             }
-            StringFunction::TrimStartMatches => todo!(),
-            StringFunction::Truncate => todo!(),
+            StringFunction::TrimStartMatches => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments
+                    .get(1)
+                    .unwrap()
+                    .as_string()?
+                    .chars()
+                    .collect::<Vec<char>>();
+                let trimmed = string.trim_start_matches(pattern.as_slice()).to_string();
+
+                Value::string(trimmed)
+            }
+            StringFunction::Truncate => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let new_length = arguments.get(1).unwrap().as_integer()? as usize;
+
+                *string = string
+                    .chars()
+                    .take(new_length)
+                    .map(|char| char.to_string())
+                    .collect();
+
+                Value::none()
+            }
         };
 
         Ok(value)
