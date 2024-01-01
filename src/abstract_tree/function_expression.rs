@@ -30,6 +30,7 @@ impl AbstractTree for FunctionExpression {
             "identifier" => FunctionExpression::Identifier(Identifier::from_syntax_node(
                 source, child, context,
             )?),
+
             "function_call" => FunctionExpression::FunctionCall(Box::new(
                 FunctionCall::from_syntax_node(source, child, context)?,
             )),

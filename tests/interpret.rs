@@ -183,6 +183,11 @@ mod value {
         let result = interpret("() <int> { 1 }");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
+        let function = if let Function::ContextDefined(function) = function {
+            function
+        } else {
+            panic!("Something is wrong with this test...");
+        };
 
         assert_eq!(&Vec::<Identifier>::with_capacity(0), function.parameters());
         assert_eq!(&Type::Integer, function.return_type());
@@ -190,6 +195,11 @@ mod value {
         let result = interpret("(x <bool>) <bool> { true }");
         let value = result.unwrap();
         let function = value.as_function().unwrap();
+        let function = if let Function::ContextDefined(function) = function {
+            function
+        } else {
+            panic!("Something is wrong with this test...");
+        };
 
         assert_eq!(
             &vec![Identifier::new("x".to_string())],
@@ -500,6 +510,18 @@ mod blocks {
                 "
             ),
             Ok(Value::Integer(1))
+        );
+    }
+}
+
+mod std {
+    use dust_lang::*;
+
+    #[test]
+    fn load_std() {
+        assert_eq!(
+            interpret("std:read"),
+            Ok(Value::Function(Function::BuiltIn(BuiltInFunction::FsRead)))
         );
     }
 }

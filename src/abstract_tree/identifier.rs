@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Type, Value, BUILT_IN_FUNCTIONS};
+use crate::{AbstractTree, Error, Map, Result, Type, Value};
 
 /// A string by which a variable is known to a context.
 ///
@@ -47,12 +47,6 @@ impl AbstractTree for Identifier {
         if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
             Ok(r#type.clone())
         } else {
-            for built_in_function in BUILT_IN_FUNCTIONS {
-                if self.0 == built_in_function.name() {
-                    return Ok(built_in_function.r#type());
-                }
-            }
-
             Ok(Type::None)
         }
     }

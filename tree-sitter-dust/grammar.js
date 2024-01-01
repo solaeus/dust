@@ -1,7 +1,7 @@
 module.exports = grammar({
   name: 'dust',
 
-  word: $ => $._identifier_pattern,
+  word: $ => $.identifier,
 
   extras: $ => [/\s/, $._comment],
 
@@ -71,12 +71,6 @@ module.exports = grammar({
       ),
 
     identifier: $ =>
-      choice(
-        $._identifier_pattern,
-        $.built_in_function,
-      ),
-
-    _identifier_pattern: $ =>
       /[_a-zA-Z]+[_a-zA-Z0-9]*[_a-zA-Z]?/,
 
     value: $ =>
@@ -406,11 +400,10 @@ module.exports = grammar({
       prec(
         2,
         choice(
-          $.built_in_value,
-          $.function,
           $.function_call,
           $.identifier,
           $.index,
+          $.value,
           $.yield,
         ),
       ),
@@ -442,30 +435,14 @@ module.exports = grammar({
         ),
       ),
 
-    built_in_function: $ =>
+    built_in_value: $ =>
       choice(
-        'assert',
+        'args',
         'assert_equal',
-        'bash',
-        'download',
-        'either_or',
-        'fish',
-        'from_json',
-        'is_none',
-        'is_some',
+        'env',
         'length',
-        'metadata',
         'output',
-        'output_error',
         'random',
-        'random_boolean',
-        'random_float',
-        'random_integer',
-        'read',
-        'to_json',
-        'write',
       ),
-
-    built_in_value: $ => choice('std'),
   },
 });

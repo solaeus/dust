@@ -223,6 +223,5 @@ fn display_value(value: &Value, ui: &mut egui::Ui) {
                 ui.label("none");
             }
         },
-        Value::BuiltIn(_) => todo!(),
     }
 }

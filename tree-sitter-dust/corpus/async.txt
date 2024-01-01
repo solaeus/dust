@@ -13,8 +13,8 @@ async { output ('Whaddup') }
         (expression
           (function_call
             (function_expression
-              (identifier
-                (built_in_function)))
+              (value
+                (built_in_value)))
             (expression
               (value
                 (string)))))))))

@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{
-    AbstractTree, Error, Expression, FunctionExpression, Map, Result, Type, Value,
-    BUILT_IN_FUNCTIONS,
-};
+use crate::{AbstractTree, Error, Expression, FunctionExpression, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
@@ -84,21 +81,6 @@ impl AbstractTree for FunctionCall {
         let value = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
-
-                for built_in_function in BUILT_IN_FUNCTIONS {
-                    if key == built_in_function.name() {
-                        let mut arguments = Vec::with_capacity(self.arguments.len());
-
-                        for expression in &self.arguments {
-                            let value = expression.run(source, context)?;
-
-                            arguments.push(value);
-                        }
-
-                        return built_in_function.run(&arguments, context);
-                    }
-                }
-
                 let variables = context.variables()?;
 
                 if let Some((value, _)) = variables.get(key) {
@@ -131,18 +113,6 @@ impl AbstractTree for FunctionCall {
     fn expected_type(&self, context: &Map) -> Result<Type> {
         match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
-                for built_in_function in BUILT_IN_FUNCTIONS {
-                    if identifier.inner() == built_in_function.name() {
-                        if let Type::Function {
-                            parameter_types: _,
-                            return_type,
-                        } = built_in_function.r#type()
-                        {
-                            return Ok(*return_type);
-                        }
-                    }
-                }
-
                 let identifier_type = identifier.expected_type(context)?;
 
                 if let Type::Function {
@@ -156,7 +126,15 @@ impl AbstractTree for FunctionCall {
                 }
             }
             FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
-            FunctionExpression::Value(value_node) => value_node.expected_type(context),
+            FunctionExpression::Value(value_node) => {
+                let value_type = value_node.expected_type(context)?;
+
+                if let Type::Function { return_type, .. } = value_type {
+                    Ok(*return_type)
+                } else {
+                    Ok(value_type)
+                }
+            }
             FunctionExpression::Index(index) => index.expected_type(context),
             FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
         }

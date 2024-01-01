@@ -68,6 +68,17 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn list_of(item_type: Type) -> Self {
+        Type::List(Box::new(item_type))
+    }
+
+    pub fn function(parameter_types: Vec<Type>, return_type: Type) -> Self {
+        Type::Function {
+            parameter_types,
+            return_type: Box::new(return_type),
+        }
+    }
+
     pub fn check(&self, other: &Type) -> Result<()> {
         match (self, other) {
             (Type::Any, _)

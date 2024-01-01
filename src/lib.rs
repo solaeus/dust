@@ -5,10 +5,15 @@
 //! interpreting Dust code. Most of the language's features are implemented in the [tools] module.
 pub use crate::{
     abstract_tree::*,
-    built_in_functions::{BuiltInFunction, BUILT_IN_FUNCTIONS},
+    built_in_functions::BuiltInFunction,
     error::*,
     interpret::*,
-    value::{function::Function, list::List, map::Map, Value},
+    value::{
+        function::{ContextDefinedFunction, Function},
+        list::List,
+        map::Map,
+        BuiltInValue, Value,
+    },
 };
 
 mod abstract_tree;

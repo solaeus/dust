@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    interpret_with_context, AbstractTree, Function, List, Map, Type,
+    AbstractTree, BuiltInFunction, Function, List, Map, Type,
 };
 
 use serde::{
@@ -14,6 +14,7 @@ use tree_sitter::Node;
 use std::{
     cmp::Ordering,
     convert::TryFrom,
+    env::args,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign},
@@ -24,36 +25,70 @@ pub mod function;
 pub mod list;
 pub mod map;
 
-static STD: OnceLock<Value> = OnceLock::new();
+static ARGS: OnceLock<Value> = OnceLock::new();
+static RANDOM: OnceLock<Value> = OnceLock::new();
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInValue {
-    Std,
+    Args,
+    AssertEqual,
+    Length,
+    Output,
+    Random,
 }
 
 impl BuiltInValue {
     fn r#type(&self) -> Type {
         match self {
-            BuiltInValue::Std => Type::Map,
+            BuiltInValue::Args => Type::list_of(Type::String),
+            BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
+            BuiltInValue::Length => BuiltInFunction::Length.r#type(),
+            BuiltInValue::Output => BuiltInFunction::Output.r#type(),
+            BuiltInValue::Random => Type::Map,
         }
     }
 
     fn get(&self) -> &Value {
-        STD.get_or_init(|| {
-            let std_source = "foobar = () <str> { 'foobar' }";
-            let std_context = Map::new();
+        match self {
+            BuiltInValue::Args => ARGS.get_or_init(|| {
+                let args = args().map(|arg| Value::String(arg.to_string())).collect();
 
-            interpret_with_context(std_source, std_context.clone()).unwrap();
+                Value::List(List::with_items(args))
+            }),
+            BuiltInValue::AssertEqual => {
+                &Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
+            }
+            BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
+            BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
+            BuiltInValue::Random => RANDOM.get_or_init(|| {
+                let random_context = Map::new();
 
-            Value::Map(std_context)
-        })
+                {
+                    let mut variables = random_context.variables_mut().unwrap();
+
+                    for built_in_function in [BuiltInFunction::RandomBoolean] {
+                        let key = built_in_function.name().to_string();
+                        let value = Value::Function(Function::BuiltIn(built_in_function));
+                        let r#type = built_in_function.r#type();
+
+                        variables.insert(key, (value, r#type));
+                    }
+                }
+
+                Value::Map(random_context)
+            }),
+        }
     }
 }
 
 impl AbstractTree for BuiltInValue {
     fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
         let built_in_value = match node.kind() {
-            "std" => BuiltInValue::Std,
+            "args" => BuiltInValue::Args,
+            "assert_equal" => BuiltInValue::AssertEqual,
+            "length" => BuiltInValue::Length,
+            "output" => BuiltInValue::Output,
+            "random" => BuiltInValue::Random,
             _ => todo!(),
         };
 
@@ -65,9 +100,7 @@ impl AbstractTree for BuiltInValue {
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
-        match self {
-            BuiltInValue::Std => Ok(Type::Map),
-        }
+        Ok(self.r#type())
     }
 }
 
@@ -86,7 +119,6 @@ pub enum Value {
     Integer(i64),
     Boolean(bool),
     Option(Option<Box<Value>>),
-    BuiltIn(BuiltInValue),
 }
 
 impl Default for Value {
@@ -132,7 +164,6 @@ impl Value {
                     Type::None
                 }
             }
-            Value::BuiltIn(built_in_value) => built_in_value.r#type(),
         };
 
         r#type
@@ -471,8 +502,6 @@ impl PartialOrd for Value {
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Value::BuiltIn(left), Value::BuiltIn(right)) => left.cmp(right),
-            (Value::BuiltIn(_), _) => Ordering::Greater,
             (Value::String(left), Value::String(right)) => left.cmp(right),
             (Value::String(_), _) => Ordering::Greater,
             (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
@@ -524,7 +553,6 @@ impl Serialize for Value {
             Value::Option(inner) => inner.serialize(serializer),
             Value::Map(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
-            Value::BuiltIn(inner) => inner.serialize(serializer),
         }
     }
 }
@@ -552,7 +580,6 @@ impl Display for Value {
             }
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
-            Value::BuiltIn(_) => todo!(),
         }
     }
 }

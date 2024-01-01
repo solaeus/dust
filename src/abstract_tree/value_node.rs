@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    value::BuiltInValue, AbstractTree, Block, Error, Expression, Function, Identifier, List, Map,
-    Result, Statement, Type, TypeDefinition, Value,
+    AbstractTree, BuiltInValue, Error, Expression, Function, Identifier, List, Map, Result,
+    Statement, Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -29,58 +29,7 @@ impl AbstractTree for ValueNode {
         let value_node = match child.kind() {
             "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
             "float" => ValueNode::Float(source[child.byte_range()].to_string()),
-            "function" => {
-                let child_count = child.child_count();
-                let mut parameters = Vec::new();
-                let mut parameter_types = Vec::new();
-
-                for index in 1..child_count - 3 {
-                    let child = child.child(index).unwrap();
-
-                    if child.kind() == "identifier" {
-                        let identifier = Identifier::from_syntax_node(source, child, context)?;
-
-                        parameters.push(identifier);
-                    }
-
-                    if child.kind() == "type_definition" {
-                        let type_definition =
-                            TypeDefinition::from_syntax_node(source, child, context)?;
-
-                        parameter_types.push(type_definition.take_inner());
-                    }
-                }
-
-                let function_context = Map::clone_from(context)?;
-
-                for (parameter_name, parameter_type) in
-                    parameters.iter().zip(parameter_types.iter())
-                {
-                    function_context.set(
-                        parameter_name.inner().clone(),
-                        Value::none(),
-                        Some(parameter_type.clone()),
-                    )?;
-                }
-
-                let return_type_node = child.child(child_count - 2).unwrap();
-                let return_type =
-                    TypeDefinition::from_syntax_node(source, return_type_node, context)?;
-
-                let body_node = child.child(child_count - 1).unwrap();
-                let body = Block::from_syntax_node(source, body_node, &function_context)?;
-
-                return_type
-                    .inner()
-                    .check(&body.expected_type(&function_context)?)?;
-
-                let r#type = Type::Function {
-                    parameter_types,
-                    return_type: Box::new(return_type.take_inner()),
-                };
-
-                ValueNode::Function(Function::new(parameters, body, Some(r#type)))
-            }
+            "function" => ValueNode::Function(Function::from_syntax_node(source, child, context)?),
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {
                 let without_quotes = child.start_byte() + 1..child.end_byte() - 1;

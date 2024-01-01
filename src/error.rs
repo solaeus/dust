@@ -199,8 +199,8 @@ impl Error {
         }
     }
 
-    pub fn expect_argument_amount<F: BuiltInFunction>(
-        function: &F,
+    pub fn expect_argument_amount(
+        function: &BuiltInFunction,
         expected: usize,
         actual: usize,
     ) -> Result<()> {

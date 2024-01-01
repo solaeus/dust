@@ -129,16 +129,17 @@ Anonymous Function Call
     (expression
       (function_call
         (function_expression
-          (function
-            (identifier)
-            (type_definition
-              (type))
-            (type_definition
-              (type))
-            (block
-              (statement
-                (expression
-                  (identifier))))))
+          (value
+            (function
+              (identifier)
+              (type_definition
+                (type))
+              (type_definition
+                (type))
+              (block
+                (statement
+                  (expression
+                    (identifier)))))))
         (expression
           (value
             (string)))))))
@@ -222,13 +223,11 @@ from_json(read('file.json'))
     (expression
       (function_call
         (function_expression
-          (identifier
-            (built_in_function)))
+          (identifier))
         (expression
           (function_call
             (function_expression
-              (identifier
-                (built_in_function)))
+              (identifier))
             (expression
               (value
                 (string)))))))))

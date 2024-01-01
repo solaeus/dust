@@ -1,13 +1,13 @@
 stuff = [
-	random_integer()
-	random_integer()
-	random_integer()
-	random_float()
-	random_float()
-	random_float()
-	random_boolean()
-	random_boolean()
-	random_boolean()
+	random:integer()
+	random:integer()
+	random:integer()
+	random:float()
+	random:float()
+	random:float()
+	random:boolean()
+	random:boolean()
+	random:boolean()
 ]
 
-random(stuff)
+random:from(stuff)

@@ -8,7 +8,7 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use crate::{value::Value, Result, Type};
@@ -44,6 +44,10 @@ impl Map {
 
     pub fn variables(&self) -> Result<RwLockReadGuard<BTreeMap<String, (Value, Type)>>> {
         Ok(self.variables.read()?)
+    }
+
+    pub fn variables_mut(&self) -> Result<RwLockWriteGuard<BTreeMap<String, (Value, Type)>>> {
+        Ok(self.variables.write()?)
     }
 
     pub fn set(

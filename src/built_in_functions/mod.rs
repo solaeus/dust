@@ -1,48 +1,90 @@
-/// Built-in functions that are available to all Dust programs.
-use crate::{Map, Result, Type, Value};
+use std::{
+    fmt::{self, Display, Formatter},
+    fs::read_to_string,
+};
 
-mod assert;
-mod collections;
-mod commands;
-mod data_formats;
-mod fs;
-mod network;
-mod option;
-mod output;
-mod packages;
-mod random;
-mod r#type;
+use rand::random;
+use serde::{Deserialize, Serialize};
 
-/// All built-in functions recognized by the interpreter.
-///
-/// This is the public interface to access built-in functions by iterating over
-/// the references it holds.
-pub const BUILT_IN_FUNCTIONS: [&dyn BuiltInFunction; 21] = [
-    &assert::Assert,
-    &assert::AssertEqual,
-    &collections::Length,
-    &commands::Raw,
-    &commands::Sh,
-    &data_formats::FromJson,
-    &data_formats::ToJson,
-    &fs::Read,
-    &fs::Write,
-    &fs::Append,
-    &network::Download,
-    &option::EitherOr,
-    &option::IsNone,
-    &option::IsSome,
-    &output::Output,
-    &packages::InstallPackages,
-    &random::Random,
-    &random::RandomBoolean,
-    &random::RandomFloat,
-    &random::RandomInteger,
-    &r#type::TypeFunction,
-];
+use crate::{Error, Map, Result, Type, Value};
 
-pub trait BuiltInFunction {
-    fn name(&self) -> &'static str;
-    fn run(&self, arguments: &[Value], context: &Map) -> Result<Value>;
-    fn r#type(&self) -> Type;
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum BuiltInFunction {
+    AssertEqual,
+    FsRead,
+    Output,
+    RandomBoolean,
+    Length,
+}
+
+impl BuiltInFunction {
+    pub fn name(&self) -> &'static str {
+        match self {
+            BuiltInFunction::AssertEqual => "assert_equal",
+            BuiltInFunction::FsRead => "fs_read",
+            BuiltInFunction::Output => "output",
+            BuiltInFunction::RandomBoolean => "boolean",
+            BuiltInFunction::Length => "length",
+        }
+    }
+
+    pub fn r#type(&self) -> Type {
+        match self {
+            BuiltInFunction::AssertEqual => Type::function(vec![Type::Any, Type::Any], Type::None),
+            BuiltInFunction::FsRead => Type::function(vec![Type::String], Type::String),
+            BuiltInFunction::Output => Type::function(vec![Type::Any], Type::None),
+            BuiltInFunction::RandomBoolean => Type::function(vec![], Type::Boolean),
+            BuiltInFunction::Length => {
+                Type::function(vec![Type::list_of(Type::Any)], Type::Integer)
+            }
+        }
+    }
+
+    pub fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
+        match self {
+            BuiltInFunction::AssertEqual => {
+                Error::expect_argument_amount(self, 2, arguments.len())?;
+
+                let left = arguments.get(0).unwrap();
+                let right = arguments.get(1).unwrap();
+
+                Ok(Value::Boolean(left == right))
+            }
+            BuiltInFunction::FsRead => {
+                Error::expect_argument_amount(self, 1, arguments.len())?;
+
+                let path = arguments.first().unwrap().as_string()?;
+                let file_content = read_to_string(path)?;
+
+                Ok(Value::String(file_content))
+            }
+            BuiltInFunction::Output => {
+                Error::expect_argument_amount(self, 1, arguments.len())?;
+
+                let value = arguments.first().unwrap();
+
+                println!("{value}");
+
+                Ok(Value::none())
+            }
+            BuiltInFunction::RandomBoolean => {
+                Error::expect_argument_amount(self, 0, arguments.len())?;
+
+                Ok(Value::Boolean(random()))
+            }
+            BuiltInFunction::Length => {
+                Error::expect_argument_amount(self, 1, arguments.len())?;
+
+                let list_len = arguments.first().unwrap().as_list()?.items().len() as i64;
+
+                Ok(Value::Integer(list_len))
+            }
+        }
+    }
+}
+
+impl Display for BuiltInFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.r#type())
+    }
 }

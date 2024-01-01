@@ -1,6 +1,6 @@
 {
   "name": "dust",
-  "word": "_identifier_pattern",
+  "word": "identifier",
   "rules": {
     "root": {
       "type": "PREC",
@@ -203,19 +203,6 @@
       ]
     },
     "identifier": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
-          "name": "_identifier_pattern"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "built_in_function"
-        }
-      ]
-    },
-    "_identifier_pattern": {
       "type": "PATTERN",
       "value": "[_a-zA-Z]+[_a-zA-Z0-9]*[_a-zA-Z]?"
     },
@@ -1306,14 +1293,6 @@
         "members": [
           {
             "type": "SYMBOL",
-            "name": "built_in_value"
-          },
-          {
-            "type": "SYMBOL",
-            "name": "function"
-          },
-          {
-            "type": "SYMBOL",
             "name": "function_call"
           },
           {
@@ -1323,6 +1302,10 @@
           {
             "type": "SYMBOL",
             "name": "index"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "value"
           },
           {
             "type": "SYMBOL",
@@ -1410,12 +1393,12 @@
         ]
       }
     },
-    "built_in_function": {
+    "built_in_value": {
       "type": "CHOICE",
       "members": [
         {
           "type": "STRING",
-          "value": "assert"
+          "value": "args"
         },
         {
           "type": "STRING",
@@ -1423,31 +1406,7 @@
         },
         {
           "type": "STRING",
-          "value": "bash"
-        },
-        {
-          "type": "STRING",
-          "value": "download"
-        },
-        {
-          "type": "STRING",
-          "value": "either_or"
-        },
-        {
-          "type": "STRING",
-          "value": "fish"
-        },
-        {
-          "type": "STRING",
-          "value": "from_json"
-        },
-        {
-          "type": "STRING",
-          "value": "is_none"
-        },
-        {
-          "type": "STRING",
-          "value": "is_some"
+          "value": "env"
         },
         {
           "type": "STRING",
@@ -1455,52 +1414,11 @@
         },
         {
           "type": "STRING",
-          "value": "metadata"
-        },
-        {
-          "type": "STRING",
           "value": "output"
         },
         {
           "type": "STRING",
-          "value": "output_error"
-        },
-        {
-          "type": "STRING",
           "value": "random"
-        },
-        {
-          "type": "STRING",
-          "value": "random_boolean"
-        },
-        {
-          "type": "STRING",
-          "value": "random_float"
-        },
-        {
-          "type": "STRING",
-          "value": "random_integer"
-        },
-        {
-          "type": "STRING",
-          "value": "read"
-        },
-        {
-          "type": "STRING",
-          "value": "to_json"
-        },
-        {
-          "type": "STRING",
-          "value": "write"
-        }
-      ]
-    },
-    "built_in_value": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "std"
         }
       ]
     }
