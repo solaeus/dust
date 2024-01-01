@@ -1,9 +1,9 @@
-foo_or_bar = match random_boolean() {
+foo_or_bar = match random:boolean() {
 	true => "foo"
 	false => "bar"
 }
 
-num = match random_integer() {
+num = match random:integer() {
 	1 => "one",
 	2 => { "two" },
 	* => "neither",

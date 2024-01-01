@@ -78,13 +78,13 @@ impl AbstractTree for FunctionCall {
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        let value = match &self.function_expression {
+        let (name, value) = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
                 let variables = context.variables()?;
 
                 if let Some((value, _)) = variables.get(key) {
-                    value.clone()
+                    (Some(key.clone()), value.clone())
                 } else {
                     return Err(Error::FunctionIdentifierNotFound(
                         identifier.inner().clone(),
@@ -92,11 +92,11 @@ impl AbstractTree for FunctionCall {
                 }
             }
             FunctionExpression::FunctionCall(function_call) => {
-                function_call.run(source, context)?
+                (None, function_call.run(source, context)?)
             }
-            FunctionExpression::Value(value_node) => value_node.run(source, context)?,
-            FunctionExpression::Index(index) => index.run(source, context)?,
-            FunctionExpression::Yield(r#yield) => r#yield.run(source, context)?,
+            FunctionExpression::Value(value_node) => (None, value_node.run(source, context)?),
+            FunctionExpression::Index(index) => (None, index.run(source, context)?),
+            FunctionExpression::Yield(r#yield) => (None, r#yield.run(source, context)?),
         };
 
         let mut arguments = Vec::with_capacity(self.arguments.len());
@@ -107,7 +107,18 @@ impl AbstractTree for FunctionCall {
             arguments.push(value);
         }
 
-        value.as_function()?.call(&arguments, source, context)
+        if let Some(name) = &name {
+            context.set(name.to_string(), value.clone(), None)?;
+        }
+
+        value
+            .as_function()
+            .map_err(|error| {
+                println!("{name:?}");
+
+                error
+            })?
+            .call(name, &arguments, source, context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {

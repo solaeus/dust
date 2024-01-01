@@ -17,20 +17,28 @@ pub enum Function {
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Function::BuiltIn(inner) => write!(f, "{inner}"),
-            Function::ContextDefined(inner) => write!(f, "{inner}"),
+            Function::BuiltIn(built_in_function) => write!(f, "{}", built_in_function.r#type()),
+            Function::ContextDefined(context_defined_function) => {
+                write!(f, "{}", context_defined_function.r#type())
+            }
         }
     }
 }
 
 impl Function {
-    pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
+    pub fn call(
+        &self,
+        name: Option<String>,
+        arguments: &[Value],
+        source: &str,
+        outer_context: &Map,
+    ) -> Result<Value> {
         match self {
             Function::BuiltIn(built_in_function) => {
                 built_in_function.call(arguments, source, outer_context)
             }
             Function::ContextDefined(context_defined_function) => {
-                context_defined_function.call(arguments, source, outer_context)
+                context_defined_function.call(name, arguments, source, outer_context)
             }
         }
     }
@@ -90,15 +98,10 @@ impl AbstractTree for Function {
             .check(&body.expected_type(&function_context)?)
             .map_err(|error| error.at_node(body_node, source))?;
 
-        let r#type = Type::Function {
-            parameter_types,
-            return_type: Box::new(return_type.take_inner()),
-        };
+        let r#type = Type::function(parameter_types, return_type.take_inner());
 
         Ok(Self::ContextDefined(ContextDefinedFunction::new(
-            parameters,
-            body,
-            Some(r#type),
+            parameters, body, r#type,
         )))
     }
 
@@ -122,12 +125,7 @@ pub struct ContextDefinedFunction {
 }
 
 impl ContextDefinedFunction {
-    pub fn new(parameters: Vec<Identifier>, body: Block, r#type: Option<Type>) -> Self {
-        let r#type = r#type.unwrap_or(Type::Function {
-            parameter_types: vec![Type::Any; parameters.len()],
-            return_type: Box::new(Type::Any),
-        });
-
+    pub fn new(parameters: Vec<Identifier>, body: Block, r#type: Type) -> Self {
         Self {
             parameters,
             body,
@@ -157,49 +155,32 @@ impl ContextDefinedFunction {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
-        let context = Map::clone_from(outer_context)?;
+    pub fn call(
+        &self,
+        name: Option<String>,
+        arguments: &[Value],
+        source: &str,
+        outer_context: &Map,
+    ) -> Result<Value> {
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
+        let function_context = Map::clone_from(outer_context)?;
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
 
-            context.set(key, value.clone(), None)?;
+            function_context.set(key, value.clone(), None)?;
         }
 
-        let return_value = self.body.run(source, &context)?;
+        if let Some(name) = name {
+            function_context.set(
+                name,
+                Value::Function(Function::ContextDefined(self.clone())),
+                None,
+            )?;
+        }
+
+        let return_value = self.body.run(source, &function_context)?;
 
         Ok(return_value)
-    }
-}
-
-impl Display for ContextDefinedFunction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "(")?;
-
-        let (parameter_types, return_type) = if let Type::Function {
-            parameter_types,
-            return_type,
-        } = &self.r#type
-        {
-            (parameter_types, return_type)
-        } else {
-            return Err(fmt::Error);
-        };
-
-        for (index, (parameter, r#type)) in self
-            .parameters
-            .iter()
-            .zip(parameter_types.iter())
-            .enumerate()
-        {
-            write!(f, "{} <{}>", parameter.inner(), r#type)?;
-
-            if index != self.parameters.len() - 1 {
-                write!(f, ", ")?;
-            }
-        }
-
-        write!(f, ") -> {}", return_type)
     }
 }

@@ -441,6 +441,8 @@ module.exports = grammar({
         'args',
         'assert_equal',
         'env',
+        'fs',
+        'json',
         'length',
         'output',
         'random',

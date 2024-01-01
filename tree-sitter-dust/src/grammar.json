@@ -1414,6 +1414,14 @@
         },
         {
           "type": "STRING",
+          "value": "fs"
+        },
+        {
+          "type": "STRING",
+          "value": "json"
+        },
+        {
+          "type": "STRING",
           "value": "length"
         },
         {

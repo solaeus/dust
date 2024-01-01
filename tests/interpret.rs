@@ -514,14 +514,11 @@ mod blocks {
     }
 }
 
-mod std {
+mod built_in_values {
     use dust_lang::*;
 
     #[test]
-    fn load_std() {
-        assert_eq!(
-            interpret("std:read"),
-            Ok(Value::Function(Function::BuiltIn(BuiltInFunction::FsRead)))
-        );
+    fn args() {
+        assert!(interpret("args").is_ok_and(|value| value.is_list()));
     }
 }

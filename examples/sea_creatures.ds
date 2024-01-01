@@ -1,5 +1,5 @@
-raw_data = read('examples/assets/seaCreatures.json')
-sea_creatures = from_json(raw_data)
+raw_data = fs:read('examples/assets/seaCreatures.json')
+sea_creatures = json:parse(raw_data)
 
 data = {
 	creatures = []

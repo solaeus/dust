@@ -30,11 +30,11 @@ make_guess = (cards <map>, current_room <str>) <none> {
 	} else {
 		output(
 			'I question '
-			+ random(cards:suspects)
+			+ random:from(cards:suspects)
 			+ ' in the '
 			+ current_room
 			+ ' with the '
-			+ random(cards:weapons)
+			+ random:from(cards:weapons)
 			+ '.'
 		)
 	}

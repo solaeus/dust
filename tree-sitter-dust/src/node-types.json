@@ -805,6 +805,10 @@
     "named": false
   },
   {
+    "type": "fs",
+    "named": false
+  },
+  {
     "type": "identifier",
     "named": true
   },
@@ -823,6 +827,10 @@
   {
     "type": "integer",
     "named": true
+  },
+  {
+    "type": "json",
+    "named": false
   },
   {
     "type": "length",

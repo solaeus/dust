@@ -1,0 +1,3 @@
+handle = thread:spawn("my_thread", {
+	
+})
