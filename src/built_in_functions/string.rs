@@ -157,8 +157,25 @@ impl StringFunction {
 
                 Ok(Value::List(List::with_items(bytes)))
             }
-            StringFunction::EndsWith => todo!(),
-            StringFunction::Find => todo!(),
+            StringFunction::EndsWith => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+
+                Ok(Value::Boolean(string.ends_with(pattern)))
+            }
+            StringFunction::Find => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let string = arguments.get(0).unwrap().as_string()?;
+                let pattern = arguments.get(1).unwrap().as_string()?;
+                let find = string
+                    .find(pattern)
+                    .map(|index| Box::new(Value::Integer(index as i64)));
+
+                Ok(Value::Option(find))
+            }
             StringFunction::IsAscii => todo!(),
             StringFunction::IsEmpty => todo!(),
             StringFunction::Lines => todo!(),
