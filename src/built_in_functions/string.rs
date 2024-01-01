@@ -282,7 +282,27 @@ impl StringFunction {
 
                 Value::none()
             }
-            StringFunction::Remove => todo!(),
+            StringFunction::Remove => {
+                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+
+                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let index = arguments.get(1).unwrap().as_integer()? as usize;
+                let mut chars = string.chars().collect::<Vec<char>>();
+
+                if index <= chars.len() - 1 {
+                    let removed = chars.remove(index);
+                    let new_string = chars
+                        .iter()
+                        .map(|char| char.to_string())
+                        .collect::<String>();
+
+                    *string = new_string;
+
+                    Value::some(Value::string(removed))
+                } else {
+                    Value::none()
+                }
+            }
             StringFunction::ReplaceRange => todo!(),
             StringFunction::Retain => todo!(),
             StringFunction::Split => {

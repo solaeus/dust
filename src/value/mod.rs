@@ -47,8 +47,8 @@ impl Default for Value {
 }
 
 impl Value {
-    pub fn string(string: String) -> Self {
-        Value::String(Arc::new(RwLock::new(string)))
+    pub fn string<T: Into<String>>(string: T) -> Self {
+        Value::String(Arc::new(RwLock::new(string.into())))
     }
 
     pub fn r#type(&self) -> Type {
@@ -94,6 +94,10 @@ impl Value {
 
     pub fn none() -> Self {
         Value::Option(None)
+    }
+
+    pub fn some(value: Value) -> Self {
+        Value::Option(Some(Box::new(value)))
     }
 
     pub fn option(option: Option<Value>) -> Self {
