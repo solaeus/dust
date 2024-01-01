@@ -200,7 +200,7 @@ module.exports = grammar({
 
     index: $ =>
       prec.left(
-        2,
+        1,
         seq(
           $.expression,
           ':',
@@ -377,6 +377,16 @@ module.exports = grammar({
       ),
 
     function_expression: $ =>
+      choice(
+        $._function_expression_kind,
+        seq(
+          '(',
+          $._function_expression_kind,
+          ')',
+        ),
+      ),
+
+    _function_expression_kind: $ =>
       prec(
         1,
         choice(
@@ -387,7 +397,6 @@ module.exports = grammar({
           $.yield,
         ),
       ),
-
     function_call: $ =>
       prec.right(
         seq(

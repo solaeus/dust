@@ -338,17 +338,29 @@ mod index {
     }
 
     #[test]
-    fn complex_index() {
-        let test = interpret(
-            "
-            x = [1 2 3]
-            y = () <int> { 2 }
-            x:y()
-            ",
-        )
-        .unwrap();
+    fn index_function_calls() {
+        assert_eq!(
+            interpret(
+                "
+                x = [1 2 3]
+                y = () <int> { 2 }
+                x:y()
+                ",
+            ),
+            Ok(Value::Integer(3))
+        );
 
-        assert_eq!(Value::Integer(3), test);
+        assert_eq!(
+            interpret(
+                "
+                x = {
+                    y = () <int> { 2 }
+                }
+                (x:y)()
+                ",
+            ),
+            Ok(Value::Integer(2))
+        );
     }
 }
 

@@ -19,7 +19,12 @@ impl AbstractTree for FunctionExpression {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function_expression", node)?;
 
-        let child = node.child(0).unwrap();
+        let first_child = node.child(0).unwrap();
+        let child = if first_child.is_named() {
+            first_child
+        } else {
+            node.child(1).unwrap()
+        };
 
         let function_expression = match child.kind() {
             "identifier" => FunctionExpression::Identifier(Identifier::from_syntax_node(

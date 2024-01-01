@@ -94,7 +94,7 @@ impl AbstractTree for Index {
             Type::List(item_type) => Ok(*item_type.clone()),
             Type::Map => Ok(Type::Any),
             Type::None => Ok(Type::None),
-            _ => todo!(),
+            r#type => Ok(r#type),
         }
     }
 }

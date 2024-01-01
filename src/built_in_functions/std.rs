@@ -15,7 +15,7 @@ impl BuiltInFunction for Std {
         Error::expect_argument_amount(self, 0, arguments.len())?;
 
         let std_context = STD.get_or_init(|| {
-            let std_source = "say_hi = () <none> { output(hi) }";
+            let std_source = "say_hi = () <none> { output('hi') }";
             let std_context = Map::new();
 
             interpret_with_context(std_source, std_context.clone()).unwrap();
