@@ -128,7 +128,7 @@ impl AbstractTree for ValueNode {
             ValueNode::Float(value_source) => Value::Float(value_source.parse().unwrap()),
             ValueNode::Function(function) => Value::Function(function.clone()),
             ValueNode::Integer(value_source) => Value::Integer(value_source.parse().unwrap()),
-            ValueNode::String(value_source) => Value::String(value_source.parse().unwrap()),
+            ValueNode::String(value_source) => Value::string(value_source.clone()),
             ValueNode::List(expressions) => {
                 let mut values = Vec::with_capacity(expressions.len());
 

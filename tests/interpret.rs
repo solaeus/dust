@@ -115,14 +115,14 @@ mod value {
 
     #[test]
     fn string() {
-        assert_eq!(interpret("\"one\""), Ok(Value::String("one".to_string())));
-        assert_eq!(interpret("'one'"), Ok(Value::String("one".to_string())));
-        assert_eq!(interpret("`one`"), Ok(Value::String("one".to_string())));
-        assert_eq!(interpret("`'one'`"), Ok(Value::String("'one'".to_string())));
-        assert_eq!(interpret("'`one`'"), Ok(Value::String("`one`".to_string())));
+        assert_eq!(interpret("\"one\""), Ok(Value::string("one".to_string())));
+        assert_eq!(interpret("'one'"), Ok(Value::string("one".to_string())));
+        assert_eq!(interpret("`one`"), Ok(Value::string("one".to_string())));
+        assert_eq!(interpret("`'one'`"), Ok(Value::string("'one'".to_string())));
+        assert_eq!(interpret("'`one`'"), Ok(Value::string("`one`".to_string())));
         assert_eq!(
             interpret("\"'one'\""),
-            Ok(Value::String("'one'".to_string()))
+            Ok(Value::string("'one'".to_string()))
         );
     }
 
@@ -133,7 +133,7 @@ mod value {
             Ok(Value::List(List::with_items(vec![
                 Value::Integer(1),
                 Value::Integer(2),
-                Value::String("foobar".to_string()),
+                Value::string("foobar".to_string()),
             ])))
         );
     }
@@ -143,7 +143,7 @@ mod value {
         let map = Map::new();
 
         map.set("x".to_string(), Value::Integer(1), None).unwrap();
-        map.set("foo".to_string(), Value::String("bar".to_string()), None)
+        map.set("foo".to_string(), Value::string("bar".to_string()), None)
             .unwrap();
 
         assert_eq!(interpret("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
@@ -157,7 +157,7 @@ mod value {
             .unwrap();
         map.set(
             "foo".to_string(),
-            Value::String("bar".to_string()),
+            Value::string("bar".to_string()),
             Some(Type::String),
         )
         .unwrap();
@@ -228,7 +228,7 @@ mod function_call {
                 foobar('Hiya')
                 ",
             ),
-            Ok(Value::String("Hiya".to_string()))
+            Ok(Value::string("Hiya".to_string()))
         );
     }
 
@@ -256,7 +256,7 @@ mod function_call {
                 foobar(() <str> { 'Hiya' })
                 ",
             ),
-            Ok(Value::String("Hiya".to_string()))
+            Ok(Value::string("Hiya".to_string()))
         );
     }
 
@@ -273,7 +273,7 @@ mod if_else {
     fn r#if() {
         assert_eq!(
             interpret("if true { 'true' }"),
-            Ok(Value::String("true".to_string()))
+            Ok(Value::string("true".to_string()))
         );
     }
 
@@ -303,7 +303,7 @@ mod if_else {
                     }
                 "
             ),
-            Ok(Value::String("ok".to_string()))
+            Ok(Value::string("ok".to_string()))
         );
     }
 
@@ -325,7 +325,7 @@ mod if_else {
                     }
                 "
             ),
-            Ok(Value::String("ok".to_string()))
+            Ok(Value::string("ok".to_string()))
         );
     }
 }

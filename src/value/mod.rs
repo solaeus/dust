@@ -16,6 +16,7 @@ use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 pub mod function;
@@ -32,7 +33,7 @@ pub enum Value {
     List(List),
     Map(Map),
     Function(Function),
-    String(String),
+    String(Arc<RwLock<String>>),
     Float(f64),
     Integer(i64),
     Boolean(bool),
@@ -46,6 +47,10 @@ impl Default for Value {
 }
 
 impl Value {
+    pub fn string(string: String) -> Self {
+        Value::String(Arc::new(RwLock::new(string)))
+    }
+
     pub fn r#type(&self) -> Type {
         let r#type = match self {
             Value::List(list) => {
@@ -135,10 +140,20 @@ impl Value {
         matches!(self, Value::Map(_))
     }
 
-    /// Borrows the value stored in `self` as `String`, or returns `Err` if `self` is not a `Value::String`.
-    pub fn as_string(&self) -> Result<&String> {
+    /// Borrows the value stored in `self` as `&str`, or returns `Err` if `self` is not a `Value::String`.
+    pub fn as_string(&self) -> Result<RwLockReadGuard<String>> {
         match self {
-            Value::String(string) => Ok(string),
+            Value::String(string) => Ok(string.read()?),
+            value => Err(Error::ExpectedString {
+                actual: value.clone(),
+            }),
+        }
+    }
+
+    /// Borrows the value stored in `self` as `String`, or returns `Err` if `self` is not a `Value::String`.
+    pub fn as_string_mut(&self) -> Result<RwLockWriteGuard<String>> {
+        match self {
+            Value::String(string) => Ok(string.write()?),
             value => Err(Error::ExpectedString {
                 actual: value.clone(),
             }),
@@ -197,7 +212,7 @@ impl Value {
         }
     }
 
-    /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
+    /// Takes ownership of the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
     pub fn into_inner_list(self) -> Result<List> {
         match self {
             Value::List(list) => Ok(list),
@@ -276,11 +291,11 @@ impl Add for Value {
         }
 
         if let (Ok(left), Ok(right)) = (self.as_string(), other.as_string()) {
-            return Ok(Value::String(left.to_string() + right));
+            return Ok(Value::string(left.to_string() + right.as_str()));
         }
 
         if self.is_string() || other.is_string() {
-            return Ok(Value::String(self.to_string() + &other.to_string()));
+            return Ok(Value::string(self.to_string() + &other.to_string()));
         }
 
         let non_number_or_string = if !self.is_number() == !self.is_string() {
@@ -368,7 +383,9 @@ impl AddAssign for Value {
             (Value::Integer(left), Value::Integer(right)) => *left += right,
             (Value::Float(left), Value::Float(right)) => *left += right,
             (Value::Float(left), Value::Integer(right)) => *left += right as f64,
-            (Value::String(left), Value::String(right)) => *left += &right,
+            (Value::String(left), Value::String(right)) => {
+                *left.write().unwrap() += right.read().unwrap().as_str()
+            }
             (Value::List(list), value) => list.items_mut().push(value),
             _ => {}
         }
@@ -405,7 +422,9 @@ impl PartialEq for Value {
             (Value::Integer(left), Value::Integer(right)) => left == right,
             (Value::Float(left), Value::Float(right)) => left == right,
             (Value::Boolean(left), Value::Boolean(right)) => left == right,
-            (Value::String(left), Value::String(right)) => left == right,
+            (Value::String(left), Value::String(right)) => {
+                left.read().unwrap().as_str() == right.read().unwrap().as_str()
+            }
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
@@ -424,7 +443,11 @@ impl PartialOrd for Value {
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Value::String(left), Value::String(right)) => left.cmp(right),
+            (Value::String(left), Value::String(right)) => left
+                .read()
+                .unwrap()
+                .as_str()
+                .cmp(right.read().unwrap().as_str()),
             (Value::String(_), _) => Ordering::Greater,
             (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
             (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
@@ -458,7 +481,7 @@ impl Serialize for Value {
         S: Serializer,
     {
         match self {
-            Value::String(inner) => serializer.serialize_str(inner),
+            Value::String(inner) => serializer.serialize_str(inner.read().unwrap().as_str()),
             Value::Float(inner) => serializer.serialize_f64(*inner),
             Value::Integer(inner) => serializer.serialize_i64(*inner),
             Value::Boolean(inner) => serializer.serialize_bool(*inner),
@@ -482,7 +505,7 @@ impl Serialize for Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::String(string) => write!(f, "{string}"),
+            Value::String(string) => write!(f, "{}", string.read().unwrap()),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(int) => write!(f, "{int}"),
             Value::Boolean(boolean) => write!(f, "{boolean}"),
@@ -502,13 +525,13 @@ impl Display for Value {
 
 impl From<String> for Value {
     fn from(string: String) -> Self {
-        Value::String(string)
+        Value::string(string)
     }
 }
 
 impl From<&str> for Value {
     fn from(string: &str) -> Self {
-        Value::String(string.to_string())
+        Value::string(string.to_string())
     }
 }
 
@@ -552,8 +575,8 @@ impl TryFrom<Value> for String {
     type Error = Error;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        if let Value::String(value) = value {
-            Ok(value)
+        if let Value::String(rw_lock) = value {
+            Ok(rw_lock.read()?.to_string())
         } else {
             Err(Error::ExpectedString { actual: value })
         }
@@ -721,7 +744,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::String(v.to_string()))
+        Ok(Value::string(v.to_string()))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> std::result::Result<Self::Value, E>
@@ -735,7 +758,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::String(v))
+        Ok(Value::string(v))
     }
 
     fn visit_bytes<E>(self, v: &[u8]) -> std::result::Result<Self::Value, E>

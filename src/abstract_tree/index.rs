@@ -72,7 +72,7 @@ impl AbstractTree for Index {
                     let key = value.as_string()?;
 
                     map.variables()?
-                        .get(key)
+                        .get(key.as_str())
                         .map(|(value, _)| value.clone())
                         .unwrap_or_default()
                 };
@@ -81,9 +81,9 @@ impl AbstractTree for Index {
             }
             Value::String(string) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
-                let item = string.chars().nth(index).unwrap_or_default();
+                let item = string.read()?.chars().nth(index).unwrap_or_default();
 
-                Ok(Value::String(item.to_string()))
+                Ok(Value::string(item.to_string()))
             }
             _ => Err(Error::ExpectedCollection { actual: collection }),
         }

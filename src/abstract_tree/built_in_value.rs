@@ -43,7 +43,7 @@ impl BuiltInValue {
     fn get(&self) -> &Value {
         match self {
             BuiltInValue::Args => ARGS.get_or_init(|| {
-                let args = args().map(|arg| Value::String(arg.to_string())).collect();
+                let args = args().map(|arg| Value::string(arg.to_string())).collect();
 
                 Value::List(List::with_items(args))
             }),

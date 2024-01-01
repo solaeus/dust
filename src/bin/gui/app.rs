@@ -187,7 +187,7 @@ fn display_value(value: &Value, ui: &mut egui::Ui) {
             ui.label(function.to_string());
         }
         Value::String(string) => {
-            ui.label(RichText::new(string).color(Color32::GREEN));
+            ui.label(RichText::new(string.read().unwrap().as_str()).color(Color32::GREEN));
         }
         Value::Float(float) => {
             ui.label(float.to_string());

@@ -68,9 +68,9 @@ impl BuiltInFunction {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let path = arguments.first().unwrap().as_string()?;
-                let file_content = read_to_string(path)?;
+                let file_content = read_to_string(path.as_str())?;
 
-                Ok(Value::String(file_content))
+                Ok(Value::string(file_content))
             }
             BuiltInFunction::JsonParse => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
@@ -88,8 +88,8 @@ impl BuiltInFunction {
                     list.items().len()
                 } else if let Ok(map) = value.as_map() {
                     map.variables()?.len()
-                } else if let Ok(string) = value.as_string() {
-                    string.chars().count()
+                } else if let Ok(str) = value.as_string() {
+                    str.chars().count()
                 } else {
                     return Err(Error::ExpectedCollection {
                         actual: value.clone(),
