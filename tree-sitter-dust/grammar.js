@@ -344,6 +344,7 @@ module.exports = grammar({
         choice(
           'any',
           'bool',
+          'collection',
           'float',
           'int',
           'map',

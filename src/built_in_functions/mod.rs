@@ -34,9 +34,7 @@ impl BuiltInFunction {
             BuiltInFunction::FsRead => Type::function(vec![Type::String], Type::String),
             BuiltInFunction::Output => Type::function(vec![Type::Any], Type::None),
             BuiltInFunction::RandomBoolean => Type::function(vec![], Type::Boolean),
-            BuiltInFunction::Length => {
-                Type::function(vec![Type::list_of(Type::Any)], Type::Integer)
-            }
+            BuiltInFunction::Length => Type::function(vec![Type::Collection], Type::Integer),
         }
     }
 
@@ -75,9 +73,20 @@ impl BuiltInFunction {
             BuiltInFunction::Length => {
                 Error::expect_argument_amount(self, 1, arguments.len())?;
 
-                let list_len = arguments.first().unwrap().as_list()?.items().len() as i64;
+                let value = arguments.first().unwrap();
+                let length = if let Ok(list) = value.as_list() {
+                    list.items().len()
+                } else if let Ok(map) = value.as_map() {
+                    map.variables()?.len()
+                } else if let Ok(string) = value.as_string() {
+                    string.chars().count()
+                } else {
+                    return Err(Error::ExpectedCollection {
+                        actual: value.clone(),
+                    });
+                };
 
-                Ok(Value::Integer(list_len))
+                Ok(Value::Integer(length as i64))
             }
         }
     }

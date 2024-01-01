@@ -1089,6 +1089,10 @@
           },
           {
             "type": "STRING",
+            "value": "collection"
+          },
+          {
+            "type": "STRING",
             "value": "float"
           },
           {

@@ -773,6 +773,10 @@
     "named": false
   },
   {
+    "type": "collection",
+    "named": false
+  },
+  {
     "type": "else",
     "named": false
   },

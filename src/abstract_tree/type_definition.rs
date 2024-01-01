@@ -53,6 +53,7 @@ impl Display for TypeDefinition {
 pub enum Type {
     Any,
     Boolean,
+    Collection,
     Float,
     Function {
         parameter_types: Vec<Type>,
@@ -84,6 +85,13 @@ impl Type {
             (Type::Any, _)
             | (_, Type::Any)
             | (Type::Boolean, Type::Boolean)
+            | (Type::Collection, Type::Collection)
+            | (Type::Collection, Type::List(_))
+            | (Type::List(_), Type::Collection)
+            | (Type::Collection, Type::Map)
+            | (Type::Map, Type::Collection)
+            | (Type::Collection, Type::String)
+            | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
             | (Type::Map, Type::Map)
@@ -165,63 +173,64 @@ impl AbstractTree for Type {
 
         let type_node = node.child(0).unwrap();
 
-        let r#type = match type_node.kind() {
-            "[" => {
-                let item_type_node = node.child(1).unwrap();
-                let item_type = Type::from_syntax_node(source, item_type_node, _context)?;
+        let r#type =
+            match type_node.kind() {
+                "[" => {
+                    let item_type_node = node.child(1).unwrap();
+                    let item_type = Type::from_syntax_node(source, item_type_node, _context)?;
 
-                Type::List(Box::new(item_type))
-            }
-            "any" => Type::Any,
-            "bool" => Type::Boolean,
-            "float" => Type::Float,
-            "(" => {
-                let child_count = node.child_count();
-                let mut parameter_types = Vec::new();
+                    Type::List(Box::new(item_type))
+                }
+                "any" => Type::Any,
+                "bool" => Type::Boolean,
+                "collection" => Type::Collection,
+                "float" => Type::Float,
+                "(" => {
+                    let child_count = node.child_count();
+                    let mut parameter_types = Vec::new();
 
-                for index in 1..child_count - 2 {
-                    let child = node.child(index).unwrap();
+                    for index in 1..child_count - 2 {
+                        let child = node.child(index).unwrap();
 
-                    if child.is_named() {
-                        let parameter_type = Type::from_syntax_node(source, child, _context)?;
+                        if child.is_named() {
+                            let parameter_type = Type::from_syntax_node(source, child, _context)?;
 
-                        parameter_types.push(parameter_type);
+                            parameter_types.push(parameter_type);
+                        }
+                    }
+
+                    let final_node = node.child(child_count - 1).unwrap();
+                    let return_type = if final_node.is_named() {
+                        Type::from_syntax_node(source, final_node, _context)?
+                    } else {
+                        Type::None
+                    };
+
+                    Type::Function {
+                        parameter_types,
+                        return_type: Box::new(return_type),
                     }
                 }
+                "int" => Type::Integer,
+                "map" => Type::Map,
+                "num" => Type::Number,
+                "none" => Type::None,
+                "str" => Type::String,
+                "option" => {
+                    let inner_type_node = node.child(2).unwrap();
+                    let inner_type = Type::from_syntax_node(source, inner_type_node, _context)?;
 
-                let final_node = node.child(child_count - 1).unwrap();
-                let return_type = if final_node.is_named() {
-                    Type::from_syntax_node(source, final_node, _context)?
-                } else {
-                    Type::None
-                };
-
-                Type::Function {
-                    parameter_types,
-                    return_type: Box::new(return_type),
+                    Type::Option(Box::new(inner_type))
                 }
-            }
-            "int" => Type::Integer,
-            "map" => Type::Map,
-            "num" => Type::Number,
-            "none" => Type::None,
-            "str" => Type::String,
-            "option" => {
-                let inner_type_node = node.child(2).unwrap();
-                let inner_type = Type::from_syntax_node(source, inner_type_node, _context)?;
-
-                Type::Option(Box::new(inner_type))
-            }
-            _ => {
-                return Err(Error::UnexpectedSyntaxNode {
-                    expected: "any, bool, float, function, int, list, map, num, str or option"
-                        .to_string(),
+                _ => return Err(Error::UnexpectedSyntaxNode {
+                    expected:
+                        "any, bool, collection, float, function, int, list, map, num, str or option"
+                            .to_string(),
                     actual: type_node.kind().to_string(),
                     location: type_node.start_position(),
                     relevant_source: source[type_node.byte_range()].to_string(),
-                })
-            }
-        };
+                }),
+            };
 
         Ok(r#type)
     }
@@ -240,6 +249,7 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
+            Type::Collection => write!(f, "collection"),
             Type::Float => write!(f, "float"),
             Type::Function {
                 parameter_types,

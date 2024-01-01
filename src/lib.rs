@@ -12,7 +12,7 @@ pub use crate::{
         function::{ContextDefinedFunction, Function},
         list::List,
         map::Map,
-        BuiltInValue, Value,
+        Value,
     },
 };
 
