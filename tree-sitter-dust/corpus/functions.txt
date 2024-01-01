@@ -85,16 +85,16 @@ foo:bar("Hiya")
 (root
   (statement
     (expression
-      (index
-        (expression
-          (identifier))
-        (expression
-          (function_call
-            (function_expression
+      (function_call
+        (function_expression
+          (index
+            (index_expression
               (identifier))
-            (expression
-              (value
-                (string)))))))))
+            (index_expression
+              (identifier))))
+        (expression
+          (value
+            (string)))))))
 
 ================================================================================
 Double Function Call

@@ -57,6 +57,11 @@
     "fields": {}
   },
   {
+    "type": "built_in_value",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "else",
     "named": true,
     "fields": {},
@@ -203,6 +208,10 @@
       "required": true,
       "types": [
         {
+          "type": "built_in_value",
+          "named": true
+        },
+        {
           "type": "function",
           "named": true
         },
@@ -293,6 +302,10 @@
         {
           "type": "expression",
           "named": true
+        },
+        {
+          "type": "index_expression",
+          "named": true
         }
       ]
     }
@@ -315,6 +328,33 @@
         },
         {
           "type": "statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "index_expression",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "function_call",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "index",
+          "named": true
+        },
+        {
+          "type": "value",
           "named": true
         }
       ]
@@ -557,6 +597,10 @@
       "types": [
         {
           "type": "boolean",
+          "named": true
+        },
+        {
+          "type": "built_in_value",
           "named": true
         },
         {
@@ -882,6 +926,10 @@
   },
   {
     "type": "some",
+    "named": false
+  },
+  {
+    "type": "std",
     "named": false
   },
   {

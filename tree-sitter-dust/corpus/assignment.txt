@@ -46,9 +46,9 @@ x:y = 1
   (statement
     (index_assignment
       (index
-        (expression
+        (index_expression
           (identifier))
-        (expression
+        (index_expression
           (identifier)))
       (assignment_operator)
       (statement
@@ -68,9 +68,9 @@ x:9 = 'foobar'
   (statement
     (index_assignment
       (index
-        (expression
+        (index_expression
           (identifier))
-        (expression
+        (index_expression
           (value
             (integer))))
       (assignment_operator)

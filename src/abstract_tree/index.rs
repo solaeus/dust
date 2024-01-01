@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, List, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, IndexExpression, List, Map, Result, Type, Value};
 
 /// Abstract representation of an index expression.
 ///
 /// An index is a means of accessing values stored in list, maps and strings.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
-    pub collection: Expression,
-    pub index: Expression,
-    pub index_end: Option<Expression>,
+    pub collection: IndexExpression,
+    pub index: IndexExpression,
+    pub index_end: Option<IndexExpression>,
 }
 
 impl AbstractTree for Index {
@@ -18,14 +18,14 @@ impl AbstractTree for Index {
         Error::expect_syntax_node(source, "index", node)?;
 
         let collection_node = node.child(0).unwrap();
-        let collection = Expression::from_syntax_node(source, collection_node, context)?;
+        let collection = IndexExpression::from_syntax_node(source, collection_node, context)?;
 
         let index_node = node.child(2).unwrap();
-        let index = Expression::from_syntax_node(source, index_node, context)?;
+        let index = IndexExpression::from_syntax_node(source, index_node, context)?;
 
         let index_end_node = node.child(4);
         let index_end = if let Some(index_end_node) = index_end_node {
-            Some(Expression::from_syntax_node(
+            Some(IndexExpression::from_syntax_node(
                 source,
                 index_end_node,
                 context,
@@ -60,7 +60,7 @@ impl AbstractTree for Index {
                 Ok(item)
             }
             Value::Map(map) => {
-                let value = if let Expression::Identifier(identifier) = &self.index {
+                let value = if let IndexExpression::Identifier(identifier) = &self.index {
                     let key = identifier.inner();
 
                     map.variables()?

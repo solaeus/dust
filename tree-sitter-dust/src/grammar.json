@@ -253,6 +253,10 @@
         {
           "type": "SYMBOL",
           "name": "option"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "built_in_value"
         }
       ]
     },
@@ -605,7 +609,7 @@
         "members": [
           {
             "type": "SYMBOL",
-            "name": "expression"
+            "name": "index_expression"
           },
           {
             "type": "STRING",
@@ -613,7 +617,7 @@
           },
           {
             "type": "SYMBOL",
-            "name": "expression"
+            "name": "index_expression"
           },
           {
             "type": "CHOICE",
@@ -635,6 +639,44 @@
                 "type": "BLANK"
               }
             ]
+          }
+        ]
+      }
+    },
+    "index_expression": {
+      "type": "PREC",
+      "value": 1,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SEQ",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "("
+              },
+              {
+                "type": "SYMBOL",
+                "name": "function_call"
+              },
+              {
+                "type": "STRING",
+                "value": ")"
+              }
+            ]
+          },
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "index"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "value"
           }
         ]
       }
@@ -1258,10 +1300,14 @@
     },
     "_function_expression_kind": {
       "type": "PREC",
-      "value": 1,
+      "value": 2,
       "content": {
         "type": "CHOICE",
         "members": [
+          {
+            "type": "SYMBOL",
+            "name": "built_in_value"
+          },
           {
             "type": "SYMBOL",
             "name": "function"
@@ -1446,6 +1492,15 @@
         {
           "type": "STRING",
           "value": "write"
+        }
+      ]
+    },
+    "built_in_value": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "std"
         }
       ]
     }

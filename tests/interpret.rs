@@ -344,7 +344,7 @@ mod index {
                 "
                 x = [1 2 3]
                 y = () <int> { 2 }
-                x:y()
+                x:(y())
                 ",
             ),
             Ok(Value::Integer(3))
@@ -356,7 +356,7 @@ mod index {
                 x = {
                     y = () <int> { 2 }
                 }
-                (x:y)()
+                x:y()
                 ",
             ),
             Ok(Value::Integer(2))

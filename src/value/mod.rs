@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, List, Map, Type,
+    interpret_with_context, AbstractTree, Function, List, Map, Type,
 };
 
 use serde::{
@@ -9,6 +9,7 @@ use serde::{
     ser::SerializeTuple,
     Deserialize, Serialize, Serializer,
 };
+use tree_sitter::Node;
 
 use std::{
     cmp::Ordering,
@@ -16,11 +17,59 @@ use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign},
+    sync::OnceLock,
 };
 
 pub mod function;
 pub mod list;
 pub mod map;
+
+static STD: OnceLock<Value> = OnceLock::new();
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum BuiltInValue {
+    Std,
+}
+
+impl BuiltInValue {
+    fn r#type(&self) -> Type {
+        match self {
+            BuiltInValue::Std => Type::Map,
+        }
+    }
+
+    fn get(&self) -> &Value {
+        STD.get_or_init(|| {
+            let std_source = "foobar = () <str> { 'foobar' }";
+            let std_context = Map::new();
+
+            interpret_with_context(std_source, std_context.clone()).unwrap();
+
+            Value::Map(std_context)
+        })
+    }
+}
+
+impl AbstractTree for BuiltInValue {
+    fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
+        let built_in_value = match node.kind() {
+            "std" => BuiltInValue::Std,
+            _ => todo!(),
+        };
+
+        Ok(built_in_value)
+    }
+
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+        Ok(self.get().clone())
+    }
+
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        match self {
+            BuiltInValue::Std => Ok(Type::Map),
+        }
+    }
+}
 
 /// Dust value representation.
 ///
@@ -37,6 +86,7 @@ pub enum Value {
     Integer(i64),
     Boolean(bool),
     Option(Option<Box<Value>>),
+    BuiltIn(BuiltInValue),
 }
 
 impl Default for Value {
@@ -82,6 +132,7 @@ impl Value {
                     Type::None
                 }
             }
+            Value::BuiltIn(built_in_value) => built_in_value.r#type(),
         };
 
         r#type
@@ -420,6 +471,8 @@ impl PartialOrd for Value {
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
+            (Value::BuiltIn(left), Value::BuiltIn(right)) => left.cmp(right),
+            (Value::BuiltIn(_), _) => Ordering::Greater,
             (Value::String(left), Value::String(right)) => left.cmp(right),
             (Value::String(_), _) => Ordering::Greater,
             (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
@@ -471,6 +524,7 @@ impl Serialize for Value {
             Value::Option(inner) => inner.serialize(serializer),
             Value::Map(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
+            Value::BuiltIn(inner) => inner.serialize(serializer),
         }
     }
 }
@@ -498,6 +552,7 @@ impl Display for Value {
             }
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
+            Value::BuiltIn(_) => todo!(),
         }
     }
 }

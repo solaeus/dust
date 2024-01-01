@@ -14,33 +14,33 @@ foobar:1:42
   (statement
     (expression
       (index
-        (expression
+        (index_expression
           (index
-            (expression
+            (index_expression
               (identifier))
-            (expression
+            (index_expression
               (value
                 (integer)))))
-        (expression
+        (index_expression
           (identifier)))))
   (statement
     (expression
       (index
-        (expression
+        (index_expression
           (identifier))
-        (expression
+        (index_expression
           (identifier)))))
   (statement
     (expression
       (index
-        (expression
+        (index_expression
           (index
-            (expression
+            (index_expression
               (identifier))
-            (expression
+            (index_expression
               (value
                 (integer)))))
-        (expression
+        (index_expression
           (value
             (integer)))))))
 
@@ -56,11 +56,11 @@ Nested Indexes
   (statement
     (expression
       (index
-        (expression
+        (index_expression
           (index
-            (expression
+            (index_expression
               (index
-                (expression
+                (index_expression
                   (value
                     (list
                       (expression
@@ -78,13 +78,13 @@ Nested Indexes
                       (expression
                         (value
                           (integer))))))
-                (expression
+                (index_expression
                   (value
                     (integer)))))
-            (expression
+            (index_expression
               (value
                 (integer)))))
-        (expression
+        (index_expression
           (value
             (integer)))
         (expression
@@ -95,7 +95,7 @@ Nested Indexes
 Function Call Index
 ================================================================================
 
-x:y():0
+x:(y()):0
 
 --------------------------------------------------------------------------------
 
@@ -103,14 +103,14 @@ x:y():0
   (statement
     (expression
       (index
-        (expression
+        (index_expression
           (index
-            (expression
+            (index_expression
               (identifier))
-            (expression
+            (index_expression
               (function_call
                 (function_expression
                   (identifier))))))
-        (expression
+        (index_expression
           (value
             (integer)))))))

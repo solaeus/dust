@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Block, Error, Expression, Function, Identifier, List, Map, Result, Statement,
-    Type, TypeDefinition, Value,
+    value::BuiltInValue, AbstractTree, Block, Error, Expression, Function, Identifier, List, Map,
+    Result, Statement, Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -18,6 +18,7 @@ pub enum ValueNode {
     List(Vec<Expression>),
     Option(Option<Box<Expression>>),
     Map(BTreeMap<String, (Statement, Option<Type>)>),
+    BuiltInValue(BuiltInValue),
 }
 
 impl AbstractTree for ValueNode {
@@ -150,6 +151,15 @@ impl AbstractTree for ValueNode {
                     ValueNode::Option(Some(Box::new(expression)))
                 }
             }
+            "built_in_value" => {
+                let built_in_value_node = child.child(0).unwrap();
+
+                ValueNode::BuiltInValue(BuiltInValue::from_syntax_node(
+                    source,
+                    built_in_value_node,
+                    context,
+                )?)
+            }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "string, integer, float, boolean, list, map, or option".to_string(),
@@ -203,6 +213,7 @@ impl AbstractTree for ValueNode {
 
                 Value::Map(map)
             }
+            ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
         };
 
         Ok(value)
@@ -244,6 +255,7 @@ impl AbstractTree for ValueNode {
                 }
             }
             ValueNode::Map(_) => Type::Map,
+            ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
         };
 
         Ok(r#type)

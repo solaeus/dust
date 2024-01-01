@@ -89,6 +89,7 @@ module.exports = grammar({
         $.list,
         $.map,
         $.option,
+        $.built_in_value,
       ),
 
     integer: $ =>
@@ -202,12 +203,27 @@ module.exports = grammar({
       prec.left(
         1,
         seq(
-          $.expression,
+          $.index_expression,
           ':',
-          $.expression,
+          $.index_expression,
           optional(
             seq('..', $.expression),
           ),
+        ),
+      ),
+
+    index_expression: $ =>
+      prec(
+        1,
+        choice(
+          seq(
+            '(',
+            $.function_call,
+            ')',
+          ),
+          $.identifier,
+          $.index,
+          $.value,
         ),
       ),
 
@@ -388,8 +404,9 @@ module.exports = grammar({
 
     _function_expression_kind: $ =>
       prec(
-        1,
+        2,
         choice(
+          $.built_in_value,
           $.function,
           $.function_call,
           $.identifier,
@@ -397,6 +414,7 @@ module.exports = grammar({
           $.yield,
         ),
       ),
+
     function_call: $ =>
       prec.right(
         seq(
@@ -447,5 +465,7 @@ module.exports = grammar({
         'to_json',
         'write',
       ),
+
+    built_in_value: $ => choice('std'),
   },
 });

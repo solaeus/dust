@@ -16,6 +16,7 @@ pub mod identifier;
 pub mod if_else;
 pub mod index;
 pub mod index_assignment;
+pub mod index_expression;
 pub mod logic;
 pub mod r#match;
 pub mod math;
@@ -27,8 +28,9 @@ pub mod r#yield;
 
 pub use {
     assignment::*, block::*, expression::*, function_call::*, function_expression::*,
-    identifier::*, if_else::*, index::*, index_assignment::IndexAssignment, logic::*, math::*,
-    r#for::*, r#match::*, r#while::*, r#yield::*, statement::*, type_definition::*, value_node::*,
+    identifier::*, if_else::*, index::*, index_assignment::IndexAssignment, index_expression::*,
+    logic::*, math::*, r#for::*, r#match::*, r#while::*, r#yield::*, statement::*,
+    type_definition::*, value_node::*,
 };
 
 use tree_sitter::Node;

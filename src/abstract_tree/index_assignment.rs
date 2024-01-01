@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Index, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Index, IndexExpression, Map, Result, Statement, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IndexAssignment {
@@ -52,7 +52,7 @@ impl AbstractTree for IndexAssignment {
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let index_collection = self.index.collection.run(source, context)?;
         let index_context = index_collection.as_map().unwrap_or(context);
-        let index_key = if let crate::Expression::Identifier(identifier) = &self.index.index {
+        let index_key = if let IndexExpression::Identifier(identifier) = &self.index.index {
             identifier.inner()
         } else {
             return Err(Error::VariableIdentifierNotFound(
