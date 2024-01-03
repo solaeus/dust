@@ -246,7 +246,7 @@ say_hi = () <none> {
 }
 
 # This function has one argument and will return a value.
-add_one = (fn number <num>) <num> {
+add_one = (number <num>) <num> {
     number + 1
 }
 
