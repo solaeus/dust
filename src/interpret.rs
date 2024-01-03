@@ -18,7 +18,7 @@ use crate::{language, AbstractTree, Error, Map, Result, Root, Value};
 /// assert_eq!(interpret("1 + 2 + 3"), Ok(Value::Integer(6)));
 /// ```
 pub fn interpret(source: &str) -> Result<Value> {
-    interpret_with_context(source, Map::new())
+    interpret_with_context(source, &mut Map::new())
 }
 
 /// Interpret the given source code with the given context.
@@ -40,7 +40,7 @@ pub fn interpret(source: &str) -> Result<Value> {
 ///     Ok(Value::Integer(10))
 /// );
 /// ```
-pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
+pub fn interpret_with_context(source: &str, context: &mut Map) -> Result<Value> {
     let mut interpreter = Interpreter::new(context);
     let value = interpreter.run(source)?;
 
@@ -48,15 +48,15 @@ pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
 }
 
 /// A source code interpreter for the Dust language.
-pub struct Interpreter {
+pub struct Interpreter<'c> {
     parser: Parser,
-    context: Map,
+    context: &'c mut Map,
     syntax_tree: Option<TSTree>,
     abstract_tree: Option<Root>,
 }
 
-impl Interpreter {
-    pub fn new(context: Map) -> Self {
+impl<'c> Interpreter<'c> {
+    pub fn new(context: &'c mut Map) -> Self {
         let mut parser = Parser::new();
 
         parser
@@ -69,6 +69,14 @@ impl Interpreter {
             syntax_tree: None,
             abstract_tree: None,
         }
+    }
+
+    pub fn context(&self) -> &Map {
+        &self.context
+    }
+
+    pub fn context_mut(&mut self) -> &mut Map {
+        &mut self.context
     }
 
     pub fn parse(&mut self, source: &str) -> Result<()> {
@@ -101,14 +109,14 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn run(&mut self, source: &str) -> Result<Value> {
+    pub fn run(&'c mut self, source: &str) -> Result<Value> {
         self.parse(source)?;
 
         self.abstract_tree = if let Some(syntax_tree) = &self.syntax_tree {
             Some(Root::from_syntax_node(
                 source,
                 syntax_tree.root_node(),
-                &mut self.context,
+                self.context,
             )?)
         } else {
             return Err(Error::ParserCancelled);
@@ -128,11 +136,5 @@ impl Interpreter {
         } else {
             Err(Error::ParserCancelled)
         }
-    }
-}
-
-impl Default for Interpreter {
-    fn default() -> Self {
-        Interpreter::new(Map::new())
     }
 }

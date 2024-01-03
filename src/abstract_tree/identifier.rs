@@ -35,16 +35,16 @@ impl AbstractTree for Identifier {
         Ok(Identifier(text.to_string()))
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn run(&self, _source: &str, context: &mut Map) -> Result<Value> {
         if let Some((value, _)) = context.variables().get(&self.0) {
             Ok(value.clone())
         } else {
             Err(Error::VariableIdentifierNotFound(self.inner().clone()))
         }
-    }
-
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
-        Ok(())
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {

@@ -72,7 +72,7 @@ fn main() {
     let mut parser = TSParser::new();
     parser.set_language(language()).unwrap();
 
-    let mut interpreter = Interpreter::new(context);
+    let mut interpreter = Interpreter::new(&mut context);
 
     if args.show_syntax_tree {
         interpreter.parse(&source).unwrap();
@@ -168,7 +168,7 @@ impl Highlighter for DustReadline {
 }
 
 fn run_cli_shell() {
-    let context = Map::new();
+    let mut context = Map::new();
     let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
 
     rl.set_helper(Some(DustReadline::new()));
@@ -185,7 +185,7 @@ fn run_cli_shell() {
 
                 rl.add_history_entry(line).unwrap();
 
-                let eval_result = interpret_with_context(line, context.clone());
+                let eval_result = interpret_with_context(line, &mut context);
 
                 match eval_result {
                     Ok(value) => println!("{value}"),

@@ -6,21 +6,21 @@ use egui_extras::{Column, TableBuilder};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
-pub struct App {
+pub struct App<'c> {
     path: String,
     source: String,
     context: Map,
     #[serde(skip)]
-    interpreter: Interpreter,
+    interpreter: Interpreter<'c>,
     output: Result<Value>,
     error: Option<String>,
 }
 
-impl App {
+impl<'c> App<'c> {
     pub fn new(cc: &eframe::CreationContext<'_>, path: PathBuf) -> Self {
-        fn create_app(path: PathBuf) -> App {
+        fn create_app<'c>(path: PathBuf) -> App<'c> {
             let context = Map::new();
-            let mut interpreter = Interpreter::new(context.clone());
+            let mut interpreter = Interpreter::new(&mut context);
             let read_source = read_to_string(&path);
             let source = if let Ok(source) = read_source {
                 source
@@ -54,7 +54,7 @@ impl App {
     }
 }
 
-impl eframe::App for App {
+impl<'c> eframe::App for App<'c> {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);

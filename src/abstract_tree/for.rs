@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -54,21 +56,26 @@ impl AbstractTree for For {
         let key = self.item_id.inner();
 
         if self.is_async {
+            let context = RwLock::new(context);
+
             values.par_iter().try_for_each(|value| {
-                let mut iter_context = Map::clone_from(context)?;
+                let mut context = match context.write() {
+                    Ok(map) => map,
+                    Err(error) => return Err(error.into()),
+                };
 
-                iter_context.set(key.clone(), value.clone(), None);
-
-                self.block.run(source, &mut iter_context).map(|_value| ())
+                context.set(key.clone(), value.clone(), None);
+                self.block.run(source, &mut context).map(|_value| ())
             })?;
+
+            context.write()?.set(key.clone(), Value::none(), None);
         } else {
-            let mut loop_context = Map::clone_from(context)?;
-
             for value in values.iter() {
-                loop_context.set(key.clone(), value.clone(), None);
-
-                self.block.run(source, &mut loop_context)?;
+                context.set(key.clone(), value.clone(), None);
+                self.block.run(source, context)?;
             }
+
+            context.set(key.clone(), Value::none(), None);
         }
 
         Ok(Value::none())

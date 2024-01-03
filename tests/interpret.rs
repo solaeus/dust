@@ -76,6 +76,19 @@ mod for_loop {
             result
         );
     }
+
+    #[test]
+    fn async_modify_value() {
+        let result = interpret(
+            "
+            list = []
+            async for i in [1 2 3] { list += i }
+            length(list)
+            ",
+        );
+
+        assert_eq!(Ok(Value::Integer(3)), result);
+    }
 }
 
 mod logic {
