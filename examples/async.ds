@@ -2,7 +2,7 @@ create_random_numbers = (count <int>) <none> {
 	numbers = []
 
 	while length(numbers) < count {
-		numbers += random_integer()
+		numbers += random:integer()
 	}
 
 	output("Made " + length(numbers) + " numbers.")

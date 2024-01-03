@@ -12,7 +12,7 @@ use tree_sitter::Parser as TSParser;
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{interpret_with_context, language, Interpreter, Map, Value};
+use dust_lang::{language, Interpreter, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -169,7 +169,9 @@ impl Highlighter for DustReadline {
 
 fn run_cli_shell() {
     let context = Map::new();
+    let mut interpreter = Interpreter::new(context);
     let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
+    let mut input = String::new();
 
     rl.set_helper(Some(DustReadline::new()));
 
@@ -183,13 +185,18 @@ fn run_cli_shell() {
             Ok(line) => {
                 let line = line.as_str();
 
+                input.push('\n');
+                input.push_str(line);
                 rl.add_history_entry(line).unwrap();
 
-                let eval_result = interpret_with_context(line, context.clone());
+                let eval_result = interpreter.run(&input);
 
                 match eval_result {
                     Ok(value) => println!("{value}"),
-                    Err(error) => eprintln!("{error}"),
+                    Err(error) => {
+                        input = input.trim_end_matches(line).to_string();
+                        eprintln!("{error}")
+                    }
                 }
             }
             Err(ReadlineError::Interrupted) => break,
