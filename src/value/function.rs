@@ -54,7 +54,7 @@ impl Function {
 }
 
 impl AbstractTree for Function {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
@@ -77,21 +77,21 @@ impl AbstractTree for Function {
             }
         }
 
-        let function_context = Map::clone_from(context)?;
+        let mut function_context = Map::clone_from(context)?;
 
         for (parameter_name, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
             function_context.set(
                 parameter_name.inner().clone(),
                 Value::none(),
                 Some(parameter_type.clone()),
-            )?;
+            );
         }
 
         let return_type_node = node.child(child_count - 2).unwrap();
         let return_type = TypeDefinition::from_syntax_node(source, return_type_node, context)?;
 
         let body_node = node.child(child_count - 1).unwrap();
-        let body = Block::from_syntax_node(source, body_node, &function_context)?;
+        let body = Block::from_syntax_node(source, body_node, &mut function_context)?;
 
         let r#type = Type::function(parameter_types, return_type.take_inner());
 
@@ -113,7 +113,7 @@ impl AbstractTree for Function {
         Ok(())
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
         Ok(Value::Function(self.clone()))
     }
 
@@ -171,12 +171,12 @@ impl ContextDefinedFunction {
         outer_context: &Map,
     ) -> Result<Value> {
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
-        let function_context = Map::clone_from(outer_context)?;
+        let mut function_context = Map::clone_from(outer_context)?;
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
 
-            function_context.set(key, value.clone(), None)?;
+            function_context.set(key, value.clone(), None);
         }
 
         if let Some(name) = name {
@@ -184,10 +184,10 @@ impl ContextDefinedFunction {
                 name,
                 Value::Function(Function::ContextDefined(self.clone())),
                 None,
-            )?;
+            );
         }
 
-        let return_value = self.body.run(source, &function_context)?;
+        let return_value = self.body.run(source, &mut function_context)?;
 
         Ok(return_value)
     }

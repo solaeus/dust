@@ -171,7 +171,7 @@ fn display_value(value: &Value, ui: &mut egui::Ui) {
                     });
                 })
                 .body(|mut body| {
-                    for (key, (value, _)) in map.variables().unwrap().iter() {
+                    for (key, (value, _)) in map.variables().iter() {
                         body.row(20.0, |mut row| {
                             row.col(|ui| {
                                 ui.label(key);

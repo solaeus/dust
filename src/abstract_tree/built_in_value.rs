@@ -51,39 +51,33 @@ impl BuiltInValue {
                 &Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
             }
             BuiltInValue::Fs => FS.get_or_init(|| {
-                let fs_context = Map::new();
+                let mut fs_context = Map::new();
 
-                fs_context
-                    .set(
-                        "read".to_string(),
-                        Value::Function(Function::BuiltIn(BuiltInFunction::FsRead)),
-                        None,
-                    )
-                    .unwrap();
+                fs_context.set(
+                    "read".to_string(),
+                    Value::Function(Function::BuiltIn(BuiltInFunction::FsRead)),
+                    None,
+                );
 
                 Value::Map(fs_context)
             }),
             BuiltInValue::Json => JSON.get_or_init(|| {
-                let json_context = Map::new();
+                let mut json_context = Map::new();
 
-                json_context
-                    .set(
-                        "parse".to_string(),
-                        Value::Function(Function::BuiltIn(BuiltInFunction::JsonParse)),
-                        None,
-                    )
-                    .unwrap();
+                json_context.set(
+                    "parse".to_string(),
+                    Value::Function(Function::BuiltIn(BuiltInFunction::JsonParse)),
+                    None,
+                );
 
                 Value::Map(json_context)
             }),
             BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
             BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
             BuiltInValue::Random => RANDOM.get_or_init(|| {
-                let random_context = Map::new();
+                let mut random_context = Map::new();
 
                 {
-                    let mut variables = random_context.variables_mut().unwrap();
-
                     for built_in_function in [
                         BuiltInFunction::RandomBoolean,
                         BuiltInFunction::RandomFloat,
@@ -94,18 +88,16 @@ impl BuiltInValue {
                         let value = Value::Function(Function::BuiltIn(built_in_function));
                         let r#type = built_in_function.r#type();
 
-                        variables.insert(key, (value, r#type));
+                        random_context.set(key, value, Some(r#type));
                     }
                 }
 
                 Value::Map(random_context)
             }),
             BuiltInValue::String => STRING.get_or_init(|| {
-                let string_context = Map::new();
+                let mut string_context = Map::new();
 
                 {
-                    let mut variables = string_context.variables_mut().unwrap();
-
                     for string_function in string_functions() {
                         let key = string_function.name().to_string();
                         let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
@@ -113,7 +105,7 @@ impl BuiltInValue {
                         )));
                         let r#type = string_function.r#type();
 
-                        variables.insert(key, (value, r#type));
+                        string_context.set(key, value, Some(r#type));
                     }
                 }
 
@@ -124,7 +116,7 @@ impl BuiltInValue {
 }
 
 impl AbstractTree for BuiltInValue {
-    fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax_node(_source: &str, node: Node, _context: &mut Map) -> Result<Self> {
         let built_in_value = match node.kind() {
             "args" => BuiltInValue::Args,
             "assert_equal" => BuiltInValue::AssertEqual,
@@ -144,7 +136,7 @@ impl AbstractTree for BuiltInValue {
         Ok(())
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
         Ok(self.get().clone())
     }
 

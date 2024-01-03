@@ -53,7 +53,7 @@ fn main() {
         "".to_string()
     };
 
-    let context = Map::new();
+    let mut context = Map::new();
 
     if let Some(input) = args.input {
         context

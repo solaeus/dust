@@ -21,7 +21,7 @@ pub enum Statement {
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "statement", node)?;
 
         let child = node.child(0).unwrap();
@@ -66,7 +66,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),

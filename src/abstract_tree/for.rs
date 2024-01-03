@@ -14,7 +14,7 @@ pub struct For {
 }
 
 impl AbstractTree for For {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "for", node)?;
 
         let for_node = node.child(0).unwrap();
@@ -48,26 +48,26 @@ impl AbstractTree for For {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let expression_run = self.collection.run(source, context)?;
         let values = expression_run.as_list()?.items();
         let key = self.item_id.inner();
 
         if self.is_async {
             values.par_iter().try_for_each(|value| {
-                let iter_context = Map::clone_from(context)?;
+                let mut iter_context = Map::clone_from(context)?;
 
-                iter_context.set(key.clone(), value.clone(), None)?;
+                iter_context.set(key.clone(), value.clone(), None);
 
-                self.block.run(source, &iter_context).map(|_value| ())
+                self.block.run(source, &mut iter_context).map(|_value| ())
             })?;
         } else {
-            let loop_context = Map::clone_from(context)?;
+            let mut loop_context = Map::clone_from(context)?;
 
             for value in values.iter() {
-                loop_context.set(key.clone(), value.clone(), None)?;
+                loop_context.set(key.clone(), value.clone(), None);
 
-                self.block.run(source, &loop_context)?;
+                self.block.run(source, &mut loop_context)?;
             }
         }
 

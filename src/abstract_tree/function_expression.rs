@@ -16,7 +16,7 @@ pub enum FunctionExpression {
 }
 
 impl AbstractTree for FunctionExpression {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -54,7 +54,7 @@ impl AbstractTree for FunctionExpression {
         Ok(function_expression)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.run(source, context),
             FunctionExpression::FunctionCall(function_call) => function_call.run(source, context),

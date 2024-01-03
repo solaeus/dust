@@ -25,7 +25,7 @@ impl TypeDefinition {
 }
 
 impl AbstractTree for TypeDefinition {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type_definition", node)?;
 
         let type_node = node.child(1).unwrap();
@@ -34,7 +34,7 @@ impl AbstractTree for TypeDefinition {
         Ok(TypeDefinition { r#type })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         self.r#type.run(source, context)
     }
 
@@ -176,7 +176,7 @@ impl Type {
 }
 
 impl AbstractTree for Type {
-    fn from_syntax_node(source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, _context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
@@ -247,7 +247,7 @@ impl AbstractTree for Type {
         Ok(())
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
         Ok(Value::none())
     }
 

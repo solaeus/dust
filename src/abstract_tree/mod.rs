@@ -43,7 +43,7 @@ pub struct Root {
 }
 
 impl AbstractTree for Root {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "root", node)?;
 
         let statement_count = node.child_count();
@@ -71,7 +71,7 @@ impl AbstractTree for Root {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let mut value = Value::none();
 
         for statement in &self.statements {
@@ -102,10 +102,10 @@ pub trait AbstractTree: Sized {
     ///
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self>;
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self>;
 
     /// Execute dust code by traversing the tree.
-    fn run(&self, source: &str, context: &Map) -> Result<Value>;
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value>;
 
     /// Verify the type compatibility of this node.
     fn check_type(&self, _source: &str, _context: &Map) -> Result<()>;

@@ -226,7 +226,7 @@ impl Value {
         }
     }
 
-    /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::Map`.
+    /// Borrows the value stored in `self` as `&Map`, or returns `Err` if `self` is not a `Value::Map`.
     pub fn as_map(&self) -> Result<&Map> {
         match self {
             Value::Map(map) => Ok(map),
@@ -236,7 +236,7 @@ impl Value {
         }
     }
 
-    /// Borrows the value stored in `self` as `Function`, or returns `Err` if
+    /// Borrows the value stored in `self` as `&Function`, or returns `Err` if
     /// `self` is not a `Value::Function`.
     pub fn as_function(&self) -> Result<&Function> {
         match self {
@@ -841,10 +841,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let map = Map::new();
+        let mut map = Map::new();
 
         while let Some((key, value)) = access.next_entry::<String, Value>()? {
-            map.set(key, value, None).unwrap();
+            map.set(key, value, None);
         }
 
         Ok(Value::Map(map))

@@ -13,7 +13,7 @@ pub struct While {
 }
 
 impl AbstractTree for While {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> crate::Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> crate::Result<Self> {
         Error::expect_syntax_node(source, "while", node)?;
 
         let expression_node = node.child(1).unwrap();
@@ -30,7 +30,7 @@ impl AbstractTree for While {
         self.block.check_type(_source, _context)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         while self.expression.run(source, context)?.as_boolean()? {
             self.block.run(source, context)?;
         }

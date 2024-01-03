@@ -24,7 +24,7 @@ pub enum Expression {
 }
 
 impl AbstractTree for Expression {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
@@ -65,7 +65,7 @@ impl AbstractTree for Expression {
         Ok(expression)
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &mut Map) -> Result<Value> {
         match self {
             Expression::Value(value_node) => value_node.run(_source, _context),
             Expression::Identifier(identifier) => identifier.run(_source, _context),

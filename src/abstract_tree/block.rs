@@ -21,7 +21,7 @@ pub struct Block {
 }
 
 impl AbstractTree for Block {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "block", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -62,16 +62,22 @@ impl AbstractTree for Block {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         if self.is_async {
             let statements = &self.statements;
+            let context = RwLock::new(context);
             let final_result = RwLock::new(Ok(Value::none()));
 
             statements
                 .into_par_iter()
                 .enumerate()
                 .find_map_first(|(index, statement)| {
-                    let result = statement.run(source, context);
+                    let mut context = match context.write() {
+                        Ok(context) => context,
+                        Err(error) => return Some(Err(error.into())),
+                    };
+
+                    let result = statement.run(source, *context);
                     let is_last_statement = index == statements.len() - 1;
                     let is_return_statement = if let Statement::Return(_) = statement {
                         true
@@ -82,9 +88,7 @@ impl AbstractTree for Block {
                     if is_return_statement || result.is_err() {
                         Some(result)
                     } else if is_last_statement {
-                        let get_write_lock = final_result.write();
-
-                        match get_write_lock {
+                        match final_result.write() {
                             Ok(mut final_result) => {
                                 *final_result = result;
                                 None

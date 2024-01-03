@@ -18,7 +18,7 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for IndexAssignment {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "index_assignment", node)?;
 
         let index_node = node.child(0).unwrap();
@@ -49,9 +49,16 @@ impl AbstractTree for IndexAssignment {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let index_collection = self.index.collection.run(source, context)?;
-        let index_context = index_collection.as_map().unwrap_or(context);
+        let value = self.statement.run(source, context)?;
+        let mut index_context = if let Value::Map(map) = index_collection {
+            map
+        } else {
+            return Err(Error::ExpectedCollection {
+                actual: index_collection,
+            });
+        };
         let index_key = if let IndexExpression::Identifier(identifier) = &self.index.index {
             identifier.inner()
         } else {
@@ -60,12 +67,10 @@ impl AbstractTree for IndexAssignment {
             ));
         };
 
-        let value = self.statement.run(source, context)?;
-
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
                 if let Some((mut previous_value, _)) =
-                    index_context.variables()?.get(index_key).cloned()
+                    index_context.variables().get(index_key).cloned()
                 {
                     previous_value += value;
                     previous_value
@@ -75,7 +80,7 @@ impl AbstractTree for IndexAssignment {
             }
             AssignmentOperator::MinusEqual => {
                 if let Some((mut previous_value, _)) =
-                    index_context.variables()?.get(index_key).cloned()
+                    index_context.variables().get(index_key).cloned()
                 {
                     previous_value -= value;
                     previous_value
@@ -86,7 +91,7 @@ impl AbstractTree for IndexAssignment {
             AssignmentOperator::Equal => value,
         };
 
-        index_context.set(index_key.clone(), new_value, None)?;
+        index_context.set(index_key.clone(), new_value, None);
 
         Ok(Value::none())
     }

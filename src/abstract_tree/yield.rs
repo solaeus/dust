@@ -15,7 +15,7 @@ pub struct Yield {
 }
 
 impl AbstractTree for Yield {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "yield", node)?;
 
         let input_node = node.child(0).unwrap();
@@ -48,7 +48,7 @@ impl AbstractTree for Yield {
         self.call.check_type(_source, _context)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         self.call.run(source, context)
     }
 

@@ -19,7 +19,7 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for Assignment {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "assignment", node)?;
 
         let child_count = node.child_count();
@@ -57,13 +57,13 @@ impl AbstractTree for Assignment {
         let variable_key = identifier.inner().clone();
         let variable_type = if let Some(definition) = &type_definition {
             definition.inner().clone()
-        } else if let Some((_, r#type)) = context.variables()?.get(identifier.inner()) {
+        } else if let Some((_, r#type)) = context.variables().get(identifier.inner()) {
             r#type.clone()
         } else {
             statement.expected_type(context)?
         };
 
-        context.set(variable_key, Value::none(), Some(variable_type))?;
+        context.set(variable_key, Value::none(), Some(variable_type));
 
         Ok(Assignment {
             identifier,
@@ -107,13 +107,13 @@ impl AbstractTree for Assignment {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some((mut previous_value, _)) = context.variables()?.get(key).cloned() {
+                if let Some((mut previous_value, _)) = context.variables().get(key).cloned() {
                     previous_value += value;
                     previous_value
                 } else {
@@ -121,7 +121,7 @@ impl AbstractTree for Assignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some((mut previous_value, _)) = context.variables()?.get(key).cloned() {
+                if let Some((mut previous_value, _)) = context.variables().get(key).cloned() {
                     previous_value -= value;
                     previous_value
                 } else {
@@ -132,9 +132,9 @@ impl AbstractTree for Assignment {
         };
 
         if let Some(type_defintion) = &self.type_definition {
-            context.set(key.clone(), new_value, Some(type_defintion.inner().clone()))?;
+            context.set(key.clone(), new_value, Some(type_defintion.inner().clone()));
         } else {
-            context.set(key.clone(), new_value, None)?;
+            context.set(key.clone(), new_value, None);
         }
 
         Ok(Value::none())

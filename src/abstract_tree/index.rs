@@ -14,7 +14,7 @@ pub struct Index {
 }
 
 impl AbstractTree for Index {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "index", node)?;
 
         let collection_node = node.child(0).unwrap();
@@ -41,7 +41,7 @@ impl AbstractTree for Index {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let collection = self.collection.run(source, context)?;
 
         match collection {
@@ -63,7 +63,7 @@ impl AbstractTree for Index {
                 let value = if let IndexExpression::Identifier(identifier) = &self.index {
                     let key = identifier.inner();
 
-                    map.variables()?
+                    map.variables()
                         .get(key)
                         .map(|(value, _)| value.clone())
                         .unwrap_or_default()
@@ -71,7 +71,7 @@ impl AbstractTree for Index {
                     let value = self.index.run(source, context)?;
                     let key = value.as_string()?;
 
-                    map.variables()?
+                    map.variables()
                         .get(key.as_str())
                         .map(|(value, _)| value.clone())
                         .unwrap_or_default()

@@ -17,7 +17,7 @@ pub struct Match {
 }
 
 impl AbstractTree for Match {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "match", node)?;
 
         let matcher_node = node.child(1).unwrap();
@@ -58,7 +58,7 @@ impl AbstractTree for Match {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let matcher_value = self.matcher.run(source, context)?;
 
         for (expression, statement) in &self.options {

@@ -27,7 +27,7 @@ pub fn interpret(source: &str) -> Result<Value> {
 ///
 /// ```rust
 /// # use dust_lang::*;
-/// let context = Map::new();
+/// let mut context = Map::new();
 ///
 /// context.set("one".into(), 1.into(), None);
 /// context.set("two".into(), 2.into(), None);
@@ -108,7 +108,7 @@ impl Interpreter {
             Some(Root::from_syntax_node(
                 source,
                 syntax_tree.root_node(),
-                &self.context,
+                &mut self.context,
             )?)
         } else {
             return Err(Error::ParserCancelled);
@@ -116,7 +116,7 @@ impl Interpreter {
 
         if let Some(abstract_tree) = &self.abstract_tree {
             abstract_tree.check_type(source, &self.context)?;
-            abstract_tree.run(source, &self.context)
+            abstract_tree.run(source, &mut self.context)
         } else {
             Ok(Value::none())
         }

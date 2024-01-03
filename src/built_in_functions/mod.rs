@@ -87,7 +87,7 @@ impl BuiltInFunction {
                 let length = if let Ok(list) = value.as_list() {
                     list.items().len()
                 } else if let Ok(map) = value.as_map() {
-                    map.variables()?.len()
+                    map.variables().len()
                 } else if let Ok(str) = value.as_string() {
                     str.chars().count()
                 } else {

@@ -19,7 +19,7 @@ impl FunctionCall {
 }
 
 impl AbstractTree for FunctionCall {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function_call", node)?;
 
         let function_node = node.child(0).unwrap();
@@ -80,11 +80,11 @@ impl AbstractTree for FunctionCall {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let (name, value) = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
-                let variables = context.variables()?;
+                let variables = context.variables();
 
                 if let Some((value, _)) = variables.get(key) {
                     (Some(key.clone()), value.clone())
@@ -111,7 +111,7 @@ impl AbstractTree for FunctionCall {
         }
 
         if let Some(name) = &name {
-            context.set(name.to_string(), value.clone(), None)?;
+            context.set(name.to_string(), value.clone(), None);
         }
 
         value

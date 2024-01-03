@@ -13,7 +13,7 @@ pub struct IfElse {
 }
 
 impl AbstractTree for IfElse {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         let if_expression_node = node.child(0).unwrap().child(1).unwrap();
         let if_expression = Expression::from_syntax_node(source, if_expression_node, context)?;
 
@@ -55,7 +55,7 @@ impl AbstractTree for IfElse {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let if_boolean = self.if_expression.run(source, context)?.as_boolean()?;
 
         if if_boolean {

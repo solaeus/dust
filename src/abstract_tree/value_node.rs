@@ -17,12 +17,12 @@ pub enum ValueNode {
     String(String),
     List(Vec<Expression>),
     Option(Option<Box<Expression>>),
-    Map(BTreeMap<String, (Statement, Option<Type>)>),
+    Map(BTreeMap<Identifier, (Statement, Option<TypeDefinition>)>),
     BuiltInValue(BuiltInValue),
 }
 
 impl AbstractTree for ValueNode {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "value", node)?;
 
         let child = node.child(0).unwrap();
@@ -53,31 +53,37 @@ impl AbstractTree for ValueNode {
             }
             "map" => {
                 let mut child_nodes = BTreeMap::new();
-                let mut current_key = "".to_string();
+                let mut current_identifier = None;
                 let mut current_type = None;
 
                 for index in 0..child.child_count() - 1 {
                     let child_syntax_node = child.child(index).unwrap();
 
                     if child_syntax_node.kind() == "identifier" {
-                        current_key =
-                            Identifier::from_syntax_node(source, child_syntax_node, context)?
-                                .take_inner();
+                        current_identifier = Some(Identifier::from_syntax_node(
+                            source,
+                            child_syntax_node,
+                            context,
+                        )?);
                         current_type = None;
                     }
 
                     if child_syntax_node.kind() == "type_definition" {
-                        current_type = Some(
-                            TypeDefinition::from_syntax_node(source, child_syntax_node, context)?
-                                .take_inner(),
-                        );
+                        current_type = Some(TypeDefinition::from_syntax_node(
+                            source,
+                            child_syntax_node,
+                            context,
+                        )?);
                     }
 
                     if child_syntax_node.kind() == "statement" {
                         let statement =
                             Statement::from_syntax_node(source, child_syntax_node, context)?;
 
-                        child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
+                        if let Some(identifier) = &current_identifier {
+                            child_nodes
+                                .insert(identifier.clone(), (statement, current_type.clone()));
+                        }
                     }
                 }
 
@@ -133,7 +139,9 @@ impl AbstractTree for ValueNode {
                 for (_, (statement, r#type)) in map {
                     statement.check_type(_source, context)?;
 
-                    if let Some(r#type) = r#type {
+                    if let Some(type_definition) = r#type {
+                        let r#type = type_definition.inner();
+
                         r#type.check_type(_source, context)?;
                         r#type.check(&statement.expected_type(context)?)?;
                     }
@@ -150,7 +158,7 @@ impl AbstractTree for ValueNode {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let value = match self {
             ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
             ValueNode::Float(value_source) => Value::Float(value_source.parse().unwrap()),
@@ -177,14 +185,17 @@ impl AbstractTree for ValueNode {
 
                 Value::Option(option_value)
             }
-            ValueNode::Map(key_statement_pairs) => {
-                let map = Map::new();
+            ValueNode::Map(map_node) => {
+                let mut map = Map::new();
 
                 {
-                    for (key, (statement, r#type)) in key_statement_pairs {
+                    for (identifier, (statement, type_definition_option)) in map_node.iter() {
                         let value = statement.run(source, context)?;
+                        let type_option = type_definition_option
+                            .as_ref()
+                            .map(|definition| definition.inner().clone());
 
-                        map.set(key.clone(), value, r#type.clone())?;
+                        map.set(identifier.inner().clone(), value, type_option);
                     }
                 }
 

@@ -12,7 +12,7 @@ pub struct Logic {
 }
 
 impl AbstractTree for Logic {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &mut Map) -> Result<Self> {
         Error::expect_syntax_node(source, "logic", node)?;
 
         let first_node = node.child(0).unwrap();
@@ -59,7 +59,7 @@ impl AbstractTree for Logic {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &mut Map) -> Result<Value> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let result = match self.operator {
