@@ -91,6 +91,10 @@ impl AbstractTree for IndexAssignment {
         Ok(Value::none())
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(Type::None)
     }

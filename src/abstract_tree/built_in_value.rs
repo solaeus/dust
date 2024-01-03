@@ -140,6 +140,10 @@ impl AbstractTree for BuiltInValue {
         Ok(built_in_value)
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
         Ok(self.get().clone())
     }

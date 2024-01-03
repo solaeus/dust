@@ -44,6 +44,10 @@ impl AbstractTree for Yield {
         Ok(Yield { call })
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        self.call.check_type(_source, _context)
+    }
+
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         self.call.run(source, context)
     }

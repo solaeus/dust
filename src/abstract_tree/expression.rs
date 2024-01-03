@@ -65,27 +65,39 @@ impl AbstractTree for Expression {
         Ok(expression)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
         match self {
-            Expression::Value(value_node) => value_node.run(source, context),
-            Expression::Identifier(identifier) => identifier.run(source, context),
-            Expression::Math(math) => math.run(source, context),
-            Expression::Logic(logic) => logic.run(source, context),
-            Expression::FunctionCall(function_call) => function_call.run(source, context),
-            Expression::Index(index) => index.run(source, context),
-            Expression::Yield(r#yield) => r#yield.run(source, context),
+            Expression::Value(value_node) => value_node.run(_source, _context),
+            Expression::Identifier(identifier) => identifier.run(_source, _context),
+            Expression::Math(math) => math.run(_source, _context),
+            Expression::Logic(logic) => logic.run(_source, _context),
+            Expression::FunctionCall(function_call) => function_call.run(_source, _context),
+            Expression::Index(index) => index.run(_source, _context),
+            Expression::Yield(r#yield) => r#yield.run(_source, _context),
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         match self {
-            Expression::Value(value_node) => value_node.expected_type(context),
-            Expression::Identifier(identifier) => identifier.expected_type(context),
-            Expression::Math(math) => math.expected_type(context),
-            Expression::Logic(logic) => logic.expected_type(context),
-            Expression::FunctionCall(function_call) => function_call.expected_type(context),
-            Expression::Index(index) => index.expected_type(context),
-            Expression::Yield(r#yield) => r#yield.expected_type(context),
+            Expression::Value(value_node) => value_node.check_type(_source, _context),
+            Expression::Identifier(identifier) => identifier.check_type(_source, _context),
+            Expression::Math(math) => math.check_type(_source, _context),
+            Expression::Logic(logic) => logic.check_type(_source, _context),
+            Expression::FunctionCall(function_call) => function_call.check_type(_source, _context),
+            Expression::Index(index) => index.check_type(_source, _context),
+            Expression::Yield(r#yield) => r#yield.check_type(_source, _context),
+        }
+    }
+
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        match self {
+            Expression::Value(value_node) => value_node.expected_type(_context),
+            Expression::Identifier(identifier) => identifier.expected_type(_context),
+            Expression::Math(math) => math.expected_type(_context),
+            Expression::Logic(logic) => logic.expected_type(_context),
+            Expression::FunctionCall(function_call) => function_call.expected_type(_context),
+            Expression::Index(index) => index.expected_type(_context),
+            Expression::Yield(r#yield) => r#yield.expected_type(_context),
         }
     }
 }

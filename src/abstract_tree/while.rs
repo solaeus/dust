@@ -25,6 +25,11 @@ impl AbstractTree for While {
         Ok(While { expression, block })
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        self.expression.check_type(_source, _context)?;
+        self.block.check_type(_source, _context)
+    }
+
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         while self.expression.run(source, context)?.as_boolean()? {
             self.block.run(source, context)?;

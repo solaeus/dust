@@ -76,6 +76,10 @@ impl AbstractTree for Match {
         }
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn expected_type(&self, context: &Map) -> Result<Type> {
         let (_, first_statement) = self.options.first().unwrap();
 

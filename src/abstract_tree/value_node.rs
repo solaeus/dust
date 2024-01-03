@@ -77,10 +77,6 @@ impl AbstractTree for ValueNode {
                         let statement =
                             Statement::from_syntax_node(source, child_syntax_node, context)?;
 
-                        if let Some(type_definition) = &current_type {
-                            type_definition.check(&statement.expected_type(context)?)?;
-                        }
-
                         child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
                     }
                 }
@@ -120,6 +116,38 @@ impl AbstractTree for ValueNode {
         };
 
         Ok(value_node)
+    }
+
+    fn check_type(&self, _source: &str, context: &Map) -> Result<()> {
+        match self {
+            ValueNode::Function(function) => function.check_type(_source, context)?,
+            ValueNode::List(expression_list) => {
+                for expression in expression_list {
+                    expression.check_type(_source, context)?;
+                }
+            }
+            ValueNode::BuiltInValue(built_in_value) => {
+                built_in_value.check_type(_source, context)?
+            }
+            ValueNode::Map(map) => {
+                for (_, (statement, r#type)) in map {
+                    statement.check_type(_source, context)?;
+
+                    if let Some(r#type) = r#type {
+                        r#type.check_type(_source, context)?;
+                        r#type.check(&statement.expected_type(context)?)?;
+                    }
+                }
+            }
+            ValueNode::Option(option) => {
+                if let Some(expression) = option {
+                    expression.check_type(_source, context)?;
+                }
+            }
+            _ => {}
+        }
+
+        Ok(())
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {

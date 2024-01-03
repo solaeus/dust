@@ -38,6 +38,10 @@ impl AbstractTree for TypeDefinition {
         self.r#type.run(source, context)
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        self.r#type.check_type(_source, _context)
+    }
+
     fn expected_type(&self, context: &Map) -> Result<Type> {
         self.r#type.expected_type(context)
     }
@@ -237,6 +241,10 @@ impl AbstractTree for Type {
             };
 
         Ok(r#type)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {

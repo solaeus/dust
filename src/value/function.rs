@@ -93,16 +93,24 @@ impl AbstractTree for Function {
         let body_node = node.child(child_count - 1).unwrap();
         let body = Block::from_syntax_node(source, body_node, &function_context)?;
 
-        return_type
-            .inner()
-            .check(&body.expected_type(&function_context)?)
-            .map_err(|error| error.at_node(body_node, source))?;
-
         let r#type = Type::function(parameter_types, return_type.take_inner());
 
         Ok(Self::ContextDefined(ContextDefinedFunction::new(
             parameters, body, r#type,
         )))
+    }
+
+    fn check_type(&self, _source: &str, context: &Map) -> Result<()> {
+        match self {
+            Function::BuiltIn(_built_in_function) => {}
+            Function::ContextDefined(function) => {
+                function
+                    .return_type()
+                    .check(&function.body.expected_type(&context)?)?;
+            }
+        }
+
+        Ok(())
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {

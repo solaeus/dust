@@ -64,6 +64,10 @@ impl AbstractTree for FunctionExpression {
         }
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn expected_type(&self, context: &Map) -> Result<Type> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.expected_type(context),

@@ -62,6 +62,10 @@ impl AbstractTree for Math {
         Ok(value)
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn expected_type(&self, context: &Map) -> Result<Type> {
         self.left.expected_type(context)
     }

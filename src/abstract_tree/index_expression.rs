@@ -48,6 +48,10 @@ impl AbstractTree for IndexExpression {
         Ok(abstract_node)
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         match self {
             IndexExpression::Value(value_node) => value_node.run(source, context),

@@ -59,6 +59,18 @@ impl AbstractTree for Root {
         Ok(Root { statements })
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        for statement in &self.statements {
+            if let Statement::Return(inner_statement) = statement {
+                return inner_statement.check_type(_source, _context);
+            } else {
+                statement.check_type(_source, _context)?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let mut value = Value::none();
 
@@ -94,6 +106,9 @@ pub trait AbstractTree: Sized {
 
     /// Execute dust code by traversing the tree.
     fn run(&self, source: &str, context: &Map) -> Result<Value>;
+
+    /// Verify the type compatibility of this node.
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()>;
 
     fn expected_type(&self, context: &Map) -> Result<Type>;
 }

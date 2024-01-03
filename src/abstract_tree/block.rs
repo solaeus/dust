@@ -50,6 +50,18 @@ impl AbstractTree for Block {
         })
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        for statement in &self.statements {
+            if let Statement::Return(inner_statement) = statement {
+                return inner_statement.check_type(_source, _context);
+            } else {
+                statement.check_type(_source, _context)?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         if self.is_async {
             let statements = &self.statements;

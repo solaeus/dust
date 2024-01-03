@@ -81,6 +81,10 @@ impl AbstractTree for IfElse {
         }
     }
 
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
+    }
+
     fn expected_type(&self, context: &Map) -> Result<Type> {
         self.if_block.expected_type(context)
     }
