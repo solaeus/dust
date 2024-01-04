@@ -8,12 +8,7 @@ pub use crate::{
     built_in_functions::BuiltInFunction,
     error::*,
     interpret::*,
-    value::{
-        function::{ContextDefinedFunction, Function},
-        list::List,
-        map::Map,
-        Value,
-    },
+    value::{function::Function, list::List, map::Map, Value},
 };
 
 mod abstract_tree;

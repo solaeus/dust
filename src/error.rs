@@ -83,6 +83,10 @@ pub enum Error {
         actual: usize,
     },
 
+    ExpectedFunctionType {
+        actual: Type,
+    },
+
     ExpectedString {
         actual: Value,
     },
@@ -217,16 +221,8 @@ impl Error {
 
     pub fn is_type_check_error(&self, other: &Error) -> bool {
         match self {
-            Error::WithContext { error, .. } => {
-                debug_assert_eq!(error.as_ref(), other);
-
-                error.as_ref() == other
-            }
-            _ => {
-                debug_assert_eq!(self, other);
-
-                self == other
-            }
+            Error::WithContext { error, .. } => error.as_ref() == other,
+            _ => self == other,
         }
     }
 }
@@ -438,6 +434,7 @@ impl fmt::Display for Error {
                 f,
                 "Parsing was cancelled either manually or because it took too long."
             ),
+            ExpectedFunctionType { actual } => write!(f, "Expected a function but got {actual}."),
         }
     }
 }

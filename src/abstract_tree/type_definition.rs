@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Value};
+use crate::{AbstractTree, Error, Identifier, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TypeDefinition {
@@ -61,7 +61,7 @@ pub enum Type {
     },
     Integer,
     List(Box<Type>),
-    Map,
+    Map(Vec<(Identifier, TypeDefinition)>),
     None,
     Number,
     String,
@@ -92,13 +92,12 @@ impl Type {
             | (Type::Collection, Type::Collection)
             | (Type::Collection, Type::List(_))
             | (Type::List(_), Type::Collection)
-            | (Type::Collection, Type::Map)
-            | (Type::Map, Type::Collection)
+            | (Type::Collection, Type::Map(_))
+            | (Type::Map(_), Type::Collection)
             | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::Map, Type::Map)
             | (Type::Number, Type::Number)
             | (Type::Number, Type::Integer)
             | (Type::Number, Type::Float)
@@ -106,6 +105,16 @@ impl Type {
             | (Type::Float, Type::Number)
             | (Type::None, Type::None)
             | (Type::String, Type::String) => Ok(()),
+            (Type::Map(left), Type::Map(right)) => {
+                if left == right {
+                    Ok(())
+                } else {
+                    Err(Error::TypeCheck {
+                        expected: self.clone(),
+                        actual: other.clone(),
+                    })
+                }
+            }
             (Type::Option(left), Type::Option(right)) => {
                 if left == right {
                     Ok(())
@@ -172,69 +181,95 @@ impl Type {
 }
 
 impl AbstractTree for Type {
-    fn from_syntax_node(source: &str, node: Node, _context: &Map) -> Result<Self> {
-        Error::expect_syntax_node(source, "type", node)?;
+    fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
+        Error::expect_syntax_node(_source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
 
-        let r#type =
-            match type_node.kind() {
-                "[" => {
-                    let item_type_node = node.child(1).unwrap();
-                    let item_type = Type::from_syntax_node(source, item_type_node, _context)?;
+        let r#type = match type_node.kind() {
+            "[" => {
+                let item_type_node = node.child(1).unwrap();
+                let item_type = Type::from_syntax_node(_source, item_type_node, _context)?;
 
-                    Type::List(Box::new(item_type))
+                Type::List(Box::new(item_type))
+            }
+            "any" => Type::Any,
+            "bool" => Type::Boolean,
+            "collection" => Type::Collection,
+            "float" => Type::Float,
+            "(" => {
+                let child_count = node.child_count();
+                let mut parameter_types = Vec::new();
+
+                for index in 1..child_count - 2 {
+                    let child = node.child(index).unwrap();
+
+                    if child.is_named() {
+                        let parameter_type = Type::from_syntax_node(_source, child, _context)?;
+
+                        parameter_types.push(parameter_type);
+                    }
                 }
-                "any" => Type::Any,
-                "bool" => Type::Boolean,
-                "collection" => Type::Collection,
-                "float" => Type::Float,
-                "(" => {
-                    let child_count = node.child_count();
-                    let mut parameter_types = Vec::new();
 
-                    for index in 1..child_count - 2 {
-                        let child = node.child(index).unwrap();
+                let final_node = node.child(child_count - 1).unwrap();
+                let return_type = if final_node.is_named() {
+                    Type::from_syntax_node(_source, final_node, _context)?
+                } else {
+                    Type::None
+                };
 
-                        if child.is_named() {
-                            let parameter_type = Type::from_syntax_node(source, child, _context)?;
+                Type::Function {
+                    parameter_types,
+                    return_type: Box::new(return_type),
+                }
+            }
+            "int" => Type::Integer,
 
-                            parameter_types.push(parameter_type);
+            "num" => Type::Number,
+            "none" => Type::None,
+            "str" => Type::String,
+            "{" => {
+                let child_count = node.child_count();
+                let mut identifier_types = Vec::new();
+                let mut identifier = None;
+
+                for index in 1..child_count - 1 {
+                    let child = node.child(index).unwrap();
+
+                    match child.kind() {
+                        "identifier" => {
+                            identifier =
+                                Some(Identifier::from_syntax_node(_source, child, _context)?);
                         }
-                    }
+                        "type_definition" => {
+                            if let Some(identifier) = &identifier {
+                                let type_definition =
+                                    TypeDefinition::from_syntax_node(_source, child, _context)?;
 
-                    let final_node = node.child(child_count - 1).unwrap();
-                    let return_type = if final_node.is_named() {
-                        Type::from_syntax_node(source, final_node, _context)?
-                    } else {
-                        Type::None
-                    };
-
-                    Type::Function {
-                        parameter_types,
-                        return_type: Box::new(return_type),
+                                identifier_types.push((identifier.clone(), type_definition));
+                            }
+                        }
+                        _ => {}
                     }
                 }
-                "int" => Type::Integer,
-                "map" => Type::Map,
-                "num" => Type::Number,
-                "none" => Type::None,
-                "str" => Type::String,
-                "option" => {
-                    let inner_type_node = node.child(2).unwrap();
-                    let inner_type = Type::from_syntax_node(source, inner_type_node, _context)?;
 
-                    Type::Option(Box::new(inner_type))
-                }
-                _ => return Err(Error::UnexpectedSyntaxNode {
-                    expected:
-                        "any, bool, collection, float, function, int, list, map, num, str or option"
-                            .to_string(),
+                Type::Map(identifier_types)
+            }
+            "option" => {
+                let inner_type_node = node.child(2).unwrap();
+                let inner_type = Type::from_syntax_node(_source, inner_type_node, _context)?;
+
+                Type::Option(Box::new(inner_type))
+            }
+            _ => {
+                return Err(Error::UnexpectedSyntaxNode {
+                    expected: "any, bool, float, int, num, str, option, (, [ or {".to_string(),
                     actual: type_node.kind().to_string(),
                     location: type_node.start_position(),
-                    relevant_source: source[type_node.byte_range()].to_string(),
-                }),
-            };
+                    relevant_source: _source[type_node.byte_range()].to_string(),
+                })
+            }
+        };
 
         Ok(r#type)
     }
@@ -274,7 +309,15 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map => write!(f, "map"),
+            Type::Map(identifier_types) => {
+                write!(f, "{{")?;
+
+                for (identifier, r#type) in identifier_types {
+                    write!(f, "{} {}", identifier.inner(), r#type)?;
+                }
+
+                write!(f, "}}")
+            }
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),

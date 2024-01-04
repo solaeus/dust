@@ -353,6 +353,12 @@ module.exports = grammar({
           'str',
           seq('[', $.type, ']'),
           seq(
+            '{',
+            $.identifier,
+            $.type_definition,
+            '}',
+          ),
+          seq(
             '(',
             repeat(
               seq(

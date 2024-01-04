@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, List, Map, Type,
+    Function, Identifier, List, Map, Type, TypeDefinition,
 };
 
 use serde::{
@@ -74,7 +74,18 @@ impl Value {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            Value::Map(_) => Type::Map,
+            Value::Map(map) => {
+                let mut identifier_types = Vec::new();
+
+                for (key, (value, _)) in map.variables().unwrap().iter() {
+                    identifier_types.push((
+                        Identifier::new(key.clone()),
+                        TypeDefinition::new(value.r#type()),
+                    ));
+                }
+
+                Type::Map(identifier_types)
+            }
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,

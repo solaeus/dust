@@ -26,7 +26,6 @@ impl AbstractTree for Assignment {
 
         let identifier_node = node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
-        let identifier_type = identifier.expected_type(context)?;
 
         let type_node = node.child(1).unwrap();
         let type_definition = if type_node.kind() == "type_definition" {
@@ -56,42 +55,6 @@ impl AbstractTree for Assignment {
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
         let statement_type = statement.expected_type(context)?;
 
-        if let Some(type_definition) = &type_definition {
-            match operator {
-                AssignmentOperator::Equal => {
-                    type_definition
-                        .inner()
-                        .check(&statement_type)
-                        .map_err(|error| error.at_node(statement_node, source))?;
-                }
-                AssignmentOperator::PlusEqual => {
-                    if let Type::List(item_type) = type_definition.inner() {
-                        item_type
-                            .check(&statement_type)
-                            .map_err(|error| error.at_node(statement_node, source))?;
-                    } else {
-                        type_definition
-                            .inner()
-                            .check(&identifier_type)
-                            .map_err(|error| error.at_node(identifier_node, source))?;
-                    }
-                }
-                AssignmentOperator::MinusEqual => todo!(),
-            }
-        } else {
-            match operator {
-                AssignmentOperator::Equal => {}
-                AssignmentOperator::PlusEqual => {
-                    if let Type::List(item_type) = identifier_type {
-                        item_type
-                            .check(&statement_type)
-                            .map_err(|error| error.at_node(statement_node, source))?;
-                    }
-                }
-                AssignmentOperator::MinusEqual => todo!(),
-            }
-        }
-
         let variable_key = identifier.inner().clone();
         let variable_type = if let Some(definition) = &type_definition {
             definition.inner().clone()
@@ -109,6 +72,42 @@ impl AbstractTree for Assignment {
             operator,
             statement,
         })
+    }
+
+    fn check_type(&self, context: &Map) -> Result<()> {
+        let statement_type = self.statement.expected_type(context)?;
+
+        if let Some(type_definition) = &self.type_definition {
+            match self.operator {
+                AssignmentOperator::Equal => {
+                    type_definition.inner().check(&statement_type)?;
+                }
+                AssignmentOperator::PlusEqual => {
+                    if let Type::List(item_type) = type_definition.inner() {
+                        item_type.check(&statement_type)?;
+                    } else {
+                        type_definition
+                            .inner()
+                            .check(&self.identifier.expected_type(context)?)?;
+                    }
+                }
+                AssignmentOperator::MinusEqual => todo!(),
+            }
+        } else {
+            match self.operator {
+                AssignmentOperator::Equal => {}
+                AssignmentOperator::PlusEqual => {
+                    if let Type::List(item_type) = self.identifier.expected_type(context)? {
+                        item_type.check(&statement_type)?;
+                    }
+                }
+                AssignmentOperator::MinusEqual => todo!(),
+            }
+        }
+
+        self.statement.check_type(context)?;
+
+        Ok(())
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {

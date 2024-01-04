@@ -13,6 +13,7 @@ pub mod expression;
 pub mod r#for;
 pub mod function_call;
 pub mod function_expression;
+pub mod function_node;
 pub mod identifier;
 pub mod if_else;
 pub mod index;
@@ -29,9 +30,9 @@ pub mod r#yield;
 
 pub use {
     assignment::*, block::*, built_in_value::*, expression::*, function_call::*,
-    function_expression::*, identifier::*, if_else::*, index::*, index_assignment::IndexAssignment,
-    index_expression::*, logic::*, math::*, r#for::*, r#match::*, r#while::*, r#yield::*,
-    statement::*, type_definition::*, value_node::*,
+    function_expression::*, function_node::*, identifier::*, if_else::*, index::*,
+    index_assignment::IndexAssignment, index_expression::*, logic::*, math::*, r#for::*,
+    r#match::*, r#while::*, r#yield::*, statement::*, type_definition::*, value_node::*,
 };
 
 use tree_sitter::Node;
@@ -57,6 +58,18 @@ impl AbstractTree for Root {
         }
 
         Ok(Root { statements })
+    }
+
+    fn check_type(&self, _context: &Map) -> Result<()> {
+        for statement in &self.statements {
+            if let Statement::Return(inner_statement) = statement {
+                return inner_statement.check_type(_context);
+            } else {
+                statement.check_type(_context)?;
+            }
+        }
+
+        Ok(())
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
@@ -91,6 +104,11 @@ pub trait AbstractTree: Sized {
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self>;
+
+    /// Verify the type integrity of the node.
+    fn check_type(&self, _context: &Map) -> Result<()> {
+        Ok(())
+    }
 
     /// Execute dust code by traversing the tree.
     fn run(&self, source: &str, context: &Map) -> Result<Value>;

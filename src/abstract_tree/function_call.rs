@@ -25,9 +25,7 @@ impl AbstractTree for FunctionCall {
         let function_node = node.child(0).unwrap();
         let function_expression =
             FunctionExpression::from_syntax_node(source, function_node, context)?;
-        let function_type = function_expression.expected_type(context)?;
 
-        let mut minimum_parameter_count = 0;
         let mut arguments = Vec::new();
 
         for index in 2..node.child_count() - 1 {
@@ -35,39 +33,8 @@ impl AbstractTree for FunctionCall {
 
             if child.is_named() {
                 let expression = Expression::from_syntax_node(source, child, context)?;
-                let expression_type = expression.expected_type(context)?;
-                let argument_index = arguments.len();
-
-                if let Type::Function {
-                    parameter_types, ..
-                } = &function_type
-                {
-                    if let Some(r#type) = parameter_types.get(argument_index) {
-                        if let Type::Option(_) = r#type {
-                        } else {
-                            minimum_parameter_count += 1;
-                        }
-
-                        r#type
-                            .check(&expression_type)
-                            .map_err(|error| error.at_node(child, source))?;
-                    }
-                }
 
                 arguments.push(expression);
-            }
-        }
-
-        if let Type::Function {
-            parameter_types: _, ..
-        } = &function_type
-        {
-            if arguments.len() < minimum_parameter_count {
-                return Err(Error::ExpectedFunctionArgumentMinimum {
-                    source: source[function_node.byte_range()].to_string(),
-                    minumum_expected: minimum_parameter_count,
-                    actual: arguments.len(),
-                });
             }
         }
 
@@ -75,6 +42,36 @@ impl AbstractTree for FunctionCall {
             function_expression,
             arguments,
         })
+    }
+
+    fn check_type(&self, context: &Map) -> Result<()> {
+        let function_expression_type = self.function_expression.expected_type(context)?;
+        let parameter_types = if let Type::Function {
+            parameter_types, ..
+        } = &function_expression_type
+        {
+            parameter_types
+        } else {
+            return Err(Error::ExpectedFunctionType {
+                actual: function_expression_type,
+            });
+        };
+
+        for (index, expression) in self.arguments.iter().enumerate() {
+            if let Some(r#type) = parameter_types.get(index) {
+                r#type.check(&expression.expected_type(context)?)?;
+            }
+        }
+
+        if self.arguments.len() != parameter_types.len() {
+            return Err(Error::ExpectedFunctionArgumentAmount {
+                source: "TODO".to_string(),
+                expected: parameter_types.len(),
+                actual: self.arguments.len(),
+            });
+        }
+
+        Ok(())
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {

@@ -442,6 +442,27 @@ mod type_definition {
     }
 
     #[test]
+    fn argument_count_check() {
+        let result = interpret(
+            "
+            foo = (x <int>) <bool> {
+                x
+            }
+            foo()
+            ",
+        );
+
+        assert_eq!(
+            Err(Error::ExpectedFunctionArgumentAmount {
+                source: "foo".to_string(),
+                expected: 1,
+                actual: 0
+            }),
+            result
+        )
+    }
+
+    #[test]
     fn callback_type_check() {
         let result = interpret(
             "
