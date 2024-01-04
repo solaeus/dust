@@ -1,22 +1,28 @@
-cards = {
+type Cards {
+	rooms <[str]>
+	suspects <[str]>
+	weapons <[str]>
+}
+
+cards = Cards {
 	rooms = ['Library' 'Kitchen' 'Conservatory']
 	suspects = ['White' 'Green' 'Scarlett']
 	weapons = ['Rope' 'Lead_Pipe' 'Knife']
 }
 
-is_ready_to_solve = (cards <map>) <bool> {
+is_ready_to_solve = (cards <Cards>) <bool> {
 	(length(cards:suspects) == 1)
 	&& (length(cards:rooms) == 1)
 	&& (length(cards:weapons) == 1)
 }
 
-remove_card = (cards <map>, opponent_card <str>) <none> {
+remove_card = (cards <Cards>, opponent_card <str>) <none> {
 	cards:rooms -= opponent_card
 	cards:suspects -= opponent_card
 	cards:weapons -= opponent_card
 }
 
-make_guess = (cards <map>, current_room <str>) <none> {
+make_guess = (cards <Cards>, current_room <str>) <none> {
 	if is_ready_to_solve(cards) {
 		output(
 			'I accuse '
@@ -40,7 +46,7 @@ make_guess = (cards <map>, current_room <str>) <none> {
 	}
 }
 
-take_turn = (cards <map>, opponent_card <str>, current_room <str>) <none> {
+take_turn = (cards <Cards>, opponent_card <str>, current_room <str>) <none> {
 	remove_card(cards opponent_card)
 	make_guess(cards current_room)
 }

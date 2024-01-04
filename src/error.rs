@@ -1,12 +1,10 @@
 //! Error and Result types.
 //!
-//! To deal with errors from dependencies, either create a new error variant
-//! or use the ToolFailure variant if the error can only occur inside a tool.
-
+//! To deal with errors from dependencies, create a new Error variant.
 use serde::{Deserialize, Serialize};
 use tree_sitter::{LanguageError, Node, Point};
 
-use crate::{value::Value, Type};
+use crate::{value::Value, FunctionExpression, Type};
 
 use std::{
     fmt::{self, Formatter},
@@ -83,8 +81,8 @@ pub enum Error {
         actual: usize,
     },
 
-    ExpectedFunctionType {
-        actual: Type,
+    ExpectedFunctionExpression {
+        actual: FunctionExpression,
     },
 
     ExpectedString {
@@ -434,11 +432,13 @@ impl fmt::Display for Error {
                 f,
                 "Parsing was cancelled either manually or because it took too long."
             ),
-            ExpectedFunctionType { actual } => write!(f, "Expected a function but got {actual}."),
+            ExpectedFunctionExpression { actual } => {
+                write!(f, "Expected a function expression but got {actual:?}.")
+            }
         }
     }
 }
 
 fn get_position(position: &Point) -> String {
-    format!("column {}, row {}", position.row + 1, position.column)
+    format!("row {}, column {}", position.row + 1, position.column)
 }

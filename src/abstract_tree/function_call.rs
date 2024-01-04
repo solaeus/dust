@@ -52,8 +52,8 @@ impl AbstractTree for FunctionCall {
         {
             parameter_types
         } else {
-            return Err(Error::ExpectedFunctionType {
-                actual: function_expression_type,
+            return Err(Error::ExpectedFunctionExpression {
+                actual: self.function_expression.clone(),
             });
         };
 
