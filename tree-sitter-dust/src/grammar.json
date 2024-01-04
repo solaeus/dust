@@ -235,7 +235,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "map"
+          "name": "structure"
         },
         {
           "type": "SYMBOL",
@@ -501,9 +501,13 @@
         }
       ]
     },
-    "map": {
+    "structure": {
       "type": "SEQ",
       "members": [
+        {
+          "type": "STRING",
+          "value": "struct"
+        },
         {
           "type": "STRING",
           "value": "{"
@@ -530,12 +534,25 @@
                 ]
               },
               {
-                "type": "STRING",
-                "value": "="
-              },
-              {
-                "type": "SYMBOL",
-                "name": "statement"
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SEQ",
+                    "members": [
+                      {
+                        "type": "STRING",
+                        "value": "="
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "statement"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "BLANK"
+                  }
+                ]
               },
               {
                 "type": "CHOICE",
@@ -1101,10 +1118,6 @@
           },
           {
             "type": "STRING",
-            "value": "map"
-          },
-          {
-            "type": "STRING",
             "value": "none"
           },
           {
@@ -1114,6 +1127,10 @@
           {
             "type": "STRING",
             "value": "str"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
           },
           {
             "type": "SEQ",

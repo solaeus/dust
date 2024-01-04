@@ -81,7 +81,7 @@ module.exports = grammar({
         $.string,
         $.boolean,
         $.list,
-        $.map,
+        $.structure,
         $.option,
         $.built_in_value,
       ),
@@ -167,15 +167,17 @@ module.exports = grammar({
         ']',
       ),
 
-    map: $ =>
+    structure: $ =>
       seq(
+        'struct',
         '{',
         repeat1(
           seq(
             $.identifier,
             optional($.type_definition),
-            '=',
-            $.statement,
+            optional(
+              seq('=', $.statement),
+            ),
             optional(','),
           ),
         ),
@@ -347,10 +349,10 @@ module.exports = grammar({
           'collection',
           'float',
           'int',
-          'map',
           'none',
           'num',
           'str',
+          $.identifier,
           seq('[', $.type, ']'),
           seq(
             '{',
