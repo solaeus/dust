@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Index, IndexExpression, Map, Result, Statement, Type, Value};
+use crate::{
+    AbstractTree, Error, Index, IndexExpression, Result, Statement, Structure, Type, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IndexAssignment {
@@ -18,7 +20,7 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for IndexAssignment {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "index_assignment", node)?;
 
         let index_node = node.child(0).unwrap();
@@ -49,9 +51,9 @@ impl AbstractTree for IndexAssignment {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let index_collection = self.index.collection.run(source, context)?;
-        let index_context = index_collection.as_map().unwrap_or(context);
+        let index_context = index_collection.as_structure().unwrap_or(context);
         let index_key = if let IndexExpression::Identifier(identifier) = &self.index.index {
             identifier.inner()
         } else {
@@ -91,7 +93,7 @@ impl AbstractTree for IndexAssignment {
         Ok(Value::none())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Structure) -> Result<Type> {
         Ok(Type::None)
     }
 }

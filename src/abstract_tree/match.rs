@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Expression, Result, Statement, Structure, Type, Value};
 
 /// Abstract representation of a match statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -17,7 +17,7 @@ pub struct Match {
 }
 
 impl AbstractTree for Match {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "match", node)?;
 
         let matcher_node = node.child(1).unwrap();
@@ -58,7 +58,7 @@ impl AbstractTree for Match {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let matcher_value = self.matcher.run(source, context)?;
 
         for (expression, statement) in &self.options {
@@ -76,7 +76,7 @@ impl AbstractTree for Match {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         let (_, first_statement) = self.options.first().unwrap();
 
         first_statement.expected_type(context)

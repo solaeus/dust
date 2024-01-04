@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Expression, Result, Structure, Type, Value};
 
 /// Abstract representation of a math operation.
 ///
@@ -15,7 +15,7 @@ pub struct Math {
 }
 
 impl AbstractTree for Math {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "math", node)?;
 
         let left_node = node.child(0).unwrap();
@@ -48,7 +48,7 @@ impl AbstractTree for Math {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let value = match self.operator {
@@ -62,7 +62,7 @@ impl AbstractTree for Math {
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         self.left.expected_type(context)
     }
 }

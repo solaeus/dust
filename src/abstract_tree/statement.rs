@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Block, Error, Expression, For, IfElse, IndexAssignment, Map, Match,
-    Result, Type, Value, While,
+    AbstractTree, Assignment, Block, Error, Expression, For, IfElse, IndexAssignment, Match,
+    Result, Structure, Type, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -21,7 +21,7 @@ pub enum Statement {
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "statement", node)?;
 
         let child = node.child(0).unwrap();
@@ -66,7 +66,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _context: &Structure) -> Result<()> {
         match self {
             Statement::Assignment(assignment) => assignment.check_type(_context),
             Statement::Expression(expression) => expression.check_type(_context),
@@ -80,7 +80,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),
@@ -94,7 +94,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self {
             Statement::Assignment(assignment) => assignment.expected_type(context),
             Statement::Expression(expression) => expression.expected_type(context),

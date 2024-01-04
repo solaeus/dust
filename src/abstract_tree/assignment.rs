@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, TypeDefinition, Value};
+use crate::{
+    AbstractTree, Error, Identifier, Result, Statement, Structure, Type, TypeDefinition, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
@@ -19,7 +21,7 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for Assignment {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "assignment", node)?;
 
         let child_count = node.child_count();
@@ -74,7 +76,7 @@ impl AbstractTree for Assignment {
         })
     }
 
-    fn check_type(&self, context: &Map) -> Result<()> {
+    fn check_type(&self, context: &Structure) -> Result<()> {
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(type_definition) = &self.type_definition {
@@ -110,7 +112,7 @@ impl AbstractTree for Assignment {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
 
@@ -143,7 +145,7 @@ impl AbstractTree for Assignment {
         Ok(Value::none())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Structure) -> Result<Type> {
         Ok(Type::None)
     }
 }

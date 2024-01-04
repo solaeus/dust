@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, Identifier, List, Map, Type, TypeDefinition,
+    Function, List, Structure, Type,
 };
 
 use serde::{
@@ -21,7 +21,7 @@ use std::{
 
 pub mod function;
 pub mod list;
-pub mod map;
+pub mod structure;
 
 /// Dust value representation.
 ///
@@ -31,7 +31,7 @@ pub mod map;
 #[derive(Debug, Clone)]
 pub enum Value {
     List(List),
-    Map(Map),
+    Structure(Structure),
     Function(Function),
     String(Arc<RwLock<String>>),
     Float(f64),
@@ -74,17 +74,8 @@ impl Value {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            Value::Map(map) => {
-                let mut identifier_types = Vec::new();
-
-                for (key, (value, _)) in map.variables().unwrap().iter() {
-                    identifier_types.push((
-                        Identifier::new(key.clone()),
-                        TypeDefinition::new(value.r#type()),
-                    ));
-                }
-
-                Type::Map(identifier_types)
+            Value::Structure(structure) => {
+                Type::StructureDefinition(structure.instantiator().clone())
             }
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
@@ -148,11 +139,11 @@ impl Value {
     }
 
     pub fn is_map(&self) -> bool {
-        matches!(self, Value::Map(_))
+        matches!(self, Value::Structure(_))
     }
 
     pub fn is_function(&self) -> bool {
-        matches!(self, Value::Map(_))
+        matches!(self, Value::Structure(_))
     }
 
     /// Borrows the value stored in `self` as `&str`, or returns `Err` if `self` is not a `Value::String`.
@@ -238,9 +229,9 @@ impl Value {
     }
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::Map`.
-    pub fn as_map(&self) -> Result<&Map> {
+    pub fn as_structure(&self) -> Result<&Structure> {
         match self {
-            Value::Map(map) => Ok(map),
+            Value::Structure(map) => Ok(map),
             value => Err(Error::ExpectedMap {
                 actual: value.clone(),
             }),
@@ -441,7 +432,7 @@ impl PartialEq for Value {
                 left.read().unwrap().as_str() == right.read().unwrap().as_str()
             }
             (Value::List(left), Value::List(right)) => left == right,
-            (Value::Map(left), Value::Map(right)) => left == right,
+            (Value::Structure(left), Value::Structure(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Option(left), Value::Option(right)) => left == right,
             _ => false,
@@ -480,8 +471,8 @@ impl Ord for Value {
             (Value::Boolean(_), _) => Ordering::Greater,
             (Value::List(left), Value::List(right)) => left.cmp(right),
             (Value::List(_), _) => Ordering::Greater,
-            (Value::Map(left), Value::Map(right)) => left.cmp(right),
-            (Value::Map(_), _) => Ordering::Greater,
+            (Value::Structure(left), Value::Structure(right)) => left.cmp(right),
+            (Value::Structure(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
             (Value::Option(left), Value::Option(right)) => left.cmp(right),
@@ -511,7 +502,7 @@ impl Serialize for Value {
                 list.end()
             }
             Value::Option(inner) => inner.serialize(serializer),
-            Value::Map(inner) => inner.serialize(serializer),
+            Value::Structure(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
         }
     }
@@ -532,7 +523,7 @@ impl Display for Value {
                 }
             }
             Value::List(list) => write!(f, "{list}"),
-            Value::Map(map) => write!(f, "{map}"),
+            Value::Structure(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
         }
     }
@@ -852,13 +843,13 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let map = Map::new();
+        let map = Structure::default();
 
         while let Some((key, value)) = access.next_entry::<String, Value>()? {
             map.set(key, value, None).unwrap();
         }
 
-        Ok(Value::Map(map))
+        Ok(Value::Structure(map))
     }
 
     fn visit_enum<A>(self, data: A) -> std::result::Result<Self::Value, A::Error>

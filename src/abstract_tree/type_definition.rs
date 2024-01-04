@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Value};
+use crate::{AbstractTree, Error, Identifier, Result, Structure, StructureInstantiator, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TypeDefinition {
@@ -25,7 +25,7 @@ impl TypeDefinition {
 }
 
 impl AbstractTree for TypeDefinition {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "type_definition", node)?;
 
         let type_node = node.child(1).unwrap();
@@ -34,11 +34,11 @@ impl AbstractTree for TypeDefinition {
         Ok(TypeDefinition { r#type })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         self.r#type.run(source, context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         self.r#type.expected_type(context)
     }
 }
@@ -61,10 +61,11 @@ pub enum Type {
     },
     Integer,
     List(Box<Type>),
-    Map(Vec<(Identifier, TypeDefinition)>),
     None,
     Number,
     String,
+    Structure(Identifier),
+    StructureDefinition(StructureInstantiator),
     Option(Box<Type>),
 }
 
@@ -92,8 +93,8 @@ impl Type {
             | (Type::Collection, Type::Collection)
             | (Type::Collection, Type::List(_))
             | (Type::List(_), Type::Collection)
-            | (Type::Collection, Type::Map(_))
-            | (Type::Map(_), Type::Collection)
+            | (Type::Collection, Type::Structure(_))
+            | (Type::Structure(_), Type::Collection)
             | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
@@ -105,7 +106,7 @@ impl Type {
             | (Type::Float, Type::Number)
             | (Type::None, Type::None)
             | (Type::String, Type::String) => Ok(()),
-            (Type::Map(left), Type::Map(right)) => {
+            (Type::Structure(left), Type::Structure(right)) => {
                 if left == right {
                     Ok(())
                 } else {
@@ -181,7 +182,7 @@ impl Type {
 }
 
 impl AbstractTree for Type {
-    fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax_node(_source: &str, node: Node, _context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(_source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
@@ -228,32 +229,8 @@ impl AbstractTree for Type {
             "num" => Type::Number,
             "none" => Type::None,
             "str" => Type::String,
-            "{" => {
-                let child_count = node.child_count();
-                let mut identifier_types = Vec::new();
-                let mut identifier = None;
-
-                for index in 1..child_count - 1 {
-                    let child = node.child(index).unwrap();
-
-                    match child.kind() {
-                        "identifier" => {
-                            identifier =
-                                Some(Identifier::from_syntax_node(_source, child, _context)?);
-                        }
-                        "type_definition" => {
-                            if let Some(identifier) = &identifier {
-                                let type_definition =
-                                    TypeDefinition::from_syntax_node(_source, child, _context)?;
-
-                                identifier_types.push((identifier.clone(), type_definition));
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
-                Type::Map(identifier_types)
+            "identifier" => {
+                Type::Structure(Identifier::from_syntax_node(_source, type_node, _context)?)
             }
             "option" => {
                 let inner_type_node = node.child(2).unwrap();
@@ -274,11 +251,11 @@ impl AbstractTree for Type {
         Ok(r#type)
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Structure) -> Result<Value> {
         Ok(Value::none())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Structure) -> Result<Type> {
         Ok(Type::None)
     }
 }
@@ -309,15 +286,8 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map(identifier_types) => {
-                write!(f, "{{")?;
-
-                for (identifier, r#type) in identifier_types {
-                    write!(f, "{} {}", identifier.inner(), r#type)?;
-                }
-
-                write!(f, "}}")
-            }
+            Type::Structure(identifier) => write!(f, "{}", identifier.inner()),
+            Type::StructureDefinition(_) => todo!(),
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),

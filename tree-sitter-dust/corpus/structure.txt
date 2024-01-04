@@ -1,5 +1,5 @@
 ================================================================================
-Simple Structure
+Simple Structure Definition
 ================================================================================
 
 struct { answer = 42 }
@@ -10,15 +10,16 @@ struct { answer = 42 }
   (statement
     (expression
       (value
-        (structure
-          (identifier)
-          (statement
-            (expression
-              (value
-                (integer)))))))))
+        (structure_definition
+          (structure_instantiator
+            (identifier)
+            (statement
+              (expression
+                (value
+                  (integer))))))))))
 
 ================================================================================
-Structure with Types
+Structure Definition with Types
 ================================================================================
 
 struct {
@@ -32,31 +33,32 @@ struct {
   (statement
     (expression
       (value
-        (structure
-          (identifier)
-          (type_definition
-            (type))
-          (statement
-            (expression
-              (value
-                (integer))))
-          (identifier)
-          (type_definition
-            (type
-              (type)))
-          (statement
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string))))))))))))
+        (structure_definition
+          (structure_instantiator
+            (identifier)
+            (type_definition
+              (type))
+            (statement
+              (expression
+                (value
+                  (integer))))
+            (identifier)
+            (type_definition
+              (type
+                (type)))
+            (statement
+              (expression
+                (value
+                  (list
+                    (expression
+                      (value
+                        (string)))
+                    (expression
+                      (value
+                        (string)))))))))))))
 
 ================================================================================
-Nested Structures
+Nested Structure Definition
 ================================================================================
 
 struct {
@@ -70,12 +72,94 @@ struct {
   (statement
     (expression
       (value
+        (structure_definition
+          (structure_instantiator
+            (identifier)
+            (type_definition
+              (type
+                (identifier)))
+            (identifier)
+            (type_definition
+              (type
+                (identifier)))))))))
+
+================================================================================
+Simple Structure
+================================================================================
+
+new Foo 
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (value
         (structure
-          (identifier)
-          (type_definition
-            (type
-              (identifier)))
-          (identifier)
-          (type_definition
-            (type
-              (identifier))))))))
+          (identifier))))))
+
+================================================================================
+Complex Structure
+================================================================================
+
+User = struct {
+  id <int> = random:integer()
+  email <str>
+  name <option(str)> = none
+}
+
+bob = new User {
+  email = "bob@example.come"
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (structure_definition
+              (structure_instantiator
+                (identifier)
+                (type_definition
+                  (type))
+                (statement
+                  (expression
+                    (function_call
+                      (function_expression
+                        (index
+                          (index_expression
+                            (value
+                              (built_in_value)))
+                          (index_expression
+                            (identifier)))))))
+                (identifier)
+                (type_definition
+                  (type))
+                (identifier)
+                (type_definition
+                  (type
+                    (type)))
+                (statement
+                  (expression
+                    (value
+                      (option)))))))))))
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (structure
+              (identifier)
+              (structure_instantiator
+                (identifier)
+                (statement
+                  (expression
+                    (value
+                      (string))))))))))))

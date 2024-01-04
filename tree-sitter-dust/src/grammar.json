@@ -239,6 +239,10 @@
         },
         {
           "type": "SYMBOL",
+          "name": "structure_definition"
+        },
+        {
+          "type": "SYMBOL",
           "name": "option"
         },
         {
@@ -501,13 +505,51 @@
         }
       ]
     },
-    "structure": {
+    "structure_definition": {
       "type": "SEQ",
       "members": [
         {
           "type": "STRING",
           "value": "struct"
         },
+        {
+          "type": "SYMBOL",
+          "name": "structure_instantiator"
+        }
+      ]
+    },
+    "structure": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "new"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "structure_instantiator"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "structure_instantiator": {
+      "type": "SEQ",
+      "members": [
         {
           "type": "STRING",
           "value": "{"
@@ -529,14 +571,6 @@
                     "name": "type_definition"
                   },
                   {
-                    "type": "BLANK"
-                  }
-                ]
-              },
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
                     "type": "SEQ",
                     "members": [
                       {
@@ -550,7 +584,21 @@
                     ]
                   },
                   {
-                    "type": "BLANK"
+                    "type": "SEQ",
+                    "members": [
+                      {
+                        "type": "SYMBOL",
+                        "name": "type_definition"
+                      },
+                      {
+                        "type": "STRING",
+                        "value": "="
+                      },
+                      {
+                        "type": "SYMBOL",
+                        "name": "statement"
+                      }
+                    ]
                   }
                 ]
               },

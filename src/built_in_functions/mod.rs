@@ -5,7 +5,7 @@ use std::fs::read_to_string;
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Map, Result, Type, Value};
+use crate::{Error, Result, Structure, Type, Value};
 
 pub use string::{string_functions, StringFunction};
 
@@ -54,7 +54,12 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
+    pub fn call(
+        &self,
+        arguments: &[Value],
+        _source: &str,
+        _outer_context: &Structure,
+    ) -> Result<Value> {
         match self {
             BuiltInFunction::AssertEqual => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
@@ -86,7 +91,7 @@ impl BuiltInFunction {
                 let value = arguments.first().unwrap();
                 let length = if let Ok(list) = value.as_list() {
                     list.items().len()
-                } else if let Ok(map) = value.as_map() {
+                } else if let Ok(map) = value.as_structure() {
                     map.variables()?.len()
                 } else if let Ok(str) = value.as_string() {
                     str.chars().count()

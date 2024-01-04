@@ -23,6 +23,7 @@ pub mod logic;
 pub mod r#match;
 pub mod math;
 pub mod statement;
+pub mod structure_instantiator;
 pub mod type_definition;
 pub mod value_node;
 pub mod r#while;
@@ -32,19 +33,20 @@ pub use {
     assignment::*, block::*, built_in_value::*, expression::*, function_call::*,
     function_expression::*, function_node::*, identifier::*, if_else::*, index::*,
     index_assignment::IndexAssignment, index_expression::*, logic::*, math::*, r#for::*,
-    r#match::*, r#while::*, r#yield::*, statement::*, type_definition::*, value_node::*,
+    r#match::*, r#while::*, r#yield::*, statement::*, structure_instantiator::*,
+    type_definition::*, value_node::*,
 };
 
 use tree_sitter::Node;
 
-use crate::{Error, Map, Result, Value};
+use crate::{Error, Result, Structure, Value};
 
 pub struct Root {
     statements: Vec<Statement>,
 }
 
 impl AbstractTree for Root {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "root", node)?;
 
         let statement_count = node.child_count();
@@ -60,7 +62,7 @@ impl AbstractTree for Root {
         Ok(Root { statements })
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _context: &Structure) -> Result<()> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
                 return inner_statement.check_type(_context);
@@ -72,7 +74,7 @@ impl AbstractTree for Root {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let mut value = Value::none();
 
         for statement in &self.statements {
@@ -86,7 +88,7 @@ impl AbstractTree for Root {
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         self.statements.last().unwrap().expected_type(context)
     }
 }
@@ -103,15 +105,15 @@ pub trait AbstractTree: Sized {
     ///
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self>;
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self>;
 
     /// Verify the type integrity of the node.
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _context: &Structure) -> Result<()> {
         Ok(())
     }
 
     /// Execute dust code by traversing the tree.
-    fn run(&self, source: &str, context: &Map) -> Result<Value>;
+    fn run(&self, source: &str, context: &Structure) -> Result<Value>;
 
-    fn expected_type(&self, context: &Map) -> Result<Type>;
+    fn expected_type(&self, context: &Structure) -> Result<Type>;
 }

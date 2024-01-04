@@ -114,3 +114,64 @@ x:(y()):0
         (index_expression
           (value
             (integer)))))))
+
+================================================================================
+Structure Definition Index
+================================================================================
+
+struct {
+  bar = 1
+}:bar
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (index
+        (index_expression
+          (value
+            (structure_definition
+              (structure_instantiator
+                (identifier)
+                (statement
+                  (expression
+                    (value
+                      (integer))))))))
+        (index_expression
+          (identifier))))))
+
+================================================================================
+Structure Definition Index Function Call
+================================================================================
+
+struct {
+  bar = () <str> { 'bar' }
+}:bar()
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (function_call
+        (function_expression
+          (index
+            (index_expression
+              (value
+                (structure_definition
+                  (structure_instantiator
+                    (identifier)
+                    (statement
+                      (expression
+                        (value
+                          (function
+                            (type_definition
+                              (type))
+                            (block
+                              (statement
+                                (expression
+                                  (value
+                                    (string)))))))))))))
+            (index_expression
+              (identifier))))))))

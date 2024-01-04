@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, FunctionCall, Identifier, Index, Map, Result, Type,
-    Value,
+    value_node::ValueNode, AbstractTree, Error, FunctionCall, Identifier, Index, Result, Structure,
+    Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -14,7 +14,11 @@ pub enum IndexExpression {
 }
 
 impl AbstractTree for IndexExpression {
-    fn from_syntax_node(source: &str, node: tree_sitter::Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(
+        source: &str,
+        node: tree_sitter::Node,
+        context: &Structure,
+    ) -> Result<Self> {
         Error::expect_syntax_node(source, "index_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -48,7 +52,7 @@ impl AbstractTree for IndexExpression {
         Ok(abstract_node)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         match self {
             IndexExpression::Value(value_node) => value_node.run(source, context),
             IndexExpression::Identifier(identifier) => identifier.run(source, context),
@@ -57,7 +61,7 @@ impl AbstractTree for IndexExpression {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self {
             IndexExpression::Value(value_node) => value_node.expected_type(context),
             IndexExpression::Identifier(identifier) => identifier.expected_type(context),

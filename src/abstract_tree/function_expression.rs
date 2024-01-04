@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, FunctionCall, Identifier, Index, Map, Result, Type, Value, ValueNode,
-    Yield,
+    AbstractTree, Error, FunctionCall, Identifier, Index, Result, Structure, Type, Value,
+    ValueNode, Yield,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -16,7 +16,7 @@ pub enum FunctionExpression {
 }
 
 impl AbstractTree for FunctionExpression {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "function_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -54,7 +54,7 @@ impl AbstractTree for FunctionExpression {
         Ok(function_expression)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.run(source, context),
             FunctionExpression::FunctionCall(function_call) => function_call.run(source, context),
@@ -64,7 +64,7 @@ impl AbstractTree for FunctionExpression {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.expected_type(context),
             FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),

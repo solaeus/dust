@@ -1,10 +1,4 @@
-type Cards {
-	rooms <[str]>
-	suspects <[str]>
-	weapons <[str]>
-}
-
-cards = Cards {
+Cards = struct {
 	rooms = ['Library' 'Kitchen' 'Conservatory']
 	suspects = ['White' 'Green' 'Scarlett']
 	weapons = ['Rope' 'Lead_Pipe' 'Knife']
@@ -50,6 +44,8 @@ take_turn = (cards <Cards>, opponent_card <str>, current_room <str>) <none> {
 	remove_card(cards opponent_card)
 	make_guess(cards current_room)
 }
+
+cards = new Cards
 
 take_turn(cards 'Rope' 'Kitchen')
 take_turn(cards 'Library' 'Kitchen')

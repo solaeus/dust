@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Result, Structure, Type, Value};
 
 /// A string by which a variable is known to a context.
 ///
@@ -25,7 +25,7 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
-    fn from_syntax_node(source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, _context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "identifier", node)?;
 
         let text = &source[node.byte_range()];
@@ -35,7 +35,7 @@ impl AbstractTree for Identifier {
         Ok(Identifier(text.to_string()))
     }
 
-    fn run(&self, _source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, context: &Structure) -> Result<Value> {
         if let Some((value, _)) = context.variables()?.get(&self.0) {
             if !value.is_none() {
                 return Ok(value.clone());
@@ -45,11 +45,23 @@ impl AbstractTree for Identifier {
         Err(Error::VariableIdentifierNotFound(self.0.clone()))
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
             Ok(r#type.clone())
         } else {
             Ok(Type::None)
         }
+    }
+}
+
+impl From<String> for Identifier {
+    fn from(string: String) -> Self {
+        Identifier(string)
+    }
+}
+
+impl From<&str> for Identifier {
+    fn from(str: &str) -> Self {
+        Identifier(str.to_string())
     }
 }

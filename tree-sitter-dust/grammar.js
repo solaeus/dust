@@ -82,6 +82,7 @@ module.exports = grammar({
         $.boolean,
         $.list,
         $.structure,
+        $.structure_definition,
         $.option,
         $.built_in_value,
       ),
@@ -167,16 +168,37 @@ module.exports = grammar({
         ']',
       ),
 
-    structure: $ =>
+    structure_definition: $ =>
       seq(
         'struct',
+        $.structure_instantiator,
+      ),
+
+    structure: $ =>
+      prec.right(
+        seq(
+          'new',
+          $.identifier,
+          optional(
+            $.structure_instantiator,
+          ),
+        ),
+      ),
+
+    structure_instantiator: $ =>
+      seq(
         '{',
         repeat1(
           seq(
             $.identifier,
-            optional($.type_definition),
-            optional(
+            choice(
+              $.type_definition,
               seq('=', $.statement),
+              seq(
+                $.type_definition,
+                '=',
+                $.statement,
+              ),
             ),
             optional(','),
           ),

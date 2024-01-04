@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, FunctionExpression, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Expression, FunctionExpression, Result, Structure, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
@@ -19,7 +19,7 @@ impl FunctionCall {
 }
 
 impl AbstractTree for FunctionCall {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "function_call", node)?;
 
         let function_node = node.child(0).unwrap();
@@ -44,7 +44,7 @@ impl AbstractTree for FunctionCall {
         })
     }
 
-    fn check_type(&self, context: &Map) -> Result<()> {
+    fn check_type(&self, context: &Structure) -> Result<()> {
         let function_expression_type = self.function_expression.expected_type(context)?;
         let parameter_types = if let Type::Function {
             parameter_types, ..
@@ -65,7 +65,7 @@ impl AbstractTree for FunctionCall {
 
         if self.arguments.len() != parameter_types.len() {
             return Err(Error::ExpectedFunctionArgumentAmount {
-                source: "TODO".to_string(),
+                source: "TODO".to_string(), // TODO
                 expected: parameter_types.len(),
                 actual: self.arguments.len(),
             });
@@ -74,7 +74,7 @@ impl AbstractTree for FunctionCall {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let (name, value) = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
@@ -118,7 +118,7 @@ impl AbstractTree for FunctionCall {
             .call(name, &arguments, source, context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let identifier_type = identifier.expected_type(context)?;

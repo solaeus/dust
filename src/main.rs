@@ -12,7 +12,7 @@ use tree_sitter::Parser as TSParser;
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{language, Interpreter, Map, Value};
+use dust_lang::{language, Interpreter, Structure, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -53,7 +53,7 @@ fn main() {
         "".to_string()
     };
 
-    let context = Map::new();
+    let context = Structure::default();
 
     if let Some(input) = args.input {
         context
@@ -168,7 +168,7 @@ impl Highlighter for DustReadline {
 }
 
 fn run_cli_shell() {
-    let context = Map::new();
+    let context = Structure::default();
     let mut interpreter = Interpreter::new(context);
     let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
     let mut input = String::new();

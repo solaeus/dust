@@ -139,37 +139,45 @@ mod value {
     }
 
     #[test]
-    fn map() {
-        let map = Map::new();
+    fn structure() {
+        let structure = Structure::default();
 
-        map.set("x".to_string(), Value::Integer(1), None).unwrap();
-        map.set("foo".to_string(), Value::string("bar".to_string()), None)
+        structure
+            .set("x".to_string(), Value::Integer(1), None)
             .unwrap();
-
-        assert_eq!(interpret("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
-    }
-
-    #[test]
-    fn map_types() {
-        let map = Map::new();
-
-        map.set("x".to_string(), Value::Integer(1), Some(Type::Integer))
+        structure
+            .set("foo".to_string(), Value::string("bar".to_string()), None)
             .unwrap();
-        map.set(
-            "foo".to_string(),
-            Value::string("bar".to_string()),
-            Some(Type::String),
-        )
-        .unwrap();
 
         assert_eq!(
-            interpret("{ x <int> = 1, foo <str> = 'bar' }"),
-            Ok(Value::Map(map))
+            interpret("{ x = 1, foo = 'bar' }"),
+            Ok(Value::Structure(structure))
         );
     }
 
     #[test]
-    fn map_type_errors() {
+    fn structure_types() {
+        let structure = Structure::default();
+
+        structure
+            .set("x".to_string(), Value::Integer(1), Some(Type::Integer))
+            .unwrap();
+        structure
+            .set(
+                "foo".to_string(),
+                Value::string("bar".to_string()),
+                Some(Type::String),
+            )
+            .unwrap();
+
+        assert_eq!(
+            interpret("{ x <int> = 1, foo <str> = 'bar' }"),
+            Ok(Value::Structure(structure))
+        );
+    }
+
+    #[test]
+    fn structure_type_errors() {
         assert!(interpret("{ foo <bool> = 'bar' }")
             .unwrap_err()
             .is_type_check_error(&Error::TypeCheck {
@@ -341,7 +349,7 @@ mod index {
     }
 
     #[test]
-    fn map_index() {
+    fn structure_index() {
         let test = interpret("x = {y = {z = 2}} x:y:z").unwrap();
 
         assert_eq!(Value::Integer(2), test);

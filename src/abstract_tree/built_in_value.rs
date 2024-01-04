@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 use crate::{
     built_in_functions::string_functions, AbstractTree, BuiltInFunction, Function, Identifier,
-    List, Map, Result, Type, TypeDefinition, Value,
+    List, Result, Structure, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -31,29 +31,12 @@ impl BuiltInValue {
         match self {
             BuiltInValue::Args => Type::list(Type::String),
             BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
-            BuiltInValue::Fs => Type::Map(Vec::new()),
-            BuiltInValue::Json => Type::Map(Vec::new()),
+            BuiltInValue::Fs => Type::Structure(Identifier::from("fs")),
+            BuiltInValue::Json => Type::Structure(Identifier::from("json")),
             BuiltInValue::Length => BuiltInFunction::Length.r#type(),
             BuiltInValue::Output => BuiltInFunction::Output.r#type(),
-            BuiltInValue::Random => Type::Map(vec![
-                (
-                    Identifier::new("boolean".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomBoolean.r#type()),
-                ),
-                (
-                    Identifier::new("float".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomFloat.r#type()),
-                ),
-                (
-                    Identifier::new("from".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomFrom.r#type()),
-                ),
-                (
-                    Identifier::new("integer".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomInteger.r#type()),
-                ),
-            ]),
-            BuiltInValue::String => Type::Map(Vec::new()),
+            BuiltInValue::Random => Type::Structure(Identifier::from("random")),
+            BuiltInValue::String => Type::Structure(Identifier::from("string")),
         }
     }
 
@@ -68,7 +51,7 @@ impl BuiltInValue {
                 &Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
             }
             BuiltInValue::Fs => FS.get_or_init(|| {
-                let fs_context = Map::new();
+                let fs_context = Structure::default();
 
                 fs_context
                     .set(
@@ -78,10 +61,10 @@ impl BuiltInValue {
                     )
                     .unwrap();
 
-                Value::Map(fs_context)
+                Value::Structure(fs_context)
             }),
             BuiltInValue::Json => JSON.get_or_init(|| {
-                let json_context = Map::new();
+                let json_context = Structure::default();
 
                 json_context
                     .set(
@@ -91,12 +74,12 @@ impl BuiltInValue {
                     )
                     .unwrap();
 
-                Value::Map(json_context)
+                Value::Structure(json_context)
             }),
             BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
             BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
             BuiltInValue::Random => RANDOM.get_or_init(|| {
-                let random_context = Map::new();
+                let random_context = Structure::default();
 
                 {
                     let mut variables = random_context.variables_mut().unwrap();
@@ -115,10 +98,10 @@ impl BuiltInValue {
                     }
                 }
 
-                Value::Map(random_context)
+                Value::Structure(random_context)
             }),
             BuiltInValue::String => STRING.get_or_init(|| {
-                let string_context = Map::new();
+                let string_context = Structure::default();
 
                 {
                     let mut variables = string_context.variables_mut().unwrap();
@@ -134,14 +117,14 @@ impl BuiltInValue {
                     }
                 }
 
-                Value::Map(string_context)
+                Value::Structure(string_context)
             }),
         }
     }
 }
 
 impl AbstractTree for BuiltInValue {
-    fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax_node(_source: &str, node: Node, _context: &Structure) -> Result<Self> {
         let built_in_value = match node.kind() {
             "args" => BuiltInValue::Args,
             "assert_equal" => BuiltInValue::AssertEqual,
@@ -157,11 +140,11 @@ impl AbstractTree for BuiltInValue {
         Ok(built_in_value)
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Structure) -> Result<Value> {
         Ok(self.get().clone())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Structure) -> Result<Type> {
         Ok(self.r#type())
     }
 }

@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Block, Error, Function, Identifier, Map, Result, Type, TypeDefinition, Value,
+    AbstractTree, Block, Error, Function, Identifier, Result, Structure, Type, TypeDefinition,
+    Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -48,10 +49,10 @@ impl FunctionNode {
         name: Option<String>,
         arguments: &[Value],
         source: &str,
-        outer_context: &Map,
+        outer_context: &Structure,
     ) -> Result<Value> {
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
-        let function_context = Map::clone_from(outer_context)?;
+        let function_context = Structure::clone_from(outer_context)?;
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
@@ -74,7 +75,7 @@ impl FunctionNode {
 }
 
 impl AbstractTree for FunctionNode {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
@@ -97,7 +98,7 @@ impl AbstractTree for FunctionNode {
             }
         }
 
-        let function_context = Map::clone_from(context)?;
+        let function_context = Structure::clone_from(context)?;
 
         for (parameter_name, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
             function_context.set(
@@ -118,18 +119,18 @@ impl AbstractTree for FunctionNode {
         Ok(FunctionNode::new(parameters, body, r#type))
     }
 
-    fn check_type(&self, context: &Map) -> Result<()> {
+    fn check_type(&self, context: &Structure) -> Result<()> {
         self.return_type()
             .check(&self.body.expected_type(context)?)?;
 
         Ok(())
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Structure) -> Result<Value> {
         Ok(Value::Function(Function::ContextDefined(self.clone())))
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Structure) -> Result<Type> {
         Ok(self.r#type().clone())
     }
 }

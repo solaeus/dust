@@ -151,7 +151,7 @@ Complex Function Call
 foobar(
     "hi"
     42
-    Baz:new()
+    new Baz
 )
 
 --------------------------------------------------------------------------------
@@ -169,13 +169,9 @@ foobar(
           (value
             (integer)))
         (expression
-          (function_call
-            (function_expression
-              (index
-                (index_expression
-                  (identifier))
-                (index_expression
-                  (identifier))))))))))
+          (value
+            (structure
+              (identifier))))))))
 
 ================================================================================
 Callback Function Call

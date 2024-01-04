@@ -11,23 +11,31 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::{value::Value, Result, Type};
+use crate::{value::Value, Result, StructureInstantiator, Type};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
 /// The inner value is a BTreeMap in order to allow VariableMap instances to be sorted and compared
 /// to one another.
 #[derive(Clone, Debug)]
-pub struct Map {
+pub struct Structure {
     variables: Arc<RwLock<BTreeMap<String, (Value, Type)>>>,
+    instantiator: StructureInstantiator,
 }
 
-impl Map {
-    /// Creates a new instace.
-    pub fn new() -> Self {
-        Map {
-            variables: Arc::new(RwLock::new(BTreeMap::new())),
+impl Structure {
+    pub fn new(
+        variables: BTreeMap<String, (Value, Type)>,
+        instantiator: StructureInstantiator,
+    ) -> Self {
+        Structure {
+            variables: Arc::new(RwLock::new(variables)),
+            instantiator,
         }
+    }
+
+    pub fn instantiator(&self) -> &StructureInstantiator {
+        &self.instantiator
     }
 
     pub fn clone_from(other: &Self) -> Result<Self> {
@@ -37,8 +45,9 @@ impl Map {
             new_map.insert(key.clone(), (value.clone(), r#type.clone()));
         }
 
-        Ok(Map {
+        Ok(Structure {
             variables: Arc::new(RwLock::new(new_map)),
+            instantiator: other.instantiator.clone(),
         })
     }
 
@@ -80,15 +89,18 @@ impl Map {
     }
 }
 
-impl Default for Map {
+impl Default for Structure {
     fn default() -> Self {
-        Self::new()
+        Structure {
+            variables: Arc::new(RwLock::new(BTreeMap::new())),
+            instantiator: StructureInstantiator::new(),
+        }
     }
 }
 
-impl Eq for Map {}
+impl Eq for Structure {}
 
-impl PartialEq for Map {
+impl PartialEq for Structure {
     fn eq(&self, other: &Self) -> bool {
         let left = self.variables.read().unwrap().clone().into_iter();
         let right = other.variables.read().unwrap().clone().into_iter();
@@ -97,7 +109,7 @@ impl PartialEq for Map {
     }
 }
 
-impl Ord for Map {
+impl Ord for Structure {
     fn cmp(&self, other: &Self) -> Ordering {
         let left = self.variables.read().unwrap().clone().into_iter();
         let right = other.variables.read().unwrap().clone().into_iter();
@@ -106,13 +118,13 @@ impl Ord for Map {
     }
 }
 
-impl PartialOrd for Map {
+impl PartialOrd for Structure {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Display for Map {
+impl Display for Structure {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f, "{{")?;
 
@@ -125,7 +137,7 @@ impl Display for Map {
     }
 }
 
-impl Serialize for Map {
+impl Serialize for Structure {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -142,7 +154,7 @@ impl Serialize for Map {
 }
 
 struct MapVisitor {
-    marker: PhantomData<fn() -> Map>,
+    marker: PhantomData<fn() -> Structure>,
 }
 
 impl MapVisitor {
@@ -154,17 +166,17 @@ impl MapVisitor {
 }
 
 impl<'de> Visitor<'de> for MapVisitor {
-    type Value = Map;
+    type Value = Structure;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
         formatter.write_str("Any valid whale data.")
     }
 
-    fn visit_map<M>(self, mut access: M) -> std::result::Result<Map, M::Error>
+    fn visit_map<M>(self, mut access: M) -> std::result::Result<Structure, M::Error>
     where
         M: MapAccess<'de>,
     {
-        let map = Map::new();
+        let map = Structure::default();
 
         {
             while let Some((key, value)) = access.next_entry::<String, Value>()? {
@@ -176,7 +188,7 @@ impl<'de> Visitor<'de> for MapVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for Map {
+impl<'de> Deserialize<'de> for Structure {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,

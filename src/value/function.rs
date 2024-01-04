@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, BuiltInFunction, FunctionNode, Map, Result, Type, Value};
+use crate::{AbstractTree, BuiltInFunction, FunctionNode, Result, Structure, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Function {
@@ -28,7 +28,7 @@ impl Function {
         name: Option<String>,
         arguments: &[Value],
         source: &str,
-        outer_context: &Map,
+        outer_context: &Structure,
     ) -> Result<Value> {
         match self {
             Function::BuiltIn(built_in_function) => {
@@ -51,24 +51,24 @@ impl Function {
 }
 
 impl AbstractTree for Function {
-    fn from_syntax_node(_source: &str, _node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax_node(_source: &str, _node: Node, _context: &Structure) -> Result<Self> {
         let inner_function = FunctionNode::from_syntax_node(_source, _node, _context)?;
 
         Ok(Function::ContextDefined(inner_function))
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _context: &Structure) -> Result<()> {
         match self {
             Function::BuiltIn(_) => Ok(()),
             Function::ContextDefined(defined_function) => defined_function.check_type(_context),
         }
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Structure) -> Result<Value> {
         Ok(Value::Function(self.clone()))
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Structure) -> Result<Type> {
         match self {
             Function::BuiltIn(built_in) => Ok(built_in.r#type()),
             Function::ContextDefined(context_defined) => Ok(context_defined.r#type().clone()),

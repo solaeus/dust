@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, BuiltInValue, Error, Expression, Function, Identifier, List, Map, Result,
-    Statement, Type, TypeDefinition, Value,
+    AbstractTree, BuiltInValue, Error, Expression, Function, Identifier, List, Result, Structure,
+    StructureInstantiator, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -17,12 +17,16 @@ pub enum ValueNode {
     String(String),
     List(Vec<Expression>),
     Option(Option<Box<Expression>>),
-    Map(BTreeMap<String, (Statement, Option<Type>)>),
+    Structure {
+        definition_name: Identifier,
+        instantiator: StructureInstantiator,
+    },
+    StructureDefinition(StructureInstantiator),
     BuiltInValue(BuiltInValue),
 }
 
 impl AbstractTree for ValueNode {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "value", node)?;
 
         let child = node.child(0).unwrap();
@@ -51,41 +55,32 @@ impl AbstractTree for ValueNode {
 
                 ValueNode::List(expressions)
             }
-            "map" => {
-                let mut child_nodes = BTreeMap::new();
-                let mut current_key = "".to_string();
-                let mut current_type = None;
+            "structure" => {
+                let identifier_node = child.child(1).unwrap();
+                let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
 
-                for index in 0..child.child_count() - 1 {
-                    let child_syntax_node = child.child(index).unwrap();
+                let instantiator_node = child.child(2);
 
-                    if child_syntax_node.kind() == "identifier" {
-                        current_key =
-                            Identifier::from_syntax_node(source, child_syntax_node, context)?
-                                .take_inner();
-                        current_type = None;
+                if let Some(node) = instantiator_node {
+                    let instantiator =
+                        StructureInstantiator::from_syntax_node(source, node, context)?;
+
+                    ValueNode::Structure {
+                        definition_name: identifier,
+                        instantiator,
                     }
-
-                    if child_syntax_node.kind() == "type_definition" {
-                        current_type = Some(
-                            TypeDefinition::from_syntax_node(source, child_syntax_node, context)?
-                                .take_inner(),
-                        );
-                    }
-
-                    if child_syntax_node.kind() == "statement" {
-                        let statement =
-                            Statement::from_syntax_node(source, child_syntax_node, context)?;
-
-                        if let Some(type_definition) = &current_type {
-                            type_definition.check(&statement.expected_type(context)?)?;
-                        }
-
-                        child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
-                    }
+                } else {
+                    todo!()
                 }
+            }
+            "structure_definition" => {
+                let instantiator_node = child.child(1).unwrap();
 
-                ValueNode::Map(child_nodes)
+                ValueNode::StructureDefinition(StructureInstantiator::from_syntax_node(
+                    source,
+                    instantiator_node,
+                    context,
+                )?)
             }
             "option" => {
                 let first_grandchild = child.child(0).unwrap();
@@ -122,7 +117,26 @@ impl AbstractTree for ValueNode {
         Ok(value_node)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn check_type(&self, context: &Structure) -> Result<()> {
+        match self {
+            ValueNode::StructureDefinition(instantiator) => {
+                for (_, (statement_option, type_definition_option)) in instantiator.iter() {
+                    if let (Some(statement), Some(type_definition)) =
+                        (statement_option, type_definition_option)
+                    {
+                        type_definition
+                            .inner()
+                            .check(&statement.expected_type(context)?)?;
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let value = match self {
             ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
             ValueNode::Float(value_source) => Value::Float(value_source.parse().unwrap()),
@@ -149,26 +163,51 @@ impl AbstractTree for ValueNode {
 
                 Value::Option(option_value)
             }
-            ValueNode::Map(key_statement_pairs) => {
-                let map = Map::new();
+            ValueNode::Structure {
+                definition_name,
+                instantiator,
+            } => {
+                let variables = context.variables()?;
+                let definition = if let Some((value, _)) = variables.get(definition_name.inner()) {
+                    value.as_structure()?.instantiator()
+                } else {
+                    return Err(Error::VariableIdentifierNotFound(
+                        definition_name.inner().clone(),
+                    ));
+                };
 
+                let structure = Structure::new(BTreeMap::new(), definition.clone());
+
+                for (key, (statement_option, type_definition_option)) in
+                    definition.iter().chain(instantiator.iter())
                 {
-                    for (key, (statement, r#type)) in key_statement_pairs {
-                        let value = statement.run(source, context)?;
+                    let value = if let Some(statement) = statement_option {
+                        statement.run(source, context)?
+                    } else {
+                        Value::none()
+                    };
 
-                        map.set(key.clone(), value, r#type.clone())?;
+                    if let Some(type_definition) = &type_definition_option {
+                        structure.set(
+                            key.to_string(),
+                            value,
+                            Some(type_definition.inner().clone()),
+                        )?;
+                    } else {
+                        structure.set(key.to_string(), value, None)?;
                     }
                 }
 
-                Value::Map(map)
+                Value::Structure(structure)
             }
+            ValueNode::StructureDefinition(instantiator) => instantiator.run(source, context)?,
             ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
         };
 
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::Float(_) => Type::Float,
@@ -203,17 +242,11 @@ impl AbstractTree for ValueNode {
                     Type::None
                 }
             }
-            ValueNode::Map(statements) => {
-                let mut identifier_types = Vec::new();
-
-                for (key, (statement, _)) in statements {
-                    identifier_types.push((
-                        Identifier::new(key.clone()),
-                        TypeDefinition::new(statement.expected_type(context)?),
-                    ));
-                }
-
-                Type::Map(identifier_types)
+            ValueNode::Structure {
+                definition_name, ..
+            } => Type::Structure(definition_name.clone()),
+            ValueNode::StructureDefinition(instantiator) => {
+                Type::StructureDefinition(instantiator.clone())
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
         };

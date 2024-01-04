@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::{LanguageError, Node, Point};
 
-use crate::{value::Value, FunctionExpression, Type};
+use crate::{value::Value, FunctionExpression, IndexExpression, Type};
 
 use std::{
     fmt::{self, Formatter},
@@ -52,6 +52,10 @@ pub enum Error {
     WrongColumnAmount {
         expected: usize,
         actual: usize,
+    },
+
+    ExpectedIndexIdentifier {
+        actual: IndexExpression,
     },
 
     /// An operator was called with the wrong amount of arguments.
@@ -148,6 +152,14 @@ pub enum Error {
     /// A string, list, map or table value was expected.
     ExpectedCollection {
         actual: Value,
+    },
+
+    ExpectedDefaultValue {
+        variable_name: String,
+    },
+
+    ExpectedStructureDefinition {
+        actual: Type,
     },
 
     /// A `VariableIdentifier` operation did not find its value in the context.
@@ -435,6 +447,11 @@ impl fmt::Display for Error {
             ExpectedFunctionExpression { actual } => {
                 write!(f, "Expected a function expression but got {actual:?}.")
             }
+            ExpectedStructureDefinition { actual } => {
+                write!(f, "Expected a structure definition but got {actual:?}")
+            }
+            ExpectedDefaultValue { variable_name } => write!(f, "No default value was found for the structure field \"{variable_name}\", a value must be provided."),
+            ExpectedIndexIdentifier { actual } => write!(f, "Expected an identifier but for {actual:?}."),
         }
     }
 }

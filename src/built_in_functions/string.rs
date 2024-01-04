@@ -1,7 +1,7 @@
 use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, List, Map, Result, Type, Value};
+use crate::{Error, List, Result, Structure, Type, Value};
 
 pub fn string_functions() -> impl Iterator<Item = StringFunction> {
     all()
@@ -168,7 +168,12 @@ impl StringFunction {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
+    pub fn call(
+        &self,
+        arguments: &[Value],
+        _source: &str,
+        _outer_context: &Structure,
+    ) -> Result<Value> {
         let value = match self {
             StringFunction::AsBytes => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;

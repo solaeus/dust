@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, IndexExpression, List, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, IndexExpression, List, Result, Structure, Type, Value};
 
 /// Abstract representation of an index expression.
 ///
@@ -14,7 +14,7 @@ pub struct Index {
 }
 
 impl AbstractTree for Index {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "index", node)?;
 
         let collection_node = node.child(0).unwrap();
@@ -41,7 +41,7 @@ impl AbstractTree for Index {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let collection = self.collection.run(source, context)?;
 
         match collection {
@@ -59,11 +59,12 @@ impl AbstractTree for Index {
 
                 Ok(item)
             }
-            Value::Map(map) => {
+            Value::Structure(structure) => {
                 let value = if let IndexExpression::Identifier(identifier) = &self.index {
                     let key = identifier.inner();
 
-                    map.variables()?
+                    structure
+                        .variables()?
                         .get(key)
                         .map(|(value, _)| value.clone())
                         .unwrap_or_default()
@@ -71,7 +72,8 @@ impl AbstractTree for Index {
                     let value = self.index.run(source, context)?;
                     let key = value.as_string()?;
 
-                    map.variables()?
+                    structure
+                        .variables()?
                         .get(key.as_str())
                         .map(|(value, _)| value.clone())
                         .unwrap_or_default()
@@ -89,19 +91,50 @@ impl AbstractTree for Index {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self.collection.expected_type(context)? {
             Type::List(item_type) => Ok(*item_type.clone()),
-            Type::Map(identifier_types) => {
-                if let IndexExpression::Identifier(index_identifier) = &self.index {
-                    for (identifier, r#type) in identifier_types {
-                        if &identifier == index_identifier {
-                            return Ok(r#type.take_inner());
-                        }
-                    }
-                }
+            Type::Structure(definition_identifier) => {
+                let (r#type, key) = if let IndexExpression::Identifier(identifier) = &self.index {
+                    let get_type = context
+                        .variables()?
+                        .get(definition_identifier.inner())
+                        .map(|(_, r#type)| r#type.clone());
 
-                Ok(Type::None)
+                    if let Some(r#type) = get_type {
+                        (r#type, identifier.inner())
+                    } else {
+                        return Err(Error::VariableIdentifierNotFound(
+                            definition_identifier.inner().clone(),
+                        ));
+                    }
+                } else {
+                    return Err(Error::ExpectedIndexIdentifier {
+                        actual: self.index.clone(),
+                    });
+                };
+
+                if let Type::StructureDefinition(instantiator) = &r#type {
+                    let get_type = instantiator.get(key);
+
+                    if let Some((statement_option, type_option)) = get_type {
+                        let r#type = if let Some(r#type) = type_option {
+                            r#type.inner().clone()
+                        } else {
+                            if let Some(statement) = statement_option {
+                                statement.expected_type(context)?
+                            } else {
+                                Type::None
+                            }
+                        };
+
+                        Ok(r#type)
+                    } else {
+                        Err(Error::VariableIdentifierNotFound(key.clone()))
+                    }
+                } else {
+                    Err(Error::ExpectedStructureDefinition { actual: r#type })
+                }
             }
             Type::None => Ok(Type::None),
             r#type => Ok(r#type),

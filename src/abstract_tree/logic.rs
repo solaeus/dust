@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Expression, Result, Structure, Type, Value};
 
 /// Abstract representation of a logic expression.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -12,7 +12,7 @@ pub struct Logic {
 }
 
 impl AbstractTree for Logic {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "logic", node)?;
 
         let first_node = node.child(0).unwrap();
@@ -59,7 +59,7 @@ impl AbstractTree for Logic {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let result = match self.operator {
@@ -88,7 +88,7 @@ impl AbstractTree for Logic {
         Ok(Value::Boolean(result))
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Structure) -> Result<Type> {
         Ok(Type::Boolean)
     }
 }

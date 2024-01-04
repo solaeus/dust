@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, Identifier, Index, Map, Result, Type, Value, Yield,
+    value_node::ValueNode, AbstractTree, Error, Identifier, Index, Result, Structure, Type, Value,
+    Yield,
 };
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
@@ -24,7 +25,7 @@ pub enum Expression {
 }
 
 impl AbstractTree for Expression {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self> {
         Error::expect_syntax_node(source, "expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
@@ -65,7 +66,7 @@ impl AbstractTree for Expression {
         Ok(expression)
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _context: &Structure) -> Result<()> {
         match self {
             Expression::Value(value_node) => value_node.check_type(_context),
             Expression::Identifier(identifier) => identifier.check_type(_context),
@@ -77,7 +78,7 @@ impl AbstractTree for Expression {
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         match self {
             Expression::Value(value_node) => value_node.run(source, context),
             Expression::Identifier(identifier) => identifier.run(source, context),
@@ -89,7 +90,7 @@ impl AbstractTree for Expression {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self {
             Expression::Value(value_node) => value_node.expected_type(context),
             Expression::Identifier(identifier) => identifier.expected_type(context),

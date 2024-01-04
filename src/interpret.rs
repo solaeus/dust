@@ -4,7 +4,7 @@
 //! functions or by constructing your own Evaluator.
 use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
 
-use crate::{language, AbstractTree, Error, Map, Result, Root, Value};
+use crate::{language, AbstractTree, Error, Result, Root, Structure, Value};
 
 /// Interpret the given source code.
 ///
@@ -18,7 +18,7 @@ use crate::{language, AbstractTree, Error, Map, Result, Root, Value};
 /// assert_eq!(interpret("1 + 2 + 3"), Ok(Value::Integer(6)));
 /// ```
 pub fn interpret(source: &str) -> Result<Value> {
-    interpret_with_context(source, Map::new())
+    interpret_with_context(source, Structure::default())
 }
 
 /// Interpret the given source code with the given context.
@@ -40,7 +40,7 @@ pub fn interpret(source: &str) -> Result<Value> {
 ///     Ok(Value::Integer(10))
 /// );
 /// ```
-pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
+pub fn interpret_with_context(source: &str, context: Structure) -> Result<Value> {
     let mut interpreter = Interpreter::new(context);
     let value = interpreter.run(source)?;
 
@@ -50,13 +50,13 @@ pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
 /// A source code interpreter for the Dust language.
 pub struct Interpreter {
     parser: Parser,
-    context: Map,
+    context: Structure,
     syntax_tree: Option<TSTree>,
     abstract_tree: Option<Root>,
 }
 
 impl Interpreter {
-    pub fn new(context: Map) -> Self {
+    pub fn new(context: Structure) -> Self {
         let mut parser = Parser::new();
 
         parser
@@ -133,6 +133,6 @@ impl Interpreter {
 
 impl Default for Interpreter {
     fn default() -> Self {
-        Interpreter::new(Map::new())
+        Interpreter::new(Structure::default())
     }
 }
