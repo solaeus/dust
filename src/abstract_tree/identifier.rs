@@ -51,7 +51,7 @@ impl AbstractTree for Identifier {
 
             Ok(r#type.clone())
         } else {
-            Ok(Type::None)
+            Err(Error::VariableIdentifierNotFound(self.0.clone()))
         }
     }
 }

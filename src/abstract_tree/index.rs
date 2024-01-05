@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, IndexExpression, List, Result, Structure, Type, Value};
+use crate::{
+    built_in_values, AbstractTree, Error, IndexExpression, List, Result, Structure, Type, Value,
+};
 
 /// Abstract representation of an index expression.
 ///
@@ -94,8 +96,9 @@ impl AbstractTree for Index {
     fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self.collection.expected_type(context)? {
             Type::List(item_type) => Ok(*item_type.clone()),
-            Type::StructureDefinition(instantiator) => {
-                if let IndexExpression::Identifier(identifier) = &self.index {
+            Type::StructureDefinition(instantiator) => match &self.index {
+                IndexExpression::Value(_) => todo!(),
+                IndexExpression::Identifier(identifier) => {
                     if let Some((statement_option, type_option)) =
                         instantiator.get(identifier.inner())
                     {
@@ -107,64 +110,50 @@ impl AbstractTree for Index {
                             Ok(Type::None)
                         }
                     } else {
-                        todo!()
+                        Err(Error::VariableIdentifierNotFound(
+                            identifier.inner().clone(),
+                        ))
                     }
-                } else {
-                    todo!()
                 }
-            }
+                IndexExpression::Index(_) => todo!(),
+                IndexExpression::FunctionCall(_) => todo!(),
+            },
             Type::Structure(definition_identifier) => {
-                let (r#type, key) = if let IndexExpression::Identifier(identifier) = &self.index {
-                    let get_type = context
-                        .variables()?
-                        .get(definition_identifier.inner())
-                        .map(|(_, r#type)| r#type.clone());
-
-                    if let Some(r#type) = get_type {
-                        (r#type, identifier.inner())
-                    } else {
-                        return Err(Error::VariableIdentifierNotFound(
-                            definition_identifier.inner().clone(),
-                        ));
-                    }
+                let key = definition_identifier.inner();
+                let variables = context.variables()?;
+                let get_structure = variables.get(key);
+                let value = if let Some((value, _)) = get_structure {
+                    value.clone()
                 } else {
-                    return Err(Error::ExpectedIndexIdentifier {
-                        actual: self.index.clone(),
-                    });
+                    let find_built_in_value =
+                        built_in_values().find(|built_in_value| built_in_value.name() == key);
+
+                    if let Some(built_in_value) = find_built_in_value {
+                        built_in_value.get()
+                    } else {
+                        return Err(Error::VariableIdentifierNotFound(key.to_string()));
+                    }
                 };
+                let structure = value.as_structure()?;
 
-                if let Type::Structure(identifier) = r#type {
-                    let variables = context.variables()?;
-                    let get_type = variables.get(identifier.inner());
+                match &self.index {
+                    IndexExpression::Identifier(identifier) => {
+                        let inner_variables = structure.variables()?;
+                        let get_type = inner_variables.get(identifier.inner());
 
-                    if let Some((_, r#type)) = get_type {
-                        Ok(r#type.clone())
-                    } else {
-                        Ok(Type::None)
-                    }
-                } else if let Type::StructureDefinition(instantiator) = &r#type {
-                    let get_type = instantiator.get(key);
-
-                    if let Some((statement_option, type_option)) = get_type {
-                        let r#type = if let Some(r#type) = type_option {
-                            r#type.inner().clone()
+                        if let Some((_, r#type)) = get_type {
+                            Ok(r#type.clone())
                         } else {
-                            if let Some(statement) = statement_option {
-                                statement.expected_type(context)?
-                            } else {
-                                Type::None
-                            }
-                        };
-
-                        Ok(r#type)
-                    } else {
-                        Err(Error::VariableIdentifierNotFound(key.clone()))
+                            Err(Error::VariableIdentifierNotFound(
+                                identifier.inner().clone(),
+                            ))
+                        }
                     }
-                } else {
-                    Err(Error::ExpectedStructureDefinition { actual: r#type })
+                    IndexExpression::Value(_) => todo!(),
+                    IndexExpression::Index(_) => todo!(),
+                    IndexExpression::FunctionCall(_) => todo!(),
                 }
             }
-            Type::None => Ok(Type::None),
             r#type => Ok(r#type),
         }
     }
