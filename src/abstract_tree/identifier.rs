@@ -47,6 +47,8 @@ impl AbstractTree for Identifier {
 
     fn expected_type(&self, context: &Structure) -> Result<Type> {
         if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
+            println!("{_value}");
+
             Ok(r#type.clone())
         } else {
             Ok(Type::None)

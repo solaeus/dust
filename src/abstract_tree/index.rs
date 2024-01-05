@@ -94,6 +94,25 @@ impl AbstractTree for Index {
     fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self.collection.expected_type(context)? {
             Type::List(item_type) => Ok(*item_type.clone()),
+            Type::StructureDefinition(instantiator) => {
+                if let IndexExpression::Identifier(identifier) = &self.index {
+                    if let Some((statement_option, type_option)) =
+                        instantiator.get(identifier.inner())
+                    {
+                        if let Some(type_definition) = type_option {
+                            Ok(type_definition.inner().clone())
+                        } else if let Some(statement) = statement_option {
+                            statement.expected_type(context)
+                        } else {
+                            Ok(Type::None)
+                        }
+                    } else {
+                        todo!()
+                    }
+                } else {
+                    todo!()
+                }
+            }
             Type::Structure(definition_identifier) => {
                 let (r#type, key) = if let IndexExpression::Identifier(identifier) = &self.index {
                     let get_type = context
@@ -114,7 +133,16 @@ impl AbstractTree for Index {
                     });
                 };
 
-                if let Type::StructureDefinition(instantiator) = &r#type {
+                if let Type::Structure(identifier) = r#type {
+                    let variables = context.variables()?;
+                    let get_type = variables.get(identifier.inner());
+
+                    if let Some((_, r#type)) = get_type {
+                        Ok(r#type.clone())
+                    } else {
+                        Ok(Type::None)
+                    }
+                } else if let Type::StructureDefinition(instantiator) = &r#type {
                     let get_type = instantiator.get(key);
 
                     if let Some((statement_option, type_option)) = get_type {
