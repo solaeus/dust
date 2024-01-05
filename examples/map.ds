@@ -1,11 +1,11 @@
-dictionary = {
+Info = struct {
 	dust = "awesome"
 	answer = 42
 }
 
 output( 
 	'Dust is '
-	+ dictionary:dust
+	+ Info:dust
 	+ '! The answer is ' 
-	+ dictionary:answer
+	+ Info:answer
 )

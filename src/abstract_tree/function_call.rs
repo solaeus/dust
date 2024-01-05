@@ -51,17 +51,14 @@ impl AbstractTree for FunctionCall {
                 let get_type = variables.get(identifier.inner());
 
                 if let Some((_, r#type)) = get_type {
-                    r#type
+                    r#type.clone()
                 } else {
                     return Err(Error::FunctionIdentifierNotFound(
                         identifier.inner().clone(),
                     ));
                 }
             }
-            FunctionExpression::FunctionCall(_) => todo!(),
-            FunctionExpression::Value(_) => todo!(),
-            FunctionExpression::Index(_) => todo!(),
-            FunctionExpression::Yield(_) => todo!(),
+            function_expression => function_expression.expected_type(context)?,
         };
         let parameter_types = if let Type::Function {
             parameter_types, ..
