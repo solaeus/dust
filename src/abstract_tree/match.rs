@@ -58,6 +58,21 @@ impl AbstractTree for Match {
         })
     }
 
+    fn check_type(&self, _context: &Structure) -> Result<()> {
+        self.matcher.check_type(_context)?;
+
+        for (expression, statement) in &self.options {
+            expression.check_type(_context)?;
+            statement.check_type(_context)?;
+        }
+
+        if let Some(statement) = &self.fallback {
+            statement.check_type(_context)?;
+        }
+
+        Ok(())
+    }
+
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let matcher_value = self.matcher.run(source, context)?;
 

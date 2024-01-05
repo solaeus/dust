@@ -79,6 +79,25 @@ impl AbstractTree for StructureInstantiator {
         Ok(instantiator)
     }
 
+    fn check_type(&self, context: &Structure) -> Result<()> {
+        for (_key, (statement_option, type_definition_option)) in &self.0 {
+            let statement_type = if let Some(statement) = statement_option {
+                statement.check_type(context)?;
+                Some(statement.expected_type(context)?)
+            } else {
+                None
+            };
+
+            if let (Some(statement_type), Some(type_definition)) =
+                (statement_type, type_definition_option)
+            {
+                type_definition.inner().check(&statement_type)?;
+            }
+        }
+
+        Ok(())
+    }
+
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let mut variables = BTreeMap::new();
 

@@ -11,6 +11,7 @@ pub struct For {
     item_id: Identifier,
     collection: Expression,
     block: Block,
+    context: Structure,
 }
 
 impl AbstractTree for For {
@@ -45,29 +46,42 @@ impl AbstractTree for For {
             item_id: identifier,
             collection: expression,
             block: item,
+            context: Structure::clone_from(context)?,
         })
+    }
+
+    fn check_type(&self, context: &Structure) -> Result<()> {
+        self.collection.check_type(context)?;
+
+        let key = self.item_id.inner();
+        let collection_type = self.collection.expected_type(context)?;
+
+        Type::list(Type::Any).check(&collection_type)?;
+
+        if let Type::List(item_type) = self.collection.expected_type(context)? {
+            self.context
+                .set(key.to_string(), Value::none(), Some(*item_type))?;
+        }
+
+        self.block.check_type(&self.context)
     }
 
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let expression_run = self.collection.run(source, context)?;
-        let values = expression_run.as_list()?.items();
         let key = self.item_id.inner();
+        let values = expression_run.as_list()?.items();
 
         if self.is_async {
             values.par_iter().try_for_each(|value| {
-                let iter_context = Structure::clone_from(context)?;
+                self.context.set(key.clone(), value.clone(), None)?;
 
-                iter_context.set(key.clone(), value.clone(), None)?;
-
-                self.block.run(source, &iter_context).map(|_value| ())
+                self.block.run(source, &self.context).map(|_value| ())
             })?;
         } else {
-            let loop_context = Structure::clone_from(context)?;
-
             for value in values.iter() {
-                loop_context.set(key.clone(), value.clone(), None)?;
+                self.context.set(key.clone(), value.clone(), None)?;
 
-                self.block.run(source, &loop_context)?;
+                self.block.run(source, &self.context)?;
             }
         }
 

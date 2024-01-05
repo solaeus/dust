@@ -51,6 +51,11 @@ impl AbstractTree for IndexAssignment {
         })
     }
 
+    fn check_type(&self, _context: &Structure) -> Result<()> {
+        self.index.check_type(_context)?;
+        self.statement.check_type(_context)
+    }
+
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let index_collection = self.index.collection.run(source, context)?;
         let index_context = index_collection.as_structure().unwrap_or(context);

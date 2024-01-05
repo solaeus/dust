@@ -93,6 +93,20 @@ impl AbstractTree for Index {
         }
     }
 
+    fn check_type(&self, context: &Structure) -> Result<()> {
+        let collection_type = self.collection.expected_type(context)?;
+
+        match collection_type {
+            Type::List(_) | Type::String | Type::Structure(_) | Type::StructureDefinition(_) => {
+                Ok(())
+            }
+            _ => Err(Error::TypeCheck {
+                expected: Type::Collection,
+                actual: collection_type,
+            }),
+        }
+    }
+
     fn expected_type(&self, context: &Structure) -> Result<Type> {
         match self.collection.expected_type(context)? {
             Type::List(item_type) => Ok(*item_type.clone()),

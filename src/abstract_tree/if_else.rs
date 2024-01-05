@@ -55,6 +55,25 @@ impl AbstractTree for IfElse {
         })
     }
 
+    fn check_type(&self, _context: &Structure) -> Result<()> {
+        self.if_expression.check_type(_context)?;
+        self.if_block.check_type(_context)?;
+
+        for expression in &self.else_if_expressions {
+            expression.check_type(_context)?;
+        }
+
+        for block in &self.else_if_blocks {
+            block.check_type(_context)?;
+        }
+
+        if let Some(block) = &self.else_block {
+            block.check_type(_context)?;
+        }
+
+        Ok(())
+    }
+
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let if_boolean = self.if_expression.run(source, context)?.as_boolean()?;
 

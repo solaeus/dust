@@ -172,6 +172,10 @@ impl AbstractTree for BuiltInValue {
         Ok(self.get().clone())
     }
 
+    fn check_type(&self, _context: &Structure) -> Result<()> {
+        Ok(())
+    }
+
     fn expected_type(&self, _context: &Structure) -> Result<Type> {
         Ok(self.r#type())
     }

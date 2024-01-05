@@ -52,6 +52,15 @@ impl AbstractTree for IndexExpression {
         Ok(abstract_node)
     }
 
+    fn check_type(&self, _context: &Structure) -> Result<()> {
+        match self {
+            IndexExpression::Value(value_node) => value_node.check_type(_context),
+            IndexExpression::Identifier(identifier) => identifier.check_type(_context),
+            IndexExpression::Index(index) => index.check_type(_context),
+            IndexExpression::FunctionCall(function_call) => function_call.check_type(_context),
+        }
+    }
+
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         match self {
             IndexExpression::Value(value_node) => value_node.run(source, context),

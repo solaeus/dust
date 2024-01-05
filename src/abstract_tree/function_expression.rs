@@ -54,6 +54,16 @@ impl AbstractTree for FunctionExpression {
         Ok(function_expression)
     }
 
+    fn check_type(&self, _context: &Structure) -> Result<()> {
+        match self {
+            FunctionExpression::Identifier(identifier) => identifier.check_type(_context),
+            FunctionExpression::FunctionCall(function_call) => function_call.check_type(_context),
+            FunctionExpression::Value(value_node) => value_node.check_type(_context),
+            FunctionExpression::Index(index) => index.check_type(_context),
+            FunctionExpression::Yield(r#yield) => r#yield.check_type(_context),
+        }
+    }
+
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.run(source, context),

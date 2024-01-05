@@ -108,9 +108,7 @@ pub trait AbstractTree: Sized {
     fn from_syntax_node(source: &str, node: Node, context: &Structure) -> Result<Self>;
 
     /// Verify the type integrity of the node.
-    fn check_type(&self, _context: &Structure) -> Result<()> {
-        Ok(())
-    }
+    fn check_type(&self, _context: &Structure) -> Result<()>;
 
     /// Execute dust code by traversing the tree.
     fn run(&self, source: &str, context: &Structure) -> Result<Value>;

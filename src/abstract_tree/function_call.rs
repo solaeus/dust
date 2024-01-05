@@ -45,6 +45,8 @@ impl AbstractTree for FunctionCall {
     }
 
     fn check_type(&self, context: &Structure) -> Result<()> {
+        self.function_expression.check_type(context)?;
+
         let variables = context.variables()?;
         let function_type = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
@@ -72,6 +74,8 @@ impl AbstractTree for FunctionCall {
         };
 
         for (index, expression) in self.arguments.iter().enumerate() {
+            expression.check_type(context)?;
+
             if let Some(r#type) = parameter_types.get(index) {
                 r#type.check(&expression.expected_type(context)?)?;
             }
@@ -133,32 +137,14 @@ impl AbstractTree for FunctionCall {
     }
 
     fn expected_type(&self, context: &Structure) -> Result<Type> {
-        match &self.function_expression {
-            FunctionExpression::Identifier(identifier) => {
-                let identifier_type = identifier.expected_type(context)?;
+        let function_type = self.function_expression.expected_type(context)?;
 
-                if let Type::Function {
-                    parameter_types: _,
-                    return_type,
-                } = &identifier_type
-                {
-                    Ok(*return_type.clone())
-                } else {
-                    Ok(identifier_type)
-                }
-            }
-            FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
-            FunctionExpression::Value(value_node) => {
-                let value_type = value_node.expected_type(context)?;
-
-                if let Type::Function { return_type, .. } = value_type {
-                    Ok(*return_type)
-                } else {
-                    Ok(value_type)
-                }
-            }
-            FunctionExpression::Index(index) => index.expected_type(context),
-            FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
+        if let Type::Function { return_type, .. } = function_type {
+            Ok(*return_type)
+        } else {
+            Err(Error::ExpectedFunctionExpression {
+                actual: self.function_expression.clone(),
+            })
         }
     }
 }

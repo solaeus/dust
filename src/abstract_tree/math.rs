@@ -48,6 +48,11 @@ impl AbstractTree for Math {
         })
     }
 
+    fn check_type(&self, _context: &Structure) -> Result<()> {
+        self.left.check_type(_context)?;
+        self.right.check_type(_context)
+    }
+
     fn run(&self, source: &str, context: &Structure) -> Result<Value> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
