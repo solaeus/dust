@@ -3,6 +3,8 @@
 //! Note that this module is called "match" but is escaped as "r#match" because
 //! "match" is a keyword in Rust.
 
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -80,5 +82,27 @@ impl AbstractTree for Match {
         let (_, first_statement) = self.options.first().unwrap();
 
         first_statement.expected_type(context)
+    }
+}
+
+impl Display for Match {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Match {
+            matcher,
+            options,
+            fallback,
+        } = self;
+
+        write!(f, "match {matcher} {{")?;
+
+        for (expression, statement) in options {
+            write!(f, "{expression} => {statement}")?;
+        }
+
+        if let Some(statement) = fallback {
+            write!(f, "* => {statement}")?;
+        }
+
+        write!(f, "}}")
     }
 }

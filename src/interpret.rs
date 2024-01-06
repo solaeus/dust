@@ -129,6 +129,14 @@ impl Interpreter {
             Err(Error::ParserCancelled)
         }
     }
+
+    pub fn format(&self) -> String {
+        if let Some(root_node) = &self.abstract_tree {
+            root_node.to_string()
+        } else {
+            "".to_string()
+        }
+    }
 }
 
 impl Default for Interpreter {

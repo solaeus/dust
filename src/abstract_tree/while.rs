@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -35,5 +37,13 @@ impl AbstractTree for While {
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
         self.block.expected_type(context)
+    }
+}
+
+impl Display for While {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let While { expression, block } = self;
+
+        write!(f, "while {expression} {{{block}}}")
     }
 }

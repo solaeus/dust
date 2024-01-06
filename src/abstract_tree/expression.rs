@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -98,6 +100,20 @@ impl AbstractTree for Expression {
             Expression::FunctionCall(function_call) => function_call.expected_type(context),
             Expression::Index(index) => index.expected_type(context),
             Expression::Yield(r#yield) => r#yield.expected_type(context),
+        }
+    }
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Expression::Value(value_node) => write!(f, "{value_node}"),
+            Expression::Identifier(identifier) => write!(f, "{identifier}"),
+            Expression::Math(math) => write!(f, "{math}"),
+            Expression::Logic(logic) => write!(f, "{logic}"),
+            Expression::FunctionCall(function_call) => write!(f, "{function_call}"),
+            Expression::Index(index) => write!(f, "{index}"),
+            Expression::Yield(r#yield) => write!(f, "{}", r#yield),
         }
     }
 }

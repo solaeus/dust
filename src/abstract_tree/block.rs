@@ -1,4 +1,7 @@
-use std::sync::RwLock;
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::RwLock,
+};
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -125,5 +128,21 @@ impl AbstractTree for Block {
         } else {
             Ok(Type::None)
         }
+    }
+}
+
+impl Display for Block {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        if self.is_async {
+            write!(f, "async {{")?;
+        } else {
+            write!(f, "{{")?;
+        }
+
+        for statement in &self.statements {
+            write!(f, "    {statement}")?;
+        }
+
+        write!(f, "}}")
     }
 }

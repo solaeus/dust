@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Display, Formatter},
+};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -294,5 +297,57 @@ impl AbstractTree for ValueNode {
         };
 
         Ok(r#type)
+    }
+}
+
+impl Display for ValueNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ValueNode::Boolean(source)
+            | ValueNode::Float(source)
+            | ValueNode::Integer(source)
+            | ValueNode::String(source) => write!(f, "{source}"),
+            ValueNode::Function(function) => write!(f, "{function}"),
+            ValueNode::List(expressions) => {
+                for expression in expressions {
+                    write!(f, "{expression}")?;
+                }
+
+                Ok(())
+            }
+            ValueNode::Option(option) => {
+                if let Some(expression) = option {
+                    write!(f, "some({})", expression)
+                } else {
+                    write!(f, "none")
+                }
+            }
+            ValueNode::Map(nodes) => {
+                writeln!(f, "{{")?;
+
+                for (key, (statement, type_option)) in nodes {
+                    if let Some(r#type) = type_option {
+                        writeln!(f, "  {key} <{}> = {statement}", r#type)?;
+                    } else {
+                        writeln!(f, "  {key} = {statement}")?;
+                    }
+                }
+                write!(f, "}}")
+            }
+            ValueNode::BuiltInValue(built_in_value) => write!(f, "{built_in_value}"),
+            ValueNode::Structure(nodes) => {
+                writeln!(f, "{{")?;
+
+                for (key, (value_option, r#type)) in nodes {
+                    if let Some(value) = value_option {
+                        writeln!(f, "  {key} <{}> = {value}", r#type)?;
+                    } else {
+                        writeln!(f, "  {key} <{}>", r#type)?;
+                    }
+                }
+
+                write!(f, "}}")
+            }
+        }
     }
 }

@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -50,5 +52,11 @@ impl AbstractTree for Yield {
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
         self.call.expected_type(context)
+    }
+}
+
+impl Display for Yield {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.call)
     }
 }

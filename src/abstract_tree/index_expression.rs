@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -63,6 +65,17 @@ impl AbstractTree for IndexExpression {
             IndexExpression::Identifier(identifier) => identifier.expected_type(context),
             IndexExpression::Index(index) => index.expected_type(context),
             IndexExpression::FunctionCall(function_call) => function_call.expected_type(context),
+        }
+    }
+}
+
+impl Display for IndexExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            IndexExpression::Value(value_node) => write!(f, "{value_node}"),
+            IndexExpression::Identifier(identifier) => write!(f, "{identifier}"),
+            IndexExpression::FunctionCall(function_call) => write!(f, "{function_call}"),
+            IndexExpression::Index(index) => write!(f, "{index}"),
         }
     }
 }

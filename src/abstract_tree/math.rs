@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -67,6 +69,18 @@ impl AbstractTree for Math {
     }
 }
 
+impl Display for Math {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Math {
+            left,
+            operator,
+            right,
+        } = self;
+
+        write!(f, "{left} {operator} {right}")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum MathOperator {
     Add,
@@ -74,4 +88,16 @@ pub enum MathOperator {
     Multiply,
     Divide,
     Modulo,
+}
+
+impl Display for MathOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            MathOperator::Add => write!(f, "+"),
+            MathOperator::Subtract => write!(f, "-"),
+            MathOperator::Multiply => write!(f, "*"),
+            MathOperator::Divide => write!(f, "\\"),
+            MathOperator::Modulo => write!(f, "%"),
+        }
+    }
 }

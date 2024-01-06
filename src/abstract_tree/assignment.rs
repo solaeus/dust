@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -12,13 +14,6 @@ pub struct Assignment {
     operator: AssignmentOperator,
     statement: Statement,
     syntax_position: SyntaxPosition,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum AssignmentOperator {
-    Equal,
-    PlusEqual,
-    MinusEqual,
 }
 
 impl AbstractTree for Assignment {
@@ -161,5 +156,42 @@ impl AbstractTree for Assignment {
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(Type::None)
+    }
+}
+
+impl Display for Assignment {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Assignment {
+            identifier,
+            type_definition,
+            operator,
+            statement,
+            syntax_position: _,
+        } = self;
+
+        write!(f, "{identifier}")?;
+
+        if let Some(type_definition) = type_definition {
+            write!(f, " {type_definition}")?;
+        }
+
+        write!(f, " {operator} {statement}")
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+pub enum AssignmentOperator {
+    Equal,
+    PlusEqual,
+    MinusEqual,
+}
+
+impl Display for AssignmentOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            AssignmentOperator::Equal => write!(f, "="),
+            AssignmentOperator::PlusEqual => write!(f, "-="),
+            AssignmentOperator::MinusEqual => write!(f, "+="),
+        }
     }
 }

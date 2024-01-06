@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -76,5 +78,24 @@ impl AbstractTree for For {
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(Type::None)
+    }
+}
+
+impl Display for For {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let For {
+            is_async,
+            item_id,
+            collection,
+            block,
+        } = self;
+
+        if *is_async {
+            write!(f, "async for ")?;
+        } else {
+            write!(f, "for ")?;
+        }
+
+        write!(f, "{item_id} in {collection}, {{{block}}}")
     }
 }

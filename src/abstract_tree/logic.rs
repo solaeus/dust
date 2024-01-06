@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -40,7 +42,7 @@ impl AbstractTree for Logic {
             ">" => LogicOperator::Greater,
             "<" => LogicOperator::Less,
             ">=" => LogicOperator::GreaterOrEqual,
-            "<=" => LogicOperator::LessOrEqaul,
+            "<=" => LogicOperator::LessOrEqual,
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "==, !=, &&, ||, >, <, >= or <=".to_string(),
@@ -82,7 +84,7 @@ impl AbstractTree for Logic {
             LogicOperator::Greater => left > right,
             LogicOperator::Less => left < right,
             LogicOperator::GreaterOrEqual => left >= right,
-            LogicOperator::LessOrEqaul => left <= right,
+            LogicOperator::LessOrEqual => left <= right,
         };
 
         Ok(Value::Boolean(result))
@@ -90,6 +92,18 @@ impl AbstractTree for Logic {
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(Type::Boolean)
+    }
+}
+
+impl Display for Logic {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Logic {
+            left,
+            operator,
+            right,
+        } = self;
+
+        write!(f, "{left} {operator} {right}")
     }
 }
 
@@ -102,5 +116,20 @@ pub enum LogicOperator {
     Greater,
     Less,
     GreaterOrEqual,
-    LessOrEqaul,
+    LessOrEqual,
+}
+
+impl Display for LogicOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            LogicOperator::Equal => write!(f, "="),
+            LogicOperator::NotEqual => write!(f, "!="),
+            LogicOperator::And => write!(f, "&&"),
+            LogicOperator::Or => write!(f, "||"),
+            LogicOperator::Greater => write!(f, ">"),
+            LogicOperator::Less => write!(f, "<"),
+            LogicOperator::GreaterOrEqual => write!(f, ">="),
+            LogicOperator::LessOrEqual => write!(f, "<="),
+        }
+    }
 }

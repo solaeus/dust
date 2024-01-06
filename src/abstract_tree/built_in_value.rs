@@ -1,4 +1,8 @@
-use std::{env::args, sync::OnceLock};
+use std::{
+    env::args,
+    fmt::{self, Display, Formatter},
+    sync::OnceLock,
+};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -146,5 +150,11 @@ impl AbstractTree for BuiltInValue {
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(self.r#type())
+    }
+}
+
+impl Display for BuiltInValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.get())
     }
 }

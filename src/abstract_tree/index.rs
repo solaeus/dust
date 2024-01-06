@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -96,5 +98,23 @@ impl AbstractTree for Index {
             Type::None => Ok(Type::None),
             r#type => Ok(r#type),
         }
+    }
+}
+
+impl Display for Index {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Index {
+            collection,
+            index,
+            index_end,
+        } = self;
+
+        write!(f, "{collection}:{index}")?;
+
+        if let Some(expression) = index_end {
+            write!(f, "..{expression}")?;
+        }
+
+        Ok(())
     }
 }

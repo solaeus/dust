@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -83,5 +85,29 @@ impl AbstractTree for IfElse {
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
         self.if_block.expected_type(context)
+    }
+}
+
+impl Display for IfElse {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let IfElse {
+            if_expression,
+            if_block,
+            else_if_expressions,
+            else_if_blocks,
+            else_block,
+        } = self;
+
+        write!(f, "if {if_expression} {{{if_block}}}")?;
+
+        for (expression, block) in else_if_expressions.iter().zip(else_if_blocks.iter()) {
+            write!(f, "else if {expression} {{{block}}}")?;
+        }
+
+        if let Some(block) = else_block {
+            write!(f, "else {{{block}}}")?;
+        }
+
+        Ok(())
     }
 }

@@ -35,6 +35,8 @@ pub use {
     r#match::*, r#while::*, r#yield::*, statement::*, type_definition::*, value_node::*,
 };
 
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -113,6 +115,16 @@ impl AbstractTree for Root {
 
     fn expected_type(&self, context: &Map) -> Result<Type> {
         self.statements.last().unwrap().expected_type(context)
+    }
+}
+
+impl Display for Root {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for statement in &self.statements {
+            write!(f, "{statement}")?;
+        }
+
+        Ok(())
     }
 }
 

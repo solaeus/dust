@@ -1,20 +1,18 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Index, IndexExpression, Map, Result, Statement, Type, Value};
+use crate::{
+    AbstractTree, AssignmentOperator, Error, Index, IndexExpression, Map, Result, Statement, Type,
+    Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IndexAssignment {
     index: Index,
     operator: AssignmentOperator,
     statement: Statement,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum AssignmentOperator {
-    Equal,
-    PlusEqual,
-    MinusEqual,
 }
 
 impl AbstractTree for IndexAssignment {
@@ -93,5 +91,17 @@ impl AbstractTree for IndexAssignment {
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(Type::None)
+    }
+}
+
+impl Display for IndexAssignment {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let IndexAssignment {
+            index,
+            operator,
+            statement,
+        } = self;
+
+        write!(f, "{index} {operator} {statement}")
     }
 }

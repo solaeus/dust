@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -107,6 +109,22 @@ impl AbstractTree for Statement {
             Statement::For(r#for) => r#for.expected_type(context),
             Statement::IndexAssignment(index_assignment) => index_assignment.expected_type(context),
             Statement::Return(statement) => statement.expected_type(context),
+        }
+    }
+}
+
+impl Display for Statement {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Statement::Assignment(assignment) => write!(f, "{assignment}"),
+            Statement::Expression(expression) => write!(f, "{expression}"),
+            Statement::IfElse(if_else) => write!(f, "{if_else}"),
+            Statement::Match(r#match) => write!(f, "{}", r#match),
+            Statement::While(r#while) => write!(f, "{}", r#while),
+            Statement::Block(block) => write!(f, "{block}"),
+            Statement::For(r#for) => write!(f, "{}", r#for),
+            Statement::IndexAssignment(index_assignment) => write!(f, "{index_assignment}"),
+            Statement::Return(statement) => write!(f, "{statement}"),
         }
     }
 }

@@ -1,5 +1,5 @@
 //! Command line interface for the dust programming language.
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use rustyline::{
     completion::FilenameCompleter,
     error::ReadlineError,
@@ -8,11 +8,10 @@ use rustyline::{
     history::DefaultHistory,
     Completer, Context, Editor, Helper, Validator,
 };
-use tree_sitter::Parser as TSParser;
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{language, Interpreter, Map, Value};
+use dust_lang::{Interpreter, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -34,8 +33,16 @@ struct Args {
     #[arg(short = 't', long = "tree")]
     show_syntax_tree: bool,
 
+    #[command(subcommand)]
+    cli_command: Option<CliCommand>,
+
     /// Location of the file to run.
     path: Option<String>,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum CliCommand {
+    Format,
 }
 
 fn main() {
@@ -69,9 +76,6 @@ fn main() {
             .unwrap();
     }
 
-    let mut parser = TSParser::new();
-    parser.set_language(language()).unwrap();
-
     let mut interpreter = Interpreter::new(context);
 
     if args.show_syntax_tree {
@@ -89,6 +93,10 @@ fn main() {
             }
         }
         Err(error) => eprintln!("{error}"),
+    }
+
+    if let Some(CliCommand::Format) = args.cli_command {
+        println!("{}", interpreter.format());
     }
 }
 
