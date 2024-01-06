@@ -1,3 +1,5 @@
+mod functions;
+
 mod structure {
     use std::collections::BTreeMap;
 
@@ -230,56 +232,6 @@ mod value {
         let result = interpret("x <option(int)> = some(1); x").unwrap();
 
         assert_eq!(Value::Option(Some(Box::new(Value::Integer(1)))), result);
-    }
-}
-
-mod function_call {
-    use dust_lang::*;
-
-    #[test]
-    fn function_call() {
-        assert_eq!(
-            interpret(
-                "
-                foobar = (message <str>) <str> { message }
-                foobar('Hiya')
-                ",
-            ),
-            Ok(Value::string("Hiya".to_string()))
-        );
-    }
-
-    #[test]
-    fn call_empty_function() {
-        assert_eq!(
-            interpret(
-                "
-                foobar = (message <str>) <none> {}
-                foobar('Hiya')
-                ",
-            ),
-            Ok(Value::none())
-        );
-    }
-
-    #[test]
-    fn callback() {
-        assert_eq!(
-            interpret(
-                "
-                foobar = (cb <() -> str>) <str> {
-                    cb()
-                }
-                foobar(() <str> { 'Hiya' })
-                ",
-            ),
-            Ok(Value::string("Hiya".to_string()))
-        );
-    }
-
-    #[test]
-    fn built_in_function_call() {
-        assert_eq!(interpret("output('Hiya')"), Ok(Value::Option(None)));
     }
 }
 
