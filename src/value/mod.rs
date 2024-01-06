@@ -84,7 +84,7 @@ impl Value {
                     ));
                 }
 
-                Type::Map(identifier_types)
+                Type::Map
             }
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,

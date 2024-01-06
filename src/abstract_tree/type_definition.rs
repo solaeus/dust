@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Value};
+use crate::{AbstractTree, Error, Map, Result, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TypeDefinition {
@@ -61,7 +61,7 @@ pub enum Type {
     },
     Integer,
     List(Box<Type>),
-    Map(Vec<(Identifier, TypeDefinition)>),
+    Map,
     None,
     Number,
     String,
@@ -92,12 +92,13 @@ impl Type {
             | (Type::Collection, Type::Collection)
             | (Type::Collection, Type::List(_))
             | (Type::List(_), Type::Collection)
-            | (Type::Collection, Type::Map(_))
-            | (Type::Map(_), Type::Collection)
+            | (Type::Collection, Type::Map)
+            | (Type::Map, Type::Collection)
             | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
+            | (Type::Map, Type::Map)
             | (Type::Number, Type::Number)
             | (Type::Number, Type::Integer)
             | (Type::Number, Type::Float)
@@ -105,16 +106,6 @@ impl Type {
             | (Type::Float, Type::Number)
             | (Type::None, Type::None)
             | (Type::String, Type::String) => Ok(()),
-            (Type::Map(left), Type::Map(right)) => {
-                if left == right {
-                    Ok(())
-                } else {
-                    Err(Error::TypeCheck {
-                        expected: self.clone(),
-                        actual: other.clone(),
-                    })
-                }
-            }
             (Type::Option(left), Type::Option(right)) => {
                 if left == right {
                     Ok(())
@@ -224,37 +215,10 @@ impl AbstractTree for Type {
                 }
             }
             "int" => Type::Integer,
-
+            "map" => Type::Map,
             "num" => Type::Number,
             "none" => Type::None,
             "str" => Type::String,
-            "{" => {
-                let child_count = node.child_count();
-                let mut identifier_types = Vec::new();
-                let mut identifier = None;
-
-                for index in 1..child_count - 1 {
-                    let child = node.child(index).unwrap();
-
-                    match child.kind() {
-                        "identifier" => {
-                            identifier =
-                                Some(Identifier::from_syntax_node(_source, child, _context)?);
-                        }
-                        "type_definition" => {
-                            if let Some(identifier) = &identifier {
-                                let type_definition =
-                                    TypeDefinition::from_syntax_node(_source, child, _context)?;
-
-                                identifier_types.push((identifier.clone(), type_definition));
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-
-                Type::Map(identifier_types)
-            }
             "option" => {
                 let inner_type_node = node.child(2).unwrap();
                 let inner_type = Type::from_syntax_node(_source, inner_type_node, _context)?;
@@ -309,15 +273,7 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map(identifier_types) => {
-                write!(f, "{{")?;
-
-                for (identifier, r#type) in identifier_types {
-                    write!(f, "{} {}", identifier.inner(), r#type)?;
-                }
-
-                write!(f, "}}")
-            }
+            Type::Map => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),

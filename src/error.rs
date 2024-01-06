@@ -41,6 +41,10 @@ pub enum Error {
         actual: Type,
     },
 
+    TypeCheckExpectedFunction {
+        actual: Type,
+    },
+
     /// The 'assert' macro did not resolve successfully.
     AssertEqualFailed {
         expected: Value,
@@ -420,6 +424,9 @@ impl fmt::Display for Error {
                 f,
                 "Type check error. Expected type {expected} but got type {actual}."
             ),
+            TypeCheckExpectedFunction { actual } => {
+                write!(f, "Type check error. Expected a function but got {actual}.")
+            }
             WithContext {
                 error,
                 location,

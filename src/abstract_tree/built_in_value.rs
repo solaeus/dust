@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    built_in_functions::string_functions, AbstractTree, BuiltInFunction, Function, Identifier,
-    List, Map, Result, Type, TypeDefinition, Value,
+    built_in_functions::string_functions, AbstractTree, BuiltInFunction, Function, List, Map,
+    Result, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -31,29 +31,12 @@ impl BuiltInValue {
         match self {
             BuiltInValue::Args => Type::list(Type::String),
             BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
-            BuiltInValue::Fs => Type::Map(Vec::new()),
-            BuiltInValue::Json => Type::Map(Vec::new()),
+            BuiltInValue::Fs => Type::Map,
+            BuiltInValue::Json => Type::Map,
             BuiltInValue::Length => BuiltInFunction::Length.r#type(),
             BuiltInValue::Output => BuiltInFunction::Output.r#type(),
-            BuiltInValue::Random => Type::Map(vec![
-                (
-                    Identifier::new("boolean".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomBoolean.r#type()),
-                ),
-                (
-                    Identifier::new("float".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomFloat.r#type()),
-                ),
-                (
-                    Identifier::new("from".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomFrom.r#type()),
-                ),
-                (
-                    Identifier::new("integer".to_string()),
-                    TypeDefinition::new(BuiltInFunction::RandomInteger.r#type()),
-                ),
-            ]),
-            BuiltInValue::String => Type::Map(Vec::new()),
+            BuiltInValue::Random => Type::Map,
+            BuiltInValue::String => Type::Map,
         }
     }
 

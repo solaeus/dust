@@ -46,15 +46,17 @@ impl AbstractTree for FunctionCall {
 
     fn check_type(&self, context: &Map) -> Result<()> {
         let function_expression_type = self.function_expression.expected_type(context)?;
-        let parameter_types = if let Type::Function {
-            parameter_types, ..
-        } = &function_expression_type
-        {
-            parameter_types
-        } else {
-            return Err(Error::ExpectedFunctionType {
-                actual: function_expression_type,
-            });
+
+        let parameter_types = match function_expression_type {
+            Type::Function {
+                parameter_types, ..
+            } => parameter_types,
+            Type::Any => return Ok(()),
+            _ => {
+                return Err(Error::TypeCheckExpectedFunction {
+                    actual: function_expression_type,
+                })
+            }
         };
 
         for (index, expression) in self.arguments.iter().enumerate() {

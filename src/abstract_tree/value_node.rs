@@ -203,18 +203,7 @@ impl AbstractTree for ValueNode {
                     Type::None
                 }
             }
-            ValueNode::Map(statements) => {
-                let mut identifier_types = Vec::new();
-
-                for (key, (statement, _)) in statements {
-                    identifier_types.push((
-                        Identifier::new(key.clone()),
-                        TypeDefinition::new(statement.expected_type(context)?),
-                    ));
-                }
-
-                Type::Map(identifier_types)
-            }
+            ValueNode::Map(_) => Type::Map,
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
         };
 
