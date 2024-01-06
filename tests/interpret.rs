@@ -40,7 +40,7 @@ mod assignment {
             ",
         );
 
-        assert!(result.unwrap_err().is_type_check_error(&Error::TypeCheck {
+        assert!(result.unwrap_err().is_error(&Error::TypeCheck {
             expected: Type::String,
             actual: Type::Integer
         }))
@@ -172,7 +172,7 @@ mod value {
     fn map_type_errors() {
         assert!(interpret("{ foo <bool> = 'bar' }")
             .unwrap_err()
-            .is_type_check_error(&Error::TypeCheck {
+            .is_error(&Error::TypeCheck {
                 expected: Type::Boolean,
                 actual: Type::String
             }))
@@ -435,7 +435,7 @@ mod type_definition {
     fn simple_type_check() {
         let result = interpret("x <bool> = 1");
 
-        assert!(result.unwrap_err().is_type_check_error(&Error::TypeCheck {
+        assert!(result.unwrap_err().is_error(&Error::TypeCheck {
             expected: Type::Boolean,
             actual: Type::Integer
         }));
@@ -468,7 +468,7 @@ mod type_definition {
             ",
         );
 
-        assert!(result.unwrap_err().is_type_check_error(&Error::TypeCheck {
+        assert!(result.unwrap_err().is_error(&Error::TypeCheck {
             expected: Type::Function {
                 parameter_types: vec![],
                 return_type: Box::new(Type::Boolean),

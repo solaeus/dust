@@ -229,7 +229,7 @@ impl Error {
         }
     }
 
-    pub fn is_type_check_error(&self, other: &Error) -> bool {
+    pub fn is_error(&self, other: &Error) -> bool {
         match self {
             Error::AtSourcePosition { error, .. } => error.as_ref() == other,
             _ => self == other,
