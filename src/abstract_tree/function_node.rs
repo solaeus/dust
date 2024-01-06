@@ -14,6 +14,7 @@ pub struct FunctionNode {
     body: Block,
     r#type: Type,
     syntax_position: SyntaxPosition,
+    context: Map,
 }
 
 impl FunctionNode {
@@ -22,12 +23,14 @@ impl FunctionNode {
         body: Block,
         r#type: Type,
         syntax_position: SyntaxPosition,
+        context: Map,
     ) -> Self {
         Self {
             parameters,
             body,
             r#type,
             syntax_position,
+            context,
         }
     }
 
@@ -61,23 +64,24 @@ impl FunctionNode {
         outer_context: &Map,
     ) -> Result<Value> {
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
-        let function_context = Map::clone_from(outer_context)?;
+
+        self.context.clone_complex_values_from(outer_context)?;
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
 
-            function_context.set(key, value.clone(), None)?;
+            self.context.set(key, value.clone(), None)?;
         }
 
         if let Some(name) = name {
-            function_context.set(
+            self.context.set(
                 name,
                 Value::Function(Function::ContextDefined(self.clone())),
                 None,
             )?;
         }
 
-        let return_value = self.body.run(source, &function_context)?;
+        let return_value = self.body.run(source, &self.context)?;
 
         Ok(return_value)
     }
@@ -107,7 +111,9 @@ impl AbstractTree for FunctionNode {
             }
         }
 
-        let function_context = Map::clone_from(context)?;
+        let function_context = Map::new();
+
+        function_context.clone_complex_values_from(context)?;
 
         for (parameter_name, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
             function_context.set(
@@ -126,13 +132,21 @@ impl AbstractTree for FunctionNode {
         let r#type = Type::function(parameter_types, return_type.take_inner());
         let syntax_position = node.range().into();
 
-        Ok(FunctionNode::new(parameters, body, r#type, syntax_position))
+        Ok(FunctionNode::new(
+            parameters,
+            body,
+            r#type,
+            syntax_position,
+            function_context,
+        ))
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
+    fn check_type(&self, source: &str, _context: &Map) -> Result<()> {
         self.return_type()
-            .check(&self.body.expected_type(context)?)
+            .check(&self.body.expected_type(&self.context)?)
             .map_err(|error| error.at_source_position(source, self.syntax_position))?;
+
+        self.body.check_type(source, &self.context)?;
 
         Ok(())
     }

@@ -120,14 +120,7 @@ impl AbstractTree for FunctionCall {
             context.set(name.to_string(), value.clone(), None)?;
         }
 
-        value
-            .as_function()
-            .map_err(|error| {
-                println!("{name:?}");
-
-                error
-            })?
-            .call(name, &arguments, source, context)
+        value.as_function()?.call(name, &arguments, source, context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {

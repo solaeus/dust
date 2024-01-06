@@ -45,6 +45,17 @@ impl Map {
         })
     }
 
+    pub fn clone_complex_values_from(&self, other: &Self) -> Result<()> {
+        for (key, (value, r#type)) in other.variables()?.iter() {
+            if value.is_function() {
+                self.variables_mut()?
+                    .insert(key.clone(), (value.clone(), r#type.clone()));
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn variables(&self) -> Result<RwLockReadGuard<BTreeMap<String, (Value, Type)>>> {
         Ok(self.variables.read()?)
     }
