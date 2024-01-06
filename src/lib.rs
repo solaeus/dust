@@ -8,7 +8,7 @@ pub use crate::{
     built_in_functions::BuiltInFunction,
     error::*,
     interpret::*,
-    value::{function::Function, list::List, map::Map, Value},
+    value::{function::Function, list::List, map::Map, structure::Structure, Value},
 };
 
 pub use tree_sitter::Node as SyntaxNode;

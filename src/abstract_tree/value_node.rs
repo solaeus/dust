@@ -5,7 +5,7 @@ use tree_sitter::Node;
 
 use crate::{
     AbstractTree, BuiltInValue, Error, Expression, Function, Identifier, List, Map, Result,
-    Statement, Type, TypeDefinition, Value,
+    Statement, Structure, Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -116,7 +116,7 @@ impl AbstractTree for ValueNode {
                 let mut current_type: Option<Type> = None;
                 let mut current_statement = None;
 
-                for index in 0..child.child_count() - 1 {
+                for index in 2..child.child_count() - 1 {
                     let child_syntax_node = child.child(index).unwrap();
 
                     if child_syntax_node.kind() == "identifier" {
@@ -151,9 +151,15 @@ impl AbstractTree for ValueNode {
                             context,
                         )?);
 
-                        if let (Some(identifier), Some(r#type)) =
-                            (&current_identifier, &current_type)
-                        {
+                        if let Some(identifier) = &current_identifier {
+                            let r#type = if let Some(r#type) = &current_type {
+                                r#type.clone()
+                            } else if let Some(statement) = &current_statement {
+                                statement.expected_type(context)?
+                            } else {
+                                Type::None
+                            };
+
                             btree_map.insert(
                                 identifier.inner().clone(),
                                 (current_statement.clone(), r#type.clone()),
@@ -223,16 +229,16 @@ impl AbstractTree for ValueNode {
                 let mut value_map = BTreeMap::new();
 
                 for (key, (statement_option, r#type)) in node_map {
-                    let value = if let Some(statement) = statement_option {
-                        statement.run(source, context)?
+                    let value_option = if let Some(statement) = statement_option {
+                        Some(statement.run(source, context)?)
                     } else {
-                        Value::none()
+                        None
                     };
 
-                    value_map.insert(key.to_string(), (Some(value), r#type.clone()));
+                    value_map.insert(key.to_string(), (value_option, r#type.clone()));
                 }
 
-                Value::Structure(value_map)
+                Value::Structure(Structure::new(value_map))
             }
         };
 
@@ -274,9 +280,17 @@ impl AbstractTree for ValueNode {
                     Type::None
                 }
             }
-            ValueNode::Map(_) => Type::Map,
+            ValueNode::Map(_) => Type::Map(None),
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
-            ValueNode::Structure(_) => todo!(),
+            ValueNode::Structure(node_map) => {
+                let mut value_map = BTreeMap::new();
+
+                for (key, (_statement_option, r#type)) in node_map {
+                    value_map.insert(key.to_string(), (None, r#type.clone()));
+                }
+
+                Type::Map(Some(Structure::new(value_map)))
+            }
         };
 
         Ok(r#type)

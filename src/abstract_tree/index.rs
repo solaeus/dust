@@ -92,7 +92,7 @@ impl AbstractTree for Index {
     fn expected_type(&self, context: &Map) -> Result<Type> {
         match self.collection.expected_type(context)? {
             Type::List(item_type) => Ok(*item_type.clone()),
-            Type::Map => Ok(Type::Any),
+            Type::Map(_) => Ok(Type::Any),
             Type::None => Ok(Type::None),
             r#type => Ok(r#type),
         }

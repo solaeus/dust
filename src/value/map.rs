@@ -11,7 +11,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::{value::Value, Result, Type};
+use crate::{value::Value, Result, Structure, Type};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -20,6 +20,7 @@ use crate::{value::Value, Result, Type};
 #[derive(Clone, Debug)]
 pub struct Map {
     variables: Arc<RwLock<BTreeMap<String, (Value, Type)>>>,
+    structure: Option<Structure>,
 }
 
 impl Map {
@@ -27,6 +28,7 @@ impl Map {
     pub fn new() -> Self {
         Map {
             variables: Arc::new(RwLock::new(BTreeMap::new())),
+            structure: None,
         }
     }
 
@@ -39,6 +41,7 @@ impl Map {
 
         Ok(Map {
             variables: Arc::new(RwLock::new(new_map)),
+            structure: other.structure.clone(),
         })
     }
 

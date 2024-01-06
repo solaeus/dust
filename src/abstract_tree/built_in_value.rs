@@ -31,12 +31,12 @@ impl BuiltInValue {
         match self {
             BuiltInValue::Args => Type::list(Type::String),
             BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
-            BuiltInValue::Fs => Type::Map,
-            BuiltInValue::Json => Type::Map,
+            BuiltInValue::Fs => Type::Map(None),
+            BuiltInValue::Json => Type::Map(None),
             BuiltInValue::Length => BuiltInFunction::Length.r#type(),
             BuiltInValue::Output => BuiltInFunction::Output.r#type(),
-            BuiltInValue::Random => Type::Map,
-            BuiltInValue::String => Type::Map,
+            BuiltInValue::Random => Type::Map(None),
+            BuiltInValue::String => Type::Map(None),
         }
     }
 

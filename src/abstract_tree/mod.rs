@@ -40,7 +40,7 @@ use tree_sitter::Node;
 
 use crate::{Error, Map, Result, Value};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SyntaxPosition {
     pub start_byte: usize,
     pub end_byte: usize,
@@ -63,6 +63,7 @@ impl From<tree_sitter::Range> for SyntaxPosition {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Root {
     statements: Vec<Statement>,
 }

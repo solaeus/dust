@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, Identifier, List, Map, Type, TypeDefinition,
+    Function, Identifier, List, Map, Structure, Type, TypeDefinition,
 };
 
 use serde::{
@@ -12,7 +12,6 @@ use serde::{
 
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
@@ -23,6 +22,7 @@ use std::{
 pub mod function;
 pub mod list;
 pub mod map;
+pub mod structure;
 
 /// Dust value representation.
 ///
@@ -39,7 +39,7 @@ pub enum Value {
     Integer(i64),
     Boolean(bool),
     Option(Option<Box<Value>>),
-    Structure(BTreeMap<String, (Option<Value>, Type)>),
+    Structure(Structure),
 }
 
 impl Default for Value {
@@ -86,7 +86,7 @@ impl Value {
                     ));
                 }
 
-                Type::Map
+                Type::Map(None)
             }
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
@@ -541,18 +541,7 @@ impl Display for Value {
             Value::List(list) => write!(f, "{list}"),
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
-            Value::Structure(btree_map) => {
-                writeln!(f, "{{")?;
-
-                for (key, (value_option, r#type)) in btree_map {
-                    if let Some(value) = value_option {
-                        writeln!(f, "  {key} {} = {value}", r#type)?;
-                    } else {
-                        writeln!(f, "  {key} {}", r#type)?;
-                    }
-                }
-                write!(f, "}}")
-            }
+            Value::Structure(structure) => write!(f, "{structure}"),
         }
     }
 }

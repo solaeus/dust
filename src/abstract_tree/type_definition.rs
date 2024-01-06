@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Value};
+use crate::{AbstractTree, Error, Map, Result, Structure, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TypeDefinition {
@@ -61,7 +61,7 @@ pub enum Type {
     },
     Integer,
     List(Box<Type>),
-    Map,
+    Map(Option<Structure>),
     None,
     Number,
     String,
@@ -92,13 +92,13 @@ impl Type {
             | (Type::Collection, Type::Collection)
             | (Type::Collection, Type::List(_))
             | (Type::List(_), Type::Collection)
-            | (Type::Collection, Type::Map)
-            | (Type::Map, Type::Collection)
+            | (Type::Collection, Type::Map(_))
+            | (Type::Map(_), Type::Collection)
             | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::Map, Type::Map)
+            | (Type::Map(_), Type::Map(_))
             | (Type::Number, Type::Number)
             | (Type::Number, Type::Integer)
             | (Type::Number, Type::Float)
@@ -215,7 +215,7 @@ impl AbstractTree for Type {
                 }
             }
             "int" => Type::Integer,
-            "map" => Type::Map,
+            "map" => Type::Map(None),
             "num" => Type::Number,
             "none" => Type::None,
             "str" => Type::String,
@@ -273,7 +273,7 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map => write!(f, "map"),
+            Type::Map(_) => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),
