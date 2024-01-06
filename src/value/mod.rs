@@ -12,6 +12,7 @@ use serde::{
 
 use std::{
     cmp::Ordering,
+    collections::BTreeMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
@@ -38,6 +39,7 @@ pub enum Value {
     Integer(i64),
     Boolean(bool),
     Option(Option<Box<Value>>),
+    Structure(BTreeMap<String, (Option<Value>, Type)>),
 }
 
 impl Default for Value {
@@ -98,6 +100,7 @@ impl Value {
                     Type::None
                 }
             }
+            Value::Structure(_) => todo!(),
         };
 
         r#type
@@ -444,6 +447,7 @@ impl PartialEq for Value {
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Option(left), Value::Option(right)) => left == right,
+            (Value::Structure(left), Value::Structure(right)) => left == right,
             _ => false,
         }
     }
@@ -484,6 +488,8 @@ impl Ord for Value {
             (Value::Map(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
+            (Value::Structure(left), Value::Structure(right)) => left.cmp(right),
+            (Value::Structure(_), _) => Ordering::Greater,
             (Value::Option(left), Value::Option(right)) => left.cmp(right),
             (Value::Option(_), _) => Ordering::Less,
         }
@@ -513,6 +519,7 @@ impl Serialize for Value {
             Value::Option(inner) => inner.serialize(serializer),
             Value::Map(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
+            Value::Structure(inner) => inner.serialize(serializer),
         }
     }
 }
@@ -534,6 +541,18 @@ impl Display for Value {
             Value::List(list) => write!(f, "{list}"),
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
+            Value::Structure(btree_map) => {
+                writeln!(f, "{{")?;
+
+                for (key, (value_option, r#type)) in btree_map {
+                    if let Some(value) = value_option {
+                        writeln!(f, "  {key} {} = {value}", r#type)?;
+                    } else {
+                        writeln!(f, "  {key} {}", r#type)?;
+                    }
+                }
+                write!(f, "}}")
+            }
         }
     }
 }

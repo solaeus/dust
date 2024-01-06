@@ -1,0 +1,70 @@
+================================================================================
+Simple Structure
+================================================================================
+
+struct {
+	x <int>
+	y <float>
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (value
+        (structure
+          (identifier)
+          (type_definition
+            (type))
+          (identifier)
+          (type_definition
+            (type)))))))
+
+================================================================================
+Complex Structure
+================================================================================
+
+Foo = struct {
+	x <int>
+	y <float> = 0.0
+
+    bar <Bar> = new Bar {
+      baz = 42
+    }
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (structure
+              (identifier)
+              (type_definition
+                (type))
+              (identifier)
+              (type_definition
+                (type))
+              (statement
+                (expression
+                  (value
+                    (float))))
+              (identifier)
+              (type_definition
+                (type
+                  (identifier)))
+              (statement
+                (expression
+                  (new
+                    (identifier)
+                    (identifier)
+                    (statement
+                      (expression
+                        (value
+                          (integer))))))))))))))

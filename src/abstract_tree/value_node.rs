@@ -19,6 +19,7 @@ pub enum ValueNode {
     Option(Option<Box<Expression>>),
     Map(BTreeMap<String, (Statement, Option<Type>)>),
     BuiltInValue(BuiltInValue),
+    Structure(BTreeMap<String, (Option<Statement>, Type)>),
 }
 
 impl AbstractTree for ValueNode {
@@ -109,9 +110,64 @@ impl AbstractTree for ValueNode {
                     context,
                 )?)
             }
+            "structure" => {
+                let mut btree_map = BTreeMap::new();
+                let mut current_identifier: Option<Identifier> = None;
+                let mut current_type: Option<Type> = None;
+                let mut current_statement = None;
+
+                for index in 0..child.child_count() - 1 {
+                    let child_syntax_node = child.child(index).unwrap();
+
+                    if child_syntax_node.kind() == "identifier" {
+                        if current_statement.is_none() {
+                            if let (Some(identifier), Some(r#type)) =
+                                (&current_identifier, &current_type)
+                            {
+                                btree_map
+                                    .insert(identifier.inner().clone(), (None, r#type.clone()));
+                            }
+                        }
+
+                        current_type = None;
+                        current_identifier = Some(Identifier::from_syntax_node(
+                            source,
+                            child_syntax_node,
+                            context,
+                        )?);
+                    }
+
+                    if child_syntax_node.kind() == "type_definition" {
+                        current_type = Some(
+                            TypeDefinition::from_syntax_node(source, child_syntax_node, context)?
+                                .take_inner(),
+                        );
+                    }
+
+                    if child_syntax_node.kind() == "statement" {
+                        current_statement = Some(Statement::from_syntax_node(
+                            source,
+                            child_syntax_node,
+                            context,
+                        )?);
+
+                        if let (Some(identifier), Some(r#type)) =
+                            (&current_identifier, &current_type)
+                        {
+                            btree_map.insert(
+                                identifier.inner().clone(),
+                                (current_statement.clone(), r#type.clone()),
+                            );
+                        }
+                    }
+                }
+
+                ValueNode::Structure(btree_map)
+            }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "string, integer, float, boolean, list, map, or option".to_string(),
+                    expected: "string, integer, float, boolean, list, map, option or structure"
+                        .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
@@ -163,6 +219,21 @@ impl AbstractTree for ValueNode {
                 Value::Map(map)
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
+            ValueNode::Structure(node_map) => {
+                let mut value_map = BTreeMap::new();
+
+                for (key, (statement_option, r#type)) in node_map {
+                    let value = if let Some(statement) = statement_option {
+                        statement.run(source, context)?
+                    } else {
+                        Value::none()
+                    };
+
+                    value_map.insert(key.to_string(), (Some(value), r#type.clone()));
+                }
+
+                Value::Structure(value_map)
+            }
         };
 
         Ok(value)
@@ -205,6 +276,7 @@ impl AbstractTree for ValueNode {
             }
             ValueNode::Map(_) => Type::Map,
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
+            ValueNode::Structure(_) => todo!(),
         };
 
         Ok(r#type)

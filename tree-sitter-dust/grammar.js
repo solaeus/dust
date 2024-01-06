@@ -49,6 +49,7 @@ module.exports = grammar({
           $.math,
           $.value,
           $.yield,
+          $.new,
         ),
       ),
 
@@ -84,6 +85,56 @@ module.exports = grammar({
         $.map,
         $.option,
         $.built_in_value,
+        $.structure,
+      ),
+
+    structure: $ =>
+      seq(
+        'struct',
+        '{',
+        repeat(
+          choice(
+            seq(
+              $.identifier,
+              $.type_definition,
+            ),
+            seq(
+              $.identifier,
+              '=',
+              $.statement,
+            ),
+            seq(
+              $.identifier,
+              $.type_definition,
+              '=',
+              $.statement,
+            ),
+          ),
+        ),
+        '}',
+      ),
+
+    new: $ =>
+      seq(
+        'new',
+        $.identifier,
+        '{',
+        repeat(
+          choice(
+            seq(
+              $.identifier,
+              '=',
+              $.statement,
+            ),
+            seq(
+              $.identifier,
+              $.type_definition,
+              '=',
+              $.statement,
+            ),
+          ),
+        ),
+        '}',
       ),
 
     integer: $ =>
@@ -351,6 +402,7 @@ module.exports = grammar({
           'none',
           'num',
           'str',
+          $.identifier,
           seq('[', $.type, ']'),
           seq(
             '(',

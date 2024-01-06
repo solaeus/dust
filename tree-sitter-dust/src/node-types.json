@@ -119,6 +119,10 @@
           "named": true
         },
         {
+          "type": "new",
+          "named": true
+        },
+        {
           "type": "value",
           "named": true
         },
@@ -442,6 +446,29 @@
     "fields": {}
   },
   {
+    "type": "new",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "statement",
+          "named": true
+        },
+        {
+          "type": "type_definition",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "option",
     "named": true,
     "fields": {},
@@ -534,6 +561,29 @@
     }
   },
   {
+    "type": "structure",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "statement",
+          "named": true
+        },
+        {
+          "type": "type_definition",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "type",
     "named": true,
     "fields": {},
@@ -547,10 +597,6 @@
         },
         {
           "type": "type",
-          "named": true
-        },
-        {
-          "type": "type_definition",
           "named": true
         }
       ]
@@ -613,6 +659,10 @@
         },
         {
           "type": "string",
+          "named": true
+        },
+        {
+          "type": "structure",
           "named": true
         }
       ]
@@ -802,11 +852,11 @@
   },
   {
     "type": "float",
-    "named": true
+    "named": false
   },
   {
     "type": "float",
-    "named": false
+    "named": true
   },
   {
     "type": "for",
@@ -853,6 +903,10 @@
     "named": false
   },
   {
+    "type": "new",
+    "named": false
+  },
+  {
     "type": "none",
     "named": false
   },
@@ -890,6 +944,10 @@
   },
   {
     "type": "string",
+    "named": false
+  },
+  {
+    "type": "struct",
     "named": false
   },
   {
