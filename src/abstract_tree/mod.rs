@@ -156,4 +156,10 @@ pub trait AbstractTree: Sized + Format {
 
 pub trait Format {
     fn format(&self, output: &mut String, indent_level: u8);
+
+    fn indent(output: &mut String, indent_level: u8) {
+        for _ in 0..indent_level {
+            output.push_str("    ");
+        }
+    }
 }

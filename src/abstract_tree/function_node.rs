@@ -162,7 +162,7 @@ impl Format for FunctionNode {
 
         for (identifier, r#type) in self.parameters.iter().zip(parameter_types.iter()) {
             identifier.format(output, indent_level);
-            output.push('<');
+            output.push_str(" <");
             r#type.format(output, indent_level);
             output.push('>');
         }

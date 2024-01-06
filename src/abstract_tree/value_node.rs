@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Write};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -304,10 +304,14 @@ impl AbstractTree for ValueNode {
 impl Format for ValueNode {
     fn format(&self, output: &mut String, indent_level: u8) {
         match self {
-            ValueNode::Boolean(source)
-            | ValueNode::Float(source)
-            | ValueNode::Integer(source)
-            | ValueNode::String(source) => output.push_str(source),
+            ValueNode::Boolean(source) | ValueNode::Float(source) | ValueNode::Integer(source) => {
+                output.push_str(source)
+            }
+            ValueNode::String(source) => {
+                output.push('\'');
+                output.push_str(source);
+                output.push('\'');
+            }
             ValueNode::Function(function) => function.format(output, indent_level),
             ValueNode::List(expressions) => {
                 output.push('[');

@@ -13,7 +13,7 @@ impl AbstractTree for AssignmentOperator {
     fn from_syntax_node(
         source: &str,
         node: tree_sitter::Node,
-        context: &crate::Map,
+        _context: &crate::Map,
     ) -> Result<Self> {
         Error::expect_syntax_node(source, "assignment_operator", node)?;
 
@@ -35,17 +35,17 @@ impl AbstractTree for AssignmentOperator {
         Ok(operator)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
         Ok(Value::none())
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(Type::None)
     }
 }
 
 impl Format for AssignmentOperator {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, output: &mut String, _indent_level: u8) {
         match self {
             AssignmentOperator::Equal => output.push('='),
             AssignmentOperator::PlusEqual => output.push_str("+="),

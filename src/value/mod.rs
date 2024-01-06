@@ -527,7 +527,7 @@ impl Serialize for Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::String(string) => write!(f, "'{}'", string.read().unwrap()),
+            Value::String(string) => write!(f, "{}", string.read().unwrap()),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(int) => write!(f, "{int}"),
             Value::Boolean(boolean) => write!(f, "{boolean}"),

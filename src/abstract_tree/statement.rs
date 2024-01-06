@@ -113,6 +113,8 @@ impl AbstractTree for Statement {
 
 impl Format for Statement {
     fn format(&self, output: &mut String, indent_level: u8) {
+        Statement::indent(output, indent_level);
+
         match self {
             Statement::Assignment(assignment) => assignment.format(output, indent_level),
             Statement::Expression(expression) => expression.format(output, indent_level),
@@ -126,5 +128,7 @@ impl Format for Statement {
             }
             Statement::Return(statement) => statement.format(output, indent_level),
         }
+
+        output.push('\n');
     }
 }

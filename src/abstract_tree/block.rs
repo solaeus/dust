@@ -131,19 +131,17 @@ impl AbstractTree for Block {
 impl Format for Block {
     fn format(&self, output: &mut String, indent_level: u8) {
         if self.is_async {
-            output.push_str("async {");
+            output.push_str("async {\n");
         } else {
-            output.push('{');
+            output.push_str("{\n");
         }
 
         for statement in &self.statements {
-            for _ in 0..=indent_level {
-                output.push_str("    ");
-            }
-
-            statement.format(output, indent_level);
+            statement.format(output, indent_level + 1);
         }
 
+        output.push('\n');
+        Block::indent(output, indent_level);
         output.push('}');
     }
 }

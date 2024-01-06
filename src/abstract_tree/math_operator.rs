@@ -12,7 +12,7 @@ pub enum MathOperator {
 }
 
 impl AbstractTree for MathOperator {
-    fn from_syntax_node(source: &str, node: tree_sitter::Node, context: &Map) -> Result<Self> {
+    fn from_syntax_node(source: &str, node: tree_sitter::Node, _context: &Map) -> Result<Self> {
         let operator_node = node.child(0).unwrap();
         let operator = match operator_node.kind() {
             "+" => MathOperator::Add,
@@ -43,7 +43,7 @@ impl AbstractTree for MathOperator {
 }
 
 impl Format for MathOperator {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, output: &mut String, _indent_level: u8) {
         let char = match self {
             MathOperator::Add => '+',
             MathOperator::Subtract => '-',

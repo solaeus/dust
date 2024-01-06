@@ -241,7 +241,7 @@ impl Format for Type {
                 }
             }
             Type::None => output.push_str("none"),
-            Type::Number => output.push_str("number"),
+            Type::Number => output.push_str("num"),
             Type::String => output.push_str("str"),
             Type::Option(optional_type) => {
                 output.push_str("option(");

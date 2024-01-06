@@ -43,6 +43,6 @@ impl Format for While {
         output.push_str("while ");
         self.expression.format(output, indent_level);
         output.push(' ');
-        self.expression.format(output, indent_level);
+        self.block.format(output, indent_level);
     }
 }

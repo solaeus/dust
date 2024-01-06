@@ -57,7 +57,7 @@ impl AbstractTree for Identifier {
 }
 
 impl Format for Identifier {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, output: &mut String, _indent_level: u8) {
         output.push_str(&self.0);
     }
 }

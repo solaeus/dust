@@ -143,17 +143,9 @@ impl AbstractTree for Assignment {
 
 impl Format for Assignment {
     fn format(&self, output: &mut String, indent_level: u8) {
-        let Assignment {
-            identifier,
-            type_definition,
-            operator,
-            statement,
-            syntax_position: _,
-        } = self;
-
         self.identifier.format(output, indent_level);
 
-        if let Some(type_definition) = type_definition {
+        if let Some(type_definition) = &self.type_definition {
             type_definition.format(output, indent_level);
         }
 
@@ -161,6 +153,6 @@ impl Format for Assignment {
         self.operator.format(output, indent_level);
         output.push_str(" ");
 
-        self.statement.format(output, indent_level);
+        self.statement.format(output, 0);
     }
 }

@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -84,9 +82,9 @@ impl AbstractTree for For {
 impl Format for For {
     fn format(&self, output: &mut String, indent_level: u8) {
         if self.is_async {
-            output.write_str("async for ");
+            output.push_str("async for ");
         } else {
-            output.write_str("for ");
+            output.push_str("for ");
         }
 
         self.item_id.format(output, indent_level);
