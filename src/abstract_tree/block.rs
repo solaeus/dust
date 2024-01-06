@@ -50,12 +50,12 @@ impl AbstractTree for Block {
         })
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
-                return inner_statement.check_type(_context);
+                return inner_statement.check_type(_source, _context);
             } else {
-                statement.check_type(_context)?;
+                statement.check_type(_source, _context)?;
             }
         }
 

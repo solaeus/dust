@@ -66,17 +66,19 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         match self {
-            Statement::Assignment(assignment) => assignment.check_type(_context),
-            Statement::Expression(expression) => expression.check_type(_context),
-            Statement::IfElse(if_else) => if_else.check_type(_context),
-            Statement::Match(r#match) => r#match.check_type(_context),
-            Statement::While(r#while) => r#while.check_type(_context),
-            Statement::Block(block) => block.check_type(_context),
-            Statement::For(r#for) => r#for.check_type(_context),
-            Statement::IndexAssignment(index_assignment) => index_assignment.check_type(_context),
-            Statement::Return(statement) => statement.check_type(_context),
+            Statement::Assignment(assignment) => assignment.check_type(_source, _context),
+            Statement::Expression(expression) => expression.check_type(_source, _context),
+            Statement::IfElse(if_else) => if_else.check_type(_source, _context),
+            Statement::Match(r#match) => r#match.check_type(_source, _context),
+            Statement::While(r#while) => r#while.check_type(_source, _context),
+            Statement::Block(block) => block.check_type(_source, _context),
+            Statement::For(r#for) => r#for.check_type(_source, _context),
+            Statement::IndexAssignment(index_assignment) => {
+                index_assignment.check_type(_source, _context)
+            }
+            Statement::Return(statement) => statement.check_type(_source, _context),
         }
     }
 

@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Block, Error, Function, Identifier, Map, Result, Type, TypeDefinition, Value,
+    AbstractTree, Block, Error, Function, Identifier, Map, Result, SyntaxPosition, Type,
+    TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -10,14 +11,21 @@ pub struct FunctionNode {
     parameters: Vec<Identifier>,
     body: Block,
     r#type: Type,
+    syntax_position: SyntaxPosition,
 }
 
 impl FunctionNode {
-    pub fn new(parameters: Vec<Identifier>, body: Block, r#type: Type) -> Self {
+    pub fn new(
+        parameters: Vec<Identifier>,
+        body: Block,
+        r#type: Type,
+        syntax_position: SyntaxPosition,
+    ) -> Self {
         Self {
             parameters,
             body,
             r#type,
+            syntax_position,
         }
     }
 
@@ -114,13 +122,15 @@ impl AbstractTree for FunctionNode {
         let body = Block::from_syntax_node(source, body_node, &function_context)?;
 
         let r#type = Type::function(parameter_types, return_type.take_inner());
+        let syntax_position = node.range().into();
 
-        Ok(FunctionNode::new(parameters, body, r#type))
+        Ok(FunctionNode::new(parameters, body, r#type, syntax_position))
     }
 
-    fn check_type(&self, context: &Map) -> Result<()> {
+    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
         self.return_type()
-            .check(&self.body.expected_type(context)?)?;
+            .check(&self.body.expected_type(context)?)
+            .map_err(|error| error.at_source_position(source, self.syntax_position))?;
 
         Ok(())
     }

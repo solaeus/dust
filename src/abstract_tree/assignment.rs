@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Identifier, Map, Result, Statement, Type, TypeDefinition, Value};
+use crate::{
+    AbstractTree, Error, Identifier, Map, Result, Statement, SyntaxNode, SyntaxPosition, Type,
+    TypeDefinition, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
@@ -9,6 +11,7 @@ pub struct Assignment {
     type_definition: Option<TypeDefinition>,
     operator: AssignmentOperator,
     statement: Statement,
+    syntax_position: SyntaxPosition,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -19,15 +22,15 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for Assignment {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
-        Error::expect_syntax_node(source, "assignment", node)?;
+    fn from_syntax_node(source: &str, syntax_node: SyntaxNode, context: &Map) -> Result<Self> {
+        Error::expect_syntax_node(source, "assignment", syntax_node)?;
 
-        let child_count = node.child_count();
+        let child_count = syntax_node.child_count();
 
-        let identifier_node = node.child(0).unwrap();
+        let identifier_node = syntax_node.child(0).unwrap();
         let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
 
-        let type_node = node.child(1).unwrap();
+        let type_node = syntax_node.child(1).unwrap();
         let type_definition = if type_node.kind() == "type_definition" {
             Some(TypeDefinition::from_syntax_node(
                 source, type_node, context,
@@ -36,7 +39,11 @@ impl AbstractTree for Assignment {
             None
         };
 
-        let operator_node = node.child(child_count - 2).unwrap().child(0).unwrap();
+        let operator_node = syntax_node
+            .child(child_count - 2)
+            .unwrap()
+            .child(0)
+            .unwrap();
         let operator = match operator_node.kind() {
             "=" => AssignmentOperator::Equal,
             "+=" => AssignmentOperator::PlusEqual,
@@ -51,7 +58,7 @@ impl AbstractTree for Assignment {
             }
         };
 
-        let statement_node = node.child(child_count - 1).unwrap();
+        let statement_node = syntax_node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
         let statement_type = statement.expected_type(context)?;
 
@@ -71,16 +78,20 @@ impl AbstractTree for Assignment {
             type_definition,
             operator,
             statement,
+            syntax_position: syntax_node.range().into(),
         })
     }
 
-    fn check_type(&self, context: &Map) -> Result<()> {
+    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(type_definition) = &self.type_definition {
             match self.operator {
                 AssignmentOperator::Equal => {
-                    type_definition.inner().check(&statement_type)?;
+                    type_definition
+                        .inner()
+                        .check(&statement_type)
+                        .map_err(|error| error.at_source_position(source, self.syntax_position))?;
                 }
                 AssignmentOperator::PlusEqual => {
                     if let Type::List(item_type) = type_definition.inner() {
@@ -88,7 +99,10 @@ impl AbstractTree for Assignment {
                     } else {
                         type_definition
                             .inner()
-                            .check(&self.identifier.expected_type(context)?)?;
+                            .check(&self.identifier.expected_type(context)?)
+                            .map_err(|error| {
+                                error.at_source_position(source, self.syntax_position)
+                            })?;
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
@@ -98,14 +112,16 @@ impl AbstractTree for Assignment {
                 AssignmentOperator::Equal => {}
                 AssignmentOperator::PlusEqual => {
                     if let Type::List(item_type) = self.identifier.expected_type(context)? {
-                        item_type.check(&statement_type)?;
+                        item_type.check(&statement_type).map_err(|error| {
+                            error.at_source_position(source, self.syntax_position)
+                        })?;
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
             }
         }
 
-        self.statement.check_type(context)?;
+        self.statement.check_type(source, context)?;
 
         Ok(())
     }

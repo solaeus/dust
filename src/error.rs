@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::{LanguageError, Node, Point};
 
-use crate::{value::Value, Type};
+use crate::{value::Value, SyntaxPosition, Type};
 
 use std::{
     fmt::{self, Formatter},
@@ -21,11 +21,13 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum Error {
-    WithContext {
+    AtSourcePosition {
         error: Box<Error>,
-        #[serde(skip)]
-        location: Point,
         source: String,
+        start_row: usize,
+        start_column: usize,
+        end_row: usize,
+        end_column: usize,
     },
 
     UnexpectedSyntaxNode {
@@ -181,11 +183,16 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn at_node(self, node: Node, source: &str) -> Self {
-        Error::WithContext {
+    pub fn at_source_position(self, source: &str, position: SyntaxPosition) -> Self {
+        let byte_range = position.start_byte..position.end_byte;
+
+        Error::AtSourcePosition {
             error: Box::new(self),
-            location: node.start_position(),
-            source: source[node.byte_range()].to_string(),
+            source: source[byte_range].to_string(),
+            start_row: position.start_row,
+            start_column: position.start_column,
+            end_row: position.end_row,
+            end_column: position.end_column,
         }
     }
 
@@ -225,7 +232,7 @@ impl Error {
 
     pub fn is_type_check_error(&self, other: &Error) -> bool {
         match self {
-            Error::WithContext { error, .. } => error.as_ref() == other,
+            Error::AtSourcePosition { error, .. } => error.as_ref() == other,
             _ => self == other,
         }
     }
@@ -427,14 +434,18 @@ impl fmt::Display for Error {
             TypeCheckExpectedFunction { actual } => {
                 write!(f, "Type check error. Expected a function but got {actual}.")
             }
-            WithContext {
+            AtSourcePosition {
                 error,
-                location,
                 source,
+                start_row,
+                start_column,
+                end_row,
+                end_column,
             } => {
-                let location = get_position(location);
-
-                write!(f, "{error} Occured at {location}: \"{source}\"")
+                write!(
+                    f,
+                    "{error} Occured at ({start_row}, {start_column}) to ({end_row}, {end_column}). Source: {source}"
+                )
             }
             SerdeJson(message) => write!(f, "JSON processing error: {message}"),
             ParserCancelled => write!(

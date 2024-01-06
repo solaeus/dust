@@ -11,6 +11,8 @@ pub use crate::{
     value::{function::Function, list::List, map::Map, Value},
 };
 
+pub use tree_sitter::Node as SyntaxNode;
+
 mod abstract_tree;
 pub mod built_in_functions;
 mod error;

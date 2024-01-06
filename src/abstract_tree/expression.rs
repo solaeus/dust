@@ -65,15 +65,15 @@ impl AbstractTree for Expression {
         Ok(expression)
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         match self {
-            Expression::Value(value_node) => value_node.check_type(_context),
-            Expression::Identifier(identifier) => identifier.check_type(_context),
-            Expression::Math(math) => math.check_type(_context),
-            Expression::Logic(logic) => logic.check_type(_context),
-            Expression::FunctionCall(function_call) => function_call.check_type(_context),
-            Expression::Index(index) => index.check_type(_context),
-            Expression::Yield(r#yield) => r#yield.check_type(_context),
+            Expression::Value(value_node) => value_node.check_type(_source, _context),
+            Expression::Identifier(identifier) => identifier.check_type(_source, _context),
+            Expression::Math(math) => math.check_type(_source, _context),
+            Expression::Logic(logic) => logic.check_type(_source, _context),
+            Expression::FunctionCall(function_call) => function_call.check_type(_source, _context),
+            Expression::Index(index) => index.check_type(_source, _context),
+            Expression::Yield(r#yield) => r#yield.check_type(_source, _context),
         }
     }
 

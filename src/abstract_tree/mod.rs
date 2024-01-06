@@ -35,9 +35,33 @@ pub use {
     r#match::*, r#while::*, r#yield::*, statement::*, type_definition::*, value_node::*,
 };
 
+use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{Error, Map, Result, Value};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct SyntaxPosition {
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_row: usize,
+    pub start_column: usize,
+    pub end_row: usize,
+    pub end_column: usize,
+}
+
+impl From<tree_sitter::Range> for SyntaxPosition {
+    fn from(range: tree_sitter::Range) -> Self {
+        SyntaxPosition {
+            start_byte: range.start_byte,
+            end_byte: range.end_byte,
+            start_row: range.start_point.row,
+            start_column: range.start_point.column,
+            end_row: range.end_point.row,
+            end_column: range.end_point.column,
+        }
+    }
+}
 
 pub struct Root {
     statements: Vec<Statement>,
@@ -60,12 +84,12 @@ impl AbstractTree for Root {
         Ok(Root { statements })
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
-                return inner_statement.check_type(_context);
+                return inner_statement.check_type(_source, _context);
             } else {
-                statement.check_type(_context)?;
+                statement.check_type(_source, _context)?;
             }
         }
 
@@ -106,7 +130,7 @@ pub trait AbstractTree: Sized {
     fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self>;
 
     /// Verify the type integrity of the node.
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         Ok(())
     }
 

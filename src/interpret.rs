@@ -115,7 +115,7 @@ impl Interpreter {
         };
 
         if let Some(abstract_tree) = &self.abstract_tree {
-            abstract_tree.check_type(&self.context)?;
+            abstract_tree.check_type(source, &self.context)?;
             abstract_tree.run(source, &self.context)
         } else {
             Ok(Value::none())

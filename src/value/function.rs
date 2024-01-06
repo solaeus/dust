@@ -57,10 +57,12 @@ impl AbstractTree for Function {
         Ok(Function::ContextDefined(inner_function))
     }
 
-    fn check_type(&self, _context: &Map) -> Result<()> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         match self {
             Function::BuiltIn(_) => Ok(()),
-            Function::ContextDefined(defined_function) => defined_function.check_type(_context),
+            Function::ContextDefined(defined_function) => {
+                defined_function.check_type(_source, _context)
+            }
         }
     }
 
