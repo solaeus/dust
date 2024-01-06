@@ -124,7 +124,7 @@ impl AbstractTree for Root {
 impl Format for Root {
     fn format(&self, output: &mut String, indent_level: u8) {
         for (index, statement) in self.statements.iter().enumerate() {
-            if index > 1 {
+            if index > 0 {
                 output.push('\n');
             }
             statement.format(output, indent_level);

@@ -332,24 +332,27 @@ impl Format for ValueNode {
                 }
             }
             ValueNode::Map(nodes) => {
-                output.push('{');
+                output.push_str("{\n");
 
                 for (key, (statement, type_option)) in nodes {
                     if let Some(r#type) = type_option {
-                        output.push_str("    ");
+                        ValueNode::indent(output, indent_level + 1);
                         output.push_str(key);
                         output.push_str(" <");
-                        r#type.format(output, indent_level);
+                        r#type.format(output, 0);
                         output.push_str("> = ");
-                        statement.format(output, indent_level);
+                        statement.format(output, 0);
                     } else {
-                        output.push_str("    ");
+                        ValueNode::indent(output, indent_level + 1);
                         output.push_str(key);
                         output.push_str(" = ");
-                        statement.format(output, indent_level);
+                        statement.format(output, 0);
                     }
+
+                    output.push('\n');
                 }
 
+                ValueNode::indent(output, indent_level);
                 output.push('}');
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.format(output, indent_level),

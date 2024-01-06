@@ -6,14 +6,15 @@ fn format_simple_program() {
 
     interpreter.run("x=1").unwrap();
 
-    assert_eq!(interpreter.format(), "x = 1");
+    assert_eq!(interpreter.format(), "x = 1\n");
 }
 
 const FORMATTED_BLOCK: &str = "{
     1
     2
     3
-}";
+}
+";
 
 #[test]
 fn format_block() {
@@ -24,24 +25,27 @@ fn format_block() {
     assert_eq!(FORMATTED_BLOCK, interpreter.format());
 }
 
-const FORMATTED_NESTED_BLOCK: &str = "{
+const FORMATTED_MAP: &str = "{
     {
         x = 1
+        y <int> = 2
     }
-}";
+}
+";
 
 #[test]
-fn format_nested_block() {
+fn format_map() {
     let mut interpreter = Interpreter::new(Map::new());
 
-    interpreter.run("{{x=1}}").unwrap();
+    interpreter.run("{{x=1 y   <int>     = 2}}").unwrap();
 
-    assert_eq!(FORMATTED_NESTED_BLOCK, interpreter.format());
+    assert_eq!(FORMATTED_MAP, interpreter.format());
 }
 
 const FORMATTED_FUNCTION: &str = "(x <int>) <num> {
     x / 2
-}";
+}
+";
 
 #[test]
 fn format_function() {
