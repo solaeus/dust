@@ -134,15 +134,15 @@ impl AbstractTree for Block {
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if self.is_async {
-            write!(f, "async {{")?;
+            writeln!(f, "async {{")?;
         } else {
-            write!(f, "{{")?;
+            writeln!(f, "{{")?;
         }
 
         for statement in &self.statements {
-            write!(f, "    {statement}")?;
+            writeln!(f, "    {statement}")?;
         }
 
-        write!(f, "}}")
+        writeln!(f, "}}")
     }
 }

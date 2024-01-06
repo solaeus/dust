@@ -15,8 +15,8 @@ impl Display for Function {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Function::BuiltIn(built_in_function) => write!(f, "{}", built_in_function.r#type()),
-            Function::ContextDefined(context_defined_function) => {
-                write!(f, "{}", context_defined_function.r#type())
+            Function::ContextDefined(function_node) => {
+                write!(f, "{}", function_node)
             }
         }
     }

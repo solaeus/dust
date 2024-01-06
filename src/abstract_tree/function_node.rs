@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
@@ -141,5 +143,34 @@ impl AbstractTree for FunctionNode {
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
         Ok(self.r#type().clone())
+    }
+}
+
+impl Display for FunctionNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let FunctionNode {
+            parameters,
+            body,
+            r#type,
+            ..
+        } = self;
+
+        let (parameter_types, return_type) = if let Type::Function {
+            parameter_types,
+            return_type,
+        } = r#type
+        {
+            (parameter_types, return_type)
+        } else {
+            return Ok(());
+        };
+
+        write!(f, "(")?;
+
+        for (identifier, r#type) in parameters.iter().zip(parameter_types.iter()) {
+            write!(f, "{identifier} <{}>", r#type)?;
+        }
+
+        write!(f, ") <{return_type}> {body}")
     }
 }

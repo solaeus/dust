@@ -96,7 +96,7 @@ impl Display for MathOperator {
             MathOperator::Add => write!(f, "+"),
             MathOperator::Subtract => write!(f, "-"),
             MathOperator::Multiply => write!(f, "*"),
-            MathOperator::Divide => write!(f, "\\"),
+            MathOperator::Divide => write!(f, "/"),
             MathOperator::Modulo => write!(f, "%"),
         }
     }
