@@ -1,19 +1,27 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, FunctionExpression, Map, Result, Type, Value};
+use crate::{
+    AbstractTree, Error, Expression, FunctionExpression, Map, Result, SyntaxPosition, Type, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
     function_expression: FunctionExpression,
     arguments: Vec<Expression>,
+    syntax_position: SyntaxPosition,
 }
 
 impl FunctionCall {
-    pub fn new(function_expression: FunctionExpression, arguments: Vec<Expression>) -> Self {
+    pub fn new(
+        function_expression: FunctionExpression,
+        arguments: Vec<Expression>,
+        syntax_position: SyntaxPosition,
+    ) -> Self {
         Self {
             function_expression,
             arguments,
+            syntax_position,
         }
     }
 }
@@ -41,6 +49,7 @@ impl AbstractTree for FunctionCall {
         Ok(FunctionCall {
             function_expression,
             arguments,
+            syntax_position: node.range().into(),
         })
     }
 
@@ -67,10 +76,10 @@ impl AbstractTree for FunctionCall {
 
         if self.arguments.len() != parameter_types.len() {
             return Err(Error::ExpectedFunctionArgumentAmount {
-                source: "TODO".to_string(),
                 expected: parameter_types.len(),
                 actual: self.arguments.len(),
-            });
+            }
+            .at_source_position(_source, self.syntax_position));
         }
 
         Ok(())

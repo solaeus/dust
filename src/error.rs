@@ -77,7 +77,6 @@ pub enum Error {
 
     /// A function was called with the wrong amount of arguments.
     ExpectedFunctionArgumentAmount {
-        source: String,
         expected: usize,
         actual: usize,
     },
@@ -334,14 +333,9 @@ impl fmt::Display for Error {
                 f,
                 "{tool_name} expected {expected} arguments, but got {actual}.",
             ),
-            ExpectedFunctionArgumentAmount {
-                source,
-                expected,
-                actual,
-            } => write!(
-                f,
-                "{source} expected {expected} arguments, but got {actual}.",
-            ),
+            ExpectedFunctionArgumentAmount { expected, actual } => {
+                write!(f, "Expected {expected} arguments, but got {actual}.",)
+            }
             ExpectedFunctionArgumentMinimum {
                 source,
                 minumum_expected,

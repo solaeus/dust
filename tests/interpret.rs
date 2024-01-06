@@ -443,22 +443,17 @@ mod type_definition {
 
     #[test]
     fn argument_count_check() {
-        let result = interpret(
-            "
+        let source = "
             foo = (x <int>) <bool> {
                 x
             }
             foo()
-            ",
-        );
+            ";
+        let result = interpret(&source);
 
         assert_eq!(
-            Err(Error::ExpectedFunctionArgumentAmount {
-                source: "foo".to_string(),
-                expected: 1,
-                actual: 0
-            }),
-            result
+            "Expected 1 arguments, but got 0. Occured at (4, 12) to (4, 17). Source: foo()",
+            result.unwrap_err().to_string()
         )
     }
 

@@ -39,7 +39,7 @@ impl AbstractTree for Yield {
             }
         }
 
-        let call = FunctionCall::new(function_expression, arguments);
+        let call = FunctionCall::new(function_expression, arguments, node.range().into());
 
         Ok(Yield { call })
     }
