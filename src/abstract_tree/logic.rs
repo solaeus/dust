@@ -1,9 +1,7 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Expression, Format, LogicOperator, Map, Result, Type, Value};
 
 /// Abstract representation of a logic expression.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -20,38 +18,17 @@ impl AbstractTree for Logic {
         let first_node = node.child(0).unwrap();
         let (left_node, operator_node, right_node) = {
             if first_node.is_named() {
-                (
-                    first_node,
-                    node.child(1).unwrap().child(0).unwrap(),
-                    node.child(2).unwrap(),
-                )
+                (first_node, node.child(1).unwrap(), node.child(2).unwrap())
             } else {
                 (
                     node.child(1).unwrap(),
-                    node.child(2).unwrap().child(0).unwrap(),
+                    node.child(2).unwrap(),
                     node.child(3).unwrap(),
                 )
             }
         };
         let left = Expression::from_syntax_node(source, left_node, context)?;
-        let operator = match operator_node.kind() {
-            "==" => LogicOperator::Equal,
-            "!=" => LogicOperator::NotEqual,
-            "&&" => LogicOperator::And,
-            "||" => LogicOperator::Or,
-            ">" => LogicOperator::Greater,
-            "<" => LogicOperator::Less,
-            ">=" => LogicOperator::GreaterOrEqual,
-            "<=" => LogicOperator::LessOrEqual,
-            _ => {
-                return Err(Error::UnexpectedSyntaxNode {
-                    expected: "==, !=, &&, ||, >, <, >= or <=".to_string(),
-                    actual: operator_node.kind().to_string(),
-                    location: operator_node.start_position(),
-                    relevant_source: source[operator_node.byte_range()].to_string(),
-                })
-            }
-        };
+        let operator = LogicOperator::from_syntax_node(source, operator_node, context)?;
         let right = Expression::from_syntax_node(source, right_node, context)?;
 
         Ok(Logic {
@@ -95,41 +72,12 @@ impl AbstractTree for Logic {
     }
 }
 
-impl Display for Logic {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Logic {
-            left,
-            operator,
-            right,
-        } = self;
-
-        write!(f, "{left} {operator} {right}")
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum LogicOperator {
-    Equal,
-    NotEqual,
-    And,
-    Or,
-    Greater,
-    Less,
-    GreaterOrEqual,
-    LessOrEqual,
-}
-
-impl Display for LogicOperator {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            LogicOperator::Equal => write!(f, "="),
-            LogicOperator::NotEqual => write!(f, "!="),
-            LogicOperator::And => write!(f, "&&"),
-            LogicOperator::Or => write!(f, "||"),
-            LogicOperator::Greater => write!(f, ">"),
-            LogicOperator::Less => write!(f, "<"),
-            LogicOperator::GreaterOrEqual => write!(f, ">="),
-            LogicOperator::LessOrEqual => write!(f, "<="),
-        }
+impl Format for Logic {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        self.left.format(output, indent_level);
+        output.push(' ');
+        self.operator.format(output, indent_level);
+        output.push(' ');
+        self.right.format(output, indent_level);
     }
 }

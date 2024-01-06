@@ -1,10 +1,9 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, FunctionExpression, Map, Result, SyntaxPosition, Type, Value,
+    AbstractTree, Error, Expression, Format, FunctionExpression, Map, Result, SyntaxPosition, Type,
+    Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -162,20 +161,15 @@ impl AbstractTree for FunctionCall {
     }
 }
 
-impl Display for FunctionCall {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let FunctionCall {
-            function_expression,
-            arguments,
-            ..
-        } = self;
+impl Format for FunctionCall {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        self.function_expression.format(output, indent_level);
+        output.push('(');
 
-        write!(f, "{function_expression}(")?;
-
-        for expression in arguments {
-            write!(f, "{expression}")?;
+        for expression in &self.arguments {
+            expression.format(output, indent_level);
         }
 
-        write!(f, ")")
+        output.push(')');
     }
 }

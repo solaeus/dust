@@ -4,7 +4,7 @@
 //! functions or by constructing your own Evaluator.
 use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
 
-use crate::{language, AbstractTree, Error, Map, Result, Root, Value};
+use crate::{language, AbstractTree, Error, Format, Map, Result, Root, Value};
 
 /// Interpret the given source code.
 ///
@@ -132,7 +132,11 @@ impl Interpreter {
 
     pub fn format(&self) -> String {
         if let Some(root_node) = &self.abstract_tree {
-            root_node.to_string()
+            let mut formatted_source = String::new();
+
+            root_node.format(&mut formatted_source, 0);
+
+            formatted_source
         } else {
             "".to_string()
         }

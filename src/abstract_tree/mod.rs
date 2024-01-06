@@ -7,6 +7,7 @@
 //! examples.
 
 pub mod assignment;
+pub mod assignment_operator;
 pub mod block;
 pub mod built_in_value;
 pub mod expression;
@@ -20,22 +21,24 @@ pub mod index;
 pub mod index_assignment;
 pub mod index_expression;
 pub mod logic;
+pub mod logic_operator;
 pub mod r#match;
 pub mod math;
+pub mod math_operator;
 pub mod statement;
+pub mod r#type;
 pub mod type_definition;
 pub mod value_node;
 pub mod r#while;
 pub mod r#yield;
 
 pub use {
-    assignment::*, block::*, built_in_value::*, expression::*, function_call::*,
-    function_expression::*, function_node::*, identifier::*, if_else::*, index::*,
-    index_assignment::IndexAssignment, index_expression::*, logic::*, math::*, r#for::*,
-    r#match::*, r#while::*, r#yield::*, statement::*, type_definition::*, value_node::*,
+    assignment::*, assignment_operator::*, block::*, built_in_value::*, expression::*,
+    function_call::*, function_expression::*, function_node::*, identifier::*, if_else::*,
+    index::*, index_assignment::IndexAssignment, index_expression::*, logic::*, logic_operator::*,
+    math::*, math_operator::*, r#for::*, r#match::*, r#type::*, r#while::*, r#yield::*,
+    statement::*, type_definition::*, value_node::*,
 };
-
-use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
@@ -118,19 +121,17 @@ impl AbstractTree for Root {
     }
 }
 
-impl Display for Root {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl Format for Root {
+    fn format(&self, output: &mut String, indent_level: u8) {
         for statement in &self.statements {
-            write!(f, "{statement}")?;
+            statement.format(output, indent_level);
         }
-
-        Ok(())
     }
 }
 
 /// This trait is implemented by the Evaluator's internal types to form an
 /// executable tree that resolves to a single value.
-pub trait AbstractTree: Sized {
+pub trait AbstractTree: Sized + Format {
     /// Interpret the syntax tree at the given node and return the abstraction.
     ///
     /// This function is used to convert nodes in the Tree Sitter concrete
@@ -151,4 +152,8 @@ pub trait AbstractTree: Sized {
     fn run(&self, source: &str, context: &Map) -> Result<Value>;
 
     fn expected_type(&self, context: &Map) -> Result<Type>;
+}
+
+pub trait Format {
+    fn format(&self, output: &mut String, indent_level: u8);
 }

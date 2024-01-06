@@ -1,11 +1,9 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Assignment, Block, Error, Expression, For, IfElse, IndexAssignment, Map, Match,
-    Result, Type, Value, While,
+    AbstractTree, Assignment, Block, Error, Expression, For, Format, IfElse, IndexAssignment, Map,
+    Match, Result, Type, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -113,18 +111,20 @@ impl AbstractTree for Statement {
     }
 }
 
-impl Display for Statement {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Format for Statement {
+    fn format(&self, output: &mut String, indent_level: u8) {
         match self {
-            Statement::Assignment(assignment) => write!(f, "{assignment}"),
-            Statement::Expression(expression) => write!(f, "{expression}"),
-            Statement::IfElse(if_else) => write!(f, "{if_else}"),
-            Statement::Match(r#match) => write!(f, "{}", r#match),
-            Statement::While(r#while) => write!(f, "{}", r#while),
-            Statement::Block(block) => write!(f, "{block}"),
-            Statement::For(r#for) => write!(f, "{}", r#for),
-            Statement::IndexAssignment(index_assignment) => write!(f, "{index_assignment}"),
-            Statement::Return(statement) => write!(f, "{statement}"),
+            Statement::Assignment(assignment) => assignment.format(output, indent_level),
+            Statement::Expression(expression) => expression.format(output, indent_level),
+            Statement::IfElse(if_else) => if_else.format(output, indent_level),
+            Statement::Match(r#match) => r#match.format(output, indent_level),
+            Statement::While(r#while) => r#while.format(output, indent_level),
+            Statement::Block(block) => block.format(output, indent_level),
+            Statement::For(r#for) => r#for.format(output, indent_level),
+            Statement::IndexAssignment(index_assignment) => {
+                index_assignment.format(output, indent_level)
+            }
+            Statement::Return(statement) => statement.format(output, indent_level),
         }
     }
 }

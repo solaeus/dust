@@ -1,11 +1,9 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    function_expression::FunctionExpression, AbstractTree, Error, Expression, FunctionCall, Map,
-    Result, Type, Value,
+    function_expression::FunctionExpression, AbstractTree, Error, Expression, Format, FunctionCall,
+    Map, Result, Type, Value,
 };
 
 /// Abstract representation of a yield expression.
@@ -55,8 +53,8 @@ impl AbstractTree for Yield {
     }
 }
 
-impl Display for Yield {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.call)
+impl Format for Yield {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        self.call.format(output, indent_level);
     }
 }

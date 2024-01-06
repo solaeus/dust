@@ -1,9 +1,7 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, IndexExpression, List, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Format, IndexExpression, List, Map, Result, Type, Value};
 
 /// Abstract representation of an index expression.
 ///
@@ -101,20 +99,15 @@ impl AbstractTree for Index {
     }
 }
 
-impl Display for Index {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Index {
-            collection,
-            index,
-            index_end,
-        } = self;
+impl Format for Index {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        self.collection.format(output, indent_level);
+        output.push(':');
+        self.index.format(output, indent_level);
 
-        write!(f, "{collection}:{index}")?;
-
-        if let Some(expression) = index_end {
-            write!(f, "..{expression}")?;
+        if let Some(expression) = &self.index_end {
+            output.push_str("..");
+            expression.format(output, indent_level);
         }
-
-        Ok(())
     }
 }

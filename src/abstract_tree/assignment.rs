@@ -1,10 +1,8 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, Error, Identifier, Map, Result, Statement, SyntaxNode, SyntaxPosition, Type,
-    TypeDefinition, Value,
+    AbstractTree, AssignmentOperator, Error, Format, Identifier, Map, Result, Statement,
+    SyntaxNode, SyntaxPosition, Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -34,24 +32,8 @@ impl AbstractTree for Assignment {
             None
         };
 
-        let operator_node = syntax_node
-            .child(child_count - 2)
-            .unwrap()
-            .child(0)
-            .unwrap();
-        let operator = match operator_node.kind() {
-            "=" => AssignmentOperator::Equal,
-            "+=" => AssignmentOperator::PlusEqual,
-            "-=" => AssignmentOperator::MinusEqual,
-            _ => {
-                return Err(Error::UnexpectedSyntaxNode {
-                    expected: "=, += or -=".to_string(),
-                    actual: operator_node.kind().to_string(),
-                    location: operator_node.start_position(),
-                    relevant_source: source[operator_node.byte_range()].to_string(),
-                })
-            }
-        };
+        let operator_node = syntax_node.child(child_count - 2).unwrap();
+        let operator = AssignmentOperator::from_syntax_node(source, operator_node, context)?;
 
         let statement_node = syntax_node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
@@ -159,8 +141,8 @@ impl AbstractTree for Assignment {
     }
 }
 
-impl Display for Assignment {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Format for Assignment {
+    fn format(&self, output: &mut String, indent_level: u8) {
         let Assignment {
             identifier,
             type_definition,
@@ -169,29 +151,16 @@ impl Display for Assignment {
             syntax_position: _,
         } = self;
 
-        write!(f, "{identifier}")?;
+        self.identifier.format(output, indent_level);
 
         if let Some(type_definition) = type_definition {
-            write!(f, " {type_definition}")?;
+            type_definition.format(output, indent_level);
         }
 
-        write!(f, " {operator} {statement}")
-    }
-}
+        output.push_str(" ");
+        self.operator.format(output, indent_level);
+        output.push_str(" ");
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum AssignmentOperator {
-    Equal,
-    PlusEqual,
-    MinusEqual,
-}
-
-impl Display for AssignmentOperator {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            AssignmentOperator::Equal => write!(f, "="),
-            AssignmentOperator::PlusEqual => write!(f, "-="),
-            AssignmentOperator::MinusEqual => write!(f, "+="),
-        }
+        self.statement.format(output, indent_level);
     }
 }

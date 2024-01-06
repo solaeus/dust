@@ -1,11 +1,14 @@
 mod string;
 
-use std::fs::read_to_string;
+use std::{
+    fmt::{self, Display, Formatter},
+    fs::read_to_string,
+};
 
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Map, Result, Type, Value};
+use crate::{Error, Format, Map, Result, Type, Value};
 
 pub use string::{string_functions, StringFunction};
 
@@ -146,5 +149,17 @@ impl BuiltInFunction {
                 string_function.call(arguments, _source, _outer_context)
             }
         }
+    }
+}
+
+impl Format for BuiltInFunction {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        output.push_str(self.name());
+    }
+}
+
+impl Display for BuiltInFunction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.name())
     }
 }

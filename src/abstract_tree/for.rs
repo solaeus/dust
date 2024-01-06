@@ -1,10 +1,10 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::Write;
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Error, Expression, Identifier, Map, Result, Type, Value};
+use crate::{AbstractTree, Block, Error, Expression, Format, Identifier, Map, Result, Type, Value};
 
 /// Abstract representation of a for loop statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -81,21 +81,18 @@ impl AbstractTree for For {
     }
 }
 
-impl Display for For {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let For {
-            is_async,
-            item_id,
-            collection,
-            block,
-        } = self;
-
-        if *is_async {
-            write!(f, "async for ")?;
+impl Format for For {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        if self.is_async {
+            output.write_str("async for ");
         } else {
-            write!(f, "for ")?;
+            output.write_str("for ");
         }
 
-        write!(f, "{item_id} in {collection}, {{{block}}}")
+        self.item_id.format(output, indent_level);
+        output.push_str(" in ");
+        self.collection.format(output, indent_level);
+        output.push_str(" ");
+        self.block.format(output, indent_level);
     }
 }

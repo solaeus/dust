@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
 
 /// A string by which a variable is known to a context.
 ///
@@ -13,8 +13,8 @@ use crate::{AbstractTree, Error, Map, Result, Type, Value};
 pub struct Identifier(String);
 
 impl Identifier {
-    pub fn new(inner: String) -> Self {
-        Identifier(inner)
+    pub fn new<T: Into<String>>(inner: T) -> Self {
+        Identifier(inner.into())
     }
 
     pub fn take_inner(self) -> String {
@@ -53,6 +53,12 @@ impl AbstractTree for Identifier {
         } else {
             Ok(Type::None)
         }
+    }
+}
+
+impl Format for Identifier {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        output.push_str(&self.0);
     }
 }
 

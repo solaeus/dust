@@ -2,13 +2,10 @@
 //!
 //! Note that this module is called "match" but is escaped as "r#match" because
 //! "match" is a keyword in Rust.
-
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Expression, Format, Map, Result, Statement, Type, Value};
 
 /// Abstract representation of a match statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -85,24 +82,23 @@ impl AbstractTree for Match {
     }
 }
 
-impl Display for Match {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Match {
-            matcher,
-            options,
-            fallback,
-        } = self;
+impl Format for Match {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        output.push_str("match ");
+        self.matcher.format(output, indent_level);
+        output.push_str(" {");
 
-        write!(f, "match {matcher} {{")?;
-
-        for (expression, statement) in options {
-            write!(f, "{expression} => {statement}")?;
+        for (expression, statement) in &self.options {
+            expression.format(output, indent_level);
+            output.push_str(" => ");
+            statement.format(output, indent_level);
         }
 
-        if let Some(statement) = fallback {
-            write!(f, "* => {statement}")?;
+        if let Some(statement) = &self.fallback {
+            output.push_str("* => ");
+            statement.format(output, indent_level);
         }
 
-        write!(f, "}}")
+        output.push('}');
     }
 }

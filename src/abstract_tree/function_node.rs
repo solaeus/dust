@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Block, Error, Function, Identifier, Map, Result, SyntaxPosition, Type,
+    AbstractTree, Block, Error, Format, Function, Identifier, Map, Result, SyntaxPosition, Type,
     TypeDefinition, Value,
 };
 
@@ -146,31 +146,39 @@ impl AbstractTree for FunctionNode {
     }
 }
 
-impl Display for FunctionNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let FunctionNode {
-            parameters,
-            body,
-            r#type,
-            ..
-        } = self;
-
+impl Format for FunctionNode {
+    fn format(&self, output: &mut String, indent_level: u8) {
         let (parameter_types, return_type) = if let Type::Function {
             parameter_types,
             return_type,
-        } = r#type
+        } = &self.r#type
         {
             (parameter_types, return_type)
         } else {
-            return Ok(());
+            return;
         };
 
-        write!(f, "(")?;
+        output.push('(');
 
-        for (identifier, r#type) in parameters.iter().zip(parameter_types.iter()) {
-            write!(f, "{identifier} <{}>", r#type)?;
+        for (identifier, r#type) in self.parameters.iter().zip(parameter_types.iter()) {
+            identifier.format(output, indent_level);
+            output.push('<');
+            r#type.format(output, indent_level);
+            output.push('>');
         }
 
-        write!(f, ") <{return_type}> {body}")
+        output.push_str(") <");
+        return_type.format(output, indent_level);
+        output.push_str("> ");
+        self.body.format(output, indent_level);
+    }
+}
+
+impl Display for FunctionNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let mut string = String::new();
+
+        self.format(&mut string, 0);
+        f.write_str(&string)
     }
 }

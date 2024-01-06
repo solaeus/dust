@@ -1,9 +1,7 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Map, Result, Type, Value};
+use crate::{AbstractTree, Block, Expression, Format, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
@@ -88,26 +86,28 @@ impl AbstractTree for IfElse {
     }
 }
 
-impl Display for IfElse {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let IfElse {
-            if_expression,
-            if_block,
-            else_if_expressions,
-            else_if_blocks,
-            else_block,
-        } = self;
+impl Format for IfElse {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        output.push_str("if ");
+        self.if_expression.format(output, indent_level);
+        output.push(' ');
+        self.if_block.format(output, indent_level);
 
-        write!(f, "if {if_expression} {{{if_block}}}")?;
+        let else_ifs = self
+            .else_if_expressions
+            .iter()
+            .zip(self.else_if_blocks.iter());
 
-        for (expression, block) in else_if_expressions.iter().zip(else_if_blocks.iter()) {
-            write!(f, "else if {expression} {{{block}}}")?;
+        for (expression, block) in else_ifs {
+            output.push_str("else if ");
+            expression.format(output, indent_level);
+            output.push(' ');
+            block.format(output, indent_level);
         }
 
-        if let Some(block) = else_block {
-            write!(f, "else {{{block}}}")?;
+        if let Some(block) = &self.else_block {
+            output.push_str("else ");
+            block.format(output, indent_level);
         }
-
-        Ok(())
     }
 }

@@ -1,9 +1,7 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Error, Expression, Map, Result, Type, Value};
+use crate::{AbstractTree, Block, Error, Expression, Format, Map, Result, Type, Value};
 
 /// Abstract representation of a while loop.
 ///
@@ -40,10 +38,11 @@ impl AbstractTree for While {
     }
 }
 
-impl Display for While {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let While { expression, block } = self;
-
-        write!(f, "while {expression} {{{block}}}")
+impl Format for While {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        output.push_str("while ");
+        self.expression.format(output, indent_level);
+        output.push(' ');
+        self.expression.format(output, indent_level);
     }
 }

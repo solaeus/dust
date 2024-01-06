@@ -1,13 +1,10 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    sync::RwLock,
-};
+use std::sync::RwLock;
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, Statement, Type, Value};
 
 /// Abstract representation of a block.
 ///
@@ -131,18 +128,22 @@ impl AbstractTree for Block {
     }
 }
 
-impl Display for Block {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Format for Block {
+    fn format(&self, output: &mut String, indent_level: u8) {
         if self.is_async {
-            writeln!(f, "async {{")?;
+            output.push_str("async {");
         } else {
-            writeln!(f, "{{")?;
+            output.push('{');
         }
 
         for statement in &self.statements {
-            writeln!(f, "    {statement}")?;
+            for _ in 0..=indent_level {
+                output.push_str("    ");
+            }
+
+            statement.format(output, indent_level);
         }
 
-        writeln!(f, "}}")
+        output.push('}');
     }
 }

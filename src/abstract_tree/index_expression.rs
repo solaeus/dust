@@ -1,10 +1,8 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, FunctionCall, Identifier, Index, Map, Result, Type,
-    Value,
+    value_node::ValueNode, AbstractTree, Error, Format, FunctionCall, Identifier, Index, Map,
+    Result, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -69,13 +67,21 @@ impl AbstractTree for IndexExpression {
     }
 }
 
-impl Display for IndexExpression {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Format for IndexExpression {
+    fn format(&self, output: &mut String, indent_level: u8) {
         match self {
-            IndexExpression::Value(value_node) => write!(f, "{value_node}"),
-            IndexExpression::Identifier(identifier) => write!(f, "{identifier}"),
-            IndexExpression::FunctionCall(function_call) => write!(f, "{function_call}"),
-            IndexExpression::Index(index) => write!(f, "{index}"),
+            IndexExpression::Value(value_node) => {
+                if let ValueNode::BuiltInValue(built_in_value) = value_node {
+                    output.push_str(built_in_value.name());
+                } else {
+                    value_node.format(output, indent_level);
+                }
+            }
+            IndexExpression::Identifier(identifier) => identifier.format(output, indent_level),
+            IndexExpression::FunctionCall(function_call) => {
+                function_call.format(output, indent_level)
+            }
+            IndexExpression::Index(index) => index.format(output, indent_level),
         }
     }
 }

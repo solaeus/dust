@@ -1,15 +1,11 @@
-use std::{
-    env::args,
-    fmt::{self, Display, Formatter},
-    sync::OnceLock,
-};
+use std::{env::args, sync::OnceLock};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    built_in_functions::string_functions, AbstractTree, BuiltInFunction, Function, List, Map,
-    Result, Type, Value,
+    built_in_functions::string_functions, AbstractTree, BuiltInFunction, Format, Function, List,
+    Map, Result, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -31,6 +27,19 @@ pub enum BuiltInValue {
 }
 
 impl BuiltInValue {
+    pub fn name(&self) -> &'static str {
+        match self {
+            BuiltInValue::Args => "args",
+            BuiltInValue::AssertEqual => "assert_equal",
+            BuiltInValue::Fs => "fs",
+            BuiltInValue::Json => "json",
+            BuiltInValue::Length => "length",
+            BuiltInValue::Output => "output",
+            BuiltInValue::Random => "random",
+            BuiltInValue::String => "string",
+        }
+    }
+
     fn r#type(&self) -> Type {
         match self {
             BuiltInValue::Args => Type::list(Type::String),
@@ -72,7 +81,7 @@ impl BuiltInValue {
 
                 json_context
                     .set(
-                        "parse".to_string(),
+                        BuiltInFunction::JsonParse.name().to_string(),
                         Value::Function(Function::BuiltIn(BuiltInFunction::JsonParse)),
                         None,
                     )
@@ -153,8 +162,8 @@ impl AbstractTree for BuiltInValue {
     }
 }
 
-impl Display for BuiltInValue {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.get())
+impl Format for BuiltInValue {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        output.push_str(&self.get().to_string());
     }
 }

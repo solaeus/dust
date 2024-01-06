@@ -1,14 +1,11 @@
-use std::{
-    collections::BTreeMap,
-    fmt::{self, Display, Formatter},
-};
+use std::{collections::BTreeMap, fmt::Write};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, BuiltInValue, Error, Expression, Function, Identifier, List, Map, Result,
-    Statement, Structure, Type, TypeDefinition, Value,
+    AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
+    List, Map, Result, Statement, Structure, Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -33,7 +30,11 @@ impl AbstractTree for ValueNode {
         let value_node = match child.kind() {
             "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
             "float" => ValueNode::Float(source[child.byte_range()].to_string()),
-            "function" => ValueNode::Function(Function::from_syntax_node(source, child, context)?),
+            "function" => {
+                let function_node = FunctionNode::from_syntax_node(source, child, context)?;
+
+                ValueNode::Function(Function::ContextDefined(function_node))
+            }
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {
                 let without_quotes = child.start_byte() + 1..child.end_byte() - 1;
@@ -300,53 +301,75 @@ impl AbstractTree for ValueNode {
     }
 }
 
-impl Display for ValueNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Format for ValueNode {
+    fn format(&self, output: &mut String, indent_level: u8) {
         match self {
             ValueNode::Boolean(source)
             | ValueNode::Float(source)
             | ValueNode::Integer(source)
-            | ValueNode::String(source) => write!(f, "{source}"),
-            ValueNode::Function(function) => write!(f, "{function}"),
+            | ValueNode::String(source) => output.push_str(source),
+            ValueNode::Function(function) => function.format(output, indent_level),
             ValueNode::List(expressions) => {
+                output.push('[');
+
                 for expression in expressions {
-                    write!(f, "{expression}")?;
+                    expression.format(output, indent_level);
                 }
 
-                Ok(())
+                output.push(']');
             }
             ValueNode::Option(option) => {
                 if let Some(expression) = option {
-                    write!(f, "some({})", expression)
+                    output.push_str("some(");
+                    expression.format(output, indent_level);
+                    output.push(')');
                 } else {
-                    write!(f, "none")
+                    output.push_str("none");
                 }
             }
             ValueNode::Map(nodes) => {
-                writeln!(f, "{{")?;
+                output.push('{');
 
                 for (key, (statement, type_option)) in nodes {
                     if let Some(r#type) = type_option {
-                        writeln!(f, "  {key} <{}> = {statement}", r#type)?;
+                        output.push_str("    ");
+                        output.push_str(key);
+                        output.push_str(" <");
+                        r#type.format(output, indent_level);
+                        output.push_str("> = ");
+                        statement.format(output, indent_level);
                     } else {
-                        writeln!(f, "  {key} = {statement}")?;
+                        output.push_str("    ");
+                        output.push_str(key);
+                        output.push_str(" = ");
+                        statement.format(output, indent_level);
                     }
                 }
-                write!(f, "}}")
+
+                output.push('}');
             }
-            ValueNode::BuiltInValue(built_in_value) => write!(f, "{built_in_value}"),
+            ValueNode::BuiltInValue(built_in_value) => built_in_value.format(output, indent_level),
             ValueNode::Structure(nodes) => {
-                writeln!(f, "{{")?;
+                output.push('{');
 
                 for (key, (value_option, r#type)) in nodes {
                     if let Some(value) = value_option {
-                        writeln!(f, "  {key} <{}> = {value}", r#type)?;
+                        output.push_str("    ");
+                        output.push_str(key);
+                        output.push_str(" <");
+                        r#type.format(output, indent_level);
+                        output.push_str("> = ");
+                        value.format(output, indent_level);
                     } else {
-                        writeln!(f, "  {key} <{}>", r#type)?;
+                        output.push_str("    ");
+                        output.push_str(key);
+                        output.push_str(" <");
+                        r#type.format(output, indent_level);
+                        output.push('>');
                     }
                 }
 
-                write!(f, "}}")
+                output.push('}');
             }
         }
     }

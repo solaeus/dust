@@ -1,11 +1,9 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, AssignmentOperator, Error, Index, IndexExpression, Map, Result, Statement, Type,
-    Value,
+    AbstractTree, AssignmentOperator, Error, Format, Index, IndexExpression, Map, Result,
+    Statement, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -22,20 +20,8 @@ impl AbstractTree for IndexAssignment {
         let index_node = node.child(0).unwrap();
         let index = Index::from_syntax_node(source, index_node, context)?;
 
-        let operator_node = node.child(1).unwrap().child(0).unwrap();
-        let operator = match operator_node.kind() {
-            "=" => AssignmentOperator::Equal,
-            "+=" => AssignmentOperator::PlusEqual,
-            "-=" => AssignmentOperator::MinusEqual,
-            _ => {
-                return Err(Error::UnexpectedSyntaxNode {
-                    expected: "=, += or -=".to_string(),
-                    actual: operator_node.kind().to_string(),
-                    location: operator_node.start_position(),
-                    relevant_source: source[operator_node.byte_range()].to_string(),
-                })
-            }
-        };
+        let operator_node = node.child(1).unwrap();
+        let operator = AssignmentOperator::from_syntax_node(source, operator_node, context)?;
 
         let statement_node = node.child(2).unwrap();
         let statement = Statement::from_syntax_node(source, statement_node, context)?;
@@ -94,14 +80,12 @@ impl AbstractTree for IndexAssignment {
     }
 }
 
-impl Display for IndexAssignment {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let IndexAssignment {
-            index,
-            operator,
-            statement,
-        } = self;
-
-        write!(f, "{index} {operator} {statement}")
+impl Format for IndexAssignment {
+    fn format(&self, output: &mut String, indent_level: u8) {
+        self.index.format(output, indent_level);
+        output.push(' ');
+        self.operator.format(output, indent_level);
+        output.push(' ');
+        self.statement.format(output, indent_level);
     }
 }

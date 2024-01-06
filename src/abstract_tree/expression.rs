@@ -1,10 +1,9 @@
-use std::fmt::{self, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, Identifier, Index, Map, Result, Type, Value, Yield,
+    value_node::ValueNode, AbstractTree, Error, Format, Identifier, Index, Map, Result, Type,
+    Value, Yield,
 };
 
 use super::{function_call::FunctionCall, logic::Logic, math::Math};
@@ -104,16 +103,16 @@ impl AbstractTree for Expression {
     }
 }
 
-impl Display for Expression {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Format for Expression {
+    fn format(&self, output: &mut String, indent_level: u8) {
         match self {
-            Expression::Value(value_node) => write!(f, "{value_node}"),
-            Expression::Identifier(identifier) => write!(f, "{identifier}"),
-            Expression::Math(math) => write!(f, "{math}"),
-            Expression::Logic(logic) => write!(f, "{logic}"),
-            Expression::FunctionCall(function_call) => write!(f, "{function_call}"),
-            Expression::Index(index) => write!(f, "{index}"),
-            Expression::Yield(r#yield) => write!(f, "{}", r#yield),
+            Expression::Value(value_node) => value_node.format(output, indent_level),
+            Expression::Identifier(identifier) => identifier.format(output, indent_level),
+            Expression::Math(math) => math.format(output, indent_level),
+            Expression::Logic(logic) => logic.format(output, indent_level),
+            Expression::FunctionCall(function_call) => function_call.format(output, indent_level),
+            Expression::Index(index) => index.format(output, indent_level),
+            Expression::Yield(r#yield) => r#yield.format(output, indent_level),
         }
     }
 }
