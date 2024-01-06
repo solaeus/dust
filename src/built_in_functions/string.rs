@@ -18,8 +18,6 @@ pub enum StringFunction {
     Lines,
     Matches,
     Parse,
-    Pop,
-    Push,
     Remove,
     ReplaceRange,
     Retain,
@@ -55,8 +53,6 @@ impl StringFunction {
             StringFunction::Lines => "lines",
             StringFunction::Matches => "matches",
             StringFunction::Parse => "parse",
-            StringFunction::Pop => "pop",
-            StringFunction::Push => "push",
             StringFunction::Remove => "remove",
             StringFunction::ReplaceRange => "replace_range",
             StringFunction::Retain => "retain",
@@ -93,9 +89,10 @@ impl StringFunction {
                 vec![Type::String, Type::String],
                 Type::option(Type::Integer),
             ),
-            StringFunction::Insert => {
-                Type::function(vec![Type::String, Type::Integer, Type::String], Type::None)
-            }
+            StringFunction::Insert => Type::function(
+                vec![Type::String, Type::Integer, Type::String],
+                Type::String,
+            ),
             StringFunction::IsAscii => Type::function(vec![Type::String], Type::Boolean),
             StringFunction::IsEmpty => Type::function(vec![Type::String], Type::Boolean),
             StringFunction::Lines => Type::function(vec![Type::String], Type::list(Type::String)),
@@ -103,22 +100,20 @@ impl StringFunction {
                 Type::function(vec![Type::String, Type::String], Type::list(Type::String))
             }
             StringFunction::Parse => Type::function(vec![Type::String], Type::Any),
-            StringFunction::Pop => Type::function(vec![], Type::option(Type::String)),
-            StringFunction::Push => Type::function(vec![Type::String], Type::None),
             StringFunction::Remove => Type::function(
                 vec![Type::String, Type::Integer],
                 Type::option(Type::String),
             ),
             StringFunction::ReplaceRange => Type::function(
                 vec![Type::String, Type::list(Type::Integer), Type::String],
-                Type::None,
+                Type::String,
             ),
             StringFunction::Retain => Type::function(
                 vec![
                     Type::String,
                     Type::function(vec![Type::String], Type::Boolean),
                 ],
-                Type::None,
+                Type::String,
             ),
             StringFunction::Split => {
                 Type::function(vec![Type::String, Type::String], Type::list(Type::String))
@@ -151,7 +146,7 @@ impl StringFunction {
             StringFunction::ToLowercase => Type::function(vec![Type::String], Type::String),
             StringFunction::ToUppercase => Type::function(vec![Type::String], Type::String),
             StringFunction::Truncate => {
-                Type::function(vec![Type::String, Type::Integer], Type::None)
+                Type::function(vec![Type::String, Type::Integer], Type::String)
             }
             StringFunction::Trim => Type::function(vec![Type::String], Type::String),
             StringFunction::TrimEnd => Type::function(vec![Type::String], Type::String),
@@ -219,13 +214,13 @@ impl StringFunction {
             StringFunction::Insert => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string()?.to_string();
+                let mut string = arguments.get(0).unwrap().as_string()?.clone();
                 let index = arguments.get(1).unwrap().as_integer()? as usize;
                 let insertion = arguments.get(2).unwrap().as_string()?;
 
                 string.insert_str(index, &insertion);
 
-                Value::none()
+                Value::String(string)
             }
             StringFunction::Lines => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
@@ -264,41 +259,20 @@ impl StringFunction {
                     Value::none()
                 }
             }
-            StringFunction::Pop => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
-
-                let mut string = arguments.first().unwrap().as_string_mut()?;
-                let popped = string.pop().map(|char| Value::string(char.to_string()));
-
-                Value::option(popped)
-            }
-            StringFunction::Push => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
-
-                let mut string = arguments.get(0).unwrap().as_string_mut()?;
-                let addition = arguments.get(1).unwrap().as_string()?;
-
-                string.push_str(&addition);
-
-                Value::none()
-            }
             StringFunction::Remove => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let string = arguments.get(0).unwrap().as_string()?;
                 let index = arguments.get(1).unwrap().as_integer()? as usize;
-                let mut chars = string.chars().collect::<Vec<char>>();
+                let chars = string.chars().collect::<Vec<char>>();
 
                 if index <= chars.len() - 1 {
-                    let removed = chars.remove(index);
                     let new_string = chars
                         .iter()
                         .map(|char| char.to_string())
                         .collect::<String>();
 
-                    *string = new_string;
-
-                    Value::some(Value::string(removed))
+                    Value::some(Value::string(new_string))
                 } else {
                     Value::none()
                 }
@@ -306,7 +280,7 @@ impl StringFunction {
             StringFunction::ReplaceRange => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let mut string = arguments.get(0).unwrap().as_string()?.clone();
                 let range = arguments.get(1).unwrap().as_list()?.items();
                 let start = range.get(0).unwrap_or_default().as_integer()? as usize;
                 let end = range.get(1).unwrap_or_default().as_integer()? as usize;
@@ -314,12 +288,12 @@ impl StringFunction {
 
                 string.replace_range(start..end, &pattern);
 
-                Value::none()
+                Value::String(string)
             }
             StringFunction::Retain => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let mut string = arguments.get(0).unwrap().as_string()?.clone();
                 let predicate = arguments.get(1).unwrap().as_function()?;
 
                 string.retain(|char| {
@@ -330,7 +304,7 @@ impl StringFunction {
                         .unwrap()
                 });
 
-                Value::none()
+                Value::String(string)
             }
             StringFunction::Split => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
@@ -532,16 +506,16 @@ impl StringFunction {
             StringFunction::Truncate => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string_mut()?;
+                let input_string = arguments.get(0).unwrap().as_string()?;
                 let new_length = arguments.get(1).unwrap().as_integer()? as usize;
 
-                *string = string
+                let new_string = input_string
                     .chars()
                     .take(new_length)
                     .map(|char| char.to_string())
                     .collect();
 
-                Value::none()
+                Value::String(new_string)
             }
         };
 

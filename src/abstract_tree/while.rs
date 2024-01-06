@@ -40,9 +40,12 @@ impl AbstractTree for While {
 
 impl Format for While {
     fn format(&self, output: &mut String, indent_level: u8) {
+        output.push('\n');
+        While::indent(output, indent_level);
         output.push_str("while ");
         self.expression.format(output, indent_level);
         output.push(' ');
         self.block.format(output, indent_level);
+        output.push('\n');
     }
 }

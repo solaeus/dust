@@ -81,7 +81,7 @@ impl AbstractTree for Index {
             }
             Value::String(string) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
-                let item = string.read()?.chars().nth(index).unwrap_or_default();
+                let item = string.chars().nth(index).unwrap_or_default();
 
                 Ok(Value::string(item.to_string()))
             }

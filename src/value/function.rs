@@ -44,6 +44,8 @@ impl Format for Function {
             Function::BuiltIn(built_in_function) => built_in_function.format(output, indent_level),
             Function::ContextDefined(function_node) => function_node.format(output, indent_level),
         }
+
+        output.push('\n');
     }
 }
 

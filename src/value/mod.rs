@@ -16,7 +16,6 @@ use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign},
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 pub mod function;
@@ -34,7 +33,7 @@ pub enum Value {
     List(List),
     Map(Map),
     Function(Function),
-    String(Arc<RwLock<String>>),
+    String(String),
     Float(f64),
     Integer(i64),
     Boolean(bool),
@@ -50,7 +49,7 @@ impl Default for Value {
 
 impl Value {
     pub fn string<T: Into<String>>(string: T) -> Self {
-        Value::String(Arc::new(RwLock::new(string.into())))
+        Value::String(string.into())
     }
 
     pub fn r#type(&self) -> Type {
@@ -158,27 +157,17 @@ impl Value {
         matches!(self, Value::Map(_))
     }
 
-    /// Borrows the value stored in `self` as `&str`, or returns `Err` if `self` is not a `Value::String`.
-    pub fn as_string(&self) -> Result<RwLockReadGuard<String>> {
+    /// Borrows the value stored in `self` as `&String`, or returns `Err` if `self` is not a `Value::String`.
+    pub fn as_string(&self) -> Result<&String> {
         match self {
-            Value::String(string) => Ok(string.read()?),
+            Value::String(string) => Ok(string),
             value => Err(Error::ExpectedString {
                 actual: value.clone(),
             }),
         }
     }
 
-    /// Borrows the value stored in `self` as `String`, or returns `Err` if `self` is not a `Value::String`.
-    pub fn as_string_mut(&self) -> Result<RwLockWriteGuard<String>> {
-        match self {
-            Value::String(string) => Ok(string.write()?),
-            value => Err(Error::ExpectedString {
-                actual: value.clone(),
-            }),
-        }
-    }
-
-    /// Copies the value stored in `self` as `i64`, or returns `Err` if `self` is not a `Value::Int`.
+    /// Copies the value stored in `self` as `i64`, or returns `Err` if `self` is not a `Value::Int`
     pub fn as_integer(&self) -> Result<i64> {
         match self {
             Value::Integer(i) => Ok(*i),
@@ -401,9 +390,7 @@ impl AddAssign for Value {
             (Value::Integer(left), Value::Integer(right)) => *left += right,
             (Value::Float(left), Value::Float(right)) => *left += right,
             (Value::Float(left), Value::Integer(right)) => *left += right as f64,
-            (Value::String(left), Value::String(right)) => {
-                *left.write().unwrap() += right.read().unwrap().as_str()
-            }
+            (Value::String(left), Value::String(right)) => *left += &right,
             (Value::List(list), value) => list.items_mut().push(value),
             _ => {}
         }
@@ -440,9 +427,7 @@ impl PartialEq for Value {
             (Value::Integer(left), Value::Integer(right)) => left == right,
             (Value::Float(left), Value::Float(right)) => left == right,
             (Value::Boolean(left), Value::Boolean(right)) => left == right,
-            (Value::String(left), Value::String(right)) => {
-                left.read().unwrap().as_str() == right.read().unwrap().as_str()
-            }
+            (Value::String(left), Value::String(right)) => left == right,
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
@@ -462,11 +447,7 @@ impl PartialOrd for Value {
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Value::String(left), Value::String(right)) => left
-                .read()
-                .unwrap()
-                .as_str()
-                .cmp(right.read().unwrap().as_str()),
+            (Value::String(left), Value::String(right)) => left.cmp(right),
             (Value::String(_), _) => Ordering::Greater,
             (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
             (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
@@ -502,7 +483,7 @@ impl Serialize for Value {
         S: Serializer,
     {
         match self {
-            Value::String(inner) => serializer.serialize_str(inner.read().unwrap().as_str()),
+            Value::String(inner) => serializer.serialize_str(inner),
             Value::Float(inner) => serializer.serialize_f64(*inner),
             Value::Integer(inner) => serializer.serialize_i64(*inner),
             Value::Boolean(inner) => serializer.serialize_bool(*inner),
@@ -527,7 +508,7 @@ impl Serialize for Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::String(string) => write!(f, "{}", string.read().unwrap()),
+            Value::String(string) => write!(f, "{string}"),
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(int) => write!(f, "{int}"),
             Value::Boolean(boolean) => write!(f, "{boolean}"),
@@ -598,8 +579,8 @@ impl TryFrom<Value> for String {
     type Error = Error;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        if let Value::String(rw_lock) = value {
-            Ok(rw_lock.read()?.to_string())
+        if let Value::String(string) = value {
+            Ok(string)
         } else {
             Err(Error::ExpectedString { actual: value })
         }

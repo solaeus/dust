@@ -128,7 +128,5 @@ impl Format for Statement {
             }
             Statement::Return(statement) => statement.format(output, indent_level),
         }
-
-        output.push('\n');
     }
 }

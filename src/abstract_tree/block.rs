@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Format, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Expression, Format, Map, Result, Statement, Type, Value};
 
 /// Abstract representation of a block.
 ///
@@ -136,8 +136,26 @@ impl Format for Block {
             output.push_str("{\n");
         }
 
-        for statement in &self.statements {
-            statement.format(output, indent_level + 1);
+        let mut previous: Option<&Statement> = None;
+
+        for next_statement in &self.statements {
+            if let Some(previous_statement) = &previous {
+                match previous_statement {
+                    Statement::While(_) | Statement::Expression(Expression::FunctionCall(_)) => {
+                        output.push('\n');
+                    }
+                    _ => {}
+                }
+            }
+
+            match next_statement {
+                Statement::Block(_) | Statement::While(_) => output.push('\n'),
+                _ => {}
+            }
+
+            next_statement.format(output, indent_level + 1);
+
+            previous = Some(next_statement);
         }
 
         output.push('\n');
