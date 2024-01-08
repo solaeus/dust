@@ -190,20 +190,12 @@ impl AbstractTree for ValueNode {
 
     fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
         match self {
-            ValueNode::Boolean(_) => todo!(),
-            ValueNode::Float(_) => todo!(),
             ValueNode::Function(function) => {
                 if let Function::ContextDefined(function_node) = function {
                     function_node.check_type(_source, _context)?;
                 }
             }
-            ValueNode::Integer(_) => todo!(),
-            ValueNode::String(_) => todo!(),
-            ValueNode::List(_) => todo!(),
-            ValueNode::Option(_) => todo!(),
-            ValueNode::Map(_) => todo!(),
-            ValueNode::BuiltInValue(_) => todo!(),
-            ValueNode::Structure(_) => todo!(),
+            _ => {}
         }
 
         Ok(())
