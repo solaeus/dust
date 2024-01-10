@@ -64,17 +64,18 @@ impl Map {
         Ok(self.variables.write()?)
     }
 
-    pub fn set(
-        &self,
-        key: String,
-        value: Value,
-        r#type: Option<Type>,
-    ) -> Result<Option<(Value, Type)>> {
-        let value_type = r#type.unwrap_or(value.r#type());
+    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
+        let value_type = value.r#type();
         let previous = self
             .variables
             .write()?
             .insert(key, (value, value_type.clone()));
+
+        Ok(previous)
+    }
+
+    pub fn set_type(&self, key: String, r#type: Type) -> Result<Option<(Value, Type)>> {
+        let previous = self.variables.write()?.insert(key, (Value::none(), r#type));
 
         Ok(previous)
     }
@@ -182,7 +183,7 @@ impl<'de> Visitor<'de> for MapVisitor {
 
         {
             while let Some((key, value)) = access.next_entry::<String, Value>()? {
-                map.set(key, value, None).unwrap();
+                map.set(key, value).unwrap();
             }
         }
 

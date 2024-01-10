@@ -844,7 +844,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let map = Map::new();
 
         while let Some((key, value)) = access.next_entry::<String, Value>()? {
-            map.set(key, value, None).unwrap();
+            map.set(key, value).unwrap();
         }
 
         Ok(Value::Map(map))

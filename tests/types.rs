@@ -13,7 +13,7 @@ fn simple_type_check() {
 #[test]
 fn argument_count_check() {
     let source = "
-            foo = (x <int>) <bool> {
+            foo = (x <int>) <int> {
                 x
             }
             foo()
@@ -21,7 +21,7 @@ fn argument_count_check() {
     let result = interpret(&source);
 
     assert_eq!(
-        "Expected 1 arguments, but got 0. Occured at (4, 12) to (4, 17). Source: foo()",
+        "Expected 1 arguments, but got 0. Occured at (5, 12) to (5, 17). Source: foo()",
         result.unwrap_err().to_string()
     )
 }

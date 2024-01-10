@@ -54,7 +54,7 @@ impl AbstractTree for FunctionCall {
         })
     }
 
-    fn check_type(&self, _source: &str, context: &Map) -> Result<()> {
+    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
         let function_expression_type = self.function_expression.expected_type(context)?;
 
         let parameter_types = match function_expression_type {
@@ -65,22 +65,25 @@ impl AbstractTree for FunctionCall {
             _ => {
                 return Err(Error::TypeCheckExpectedFunction {
                     actual: function_expression_type,
-                })
+                }
+                .at_source_position(source, self.syntax_position))
             }
         };
-
-        for (index, expression) in self.arguments.iter().enumerate() {
-            if let Some(r#type) = parameter_types.get(index) {
-                r#type.check(&expression.expected_type(context)?)?;
-            }
-        }
 
         if self.arguments.len() != parameter_types.len() {
             return Err(Error::ExpectedFunctionArgumentAmount {
                 expected: parameter_types.len(),
                 actual: self.arguments.len(),
             }
-            .at_source_position(_source, self.syntax_position));
+            .at_source_position(source, self.syntax_position));
+        }
+
+        for (index, expression) in self.arguments.iter().enumerate() {
+            if let Some(r#type) = parameter_types.get(index) {
+                r#type
+                    .check(&expression.expected_type(context)?)
+                    .map_err(|error| error.at_source_position(source, self.syntax_position))?;
+            }
         }
 
         Ok(())
@@ -114,10 +117,6 @@ impl AbstractTree for FunctionCall {
             let value = expression.run(source, context)?;
 
             arguments.push(value);
-        }
-
-        if let Some(name) = &name {
-            context.set(name.to_string(), value.clone(), None)?;
         }
 
         value.as_function()?.call(name, &arguments, source, context)

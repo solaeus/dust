@@ -70,7 +70,6 @@ impl BuiltInValue {
                     .set(
                         "read".to_string(),
                         Value::Function(Function::BuiltIn(BuiltInFunction::FsRead)),
-                        None,
                     )
                     .unwrap();
 
@@ -83,7 +82,6 @@ impl BuiltInValue {
                     .set(
                         BuiltInFunction::JsonParse.name().to_string(),
                         Value::Function(Function::BuiltIn(BuiltInFunction::JsonParse)),
-                        None,
                     )
                     .unwrap();
 

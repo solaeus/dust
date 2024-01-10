@@ -70,7 +70,7 @@ impl AbstractTree for IndexAssignment {
             AssignmentOperator::Equal => value,
         };
 
-        index_context.set(index_key.clone(), new_value, None)?;
+        index_context.set(index_key.clone(), new_value)?;
 
         Ok(Value::none())
     }

@@ -64,7 +64,7 @@ fn main() {
 
     if let Some(input) = args.input {
         context
-            .set("input".to_string(), Value::string(input), None)
+            .set("input".to_string(), Value::string(input))
             .unwrap();
     }
 
@@ -72,7 +72,7 @@ fn main() {
         let file_contents = read_to_string(path).unwrap();
 
         context
-            .set("input".to_string(), Value::string(file_contents), None)
+            .set("input".to_string(), Value::string(file_contents))
             .unwrap();
     }
 

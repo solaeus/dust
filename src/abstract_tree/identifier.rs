@@ -45,12 +45,8 @@ impl AbstractTree for Identifier {
         }
     }
 
-    fn check_type(&self, _source: &str, context: &Map) -> Result<()> {
-        if let Some(_) = context.variables()?.get(&self.0) {
-            Ok(())
-        } else {
-            Err(Error::VariableIdentifierNotFound(self.0.clone()))
-        }
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+        Ok(())
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {

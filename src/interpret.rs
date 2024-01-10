@@ -29,9 +29,9 @@ pub fn interpret(source: &str) -> Result<Value> {
 /// # use dust_lang::*;
 /// let context = Map::new();
 ///
-/// context.set("one".into(), 1.into(), None);
-/// context.set("two".into(), 2.into(), None);
-/// context.set("three".into(), 3.into(), None);
+/// context.set("one".into(), 1.into());
+/// context.set("two".into(), 2.into());
+/// context.set("three".into(), 3.into());
 ///
 /// let dust_code = "four = 4 one + two + three + four";
 ///

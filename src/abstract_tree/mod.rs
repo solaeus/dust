@@ -60,9 +60,9 @@ impl From<tree_sitter::Range> for SyntaxPosition {
         SyntaxPosition {
             start_byte: range.start_byte,
             end_byte: range.end_byte,
-            start_row: range.start_point.row,
+            start_row: range.start_point.row + 1,
             start_column: range.start_point.column,
-            end_row: range.end_point.row,
+            end_row: range.end_point.row + 1,
             end_column: range.end_point.column,
         }
     }

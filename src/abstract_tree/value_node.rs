@@ -232,10 +232,10 @@ impl AbstractTree for ValueNode {
                 let map = Map::new();
 
                 {
-                    for (key, (statement, r#type)) in key_statement_pairs {
+                    for (key, (statement, _)) in key_statement_pairs {
                         let value = statement.run(source, context)?;
 
-                        map.set(key.clone(), value, r#type.clone())?;
+                        map.set(key.clone(), value)?;
                     }
                 }
 

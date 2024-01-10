@@ -47,7 +47,7 @@ impl AbstractTree for Assignment {
         };
 
         if let AssignmentOperator::Equal = operator {
-            context.set(variable_key, Value::none(), Some(variable_type))?;
+            context.set_type(variable_key, variable_type)?;
         }
 
         Ok(Assignment {
@@ -82,7 +82,9 @@ impl AbstractTree for Assignment {
                 }
                 AssignmentOperator::PlusEqual => {
                     if let Type::List(item_type) = type_definition.inner() {
-                        item_type.check(&actual_type)?;
+                        item_type.check(&actual_type).map_err(|error| {
+                            error.at_source_position(source, self.syntax_position)
+                        })?;
                     } else {
                         type_definition
                             .inner()
@@ -98,7 +100,9 @@ impl AbstractTree for Assignment {
             match self.operator {
                 AssignmentOperator::Equal => {
                     if let Some(r#type) = established_type {
-                        r#type.check(&actual_type)?;
+                        r#type.check(&actual_type).map_err(|error| {
+                            error.at_source_position(source, self.syntax_position)
+                        })?;
                     }
                 }
                 AssignmentOperator::PlusEqual => {
@@ -141,11 +145,7 @@ impl AbstractTree for Assignment {
             AssignmentOperator::Equal => value,
         };
 
-        if let Some(type_defintion) = &self.type_definition {
-            context.set(key.clone(), new_value, Some(type_defintion.inner().clone()))?;
-        } else {
-            context.set(key.clone(), new_value, None)?;
-        }
+        context.set(key.clone(), new_value)?;
 
         Ok(Value::none())
     }
