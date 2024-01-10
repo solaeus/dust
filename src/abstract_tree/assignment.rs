@@ -162,9 +162,9 @@ impl Format for Assignment {
             type_definition.format(output, indent_level);
         }
 
-        output.push_str(" ");
+        output.push(' ');
         self.operator.format(output, indent_level);
-        output.push_str(" ");
+        output.push(' ');
 
         self.statement.format(output, 0);
     }
