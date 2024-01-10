@@ -1,12 +1,9 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, Format, Identifier, Index, Map, Result, Type,
-    Value, Yield,
+    value_node::ValueNode, AbstractTree, Error, Format, FunctionCall, Identifier, Index, Logic,
+    Map, Math, Result, SyntaxNode, Type, Value, Yield,
 };
-
-use super::{function_call::FunctionCall, logic::Logic, math::Math};
 
 /// Abstract representation of an expression statement.
 ///
@@ -25,7 +22,7 @@ pub enum Expression {
 }
 
 impl AbstractTree for Expression {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
@@ -35,23 +32,17 @@ impl AbstractTree for Expression {
         };
 
         let expression = match child.kind() {
-            "value" => Expression::Value(ValueNode::from_syntax_node(source, child, context)?),
+            "value" => Expression::Value(ValueNode::from_syntax(child, source, context)?),
             "identifier" => {
-                Expression::Identifier(Identifier::from_syntax_node(source, child, context)?)
+                Expression::Identifier(Identifier::from_syntax(child, source, context)?)
             }
-            "index" => {
-                Expression::Index(Box::new(Index::from_syntax_node(source, child, context)?))
-            }
-            "math" => Expression::Math(Box::new(Math::from_syntax_node(source, child, context)?)),
-            "logic" => {
-                Expression::Logic(Box::new(Logic::from_syntax_node(source, child, context)?))
-            }
-            "function_call" => Expression::FunctionCall(Box::new(FunctionCall::from_syntax_node(
-                source, child, context,
+            "index" => Expression::Index(Box::new(Index::from_syntax(child, source, context)?)),
+            "math" => Expression::Math(Box::new(Math::from_syntax(child, source, context)?)),
+            "logic" => Expression::Logic(Box::new(Logic::from_syntax(child, source, context)?)),
+            "function_call" => Expression::FunctionCall(Box::new(FunctionCall::from_syntax(
+                child, source, context,
             )?)),
-            "yield" => {
-                Expression::Yield(Box::new(Yield::from_syntax_node(source, child, context)?))
-            }
+            "yield" => Expression::Yield(Box::new(Yield::from_syntax(child, source, context)?)),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "value_node, identifier, index, math, logic, function_call or yield"

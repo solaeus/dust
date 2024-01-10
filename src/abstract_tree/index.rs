@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Format, IndexExpression, List, Map, Result, Type, Value};
+use crate::{
+    AbstractTree, Error, Format, IndexExpression, List, Map, Result, SyntaxNode, Type, Value,
+};
 
 /// Abstract representation of an index expression.
 ///
@@ -14,20 +15,20 @@ pub struct Index {
 }
 
 impl AbstractTree for Index {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "index", node)?;
 
         let collection_node = node.child(0).unwrap();
-        let collection = IndexExpression::from_syntax_node(source, collection_node, context)?;
+        let collection = IndexExpression::from_syntax(collection_node, source, context)?;
 
         let index_node = node.child(2).unwrap();
-        let index = IndexExpression::from_syntax_node(source, index_node, context)?;
+        let index = IndexExpression::from_syntax(index_node, source, context)?;
 
         let index_end_node = node.child(4);
         let index_end = if let Some(index_end_node) = index_end_node {
-            Some(IndexExpression::from_syntax_node(
-                source,
+            Some(IndexExpression::from_syntax(
                 index_end_node,
+                source,
                 context,
             )?)
         } else {

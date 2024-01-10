@@ -1,9 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Format, Identifier, Map, Result, Structure, Value};
+use crate::{AbstractTree, Error, Format, Identifier, Map, Result, Structure, SyntaxNode, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
@@ -139,7 +138,7 @@ impl Type {
 }
 
 impl AbstractTree for Type {
-    fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, _source: &str, _context: &Map) -> Result<Self> {
         Error::expect_syntax_node(_source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
@@ -147,7 +146,7 @@ impl AbstractTree for Type {
         let r#type = match type_node.kind() {
             "[" => {
                 let item_type_node = node.child(1).unwrap();
-                let item_type = Type::from_syntax_node(_source, item_type_node, _context)?;
+                let item_type = Type::from_syntax(item_type_node, _source, _context)?;
 
                 Type::List(Box::new(item_type))
             }
@@ -163,7 +162,7 @@ impl AbstractTree for Type {
                     let child = node.child(index).unwrap();
 
                     if child.is_named() {
-                        let parameter_type = Type::from_syntax_node(_source, child, _context)?;
+                        let parameter_type = Type::from_syntax(child, _source, _context)?;
 
                         parameter_types.push(parameter_type);
                     }
@@ -171,7 +170,7 @@ impl AbstractTree for Type {
 
                 let final_node = node.child(child_count - 1).unwrap();
                 let return_type = if final_node.is_named() {
-                    Type::from_syntax_node(_source, final_node, _context)?
+                    Type::from_syntax(final_node, _source, _context)?
                 } else {
                     Type::None
                 };
@@ -188,7 +187,7 @@ impl AbstractTree for Type {
             "str" => Type::String,
             "option" => {
                 let inner_type_node = node.child(2).unwrap();
-                let inner_type = Type::from_syntax_node(_source, inner_type_node, _context)?;
+                let inner_type = Type::from_syntax(inner_type_node, _source, _context)?;
 
                 Type::Option(Box::new(inner_type))
             }

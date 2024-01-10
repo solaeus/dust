@@ -41,9 +41,8 @@ pub use {
 };
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{Error, Map, Result, Value};
+use crate::{Error, Map, Result, SyntaxNode, Value};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SyntaxPosition {
@@ -74,7 +73,7 @@ pub struct Root {
 }
 
 impl AbstractTree for Root {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "root", node)?;
 
         let statement_count = node.child_count();
@@ -82,7 +81,7 @@ impl AbstractTree for Root {
 
         for index in 0..statement_count {
             let statement_node = node.child(index).unwrap();
-            let statement = Statement::from_syntax_node(source, statement_node, context)?;
+            let statement = Statement::from_syntax(statement_node, source, context)?;
 
             statements.push(statement);
         }
@@ -145,7 +144,7 @@ pub trait AbstractTree: Sized + Format {
     ///
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self>;
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self>;
 
     /// Verify the type integrity of the node.
     fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {

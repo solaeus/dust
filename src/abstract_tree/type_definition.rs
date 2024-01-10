@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TypeDefinition {
@@ -23,11 +22,11 @@ impl TypeDefinition {
 }
 
 impl AbstractTree for TypeDefinition {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "type_definition", node)?;
 
         let type_node = node.child(1).unwrap();
-        let r#type = Type::from_syntax_node(source, type_node, context)?;
+        let r#type = Type::from_syntax(type_node, source, context)?;
 
         Ok(TypeDefinition { r#type })
     }

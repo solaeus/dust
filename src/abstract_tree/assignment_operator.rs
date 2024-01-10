@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum AssignmentOperator {
@@ -10,11 +10,7 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for AssignmentOperator {
-    fn from_syntax_node(
-        source: &str,
-        node: tree_sitter::Node,
-        _context: &crate::Map,
-    ) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, _context: &crate::Map) -> Result<Self> {
         Error::expect_syntax_node(source, "assignment_operator", node)?;
 
         let operator_node = node.child(0).unwrap();

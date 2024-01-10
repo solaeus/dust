@@ -1,11 +1,10 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
     AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Result, Statement, Structure, Type, TypeDefinition, Value,
+    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -23,7 +22,7 @@ pub enum ValueNode {
 }
 
 impl AbstractTree for ValueNode {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "value", node)?;
 
         let child = node.child(0).unwrap();
@@ -31,7 +30,7 @@ impl AbstractTree for ValueNode {
             "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
             "float" => ValueNode::Float(source[child.byte_range()].to_string()),
             "function" => {
-                let function_node = FunctionNode::from_syntax_node(source, child, context)?;
+                let function_node = FunctionNode::from_syntax(child, source, context)?;
 
                 ValueNode::Function(Function::ContextDefined(function_node))
             }
@@ -48,8 +47,7 @@ impl AbstractTree for ValueNode {
                     let current_node = child.child(index).unwrap();
 
                     if current_node.is_named() {
-                        let expression =
-                            Expression::from_syntax_node(source, current_node, context)?;
+                        let expression = Expression::from_syntax(current_node, source, context)?;
                         expressions.push(expression);
                     }
                 }
@@ -62,25 +60,20 @@ impl AbstractTree for ValueNode {
                 let mut current_type = None;
 
                 for index in 0..child.child_count() - 1 {
-                    let child_syntax_node = child.child(index).unwrap();
+                    let child = child.child(index).unwrap();
 
-                    if child_syntax_node.kind() == "identifier" {
-                        current_key =
-                            Identifier::from_syntax_node(source, child_syntax_node, context)?
-                                .take_inner();
+                    if child.kind() == "identifier" {
+                        current_key = Identifier::from_syntax(child, source, context)?.take_inner();
                         current_type = None;
                     }
 
-                    if child_syntax_node.kind() == "type_definition" {
-                        current_type = Some(
-                            TypeDefinition::from_syntax_node(source, child_syntax_node, context)?
-                                .take_inner(),
-                        );
+                    if child.kind() == "type_definition" {
+                        current_type =
+                            Some(TypeDefinition::from_syntax(child, source, context)?.take_inner());
                     }
 
-                    if child_syntax_node.kind() == "statement" {
-                        let statement =
-                            Statement::from_syntax_node(source, child_syntax_node, context)?;
+                    if child.kind() == "statement" {
+                        let statement = Statement::from_syntax(child, source, context)?;
 
                         if let Some(type_definition) = &current_type {
                             type_definition.check(&statement.expected_type(context)?)?;
@@ -99,8 +92,7 @@ impl AbstractTree for ValueNode {
                     ValueNode::Option(None)
                 } else {
                     let expression_node = child.child(2).unwrap();
-                    let expression =
-                        Expression::from_syntax_node(source, expression_node, context)?;
+                    let expression = Expression::from_syntax(expression_node, source, context)?;
 
                     ValueNode::Option(Some(Box::new(expression)))
                 }
@@ -108,9 +100,9 @@ impl AbstractTree for ValueNode {
             "built_in_value" => {
                 let built_in_value_node = child.child(0).unwrap();
 
-                ValueNode::BuiltInValue(BuiltInValue::from_syntax_node(
-                    source,
+                ValueNode::BuiltInValue(BuiltInValue::from_syntax(
                     built_in_value_node,
+                    source,
                     context,
                 )?)
             }
@@ -134,26 +126,20 @@ impl AbstractTree for ValueNode {
                         }
 
                         current_type = None;
-                        current_identifier = Some(Identifier::from_syntax_node(
-                            source,
-                            child_syntax_node,
-                            context,
-                        )?);
+                        current_identifier =
+                            Some(Identifier::from_syntax(child_syntax_node, source, context)?);
                     }
 
                     if child_syntax_node.kind() == "type_definition" {
                         current_type = Some(
-                            TypeDefinition::from_syntax_node(source, child_syntax_node, context)?
+                            TypeDefinition::from_syntax(child_syntax_node, source, context)?
                                 .take_inner(),
                         );
                     }
 
                     if child_syntax_node.kind() == "statement" {
-                        current_statement = Some(Statement::from_syntax_node(
-                            source,
-                            child_syntax_node,
-                            context,
-                        )?);
+                        current_statement =
+                            Some(Statement::from_syntax(child_syntax_node, source, context)?);
 
                         if let Some(identifier) = &current_identifier {
                             let r#type = if let Some(r#type) = &current_type {

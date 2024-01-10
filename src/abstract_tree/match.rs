@@ -3,9 +3,10 @@
 //! Note that this module is called "match" but is escaped as "r#match" because
 //! "match" is a keyword in Rust.
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Format, Map, Result, Statement, Type, Value};
+use crate::{
+    AbstractTree, Error, Expression, Format, Map, Result, Statement, SyntaxNode, Type, Value,
+};
 
 /// Abstract representation of a match statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -16,11 +17,11 @@ pub struct Match {
 }
 
 impl AbstractTree for Match {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "match", node)?;
 
         let matcher_node = node.child(1).unwrap();
-        let matcher = Expression::from_syntax_node(source, matcher_node, context)?;
+        let matcher = Expression::from_syntax(matcher_node, source, context)?;
 
         let mut options = Vec::new();
         let mut previous_expression = None;
@@ -35,11 +36,11 @@ impl AbstractTree for Match {
             }
 
             if child.kind() == "expression" {
-                previous_expression = Some(Expression::from_syntax_node(source, child, context)?);
+                previous_expression = Some(Expression::from_syntax(child, source, context)?);
             }
 
             if child.kind() == "statement" {
-                let statement = Statement::from_syntax_node(source, child, context)?;
+                let statement = Statement::from_syntax(child, source, context)?;
 
                 if next_statement_is_fallback {
                     fallback = Some(Box::new(statement));

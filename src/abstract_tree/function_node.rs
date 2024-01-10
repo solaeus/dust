@@ -1,11 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Block, Error, Format, Function, Identifier, Map, Result, SyntaxPosition, Type,
-    TypeDefinition, Value,
+    AbstractTree, Block, Error, Format, Function, Identifier, Map, Result, SyntaxNode,
+    SyntaxPosition, Type, TypeDefinition, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -86,7 +85,7 @@ impl FunctionNode {
 }
 
 impl AbstractTree for FunctionNode {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
@@ -97,20 +96,20 @@ impl AbstractTree for FunctionNode {
             let child = node.child(index).unwrap();
 
             if child.kind() == "identifier" {
-                let identifier = Identifier::from_syntax_node(source, child, context)?;
+                let identifier = Identifier::from_syntax(child, source, context)?;
 
                 parameters.push(identifier);
             }
 
             if child.kind() == "type_definition" {
-                let type_definition = TypeDefinition::from_syntax_node(source, child, context)?;
+                let type_definition = TypeDefinition::from_syntax(child, source, context)?;
 
                 parameter_types.push(type_definition.take_inner());
             }
         }
 
         let return_type_node = node.child(child_count - 2).unwrap();
-        let return_type = TypeDefinition::from_syntax_node(source, return_type_node, context)?;
+        let return_type = TypeDefinition::from_syntax(return_type_node, source, context)?;
 
         let function_context = Map::new();
 
@@ -121,7 +120,7 @@ impl AbstractTree for FunctionNode {
         }
 
         let body_node = node.child(child_count - 1).unwrap();
-        let body = Block::from_syntax_node(source, body_node, &function_context)?;
+        let body = Block::from_syntax(body_node, source, &function_context)?;
 
         let r#type = Type::function(parameter_types, return_type.take_inner());
         let syntax_position = node.range().into();

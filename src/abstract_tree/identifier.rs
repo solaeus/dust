@@ -1,9 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
 
 /// A string by which a variable is known to a context.
 ///
@@ -27,7 +26,7 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
-    fn from_syntax_node(source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "identifier", node)?;
 
         let text = &source[node.byte_range()];

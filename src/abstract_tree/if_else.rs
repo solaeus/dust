@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Expression, Format, Map, Result, Type, Value};
+use crate::{AbstractTree, Block, Expression, Format, Map, Result, SyntaxNode, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
@@ -13,12 +12,12 @@ pub struct IfElse {
 }
 
 impl AbstractTree for IfElse {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         let if_expression_node = node.child(0).unwrap().child(1).unwrap();
-        let if_expression = Expression::from_syntax_node(source, if_expression_node, context)?;
+        let if_expression = Expression::from_syntax(if_expression_node, source, context)?;
 
         let if_block_node = node.child(0).unwrap().child(2).unwrap();
-        let if_block = Block::from_syntax_node(source, if_block_node, context)?;
+        let if_block = Block::from_syntax(if_block_node, source, context)?;
 
         let child_count = node.child_count();
         let mut else_if_expressions = Vec::new();
@@ -30,19 +29,19 @@ impl AbstractTree for IfElse {
 
             if child.kind() == "else_if" {
                 let expression_node = child.child(1).unwrap();
-                let expression = Expression::from_syntax_node(source, expression_node, context)?;
+                let expression = Expression::from_syntax(expression_node, source, context)?;
 
                 else_if_expressions.push(expression);
 
                 let block_node = child.child(2).unwrap();
-                let block = Block::from_syntax_node(source, block_node, context)?;
+                let block = Block::from_syntax(block_node, source, context)?;
 
                 else_if_blocks.push(block);
             }
 
             if child.kind() == "else" {
                 let else_node = child.child(1).unwrap();
-                else_block = Some(Block::from_syntax_node(source, else_node, context)?);
+                else_block = Some(Block::from_syntax(else_node, source, context)?);
             }
         }
 

@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
     AbstractTree, AssignmentOperator, Error, Format, Index, IndexExpression, Map, Result,
-    Statement, Type, Value,
+    Statement, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -14,17 +13,17 @@ pub struct IndexAssignment {
 }
 
 impl AbstractTree for IndexAssignment {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "index_assignment", node)?;
 
         let index_node = node.child(0).unwrap();
-        let index = Index::from_syntax_node(source, index_node, context)?;
+        let index = Index::from_syntax(index_node, source, context)?;
 
         let operator_node = node.child(1).unwrap();
-        let operator = AssignmentOperator::from_syntax_node(source, operator_node, context)?;
+        let operator = AssignmentOperator::from_syntax(operator_node, source, context)?;
 
         let statement_node = node.child(2).unwrap();
-        let statement = Statement::from_syntax_node(source, statement_node, context)?;
+        let statement = Statement::from_syntax(statement_node, source, context)?;
 
         Ok(IndexAssignment {
             index,

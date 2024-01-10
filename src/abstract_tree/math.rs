@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Expression, Format, Map, MathOperator, Result, Type, Value};
+use crate::{
+    AbstractTree, Error, Expression, Format, Map, MathOperator, Result, SyntaxNode, Type, Value,
+};
 
 /// Abstract representation of a math operation.
 ///
@@ -15,17 +16,17 @@ pub struct Math {
 }
 
 impl AbstractTree for Math {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "math", node)?;
 
         let left_node = node.child(0).unwrap();
-        let left = Expression::from_syntax_node(source, left_node, context)?;
+        let left = Expression::from_syntax(left_node, source, context)?;
 
         let operator_node = node.child(1).unwrap();
-        let operator = MathOperator::from_syntax_node(source, operator_node, context)?;
+        let operator = MathOperator::from_syntax(operator_node, source, context)?;
 
         let right_node = node.child(2).unwrap();
-        let right = Expression::from_syntax_node(source, right_node, context)?;
+        let right = Expression::from_syntax(right_node, source, context)?;
 
         Ok(Math {
             left,

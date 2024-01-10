@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum LogicOperator {
@@ -15,11 +15,7 @@ pub enum LogicOperator {
 }
 
 impl AbstractTree for LogicOperator {
-    fn from_syntax_node(
-        source: &str,
-        node: tree_sitter::Node,
-        _context: &crate::Map,
-    ) -> crate::Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> crate::Result<Self> {
         Error::expect_syntax_node(source, "logic_operator", node)?;
 
         let operator_node = node.child(0).unwrap();

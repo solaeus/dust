@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
     AbstractTree, Assignment, Block, Error, Expression, For, Format, IfElse, IndexAssignment, Map,
-    Match, Result, Type, Value, While,
+    Match, Result, SyntaxNode, Type, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -21,40 +20,40 @@ pub enum Statement {
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "statement", node)?;
 
         let child = node.child(0).unwrap();
 
         match child.kind() {
             "assignment" => Ok(Statement::Assignment(Box::new(
-                Assignment::from_syntax_node(source, child, context)?,
+                Assignment::from_syntax(child, source, context)?,
             ))),
-            "expression" => Ok(Statement::Expression(Expression::from_syntax_node(
-                source, child, context,
+            "expression" => Ok(Statement::Expression(Expression::from_syntax(
+                child, source, context,
             )?)),
-            "if_else" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax_node(
-                source, child, context,
+            "if_else" => Ok(Statement::IfElse(Box::new(IfElse::from_syntax(
+                child, source, context,
             )?))),
-            "while" => Ok(Statement::While(Box::new(While::from_syntax_node(
-                source, child, context,
+            "while" => Ok(Statement::While(Box::new(While::from_syntax(
+                child, source, context,
             )?))),
-            "block" => Ok(Statement::Block(Box::new(Block::from_syntax_node(
-                source, child, context,
+            "block" => Ok(Statement::Block(Box::new(Block::from_syntax(
+                child, source, context,
             )?))),
-            "for" => Ok(Statement::For(Box::new(For::from_syntax_node(
-                source, child, context,
+            "for" => Ok(Statement::For(Box::new(For::from_syntax(
+                child, source, context,
             )?))),
             "index_assignment" => Ok(Statement::IndexAssignment(Box::new(
-                IndexAssignment::from_syntax_node(source, child, context)?,
+                IndexAssignment::from_syntax(child, source, context)?,
             ))),
-            "match" => Ok(Statement::Match(Match::from_syntax_node(
-                source, child, context,
+            "match" => Ok(Statement::Match(Match::from_syntax(
+                child, source, context,
             )?)),
             "return" => {
                 let statement_node = child.child(1).unwrap();
 
-                Ok(Statement::Return(Box::new(Statement::from_syntax_node(source, statement_node, context)?)))
+                Ok(Statement::Return(Box::new(Statement::from_syntax(statement_node, source, context)?)))
             },
             _ => Err(Error::UnexpectedSyntaxNode {
                 expected:

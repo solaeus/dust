@@ -1,8 +1,10 @@
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Block, Error, Expression, Format, Identifier, Map, Result, Type, Value};
+use crate::{
+    AbstractTree, Block, Error, Expression, Format, Identifier, Map, Result, SyntaxNode, Type,
+    Value,
+};
 
 /// Abstract representation of a for loop statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -14,7 +16,7 @@ pub struct For {
 }
 
 impl AbstractTree for For {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "for", node)?;
 
         let for_node = node.child(0).unwrap();
@@ -32,13 +34,13 @@ impl AbstractTree for For {
         };
 
         let identifier_node = node.child(1).unwrap();
-        let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
+        let identifier = Identifier::from_syntax(identifier_node, source, context)?;
 
         let expression_node = node.child(3).unwrap();
-        let expression = Expression::from_syntax_node(source, expression_node, context)?;
+        let expression = Expression::from_syntax(expression_node, source, context)?;
 
         let item_node = node.child(4).unwrap();
-        let item = Block::from_syntax_node(source, item_node, context)?;
+        let item = Block::from_syntax(item_node, source, context)?;
 
         Ok(For {
             is_async,

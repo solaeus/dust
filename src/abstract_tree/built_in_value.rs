@@ -1,11 +1,10 @@
 use std::{env::args, sync::OnceLock};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
     built_in_functions::string_functions, AbstractTree, BuiltInFunction, Format, Function, List,
-    Map, Result, Type, Value,
+    Map, Result, SyntaxNode, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -135,7 +134,7 @@ impl BuiltInValue {
 }
 
 impl AbstractTree for BuiltInValue {
-    fn from_syntax_node(_source: &str, node: Node, _context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, _source: &str, _context: &Map) -> Result<Self> {
         let built_in_value = match node.kind() {
             "args" => BuiltInValue::Args,
             "assert_equal" => BuiltInValue::AssertEqual,

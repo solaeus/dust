@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Expression, Format, FunctionExpression, Map, Result, SyntaxPosition, Type,
-    Value,
+    AbstractTree, Error, Expression, Format, FunctionExpression, Map, Result, SyntaxNode,
+    SyntaxPosition, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -28,12 +27,11 @@ impl FunctionCall {
 }
 
 impl AbstractTree for FunctionCall {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function_call", node)?;
 
         let function_node = node.child(0).unwrap();
-        let function_expression =
-            FunctionExpression::from_syntax_node(source, function_node, context)?;
+        let function_expression = FunctionExpression::from_syntax(function_node, source, context)?;
 
         let mut arguments = Vec::new();
 
@@ -41,7 +39,7 @@ impl AbstractTree for FunctionCall {
             let child = node.child(index).unwrap();
 
             if child.is_named() {
-                let expression = Expression::from_syntax_node(source, child, context)?;
+                let expression = Expression::from_syntax(child, source, context)?;
 
                 arguments.push(expression);
             }

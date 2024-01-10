@@ -11,32 +11,31 @@ pub struct Assignment {
     type_definition: Option<TypeDefinition>,
     operator: AssignmentOperator,
     statement: Statement,
+
     syntax_position: SyntaxPosition,
 }
 
 impl AbstractTree for Assignment {
-    fn from_syntax_node(source: &str, syntax_node: SyntaxNode, context: &Map) -> Result<Self> {
+    fn from_syntax(syntax_node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "assignment", syntax_node)?;
 
         let child_count = syntax_node.child_count();
 
         let identifier_node = syntax_node.child(0).unwrap();
-        let identifier = Identifier::from_syntax_node(source, identifier_node, context)?;
+        let identifier = Identifier::from_syntax(identifier_node, source, context)?;
 
         let type_node = syntax_node.child(1).unwrap();
         let type_definition = if type_node.kind() == "type_definition" {
-            Some(TypeDefinition::from_syntax_node(
-                source, type_node, context,
-            )?)
+            Some(TypeDefinition::from_syntax(type_node, source, context)?)
         } else {
             None
         };
 
         let operator_node = syntax_node.child(child_count - 2).unwrap();
-        let operator = AssignmentOperator::from_syntax_node(source, operator_node, context)?;
+        let operator = AssignmentOperator::from_syntax(operator_node, source, context)?;
 
         let statement_node = syntax_node.child(child_count - 1).unwrap();
-        let statement = Statement::from_syntax_node(source, statement_node, context)?;
+        let statement = Statement::from_syntax(statement_node, source, context)?;
         let statement_type = statement.expected_type(context)?;
 
         let variable_key = identifier.inner().clone();

@@ -2,9 +2,8 @@ use std::sync::RwLock;
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Format, Map, Result, Statement, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, Statement, SyntaxNode, Type, Value};
 
 /// Abstract representation of a block.
 ///
@@ -21,7 +20,7 @@ pub struct Block {
 }
 
 impl AbstractTree for Block {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "block", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -38,7 +37,7 @@ impl AbstractTree for Block {
             let child_node = node.child(index).unwrap();
 
             if child_node.kind() == "statement" {
-                let statement = Statement::from_syntax_node(source, child_node, context)?;
+                let statement = Statement::from_syntax(child_node, source, context)?;
 
                 statements.push(statement);
             }

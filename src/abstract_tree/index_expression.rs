@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     value_node::ValueNode, AbstractTree, Error, Format, FunctionCall, Identifier, Index, Map,
-    Result, Type, Value,
+    Result, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -14,7 +14,7 @@ pub enum IndexExpression {
 }
 
 impl AbstractTree for IndexExpression {
-    fn from_syntax_node(source: &str, node: tree_sitter::Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "index_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -25,16 +25,16 @@ impl AbstractTree for IndexExpression {
         };
 
         let abstract_node = match child.kind() {
-            "value" => IndexExpression::Value(ValueNode::from_syntax_node(source, child, context)?),
+            "value" => IndexExpression::Value(ValueNode::from_syntax(child, source, context)?),
             "identifier" => {
-                IndexExpression::Identifier(Identifier::from_syntax_node(source, child, context)?)
+                IndexExpression::Identifier(Identifier::from_syntax(child, source, context)?)
             }
             "index" => {
-                IndexExpression::Index(Box::new(Index::from_syntax_node(source, child, context)?))
+                IndexExpression::Index(Box::new(Index::from_syntax(child, source, context)?))
             }
-            "function_call" => IndexExpression::FunctionCall(Box::new(
-                FunctionCall::from_syntax_node(source, child, context)?,
-            )),
+            "function_call" => IndexExpression::FunctionCall(Box::new(FunctionCall::from_syntax(
+                child, source, context,
+            )?)),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "value, identifier, index or function call".to_string(),

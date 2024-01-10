@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Error, Format, FunctionCall, Identifier, Index, Map, Result, Type, Value,
-    ValueNode, Yield,
+    AbstractTree, Error, Format, FunctionCall, Identifier, Index, Map, Result, SyntaxNode, Type,
+    Value, ValueNode, Yield,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -16,7 +15,7 @@ pub enum FunctionExpression {
 }
 
 impl AbstractTree for FunctionExpression {
-    fn from_syntax_node(source: &str, node: Node, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -27,20 +26,18 @@ impl AbstractTree for FunctionExpression {
         };
 
         let function_expression = match child.kind() {
-            "identifier" => FunctionExpression::Identifier(Identifier::from_syntax_node(
-                source, child, context,
-            )?),
+            "identifier" => {
+                FunctionExpression::Identifier(Identifier::from_syntax(child, source, context)?)
+            }
 
             "function_call" => FunctionExpression::FunctionCall(Box::new(
-                FunctionCall::from_syntax_node(source, child, context)?,
+                FunctionCall::from_syntax(child, source, context)?,
             )),
-            "value" => {
-                FunctionExpression::Value(ValueNode::from_syntax_node(source, child, context)?)
+            "value" => FunctionExpression::Value(ValueNode::from_syntax(child, source, context)?),
+            "index" => FunctionExpression::Index(Index::from_syntax(child, source, context)?),
+            "yield" => {
+                FunctionExpression::Yield(Box::new(Yield::from_syntax(child, source, context)?))
             }
-            "index" => FunctionExpression::Index(Index::from_syntax_node(source, child, context)?),
-            "yield" => FunctionExpression::Yield(Box::new(Yield::from_syntax_node(
-                source, child, context,
-            )?)),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "identifier, function call, value or index".to_string(),

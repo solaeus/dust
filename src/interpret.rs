@@ -2,9 +2,9 @@
 //!
 //! You can use this library externally by calling either of the "eval"
 //! functions or by constructing your own Evaluator.
-use tree_sitter::{Node, Parser, Tree as TSTree, TreeCursor};
+use tree_sitter::{Parser, Tree as TSTree, TreeCursor};
 
-use crate::{language, AbstractTree, Error, Format, Map, Result, Root, Value};
+use crate::{language, AbstractTree, Error, Format, Map, Result, Root, SyntaxNode, Value};
 
 /// Interpret the given source code.
 ///
@@ -72,7 +72,7 @@ impl Interpreter {
     }
 
     pub fn parse(&mut self, source: &str) -> Result<()> {
-        fn check_for_error(source: &str, node: Node, cursor: &mut TreeCursor) -> Result<()> {
+        fn check_for_error(node: SyntaxNode, source: &str, cursor: &mut TreeCursor) -> Result<()> {
             if node.is_error() {
                 Err(Error::Syntax {
                     source: source[node.byte_range()].to_string(),
@@ -80,7 +80,7 @@ impl Interpreter {
                 })
             } else {
                 for child in node.children(&mut cursor.clone()) {
-                    check_for_error(source, child, cursor)?;
+                    check_for_error(child, source, cursor)?;
                 }
 
                 Ok(())
@@ -93,7 +93,7 @@ impl Interpreter {
             let root = tree.root_node();
             let mut cursor = root.walk();
 
-            check_for_error(source, root, &mut cursor)?;
+            check_for_error(root, source, &mut cursor)?;
         }
 
         self.syntax_tree = syntax_tree;
@@ -105,9 +105,9 @@ impl Interpreter {
         self.parse(source)?;
 
         self.abstract_tree = if let Some(syntax_tree) = &self.syntax_tree {
-            Some(Root::from_syntax_node(
-                source,
+            Some(Root::from_syntax(
                 syntax_tree.root_node(),
+                source,
                 &self.context,
             )?)
         } else {
