@@ -3,13 +3,14 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
-use crate::{AbstractTree, Error, Format, Map, Result, Structure, Value};
+use crate::{AbstractTree, Error, Format, Identifier, Map, Result, Structure, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
     Any,
     Boolean,
     Collection,
+    Custom(Identifier),
     Float,
     Function {
         parameter_types: Vec<Type>,
@@ -62,6 +63,16 @@ impl Type {
             | (Type::Float, Type::Number)
             | (Type::None, Type::None)
             | (Type::String, Type::String) => Ok(()),
+            (Type::Custom(left), Type::Custom(right)) => {
+                if left == right {
+                    Ok(())
+                } else {
+                    Err(Error::TypeCheck {
+                        expected: self.clone(),
+                        actual: other.clone(),
+                    })
+                }
+            }
             (Type::Option(left), Type::Option(right)) => {
                 if left == right {
                     Ok(())
@@ -209,6 +220,8 @@ impl Format for Type {
             Type::Any => output.push_str("any"),
             Type::Boolean => output.push_str("bool"),
             Type::Collection => output.push_str("collection"),
+
+            Type::Custom(_) => todo!(),
             Type::Float => output.push_str("float"),
             Type::Function {
                 parameter_types,
@@ -258,6 +271,7 @@ impl Display for Type {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
             Type::Collection => write!(f, "collection"),
+            Type::Custom(identifier) => write!(f, "{identifier}"),
             Type::Float => write!(f, "float"),
             Type::Function {
                 parameter_types,
