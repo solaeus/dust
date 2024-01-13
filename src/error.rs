@@ -196,6 +196,8 @@ impl Error {
     }
 
     pub fn expect_syntax_node(source: &str, expected: &str, actual: Node) -> Result<()> {
+        log::info!("Converting {} to abstract node", actual.kind());
+
         if expected == actual.kind() {
             Ok(())
         } else if actual.is_error() {

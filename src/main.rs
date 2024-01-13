@@ -46,6 +46,8 @@ pub enum CliCommand {
 }
 
 fn main() {
+    env_logger::init();
+
     let args = Args::parse();
 
     if args.path.is_none() && args.command.is_none() {
@@ -152,7 +154,7 @@ impl ToolHint {
 impl Hinter for DustReadline {
     type Hint = ToolHint;
 
-    fn hint(&self, line: &str, pos: usize, _ctx: &Context<'_>) -> Option<Self::Hint> {
+    fn hint(&self, line: &str, pos: usize, _ctx: &Context) -> Option<Self::Hint> {
         if line.is_empty() || pos < line.len() {
             return None;
         }
@@ -168,7 +170,7 @@ impl Hinter for DustReadline {
 }
 
 impl Highlighter for DustReadline {
-    fn highlight_hint<'h>(&self, hint: &'h str) -> std::borrow::Cow<'h, str> {
+    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
         let highlighted = ansi_term::Colour::Red.paint(hint).to_string();
 
         Cow::Owned(highlighted)
@@ -179,7 +181,6 @@ fn run_cli_shell() {
     let context = Map::new();
     let mut interpreter = Interpreter::new(context);
     let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
-    let mut input = String::new();
 
     rl.set_helper(Some(DustReadline::new()));
 
@@ -191,10 +192,8 @@ fn run_cli_shell() {
         let readline = rl.readline("* ");
         match readline {
             Ok(line) => {
-                let line = line.as_str();
+                let input = line.to_string();
 
-                input.push('\n');
-                input.push_str(line);
                 rl.add_history_entry(line).unwrap();
 
                 let eval_result = interpreter.run(&input);
@@ -202,7 +201,6 @@ fn run_cli_shell() {
                 match eval_result {
                     Ok(value) => println!("{value}"),
                     Err(error) => {
-                        input = input.trim_end_matches(line).to_string();
                         eprintln!("{error}")
                     }
                 }

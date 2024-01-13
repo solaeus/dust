@@ -65,6 +65,8 @@ impl Map {
     }
 
     pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
+        log::info!("Setting variable {key} = {value}");
+
         let value_type = value.r#type();
         let previous = self
             .variables
