@@ -29,10 +29,6 @@ struct Args {
     #[arg(short = 'p', long)]
     input_path: Option<String>,
 
-    /// Show the syntax tree.
-    #[arg(short = 't', long = "tree")]
-    show_syntax_tree: bool,
-
     #[command(subcommand)]
     cli_command: Option<CliCommand>,
 
@@ -42,7 +38,11 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 pub enum CliCommand {
+    /// Output a formatted version of the input.
     Format,
+
+    /// Output a concrete syntax tree of the input.
+    Syntax,
 }
 
 fn main() {
@@ -80,13 +80,21 @@ fn main() {
 
     let mut interpreter = Interpreter::new(context);
 
-    if args.show_syntax_tree {
+    if let Some(CliCommand::Syntax) = args.cli_command {
         interpreter.parse(&source).unwrap();
 
         println!("{}", interpreter.syntax_tree().unwrap());
+
+        return;
     }
 
     let eval_result = interpreter.run(&source);
+
+    if let Some(CliCommand::Format) = args.cli_command {
+        println!("{}", interpreter.format());
+
+        return;
+    }
 
     match eval_result {
         Ok(value) => {
@@ -95,10 +103,6 @@ fn main() {
             }
         }
         Err(error) => eprintln!("{error}"),
-    }
-
-    if let Some(CliCommand::Format) = args.cli_command {
-        println!("{}", interpreter.format());
     }
 }
 
