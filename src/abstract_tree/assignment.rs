@@ -36,18 +36,6 @@ impl AbstractTree for Assignment {
 
         let statement_node = syntax_node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax(statement_node, source, context)?;
-        let statement_type = statement.expected_type(context)?;
-
-        let variable_key = identifier.inner().clone();
-        let variable_type = if let Some(definition) = &type_definition {
-            definition.inner().clone()
-        } else {
-            statement_type
-        };
-
-        if let AssignmentOperator::Equal = operator {
-            context.set_type(variable_key, variable_type)?;
-        }
 
         Ok(Assignment {
             identifier,
@@ -59,21 +47,11 @@ impl AbstractTree for Assignment {
     }
 
     fn check_type(&self, source: &str, context: &Map) -> Result<()> {
-        let variables = context.variables()?;
-        let established_type = variables
-            .get(self.identifier.inner())
-            .map(|(_value, _type)| _type);
         let actual_type = self.statement.expected_type(context)?;
 
         if let Some(type_definition) = &self.type_definition {
             match self.operator {
                 AssignmentOperator::Equal => {
-                    if let Some(r#type) = established_type {
-                        r#type.check(&actual_type).map_err(|error| {
-                            error.at_source_position(source, self.syntax_position)
-                        })?;
-                    }
-
                     type_definition
                         .inner()
                         .check(&actual_type)
@@ -97,13 +75,7 @@ impl AbstractTree for Assignment {
             }
         } else {
             match self.operator {
-                AssignmentOperator::Equal => {
-                    if let Some(r#type) = established_type {
-                        r#type.check(&actual_type).map_err(|error| {
-                            error.at_source_position(source, self.syntax_position)
-                        })?;
-                    }
-                }
+                AssignmentOperator::Equal => {}
                 AssignmentOperator::PlusEqual => {
                     if let Type::List(item_type) = self.identifier.expected_type(context)? {
                         item_type.check(&actual_type).map_err(|error| {

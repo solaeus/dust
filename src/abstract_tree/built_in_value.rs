@@ -1,4 +1,4 @@
-use std::{env::args, sync::OnceLock};
+use std::{collections::BTreeMap, env::args, sync::OnceLock};
 
 use serde::{Deserialize, Serialize};
 
@@ -89,45 +89,37 @@ impl BuiltInValue {
             BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
             BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
             BuiltInValue::Random => RANDOM.get_or_init(|| {
-                let random_context = Map::new();
+                let mut random_context = BTreeMap::new();
 
-                {
-                    let mut variables = random_context.variables_mut().unwrap();
+                for built_in_function in [
+                    BuiltInFunction::RandomBoolean,
+                    BuiltInFunction::RandomFloat,
+                    BuiltInFunction::RandomFrom,
+                    BuiltInFunction::RandomInteger,
+                ] {
+                    let key = built_in_function.name().to_string();
+                    let value = Value::Function(Function::BuiltIn(built_in_function));
+                    let r#type = built_in_function.r#type();
 
-                    for built_in_function in [
-                        BuiltInFunction::RandomBoolean,
-                        BuiltInFunction::RandomFloat,
-                        BuiltInFunction::RandomFrom,
-                        BuiltInFunction::RandomInteger,
-                    ] {
-                        let key = built_in_function.name().to_string();
-                        let value = Value::Function(Function::BuiltIn(built_in_function));
-                        let r#type = built_in_function.r#type();
-
-                        variables.insert(key, (value, r#type));
-                    }
+                    random_context.insert(key, (value, r#type));
                 }
 
-                Value::Map(random_context)
+                Value::Map(Map::with_variables(random_context))
             }),
             BuiltInValue::String => STRING.get_or_init(|| {
-                let string_context = Map::new();
+                let mut string_context = BTreeMap::new();
 
-                {
-                    let mut variables = string_context.variables_mut().unwrap();
+                for string_function in string_functions() {
+                    let key = string_function.name().to_string();
+                    let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
+                        string_function,
+                    )));
+                    let r#type = string_function.r#type();
 
-                    for string_function in string_functions() {
-                        let key = string_function.name().to_string();
-                        let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
-                            string_function,
-                        )));
-                        let r#type = string_function.r#type();
-
-                        variables.insert(key, (value, r#type));
-                    }
+                    string_context.insert(key, (value, r#type));
                 }
 
-                Value::Map(string_context)
+                Value::Map(Map::with_variables(string_context))
             }),
         }
     }

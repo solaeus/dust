@@ -8,7 +8,7 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use crate::{value::Value, Result, Structure, Type};
@@ -32,6 +32,13 @@ impl Map {
         }
     }
 
+    pub fn with_variables(variables: BTreeMap<String, (Value, Type)>) -> Self {
+        Map {
+            variables: Arc::new(RwLock::new(variables)),
+            structure: None,
+        }
+    }
+
     pub fn clone_from(other: &Self) -> Result<Self> {
         let mut new_map = BTreeMap::new();
 
@@ -48,7 +55,8 @@ impl Map {
     pub fn clone_complex_values_from(&self, other: &Self) -> Result<()> {
         for (key, (value, r#type)) in other.variables()?.iter() {
             if value.is_function() {
-                self.variables_mut()?
+                self.variables
+                    .write()?
                     .insert(key.clone(), (value.clone(), r#type.clone()));
             }
         }
@@ -60,10 +68,6 @@ impl Map {
         Ok(self.variables.read()?)
     }
 
-    pub fn variables_mut(&self) -> Result<RwLockWriteGuard<BTreeMap<String, (Value, Type)>>> {
-        Ok(self.variables.write()?)
-    }
-
     pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
         log::info!("Setting variable {key} = {value}");
 
@@ -72,12 +76,6 @@ impl Map {
             .variables
             .write()?
             .insert(key, (value, value_type.clone()));
-
-        Ok(previous)
-    }
-
-    pub fn set_type(&self, key: String, r#type: Type) -> Result<Option<(Value, Type)>> {
-        let previous = self.variables.write()?.insert(key, (Value::none(), r#type));
 
         Ok(previous)
     }
