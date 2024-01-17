@@ -38,10 +38,13 @@ impl AbstractTree for Assignment {
         let statement = Statement::from_syntax(statement_node, source, context)?;
 
         if let AssignmentOperator::Equal = operator {
-            context.set_type(
-                identifier.inner().clone(),
-                statement.expected_type(context)?,
-            )?;
+            let r#type = if let Some(definition) = &type_definition {
+                definition.inner().clone()
+            } else {
+                statement.expected_type(context)?
+            };
+
+            context.set_type(identifier.inner().clone(), r#type)?;
         }
 
         Ok(Assignment {
