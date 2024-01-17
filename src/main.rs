@@ -1,4 +1,5 @@
 //! Command line interface for the dust programming language.
+
 use clap::{Parser, Subcommand};
 use rustyline::{
     completion::FilenameCompleter,
@@ -25,10 +26,11 @@ struct Args {
     #[arg(short, long)]
     input: Option<String>,
 
-    /// A path to file whose contents will be assigned to the "input" variable.
+    /// File whose contents will be assigned to the "input" variable.
     #[arg(short = 'p', long)]
     input_path: Option<String>,
 
+    /// Command for alternate functionality besides running the source.
     #[command(subcommand)]
     cli_command: Option<CliCommand>,
 
