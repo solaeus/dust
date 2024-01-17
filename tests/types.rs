@@ -12,6 +12,8 @@ fn simple_type_check() {
 
 #[test]
 fn argument_count_check() {
+    env_logger::builder().is_test(true).try_init().unwrap();
+
     let source = "
             foo = (x <int>) <int> {
                 x

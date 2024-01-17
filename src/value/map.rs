@@ -80,6 +80,14 @@ impl Map {
         Ok(previous)
     }
 
+    pub fn set_type(&self, key: String, r#type: Type) -> Result<Option<(Value, Type)>> {
+        log::info!("Setting type {key} = {}", r#type);
+
+        let previous = self.variables.write()?.insert(key, (Value::none(), r#type));
+
+        Ok(previous)
+    }
+
     pub fn unset_all(&self) -> Result<()> {
         for (_key, (value, r#_type)) in self.variables.write()?.iter_mut() {
             *value = Value::none();

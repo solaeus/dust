@@ -115,6 +115,10 @@ impl AbstractTree for FunctionNode {
 
         function_context.clone_complex_values_from(context)?;
 
+        for (parameter, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
+            function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
+        }
+
         let body_node = node.child(child_count - 1).unwrap();
         let body = Block::from_syntax(body_node, source, &function_context)?;
 

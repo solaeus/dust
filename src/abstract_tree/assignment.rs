@@ -37,6 +37,13 @@ impl AbstractTree for Assignment {
         let statement_node = syntax_node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax(statement_node, source, context)?;
 
+        if let AssignmentOperator::Equal = operator {
+            context.set_type(
+                identifier.inner().clone(),
+                statement.expected_type(context)?,
+            )?;
+        }
+
         Ok(Assignment {
             identifier,
             type_definition,
@@ -87,7 +94,9 @@ impl AbstractTree for Assignment {
             }
         }
 
-        self.statement.check_type(source, context)?;
+        self.statement
+            .check_type(source, context)
+            .map_err(|error| error.at_source_position(source, self.syntax_position))?;
 
         Ok(())
     }

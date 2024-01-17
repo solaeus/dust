@@ -41,6 +41,8 @@ impl Type {
     }
 
     pub fn check(&self, other: &Type) -> Result<()> {
+        log::info!("Checking type {self} against {other}.");
+
         match (self, other) {
             (Type::Any, _)
             | (_, Type::Any)
