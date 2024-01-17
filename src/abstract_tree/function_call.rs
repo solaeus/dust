@@ -88,13 +88,13 @@ impl AbstractTree for FunctionCall {
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        let (name, value) = match &self.function_expression {
+        let value = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
                 let variables = context.variables()?;
 
                 if let Some((value, _)) = variables.get(key) {
-                    (Some(key.clone()), value.clone())
+                    value.clone()
                 } else {
                     return Err(Error::FunctionIdentifierNotFound(
                         identifier.inner().clone(),
@@ -102,11 +102,11 @@ impl AbstractTree for FunctionCall {
                 }
             }
             FunctionExpression::FunctionCall(function_call) => {
-                (None, function_call.run(source, context)?)
+                function_call.run(source, context)?
             }
-            FunctionExpression::Value(value_node) => (None, value_node.run(source, context)?),
-            FunctionExpression::Index(index) => (None, index.run(source, context)?),
-            FunctionExpression::Yield(r#yield) => (None, r#yield.run(source, context)?),
+            FunctionExpression::Value(value_node) => value_node.run(source, context)?,
+            FunctionExpression::Index(index) => index.run(source, context)?,
+            FunctionExpression::Yield(r#yield) => r#yield.run(source, context)?,
         };
 
         let mut arguments = Vec::with_capacity(self.arguments.len());
@@ -117,7 +117,7 @@ impl AbstractTree for FunctionCall {
             arguments.push(value);
         }
 
-        value.as_function()?.call(name, &arguments, source, context)
+        value.as_function()?.call(&arguments, source, context)
     }
 
     fn expected_type(&self, context: &Map) -> Result<Type> {

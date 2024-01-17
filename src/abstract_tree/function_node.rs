@@ -54,13 +54,7 @@ impl FunctionNode {
         }
     }
 
-    pub fn call(
-        &self,
-        name: Option<String>,
-        arguments: &[Value],
-        source: &str,
-        outer_context: &Map,
-    ) -> Result<Value> {
+    pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
         self.context.clone_complex_values_from(outer_context)?;
 
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
@@ -69,13 +63,6 @@ impl FunctionNode {
             let key = identifier.inner().clone();
 
             self.context.set(key, value.clone())?;
-        }
-
-        if let Some(name) = name {
-            self.context.set(
-                name,
-                Value::Function(Function::ContextDefined(self.clone())),
-            )?;
         }
 
         let return_value = self.body.run(source, &self.context)?;

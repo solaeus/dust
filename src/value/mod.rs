@@ -154,7 +154,7 @@ impl Value {
     }
 
     pub fn is_function(&self) -> bool {
-        matches!(self, Value::Map(_))
+        matches!(self, Value::Function(_))
     }
 
     /// Borrows the value stored in `self` as `&String`, or returns `Err` if `self` is not a `Value::String`.

@@ -298,7 +298,7 @@ impl StringFunction {
 
                 string.retain(|char| {
                     predicate
-                        .call(None, &[Value::string(char)], _source, _outer_context)
+                        .call(&[Value::string(char)], _source, _outer_context)
                         .unwrap()
                         .as_boolean()
                         .unwrap()

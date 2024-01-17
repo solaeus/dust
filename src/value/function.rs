@@ -11,19 +11,13 @@ pub enum Function {
 }
 
 impl Function {
-    pub fn call(
-        &self,
-        name: Option<String>,
-        arguments: &[Value],
-        source: &str,
-        outer_context: &Map,
-    ) -> Result<Value> {
+    pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
         match self {
             Function::BuiltIn(built_in_function) => {
                 built_in_function.call(arguments, source, outer_context)
             }
             Function::ContextDefined(context_defined_function) => {
-                context_defined_function.call(name, arguments, source, outer_context)
+                context_defined_function.call(arguments, source, outer_context)
             }
         }
     }
