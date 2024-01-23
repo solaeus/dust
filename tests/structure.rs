@@ -10,5 +10,9 @@ fn simple_structure() {
 
     btree_map.insert("x".to_string(), (Some(Value::Integer(0)), Type::Integer));
 
-    assert_eq!(Ok(Value::Structure(Structure::new(btree_map))), result);
+    let expected = Ok(Value::TypeDefinition(TypeDefintion::Structure(
+        Structure::new(btree_map),
+    )));
+
+    assert_eq!(expected, result);
 }

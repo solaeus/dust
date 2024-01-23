@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
+    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeDefintion, TypeSpecification,
+    Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -18,7 +19,7 @@ pub enum ValueNode {
     Option(Option<Box<Expression>>),
     Map(BTreeMap<String, (Statement, Option<Type>)>),
     BuiltInValue(BuiltInValue),
-    Structure(BTreeMap<String, (Option<Statement>, Type)>),
+    StructureDefinition(BTreeMap<String, (Option<Statement>, Type)>),
 }
 
 impl AbstractTree for ValueNode {
@@ -159,7 +160,7 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
-                ValueNode::Structure(btree_map)
+                ValueNode::StructureDefinition(btree_map)
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
@@ -229,7 +230,7 @@ impl AbstractTree for ValueNode {
                 Value::Map(map)
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
-            ValueNode::Structure(node_map) => {
+            ValueNode::StructureDefinition(node_map) => {
                 let mut value_map = BTreeMap::new();
 
                 for (key, (statement_option, r#type)) in node_map {
@@ -242,7 +243,7 @@ impl AbstractTree for ValueNode {
                     value_map.insert(key.to_string(), (value_option, r#type.clone()));
                 }
 
-                Value::Structure(Structure::new(value_map))
+                Value::TypeDefinition(TypeDefintion::Structure(Structure::new(value_map)))
             }
         };
 
@@ -286,7 +287,7 @@ impl AbstractTree for ValueNode {
             }
             ValueNode::Map(_) => Type::Map(None),
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
-            ValueNode::Structure(node_map) => {
+            ValueNode::StructureDefinition(node_map) => {
                 let mut value_map = BTreeMap::new();
 
                 for (key, (_statement_option, r#type)) in node_map {
@@ -356,7 +357,7 @@ impl Format for ValueNode {
                 output.push('}');
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.format(output, indent_level),
-            ValueNode::Structure(nodes) => {
+            ValueNode::StructureDefinition(nodes) => {
                 output.push('{');
 
                 for (key, (value_option, r#type)) in nodes {

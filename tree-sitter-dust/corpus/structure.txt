@@ -13,13 +13,14 @@ struct {
   (statement
     (expression
       (value
-        (structure
-          (identifier)
-          (type_specification
-            (type))
-          (identifier)
-          (type_specification
-            (type)))))))
+        (type_definition
+          (structure
+            (identifier)
+            (type_specification
+              (type))
+            (identifier)
+            (type_specification
+              (type))))))))
 
 ================================================================================
 Complex Structure
@@ -44,27 +45,28 @@ Foo = struct {
       (statement
         (expression
           (value
-            (structure
-              (identifier)
-              (type_specification
-                (type))
-              (identifier)
-              (type_specification
-                (type))
-              (statement
-                (expression
-                  (value
-                    (float))))
-              (identifier)
-              (type_specification
-                (type
-                  (identifier)))
-              (statement
-                (expression
-                  (new
-                    (identifier)
-                    (identifier)
-                    (statement
-                      (expression
-                        (value
-                          (integer))))))))))))))
+            (type_definition
+              (structure
+                (identifier)
+                (type_specification
+                  (type))
+                (identifier)
+                (type_specification
+                  (type))
+                (statement
+                  (expression
+                    (value
+                      (float))))
+                (identifier)
+                (type_specification
+                  (type
+                    (identifier)))
+                (statement
+                  (expression
+                    (new
+                      (identifier)
+                      (identifier)
+                      (statement
+                        (expression
+                          (value
+                            (integer)))))))))))))))
