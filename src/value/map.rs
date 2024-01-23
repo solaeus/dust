@@ -32,6 +32,25 @@ impl Map {
         }
     }
 
+    pub fn from_structure(structure: Structure) -> Self {
+        let mut variables = BTreeMap::new();
+
+        for (key, (value_option, r#type)) in structure.inner() {
+            variables.insert(
+                key.clone(),
+                (
+                    value_option.clone().unwrap_or(Value::none()),
+                    r#type.clone(),
+                ),
+            );
+        }
+
+        Map {
+            variables: Arc::new(RwLock::new(variables)),
+            structure: Some(structure),
+        }
+    }
+
     pub fn with_variables(variables: BTreeMap<String, (Value, Type)>) -> Self {
         Map {
             variables: Arc::new(RwLock::new(variables)),
