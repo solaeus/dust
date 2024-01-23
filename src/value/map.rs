@@ -141,8 +141,8 @@ impl Display for Map {
 
         let variables = self.variables.read().unwrap().clone().into_iter();
 
-        for (key, (value, _)) in variables {
-            writeln!(f, "  {key} = {value}")?;
+        for (key, (value, value_type)) in variables {
+            writeln!(f, "    {key} <{value_type}> = {value}")?;
         }
         write!(f, "}}")
     }
