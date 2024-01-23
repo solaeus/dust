@@ -85,10 +85,8 @@ Nested Indexes
               (value
                 (integer)))))
         (index_expression
-          (value
-            (integer)))
-        (expression
-          (value
+          (range
+            (integer)
             (integer)))))))
 
 ================================================================================

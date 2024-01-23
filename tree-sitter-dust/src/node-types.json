@@ -280,10 +280,6 @@
       "required": true,
       "types": [
         {
-          "type": "expression",
-          "named": true
-        },
-        {
           "type": "index_expression",
           "named": true
         }
@@ -331,6 +327,10 @@
         },
         {
           "type": "index",
+          "named": true
+        },
+        {
+          "type": "range",
           "named": true
         },
         {
@@ -478,6 +478,21 @@
       "types": [
         {
           "type": "expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "range",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "integer",
           "named": true
         }
       ]
@@ -655,6 +670,10 @@
         },
         {
           "type": "option",
+          "named": true
+        },
+        {
+          "type": "range",
           "named": true
         },
         {

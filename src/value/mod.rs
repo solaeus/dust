@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, Identifier, List, Map, Type, TypeDefintion, TypeSpecification,
+    Identifier, Type, TypeSpecification,
 };
 
 use serde::{
@@ -18,9 +18,15 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Rem, Sub, SubAssign},
 };
 
+pub use self::{
+    function::Function, list::List, map::Map, range::Range, structure::Structure,
+    type_definition::TypeDefintion,
+};
+
 pub mod function;
 pub mod list;
 pub mod map;
+pub mod range;
 pub mod structure;
 pub mod type_definition;
 
@@ -38,6 +44,7 @@ pub enum Value {
     Float(f64),
     Integer(i64),
     Boolean(bool),
+    Range(Range),
     Option(Option<Box<Value>>),
     TypeDefinition(TypeDefintion),
 }
@@ -54,8 +61,6 @@ impl Value {
     }
 
     pub fn r#type(&self) -> Type {
-        
-
         match self {
             Value::List(list) => {
                 let mut previous_type = None;
@@ -103,6 +108,7 @@ impl Value {
                 }
             }
             Value::TypeDefinition(_) => todo!(),
+            Value::Range(_) => todo!(),
         }
     }
 
@@ -472,6 +478,8 @@ impl Ord for Value {
             (Value::Function(_), _) => Ordering::Greater,
             (Value::TypeDefinition(left), Value::TypeDefinition(right)) => left.cmp(right),
             (Value::TypeDefinition(_), _) => Ordering::Greater,
+            (Value::Range(left), Value::Range(right)) => left.cmp(right),
+            (Value::Range(_), _) => Ordering::Greater,
             (Value::Option(left), Value::Option(right)) => left.cmp(right),
             (Value::Option(_), _) => Ordering::Less,
         }
@@ -502,6 +510,7 @@ impl Serialize for Value {
             Value::Map(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
             Value::TypeDefinition(inner) => inner.serialize(serializer),
+            Value::Range(range) => range.serialize(serializer),
         }
     }
 }
@@ -524,6 +533,7 @@ impl Display for Value {
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
             Value::TypeDefinition(structure) => write!(f, "{structure}"),
+            Value::Range(range) => write!(f, "{range}"),
         }
     }
 }

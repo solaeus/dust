@@ -4,14 +4,7 @@
 //! Using this library is simple and straightforward, see the [inferface] module for instructions on
 //! interpreting Dust code. Most of the language's features are implemented in the [tools] module.
 pub use crate::{
-    abstract_tree::*,
-    built_in_functions::BuiltInFunction,
-    error::*,
-    interpret::*,
-    value::{
-        function::Function, list::List, map::Map, structure::Structure,
-        type_definition::TypeDefintion, Value,
-    },
+    abstract_tree::*, built_in_functions::BuiltInFunction, error::*, interpret::*, value::*,
 };
 
 pub use tree_sitter::Node as SyntaxNode;

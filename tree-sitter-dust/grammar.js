@@ -86,6 +86,14 @@ module.exports = grammar({
         $.option,
         $.built_in_value,
         $.structure,
+        $.range,
+      ),
+
+    range: $ =>
+      seq(
+        $.integer,
+        token.immediate('..'),
+        $.integer,
       ),
 
     structure: $ =>
@@ -253,9 +261,6 @@ module.exports = grammar({
           $.index_expression,
           ':',
           $.index_expression,
-          optional(
-            seq('..', $.expression),
-          ),
         ),
       ),
 
@@ -271,6 +276,7 @@ module.exports = grammar({
           $.identifier,
           $.index,
           $.value,
+          $.range,
         ),
       ),
 

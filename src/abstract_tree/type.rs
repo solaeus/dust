@@ -21,6 +21,7 @@ pub enum Type {
     None,
     Number,
     String,
+    Range,
     Option(Box<Type>),
 }
 
@@ -266,6 +267,7 @@ impl Format for Type {
                 optional_type.format(output, indent_level);
                 output.push(')');
             }
+            Type::Range => todo!(),
         }
     }
 }
@@ -304,6 +306,7 @@ impl Display for Type {
             Type::Option(inner_type) => {
                 write!(f, "option({})", inner_type)
             }
+            Type::Range => todo!(),
         }
     }
 }
