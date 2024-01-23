@@ -137,6 +137,10 @@ impl Type {
             }),
         }
     }
+
+    pub fn is_function(&self) -> bool {
+        matches!(self, Type::Function { .. })
+    }
 }
 
 impl AbstractTree for Type {

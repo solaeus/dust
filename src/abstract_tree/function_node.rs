@@ -55,7 +55,17 @@ impl FunctionNode {
     }
 
     pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
-        self.context.clone_complex_values_from(outer_context)?;
+        for (key, (value, r#type)) in outer_context.variables()?.iter() {
+            if let Value::Function(Function::ContextDefined(function_node)) = value {
+                if self == function_node {
+                    continue;
+                }
+            }
+
+            if r#type.is_function() {
+                self.context.set(key.clone(), value.clone())?;
+            }
+        }
 
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
@@ -72,7 +82,7 @@ impl FunctionNode {
 }
 
 impl AbstractTree for FunctionNode {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, outer_context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
@@ -83,24 +93,28 @@ impl AbstractTree for FunctionNode {
             let child = node.child(index).unwrap();
 
             if child.kind() == "identifier" {
-                let identifier = Identifier::from_syntax(child, source, context)?;
+                let identifier = Identifier::from_syntax(child, source, outer_context)?;
 
                 parameters.push(identifier);
             }
 
             if child.kind() == "type_definition" {
-                let type_definition = TypeDefinition::from_syntax(child, source, context)?;
+                let type_definition = TypeDefinition::from_syntax(child, source, outer_context)?;
 
                 parameter_types.push(type_definition.take_inner());
             }
         }
 
         let return_type_node = node.child(child_count - 2).unwrap();
-        let return_type = TypeDefinition::from_syntax(return_type_node, source, context)?;
+        let return_type = TypeDefinition::from_syntax(return_type_node, source, outer_context)?;
 
         let function_context = Map::new();
 
-        function_context.clone_complex_values_from(context)?;
+        for (key, (_value, r#type)) in outer_context.variables()?.iter() {
+            if r#type.is_function() {
+                function_context.set_type(key.clone(), r#type.clone())?;
+            }
+        }
 
         for (parameter, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
             function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
@@ -121,8 +135,7 @@ impl AbstractTree for FunctionNode {
         })
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
-        self.context.clone_complex_values_from(context)?;
+    fn check_type(&self, source: &str, _context: &Map) -> Result<()> {
         self.return_type()
             .check(&self.body.expected_type(&self.context)?)
             .map_err(|error| error.at_source_position(source, self.syntax_position))?;
