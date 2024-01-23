@@ -157,10 +157,10 @@ pub enum Error {
         actual: Value,
     },
 
-    /// A `VariableIdentifier` operation did not find its value in the context.
+    /// Failed to find a variable with a value for this key.
     VariableIdentifierNotFound(String),
 
-    /// A `FunctionIdentifier` operation did not find its value in the context.
+    /// Failed to find a variable with a function value for this key.
     FunctionIdentifierNotFound(String),
 
     /// The function failed due to an external error.

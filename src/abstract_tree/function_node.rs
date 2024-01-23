@@ -112,6 +112,8 @@ impl AbstractTree for FunctionNode {
         let r#type = Type::function(parameter_types, return_type.take_inner());
         let syntax_position = node.range().into();
 
+        println!("{context}");
+
         Ok(FunctionNode {
             parameters,
             body,

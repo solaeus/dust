@@ -40,7 +40,7 @@ impl AbstractTree for FunctionExpression {
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "identifier, function call, value or index".to_string(),
+                    expected: "identifier, function call, value, index or yield".to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
