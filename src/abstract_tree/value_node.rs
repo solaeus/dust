@@ -19,7 +19,7 @@ pub enum ValueNode {
     Option(Option<Box<Expression>>),
     Map(BTreeMap<String, (Statement, Option<Type>)>),
     BuiltInValue(BuiltInValue),
-    StructureDefinition(BTreeMap<String, (Option<Statement>, Type)>),
+    Structure(BTreeMap<String, (Option<Statement>, Type)>),
 }
 
 impl AbstractTree for ValueNode {
@@ -160,7 +160,7 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
-                ValueNode::StructureDefinition(btree_map)
+                ValueNode::Structure(btree_map)
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
@@ -230,7 +230,7 @@ impl AbstractTree for ValueNode {
                 Value::Map(map)
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
-            ValueNode::StructureDefinition(node_map) => {
+            ValueNode::Structure(node_map) => {
                 let mut value_map = BTreeMap::new();
 
                 for (key, (statement_option, r#type)) in node_map {
@@ -287,7 +287,7 @@ impl AbstractTree for ValueNode {
             }
             ValueNode::Map(_) => Type::Map(None),
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
-            ValueNode::StructureDefinition(node_map) => {
+            ValueNode::Structure(node_map) => {
                 let mut value_map = BTreeMap::new();
 
                 for (key, (_statement_option, r#type)) in node_map {
@@ -357,7 +357,7 @@ impl Format for ValueNode {
                 output.push('}');
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.format(output, indent_level),
-            ValueNode::StructureDefinition(nodes) => {
+            ValueNode::Structure(nodes) => {
                 output.push('{');
 
                 for (key, (value_option, r#type)) in nodes {

@@ -251,15 +251,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "type_definition"
-        }
-      ]
-    },
-    "type_definition": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "SYMBOL",
           "name": "structure"
         }
       ]

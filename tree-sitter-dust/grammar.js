@@ -85,11 +85,6 @@ module.exports = grammar({
         $.map,
         $.option,
         $.built_in_value,
-        $.type_definition,
-      ),
-
-    type_definition: $ =>
-      choice(
         $.structure,
       ),
 

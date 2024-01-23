@@ -603,21 +603,6 @@
     }
   },
   {
-    "type": "type_definition",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": true,
-      "types": [
-        {
-          "type": "structure",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "type_specification",
     "named": true,
     "fields": {},
@@ -677,7 +662,7 @@
           "named": true
         },
         {
-          "type": "type_definition",
+          "type": "structure",
           "named": true
         }
       ]
