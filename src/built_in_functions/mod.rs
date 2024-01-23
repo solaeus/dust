@@ -62,7 +62,7 @@ impl BuiltInFunction {
             BuiltInFunction::AssertEqual => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let left = arguments.get(0).unwrap();
+                let left = arguments.first().unwrap();
                 let right = arguments.get(1).unwrap();
 
                 Ok(Value::Boolean(left == right))
@@ -79,7 +79,7 @@ impl BuiltInFunction {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
-                let value = serde_json::from_str(&string)?;
+                let value = serde_json::from_str(string)?;
 
                 Ok(value)
             }

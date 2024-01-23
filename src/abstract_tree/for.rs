@@ -92,7 +92,7 @@ impl Format for For {
         self.item_id.format(output, indent_level);
         output.push_str(" in ");
         self.collection.format(output, indent_level);
-        output.push_str(" ");
+        output.push(' ');
         self.block.format(output, indent_level);
     }
 }

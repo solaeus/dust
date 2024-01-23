@@ -16,7 +16,7 @@ impl AbstractTree for New {
         let identifier_node = node.child(1).unwrap();
         let identifier = Identifier::from_syntax(identifier_node, source, context)?;
 
-        let mut properties = Vec::new();
+        let properties = Vec::new();
 
         Ok(New {
             identifier,
@@ -24,17 +24,17 @@ impl AbstractTree for New {
         })
     }
 
-    fn run(&self, source: &str, context: &crate::Map) -> crate::Result<Value> {
+    fn run(&self, _source: &str, _context: &crate::Map) -> crate::Result<Value> {
         todo!()
     }
 
-    fn expected_type(&self, context: &crate::Map) -> crate::Result<Type> {
+    fn expected_type(&self, _context: &crate::Map) -> crate::Result<Type> {
         todo!()
     }
 }
 
 impl Format for New {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, _output: &mut String, _indent_level: u8) {
         todo!()
     }
 }
