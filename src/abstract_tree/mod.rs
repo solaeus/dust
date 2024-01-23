@@ -72,6 +72,9 @@ pub struct Root {
     statements: Vec<Statement>,
 }
 
+// TODO Change Root to use tree sitter's cursor to traverse the statements
+// instead of indexes. This will be more performant when there are a lot of
+// top-level statements in the tree.
 impl AbstractTree for Root {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "root", node)?;
