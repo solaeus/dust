@@ -1,7 +1,7 @@
 //! Types that represent runtime values.
 use crate::{
     error::{Error, Result},
-    Function, Identifier, List, Map, Structure, Type, TypeDefinition,
+    Function, Identifier, List, Map, Structure, Type, TypeSpecification,
 };
 
 use serde::{
@@ -81,7 +81,7 @@ impl Value {
                 for (key, (value, _)) in map.variables().unwrap().iter() {
                     identifier_types.push((
                         Identifier::new(key.clone()),
-                        TypeDefinition::new(value.r#type()),
+                        TypeSpecification::new(value.r#type()),
                     ));
                 }
 

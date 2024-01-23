@@ -34,14 +34,14 @@ Map with Types
       (value
         (map
           (identifier)
-          (type_definition
+          (type_specification
             (type))
           (statement
             (expression
               (value
                 (integer))))
           (identifier)
-          (type_definition
+          (type_specification
             (type
               (type)))
           (statement

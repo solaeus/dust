@@ -29,7 +29,7 @@
 
 [
       (type)
-      (type_definition)
+      (type_specification)
 ] @type
 
 (assignment_operator) @operator.assignment

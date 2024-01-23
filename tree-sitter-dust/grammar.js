@@ -96,7 +96,7 @@ module.exports = grammar({
           choice(
             seq(
               $.identifier,
-              $.type_definition,
+              $.type_specification,
             ),
             seq(
               $.identifier,
@@ -105,7 +105,7 @@ module.exports = grammar({
             ),
             seq(
               $.identifier,
-              $.type_definition,
+              $.type_specification,
               '=',
               $.statement,
             ),
@@ -128,7 +128,7 @@ module.exports = grammar({
             ),
             seq(
               $.identifier,
-              $.type_definition,
+              $.type_specification,
               '=',
               $.statement,
             ),
@@ -224,7 +224,7 @@ module.exports = grammar({
         repeat1(
           seq(
             $.identifier,
-            optional($.type_definition),
+            optional($.type_specification),
             '=',
             $.statement,
             optional(','),
@@ -310,7 +310,7 @@ module.exports = grammar({
     assignment: $ =>
       seq(
         $.identifier,
-        optional($.type_definition),
+        optional($.type_specification),
         $.assignment_operator,
         $.statement,
       ),
@@ -387,7 +387,7 @@ module.exports = grammar({
         seq('return', $.statement),
       ),
 
-    type_definition: $ =>
+    type_specification: $ =>
       seq('<', $.type, '>'),
 
     type: $ =>
@@ -430,12 +430,12 @@ module.exports = grammar({
         repeat(
           seq(
             $.identifier,
-            $.type_definition,
+            $.type_specification,
             optional(','),
           ),
         ),
         ')',
-        $.type_definition,
+        $.type_specification,
         $.block,
       ),
 

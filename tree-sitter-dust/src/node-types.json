@@ -20,7 +20,7 @@
           "named": true
         },
         {
-          "type": "type_definition",
+          "type": "type_specification",
           "named": true
         }
       ]
@@ -173,7 +173,7 @@
           "named": true
         },
         {
-          "type": "type_definition",
+          "type": "type_specification",
           "named": true
         }
       ]
@@ -396,7 +396,7 @@
           "named": true
         },
         {
-          "type": "type_definition",
+          "type": "type_specification",
           "named": true
         }
       ]
@@ -462,7 +462,7 @@
           "named": true
         },
         {
-          "type": "type_definition",
+          "type": "type_specification",
           "named": true
         }
       ]
@@ -577,7 +577,7 @@
           "named": true
         },
         {
-          "type": "type_definition",
+          "type": "type_specification",
           "named": true
         }
       ]
@@ -603,7 +603,7 @@
     }
   },
   {
-    "type": "type_definition",
+    "type": "type_specification",
     "named": true,
     "fields": {},
     "children": {

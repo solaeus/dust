@@ -2,13 +2,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AbstractTree, AssignmentOperator, Error, Format, Identifier, Map, Result, Statement,
-    SyntaxNode, SyntaxPosition, Type, TypeDefinition, Value,
+    SyntaxNode, SyntaxPosition, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    type_definition: Option<TypeDefinition>,
+    type_specification: Option<TypeSpecification>,
     operator: AssignmentOperator,
     statement: Statement,
 
@@ -25,8 +25,8 @@ impl AbstractTree for Assignment {
         let identifier = Identifier::from_syntax(identifier_node, source, context)?;
 
         let type_node = syntax_node.child(1).unwrap();
-        let type_definition = if type_node.kind() == "type_definition" {
-            Some(TypeDefinition::from_syntax(type_node, source, context)?)
+        let type_specification = if type_node.kind() == "type_specification" {
+            Some(TypeSpecification::from_syntax(type_node, source, context)?)
         } else {
             None
         };
@@ -38,7 +38,7 @@ impl AbstractTree for Assignment {
         let statement = Statement::from_syntax(statement_node, source, context)?;
 
         if let AssignmentOperator::Equal = operator {
-            let r#type = if let Some(definition) = &type_definition {
+            let r#type = if let Some(definition) = &type_specification {
                 definition.inner().clone()
             } else {
                 statement.expected_type(context)?
@@ -49,7 +49,7 @@ impl AbstractTree for Assignment {
 
         Ok(Assignment {
             identifier,
-            type_definition,
+            type_specification,
             operator,
             statement,
             syntax_position: syntax_node.range().into(),
@@ -59,21 +59,21 @@ impl AbstractTree for Assignment {
     fn check_type(&self, source: &str, context: &Map) -> Result<()> {
         let actual_type = self.statement.expected_type(context)?;
 
-        if let Some(type_definition) = &self.type_definition {
+        if let Some(type_specification) = &self.type_specification {
             match self.operator {
                 AssignmentOperator::Equal => {
-                    type_definition
+                    type_specification
                         .inner()
                         .check(&actual_type)
                         .map_err(|error| error.at_source_position(source, self.syntax_position))?;
                 }
                 AssignmentOperator::PlusEqual => {
-                    if let Type::List(item_type) = type_definition.inner() {
+                    if let Type::List(item_type) = type_specification.inner() {
                         item_type.check(&actual_type).map_err(|error| {
                             error.at_source_position(source, self.syntax_position)
                         })?;
                     } else {
-                        type_definition
+                        type_specification
                             .inner()
                             .check(&self.identifier.expected_type(context)?)
                             .map_err(|error| {
@@ -142,8 +142,8 @@ impl Format for Assignment {
     fn format(&self, output: &mut String, indent_level: u8) {
         self.identifier.format(output, indent_level);
 
-        if let Some(type_definition) = &self.type_definition {
-            type_definition.format(output, indent_level);
+        if let Some(type_specification) = &self.type_specification {
+            type_specification.format(output, indent_level);
         }
 
         output.push(' ');

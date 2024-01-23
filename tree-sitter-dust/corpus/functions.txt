@@ -11,7 +11,7 @@ Anonymous Function
     (expression
       (value
         (function
-          (type_definition
+          (type_specification
             (type))
           (block
             (statement
@@ -39,12 +39,12 @@ foobar = (x <int>, y <int>) <int> {
           (value
             (function
               (identifier)
-              (type_definition
+              (type_specification
                 (type))
               (identifier)
-              (type_definition
+              (type_specification
                 (type))
-              (type_definition
+              (type_specification
                 (type))
               (block
                 (statement
@@ -132,9 +132,9 @@ Anonymous Function Call
           (value
             (function
               (identifier)
-              (type_definition
+              (type_specification
                 (type))
-              (type_definition
+              (type_specification
                 (type))
               (block
                 (statement
@@ -202,7 +202,7 @@ x(() <bool> { true })
         (expression
           (value
             (function
-              (type_definition
+              (type_specification
                 (type))
               (block
                 (statement

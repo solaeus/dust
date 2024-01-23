@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AbstractTree, Block, Error, Format, Function, Identifier, Map, Result, SyntaxNode,
-    SyntaxPosition, Type, TypeDefinition, Value,
+    SyntaxPosition, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -98,15 +98,16 @@ impl AbstractTree for FunctionNode {
                 parameters.push(identifier);
             }
 
-            if child.kind() == "type_definition" {
-                let type_definition = TypeDefinition::from_syntax(child, source, outer_context)?;
+            if child.kind() == "type_specification" {
+                let type_specification =
+                    TypeSpecification::from_syntax(child, source, outer_context)?;
 
-                parameter_types.push(type_definition.take_inner());
+                parameter_types.push(type_specification.take_inner());
             }
         }
 
         let return_type_node = node.child(child_count - 2).unwrap();
-        let return_type = TypeDefinition::from_syntax(return_type_node, source, outer_context)?;
+        let return_type = TypeSpecification::from_syntax(return_type_node, source, outer_context)?;
 
         let function_context = Map::new();
 

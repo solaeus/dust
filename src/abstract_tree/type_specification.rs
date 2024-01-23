@@ -3,11 +3,11 @@ use serde::{Deserialize, Serialize};
 use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub struct TypeDefinition {
+pub struct TypeSpecification {
     r#type: Type,
 }
 
-impl TypeDefinition {
+impl TypeSpecification {
     pub fn new(r#type: Type) -> Self {
         Self { r#type }
     }
@@ -21,14 +21,14 @@ impl TypeDefinition {
     }
 }
 
-impl AbstractTree for TypeDefinition {
+impl AbstractTree for TypeSpecification {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
-        Error::expect_syntax_node(source, "type_definition", node)?;
+        Error::expect_syntax_node(source, "type_specification", node)?;
 
         let type_node = node.child(1).unwrap();
         let r#type = Type::from_syntax(type_node, source, context)?;
 
-        Ok(TypeDefinition { r#type })
+        Ok(TypeSpecification { r#type })
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
@@ -40,7 +40,7 @@ impl AbstractTree for TypeDefinition {
     }
 }
 
-impl Format for TypeDefinition {
+impl Format for TypeSpecification {
     fn format(&self, output: &mut String, indent_level: u8) {
         output.push('<');
         self.r#type.format(output, indent_level);

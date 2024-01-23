@@ -27,7 +27,7 @@ pub mod math;
 pub mod math_operator;
 pub mod statement;
 pub mod r#type;
-pub mod type_definition;
+pub mod type_specification;
 pub mod value_node;
 pub mod r#while;
 pub mod r#yield;
@@ -37,7 +37,7 @@ pub use {
     function_call::*, function_expression::*, function_node::*, identifier::*, if_else::*,
     index::*, index_assignment::IndexAssignment, index_expression::*, logic::*, logic_operator::*,
     math::*, math_operator::*, r#for::*, r#match::*, r#type::*, r#while::*, r#yield::*,
-    statement::*, type_definition::*, value_node::*,
+    statement::*, type_specification::*, value_node::*,
 };
 
 use serde::{Deserialize, Serialize};

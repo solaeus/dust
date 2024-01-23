@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeDefinition, Value,
+    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -67,16 +67,17 @@ impl AbstractTree for ValueNode {
                         current_type = None;
                     }
 
-                    if child.kind() == "type_definition" {
-                        current_type =
-                            Some(TypeDefinition::from_syntax(child, source, context)?.take_inner());
+                    if child.kind() == "type_specification" {
+                        current_type = Some(
+                            TypeSpecification::from_syntax(child, source, context)?.take_inner(),
+                        );
                     }
 
                     if child.kind() == "statement" {
                         let statement = Statement::from_syntax(child, source, context)?;
 
-                        if let Some(type_definition) = &current_type {
-                            type_definition.check(&statement.expected_type(context)?)?;
+                        if let Some(type_specification) = &current_type {
+                            type_specification.check(&statement.expected_type(context)?)?;
                         }
 
                         child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
@@ -130,9 +131,9 @@ impl AbstractTree for ValueNode {
                             Some(Identifier::from_syntax(child_syntax_node, source, context)?);
                     }
 
-                    if child_syntax_node.kind() == "type_definition" {
+                    if child_syntax_node.kind() == "type_specification" {
                         current_type = Some(
-                            TypeDefinition::from_syntax(child_syntax_node, source, context)?
+                            TypeSpecification::from_syntax(child_syntax_node, source, context)?
                                 .take_inner(),
                         );
                     }
