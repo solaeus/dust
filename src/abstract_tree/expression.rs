@@ -23,7 +23,7 @@ pub enum Expression {
 }
 
 impl AbstractTree for Expression {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self> {
         Error::expect_syntax_node(source, "expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
@@ -33,18 +33,18 @@ impl AbstractTree for Expression {
         };
 
         let expression = match child.kind() {
-            "value" => Expression::Value(ValueNode::from_syntax(child, source, context)?),
+            "value" => Expression::Value(ValueNode::from_syntax(child, source, _context)?),
             "identifier" => {
-                Expression::Identifier(Identifier::from_syntax(child, source, context)?)
+                Expression::Identifier(Identifier::from_syntax(child, source, _context)?)
             }
-            "index" => Expression::Index(Box::new(Index::from_syntax(child, source, context)?)),
-            "math" => Expression::Math(Box::new(Math::from_syntax(child, source, context)?)),
-            "logic" => Expression::Logic(Box::new(Logic::from_syntax(child, source, context)?)),
+            "index" => Expression::Index(Box::new(Index::from_syntax(child, source, _context)?)),
+            "math" => Expression::Math(Box::new(Math::from_syntax(child, source, _context)?)),
+            "logic" => Expression::Logic(Box::new(Logic::from_syntax(child, source, _context)?)),
             "function_call" => Expression::FunctionCall(Box::new(FunctionCall::from_syntax(
-                child, source, context,
+                child, source, _context,
             )?)),
-            "yield" => Expression::Yield(Box::new(Yield::from_syntax(child, source, context)?)),
-            "new" => Expression::New(New::from_syntax(child, source, context)?),
+            "yield" => Expression::Yield(Box::new(Yield::from_syntax(child, source, _context)?)),
+            "new" => Expression::New(New::from_syntax(child, source, _context)?),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected: "value, identifier, index, math, logic, function call, new or ->"
@@ -68,48 +68,48 @@ impl AbstractTree for Expression {
             Expression::FunctionCall(function_call) => function_call.check_type(_source, _context),
             Expression::Index(index) => index.check_type(_source, _context),
             Expression::Yield(r#yield) => r#yield.check_type(_source, _context),
-            Expression::New(_) => todo!(),
+            Expression::New(new) => new.check_type(_source, _context),
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
         match self {
-            Expression::Value(value_node) => value_node.run(source, context),
-            Expression::Identifier(identifier) => identifier.run(source, context),
-            Expression::Math(math) => math.run(source, context),
-            Expression::Logic(logic) => logic.run(source, context),
-            Expression::FunctionCall(function_call) => function_call.run(source, context),
-            Expression::Index(index) => index.run(source, context),
-            Expression::Yield(r#yield) => r#yield.run(source, context),
-            Expression::New(_) => todo!(),
+            Expression::Value(value_node) => value_node.run(_source, _context),
+            Expression::Identifier(identifier) => identifier.run(_source, _context),
+            Expression::Math(math) => math.run(_source, _context),
+            Expression::Logic(logic) => logic.run(_source, _context),
+            Expression::FunctionCall(function_call) => function_call.run(_source, _context),
+            Expression::Index(index) => index.run(_source, _context),
+            Expression::Yield(r#yield) => r#yield.run(_source, _context),
+            Expression::New(new) => new.run(_source, _context),
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
         match self {
-            Expression::Value(value_node) => value_node.expected_type(context),
-            Expression::Identifier(identifier) => identifier.expected_type(context),
-            Expression::Math(math) => math.expected_type(context),
-            Expression::Logic(logic) => logic.expected_type(context),
-            Expression::FunctionCall(function_call) => function_call.expected_type(context),
-            Expression::Index(index) => index.expected_type(context),
-            Expression::Yield(r#yield) => r#yield.expected_type(context),
-            Expression::New(_) => todo!(),
+            Expression::Value(value_node) => value_node.expected_type(_context),
+            Expression::Identifier(identifier) => identifier.expected_type(_context),
+            Expression::Math(math) => math.expected_type(_context),
+            Expression::Logic(logic) => logic.expected_type(_context),
+            Expression::FunctionCall(function_call) => function_call.expected_type(_context),
+            Expression::Index(index) => index.expected_type(_context),
+            Expression::Yield(r#yield) => r#yield.expected_type(_context),
+            Expression::New(new) => new.expected_type(_context),
         }
     }
 }
 
 impl Format for Expression {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, _output: &mut String, _indent_level: u8) {
         match self {
-            Expression::Value(value_node) => value_node.format(output, indent_level),
-            Expression::Identifier(identifier) => identifier.format(output, indent_level),
-            Expression::Math(math) => math.format(output, indent_level),
-            Expression::Logic(logic) => logic.format(output, indent_level),
-            Expression::FunctionCall(function_call) => function_call.format(output, indent_level),
-            Expression::Index(index) => index.format(output, indent_level),
-            Expression::Yield(r#yield) => r#yield.format(output, indent_level),
-            Expression::New(_) => todo!(),
+            Expression::Value(value_node) => value_node.format(_output, _indent_level),
+            Expression::Identifier(identifier) => identifier.format(_output, _indent_level),
+            Expression::Math(math) => math.format(_output, _indent_level),
+            Expression::Logic(logic) => logic.format(_output, _indent_level),
+            Expression::FunctionCall(function_call) => function_call.format(_output, _indent_level),
+            Expression::Index(index) => index.format(_output, _indent_level),
+            Expression::Yield(r#yield) => r#yield.format(_output, _indent_level),
+            Expression::New(new) => new.format(_output, _indent_level),
         }
     }
 }

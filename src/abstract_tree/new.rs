@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node;
 
-use crate::{AbstractTree, Format, Identifier, Type, TypeSpecification, Value, ValueNode};
+use crate::{
+    AbstractTree, Format, Identifier, Map, Result, Type, TypeSpecification, Value, ValueNode,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct New {
@@ -9,12 +12,16 @@ pub struct New {
 }
 
 impl AbstractTree for New {
-    fn from_syntax(
-        node: tree_sitter::Node,
-        source: &str,
-        context: &crate::Map,
-    ) -> crate::Result<Self> {
-        todo!()
+    fn from_syntax(node: Node, source: &str, context: &Map) -> Result<Self> {
+        let identifier_node = node.child(1).unwrap();
+        let identifier = Identifier::from_syntax(identifier_node, source, context)?;
+
+        let mut properties = Vec::new();
+
+        Ok(New {
+            identifier,
+            properties,
+        })
     }
 
     fn run(&self, source: &str, context: &crate::Map) -> crate::Result<Value> {

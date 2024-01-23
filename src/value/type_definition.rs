@@ -11,6 +11,8 @@ pub enum TypeDefintion {
 
 impl Display for TypeDefintion {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{self}")
+        match self {
+            TypeDefintion::Structure(structure) => write!(f, "{structure}"),
+        }
     }
 }
