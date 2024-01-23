@@ -18,7 +18,7 @@ fn argument_count_check() {
             }
             foo()
             ";
-    let result = interpret(&source);
+    let result = interpret(source);
 
     assert_eq!(
         "Expected 1 arguments, but got 0. Occured at (5, 12) to (5, 17). Source: foo()",

@@ -224,7 +224,9 @@ module.exports = grammar({
         repeat1(
           seq(
             $.identifier,
-            optional($.type_specification),
+            optional(
+              $.type_specification,
+            ),
             '=',
             $.statement,
             optional(','),

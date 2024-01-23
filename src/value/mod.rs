@@ -54,7 +54,9 @@ impl Value {
     }
 
     pub fn r#type(&self) -> Type {
-        let r#type = match self {
+        
+
+        match self {
             Value::List(list) => {
                 let mut previous_type = None;
 
@@ -101,9 +103,7 @@ impl Value {
                 }
             }
             Value::TypeDefinition(_) => todo!(),
-        };
-
-        r#type
+        }
     }
 
     pub fn none() -> Self {
@@ -115,7 +115,7 @@ impl Value {
     }
 
     pub fn option(option: Option<Value>) -> Self {
-        Value::Option(option.map(|value| Box::new(value)))
+        Value::Option(option.map(Box::new))
     }
 
     pub fn is_string(&self) -> bool {

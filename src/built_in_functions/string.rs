@@ -179,7 +179,7 @@ impl StringFunction {
             StringFunction::EndsWith => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
 
@@ -188,7 +188,7 @@ impl StringFunction {
             StringFunction::Find => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
                 let find = string
@@ -214,11 +214,11 @@ impl StringFunction {
             StringFunction::Insert => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string()?.clone();
+                let mut string = arguments.first().unwrap().as_string()?.clone();
                 let index = arguments.get(1).unwrap().as_integer()? as usize;
                 let insertion = arguments.get(2).unwrap().as_string()?;
 
-                string.insert_str(index, &insertion);
+                string.insert_str(index, insertion);
 
                 Value::String(string)
             }
@@ -236,7 +236,7 @@ impl StringFunction {
             StringFunction::Matches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
                 let matches = string
@@ -262,11 +262,11 @@ impl StringFunction {
             StringFunction::Remove => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let index = arguments.get(1).unwrap().as_integer()? as usize;
                 let chars = string.chars().collect::<Vec<char>>();
 
-                if index <= chars.len() - 1 {
+                if index < chars.len() {
                     let new_string = chars
                         .iter()
                         .map(|char| char.to_string())
@@ -280,20 +280,20 @@ impl StringFunction {
             StringFunction::ReplaceRange => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string()?.clone();
+                let mut string = arguments.first().unwrap().as_string()?.clone();
                 let range = arguments.get(1).unwrap().as_list()?.items();
-                let start = range.get(0).unwrap_or_default().as_integer()? as usize;
+                let start = range.first().unwrap_or_default().as_integer()? as usize;
                 let end = range.get(1).unwrap_or_default().as_integer()? as usize;
                 let pattern = arguments.get(2).unwrap().as_string()?;
 
-                string.replace_range(start..end, &pattern);
+                string.replace_range(start..end, pattern);
 
                 Value::String(string)
             }
             StringFunction::Retain => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let mut string = arguments.get(0).unwrap().as_string()?.clone();
+                let mut string = arguments.first().unwrap().as_string()?.clone();
                 let predicate = arguments.get(1).unwrap().as_function()?;
 
                 string.retain(|char| {
@@ -309,7 +309,7 @@ impl StringFunction {
             StringFunction::Split => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
                 let sections = string
@@ -322,7 +322,7 @@ impl StringFunction {
             StringFunction::SplitAt => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let index = arguments.get(1).unwrap().as_integer()?;
                 let (left, right) = string.split_at(index as usize);
 
@@ -334,7 +334,7 @@ impl StringFunction {
             StringFunction::SplitInclusive => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
                 let sections = string
@@ -347,7 +347,7 @@ impl StringFunction {
             StringFunction::SplitN => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let count = arguments.get(1).unwrap().as_integer()?;
                 let pattern_string = arguments.get(2).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
@@ -361,7 +361,7 @@ impl StringFunction {
             StringFunction::SplitOnce => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
                 let sections = string.split_once(pattern).map(|(left, right)| {
@@ -376,7 +376,7 @@ impl StringFunction {
             StringFunction::SplitTerminator => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
                 let sections = string
@@ -389,7 +389,7 @@ impl StringFunction {
             StringFunction::SplitWhitespace => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let sections = string
                     .split_whitespace()
                     .map(|section| Value::string(section.to_string()))
@@ -400,7 +400,7 @@ impl StringFunction {
             StringFunction::StartsWith => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
 
@@ -409,7 +409,7 @@ impl StringFunction {
             StringFunction::StripPrefix => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let prefix_string = arguments.get(1).unwrap().as_string()?;
                 let prefix = prefix_string.as_str();
                 let stripped = string
@@ -421,7 +421,7 @@ impl StringFunction {
             StringFunction::ToLowercase => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let lowercase = string.to_lowercase();
 
                 Value::string(lowercase)
@@ -429,7 +429,7 @@ impl StringFunction {
             StringFunction::ToUppercase => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let uppercase = string.to_uppercase();
 
                 Value::string(uppercase)
@@ -456,7 +456,7 @@ impl StringFunction {
             StringFunction::TrimEndMatches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
                 let pattern = pattern_string.as_str();
                 let trimmed = string.trim_end_matches(pattern).to_string();
@@ -466,7 +466,7 @@ impl StringFunction {
             StringFunction::TrimMatches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern = arguments
                     .get(1)
                     .unwrap()
@@ -492,7 +492,7 @@ impl StringFunction {
             StringFunction::TrimStartMatches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let string = arguments.get(0).unwrap().as_string()?;
+                let string = arguments.first().unwrap().as_string()?;
                 let pattern = arguments
                     .get(1)
                     .unwrap()
@@ -506,7 +506,7 @@ impl StringFunction {
             StringFunction::Truncate => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let input_string = arguments.get(0).unwrap().as_string()?;
+                let input_string = arguments.first().unwrap().as_string()?;
                 let new_length = arguments.get(1).unwrap().as_integer()? as usize;
 
                 let new_string = input_string
