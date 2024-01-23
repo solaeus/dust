@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     value_node::ValueNode, AbstractTree, Error, Format, FunctionCall, Identifier, Index, Logic,
-    Map, Math, Result, SyntaxNode, Type, Value, Yield,
+    Map, Math, New, Result, SyntaxNode, Type, Value, Yield,
 };
 
 /// Abstract representation of an expression statement.
@@ -19,6 +19,7 @@ pub enum Expression {
     Logic(Box<Logic>),
     FunctionCall(Box<FunctionCall>),
     Yield(Box<Yield>),
+    New(New),
 }
 
 impl AbstractTree for Expression {
@@ -43,9 +44,10 @@ impl AbstractTree for Expression {
                 child, source, context,
             )?)),
             "yield" => Expression::Yield(Box::new(Yield::from_syntax(child, source, context)?)),
+            "new" => Expression::New(New::from_syntax(child, source, context)?),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "value_node, identifier, index, math, logic, function_call or yield"
+                    expected: "value, identifier, index, math, logic, function call, new or ->"
                         .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
@@ -66,6 +68,7 @@ impl AbstractTree for Expression {
             Expression::FunctionCall(function_call) => function_call.check_type(_source, _context),
             Expression::Index(index) => index.check_type(_source, _context),
             Expression::Yield(r#yield) => r#yield.check_type(_source, _context),
+            Expression::New(_) => todo!(),
         }
     }
 
@@ -78,6 +81,7 @@ impl AbstractTree for Expression {
             Expression::FunctionCall(function_call) => function_call.run(source, context),
             Expression::Index(index) => index.run(source, context),
             Expression::Yield(r#yield) => r#yield.run(source, context),
+            Expression::New(_) => todo!(),
         }
     }
 
@@ -90,6 +94,7 @@ impl AbstractTree for Expression {
             Expression::FunctionCall(function_call) => function_call.expected_type(context),
             Expression::Index(index) => index.expected_type(context),
             Expression::Yield(r#yield) => r#yield.expected_type(context),
+            Expression::New(_) => todo!(),
         }
     }
 }
@@ -104,6 +109,7 @@ impl Format for Expression {
             Expression::FunctionCall(function_call) => function_call.format(output, indent_level),
             Expression::Index(index) => index.format(output, indent_level),
             Expression::Yield(r#yield) => r#yield.format(output, indent_level),
+            Expression::New(_) => todo!(),
         }
     }
 }

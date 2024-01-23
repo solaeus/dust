@@ -25,6 +25,7 @@ pub mod logic_operator;
 pub mod r#match;
 pub mod math;
 pub mod math_operator;
+pub mod new;
 pub mod statement;
 pub mod r#type;
 pub mod type_specification;
@@ -36,7 +37,7 @@ pub use {
     assignment::*, assignment_operator::*, block::*, built_in_value::*, expression::*,
     function_call::*, function_expression::*, function_node::*, identifier::*, if_else::*,
     index::*, index_assignment::IndexAssignment, index_expression::*, logic::*, logic_operator::*,
-    math::*, math_operator::*, r#for::*, r#match::*, r#type::*, r#while::*, r#yield::*,
+    math::*, math_operator::*, new::*, r#for::*, r#match::*, r#type::*, r#while::*, r#yield::*,
     statement::*, type_specification::*, value_node::*,
 };
 
