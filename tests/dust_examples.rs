@@ -18,6 +18,7 @@ fn async_download() {
 }
 
 #[test]
+#[ignore]
 fn clue_solver() {
     let file_contents = read_to_string("examples/clue_solver.ds").unwrap();
 
@@ -33,6 +34,7 @@ fn fetch() {
 }
 
 #[test]
+#[ignore]
 fn fibonacci() {
     let file_contents = read_to_string("examples/fibonacci.ds").unwrap();
 

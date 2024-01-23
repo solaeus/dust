@@ -48,16 +48,14 @@ fn built_in_function_call() {
 
 #[test]
 fn function_context_does_not_capture_normal_values() {
-    assert_eq!(
-        interpret(
-            "
+    assert!(interpret(
+        "
             x = 1
 
             foo = () <any> { x }
             "
-        ),
-        Err(Error::VariableIdentifierNotFound("x".to_string()))
-    );
+    )
+    .is_err_and(|error| error.is_error(&Error::VariableIdentifierNotFound("x".to_string()))));
 
     assert_eq!(
         interpret(
@@ -84,16 +82,16 @@ fn function_context_captures_functions() {
         Ok(Value::Integer(2))
     );
 
-    // assert_eq!(
-    //     interpret(
-    //         "
-    //         foo = () <int> { bar() }
-    //         foo()
-    //         bar = () <int> { 2 }
-    //         "
-    //     ),
-    //     Ok(Value::Integer(2))
-    // );
+    assert_eq!(
+        interpret(
+            "
+            foo = () <int> { bar() }
+            foo()
+            bar = () <int> { 2 }
+            "
+        ),
+        Ok(Value::Integer(2))
+    );
 }
 
 #[test]
