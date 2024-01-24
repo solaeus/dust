@@ -51,19 +51,6 @@ fn main() {
     env_logger::init();
 
     let args = Args::parse();
-
-    if args.path.is_none() && args.command.is_none() {
-        return run_cli_shell();
-    }
-
-    let source = if let Some(path) = &args.path {
-        read_to_string(path).unwrap()
-    } else if let Some(command) = &args.command {
-        command.clone()
-    } else {
-        "".to_string()
-    };
-
     let context = Map::new();
 
     if let Some(input) = args.input {
@@ -80,6 +67,18 @@ fn main() {
             .unwrap();
     }
 
+    if args.path.is_none() && args.command.is_none() {
+        return run_cli_shell(context);
+    }
+
+    let source = if let Some(path) = &args.path {
+        read_to_string(path).unwrap()
+    } else if let Some(command) = args.command {
+        command
+    } else {
+        String::with_capacity(0)
+    };
+
     let mut interpreter = Interpreter::new(context);
 
     if let Some(CliCommand::Syntax) = args.cli_command {
@@ -90,13 +89,13 @@ fn main() {
         return;
     }
 
-    let eval_result = interpreter.run(&source);
-
     if let Some(CliCommand::Format) = args.cli_command {
         println!("{}", interpreter.format());
 
         return;
     }
+
+    let eval_result = interpreter.run(&source);
 
     match eval_result {
         Ok(value) => {
@@ -183,8 +182,7 @@ impl Highlighter for DustReadline {
     }
 }
 
-fn run_cli_shell() {
-    let context = Map::new();
+fn run_cli_shell(context: Map) {
     let mut interpreter = Interpreter::new(context);
     let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
 

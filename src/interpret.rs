@@ -138,7 +138,7 @@ impl Interpreter {
 
             formatted_source
         } else {
-            "".to_string()
+            String::with_capacity(0)
         }
     }
 }

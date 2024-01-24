@@ -94,20 +94,6 @@ impl Map {
 
         Ok(previous)
     }
-
-    pub fn unset_all(&self) -> Result<()> {
-        for (_key, (value, r#_type)) in self.variables.write()?.iter_mut() {
-            *value = Value::none();
-        }
-
-        Ok(())
-    }
-
-    pub fn clear(&self) -> Result<()> {
-        self.variables.write()?.clear();
-
-        Ok(())
-    }
 }
 
 impl Default for Map {

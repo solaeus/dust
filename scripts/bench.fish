@@ -9,9 +9,27 @@
 
 hyperfine \
       --shell none \
-      --parameter-list data_path examples/assets/seaCreatures.json,examples/assets/jq_data.json,dielectron.json \
+      --parameter-list data_path examples/assets/seaCreatures.json \
       --warmup 3 \
-      "dust -c 'length(from_json(input))' -p {data_path}" \
+      "dust -c 'length(json:parse(input))' -p {data_path}" \
+      "jq 'length' {data_path}" \
+      "node --eval \"require('node:fs').readFile('{data_path}', (err, data)=>{console.log(JSON.parse(data).length)})\"" \
+      "nu -c 'open {data_path} | length'"
+
+hyperfine \
+      --shell none \
+      --parameter-list data_path examples/assets/jq_data.json \
+      --warmup 3 \
+      "dust -c 'length(json:parse(input))' -p {data_path}" \
+      "jq 'length' {data_path}" \
+      "node --eval \"require('node:fs').readFile('{data_path}', (err, data)=>{console.log(JSON.parse(data).length)})\"" \
+      "nu -c 'open {data_path} | length'"
+
+hyperfine \
+      --shell none \
+      --parameter-list data_path dielectron.json \
+      --warmup 3 \
+      "dust -c 'length(json:parse(input))' -p {data_path}" \
       "jq 'length' {data_path}" \
       "node --eval \"require('node:fs').readFile('{data_path}', (err, data)=>{console.log(JSON.parse(data).length)})\"" \
       "nu -c 'open {data_path} | length'"
