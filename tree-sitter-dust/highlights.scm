@@ -45,6 +45,7 @@
       "if"
       "in"
       "match"
+      "self"
       "true"
       "while"
       "->"

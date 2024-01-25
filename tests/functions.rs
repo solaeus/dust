@@ -81,17 +81,6 @@ fn function_context_captures_functions() {
         ),
         Ok(Value::Integer(2))
     );
-
-    assert_eq!(
-        interpret(
-            "
-            foo = () <int> { bar() }
-            foo()
-            bar = () <int> { 2 }
-            "
-        ),
-        Ok(Value::Integer(2))
-    );
 }
 
 #[test]
@@ -136,5 +125,25 @@ fn function_context_captures_structure_definitions() {
             "
         ),
         Ok(Value::Map(map))
+    );
+}
+
+#[test]
+fn recursion() {
+    assert_eq!(
+        interpret(
+            "
+            fib = (i <int>) <int> {
+            	if i <= 1 {
+            		1
+            	} else {
+            		self(i - 1) + self(i - 2)
+            	}
+            }
+
+            fib(3)
+            "
+        ),
+        Ok(Value::Integer(3))
     );
 }

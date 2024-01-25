@@ -16,8 +16,18 @@ impl Function {
             Function::BuiltIn(built_in_function) => {
                 built_in_function.call(arguments, source, outer_context)
             }
-            Function::ContextDefined(context_defined_function) => {
-                context_defined_function.call(arguments, source, outer_context)
+            Function::ContextDefined(function_node) => {
+                function_node.set(
+                    "self".to_string(),
+                    Value::Function(Function::ContextDefined(FunctionNode::new(
+                        function_node.parameters().clone(),
+                        function_node.body().clone(),
+                        function_node.r#type().clone(),
+                        *function_node.syntax_position(),
+                    ))),
+                )?;
+
+                function_node.call(arguments, source, outer_context)
             }
         }
     }

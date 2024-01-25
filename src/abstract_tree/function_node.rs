@@ -32,6 +32,10 @@ impl FunctionNode {
         }
     }
 
+    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
+        self.context.set(key, value)
+    }
+
     pub fn parameters(&self) -> &Vec<Identifier> {
         &self.parameters
     }
@@ -42,6 +46,10 @@ impl FunctionNode {
 
     pub fn r#type(&self) -> &Type {
         &self.r#type
+    }
+
+    pub fn syntax_position(&self) -> &SyntaxPosition {
+        &self.syntax_position
     }
 
     pub fn return_type(&self) -> &Type {
