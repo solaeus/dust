@@ -150,6 +150,10 @@ impl Type {
     pub fn is_map(&self) -> bool {
         matches!(self, Type::Map(_))
     }
+
+    pub fn is_option(&self) -> bool {
+        matches!(self, Type::Option(_))
+    }
 }
 
 impl AbstractTree for Type {
