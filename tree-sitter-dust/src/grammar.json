@@ -246,8 +246,17 @@
       }
     },
     "command_text": {
-      "type": "PATTERN",
-      "value": "\\S+"
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "\\S+"
+        },
+        {
+          "type": "PATTERN",
+          "value": "(\"[^\"]*?\")|('[^']*?')|(`[^`]*?`)"
+        }
+      ]
     },
     "block": {
       "type": "SEQ",

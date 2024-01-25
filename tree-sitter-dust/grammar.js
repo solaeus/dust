@@ -90,7 +90,11 @@ module.exports = grammar({
         ),
       ),
 
-    command_text: $ => /\S+/,
+    command_text: $ =>
+      choice(
+        /\S+/,
+        /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
+      ),
 
     block: $ =>
       seq(

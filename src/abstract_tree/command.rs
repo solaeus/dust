@@ -17,7 +17,14 @@ impl AbstractTree for Command {
 
         for index in 1..node.child_count() {
             let text_node = node.child(index).unwrap();
-            let text = source[text_node.byte_range()].to_string();
+            let mut text = source[text_node.byte_range()].to_string();
+
+            if (text.starts_with('\'') && text.ends_with('\''))
+                || (text.starts_with('"') && text.ends_with('"'))
+                || (text.starts_with('`') && text.ends_with('`'))
+            {
+                text = text[1..text.len() - 1].to_string();
+            }
 
             command_texts.push(text);
         }

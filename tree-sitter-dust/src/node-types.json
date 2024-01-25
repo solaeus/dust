@@ -72,6 +72,11 @@
     }
   },
   {
+    "type": "command_text",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "else",
     "named": true,
     "fields": {},
@@ -622,6 +627,11 @@
     }
   },
   {
+    "type": "string",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "structure",
     "named": true,
     "fields": {},
@@ -900,10 +910,6 @@
     "named": false
   },
   {
-    "type": "command_text",
-    "named": true
-  },
-  {
     "type": "else",
     "named": false
   },
@@ -1010,10 +1016,6 @@
   {
     "type": "string",
     "named": false
-  },
-  {
-    "type": "string",
-    "named": true
   },
   {
     "type": "struct",
