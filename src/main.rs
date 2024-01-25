@@ -1,19 +1,16 @@
 //! Command line interface for the dust programming language.
 
 use clap::{Parser, Subcommand};
-use rustyline::{
-    completion::FilenameCompleter,
-    config::Builder,
-    error::ReadlineError,
-    highlight::Highlighter,
-    hint::{Hint, Hinter, HistoryHinter},
-    history::DefaultHistory,
-    ColorMode, Completer, CompletionType, Context, Editor, Helper, Validator,
+use crossterm::event::{KeyCode, KeyModifiers};
+use nu_ansi_term::Style;
+use reedline::{
+    default_emacs_keybindings, ColumnarMenu, DefaultCompleter, DefaultPrompt, EditCommand, Emacs,
+    Highlighter, Reedline, ReedlineEvent, ReedlineMenu, Signal, SqliteBackedHistory, StyledText,
 };
 
-use std::{borrow::Cow, fs::read_to_string};
+use std::{fs::read_to_string, path::PathBuf};
 
-use dust_lang::{built_in_values, Interpreter, Map, Value};
+use dust_lang::{built_in_values, Interpreter, Map, Result, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -69,7 +66,14 @@ fn main() {
     }
 
     if args.path.is_none() && args.command.is_none() {
-        return run_cli_shell(context);
+        let run_shell_result = run_shell(context);
+
+        match run_shell_result {
+            Ok(_) => {}
+            Err(error) => eprintln!("{error}"),
+        }
+
+        return;
     }
 
     let source = if let Some(path) = &args.path {
@@ -108,157 +112,121 @@ fn main() {
     }
 }
 
-#[derive(Helper, Completer, Validator)]
-struct DustReadline {
-    #[rustyline(Completer)]
-    completer: FilenameCompleter,
-
-    hints: Vec<ToolHint>,
-
-    #[rustyline(Hinter)]
-    _hinter: HistoryHinter,
+struct DustHighlighter {
+    context: Map,
 }
 
-impl DustReadline {
-    fn new() -> Self {
-        let mut hints = Vec::new();
+impl DustHighlighter {
+    fn new(context: Map) -> Self {
+        Self { context }
+    }
+}
 
-        for built_in_value in built_in_values() {
-            let mut display = built_in_value.name().to_string();
+impl Highlighter for DustHighlighter {
+    fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
+        fn highlight_identifier(styled: &mut StyledText, word: &str, map: &Map) -> bool {
+            for (key, (value, _type)) in map.variables().unwrap().iter() {
+                if key == &word[0..word.len() - 1] {
+                    styled.push((Style::new().bold(), word.to_string()));
 
-            if built_in_value.r#type().is_function() {
-                display.push_str("()");
-            }
+                    return true;
+                }
 
-            if built_in_value.r#type().is_map() {
-                let value = built_in_value.get();
-
-                if let Value::Map(map) = value {
-                    for (key, (value, _)) in map.variables().unwrap().iter() {
-                        let display = if value.is_function() {
-                            format!("{display}:{key}()")
-                        } else {
-                            format!("{display}:{key}")
-                        };
-
-                        hints.push(ToolHint {
-                            complete_to: display.len(),
-                            display,
-                        })
-                    }
+                if let Value::Map(nested_map) = value {
+                    return highlight_identifier(styled, key, nested_map);
                 }
             }
 
-            hints.push(ToolHint {
-                complete_to: display.len(),
-                display,
-            })
-        }
-
-        hints.push(ToolHint {
-            display: "output".to_string(),
-            complete_to: 0,
-        });
-
-        Self {
-            completer: FilenameCompleter::new(),
-            _hinter: HistoryHinter {},
-            hints,
-        }
-    }
-}
-
-struct ToolHint {
-    display: String,
-    complete_to: usize,
-}
-
-impl Hint for ToolHint {
-    fn display(&self) -> &str {
-        &self.display
-    }
-
-    fn completion(&self) -> Option<&str> {
-        if self.complete_to > 0 {
-            Some(&self.display[..self.complete_to])
-        } else {
-            None
-        }
-    }
-}
-
-impl ToolHint {
-    fn suffix(&self, strip_chars: usize) -> ToolHint {
-        ToolHint {
-            display: self.display[strip_chars..].to_string(),
-            complete_to: self.complete_to.saturating_sub(strip_chars),
-        }
-    }
-}
-
-impl Hinter for DustReadline {
-    type Hint = ToolHint;
-
-    fn hint(&self, line: &str, pos: usize, _ctx: &Context) -> Option<Self::Hint> {
-        if line.is_empty() || pos < line.len() {
-            return None;
-        }
-
-        self.hints.iter().find_map(|tool_hint| {
-            if tool_hint.display.starts_with(line) {
-                Some(tool_hint.suffix(pos))
-            } else {
-                None
+            for built_in_value in built_in_values() {
+                if built_in_value.name() == &word[0..word.len() - 1] {
+                    styled.push((Style::new().bold(), word.to_string()));
+                }
             }
-        })
+
+            false
+        }
+
+        let mut styled = StyledText::new();
+
+        for word in line.split_inclusive(&[' ', ':', '(', ')', '{', '}', '[', ']']) {
+            let word_is_highlighted = highlight_identifier(&mut styled, word, &self.context);
+
+            if !word_is_highlighted {
+                styled.push((Style::new(), word.to_string()));
+            }
+        }
+
+        styled
     }
 }
 
-impl Highlighter for DustReadline {
-    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        let highlighted = ansi_term::Colour::Yellow.paint(hint).to_string();
+fn run_shell(context: Map) -> Result<()> {
+    let mut interpreter = Interpreter::new(context.clone());
+    let prompt = DefaultPrompt::default();
+    let mut keybindings = default_emacs_keybindings();
 
-        Cow::Owned(highlighted)
+    keybindings.add_binding(
+        KeyModifiers::ALT,
+        KeyCode::Char('m'),
+        ReedlineEvent::Edit(vec![EditCommand::BackspaceWord]),
+    );
+    keybindings.add_binding(
+        KeyModifiers::NONE,
+        KeyCode::Tab,
+        ReedlineEvent::UntilFound(vec![
+            ReedlineEvent::Menu("completion_menu".to_string()),
+            ReedlineEvent::MenuNext,
+        ]),
+    );
+
+    let edit_mode = Box::new(Emacs::new(keybindings));
+    let history = Box::new(
+        SqliteBackedHistory::with_file(PathBuf::from("target/history"), None, None)
+            .expect("Error loading history."),
+    );
+    let mut commands = Vec::new();
+
+    for built_in_value in built_in_values() {
+        commands.push(built_in_value.name().to_string());
     }
-}
 
-fn run_cli_shell(context: Map) {
-    let mut interpreter = Interpreter::new(context);
-    let config = Builder::new()
-        .color_mode(ColorMode::Enabled)
-        .completion_type(CompletionType::List)
-        .build();
-    let mut rl: Editor<DustReadline, DefaultHistory> =
-        Editor::with_config(config).expect("Line editor could not be configured properly.");
-
-    rl.set_helper(Some(DustReadline::new()));
-
-    if rl.load_history("target/history.txt").is_err() {
-        println!("No previous history.");
-    }
+    let completer = Box::new(DefaultCompleter::new_with_wordlen(commands.clone(), 0));
+    let completion_menu = Box::new(ColumnarMenu::default().with_name("completion_menu"));
+    let mut line_editor = Reedline::create()
+        .with_edit_mode(edit_mode)
+        .with_history(history)
+        .with_highlighter(Box::new(DustHighlighter::new(context)))
+        .with_completer(completer)
+        .with_menu(ReedlineMenu::EngineCompleter(completion_menu));
 
     loop {
-        let readline = rl.readline("* ");
-        match readline {
-            Ok(line) => {
-                let input = line.to_string();
+        let sig = line_editor.read_line(&prompt);
+        match sig {
+            Ok(Signal::Success(buffer)) => {
+                if buffer.is_empty() {
+                    continue;
+                }
 
-                rl.add_history_entry(line).unwrap();
+                let run_result = interpreter.run(&buffer);
 
-                let eval_result = interpreter.run(&input);
-
-                match eval_result {
-                    Ok(value) => println!("{value}"),
-                    Err(error) => {
-                        eprintln!("{error}")
+                match run_result {
+                    Ok(value) => {
+                        if !value.is_none() {
+                            println!("{value}")
+                        }
                     }
+                    Err(error) => println!("Error: {error}"),
                 }
             }
-            Err(ReadlineError::Interrupted) => break,
-            Err(ReadlineError::Eof) => break,
-            Err(error) => eprintln!("{error}"),
+            Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
+                println!("\nAborted!");
+                break;
+            }
+            x => {
+                println!("Event: {:?}", x);
+            }
         }
     }
 
-    rl.save_history("target/history.txt").unwrap();
+    Ok(())
 }

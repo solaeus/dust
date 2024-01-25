@@ -31,7 +31,7 @@ pub enum BuiltInValue {
 }
 
 impl BuiltInValue {
-    pub fn name(&self) -> &'static str {
+    pub const fn name(&self) -> &'static str {
         match self {
             BuiltInValue::Args => "args",
             BuiltInValue::AssertEqual => "assert_equal",
