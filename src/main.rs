@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use reedline::{
-    default_emacs_keybindings, ColumnarMenu, DefaultCompleter, DefaultPrompt, EditCommand, Emacs,
-    Highlighter, Reedline, ReedlineEvent, ReedlineMenu, Signal, SqliteBackedHistory, StyledText,
+    default_emacs_keybindings, DefaultPrompt, EditCommand, Emacs, Highlighter, Reedline,
+    ReedlineEvent, Signal, SqliteBackedHistory, StyledText,
 };
 
 use std::{fs::read_to_string, path::PathBuf};
@@ -126,7 +126,7 @@ impl Highlighter for DustHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
         fn highlight_identifier(styled: &mut StyledText, word: &str, map: &Map) -> bool {
             for (key, (value, _type)) in map.variables().unwrap().iter() {
-                if key == &word[0..word.len() - 1] {
+                if key == &word {
                     styled.push((Style::new().bold(), word.to_string()));
 
                     return true;
@@ -138,8 +138,10 @@ impl Highlighter for DustHighlighter {
             }
 
             for built_in_value in built_in_values() {
-                if built_in_value.name() == &word[0..word.len() - 1] {
+                if built_in_value.name() == word {
                     styled.push((Style::new().bold(), word.to_string()));
+
+                    return true;
                 }
             }
 
@@ -147,11 +149,19 @@ impl Highlighter for DustHighlighter {
         }
 
         let mut styled = StyledText::new();
+        let terminators = [' ', ':', '(', ')', '{', '}', '[', ']'];
 
-        for word in line.split_inclusive(&[' ', ':', '(', ')', '{', '}', '[', ']']) {
-            let word_is_highlighted = highlight_identifier(&mut styled, word, &self.context);
+        for word in line.split_inclusive(&terminators) {
+            let word_is_highlighted =
+                highlight_identifier(&mut styled, &word[0..word.len() - 1], &self.context);
 
-            if !word_is_highlighted {
+            if word_is_highlighted {
+                let final_char = word.chars().last().unwrap();
+
+                if terminators.contains(&final_char) {
+                    styled.push((Style::new(), final_char.to_string()));
+                }
+            } else {
                 styled.push((Style::new(), word.to_string()));
             }
         }
@@ -166,9 +176,14 @@ fn run_shell(context: Map) -> Result<()> {
     let mut keybindings = default_emacs_keybindings();
 
     keybindings.add_binding(
-        KeyModifiers::ALT,
-        KeyCode::Char('m'),
-        ReedlineEvent::Edit(vec![EditCommand::BackspaceWord]),
+        KeyModifiers::NONE,
+        KeyCode::Enter,
+        ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
+    );
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char(' '),
+        ReedlineEvent::Submit,
     );
     keybindings.add_binding(
         KeyModifiers::NONE,
@@ -184,26 +199,16 @@ fn run_shell(context: Map) -> Result<()> {
         SqliteBackedHistory::with_file(PathBuf::from("target/history"), None, None)
             .expect("Error loading history."),
     );
-    let mut commands = Vec::new();
-
-    for built_in_value in built_in_values() {
-        commands.push(built_in_value.name().to_string());
-    }
-
-    let completer = Box::new(DefaultCompleter::new_with_wordlen(commands.clone(), 0));
-    let completion_menu = Box::new(ColumnarMenu::default().with_name("completion_menu"));
     let mut line_editor = Reedline::create()
         .with_edit_mode(edit_mode)
         .with_history(history)
-        .with_highlighter(Box::new(DustHighlighter::new(context)))
-        .with_completer(completer)
-        .with_menu(ReedlineMenu::EngineCompleter(completion_menu));
+        .with_highlighter(Box::new(DustHighlighter::new(context)));
 
     loop {
         let sig = line_editor.read_line(&prompt);
         match sig {
             Ok(Signal::Success(buffer)) => {
-                if buffer.is_empty() {
+                if buffer.trim().is_empty() {
                     continue;
                 }
 
