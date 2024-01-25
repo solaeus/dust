@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Range {
-    start: i64,
-    end: i64,
+    pub start: i64,
+    pub end: i64,
 }
 
 impl Display for Range {

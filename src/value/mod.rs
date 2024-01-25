@@ -60,6 +60,10 @@ impl Value {
         Value::String(string.into())
     }
 
+    pub fn range(start: i64, end: i64) -> Self {
+        Value::Range(Range { start, end })
+    }
+
     pub fn r#type(&self) -> Type {
         match self {
             Value::List(list) => {
@@ -440,6 +444,7 @@ impl PartialEq for Value {
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Option(left), Value::Option(right)) => left == right,
             (Value::TypeDefinition(left), Value::TypeDefinition(right)) => left == right,
+            (Value::Range(left), Value::Range(right)) => left == right,
             _ => false,
         }
     }

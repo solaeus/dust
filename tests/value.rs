@@ -116,3 +116,10 @@ fn option() {
 
     assert_eq!(Value::Option(Some(Box::new(Value::Integer(1)))), result);
 }
+
+#[test]
+fn range() {
+    let result = interpret("0..100");
+
+    assert_eq!(Ok(Value::range(0, 100)), result);
+}

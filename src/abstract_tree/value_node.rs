@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeDefintion, TypeSpecification,
-    Value,
+    List, Map, Range, Result, Statement, Structure, SyntaxNode, Type, TypeDefintion,
+    TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -20,6 +20,7 @@ pub enum ValueNode {
     Map(BTreeMap<String, (Statement, Option<Type>)>),
     BuiltInValue(BuiltInValue),
     Structure(BTreeMap<String, (Option<Statement>, Type)>),
+    Range(Range),
 }
 
 impl AbstractTree for ValueNode {
@@ -162,10 +163,20 @@ impl AbstractTree for ValueNode {
 
                 ValueNode::Structure(btree_map)
             }
+            "range" => {
+                let start_node = child.child(0).unwrap();
+                let end_node = child.child(2).unwrap();
+
+                let start = source[start_node.byte_range()].parse().unwrap();
+                let end = source[end_node.byte_range()].parse().unwrap();
+
+                ValueNode::Range(Range { start, end })
+            }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "string, integer, float, boolean, list, map, option or structure"
-                        .to_string(),
+                    expected:
+                        "string, integer, float, boolean, range, list, map, option or structure"
+                            .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
@@ -245,6 +256,7 @@ impl AbstractTree for ValueNode {
 
                 Value::TypeDefinition(TypeDefintion::Structure(Structure::new(value_map)))
             }
+            ValueNode::Range(range) => Value::Range(*range),
         };
 
         Ok(value)
@@ -296,6 +308,7 @@ impl AbstractTree for ValueNode {
 
                 Type::Map(Some(Structure::new(value_map)))
             }
+            ValueNode::Range(_) => Type::Range,
         };
 
         Ok(r#type)
@@ -379,6 +392,7 @@ impl Format for ValueNode {
 
                 output.push('}');
             }
+            ValueNode::Range(_) => todo!(),
         }
     }
 }
