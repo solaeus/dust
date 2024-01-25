@@ -142,6 +142,14 @@ impl Type {
     pub fn is_function(&self) -> bool {
         matches!(self, Type::Function { .. })
     }
+
+    pub fn is_list(&self) -> bool {
+        matches!(self, Type::List(_))
+    }
+
+    pub fn is_map(&self) -> bool {
+        matches!(self, Type::Map(_))
+    }
 }
 
 impl AbstractTree for Type {

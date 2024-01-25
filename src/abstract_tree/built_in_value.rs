@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, env::args, sync::OnceLock};
 
+use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,7 +14,11 @@ static JSON: OnceLock<Value> = OnceLock::new();
 static RANDOM: OnceLock<Value> = OnceLock::new();
 static STRING: OnceLock<Value> = OnceLock::new();
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub fn built_in_values() -> impl Iterator<Item = BuiltInValue> {
+    all()
+}
+
+#[derive(Sequence, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInValue {
     Args,
     AssertEqual,
@@ -39,7 +44,7 @@ impl BuiltInValue {
         }
     }
 
-    fn r#type(&self) -> Type {
+    pub fn r#type(&self) -> Type {
         match self {
             BuiltInValue::Args => Type::list(Type::String),
             BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
@@ -52,7 +57,7 @@ impl BuiltInValue {
         }
     }
 
-    fn get(&self) -> &Value {
+    pub fn get(&self) -> &Value {
         match self {
             BuiltInValue::Args => ARGS.get_or_init(|| {
                 let args = args().map(|arg| Value::string(arg.to_string())).collect();

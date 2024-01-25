@@ -3,16 +3,17 @@
 use clap::{Parser, Subcommand};
 use rustyline::{
     completion::FilenameCompleter,
+    config::Builder,
     error::ReadlineError,
     highlight::Highlighter,
     hint::{Hint, Hinter, HistoryHinter},
     history::DefaultHistory,
-    Completer, Context, Editor, Helper, Validator,
+    ColorMode, Completer, CompletionType, Context, Editor, Helper, Validator,
 };
 
 use std::{borrow::Cow, fs::read_to_string};
 
-use dust_lang::{Interpreter, Map, Value};
+use dust_lang::{built_in_values, Interpreter, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -112,7 +113,7 @@ struct DustReadline {
     #[rustyline(Completer)]
     completer: FilenameCompleter,
 
-    tool_hints: Vec<ToolHint>,
+    hints: Vec<ToolHint>,
 
     #[rustyline(Hinter)]
     _hinter: HistoryHinter,
@@ -120,10 +121,49 @@ struct DustReadline {
 
 impl DustReadline {
     fn new() -> Self {
+        let mut hints = Vec::new();
+
+        for built_in_value in built_in_values() {
+            let mut display = built_in_value.name().to_string();
+
+            if built_in_value.r#type().is_function() {
+                display.push_str("()");
+            }
+
+            if built_in_value.r#type().is_map() {
+                let value = built_in_value.get();
+
+                if let Value::Map(map) = value {
+                    for (key, (value, _)) in map.variables().unwrap().iter() {
+                        let display = if value.is_function() {
+                            format!("{display}:{key}()")
+                        } else {
+                            format!("{display}:{key}")
+                        };
+
+                        hints.push(ToolHint {
+                            complete_to: display.len(),
+                            display,
+                        })
+                    }
+                }
+            }
+
+            hints.push(ToolHint {
+                complete_to: display.len(),
+                display,
+            })
+        }
+
+        hints.push(ToolHint {
+            display: "output".to_string(),
+            complete_to: 0,
+        });
+
         Self {
             completer: FilenameCompleter::new(),
             _hinter: HistoryHinter {},
-            tool_hints: Vec::new(),
+            hints,
         }
     }
 }
@@ -164,7 +204,7 @@ impl Hinter for DustReadline {
             return None;
         }
 
-        self.tool_hints.iter().find_map(|tool_hint| {
+        self.hints.iter().find_map(|tool_hint| {
             if tool_hint.display.starts_with(line) {
                 Some(tool_hint.suffix(pos))
             } else {
@@ -176,7 +216,7 @@ impl Hinter for DustReadline {
 
 impl Highlighter for DustReadline {
     fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        let highlighted = ansi_term::Colour::Red.paint(hint).to_string();
+        let highlighted = ansi_term::Colour::Yellow.paint(hint).to_string();
 
         Cow::Owned(highlighted)
     }
@@ -184,7 +224,12 @@ impl Highlighter for DustReadline {
 
 fn run_cli_shell(context: Map) {
     let mut interpreter = Interpreter::new(context);
-    let mut rl: Editor<DustReadline, DefaultHistory> = Editor::new().unwrap();
+    let config = Builder::new()
+        .color_mode(ColorMode::Enabled)
+        .completion_type(CompletionType::List)
+        .build();
+    let mut rl: Editor<DustReadline, DefaultHistory> =
+        Editor::with_config(config).expect("Line editor could not be configured properly.");
 
     rl.set_helper(Some(DustReadline::new()));
 
