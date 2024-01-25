@@ -1,30 +1,48 @@
+use std::process;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Identifier, Map, Result, Type, Value};
+use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Command {
-    binary_name: String,
-    arguments: Vec<String>,
+    command_texts: Vec<String>,
 }
 
 impl AbstractTree for Command {
-    fn from_syntax(node: tree_sitter::Node, source: &str, context: &crate::Map) -> Result<Self> {
+    fn from_syntax(node: tree_sitter::Node, source: &str, _context: &crate::Map) -> Result<Self> {
         Error::expect_syntax_node(source, "command", node)?;
-        let identifier_node = node.child(1)
+
+        let mut command_texts = Vec::new();
+
+        for index in 1..node.child_count() {
+            let text_node = node.child(index).unwrap();
+            let text = source[text_node.byte_range()].to_string();
+
+            command_texts.push(text);
+        }
+
+        Ok(Command { command_texts })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        todo!()
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+        let output = process::Command::new(self.command_texts.first().unwrap())
+            .args(&self.command_texts[1..])
+            .spawn()?
+            .wait_with_output()?
+            .stdout;
+        let string = String::from_utf8(output)?;
+
+        Ok(Value::String(string))
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        todo!()
+    fn expected_type(&self, _context: &Map) -> Result<Type> {
+        Ok(Type::String)
     }
 }
 
 impl Format for Command {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, _output: &mut String, _indent_level: u8) {
         todo!()
     }
 }

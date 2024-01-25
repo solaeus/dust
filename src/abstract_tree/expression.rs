@@ -46,10 +46,12 @@ impl AbstractTree for Expression {
             )?)),
             "yield" => Expression::Yield(Box::new(Yield::from_syntax(child, source, _context)?)),
             "new" => Expression::New(New::from_syntax(child, source, _context)?),
+            "command" => Expression::Command(Command::from_syntax(child, source, _context)?),
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
-                    expected: "value, identifier, index, math, logic, function call, new or ->"
-                        .to_string(),
+                    expected:
+                        "value, identifier, index, math, logic, function call, new, context or ->"
+                            .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
@@ -70,6 +72,7 @@ impl AbstractTree for Expression {
             Expression::Index(index) => index.check_type(_source, _context),
             Expression::Yield(r#yield) => r#yield.check_type(_source, _context),
             Expression::New(new) => new.check_type(_source, _context),
+            Expression::Command(command) => command.check_type(_source, _context),
         }
     }
 
@@ -83,6 +86,7 @@ impl AbstractTree for Expression {
             Expression::Index(index) => index.run(_source, _context),
             Expression::Yield(r#yield) => r#yield.run(_source, _context),
             Expression::New(new) => new.run(_source, _context),
+            Expression::Command(command) => command.run(_source, _context),
         }
     }
 
@@ -96,6 +100,7 @@ impl AbstractTree for Expression {
             Expression::Index(index) => index.expected_type(_context),
             Expression::Yield(r#yield) => r#yield.expected_type(_context),
             Expression::New(new) => new.expected_type(_context),
+            Expression::Command(command) => command.expected_type(_context),
         }
     }
 }
@@ -111,6 +116,7 @@ impl Format for Expression {
             Expression::Index(index) => index.format(_output, _indent_level),
             Expression::Yield(r#yield) => r#yield.format(_output, _indent_level),
             Expression::New(new) => new.format(_output, _indent_level),
+            Expression::Command(command) => command.format(_output, _indent_level),
         }
     }
 }
