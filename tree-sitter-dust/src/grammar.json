@@ -60,6 +60,10 @@
               },
               {
                 "type": "SYMBOL",
+                "name": "pipe"
+              },
+              {
+                "type": "SYMBOL",
                 "name": "while"
               }
             ]
@@ -178,6 +182,49 @@
         }
       }
     },
+    "pipe": {
+      "type": "PREC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "command"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "function_call"
+              }
+            ]
+          },
+          {
+            "type": "STRING",
+            "value": "|"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "command"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "pipe"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "function_call"
+              }
+            ]
+          }
+        ]
+      }
+    },
     "command": {
       "type": "PREC_RIGHT",
       "value": 0,
@@ -189,62 +236,18 @@
             "value": "*"
           },
           {
-            "type": "SYMBOL",
-            "name": "identifier"
-          },
-          {
             "type": "REPEAT",
             "content": {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "SYMBOL",
-                  "name": "command_argument"
-                },
-                {
-                  "type": "SYMBOL",
-                  "name": "command"
-                }
-              ]
+              "type": "SYMBOL",
+              "name": "command_text"
             }
           }
         ]
       }
     },
-    "command_argument": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "PATTERN",
-          "value": "\\w+"
-        },
-        {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "-"
-            },
-            {
-              "type": "PATTERN",
-              "value": "\\w+"
-            }
-          ]
-        },
-        {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "--"
-            },
-            {
-              "type": "PATTERN",
-              "value": "\\w+"
-            }
-          ]
-        }
-      ]
+    "command_text": {
+      "type": "PATTERN",
+      "value": "\\S+"
     },
     "block": {
       "type": "SEQ",

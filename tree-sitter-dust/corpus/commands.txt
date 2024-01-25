@@ -10,7 +10,7 @@ Simple Command
   (statement
     (expression
       (command
-        (identifier)))))
+        (command_text)))))
 
 ================================================================================
 Nested Command
@@ -24,9 +24,8 @@ Nested Command
   (statement
     (expression
       (command
-        (identifier)
-        (command
-          (identifier))))))
+        (command_text)
+        (command_text)))))
 
 ================================================================================
 Command with Arguments
@@ -42,19 +41,13 @@ Command with Arguments
   (statement
     (expression
       (command
-        (identifier)
-        (command_argument)
-        (command_argument))))
-  (statement
-    (expression
-      (command
-        (identifier)
-        (command_argument))))
-  (statement
-    (expression
-      (command
-        (identifier)
-        (command_argument)))))
+        (command_text)
+        (command_text)
+        (command_text)
+        (command_text)
+        (command_text)
+        (command_text)
+        (command_text)))))
 
 ================================================================================
 Nested Command with Arguments
@@ -68,8 +61,7 @@ Nested Command with Arguments
   (statement
     (expression
       (command
-        (identifier)
-        (command
-          (identifier)
-          (command_argument)
-          (command_argument))))))
+        (command_text)
+        (command_text)
+        (command_text)
+        (command_text)))))

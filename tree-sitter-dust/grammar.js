@@ -23,6 +23,7 @@ module.exports = grammar({
             $.index_assignment,
             $.match,
             $.return,
+            $.pipe,
             $.while,
           ),
           optional(';'),
@@ -64,26 +65,32 @@ module.exports = grammar({
         ),
       ),
 
-    command: $ =>
-      prec.right(
+    pipe: $ =>
+      prec(
+        1,
         seq(
-          '*',
-          $.identifier,
-          repeat(
-            choice(
-              $.command_argument,
-              $.command,
-            ),
+          choice(
+            $.command,
+            $.function_call,
+          ),
+          '|',
+          choice(
+            $.command,
+            $.pipe,
+            $.function_call,
           ),
         ),
       ),
 
-    command_argument: $ =>
-      choice(
-        /\w+/,
-        seq('-', /\w+/),
-        seq('--', /\w+/),
+    command: $ =>
+      prec.right(
+        seq(
+          '*',
+          repeat($.command_text),
+        ),
       ),
+
+    command_text: $ => /\S+/,
 
     block: $ =>
       seq(

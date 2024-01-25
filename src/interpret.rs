@@ -23,7 +23,8 @@ pub fn interpret(source: &str) -> Result<Value> {
 ///
 /// A context is a [Map] instance, which is dust's
 /// [BTreeMap][std::collections::btree_map::BTreeMap] that is used internally
-/// for the `<map>` type. Any value can be set
+/// for the `<map>` type. Any value can be set, including functions and nested
+/// maps.
 ///
 /// # Examples
 ///

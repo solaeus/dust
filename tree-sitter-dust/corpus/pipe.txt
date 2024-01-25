@@ -1,0 +1,42 @@
+================================================================================
+Simple Command Pipe
+================================================================================
+
+*ls | *less
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (pipe
+      (command
+        (command_text))
+      (command
+        (command_text)))))
+
+================================================================================
+Simple Function Pipe
+================================================================================
+
+fs:read('file.txt') | output()
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (pipe
+      (function_call
+        (function_expression
+          (index
+            (index_expression
+              (value
+                (built_in_value)))
+            (index_expression
+              (identifier))))
+        (expression
+          (value
+            (string))))
+      (function_call
+        (function_expression
+          (value
+            (built_in_value)))))))

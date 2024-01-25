@@ -62,27 +62,14 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": true,
+      "required": false,
       "types": [
         {
-          "type": "command",
-          "named": true
-        },
-        {
-          "type": "command_argument",
-          "named": true
-        },
-        {
-          "type": "identifier",
+          "type": "command_text",
           "named": true
         }
       ]
     }
-  },
-  {
-    "type": "command_argument",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "else",
@@ -516,6 +503,29 @@
     }
   },
   {
+    "type": "pipe",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "command",
+          "named": true
+        },
+        {
+          "type": "function_call",
+          "named": true
+        },
+        {
+          "type": "pipe",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "range",
     "named": true,
     "fields": {},
@@ -594,6 +604,10 @@
         },
         {
           "type": "match",
+          "named": true
+        },
+        {
+          "type": "pipe",
           "named": true
         },
         {
@@ -798,10 +812,6 @@
     "named": false
   },
   {
-    "type": "--",
-    "named": false
-  },
-  {
     "type": "-=",
     "named": false
   },
@@ -890,6 +900,10 @@
     "named": false
   },
   {
+    "type": "command_text",
+    "named": true
+  },
+  {
     "type": "else",
     "named": false
   },
@@ -907,11 +921,11 @@
   },
   {
     "type": "float",
-    "named": true
+    "named": false
   },
   {
     "type": "float",
-    "named": false
+    "named": true
   },
   {
     "type": "for",
@@ -995,11 +1009,11 @@
   },
   {
     "type": "string",
-    "named": true
+    "named": false
   },
   {
     "type": "string",
-    "named": false
+    "named": true
   },
   {
     "type": "struct",
@@ -1015,6 +1029,10 @@
   },
   {
     "type": "{",
+    "named": false
+  },
+  {
+    "type": "|",
     "named": false
   },
   {
