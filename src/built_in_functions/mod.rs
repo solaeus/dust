@@ -3,7 +3,6 @@ mod string;
 use std::{
     fmt::{self, Display, Formatter},
     fs::read_to_string,
-    process::Command,
 };
 
 use rand::{random, thread_rng, Rng};
@@ -13,10 +12,9 @@ use crate::{Error, Format, Map, Result, Type, Value};
 
 pub use string::{string_functions, StringFunction};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
     AssertEqual,
-    Binary(String),
     FsRead,
     JsonParse,
     Length,
@@ -32,7 +30,6 @@ impl BuiltInFunction {
     pub fn name(&self) -> &'static str {
         match self {
             BuiltInFunction::AssertEqual => "assert_equal",
-            BuiltInFunction::Binary(_) => "binary",
             BuiltInFunction::FsRead => "read",
             BuiltInFunction::JsonParse => "parse",
             BuiltInFunction::Length => "length",
@@ -48,10 +45,6 @@ impl BuiltInFunction {
     pub fn r#type(&self) -> Type {
         match self {
             BuiltInFunction::AssertEqual => Type::function(vec![Type::Any, Type::Any], Type::None),
-            BuiltInFunction::Binary(_) => Type::function(
-                vec![Type::Option(Box::new(Type::String))],
-                Type::Option(Box::new(Type::Integer)),
-            ),
             BuiltInFunction::FsRead => Type::function(vec![Type::String], Type::String),
             BuiltInFunction::JsonParse => Type::function(vec![Type::String], Type::Any),
             BuiltInFunction::Length => Type::function(vec![Type::Collection], Type::Integer),
@@ -73,36 +66,6 @@ impl BuiltInFunction {
                 let right = arguments.get(1).unwrap();
 
                 Ok(Value::Boolean(left == right))
-            }
-            BuiltInFunction::Binary(binary_name) => {
-                let input = if let Some(value) = arguments.first() {
-                    value.clone()
-                } else {
-                    Value::none()
-                };
-                let mut command = Command::new(binary_name);
-
-                if let Ok(Some(value)) = input.as_option() {
-                    let input_string = value.as_string()?;
-
-                    if !input_string.is_empty() {
-                        command.args(input_string.split_whitespace());
-                    }
-                }
-
-                if let Ok(input_string) = input.as_string() {
-                    if !input_string.is_empty() {
-                        command.args(input_string.split_whitespace());
-                    }
-                }
-
-                let output = command.spawn()?.wait()?;
-                let status_code = match output.code() {
-                    Some(code) => Value::some(Value::Integer(code as i64)),
-                    None => Value::none(),
-                };
-
-                Ok(status_code)
             }
             BuiltInFunction::FsRead => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;

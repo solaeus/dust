@@ -103,8 +103,8 @@ impl BuiltInValue {
                     BuiltInFunction::RandomInteger,
                 ] {
                     let key = built_in_function.name().to_string();
-                    let r#type = built_in_function.r#type();
                     let value = Value::Function(Function::BuiltIn(built_in_function));
+                    let r#type = built_in_function.r#type();
 
                     random_context.insert(key, (value, r#type));
                 }

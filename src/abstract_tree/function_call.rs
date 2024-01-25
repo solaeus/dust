@@ -68,36 +68,19 @@ impl AbstractTree for FunctionCall {
             }
         };
 
-        let required_argument_count =
-            parameter_types.iter().fold(
-                0,
-                |acc, r#type| {
-                    if r#type.is_option() {
-                        acc
-                    } else {
-                        acc + 1
-                    }
-                },
-            );
-
-        if self.arguments.len() < required_argument_count {
-            return Err(Error::ExpectedFunctionArgumentMinimum {
-                minumum: required_argument_count,
+        if self.arguments.len() != parameter_types.len() {
+            return Err(Error::ExpectedFunctionArgumentAmount {
+                expected: parameter_types.len(),
                 actual: self.arguments.len(),
-            });
+            }
+            .at_source_position(source, self.syntax_position));
         }
 
         for (index, expression) in self.arguments.iter().enumerate() {
             if let Some(r#type) = parameter_types.get(index) {
-                let expected_type = expression.expected_type(context)?;
-
-                if let Type::Option(optional_type) = r#type {
-                    optional_type.check(&expected_type)?;
-                } else {
-                    r#type
-                        .check(&expression.expected_type(context)?)
-                        .map_err(|error| error.at_source_position(source, self.syntax_position))?;
-                }
+                r#type
+                    .check(&expression.expected_type(context)?)
+                    .map_err(|error| error.at_source_position(source, self.syntax_position))?;
             }
         }
 

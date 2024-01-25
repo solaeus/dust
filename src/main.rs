@@ -10,7 +10,7 @@ use reedline::{
 
 use std::{fs::read_to_string, path::PathBuf};
 
-use dust_lang::{built_in_values, Function, Interpreter, Map, Result, Value};
+use dust_lang::{built_in_values, Interpreter, Map, Result, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -171,31 +171,6 @@ impl Highlighter for DustHighlighter {
 }
 
 fn run_shell(context: Map) -> Result<()> {
-    for (key, value) in std::env::vars() {
-        if key == "PATH" {
-            for path in value.split([' ', ':']) {
-                let path_dir = if let Ok(path_dir) = PathBuf::from(path).read_dir() {
-                    path_dir
-                } else {
-                    continue;
-                };
-
-                for entry in path_dir {
-                    let entry = entry?;
-
-                    if entry.file_type()?.is_file() {
-                        context.set(
-                            entry.file_name().to_string_lossy().to_string(),
-                            Value::Function(Function::BuiltIn(dust_lang::BuiltInFunction::Binary(
-                                entry.file_name().to_string_lossy().to_string(),
-                            ))),
-                        )?;
-                    }
-                }
-            }
-        }
-    }
-
     let mut interpreter = Interpreter::new(context.clone());
     let prompt = DefaultPrompt::default();
     let mut keybindings = default_emacs_keybindings();
