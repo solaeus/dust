@@ -57,6 +57,34 @@
     "fields": {}
   },
   {
+    "type": "command",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "command",
+          "named": true
+        },
+        {
+          "type": "command_argument",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "command_argument",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "else",
     "named": true,
     "fields": {},
@@ -98,6 +126,10 @@
       "multiple": false,
       "required": true,
       "types": [
+        {
+          "type": "command",
+          "named": true
+        },
         {
           "type": "function_call",
           "named": true
@@ -766,6 +798,10 @@
     "named": false
   },
   {
+    "type": "--",
+    "named": false
+  },
+  {
     "type": "-=",
     "named": false
   },
@@ -871,11 +907,11 @@
   },
   {
     "type": "float",
-    "named": false
+    "named": true
   },
   {
     "type": "float",
-    "named": true
+    "named": false
   },
   {
     "type": "for",

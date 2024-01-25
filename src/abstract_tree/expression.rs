@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, Format, FunctionCall, Identifier, Index, Logic,
-    Map, Math, New, Result, SyntaxNode, Type, Value, Yield,
+    value_node::ValueNode, AbstractTree, Command, Error, Format, FunctionCall, Identifier, Index,
+    Logic, Map, Math, New, Result, SyntaxNode, Type, Value, Yield,
 };
 
 /// Abstract representation of an expression statement.
@@ -20,6 +20,7 @@ pub enum Expression {
     FunctionCall(Box<FunctionCall>),
     Yield(Box<Yield>),
     New(New),
+    Command(Command),
 }
 
 impl AbstractTree for Expression {

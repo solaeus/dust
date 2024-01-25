@@ -1,15 +1,13 @@
-//! The top level of Dust's API with functions to interpret Dust code.
+//! Tools to run and/or format dust source code.
 //!
-//! You can use this library externally by calling either of the "eval"
-//! functions or by constructing your own Evaluator.
+//! You can use this library externally by calling either of the "interpret"
+//! functions or by constructing your own Interpreter.
 use tree_sitter::{Parser, Tree as TSTree, TreeCursor};
 
 use crate::{language, AbstractTree, Error, Format, Map, Result, Root, SyntaxNode, Value};
 
-/// Interpret the given source code.
-///
-/// Returns a vector of results from evaluating the source code. Each comment
-/// and statemtent will have its own result.
+/// Interpret the given source code. Returns the value of last statement or the
+/// first error encountered.
 ///
 /// # Examples
 ///
@@ -22,6 +20,10 @@ pub fn interpret(source: &str) -> Result<Value> {
 }
 
 /// Interpret the given source code with the given context.
+///
+/// A context is a [Map] instance, which is dust's
+/// [BTreeMap][std::collections::btree_map::BTreeMap] that is used internally
+/// for the `<map>` type. Any value can be set
 ///
 /// # Examples
 ///

@@ -142,6 +142,10 @@
           {
             "type": "SYMBOL",
             "name": "new"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "command"
           }
         ]
       }
@@ -173,6 +177,74 @@
           ]
         }
       }
+    },
+    "command": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "*"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "REPEAT",
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "command_argument"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "command"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "command_argument": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PATTERN",
+          "value": "\\w+"
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "-"
+            },
+            {
+              "type": "PATTERN",
+              "value": "\\w+"
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "--"
+            },
+            {
+              "type": "PATTERN",
+              "value": "\\w+"
+            }
+          ]
+        }
+      ]
     },
     "block": {
       "type": "SEQ",

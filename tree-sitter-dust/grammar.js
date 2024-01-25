@@ -50,6 +50,7 @@ module.exports = grammar({
           $.value,
           $.yield,
           $.new,
+          $.command,
         ),
       ),
 
@@ -61,6 +62,27 @@ module.exports = grammar({
             optional(','),
           ),
         ),
+      ),
+
+    command: $ =>
+      prec.right(
+        seq(
+          '*',
+          $.identifier,
+          repeat(
+            choice(
+              $.command_argument,
+              $.command,
+            ),
+          ),
+        ),
+      ),
+
+    command_argument: $ =>
+      choice(
+        /\w+/,
+        seq('-', /\w+/),
+        seq('--', /\w+/),
       ),
 
     block: $ =>

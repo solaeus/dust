@@ -1,8 +1,6 @@
-//! The Dust library is used to implement the Dust language, `src/main.rs` implements the command
-//! line binary.
+//! The Dust library is used to parse, format and run dust source code.
 //!
-//! Using this library is simple and straightforward, see the [inferface] module for instructions on
-//! interpreting Dust code. Most of the language's features are implemented in the [tools] module.
+//! See the [interpret] module for more information.
 pub use crate::{
     abstract_tree::*, built_in_functions::BuiltInFunction, error::*, interpret::*, value::*,
 };
@@ -27,18 +25,6 @@ extern "C" {
 pub fn language() -> Language {
     unsafe { tree_sitter_dust() }
 }
-
-/// The content of the [`node-types.json`][] file for this grammar.
-///
-/// [`node-types.json`]: https://tree-sitter.github.io/tree-sitter/using-parsers#static-node-types
-pub const NODE_TYPES: &str = include_str!("../tree-sitter-dust/src/node-types.json");
-
-// Uncomment these to include any queries that this grammar contains
-
-// pub const HIGHLIGHTS_QUERY: &'static str = include_str!("../../queries/highlights.scm");
-// pub const INJECTIONS_QUERY: &'static str = include_str!("../../queries/injections.scm");
-// pub const LOCALS_QUERY: &'static str = include_str!("../../queries/locals.scm");
-// pub const TAGS_QUERY: &'static str = include_str!("../../queries/tags.scm");
 
 #[cfg(test)]
 mod tests {

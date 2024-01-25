@@ -10,6 +10,7 @@ pub mod assignment;
 pub mod assignment_operator;
 pub mod block;
 pub mod built_in_value;
+pub mod command;
 pub mod expression;
 pub mod r#for;
 pub mod function_call;
@@ -34,7 +35,7 @@ pub mod r#while;
 pub mod r#yield;
 
 pub use {
-    assignment::*, assignment_operator::*, block::*, built_in_value::*, expression::*,
+    assignment::*, assignment_operator::*, block::*, built_in_value::*, command::*, expression::*,
     function_call::*, function_expression::*, function_node::*, identifier::*, if_else::*,
     index::*, index_assignment::IndexAssignment, index_expression::*, logic::*, logic_operator::*,
     math::*, math_operator::*, new::*, r#for::*, r#match::*, r#type::*, r#while::*, r#yield::*,
