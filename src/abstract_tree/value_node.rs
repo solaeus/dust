@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,7 @@ impl AbstractTree for ValueNode {
             "function" => {
                 let function_node = FunctionNode::from_syntax(child, source, context)?;
 
-                ValueNode::Function(Function::ContextDefined(function_node))
+                ValueNode::Function(Function::ContextDefined(Arc::new(function_node)))
             }
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {

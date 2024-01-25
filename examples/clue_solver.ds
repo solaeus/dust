@@ -51,4 +51,3 @@ take_turn(cards 'Conservatory' 'Kitchen')
 take_turn(cards 'White' 'Kitchen')
 take_turn(cards 'Green' 'Kitchen')
 take_turn(cards 'Knife' 'Kitchen')
-

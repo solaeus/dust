@@ -2,7 +2,7 @@ fib = (i <int>) <int> {
 	if i <= 1 {
 		1
 	} else {
-		fib(i - 1) + fib(i - 2)
+		self(i - 1) + self(i - 2)
 	}
 }
 

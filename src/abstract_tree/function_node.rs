@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Arc,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -65,7 +68,7 @@ impl FunctionNode {
     pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
         for (key, (value, r#type)) in outer_context.variables()?.iter() {
             if let Value::Function(Function::ContextDefined(function_node)) = value {
-                if self == function_node {
+                if self == function_node.as_ref() {
                     continue;
                 }
             }
@@ -154,7 +157,9 @@ impl AbstractTree for FunctionNode {
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        Ok(Value::Function(Function::ContextDefined(self.clone())))
+        Ok(Value::Function(Function::ContextDefined(Arc::new(
+            self.clone(),
+        ))))
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {
