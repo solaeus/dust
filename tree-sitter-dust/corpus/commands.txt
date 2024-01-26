@@ -9,7 +9,8 @@ Simple Command
 (root
   (statement
     (expression
-      (command))))
+      (command
+        (command_text)))))
 
 ================================================================================
 Command Sequence
@@ -22,10 +23,12 @@ Command Sequence
 (root
   (statement
     (expression
-      (command)))
+      (command
+        (command_text))))
   (statement
     (expression
-      (command))))
+      (command
+        (command_text)))))
 
 ================================================================================
 Command with Arguments
@@ -39,6 +42,7 @@ Command with Arguments
   (statement
     (expression
       (command
+        (command_text)
         (command_argument)
         (command_argument)))))
 
@@ -55,6 +59,7 @@ Command Sequence with Arguments
   (statement
     (expression
       (command
+        (command_text)
         (command_argument)
         (command_argument)
         (command_argument)
@@ -62,5 +67,6 @@ Command Sequence with Arguments
   (statement
     (expression
       (command
+        (command_text)
         (command_argument)
         (command_argument)))))

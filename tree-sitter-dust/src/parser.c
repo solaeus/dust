@@ -25,7 +25,7 @@ enum {
   anon_sym_COMMA = 6,
   anon_sym_PIPE = 7,
   anon_sym_STAR = 8,
-  aux_sym_command_token1 = 9,
+  sym_command_text = 9,
   aux_sym_command_argument_token1 = 10,
   aux_sym_command_argument_token2 = 11,
   anon_sym_async = 12,
@@ -152,7 +152,7 @@ static const char * const ts_symbol_names[] = {
   [anon_sym_COMMA] = ",",
   [anon_sym_PIPE] = "|",
   [anon_sym_STAR] = "*",
-  [aux_sym_command_token1] = "command_token1",
+  [sym_command_text] = "command_text",
   [aux_sym_command_argument_token1] = "command_argument_token1",
   [aux_sym_command_argument_token2] = "command_argument_token2",
   [anon_sym_async] = "async",
@@ -279,7 +279,7 @@ static const TSSymbol ts_symbol_map[] = {
   [anon_sym_COMMA] = anon_sym_COMMA,
   [anon_sym_PIPE] = anon_sym_PIPE,
   [anon_sym_STAR] = anon_sym_STAR,
-  [aux_sym_command_token1] = aux_sym_command_token1,
+  [sym_command_text] = sym_command_text,
   [aux_sym_command_argument_token1] = aux_sym_command_argument_token1,
   [aux_sym_command_argument_token2] = aux_sym_command_argument_token2,
   [anon_sym_async] = anon_sym_async,
@@ -433,9 +433,9 @@ static const TSSymbolMetadata ts_symbol_metadata[] = {
     .visible = true,
     .named = false,
   },
-  [aux_sym_command_token1] = {
-    .visible = false,
-    .named = false,
+  [sym_command_text] = {
+    .visible = true,
+    .named = true,
   },
   [aux_sym_command_argument_token1] = {
     .visible = false,
@@ -2663,7 +2663,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       ACCEPT_TOKEN(anon_sym_STAR);
       END_STATE();
     case 74:
-      ACCEPT_TOKEN(aux_sym_command_token1);
+      ACCEPT_TOKEN(sym_command_text);
       if (lookahead == '\n') ADVANCE(57);
       if (lookahead == '#') ADVANCE(62);
       if (lookahead == '|') ADVANCE(59);
@@ -2673,7 +2673,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
       if (lookahead != 0) ADVANCE(74);
       END_STATE();
     case 75:
-      ACCEPT_TOKEN(aux_sym_command_token1);
+      ACCEPT_TOKEN(sym_command_text);
       if (lookahead == '>') ADVANCE(162);
       if (lookahead != 0 &&
           lookahead != '\t' &&
@@ -2682,7 +2682,7 @@ static bool ts_lex(TSLexer *lexer, TSStateId state) {
           lookahead != ' ') ADVANCE(76);
       END_STATE();
     case 76:
-      ACCEPT_TOKEN(aux_sym_command_token1);
+      ACCEPT_TOKEN(sym_command_text);
       if (lookahead != 0 &&
           lookahead != '\t' &&
           lookahead != '\n' &&
@@ -30282,7 +30282,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1190), 1,
-      aux_sym_command_token1,
+      sym_command_text,
     ACTIONS(1192), 1,
       anon_sym_EQ_GT,
   [26219] = 2,
@@ -30320,7 +30320,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1204), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26269] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30345,7 +30345,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1214), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26304] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30360,7 +30360,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1220), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26325] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30370,7 +30370,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1224), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26339] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30400,7 +30400,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1236), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26381] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30410,17 +30410,17 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1190), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26395] = 2,
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1240), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26402] = 2,
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1242), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26409] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30435,7 +30435,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1248), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26430] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30450,12 +30450,12 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1254), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26451] = 2,
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1256), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26458] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30475,7 +30475,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1264), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26486] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30495,17 +30495,17 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1272), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26514] = 2,
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1274), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26521] = 2,
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1276), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26528] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30525,7 +30525,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1284), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26556] = 2,
     ACTIONS(3), 1,
       sym__comment,
@@ -30540,7 +30540,7 @@ static const uint16_t ts_small_parse_table[] = {
     ACTIONS(353), 1,
       sym__comment,
     ACTIONS(1290), 1,
-      aux_sym_command_token1,
+      sym_command_text,
   [26577] = 2,
     ACTIONS(3), 1,
       sym__comment,

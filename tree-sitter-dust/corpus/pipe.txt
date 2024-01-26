@@ -9,8 +9,10 @@ Simple Command Pipe
 (root
   (statement
     (pipe
-      (command)
-      (command))))
+      (command
+        (command_text))
+      (command
+        (command_text)))))
 
 ================================================================================
 Simple Function Pipe

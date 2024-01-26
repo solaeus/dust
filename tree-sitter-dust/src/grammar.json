@@ -236,8 +236,8 @@
             "value": "*"
           },
           {
-            "type": "PATTERN",
-            "value": "\\S+"
+            "type": "SYMBOL",
+            "name": "command_text"
           },
           {
             "type": "REPEAT",
@@ -248,6 +248,10 @@
           }
         ]
       }
+    },
+    "command_text": {
+      "type": "PATTERN",
+      "value": "\\S+"
     },
     "command_argument": {
       "type": "CHOICE",

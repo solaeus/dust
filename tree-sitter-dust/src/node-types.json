@@ -62,10 +62,14 @@
     "fields": {},
     "children": {
       "multiple": true,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "command_argument",
+          "named": true
+        },
+        {
+          "type": "command_text",
           "named": true
         }
       ]
@@ -908,6 +912,10 @@
   {
     "type": "collection",
     "named": false
+  },
+  {
+    "type": "command_text",
+    "named": true
   },
   {
     "type": "else",
