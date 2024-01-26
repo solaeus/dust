@@ -4,12 +4,11 @@ use clap::{Parser, Subcommand};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use reedline::{
-    default_emacs_keybindings, ColumnarMenu, DefaultCompleter, DefaultHinter, EditCommand, Emacs,
-    Highlighter, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, SqliteBackedHistory,
-    StyledText,
+    default_emacs_keybindings, DefaultHinter, EditCommand, Emacs, Highlighter, Prompt, Reedline,
+    ReedlineEvent, Signal, SqliteBackedHistory, StyledText,
 };
 
-use std::{borrow::Cow, fs::read_to_string, path::PathBuf, time::SystemTime};
+use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
 
 use dust_lang::{built_in_values, Interpreter, Map, Result, Value};
 
@@ -171,36 +170,52 @@ impl Highlighter for DustHighlighter {
     }
 }
 
-struct DustPrompt;
+struct DustPrompt {
+    left: String,
+    right: String,
+}
+
+impl DustPrompt {
+    fn new() -> Self {
+        Self {
+            left: String::new(),
+            right: String::new(),
+        }
+    }
+
+    fn reload(&mut self) {
+        let output = Command::new("starship")
+            .arg("prompt")
+            .output()
+            .unwrap()
+            .stdout;
+
+        self.left = String::from_utf8_lossy(&output).trim().to_string();
+    }
+}
 
 impl Prompt for DustPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
-        let path = std::env::current_dir()
-            .map(|path| path.file_name().unwrap().to_string_lossy().to_string())
-            .unwrap_or_else(|_| "No workdir".to_string());
-
-        Cow::Owned(path)
+        Cow::Borrowed(&self.left)
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
-        let time = humantime::format_rfc3339_seconds(SystemTime::now()).to_string();
-
-        Cow::Owned(time)
+        Cow::Borrowed(&self.right)
     }
 
     fn render_prompt_indicator(&self, _prompt_mode: reedline::PromptEditMode) -> Cow<str> {
-        Cow::Borrowed(" > ")
+        Cow::Borrowed("")
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
-        Cow::Borrowed(" > ")
+        Cow::Borrowed("")
     }
 
     fn render_prompt_history_search_indicator(
         &self,
         _history_search: reedline::PromptHistorySearch,
     ) -> Cow<str> {
-        Cow::Borrowed(" ? ")
+        Cow::Borrowed("")
     }
 }
 
@@ -215,14 +230,14 @@ fn run_shell(context: Map) -> Result<()> {
     );
     keybindings.add_binding(
         KeyModifiers::NONE,
-        KeyCode::Tab,
-        ReedlineEvent::UntilFound(vec![
-            ReedlineEvent::Menu("completion_menu".to_string()),
-            ReedlineEvent::MenuNext,
+        KeyCode::Enter,
+        ReedlineEvent::Multiple(vec![
+            ReedlineEvent::SubmitOrNewline,
+            ReedlineEvent::ExecuteHostCommand("output('hi')".to_string()),
         ]),
     );
     keybindings.add_binding(
-        KeyModifiers::CONTROL,
+        KeyModifiers::NONE,
         KeyCode::Tab,
         ReedlineEvent::Edit(vec![EditCommand::InsertString("    ".to_string())]),
     );
@@ -238,19 +253,18 @@ fn run_shell(context: Map) -> Result<()> {
         .with_history(history)
         .with_highlighter(Box::new(DustHighlighter::new(context)))
         .with_hinter(hinter)
-        .with_menu(ReedlineMenu::WithCompleter {
-            menu: Box::new(ColumnarMenu::default().with_name("completion_menu")),
-            completer: Box::new(DefaultCompleter::new_with_wordlen(
-                vec!["test".to_string()],
-                2,
-            )),
-        });
-    let prompt = DustPrompt;
+        .use_kitty_keyboard_enhancement(true);
+    let mut prompt = DustPrompt::new();
+
+    prompt.reload();
 
     loop {
         let sig = line_editor.read_line(&prompt);
+
         match sig {
             Ok(Signal::Success(buffer)) => {
+                prompt.reload();
+
                 if buffer.trim().is_empty() {
                     continue;
                 }
