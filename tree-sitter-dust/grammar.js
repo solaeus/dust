@@ -86,13 +86,14 @@ module.exports = grammar({
       prec.right(
         seq(
           '*',
-          repeat($.command_text),
+          /\S+/,
+          repeat($.command_argument),
         ),
       ),
 
-    command_text: $ =>
+    command_argument: $ =>
       choice(
-        /\S+/,
+        /[^*\s]+/,
         /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
       ),
 

@@ -65,14 +65,14 @@
       "required": false,
       "types": [
         {
-          "type": "command_text",
+          "type": "command_argument",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "command_text",
+    "type": "command_argument",
     "named": true,
     "fields": {}
   },

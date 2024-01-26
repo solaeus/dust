@@ -9,11 +9,10 @@ Simple Command
 (root
   (statement
     (expression
-      (command
-        (command_text)))))
+      (command))))
 
 ================================================================================
-Nested Command
+Command Sequence
 ================================================================================
 
 *less *ls
@@ -23,17 +22,16 @@ Nested Command
 (root
   (statement
     (expression
-      (command
-        (command_text)
-        (command_text)))))
+      (command)))
+  (statement
+    (expression
+      (command))))
 
 ================================================================================
 Command with Arguments
 ================================================================================
 
-*ls --long -a;
-(*git status)
-*git log;
+*ls --long -a
 
 --------------------------------------------------------------------------------
 
@@ -41,19 +39,15 @@ Command with Arguments
   (statement
     (expression
       (command
-        (command_text)
-        (command_text)
-        (command_text)
-        (command_text)
-        (command_text)
-        (command_text)
-        (command_text)))))
+        (command_argument)
+        (command_argument)))))
 
 ================================================================================
-Nested Command with Arguments
+Command Sequence with Arguments
 ================================================================================
 
-*less *ls --long -a
+*cargo run -- -c "output('hi there')"
+*ls --long -a
 
 --------------------------------------------------------------------------------
 
@@ -61,7 +55,12 @@ Nested Command with Arguments
   (statement
     (expression
       (command
-        (command_text)
-        (command_text)
-        (command_text)
-        (command_text)))))
+        (command_argument)
+        (command_argument)
+        (command_argument)
+        (command_argument))))
+  (statement
+    (expression
+      (command
+        (command_argument)
+        (command_argument)))))

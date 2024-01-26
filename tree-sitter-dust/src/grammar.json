@@ -236,21 +236,25 @@
             "value": "*"
           },
           {
+            "type": "PATTERN",
+            "value": "\\S+"
+          },
+          {
             "type": "REPEAT",
             "content": {
               "type": "SYMBOL",
-              "name": "command_text"
+              "name": "command_argument"
             }
           }
         ]
       }
     },
-    "command_text": {
+    "command_argument": {
       "type": "CHOICE",
       "members": [
         {
           "type": "PATTERN",
-          "value": "\\S+"
+          "value": "[^*\\s]+"
         },
         {
           "type": "PATTERN",

@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use reedline::{
-    default_emacs_keybindings, DefaultPrompt, EditCommand, Emacs, Highlighter, Reedline,
-    ReedlineEvent, Signal, SqliteBackedHistory, StyledText,
+    default_emacs_keybindings, DefaultPrompt, DefaultPromptSegment, EditCommand, Emacs,
+    Highlighter, Reedline, ReedlineEvent, Signal, SqliteBackedHistory, StyledText,
 };
 
 use std::{fs::read_to_string, path::PathBuf};
@@ -172,26 +172,29 @@ impl Highlighter for DustHighlighter {
 
 fn run_shell(context: Map) -> Result<()> {
     let mut interpreter = Interpreter::new(context.clone());
-    let prompt = DefaultPrompt::default();
+    let mut prompt = DefaultPrompt::default();
+
+    prompt.left_prompt = DefaultPromptSegment::Basic(">".to_string());
+
     let mut keybindings = default_emacs_keybindings();
 
     keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::Enter,
+        KeyModifiers::CONTROL,
+        KeyCode::Char(' '),
         ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
     );
     keybindings.add_binding(
         KeyModifiers::CONTROL,
-        KeyCode::Char(' '),
-        ReedlineEvent::Submit,
-    );
-    keybindings.add_binding(
-        KeyModifiers::NONE,
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("completion_menu".to_string()),
             ReedlineEvent::MenuNext,
         ]),
+    );
+    keybindings.add_binding(
+        KeyModifiers::NONE,
+        KeyCode::Tab,
+        ReedlineEvent::Edit(vec![EditCommand::InsertString("    ".to_string())]),
     );
 
     let edit_mode = Box::new(Emacs::new(keybindings));
