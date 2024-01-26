@@ -4,8 +4,8 @@ use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    built_in_functions::string_functions, AbstractTree, BuiltInFunction, Format, Function, List,
-    Map, Result, SyntaxNode, Type, Value,
+    built_in_functions::{json::json_functions, string::string_functions, Callable},
+    AbstractTree, BuiltInFunction, Format, Function, List, Map, Result, SyntaxNode, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -80,16 +80,18 @@ impl BuiltInValue {
                 Value::Map(fs_context)
             }),
             BuiltInValue::Json => JSON.get_or_init(|| {
-                let json_context = Map::new();
+                let mut json_context = BTreeMap::new();
 
-                json_context
-                    .set(
-                        BuiltInFunction::JsonParse.name().to_string(),
-                        Value::Function(Function::BuiltIn(BuiltInFunction::JsonParse)),
-                    )
-                    .unwrap();
+                for json_function in json_functions() {
+                    let key = json_function.name().to_string();
+                    let value =
+                        Value::Function(Function::BuiltIn(BuiltInFunction::Json(json_function)));
+                    let r#type = value.r#type();
 
-                Value::Map(json_context)
+                    json_context.insert(key, (value, r#type));
+                }
+
+                Value::Map(Map::with_variables(json_context))
             }),
             BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
             BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),

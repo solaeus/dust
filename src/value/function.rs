@@ -5,7 +5,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{BuiltInFunction, Format, FunctionNode, Map, Result, Type, Value};
+use crate::{
+    built_in_functions::Callable, BuiltInFunction, Format, FunctionNode, Map, Result, Type, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Function {
@@ -20,16 +22,6 @@ impl Function {
                 built_in_function.call(arguments, source, outer_context)
             }
             Function::ContextDefined(function_node) => {
-                function_node.set(
-                    "self".to_string(),
-                    Value::Function(Function::ContextDefined(Arc::new(FunctionNode::new(
-                        function_node.parameters().clone(),
-                        function_node.body().clone(),
-                        function_node.r#type().clone(),
-                        *function_node.syntax_position(),
-                    )))),
-                )?;
-
                 function_node.call(arguments, source, outer_context)
             }
         }

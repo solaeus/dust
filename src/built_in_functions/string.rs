@@ -1,10 +1,12 @@
-use enum_iterator::{all, Sequence};
+use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, List, Map, Result, Type, Value};
 
+use super::Callable;
+
 pub fn string_functions() -> impl Iterator<Item = StringFunction> {
-    all()
+    enum_iterator::all()
 }
 
 #[derive(Sequence, Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -41,8 +43,8 @@ pub enum StringFunction {
     Truncate,
 }
 
-impl StringFunction {
-    pub fn name(&self) -> &'static str {
+impl Callable for StringFunction {
+    fn name(&self) -> &'static str {
         match self {
             StringFunction::AsBytes => "as_bytes",
             StringFunction::EndsWith => "ends_with",
@@ -77,7 +79,7 @@ impl StringFunction {
         }
     }
 
-    pub fn r#type(&self) -> Type {
+    fn r#type(&self) -> Type {
         match self {
             StringFunction::AsBytes => {
                 Type::function(vec![Type::String], Type::list(Type::Integer))
@@ -163,7 +165,7 @@ impl StringFunction {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
+    fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
         let value = match self {
             StringFunction::AsBytes => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;

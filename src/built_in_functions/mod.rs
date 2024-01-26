@@ -1,4 +1,5 @@
-mod string;
+pub mod json;
+pub mod string;
 
 use std::{
     fmt::{self, Display, Formatter},
@@ -10,13 +11,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Format, Map, Result, Type, Value};
 
-pub use string::{string_functions, StringFunction};
+use self::{json::Json, string::StringFunction};
+
+pub trait Callable {
+    fn name(&self) -> &'static str;
+    fn r#type(&self) -> Type;
+    fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value>;
+}
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
     AssertEqual,
     FsRead,
-    JsonParse,
+    Json(Json),
     Length,
     Output,
     RandomBoolean,
@@ -26,12 +33,12 @@ pub enum BuiltInFunction {
     String(StringFunction),
 }
 
-impl BuiltInFunction {
-    pub fn name(&self) -> &'static str {
+impl Callable for BuiltInFunction {
+    fn name(&self) -> &'static str {
         match self {
             BuiltInFunction::AssertEqual => "assert_equal",
             BuiltInFunction::FsRead => "read",
-            BuiltInFunction::JsonParse => "parse",
+            BuiltInFunction::Json(json_function) => json_function.name(),
             BuiltInFunction::Length => "length",
             BuiltInFunction::Output => "output",
             BuiltInFunction::RandomBoolean => "boolean",
@@ -42,11 +49,11 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn r#type(&self) -> Type {
+    fn r#type(&self) -> Type {
         match self {
             BuiltInFunction::AssertEqual => Type::function(vec![Type::Any, Type::Any], Type::None),
             BuiltInFunction::FsRead => Type::function(vec![Type::String], Type::String),
-            BuiltInFunction::JsonParse => Type::function(vec![Type::String], Type::Any),
+            BuiltInFunction::Json(json_function) => json_function.r#type(),
             BuiltInFunction::Length => Type::function(vec![Type::Collection], Type::Integer),
             BuiltInFunction::Output => Type::function(vec![Type::Any], Type::None),
             BuiltInFunction::RandomBoolean => Type::function(vec![], Type::Boolean),
@@ -57,7 +64,7 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
+    fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
         match self {
             BuiltInFunction::AssertEqual => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
@@ -75,13 +82,8 @@ impl BuiltInFunction {
 
                 Ok(Value::string(file_content))
             }
-            BuiltInFunction::JsonParse => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
-
-                let string = arguments.first().unwrap().as_string()?;
-                let value = serde_json::from_str(string)?;
-
-                Ok(value)
+            BuiltInFunction::Json(json_function) => {
+                json_function.call(arguments, _source, _outer_context)
             }
             BuiltInFunction::Length => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;

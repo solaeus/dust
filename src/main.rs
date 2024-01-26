@@ -4,11 +4,12 @@ use clap::{Parser, Subcommand};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::Style;
 use reedline::{
-    default_emacs_keybindings, DefaultPrompt, DefaultPromptSegment, EditCommand, Emacs,
-    Highlighter, Reedline, ReedlineEvent, Signal, SqliteBackedHistory, StyledText,
+    default_emacs_keybindings, ColumnarMenu, DefaultCompleter, DefaultHinter, EditCommand, Emacs,
+    Highlighter, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, SqliteBackedHistory,
+    StyledText,
 };
 
-use std::{fs::read_to_string, path::PathBuf};
+use std::{borrow::Cow, fs::read_to_string, path::PathBuf, time::SystemTime};
 
 use dust_lang::{built_in_values, Interpreter, Map, Result, Value};
 
@@ -170,12 +171,41 @@ impl Highlighter for DustHighlighter {
     }
 }
 
+struct DustPrompt;
+
+impl Prompt for DustPrompt {
+    fn render_prompt_left(&self) -> Cow<str> {
+        let path = std::env::current_dir()
+            .map(|path| path.file_name().unwrap().to_string_lossy().to_string())
+            .unwrap_or_else(|_| "No workdir".to_string());
+
+        Cow::Owned(path)
+    }
+
+    fn render_prompt_right(&self) -> Cow<str> {
+        let time = humantime::format_rfc3339_seconds(SystemTime::now()).to_string();
+
+        Cow::Owned(time)
+    }
+
+    fn render_prompt_indicator(&self, _prompt_mode: reedline::PromptEditMode) -> Cow<str> {
+        Cow::Borrowed(" > ")
+    }
+
+    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+        Cow::Borrowed(" > ")
+    }
+
+    fn render_prompt_history_search_indicator(
+        &self,
+        _history_search: reedline::PromptHistorySearch,
+    ) -> Cow<str> {
+        Cow::Borrowed(" ? ")
+    }
+}
+
 fn run_shell(context: Map) -> Result<()> {
     let mut interpreter = Interpreter::new(context.clone());
-    let mut prompt = DefaultPrompt::default();
-
-    prompt.left_prompt = DefaultPromptSegment::Basic(">".to_string());
-
     let mut keybindings = default_emacs_keybindings();
 
     keybindings.add_binding(
@@ -184,7 +214,7 @@ fn run_shell(context: Map) -> Result<()> {
         ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
     );
     keybindings.add_binding(
-        KeyModifiers::CONTROL,
+        KeyModifiers::NONE,
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("completion_menu".to_string()),
@@ -192,7 +222,7 @@ fn run_shell(context: Map) -> Result<()> {
         ]),
     );
     keybindings.add_binding(
-        KeyModifiers::NONE,
+        KeyModifiers::CONTROL,
         KeyCode::Tab,
         ReedlineEvent::Edit(vec![EditCommand::InsertString("    ".to_string())]),
     );
@@ -202,10 +232,20 @@ fn run_shell(context: Map) -> Result<()> {
         SqliteBackedHistory::with_file(PathBuf::from("target/history"), None, None)
             .expect("Error loading history."),
     );
+    let hinter = Box::new(DefaultHinter::default());
     let mut line_editor = Reedline::create()
         .with_edit_mode(edit_mode)
         .with_history(history)
-        .with_highlighter(Box::new(DustHighlighter::new(context)));
+        .with_highlighter(Box::new(DustHighlighter::new(context)))
+        .with_hinter(hinter)
+        .with_menu(ReedlineMenu::WithCompleter {
+            menu: Box::new(ColumnarMenu::default().with_name("completion_menu")),
+            completer: Box::new(DefaultCompleter::new_with_wordlen(
+                vec!["test".to_string()],
+                2,
+            )),
+        });
+    let prompt = DustPrompt;
 
     loop {
         let sig = line_editor.read_line(&prompt);
