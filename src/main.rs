@@ -2,10 +2,11 @@
 
 use clap::{Parser, Subcommand};
 use crossterm::event::{KeyCode, KeyModifiers};
-use nu_ansi_term::Style;
+use nu_ansi_term::{Color, Style};
 use reedline::{
-    default_emacs_keybindings, DefaultHinter, EditCommand, Emacs, Highlighter, Prompt, Reedline,
-    ReedlineEvent, Signal, SqliteBackedHistory, StyledText,
+    default_emacs_keybindings, ColumnarMenu, Completer, DefaultHinter, EditCommand, Emacs,
+    Highlighter, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span, SqliteBackedHistory,
+    StyledText, Suggestion,
 };
 
 use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
@@ -122,6 +123,8 @@ impl DustHighlighter {
     }
 }
 
+const HIGHLIGHT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'];
+
 impl Highlighter for DustHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
         fn highlight_identifier(styled: &mut StyledText, word: &str, map: &Map) -> bool {
@@ -133,7 +136,7 @@ impl Highlighter for DustHighlighter {
                 }
 
                 if let Value::Map(nested_map) = value {
-                    return highlight_identifier(styled, key, nested_map);
+                    return highlight_identifier(styled, word, nested_map);
                 }
             }
 
@@ -149,17 +152,20 @@ impl Highlighter for DustHighlighter {
         }
 
         let mut styled = StyledText::new();
-        let terminators = [' ', ':', '(', ')', '{', '}', '[', ']'];
 
-        for word in line.split_inclusive(&terminators) {
+        for word in line.split_inclusive(&HIGHLIGHT_TERMINATORS) {
             let word_is_highlighted =
                 highlight_identifier(&mut styled, &word[0..word.len() - 1], &self.context);
 
             if word_is_highlighted {
                 let final_char = word.chars().last().unwrap();
 
-                if terminators.contains(&final_char) {
-                    styled.push((Style::new(), final_char.to_string()));
+                if HIGHLIGHT_TERMINATORS.contains(&final_char) {
+                    let mut terminator_style = Style::new();
+
+                    terminator_style.foreground = Some(Color::Cyan);
+
+                    styled.push((terminator_style, final_char.to_string()));
                 }
             } else {
                 styled.push((Style::new(), word.to_string()));
@@ -170,12 +176,12 @@ impl Highlighter for DustHighlighter {
     }
 }
 
-struct DustPrompt {
+struct StarshipPrompt {
     left: String,
     right: String,
 }
 
-impl DustPrompt {
+impl StarshipPrompt {
     fn new() -> Self {
         Self {
             left: String::new(),
@@ -184,17 +190,27 @@ impl DustPrompt {
     }
 
     fn reload(&mut self) {
-        let output = Command::new("starship")
-            .arg("prompt")
-            .output()
-            .unwrap()
-            .stdout;
+        let run_starship_left = Command::new("starship").arg("prompt").output();
+        let run_starship_right = Command::new("starship")
+            .args(["prompt", "--right"])
+            .output();
+        let left_prompt = if let Ok(output) = &run_starship_left {
+            String::from_utf8_lossy(&output.stdout).trim().to_string()
+        } else {
+            ">".to_string()
+        };
+        let right_prompt = if let Ok(output) = &run_starship_right {
+            String::from_utf8_lossy(&output.stdout).trim().to_string()
+        } else {
+            ">".to_string()
+        };
 
-        self.left = String::from_utf8_lossy(&output).trim().to_string();
+        self.left = left_prompt;
+        self.right = right_prompt;
     }
 }
 
-impl Prompt for DustPrompt {
+impl Prompt for StarshipPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
         Cow::Borrowed(&self.left)
     }
@@ -204,7 +220,7 @@ impl Prompt for DustPrompt {
     }
 
     fn render_prompt_indicator(&self, _prompt_mode: reedline::PromptEditMode) -> Cow<str> {
-        Cow::Borrowed("")
+        Cow::Borrowed(" ")
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
@@ -216,6 +232,35 @@ impl Prompt for DustPrompt {
         _history_search: reedline::PromptHistorySearch,
     ) -> Cow<str> {
         Cow::Borrowed("")
+    }
+}
+
+pub struct DustCompleter {
+    context: Map,
+}
+
+impl DustCompleter {
+    fn new(context: Map) -> Self {
+        DustCompleter { context }
+    }
+}
+
+impl Completer for DustCompleter {
+    fn complete(&mut self, _line: &str, pos: usize) -> Vec<Suggestion> {
+        let variables = self.context.variables().unwrap();
+        let mut suggestions = Vec::with_capacity(variables.len());
+
+        for (key, (value, r#type)) in variables.iter() {
+            suggestions.push(Suggestion {
+                value: key.clone(),
+                description: Some(value.to_string()),
+                extra: Some(vec![r#type.to_string()]),
+                span: Span::new(pos, pos),
+                append_whitespace: false,
+            });
+        }
+
+        suggestions
     }
 }
 
@@ -231,15 +276,17 @@ fn run_shell(context: Map) -> Result<()> {
     keybindings.add_binding(
         KeyModifiers::NONE,
         KeyCode::Enter,
-        ReedlineEvent::Multiple(vec![
-            ReedlineEvent::SubmitOrNewline,
-            ReedlineEvent::ExecuteHostCommand("output('hi')".to_string()),
-        ]),
+        ReedlineEvent::SubmitOrNewline,
     );
     keybindings.add_binding(
         KeyModifiers::NONE,
         KeyCode::Tab,
         ReedlineEvent::Edit(vec![EditCommand::InsertString("    ".to_string())]),
+    );
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('h'),
+        ReedlineEvent::Menu("help menu".to_string()),
     );
 
     let edit_mode = Box::new(Emacs::new(keybindings));
@@ -247,14 +294,19 @@ fn run_shell(context: Map) -> Result<()> {
         SqliteBackedHistory::with_file(PathBuf::from("target/history"), None, None)
             .expect("Error loading history."),
     );
-    let hinter = Box::new(DefaultHinter::default());
+    let hinter = Box::new(DefaultHinter::default().with_style(Style::new().dimmed()));
+    let completer = DustCompleter::new(context.clone());
     let mut line_editor = Reedline::create()
         .with_edit_mode(edit_mode)
         .with_history(history)
         .with_highlighter(Box::new(DustHighlighter::new(context)))
         .with_hinter(hinter)
-        .use_kitty_keyboard_enhancement(true);
-    let mut prompt = DustPrompt::new();
+        .use_kitty_keyboard_enhancement(true)
+        .with_completer(Box::new(completer))
+        .with_menu(ReedlineMenu::EngineCompleter(Box::new(
+            ColumnarMenu::default().with_name("help menu"),
+        )));
+    let mut prompt = StarshipPrompt::new();
 
     prompt.reload();
 
