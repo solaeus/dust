@@ -268,6 +268,18 @@ impl Completer for DustCompleter {
             }
         }
 
+        for (key, (value, _type)) in self.context.variables().unwrap().iter() {
+            if key.contains(last_word) {
+                suggestions.push(Suggestion {
+                    value: key.to_string(),
+                    description: Some(value.to_string()),
+                    extra: None,
+                    span: Span::new(pos - last_word.len(), pos),
+                    append_whitespace: false,
+                });
+            }
+        }
+
         suggestions
     }
 }
