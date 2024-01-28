@@ -26,12 +26,14 @@ impl FunctionNode {
         r#type: Type,
         syntax_position: SyntaxPosition,
     ) -> Self {
-        Self {
+        let context = Map::new();
+
+        FunctionNode {
             parameters,
             body,
             r#type,
             syntax_position,
-            context: Map::new(),
+            context,
         }
     }
 
@@ -53,6 +55,10 @@ impl FunctionNode {
 
     pub fn syntax_position(&self) -> &SyntaxPosition {
         &self.syntax_position
+    }
+
+    pub fn context(&self) -> &Map {
+        &self.context
     }
 
     pub fn return_type(&self) -> &Type {
@@ -122,12 +128,6 @@ impl AbstractTree for FunctionNode {
 
         let function_context = Map::new();
 
-        for (key, (_value, r#type)) in outer_context.variables()?.iter() {
-            if r#type.is_function() {
-                function_context.set_type(key.clone(), r#type.clone())?;
-            }
-        }
-
         for (parameter, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
             function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
         }
@@ -157,9 +157,9 @@ impl AbstractTree for FunctionNode {
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        Ok(Value::Function(Function::ContextDefined(Arc::new(
-            self.clone(),
-        ))))
+        let self_as_value = Value::Function(Function::ContextDefined(Arc::new(self.clone())));
+
+        Ok(self_as_value)
     }
 
     fn expected_type(&self, _context: &Map) -> Result<Type> {

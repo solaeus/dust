@@ -1,9 +1,9 @@
-fib = (i <int>) <int> {
+fib = (i <int>, fib <(int) -> int>) <int> {
 	if i <= 1 {
 		1
 	} else {
-		self(i - 1) + self(i - 2)
+		fib(i - 1) + fib(i - 2)
 	}
 }
 
-fib(8)
+fib(8, fib)

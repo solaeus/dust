@@ -204,7 +204,7 @@ impl<'de> Visitor<'de> for MapVisitor {
     type Value = Map;
 
     fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
-        formatter.write_str("Any valid whale data.")
+        formatter.write_str("key-value pairs")
     }
 
     fn visit_map<M>(self, mut access: M) -> std::result::Result<Map, M::Error>

@@ -50,6 +50,7 @@ impl AbstractTree for ValueNode {
 
                     if current_node.is_named() {
                         let expression = Expression::from_syntax(current_node, source, context)?;
+
                         expressions.push(expression);
                     }
                 }
@@ -175,7 +176,7 @@ impl AbstractTree for ValueNode {
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {
                     expected:
-                        "string, integer, float, boolean, range, list, map, option or structure"
+                        "string, integer, float, boolean, range, list, map, option, function or structure"
                             .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),

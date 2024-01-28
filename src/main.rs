@@ -43,7 +43,7 @@ pub enum CliCommand {
     Format,
 
     /// Output a concrete syntax tree of the input.
-    Syntax,
+    Syntax { path: String },
 }
 
 fn main() {
@@ -87,7 +87,9 @@ fn main() {
 
     let mut interpreter = Interpreter::new(context);
 
-    if let Some(CliCommand::Syntax) = args.cli_command {
+    if let Some(CliCommand::Syntax { path }) = args.cli_command {
+        let source = read_to_string(path).unwrap();
+
         interpreter.parse(&source).unwrap();
 
         println!("{}", interpreter.syntax_tree().unwrap());
@@ -96,6 +98,8 @@ fn main() {
     }
 
     if let Some(CliCommand::Format) = args.cli_command {
+        interpreter.parse(&source).unwrap();
+
         println!("{}", interpreter.format());
 
         return;
@@ -251,18 +255,32 @@ impl Completer for DustCompleter {
         let last_word = if let Some(word) = line.rsplit([' ', ':']).next() {
             word
         } else {
-            ""
+            line
         };
 
         if let Ok(path) = PathBuf::try_from(last_word) {
             if let Ok(read_dir) = path.read_dir() {
                 for entry in read_dir {
                     if let Ok(entry) = entry {
+                        let description = if let Ok(file_type) = entry.file_type() {
+                            if file_type.is_dir() {
+                                "directory"
+                            } else if file_type.is_file() {
+                                "file"
+                            } else if file_type.is_symlink() {
+                                "symlink"
+                            } else {
+                                "unknown"
+                            }
+                        } else {
+                            "unknown"
+                        };
+
                         suggestions.push(Suggestion {
-                            value: entry.file_name().into_string().unwrap(),
-                            description: None,
+                            value: entry.path().to_string_lossy().to_string(),
+                            description: Some(description.to_string()),
                             extra: None,
-                            span: Span::new(pos, pos),
+                            span: Span::new(pos - last_word.len(), pos),
                             append_whitespace: false,
                         });
                     }
@@ -335,9 +353,12 @@ fn run_shell(context: Map) -> Result<()> {
         ReedlineEvent::Edit(vec![EditCommand::InsertString("    ".to_string())]),
     );
     keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('h'),
-        ReedlineEvent::Menu("variable menu".to_string()),
+        KeyModifiers::NONE,
+        KeyCode::Tab,
+        ReedlineEvent::Multiple(vec![
+            ReedlineEvent::Menu("context menu".to_string()),
+            ReedlineEvent::MenuNext,
+        ]),
     );
 
     let edit_mode = Box::new(Emacs::new(keybindings));
@@ -357,8 +378,10 @@ fn run_shell(context: Map) -> Result<()> {
         .with_completer(Box::new(completer))
         .with_menu(ReedlineMenu::EngineCompleter(Box::new(
             ColumnarMenu::default()
-                .with_name("variable menu")
-                .with_text_style(Style::new().fg(Color::White)),
+                .with_name("context menu")
+                .with_text_style(Style::new().fg(Color::White))
+                .with_columns(1)
+                .with_column_padding(10),
         )));
     let mut prompt = StarshipPrompt::new();
 
@@ -369,8 +392,6 @@ fn run_shell(context: Map) -> Result<()> {
 
         match sig {
             Ok(Signal::Success(buffer)) => {
-                prompt.reload();
-
                 if buffer.trim().is_empty() {
                     continue;
                 }
@@ -383,8 +404,10 @@ fn run_shell(context: Map) -> Result<()> {
                             println!("{value}")
                         }
                     }
-                    Err(error) => println!("Error: {error}"),
+                    Err(error) => println!("{error}"),
                 }
+
+                prompt.reload();
             }
             Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
                 println!("\nLeaving the Dust shell.");

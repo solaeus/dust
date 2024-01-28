@@ -52,8 +52,37 @@ impl AbstractTree for For {
 
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let expression_run = self.collection.run(source, context)?;
-        let values = expression_run.as_list()?.items();
         let key = self.item_id.inner();
+
+        if let Value::Range(range) = expression_run {
+            if self.is_async {
+                let mut iterable = Vec::with_capacity((range.end - range.start) as usize);
+
+                for i in range.start..range.end {
+                    iterable.push(Value::Integer(i));
+                }
+
+                iterable.par_iter().try_for_each(|value| {
+                    let iter_context = Map::clone_from(context)?;
+
+                    iter_context.set(key.clone(), value.clone())?;
+
+                    self.block.run(source, &iter_context).map(|_value| ())
+                })?;
+            } else {
+                let loop_context = Map::clone_from(context)?;
+
+                for i in range.start..range.end {
+                    loop_context.set(key.clone(), Value::Integer(i))?;
+
+                    self.block.run(source, &loop_context)?;
+                }
+            }
+
+            return Ok(Value::none());
+        }
+
+        let values = expression_run.as_list()?.items();
 
         if self.is_async {
             values.par_iter().try_for_each(|value| {

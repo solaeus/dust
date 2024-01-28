@@ -1,0 +1,75 @@
+================================================================================
+Fibonacci
+================================================================================
+
+fib = (i <int>) <int> {
+	if i <= 1 {
+		1
+	} else {
+		self(i - 1) + self(i - 2)
+	}
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (value
+            (function
+              (identifier)
+              (type_specification
+                (type))
+              (type_specification
+                (type))
+              (block
+                (statement
+                  (if_else
+                    (if
+                      (expression
+                        (logic
+                          (expression
+                            (identifier))
+                          (logic_operator)
+                          (expression
+                            (value
+                              (integer)))))
+                      (block
+                        (statement
+                          (expression
+                            (value
+                              (integer))))))
+                    (else
+                      (block
+                        (statement
+                          (expression
+                            (math
+                              (expression
+                                (function_call
+                                  (function_expression
+                                    (identifier))
+                                  (expression
+                                    (math
+                                      (expression
+                                        (identifier))
+                                      (math_operator)
+                                      (expression
+                                        (value
+                                          (integer)))))))
+                              (math_operator)
+                              (expression
+                                (function_call
+                                  (function_expression
+                                    (identifier))
+                                  (expression
+                                    (math
+                                      (expression
+                                        (identifier))
+                                      (math_operator)
+                                      (expression
+                                        (value
+                                          (integer))))))))))))))))))))))

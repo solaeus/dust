@@ -160,9 +160,6 @@ pub enum Error {
     /// Failed to find a variable with a value for this key.
     VariableIdentifierNotFound(String),
 
-    /// Failed to find a variable with a function value for this key.
-    FunctionIdentifierNotFound(String),
-
     /// The function failed due to an external error.
     External(String),
 
@@ -179,6 +176,9 @@ pub enum Error {
     SerdeJson(String),
 
     ParserCancelled,
+    ExpectedIterable {
+        actual: Value,
+    },
 }
 
 impl Error {
@@ -391,14 +391,7 @@ impl fmt::Display for Error {
                     "Expected a string, list, map or table, but got {actual}.",
                 )
             }
-            VariableIdentifierNotFound(key) => write!(
-                f,
-                "Variable identifier is not bound to anything by context: {key}.",
-            ),
-            FunctionIdentifierNotFound(key) => write!(
-                f,
-                "Function identifier is not bound to anything by context: {key}."
-            ),
+            VariableIdentifierNotFound(key) => write!(f, "Variable {key} does not exist.",),
             UnexpectedSyntaxNode {
                 expected,
                 actual,
@@ -449,6 +442,9 @@ impl fmt::Display for Error {
                 "Parsing was cancelled either manually or because it took too long."
             ),
             ExpectedFunctionType { actual } => write!(f, "Expected a function but got {actual}."),
+            ExpectedIterable { actual } => {
+                write!(f, "Expected an iterable value but got {actual}.")
+            }
         }
     }
 }
