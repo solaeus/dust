@@ -137,13 +137,13 @@ fn recursion() {
             	if i <= 1 {
             		1
             	} else {
-            		self(i - 1) + self(i - 2)
+            		fib(i - 1) + fib(i - 2)
             	}
             }
 
-            fib(3)
+            fib(8)
             "
         ),
-        Ok(Value::Integer(3))
+        Ok(Value::Integer(34))
     );
 }

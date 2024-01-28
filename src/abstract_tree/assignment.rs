@@ -97,9 +97,7 @@ impl AbstractTree for Assignment {
             }
         }
 
-        self.statement
-            .check_type(source, context)
-            .map_err(|error| error.at_source_position(source, self.syntax_position))?;
+        self.statement.check_type(source, context)?;
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-fib = (i <int>, fib <(int) -> int>) <int> {
+fib = (i <int>) <int> {
 	if i <= 1 {
 		1
 	} else {
@@ -6,4 +6,4 @@ fib = (i <int>, fib <(int) -> int>) <int> {
 	}
 }
 
-fib(8, fib)
+fib(8)

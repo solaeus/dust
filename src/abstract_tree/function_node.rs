@@ -61,14 +61,13 @@ impl FunctionNode {
 
     pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
         let function_context = Map::new();
+        let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
         for (key, (value, r#type)) in outer_context.variables()?.iter() {
             if r#type.is_function() {
                 function_context.set(key.clone(), value.clone())?;
             }
         }
-
-        let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
@@ -116,6 +115,12 @@ impl AbstractTree for FunctionNode {
             function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
         }
 
+        for (key, (value, r#type)) in outer_context.variables()?.iter() {
+            if r#type.is_function() {
+                function_context.set(key.clone(), value.clone())?;
+            }
+        }
+
         let body_node = node.child(child_count - 1).unwrap();
         let body = Block::from_syntax(body_node, source, &function_context)?;
 
@@ -130,32 +135,35 @@ impl AbstractTree for FunctionNode {
         })
     }
 
-    fn check_type(&self, source: &str, _context: &Map) -> Result<()> {
+    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
         let function_context = Map::new();
+
+        for (key, (_value, r#type)) in context.variables()?.iter() {
+            if r#type.is_function() {
+                function_context.set_type(key.clone(), r#type.clone())?;
+            }
+        }
 
         if let Type::Function {
             parameter_types,
-            return_type: _,
+            return_type,
         } = &self.r#type
         {
             for (parameter, parameter_type) in self.parameters.iter().zip(parameter_types.iter()) {
                 function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
             }
 
-            self.return_type()
+            return_type
                 .check(&self.body.expected_type(&function_context)?)
                 .map_err(|error| error.at_source_position(source, self.syntax_position))?;
+            self.body.check_type(source, &function_context)?;
+
+            Ok(())
         } else {
-            return Err(Error::TypeCheckExpectedFunction {
+            Err(Error::TypeCheckExpectedFunction {
                 actual: self.r#type.clone(),
-            });
-        };
-
-        self.body
-            .check_type(source, &function_context)
-            .map_err(|error| error.at_source_position(source, self.syntax_position))?;
-
-        Ok(())
+            })
+        }
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
