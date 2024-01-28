@@ -3,6 +3,11 @@ use serde::{
     ser::SerializeMap,
     Deserialize, Serialize,
 };
+use stanza::{
+    renderer::{console::Console, Renderer},
+    style::{HAlign, Styles},
+    table::{Row, Table},
+};
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
@@ -94,6 +99,37 @@ impl Map {
 
         Ok(previous)
     }
+
+    pub fn as_text_table(&self) -> Table {
+        let variables = self.variables.read().unwrap().clone().into_iter();
+        let mut table = Table::with_styles(Styles::default().with(HAlign::Centred));
+
+        for (key, (value, r#type)) in variables {
+            if let Value::Map(map) = value {
+                table.push_row(Row::new(
+                    Styles::default(),
+                    vec![key.into(), map.as_text_table().into(), "".into()],
+                ));
+            } else if let Value::List(list) = value {
+                table.push_row(Row::new(
+                    Styles::default(),
+                    vec![
+                        key.into(),
+                        list.as_text_table().into(),
+                        r#type.to_string().into(),
+                    ],
+                ));
+            } else {
+                table.push_row([key, value.to_string(), r#type.to_string()]);
+            };
+        }
+
+        if table.is_empty() {
+            table.push_row(vec!["", "empty map", ""])
+        }
+
+        table
+    }
 }
 
 impl Default for Map {
@@ -130,14 +166,9 @@ impl PartialOrd for Map {
 
 impl Display for Map {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{{")?;
+        let renderer = Console::default();
 
-        let variables = self.variables.read().unwrap().clone().into_iter();
-
-        for (key, (value, value_type)) in variables {
-            writeln!(f, "    {key} <{value_type}> = {value}")?;
-        }
-        write!(f, "}}")
+        f.write_str(&renderer.render(&self.as_text_table()))
     }
 }
 

@@ -4,6 +4,12 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
+use stanza::{
+    renderer::{console::Console, Renderer},
+    style::Styles,
+    table::{Cell, Content, Row, Table},
+};
+
 use crate::Value;
 
 #[derive(Debug, Clone)]
@@ -35,6 +41,36 @@ impl List {
     pub fn items_mut(&self) -> RwLockWriteGuard<'_, Vec<Value>> {
         self.0.write().unwrap()
     }
+
+    pub fn as_text_table(&self) -> Table {
+        let cells: Vec<Cell> = self
+            .items()
+            .iter()
+            .map(|value| {
+                if let Value::List(list) = value {
+                    Cell::new(Styles::default(), Content::Nested(list.as_text_table()))
+                } else if let Value::Map(map) = value {
+                    Cell::new(Styles::default(), Content::Nested(map.as_text_table()))
+                } else {
+                    Cell::new(Styles::default(), Content::Label(value.to_string()))
+                }
+            })
+            .collect();
+
+        let row = if cells.is_empty() {
+            Row::new(
+                Styles::default(),
+                vec![Cell::new(
+                    Styles::default(),
+                    Content::Label("empty list".to_string()),
+                )],
+            )
+        } else {
+            Row::new(Styles::default(), cells)
+        };
+
+        Table::default().with_row(row)
+    }
 }
 
 impl Eq for List {}
@@ -65,18 +101,8 @@ impl PartialOrd for List {
 
 impl Display for List {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let items = self.items();
+        let renderer = Console::default();
 
-        write!(f, "[")?;
-
-        for (index, value) in items.iter().enumerate() {
-            write!(f, "{value}")?;
-
-            if index != items.len() - 1 {
-                write!(f, ", ")?;
-            }
-        }
-
-        write!(f, "]")
+        f.write_str(&renderer.render(&self.as_text_table()))
     }
 }

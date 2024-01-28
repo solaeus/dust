@@ -1033,6 +1033,7 @@ dependencies = [
  "rustyline",
  "serde",
  "serde_json",
+ "stanza",
  "toml",
  "tree-sitter",
  "wasm-bindgen-futures",
@@ -3117,6 +3118,12 @@ dependencies = [
  "libc",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "stanza"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d230b987a5b524a015ded47fed54c5177598a71c90508acee1c5d0b4c955f74"
 
 [[package]]
 name = "static_assertions"
