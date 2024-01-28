@@ -35,13 +35,6 @@ impl Function {
             }
         }
     }
-
-    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
-        match self {
-            Function::BuiltIn(_) => todo!(),
-            Function::ContextDefined(function_node) => function_node.set(key, value),
-        }
-    }
 }
 
 impl Format for Function {
