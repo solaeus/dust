@@ -257,14 +257,31 @@ impl Completer for DustCompleter {
         };
 
         for built_in_value in built_in_values() {
+            let name = built_in_value.name();
+            let description = built_in_value.description();
+
             if built_in_value.name().contains(last_word) {
                 suggestions.push(Suggestion {
-                    value: built_in_value.name().to_string(),
-                    description: Some(built_in_value.description().to_string()),
+                    value: name.to_string(),
+                    description: Some(description.to_string()),
                     extra: None,
                     span: Span::new(pos - last_word.len(), pos),
                     append_whitespace: false,
                 });
+            }
+
+            if let Value::Map(map) = built_in_value.get() {
+                for (key, (value, _type)) in map.variables().unwrap().iter() {
+                    if key.contains(last_word) {
+                        suggestions.push(Suggestion {
+                            value: format!("{name}:{key}"),
+                            description: Some(value.to_string()),
+                            extra: None,
+                            span: Span::new(pos - last_word.len(), pos),
+                            append_whitespace: false,
+                        });
+                    }
+                }
             }
         }
 
