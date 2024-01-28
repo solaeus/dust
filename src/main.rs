@@ -9,9 +9,7 @@ use reedline::{
     StyledText, Suggestion,
 };
 
-use std::{
-    borrow::Cow, collections::BTreeSet, fs::read_to_string, path::PathBuf, process::Command,
-};
+use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
 
 use dust_lang::{built_in_values, Interpreter, Map, Result, Value};
 
@@ -125,7 +123,7 @@ impl DustHighlighter {
     }
 }
 
-const INPUT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'];
+const HIGHLIGHT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'];
 
 impl Highlighter for DustHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
@@ -155,14 +153,14 @@ impl Highlighter for DustHighlighter {
 
         let mut styled = StyledText::new();
 
-        for word in line.split_inclusive(&INPUT_TERMINATORS) {
+        for word in line.split_inclusive(&HIGHLIGHT_TERMINATORS) {
             let word_is_highlighted =
                 highlight_identifier(&mut styled, &word[0..word.len() - 1], &self.context);
 
             if word_is_highlighted {
                 let final_char = word.chars().last().unwrap();
 
-                if INPUT_TERMINATORS.contains(&final_char) {
+                if HIGHLIGHT_TERMINATORS.contains(&final_char) {
                     let mut terminator_style = Style::new();
 
                     terminator_style.foreground = Some(Color::Cyan);
@@ -250,11 +248,27 @@ impl DustCompleter {
 impl Completer for DustCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut suggestions = Vec::new();
-        let last_word = if let Some(word) = line.rsplit(INPUT_TERMINATORS).next() {
+        let last_word = if let Some(word) = line.rsplit([' ', ':']).next() {
             word
         } else {
             ""
         };
+
+        if let Ok(path) = PathBuf::try_from(last_word) {
+            if let Ok(read_dir) = path.read_dir() {
+                for entry in read_dir {
+                    if let Ok(entry) = entry {
+                        suggestions.push(Suggestion {
+                            value: entry.file_name().into_string().unwrap(),
+                            description: None,
+                            extra: None,
+                            span: Span::new(pos, pos),
+                            append_whitespace: false,
+                        });
+                    }
+                }
+            }
+        }
 
         for built_in_value in built_in_values() {
             let name = built_in_value.name();
@@ -332,16 +346,6 @@ fn run_shell(context: Map) -> Result<()> {
             .expect("Error loading history."),
     );
     let hinter = Box::new(DefaultHinter::default().with_style(Style::new().dimmed()));
-    let mut built_in_info = BTreeSet::new();
-
-    for built_in_value in built_in_values() {
-        built_in_info.insert((
-            built_in_value.name().to_string(),
-            built_in_value.description().to_string(),
-            built_in_value.r#type().to_string(),
-        ));
-    }
-
     let completer = DustCompleter::new(context.clone());
 
     let mut line_editor = Reedline::create()
