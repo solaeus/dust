@@ -31,13 +31,26 @@ pub enum BuiltInValue {
 }
 
 impl BuiltInValue {
-    pub const fn name(&self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         match self {
             BuiltInValue::Args => "args",
             BuiltInValue::AssertEqual => "assert_equal",
             BuiltInValue::Fs => "fs",
             BuiltInValue::Json => "json",
             BuiltInValue::Length => "length",
+            BuiltInValue::Output => "output",
+            BuiltInValue::Random => "random",
+            BuiltInValue::String => "string",
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            BuiltInValue::Args => "The command line arguments sent to this program.",
+            BuiltInValue::AssertEqual => "Error if the two values are not equal.",
+            BuiltInValue::Fs => "File and directory tools.",
+            BuiltInValue::Json => "JSON formatting tools.",
+            BuiltInValue::Length => BuiltInFunction::Length.description(),
             BuiltInValue::Output => "output",
             BuiltInValue::Random => "random",
             BuiltInValue::String => "string",

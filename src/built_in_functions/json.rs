@@ -25,6 +25,14 @@ impl Callable for Json {
         }
     }
 
+    fn description(&self) -> &'static str {
+        match self {
+            Json::Create => "Convert a value to a JSON string.",
+            Json::CreatePretty => "Convert a value to a formatted JSON string.",
+            Json::Parse => "Convert JSON to a value",
+        }
+    }
+
     fn r#type(&self) -> Type {
         match self {
             Json::Create => Type::function(vec![Type::Any], Type::String),

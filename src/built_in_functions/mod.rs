@@ -15,6 +15,7 @@ use self::{json::Json, string::StringFunction};
 
 pub trait Callable {
     fn name(&self) -> &'static str;
+    fn description(&self) -> &'static str;
     fn r#type(&self) -> Type;
     fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value>;
 }
@@ -35,6 +36,21 @@ pub enum BuiltInFunction {
 
 impl Callable for BuiltInFunction {
     fn name(&self) -> &'static str {
+        match self {
+            BuiltInFunction::AssertEqual => "assert_equal",
+            BuiltInFunction::FsRead => "read",
+            BuiltInFunction::Json(json_function) => json_function.name(),
+            BuiltInFunction::Length => "length",
+            BuiltInFunction::Output => "output",
+            BuiltInFunction::RandomBoolean => "boolean",
+            BuiltInFunction::RandomFloat => "float",
+            BuiltInFunction::RandomFrom => "from",
+            BuiltInFunction::RandomInteger => "integer",
+            BuiltInFunction::String(string_function) => string_function.name(),
+        }
+    }
+
+    fn description(&self) -> &'static str {
         match self {
             BuiltInFunction::AssertEqual => "assert_equal",
             BuiltInFunction::FsRead => "read",

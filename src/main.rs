@@ -9,7 +9,9 @@ use reedline::{
     StyledText, Suggestion,
 };
 
-use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
+use std::{
+    borrow::Cow, collections::BTreeSet, fs::read_to_string, path::PathBuf, process::Command,
+};
 
 use dust_lang::{built_in_values, Interpreter, Map, Result, Value};
 
@@ -123,7 +125,7 @@ impl DustHighlighter {
     }
 }
 
-const HIGHLIGHT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'];
+const INPUT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'];
 
 impl Highlighter for DustHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
@@ -153,14 +155,14 @@ impl Highlighter for DustHighlighter {
 
         let mut styled = StyledText::new();
 
-        for word in line.split_inclusive(&HIGHLIGHT_TERMINATORS) {
+        for word in line.split_inclusive(&INPUT_TERMINATORS) {
             let word_is_highlighted =
                 highlight_identifier(&mut styled, &word[0..word.len() - 1], &self.context);
 
             if word_is_highlighted {
                 let final_char = word.chars().last().unwrap();
 
-                if HIGHLIGHT_TERMINATORS.contains(&final_char) {
+                if INPUT_TERMINATORS.contains(&final_char) {
                     let mut terminator_style = Style::new();
 
                     terminator_style.foreground = Some(Color::Cyan);
@@ -246,18 +248,24 @@ impl DustCompleter {
 }
 
 impl Completer for DustCompleter {
-    fn complete(&mut self, _line: &str, pos: usize) -> Vec<Suggestion> {
-        let variables = self.context.variables().unwrap();
-        let mut suggestions = Vec::with_capacity(variables.len());
+    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+        let mut suggestions = Vec::new();
+        let last_word = if let Some(word) = line.rsplit(INPUT_TERMINATORS).next() {
+            word
+        } else {
+            ""
+        };
 
-        for (key, (value, r#type)) in variables.iter() {
-            suggestions.push(Suggestion {
-                value: key.clone(),
-                description: Some(value.to_string()),
-                extra: Some(vec![r#type.to_string()]),
-                span: Span::new(pos, pos),
-                append_whitespace: false,
-            });
+        for built_in_value in built_in_values() {
+            if built_in_value.name().contains(last_word) {
+                suggestions.push(Suggestion {
+                    value: built_in_value.name().to_string(),
+                    description: Some(built_in_value.description().to_string()),
+                    extra: None,
+                    span: Span::new(pos - last_word.len(), pos),
+                    append_whitespace: false,
+                });
+            }
         }
 
         suggestions
@@ -286,7 +294,7 @@ fn run_shell(context: Map) -> Result<()> {
     keybindings.add_binding(
         KeyModifiers::CONTROL,
         KeyCode::Char('h'),
-        ReedlineEvent::Menu("help menu".to_string()),
+        ReedlineEvent::Menu("variable menu".to_string()),
     );
 
     let edit_mode = Box::new(Emacs::new(keybindings));
@@ -295,16 +303,29 @@ fn run_shell(context: Map) -> Result<()> {
             .expect("Error loading history."),
     );
     let hinter = Box::new(DefaultHinter::default().with_style(Style::new().dimmed()));
+    let mut built_in_info = BTreeSet::new();
+
+    for built_in_value in built_in_values() {
+        built_in_info.insert((
+            built_in_value.name().to_string(),
+            built_in_value.description().to_string(),
+            built_in_value.r#type().to_string(),
+        ));
+    }
+
     let completer = DustCompleter::new(context.clone());
+
     let mut line_editor = Reedline::create()
         .with_edit_mode(edit_mode)
         .with_history(history)
-        .with_highlighter(Box::new(DustHighlighter::new(context)))
+        .with_highlighter(Box::new(DustHighlighter::new(context.clone())))
         .with_hinter(hinter)
         .use_kitty_keyboard_enhancement(true)
         .with_completer(Box::new(completer))
         .with_menu(ReedlineMenu::EngineCompleter(Box::new(
-            ColumnarMenu::default().with_name("help menu"),
+            ColumnarMenu::default()
+                .with_name("variable menu")
+                .with_text_style(Style::new().fg(Color::White)),
         )));
     let mut prompt = StarshipPrompt::new();
 
@@ -333,11 +354,11 @@ fn run_shell(context: Map) -> Result<()> {
                 }
             }
             Ok(Signal::CtrlD) | Ok(Signal::CtrlC) => {
-                println!("\nAborted!");
+                println!("\nLeaving the Dust shell.");
                 break;
             }
             x => {
-                println!("Event: {:?}", x);
+                println!("Unknown event: {:?}", x);
             }
         }
     }

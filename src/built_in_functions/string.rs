@@ -79,6 +79,41 @@ impl Callable for StringFunction {
         }
     }
 
+    fn description(&self) -> &'static str {
+        match self {
+            StringFunction::AsBytes => "TODO",
+            StringFunction::EndsWith => "TODO",
+            StringFunction::Find => "TODO",
+            StringFunction::Insert => "TODO",
+            StringFunction::IsAscii => "TODO",
+            StringFunction::IsEmpty => "TODO",
+            StringFunction::Lines => "TODO",
+            StringFunction::Matches => "TODO",
+            StringFunction::Parse => "TODO",
+            StringFunction::Remove => "TODO",
+            StringFunction::ReplaceRange => "TODO",
+            StringFunction::Retain => "TODO",
+            StringFunction::Split => "TODO",
+            StringFunction::SplitAt => "TODO",
+            StringFunction::SplitInclusive => "TODO",
+            StringFunction::SplitN => "TODO",
+            StringFunction::SplitOnce => "TODO",
+            StringFunction::SplitTerminator => "TODO",
+            StringFunction::SplitWhitespace => "TODO",
+            StringFunction::StartsWith => "TODO",
+            StringFunction::StripPrefix => "TODO",
+            StringFunction::ToLowercase => "TODO",
+            StringFunction::ToUppercase => "TODO",
+            StringFunction::Trim => "TODO",
+            StringFunction::TrimEnd => "TODO",
+            StringFunction::TrimEndMatches => "TODO",
+            StringFunction::TrimMatches => "TODO",
+            StringFunction::TrimStart => "TODO",
+            StringFunction::TrimStartMatches => "TODO",
+            StringFunction::Truncate => "TODO",
+        }
+    }
+
     fn r#type(&self) -> Type {
         match self {
             StringFunction::AsBytes => {
