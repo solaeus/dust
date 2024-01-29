@@ -263,20 +263,23 @@ module.exports = grammar({
       ),
 
     map: $ =>
-      seq(
-        '{',
-        repeat1(
-          seq(
-            $.identifier,
-            optional(
-              $.type_specification,
+      prec(
+        1,
+        seq(
+          '{',
+          repeat(
+            seq(
+              $.identifier,
+              optional(
+                $.type_specification,
+              ),
+              '=',
+              $.statement,
+              optional(','),
             ),
-            '=',
-            $.statement,
-            optional(','),
           ),
+          '}',
         ),
-        '}',
       ),
 
     option: $ =>

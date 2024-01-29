@@ -46,6 +46,11 @@ fn list() {
 }
 
 #[test]
+fn empty_list() {
+    assert_eq!(interpret("[]"), Ok(Value::List(List::new())));
+}
+
+#[test]
 fn map() {
     let map = Map::new();
 
@@ -54,6 +59,11 @@ fn map() {
         .unwrap();
 
     assert_eq!(interpret("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
+}
+
+#[test]
+fn empty_map() {
+    assert_eq!(interpret("{}"), Ok(Value::Map(Map::new())));
 }
 
 #[test]
@@ -119,7 +129,5 @@ fn option() {
 
 #[test]
 fn range() {
-    let result = interpret("0..100");
-
-    assert_eq!(Ok(Value::range(0, 100)), result);
+    assert_eq!(interpret("0..100"), Ok(Value::range(0, 100)));
 }
