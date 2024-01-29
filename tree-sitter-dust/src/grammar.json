@@ -233,7 +233,7 @@
         "members": [
           {
             "type": "STRING",
-            "value": "*"
+            "value": "^"
           },
           {
             "type": "SYMBOL",
@@ -258,7 +258,7 @@
       "members": [
         {
           "type": "PATTERN",
-          "value": "[^*\\s]+"
+          "value": "[^^|;\\s]+"
         },
         {
           "type": "PATTERN",

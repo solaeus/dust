@@ -206,7 +206,7 @@ impl StarshipPrompt {
         let right_prompt = if let Ok(output) = &run_starship_right {
             String::from_utf8_lossy(&output.stdout).trim().to_string()
         } else {
-            ">".to_string()
+            "".to_string()
         };
 
         self.left = left_prompt;

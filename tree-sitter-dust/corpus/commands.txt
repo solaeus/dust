@@ -2,7 +2,7 @@
 Simple Command
 ================================================================================
 
-*ls
+^ls
 
 --------------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ Simple Command
 Command Sequence
 ================================================================================
 
-*less *ls
+^less ^ls
 
 --------------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ Command Sequence
 Command with Arguments
 ================================================================================
 
-*ls --long -a
+^ls --long -a
 
 --------------------------------------------------------------------------------
 
@@ -50,8 +50,8 @@ Command with Arguments
 Command Sequence with Arguments
 ================================================================================
 
-*cargo run -- -c "output('hi there')"
-*ls --long -a
+^cargo run -- -c "output('hi there')"
+^ls --long -a
 
 --------------------------------------------------------------------------------
 
@@ -70,3 +70,126 @@ Command Sequence with Arguments
         (command_text)
         (command_argument)
         (command_argument)))))
+
+================================================================================
+Command Sequence with Arguments
+================================================================================
+
+^cargo run -- -c "output('hi there')"
+^ls --long -a
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (command
+        (command_text)
+        (command_argument)
+        (command_argument)
+        (command_argument)
+        (command_argument))))
+  (statement
+    (expression
+      (command
+        (command_text)
+        (command_argument)
+        (command_argument)))))
+
+================================================================================
+Command Assignment
+================================================================================
+
+ls_output = ^ls --long -a;
+cat_output = ^cat Cargo.toml;
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (command
+            (command_text)
+            (command_argument)
+            (command_argument))))))
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (command
+            (command_text)
+            (command_argument)))))))
+
+================================================================================
+Command with Semicolon
+================================================================================
+
+ls_output = ^ls --long -a; ls_output
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (command
+            (command_text)
+            (command_argument)
+            (command_argument))))))
+  (statement
+    (expression
+      (identifier))))
+
+================================================================================
+Command with Semicolon
+================================================================================
+
+ls_output = ^ls --long -a; ls_output
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (command
+            (command_text)
+            (command_argument)
+            (command_argument))))))
+  (statement
+    (expression
+      (identifier))))
+
+================================================================================
+Command with Quoted Semicolon
+================================================================================
+
+ls_output = ^echo ';'; ls_output
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (assignment
+      (identifier)
+      (assignment_operator)
+      (statement
+        (expression
+          (command
+            (command_text)
+            (command_argument))))))
+  (statement
+    (expression
+      (identifier))))
