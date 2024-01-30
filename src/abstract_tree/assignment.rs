@@ -5,6 +5,7 @@ use crate::{
     SyntaxNode, SyntaxPosition, Type, TypeSpecification, Value,
 };
 
+/// Variable assignment, including add-assign and subtract-assign operations.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,

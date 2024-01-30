@@ -4,9 +4,7 @@ use dust_lang::*;
 fn format_simple_program() {
     let mut interpreter = Interpreter::new(Map::new());
 
-    interpreter.run("x=1").unwrap();
-
-    assert_eq!(interpreter.format(), "x = 1\n");
+    assert_eq!(interpreter.format("x=1"), Ok("x = 1\n".to_string()));
 }
 
 const FORMATTED_BLOCK: &str = "{
@@ -20,9 +18,10 @@ const FORMATTED_BLOCK: &str = "{
 fn format_block() {
     let mut interpreter = Interpreter::new(Map::new());
 
-    interpreter.run("{1 2 3}").unwrap();
-
-    assert_eq!(FORMATTED_BLOCK, interpreter.format());
+    assert_eq!(
+        interpreter.format("{1 2 3}"),
+        Ok(FORMATTED_BLOCK.to_string())
+    );
 }
 
 const FORMATTED_MAP: &str = "{
@@ -37,9 +36,10 @@ const FORMATTED_MAP: &str = "{
 fn format_map() {
     let mut interpreter = Interpreter::new(Map::new());
 
-    interpreter.run("{{x=1 y   <int>     = 2}}").unwrap();
-
-    assert_eq!(FORMATTED_MAP, interpreter.format());
+    assert_eq!(
+        interpreter.format("{{x=1 y   <int>     = 2}}"),
+        Ok(FORMATTED_MAP.to_string())
+    );
 }
 
 const FORMATTED_FUNCTION: &str = "(x <int>) <num> {
@@ -50,8 +50,8 @@ const FORMATTED_FUNCTION: &str = "(x <int>) <num> {
 #[test]
 fn format_function() {
     let mut interpreter = Interpreter::new(Map::new());
-
-    interpreter.run("( x< int > )<num>{x/2}").unwrap();
-
-    assert_eq!(FORMATTED_FUNCTION, interpreter.format());
+    assert_eq!(
+        interpreter.format("( x< int > )<num>{x/2}"),
+        Ok(FORMATTED_FUNCTION.to_string())
+    );
 }

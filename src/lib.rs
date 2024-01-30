@@ -1,19 +1,21 @@
 #![warn(missing_docs)]
-
 //! The Dust library is used to parse, format and run dust source code.
 //!
 //! See the [interpret] module for more information.
+//!
+//! You can use this library externally by calling either of the "interpret"
+//! functions or by constructing your own Interpreter.
 pub use crate::{
     abstract_tree::*, built_in_functions::BuiltInFunction, error::*, interpret::*, value::*,
 };
 
 pub use tree_sitter::Node as SyntaxNode;
 
-mod abstract_tree;
+pub mod abstract_tree;
 pub mod built_in_functions;
-mod error;
-mod interpret;
-mod value;
+pub mod error;
+pub mod interpret;
+pub mod value;
 
 use tree_sitter::Language;
 

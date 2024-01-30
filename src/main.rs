@@ -89,18 +89,17 @@ fn main() {
 
     if let Some(CliCommand::Syntax { path }) = args.cli_command {
         let source = read_to_string(path).unwrap();
+        let syntax_tree_sexp = interpreter.syntax_tree(&source).unwrap();
 
-        interpreter.parse(&source).unwrap();
-
-        println!("{}", interpreter.syntax_tree().unwrap());
+        println!("{syntax_tree_sexp}");
 
         return;
     }
 
     if let Some(CliCommand::Format) = args.cli_command {
-        interpreter.parse(&source).unwrap();
+        let formatted = interpreter.format(&source).unwrap();
 
-        println!("{}", interpreter.format());
+        println!("{formatted}");
 
         return;
     }

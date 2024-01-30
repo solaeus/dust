@@ -14,36 +14,57 @@ static JSON: OnceLock<Value> = OnceLock::new();
 static RANDOM: OnceLock<Value> = OnceLock::new();
 static STRING: OnceLock<Value> = OnceLock::new();
 
+/// Returns the entire built-in value API.
 pub fn built_in_values() -> impl Iterator<Item = BuiltInValue> {
     all()
 }
 
+/// A variable with a hard-coded key that is globally available.
 #[derive(Sequence, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInValue {
+    /// The arguments used to launch the current program.
     Args,
+
+    /// Create an error if two values are not equal.
     AssertEqual,
+
+    /// File system tools.
     Fs,
+
+    /// JSON format tools.
     Json,
+
+    /// Get the length of a collection.
     Length,
+
+    /// Print a value to stdout.
     Output,
+
+    /// Random value generators.
     Random,
+
+    /// String utilities.
     Str,
 }
 
 impl BuiltInValue {
+    /// Returns the hard-coded key used to identify the value.
     pub fn name(&self) -> &'static str {
         match self {
             BuiltInValue::Args => "args",
             BuiltInValue::AssertEqual => "assert_equal",
             BuiltInValue::Fs => "fs",
             BuiltInValue::Json => "json",
-            BuiltInValue::Length => "length",
+            BuiltInValue::Length => BuiltInFunction::Length.name(),
             BuiltInValue::Output => "output",
             BuiltInValue::Random => "random",
             BuiltInValue::Str => "str",
         }
     }
 
+    /// Returns a brief description of the value's features.
+    ///
+    /// This is used by the shell when suggesting completions.
     pub fn description(&self) -> &'static str {
         match self {
             BuiltInValue::Args => "The command line arguments sent to this program.",
@@ -57,6 +78,9 @@ impl BuiltInValue {
         }
     }
 
+    /// Returns the value's type.
+    ///
+    /// This is checked with a unit test to ensure it matches the value.
     pub fn r#type(&self) -> Type {
         match self {
             BuiltInValue::Args => Type::list(Type::String),
@@ -70,6 +94,8 @@ impl BuiltInValue {
         }
     }
 
+    /// Returns the value by creating it or, if it has already been accessed, retrieving it from its
+    /// [OnceLock][].
     pub fn get(&self) -> &Value {
         match self {
             BuiltInValue::Args => ARGS.get_or_init(|| {
@@ -176,5 +202,20 @@ impl AbstractTree for BuiltInValue {
 impl Format for BuiltInValue {
     fn format(&self, output: &mut String, _indent_level: u8) {
         output.push_str(&self.get().to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::built_in_values;
+
+    #[test]
+    fn check_built_in_types() {
+        for built_in_value in built_in_values() {
+            let expected = built_in_value.r#type();
+            let actual = built_in_value.get().r#type();
+
+            assert_eq!(expected, actual);
+        }
     }
 }

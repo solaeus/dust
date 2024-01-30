@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
 
+/// Operators that be used in an assignment statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum AssignmentOperator {
     Equal,
