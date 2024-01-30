@@ -36,7 +36,7 @@ You may reference the [grammar file](tree-sitter-dust/grammar.js) and the [Tree 
     - [None](#none)
     - [List Type](#list-type)
     - [Map Type](#map-type)
-    - [Collection](#collection)
+    - [Iter](#iter)
     - [Function Type](#function-type)
     - [Option Type](#option-type)
     - [Custom Types](#custom-types)
@@ -113,7 +113,12 @@ at their bounds.
 
 ### Range
 
-TODO
+A range represents a contiguous sequence of integers. Dust ranges are **inclusive** so both the high
+and low bounds will be represented.
+
+```dust
+0..100
+```
 
 ### String
 
@@ -128,7 +133,7 @@ A string is a **utf-8** sequence used to represent text. Strings can be wrapped 
 
 ### List
 
-A list is **collection** of values stored as a sequence and accessible by indexing their position with an integer. Lists indexes begin at zero for the first item.
+A list is **collection** of values stored as a sequence and accessible by [indexing](#index) their position with an integer. Lists indexes begin at zero for the first item.
 
 ```dust
 [ 42 'forty-two' ]
@@ -162,11 +167,11 @@ reminder:message
 Internally a map is represented by a B-tree. The implicit advantage of using a B-tree instead of a
 hash map is that a B-tree is sorted and therefore can be easily compared to another. Maps are also
 used by the interpreter as the data structure for holding variables. You can even inspect the active
-**execution context** by calling the built-in `context()` functions.
+**execution context** by calling the built-in `context()` function.
 
-The map stores an [identifier](#identifiers)'s key, the value it represents and the value's type.
-For internal use by the interpreter, a type can be set to a key without a value. This makes it
-possible to check the types of values before they are computed.
+The map stores each [identifier](#identifiers)'s key with a value and the value's type. For internal
+use by the interpreter, a type can be set to a key without a value. This makes it possible to check
+the types of values before they are computed.
 
 ### Function
 
@@ -294,7 +299,12 @@ string values. Writing `list` without the parentheses and content type is equiva
 
 ### Map Type
 
-### Collection
+The `map` type is unstructured and can hold any key-value pair.
+
+### Iter
+
+The `iter` type refers to types that can be used with a [for loop](#for-loop). These include `list`,
+`range`, `string` and `map`.
 
 ### Function Type
 
@@ -340,11 +350,36 @@ stdout_message = new Message {
 
 ### Option Type
 
-TODO
+The `option(type)` type is expected to be either `some(value)` or `none`. The type of the value
+inside the `some` is always specified.
+
+```dust
+get_line_break_index(text <str>) <some(int)> {
+	str:find(text, '\n')
+}
+```
 
 ### Custom Types
 
-TODO
+Custom types such as **structures** are referenced by their variable identifier.
+
+```dust
+struct File {
+	path <str>
+	size <int>
+	type <str>
+}
+
+print_file_info(file <File>) <none> {
+	info = file:path
+		+ '\n'
+		+ file:size
+		+ '\n' 
+		+ file:type
+		
+	output(info)
+}
+```
 
 ## Statements
 
