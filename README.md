@@ -34,7 +34,9 @@ async {
     {
         file = fs:read_file('Cargo.toml')
 
-        for line in str:lines(file) {
+        # This loop will run each iteration in its own thread. If one of them 
+        # reaches a "break" statement, they will all stop.
+        async for line in str:lines(file) {
             if str:contains(line, 'author') {
                 output(line)
                 break
