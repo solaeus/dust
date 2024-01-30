@@ -1,6 +1,6 @@
 pub mod fs;
 pub mod json;
-pub mod string;
+pub mod str;
 
 use std::fmt::{self, Display, Formatter};
 
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Format, Map, Result, Type, Value};
 
-use self::{fs::Fs, json::Json, string::StrFunction};
+use self::{fs::Fs, json::Json, str::StrFunction};
 
 pub trait Callable {
     fn name(&self) -> &'static str;

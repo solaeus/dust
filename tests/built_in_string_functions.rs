@@ -13,3 +13,37 @@ fn as_bytes() {
         ])))
     );
 }
+
+#[test]
+fn ends_with() {
+    let result = interpret("str:ends_with('abc', 'c')");
+
+    assert_eq!(result, Ok(Value::Boolean(true)));
+
+    let result = interpret("str:ends_with('abc', 'b')");
+
+    assert_eq!(result, Ok(Value::Boolean(false)));
+}
+
+#[test]
+fn find() {
+    let result = interpret("str:find('abc', 'a')");
+
+    assert_eq!(result, Ok(Value::Option(Some(Box::new(Value::Integer(0))))));
+
+    let result = interpret("str:find('foobar', 'b')");
+
+    assert_eq!(result, Ok(Value::Option(Some(Box::new(Value::Integer(3))))));
+}
+
+#[test]
+fn insert() {
+    assert_eq!(
+        interpret("str:insert('ac', 1, 'b')"),
+        Ok(Value::String("abc".to_string()))
+    );
+    assert_eq!(
+        interpret("str:insert('foo', 3, 'bar')"),
+        Ok(Value::String("foobar".to_string()))
+    );
+}

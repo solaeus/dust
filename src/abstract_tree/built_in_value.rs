@@ -4,9 +4,7 @@ use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    built_in_functions::{
-        fs::fs_functions, json::json_functions, string::string_functions, Callable,
-    },
+    built_in_functions::{fs::fs_functions, json::json_functions, str::string_functions, Callable},
     AbstractTree, BuiltInFunction, Format, Function, List, Map, Result, SyntaxNode, Type, Value,
 };
 
