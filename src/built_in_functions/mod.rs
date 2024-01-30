@@ -1,17 +1,15 @@
+pub mod fs;
 pub mod json;
 pub mod string;
 
-use std::{
-    fmt::{self, Display, Formatter},
-    fs::read_to_string,
-};
+use std::fmt::{self, Display, Formatter};
 
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Format, Map, Result, Type, Value};
 
-use self::{json::Json, string::StringFunction};
+use self::{fs::Fs, json::Json, string::StringFunction};
 
 pub trait Callable {
     fn name(&self) -> &'static str;
@@ -23,7 +21,7 @@ pub trait Callable {
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
     AssertEqual,
-    FsRead,
+    Fs(Fs),
     Json(Json),
     Length,
     Output,
@@ -38,7 +36,7 @@ impl Callable for BuiltInFunction {
     fn name(&self) -> &'static str {
         match self {
             BuiltInFunction::AssertEqual => "assert_equal",
-            BuiltInFunction::FsRead => "read",
+            BuiltInFunction::Fs(fs_function) => fs_function.name(),
             BuiltInFunction::Json(json_function) => json_function.name(),
             BuiltInFunction::Length => "length",
             BuiltInFunction::Output => "output",
@@ -53,22 +51,22 @@ impl Callable for BuiltInFunction {
     fn description(&self) -> &'static str {
         match self {
             BuiltInFunction::AssertEqual => "assert_equal",
-            BuiltInFunction::FsRead => "read",
-            BuiltInFunction::Json(json_function) => json_function.name(),
+            BuiltInFunction::Fs(fs_function) => fs_function.description(),
+            BuiltInFunction::Json(json_function) => json_function.description(),
             BuiltInFunction::Length => "length",
             BuiltInFunction::Output => "output",
             BuiltInFunction::RandomBoolean => "boolean",
             BuiltInFunction::RandomFloat => "float",
             BuiltInFunction::RandomFrom => "from",
             BuiltInFunction::RandomInteger => "integer",
-            BuiltInFunction::String(string_function) => string_function.name(),
+            BuiltInFunction::String(string_function) => string_function.description(),
         }
     }
 
     fn r#type(&self) -> Type {
         match self {
             BuiltInFunction::AssertEqual => Type::function(vec![Type::Any, Type::Any], Type::None),
-            BuiltInFunction::FsRead => Type::function(vec![Type::String], Type::String),
+            BuiltInFunction::Fs(fs_function) => fs_function.r#type(),
             BuiltInFunction::Json(json_function) => json_function.r#type(),
             BuiltInFunction::Length => Type::function(vec![Type::Collection], Type::Integer),
             BuiltInFunction::Output => Type::function(vec![Type::Any], Type::None),
@@ -90,13 +88,8 @@ impl Callable for BuiltInFunction {
 
                 Ok(Value::Boolean(left == right))
             }
-            BuiltInFunction::FsRead => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
-
-                let path = arguments.first().unwrap().as_string()?;
-                let file_content = read_to_string(path.as_str())?;
-
-                Ok(Value::string(file_content))
+            BuiltInFunction::Fs(fs_function) => {
+                fs_function.call(arguments, _source, _outer_context)
             }
             BuiltInFunction::Json(json_function) => {
                 json_function.call(arguments, _source, _outer_context)

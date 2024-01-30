@@ -1,5 +1,7 @@
 # Dust
 
+!!! Dust is an experimental project under active development. !!!
+
 Dust is a general purpose programming language that emphasises concurrency and correctness.
 
 A basic dust program:
@@ -17,14 +19,28 @@ async {
 }
 ```
 
-You can make *any* block, i.e. `{}`, run its statements in parallel by changing it to `async {}`.
+You can use Dust to run complex operations simply and safely, you can even invoke other programs, run them at the same time, capture their output, and pipe them together.
 
 ```dust
-if random_boolean() {
-    output("Do something...")
-} else async {
-    output("Do something else instead...")
-    output("And another thing at the same time...")
+# Run each statment in this block in its own thread.
+async { 
+    # Invoke another program and capture its output.
+    ip_info = ^ip address;
+
+    # Pipe the output to another program.
+    ^ls -1 --all --long docs/ | ^rg .md | ^echo;
+
+    # This block is not async and the statements will be run in order.
+    {
+        file = fs:read_file('Cargo.toml')
+
+        for line in str:lines(file) {
+            if str:contains(line, 'author') {
+                output(line)
+                break
+            }
+        }
+    }
 }
 ```
 
@@ -49,14 +65,23 @@ Dust is an interpreted, strictly typed language with first class functions. It e
 - Safety: Written in safe, stable Rust.
 - Correctness: Type checking makes it easy to write good code.
 
+## Installation
+
+You must have the default rust toolchain installed and up-to-date. Install [rustup] if it is not already installed. Run `cargo install dust-lang` then run `dust` to start the interactive shell.
+
+To build from source, clone the repository and build the parser. To do so, enter the `tree-sitter-dust` directory and run `tree-sitter-generate`. In the project root, run `cargo run` to start the shell. To see other command line options, use `cargo run -- --help`.
+
 ## Usage
 
-Dust is an experimental project under active development. At this stage, features come and go and the API is always changing. It should not be considered for serious use yet.
+After installation, the command line interpreter can be given source code to run or it can launch the command-line shell.
 
 ```sh
 cargo install dust-lang
 dust -c "output('Hello world!')"
+# Output: Hello world!
 ```
+
+Run `dust --help` to see the available commands and options.
 
 ```txt
 General purpose programming language
@@ -77,17 +102,12 @@ Options:
 
 ## Dust Language
 
-See [Language Reference](/docs/language.md) for more information.
-
-## Installation
-
-You must have the default rust toolchain installed and up-to-date. Install [rustup] if it is not already installed. Run `cargo install dust-lang` then run `dust` to start the interactive shell. Use `dust --help` to see the full command line options.
-
-To build from source, clone the repository and build the parser. To do so, enter the `tree-sitter-dust` directory and run `tree-sitter-generate`. In the project root, run `cargo run` to start the shell. To see other command line options, use `cargo run -- --help`.
+See the [Language Reference](/docs/language.md) for more information.
 
 ## Benchmarks
 
-Dust is at a very early development stage but performs strongly in preliminary benchmarks. The examples given were tested using [Hyperfine] on a single-core cloud instance with 1024 MB RAM. Each test was run 1000 times. The test script is shown below. Each test asks the program to read a JSON file and count the objects. Dust is a command line shell, programming language and data manipulation tool so three appropriate targets were chosen for comparison: nushell, NodeJS and jq. The programs produced identical output with the exception that NodeJS printed in color.
+Dust is at an early development stage and these tests are overly simple. Better benchmarks are needed to get a realistic idea of how Dust performs real work. For now, these tests are just for fun.
+The examples given were tested using [Hyperfine] on a single-core cloud instance with 1024 MB RAM. Each test was run 1000 times. The test script is shown below. Each test asks the program to read a JSON file and count the objects. Dust is a command line shell, programming language and data manipulation tool so three appropriate targets were chosen for comparison: nushell, NodeJS and jq. The programs produced identical output with the exception that NodeJS printed in color.
 
 For the first test, a file with four entries was used.
 

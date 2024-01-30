@@ -4,7 +4,9 @@ use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    built_in_functions::{json::json_functions, string::string_functions, Callable},
+    built_in_functions::{
+        fs::fs_functions, json::json_functions, string::string_functions, Callable,
+    },
     AbstractTree, BuiltInFunction, Format, Function, List, Map, Result, SyntaxNode, Type, Value,
 };
 
@@ -81,16 +83,18 @@ impl BuiltInValue {
                 &Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
             }
             BuiltInValue::Fs => FS.get_or_init(|| {
-                let fs_context = Map::new();
+                let mut fs_context = BTreeMap::new();
 
-                fs_context
-                    .set(
-                        "read".to_string(),
-                        Value::Function(Function::BuiltIn(BuiltInFunction::FsRead)),
-                    )
-                    .unwrap();
+                for fs_function in fs_functions() {
+                    let key = fs_function.name().to_string();
+                    let value =
+                        Value::Function(Function::BuiltIn(BuiltInFunction::Fs(fs_function)));
+                    let r#type = value.r#type();
 
-                Value::Map(fs_context)
+                    fs_context.insert(key, (value, r#type));
+                }
+
+                Value::Map(Map::with_variables(fs_context))
             }),
             BuiltInValue::Json => JSON.get_or_init(|| {
                 let mut json_context = BTreeMap::new();
