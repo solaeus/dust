@@ -1,5 +1,7 @@
 # The Dust Programming Language
 
+!!! This is a **work in progress** and has incomplete information. !!!
+
 <!--toc:start-->
 - [The Dust Programming Language](#the-dust-programming-language)
   - [Values](#values)
