@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Error, Format, Map, Result, Type, Value};
 
-use self::{fs::Fs, json::Json, string::StringFunction};
+use self::{fs::Fs, json::Json, string::StrFunction};
 
 pub trait Callable {
     fn name(&self) -> &'static str;
@@ -29,7 +29,7 @@ pub enum BuiltInFunction {
     RandomFloat,
     RandomFrom,
     RandomInteger,
-    String(StringFunction),
+    String(StrFunction),
 }
 
 impl Callable for BuiltInFunction {

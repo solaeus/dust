@@ -29,7 +29,7 @@ pub enum BuiltInValue {
     Length,
     Output,
     Random,
-    String,
+    Str,
 }
 
 impl BuiltInValue {
@@ -42,7 +42,7 @@ impl BuiltInValue {
             BuiltInValue::Length => "length",
             BuiltInValue::Output => "output",
             BuiltInValue::Random => "random",
-            BuiltInValue::String => "string",
+            BuiltInValue::Str => "str",
         }
     }
 
@@ -55,7 +55,7 @@ impl BuiltInValue {
             BuiltInValue::Length => BuiltInFunction::Length.description(),
             BuiltInValue::Output => "output",
             BuiltInValue::Random => "random",
-            BuiltInValue::String => "string",
+            BuiltInValue::Str => "string",
         }
     }
 
@@ -68,7 +68,7 @@ impl BuiltInValue {
             BuiltInValue::Length => BuiltInFunction::Length.r#type(),
             BuiltInValue::Output => BuiltInFunction::Output.r#type(),
             BuiltInValue::Random => Type::Map(None),
-            BuiltInValue::String => Type::Map(None),
+            BuiltInValue::Str => Type::Map(None),
         }
     }
 
@@ -130,7 +130,7 @@ impl BuiltInValue {
 
                 Value::Map(Map::with_variables(random_context))
             }),
-            BuiltInValue::String => STRING.get_or_init(|| {
+            BuiltInValue::Str => STRING.get_or_init(|| {
                 let mut string_context = BTreeMap::new();
 
                 for string_function in string_functions() {
@@ -159,7 +159,7 @@ impl AbstractTree for BuiltInValue {
             "length" => BuiltInValue::Length,
             "output" => BuiltInValue::Output,
             "random" => BuiltInValue::Random,
-            "string" => BuiltInValue::String,
+            "str" => BuiltInValue::Str,
             _ => todo!(),
         };
 

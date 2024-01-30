@@ -1026,10 +1026,6 @@
     "named": false
   },
   {
-    "type": "string",
-    "named": false
-  },
-  {
     "type": "struct",
     "named": false
   },

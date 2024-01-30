@@ -1692,7 +1692,7 @@
         },
         {
           "type": "STRING",
-          "value": "string"
+          "value": "str"
         }
       ]
     }

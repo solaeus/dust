@@ -5,12 +5,12 @@ use crate::{Error, List, Map, Result, Type, Value};
 
 use super::Callable;
 
-pub fn string_functions() -> impl Iterator<Item = StringFunction> {
+pub fn string_functions() -> impl Iterator<Item = StrFunction> {
     enum_iterator::all()
 }
 
 #[derive(Sequence, Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum StringFunction {
+pub enum StrFunction {
     AsBytes,
     EndsWith,
     Find,
@@ -43,158 +43,156 @@ pub enum StringFunction {
     Truncate,
 }
 
-impl Callable for StringFunction {
+impl Callable for StrFunction {
     fn name(&self) -> &'static str {
         match self {
-            StringFunction::AsBytes => "as_bytes",
-            StringFunction::EndsWith => "ends_with",
-            StringFunction::Find => "find",
-            StringFunction::Insert => "insert",
-            StringFunction::IsAscii => "is_ascii",
-            StringFunction::IsEmpty => "is_empty",
-            StringFunction::Lines => "lines",
-            StringFunction::Matches => "matches",
-            StringFunction::Parse => "parse",
-            StringFunction::Remove => "remove",
-            StringFunction::ReplaceRange => "replace_range",
-            StringFunction::Retain => "retain",
-            StringFunction::Split => "split",
-            StringFunction::SplitAt => "split_at",
-            StringFunction::SplitInclusive => "split_inclusive",
-            StringFunction::SplitN => "split_n",
-            StringFunction::SplitOnce => "split_once",
-            StringFunction::SplitTerminator => "split_terminator",
-            StringFunction::SplitWhitespace => "split_whitespace",
-            StringFunction::StartsWith => "starts_with",
-            StringFunction::StripPrefix => "strip_prefix",
-            StringFunction::ToLowercase => "to_lowercase",
-            StringFunction::ToUppercase => "to_uppercase",
-            StringFunction::Trim => "trim",
-            StringFunction::TrimEnd => "trim_end",
-            StringFunction::TrimEndMatches => "trim_end_matches",
-            StringFunction::TrimMatches => "trim_matches",
-            StringFunction::TrimStart => "trim_start",
-            StringFunction::TrimStartMatches => "trim_start_matches",
-            StringFunction::Truncate => "truncate",
+            StrFunction::AsBytes => "as_bytes",
+            StrFunction::EndsWith => "ends_with",
+            StrFunction::Find => "find",
+            StrFunction::Insert => "insert",
+            StrFunction::IsAscii => "is_ascii",
+            StrFunction::IsEmpty => "is_empty",
+            StrFunction::Lines => "lines",
+            StrFunction::Matches => "matches",
+            StrFunction::Parse => "parse",
+            StrFunction::Remove => "remove",
+            StrFunction::ReplaceRange => "replace_range",
+            StrFunction::Retain => "retain",
+            StrFunction::Split => "split",
+            StrFunction::SplitAt => "split_at",
+            StrFunction::SplitInclusive => "split_inclusive",
+            StrFunction::SplitN => "split_n",
+            StrFunction::SplitOnce => "split_once",
+            StrFunction::SplitTerminator => "split_terminator",
+            StrFunction::SplitWhitespace => "split_whitespace",
+            StrFunction::StartsWith => "starts_with",
+            StrFunction::StripPrefix => "strip_prefix",
+            StrFunction::ToLowercase => "to_lowercase",
+            StrFunction::ToUppercase => "to_uppercase",
+            StrFunction::Trim => "trim",
+            StrFunction::TrimEnd => "trim_end",
+            StrFunction::TrimEndMatches => "trim_end_matches",
+            StrFunction::TrimMatches => "trim_matches",
+            StrFunction::TrimStart => "trim_start",
+            StrFunction::TrimStartMatches => "trim_start_matches",
+            StrFunction::Truncate => "truncate",
         }
     }
 
     fn description(&self) -> &'static str {
         match self {
-            StringFunction::AsBytes => "TODO",
-            StringFunction::EndsWith => "TODO",
-            StringFunction::Find => "TODO",
-            StringFunction::Insert => "TODO",
-            StringFunction::IsAscii => "TODO",
-            StringFunction::IsEmpty => "TODO",
-            StringFunction::Lines => "TODO",
-            StringFunction::Matches => "TODO",
-            StringFunction::Parse => "TODO",
-            StringFunction::Remove => "TODO",
-            StringFunction::ReplaceRange => "TODO",
-            StringFunction::Retain => "TODO",
-            StringFunction::Split => "TODO",
-            StringFunction::SplitAt => "TODO",
-            StringFunction::SplitInclusive => "TODO",
-            StringFunction::SplitN => "TODO",
-            StringFunction::SplitOnce => "TODO",
-            StringFunction::SplitTerminator => "TODO",
-            StringFunction::SplitWhitespace => "TODO",
-            StringFunction::StartsWith => "TODO",
-            StringFunction::StripPrefix => "TODO",
-            StringFunction::ToLowercase => "TODO",
-            StringFunction::ToUppercase => "TODO",
-            StringFunction::Trim => "TODO",
-            StringFunction::TrimEnd => "TODO",
-            StringFunction::TrimEndMatches => "TODO",
-            StringFunction::TrimMatches => "TODO",
-            StringFunction::TrimStart => "TODO",
-            StringFunction::TrimStartMatches => "TODO",
-            StringFunction::Truncate => "TODO",
+            StrFunction::AsBytes => "TODO",
+            StrFunction::EndsWith => "TODO",
+            StrFunction::Find => "TODO",
+            StrFunction::Insert => "TODO",
+            StrFunction::IsAscii => "TODO",
+            StrFunction::IsEmpty => "TODO",
+            StrFunction::Lines => "TODO",
+            StrFunction::Matches => "TODO",
+            StrFunction::Parse => "TODO",
+            StrFunction::Remove => "TODO",
+            StrFunction::ReplaceRange => "TODO",
+            StrFunction::Retain => "TODO",
+            StrFunction::Split => "TODO",
+            StrFunction::SplitAt => "TODO",
+            StrFunction::SplitInclusive => "TODO",
+            StrFunction::SplitN => "TODO",
+            StrFunction::SplitOnce => "TODO",
+            StrFunction::SplitTerminator => "TODO",
+            StrFunction::SplitWhitespace => "TODO",
+            StrFunction::StartsWith => "TODO",
+            StrFunction::StripPrefix => "TODO",
+            StrFunction::ToLowercase => "TODO",
+            StrFunction::ToUppercase => "TODO",
+            StrFunction::Trim => "TODO",
+            StrFunction::TrimEnd => "TODO",
+            StrFunction::TrimEndMatches => "TODO",
+            StrFunction::TrimMatches => "TODO",
+            StrFunction::TrimStart => "TODO",
+            StrFunction::TrimStartMatches => "TODO",
+            StrFunction::Truncate => "TODO",
         }
     }
 
     fn r#type(&self) -> Type {
         match self {
-            StringFunction::AsBytes => {
-                Type::function(vec![Type::String], Type::list(Type::Integer))
-            }
-            StringFunction::EndsWith => {
+            StrFunction::AsBytes => Type::function(vec![Type::String], Type::list(Type::Integer)),
+            StrFunction::EndsWith => {
                 Type::function(vec![Type::String, Type::String], Type::Boolean)
             }
-            StringFunction::Find => Type::function(
+            StrFunction::Find => Type::function(
                 vec![Type::String, Type::String],
                 Type::option(Type::Integer),
             ),
-            StringFunction::Insert => Type::function(
+            StrFunction::Insert => Type::function(
                 vec![Type::String, Type::Integer, Type::String],
                 Type::String,
             ),
-            StringFunction::IsAscii => Type::function(vec![Type::String], Type::Boolean),
-            StringFunction::IsEmpty => Type::function(vec![Type::String], Type::Boolean),
-            StringFunction::Lines => Type::function(vec![Type::String], Type::list(Type::String)),
-            StringFunction::Matches => {
+            StrFunction::IsAscii => Type::function(vec![Type::String], Type::Boolean),
+            StrFunction::IsEmpty => Type::function(vec![Type::String], Type::Boolean),
+            StrFunction::Lines => Type::function(vec![Type::String], Type::list(Type::String)),
+            StrFunction::Matches => {
                 Type::function(vec![Type::String, Type::String], Type::list(Type::String))
             }
-            StringFunction::Parse => Type::function(vec![Type::String], Type::Any),
-            StringFunction::Remove => Type::function(
+            StrFunction::Parse => Type::function(vec![Type::String], Type::Any),
+            StrFunction::Remove => Type::function(
                 vec![Type::String, Type::Integer],
                 Type::option(Type::String),
             ),
-            StringFunction::ReplaceRange => Type::function(
+            StrFunction::ReplaceRange => Type::function(
                 vec![Type::String, Type::list(Type::Integer), Type::String],
                 Type::String,
             ),
-            StringFunction::Retain => Type::function(
+            StrFunction::Retain => Type::function(
                 vec![
                     Type::String,
                     Type::function(vec![Type::String], Type::Boolean),
                 ],
                 Type::String,
             ),
-            StringFunction::Split => {
+            StrFunction::Split => {
                 Type::function(vec![Type::String, Type::String], Type::list(Type::String))
             }
-            StringFunction::SplitAt => {
+            StrFunction::SplitAt => {
                 Type::function(vec![Type::String, Type::Integer], Type::list(Type::String))
             }
-            StringFunction::SplitInclusive => {
+            StrFunction::SplitInclusive => {
                 Type::function(vec![Type::String, Type::String], Type::list(Type::String))
             }
-            StringFunction::SplitN => Type::function(
+            StrFunction::SplitN => Type::function(
                 vec![Type::String, Type::Integer, Type::String],
                 Type::list(Type::String),
             ),
-            StringFunction::SplitOnce => {
+            StrFunction::SplitOnce => {
                 Type::function(vec![Type::String, Type::String], Type::list(Type::String))
             }
-            StringFunction::SplitTerminator => {
+            StrFunction::SplitTerminator => {
                 Type::function(vec![Type::String, Type::String], Type::list(Type::String))
             }
-            StringFunction::SplitWhitespace => {
+            StrFunction::SplitWhitespace => {
                 Type::function(vec![Type::String], Type::list(Type::String))
             }
-            StringFunction::StartsWith => {
+            StrFunction::StartsWith => {
                 Type::function(vec![Type::String, Type::String], Type::Boolean)
             }
-            StringFunction::StripPrefix => {
+            StrFunction::StripPrefix => {
                 Type::function(vec![Type::String, Type::String], Type::option(Type::String))
             }
-            StringFunction::ToLowercase => Type::function(vec![Type::String], Type::String),
-            StringFunction::ToUppercase => Type::function(vec![Type::String], Type::String),
-            StringFunction::Truncate => {
+            StrFunction::ToLowercase => Type::function(vec![Type::String], Type::String),
+            StrFunction::ToUppercase => Type::function(vec![Type::String], Type::String),
+            StrFunction::Truncate => {
                 Type::function(vec![Type::String, Type::Integer], Type::String)
             }
-            StringFunction::Trim => Type::function(vec![Type::String], Type::String),
-            StringFunction::TrimEnd => Type::function(vec![Type::String], Type::String),
-            StringFunction::TrimEndMatches => {
+            StrFunction::Trim => Type::function(vec![Type::String], Type::String),
+            StrFunction::TrimEnd => Type::function(vec![Type::String], Type::String),
+            StrFunction::TrimEndMatches => {
                 Type::function(vec![Type::String, Type::String], Type::String)
             }
-            StringFunction::TrimMatches => {
+            StrFunction::TrimMatches => {
                 Type::function(vec![Type::String, Type::String], Type::String)
             }
-            StringFunction::TrimStart => Type::function(vec![Type::String], Type::String),
-            StringFunction::TrimStartMatches => {
+            StrFunction::TrimStart => Type::function(vec![Type::String], Type::String),
+            StrFunction::TrimStartMatches => {
                 Type::function(vec![Type::String, Type::String], Type::String)
             }
         }
@@ -202,7 +200,7 @@ impl Callable for StringFunction {
 
     fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
         let value = match self {
-            StringFunction::AsBytes => {
+            StrFunction::AsBytes => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -213,7 +211,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(bytes))
             }
-            StringFunction::EndsWith => {
+            StrFunction::EndsWith => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -222,7 +220,7 @@ impl Callable for StringFunction {
 
                 Value::Boolean(string.ends_with(pattern))
             }
-            StringFunction::Find => {
+            StrFunction::Find => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -234,21 +232,21 @@ impl Callable for StringFunction {
 
                 Value::Option(find)
             }
-            StringFunction::IsAscii => {
+            StrFunction::IsAscii => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
 
                 Value::Boolean(string.is_ascii())
             }
-            StringFunction::IsEmpty => {
+            StrFunction::IsEmpty => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
 
                 Value::Boolean(string.is_empty())
             }
-            StringFunction::Insert => {
+            StrFunction::Insert => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
@@ -259,7 +257,7 @@ impl Callable for StringFunction {
 
                 Value::String(string)
             }
-            StringFunction::Lines => {
+            StrFunction::Lines => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -270,7 +268,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(lines))
             }
-            StringFunction::Matches => {
+            StrFunction::Matches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -283,7 +281,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(matches))
             }
-            StringFunction::Parse => {
+            StrFunction::Parse => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -296,7 +294,7 @@ impl Callable for StringFunction {
                     Value::none()
                 }
             }
-            StringFunction::Remove => {
+            StrFunction::Remove => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -314,7 +312,7 @@ impl Callable for StringFunction {
                     Value::none()
                 }
             }
-            StringFunction::ReplaceRange => {
+            StrFunction::ReplaceRange => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
@@ -327,7 +325,7 @@ impl Callable for StringFunction {
 
                 Value::String(string)
             }
-            StringFunction::Retain => {
+            StrFunction::Retain => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
@@ -343,7 +341,7 @@ impl Callable for StringFunction {
 
                 Value::String(string)
             }
-            StringFunction::Split => {
+            StrFunction::Split => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -356,7 +354,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(sections))
             }
-            StringFunction::SplitAt => {
+            StrFunction::SplitAt => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -368,7 +366,7 @@ impl Callable for StringFunction {
                     Value::string(right.to_string()),
                 ]))
             }
-            StringFunction::SplitInclusive => {
+            StrFunction::SplitInclusive => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -381,7 +379,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(sections))
             }
-            StringFunction::SplitN => {
+            StrFunction::SplitN => {
                 Error::expect_argument_amount(self.name(), 3, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -395,7 +393,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(sections))
             }
-            StringFunction::SplitOnce => {
+            StrFunction::SplitOnce => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -410,7 +408,7 @@ impl Callable for StringFunction {
 
                 Value::option(sections)
             }
-            StringFunction::SplitTerminator => {
+            StrFunction::SplitTerminator => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -423,7 +421,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(sections))
             }
-            StringFunction::SplitWhitespace => {
+            StrFunction::SplitWhitespace => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -434,7 +432,7 @@ impl Callable for StringFunction {
 
                 Value::List(List::with_items(sections))
             }
-            StringFunction::StartsWith => {
+            StrFunction::StartsWith => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -443,7 +441,7 @@ impl Callable for StringFunction {
 
                 Value::Boolean(string.starts_with(pattern))
             }
-            StringFunction::StripPrefix => {
+            StrFunction::StripPrefix => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -455,7 +453,7 @@ impl Callable for StringFunction {
 
                 Value::option(stripped)
             }
-            StringFunction::ToLowercase => {
+            StrFunction::ToLowercase => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -463,7 +461,7 @@ impl Callable for StringFunction {
 
                 Value::string(lowercase)
             }
-            StringFunction::ToUppercase => {
+            StrFunction::ToUppercase => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -471,14 +469,14 @@ impl Callable for StringFunction {
 
                 Value::string(uppercase)
             }
-            StringFunction::Trim => {
+            StrFunction::Trim => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let trimmed = arguments.first().unwrap().as_string()?.trim().to_string();
 
                 Value::string(trimmed)
             }
-            StringFunction::TrimEnd => {
+            StrFunction::TrimEnd => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let trimmed = arguments
@@ -490,7 +488,7 @@ impl Callable for StringFunction {
 
                 Value::string(trimmed)
             }
-            StringFunction::TrimEndMatches => {
+            StrFunction::TrimEndMatches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -500,7 +498,7 @@ impl Callable for StringFunction {
 
                 Value::string(trimmed)
             }
-            StringFunction::TrimMatches => {
+            StrFunction::TrimMatches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -514,7 +512,7 @@ impl Callable for StringFunction {
 
                 Value::string(trimmed)
             }
-            StringFunction::TrimStart => {
+            StrFunction::TrimStart => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let trimmed = arguments
@@ -526,7 +524,7 @@ impl Callable for StringFunction {
 
                 Value::string(trimmed)
             }
-            StringFunction::TrimStartMatches => {
+            StrFunction::TrimStartMatches => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
@@ -540,7 +538,7 @@ impl Callable for StringFunction {
 
                 Value::string(trimmed)
             }
-            StringFunction::Truncate => {
+            StrFunction::Truncate => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let input_string = arguments.first().unwrap().as_string()?;

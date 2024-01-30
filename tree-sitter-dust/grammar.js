@@ -545,7 +545,7 @@ module.exports = grammar({
         'length',
         'output',
         'random',
-        'string',
+        'str',
       ),
   },
 });
