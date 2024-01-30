@@ -1,14 +1,14 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, ops::Range, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Range, Result, Statement, Structure, SyntaxNode, Type, TypeDefintion,
-    TypeSpecification, Value,
+    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeDefintion, TypeSpecification,
+    Value,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum ValueNode {
     Boolean(String),
     Float(String),
@@ -20,7 +20,7 @@ pub enum ValueNode {
     Map(BTreeMap<String, (Statement, Option<Type>)>),
     BuiltInValue(BuiltInValue),
     Structure(BTreeMap<String, (Option<Statement>, Type)>),
-    Range(Range),
+    Range(Range<i64>),
 }
 
 impl AbstractTree for ValueNode {
@@ -257,7 +257,7 @@ impl AbstractTree for ValueNode {
 
                 Value::TypeDefinition(TypeDefintion::Structure(Structure::new(value_map)))
             }
-            ValueNode::Range(range) => Value::Range(*range),
+            ValueNode::Range(range) => Value::Range(range.clone()),
         };
 
         Ok(value)
@@ -395,5 +395,40 @@ impl Format for ValueNode {
             }
             ValueNode::Range(_) => todo!(),
         }
+    }
+}
+
+impl Ord for ValueNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (ValueNode::Boolean(left), ValueNode::Boolean(right)) => left.cmp(right),
+            (ValueNode::Boolean(_), _) => Ordering::Greater,
+            (ValueNode::Float(left), ValueNode::Float(right)) => left.cmp(right),
+            (ValueNode::Float(_), _) => Ordering::Greater,
+            (ValueNode::Function(left), ValueNode::Function(right)) => left.cmp(right),
+            (ValueNode::Function(_), _) => Ordering::Greater,
+            (ValueNode::Integer(left), ValueNode::Integer(right)) => left.cmp(right),
+            (ValueNode::Integer(_), _) => Ordering::Greater,
+            (ValueNode::String(left), ValueNode::String(right)) => left.cmp(right),
+            (ValueNode::String(_), _) => Ordering::Greater,
+            (ValueNode::List(left), ValueNode::List(right)) => left.cmp(right),
+            (ValueNode::List(_), _) => Ordering::Greater,
+            (ValueNode::Option(left), ValueNode::Option(right)) => left.cmp(right),
+            (ValueNode::Option(_), _) => Ordering::Greater,
+            (ValueNode::Map(left), ValueNode::Map(right)) => left.cmp(right),
+            (ValueNode::Map(_), _) => Ordering::Greater,
+            (ValueNode::BuiltInValue(left), ValueNode::BuiltInValue(right)) => left.cmp(right),
+            (ValueNode::BuiltInValue(_), _) => Ordering::Greater,
+            (ValueNode::Structure(left), ValueNode::Structure(right)) => left.cmp(right),
+            (ValueNode::Structure(_), _) => Ordering::Greater,
+            (ValueNode::Range(left), ValueNode::Range(right)) => left.clone().cmp(right.clone()),
+            (ValueNode::Range(_), _) => Ordering::Less,
+        }
+    }
+}
+
+impl PartialOrd for ValueNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
 }

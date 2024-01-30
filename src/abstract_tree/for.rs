@@ -56,16 +56,10 @@ impl AbstractTree for For {
 
         if let Value::Range(range) = expression_run {
             if self.is_async {
-                let mut iterable = Vec::with_capacity((range.end - range.start) as usize);
-
-                for i in range.start..range.end {
-                    iterable.push(Value::Integer(i));
-                }
-
-                iterable.par_iter().try_for_each(|value| {
+                range.into_par_iter().try_for_each(|integer| {
                     let iter_context = Map::clone_from(context)?;
 
-                    iter_context.set(key.clone(), value.clone())?;
+                    iter_context.set(key.clone(), Value::Integer(integer))?;
 
                     self.block.run(source, &iter_context).map(|_value| ())
                 })?;
