@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! The Dust library is used to parse, format and run dust source code.
 //!
 //! See the [interpret] module for more information.

@@ -354,8 +354,21 @@ The `option(type)` type is expected to be either `some(value)` or `none`. The ty
 inside the `some` is always specified.
 
 ```dust
+result <option(str)> = none
+
+for file in fs:read_dir("./") {
+    if file:size > 100 {
+        result = some(file:path)
+        break
+    }
+}
+
+output(result)
+```
+
+```dust
 get_line_break_index(text <str>) <some(int)> {
-	str:find(text, '\n')
+    str:find(text, '\n')
 }
 ```
 
@@ -364,20 +377,20 @@ get_line_break_index(text <str>) <some(int)> {
 Custom types such as **structures** are referenced by their variable identifier.
 
 ```dust
-struct File {
-	path <str>
-	size <int>
-	type <str>
+File = struct {
+    path <str>
+    size <int>
+    type <str>
 }
 
 print_file_info(file <File>) <none> {
-	info = file:path
-		+ '\n'
-		+ file:size
-		+ '\n' 
-		+ file:type
+  	info = file:path
+    		+ '\n'
+    		+ file:size
+    		+ '\n' 
+    		+ file:type
 		
-	output(info)
+  	output(info)
 }
 ```
 
