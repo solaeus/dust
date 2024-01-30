@@ -2,7 +2,7 @@
 
 <!--toc:start-->
 - [The Dust Programming Language](#the-dust-programming-language)
-  - [Value](#value)
+  - [Values](#values)
     - [Boolean](#boolean)
     - [Integer](#integer)
     - [Float](#float)
@@ -11,20 +11,36 @@
     - [Maps](#maps)
     - [Function](#function)
     - [Option](#option)
+    - [Structure](#structure)
   - [Types](#types)
+    - [Basic Types](#basic-types)
+    - [Number](#number)
+    - [Any](#any)
+    - [None](#none)
+    - [List and List Contents](#list-and-list-contents)
+    - [Unstructured Map](#unstructured-map)
+    - [Function](#function)
+    - [Option](#option)
+    - [Structures](#structures)
+  - [Identifiers](#identifiers)
+  - [Assignment](#assignment)
   - [Loops](#loops)
     - [While](#while)
     - [For/Async For](#forasync-for)
-  - [Concurrency](#concurrency)
+  - [Blocks](#blocks)
+    - [Synchronous Blocks](#synchronous-blocks)
+    - [Asynchronous Blocks](#asynchronous-blocks)
 <!--toc:end-->
 
 Dust is a general purpose, interpreted and strictly typed language with first-class functions. This guide is an in-depth description of the abstractions and concepts that are used to implement the language.
 
-Dust aims to be panic-free. That means that the interpreter will only fail to run a program due to and intended error, such as a type error or a syntax error.
+Dust aims to be panic-free. That means that the interpreter will only fail to run a program due to an intended error, such as a type error or a syntax error.
 
 ## Values
 
 There are ten kinds of value in Dust. Some are very simple and are parsed directly from the source code, some are collections and others are used in special ways, like functions and structures. All values can be assinged to an [identifier][].
+
+Dust does not have a null type. Absent values are represented with the `none` value, which is a kind of [option](#option). You may not create a variable without a value and no variable can ever be in an 'undefined' state during execution.
 
 ### Boolean
 
@@ -153,17 +169,82 @@ A map created by using [new]() is called a **structured map**. In other language
 
 ## Types
 
-Dust enforces strict type checking, but you don't usually need to write the type, dust can figure it out on its own. The **number** and **any** types are special types that allow you to relax the type bounds.
+Dust enforces strict type checking. To make the language easier to write, **type inference** is used to allow variables to be declared without specifying the type. Instead, the interpreter will figure it out and set the strictest type possible.
+
+To make the type-setting syntax easier to distinguish from the rest of your code, a **type specification** is wrapped in pointed brackets. So variable assignment using types looks like this:
 
 ```dust
-string <str> = "foobar"
-integer <int> = 42
-float <float> = 42.42
-
-numbers <[number]> = [integer float]
-
-stuff <[any]> = [string integer float]
+my_float <float> = 666.0
 ```
+
+### Basic Types
+
+The simple types, and their notation are:
+
+- boolean `bool`
+- integer `int`
+- float `float`
+- string `str`
+
+### Number
+
+The `number` type may represent a value of type `int` or `float`.
+
+### Any
+
+The `any` type does not enforce type bounds.
+
+### None
+
+The `none` type indicates that no value should be found after executing the statement or block, with one expection: the `none` variant of the `option` type.
+
+### List and List Contents
+
+### Unstructured Map
+
+### Function
+
+A function's type specification is more complex than other types. A function value must always have its arguments and return type specified when the **function value** is created.
+
+```dust
+my_function = (number <int>, text <str>) <none> {
+    output(number)
+    output(text)
+}
+```
+
+But what if we need to specify a **function type** without creating the function value? This is necessary when using callbacks or defining structures that have functions set at instantiation.
+
+```dust
+use_adder = (adder <(int) -> int>, number <int>) -> <int> {
+    adder(number)
+}
+
+use_adder(
+    (i <int>) <int> { i + 2 }
+    40
+)
+
+# Output: 42
+```
+
+```dust
+struct Message {
+    send_n_times <(str, int) -> none>
+}
+
+stdout_message = new Message {
+    send_n_times = (content <str>, n <int>) <none> {
+        for _ in 0..n {
+            output(content)
+        }
+    }
+}
+```
+
+### Option and None
+
+### Structures
 
 ## Identifiers
 
@@ -195,7 +276,11 @@ for number in list {
 }
 ```
 
-## Concurrency
+## Blocks
+
+### Synchronous Blocks
+
+### Asynchronous Blocks
 
 Dust features effortless concurrency anywhere in your code. Any block of code can be made to run its contents asynchronously. Dust's concurrency is written in safe Rust and uses a thread pool whose size depends on the number of cores available.
 
