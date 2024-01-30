@@ -2,14 +2,22 @@
 
 !!! This is a **work in progress** and has incomplete information. !!!
 
-This is an in-depth description of the syntax and abstractions used by the Dust language. It is not necessary to read or understand all of it before you start using Dust. Instead, refer to it when you need help with the syntax or understanding how the code is run.
+This is an in-depth description of the syntax and abstractions used by the Dust language. It is not
+necessary to read or understand all of it before you start using Dust. Instead, refer to it when
+you need help with the syntax or understanding how the code is run.
 
-Each section of this document corresponds to a node in the concrete syntax tree. Creating this tree is the first step in interpreting Dust code. Second, the syntax tree is traversed and an abstract tree is generated. Each node in the syntax tree corresponds to a node in the abstract tree. Third, the abstract tree is verified to ensure that it will not generate any values that violate the type restrictions. Finally, the abstract tree is run, beginning at the [root](#root). 
+Each section of this document corresponds to a node in the concrete syntax tree. Creating this tree
+is the first step in interpreting Dust code. Second, the syntax tree is traversed and an abstract
+tree is generated. Each node in the syntax tree corresponds to a node in the abstract tree. Third,
+the abstract tree is verified to ensure that it will not generate any values that violate the type
+restrictions. Finally, the abstract tree is run, beginning at the [root](#root).
 
-You may reference the [grammar file](tree-sitter-dust/grammar.js) and the [Tree Sitter docs](https://tree-sitter.github.io/) while reading this guide to understand how the language is parsed.
+You may reference the [grammar file](tree-sitter-dust/grammar.js) and the [Tree Sitter docs]
+(https://tree-sitter.github.io/) while reading this guide to understand how the language is parsed.
 
 <!--toc:start-->
 - [Dust Language Reference](#dust-language-reference)
+  - [Root](#root)
   - [Values](#values)
     - [Boolean](#boolean)
     - [Integer](#integer)
@@ -26,10 +34,10 @@ You may reference the [grammar file](tree-sitter-dust/grammar.js) and the [Tree 
     - [Number](#number)
     - [Any](#any)
     - [None](#none)
-    - [List and List Contents](#list-and-list-contents)
-    - [Unstructured Map](#unstructured-map)
+    - [List Type](#list-type)
+    - [Map Type](#map-type)
     - [Collection](#collection)
-    - [Function Types](#function-types)
+    - [Function Type](#function-type)
     - [Option Type](#option-type)
     - [Custom Types](#custom-types)
   - [Statements](#statements)
@@ -56,11 +64,21 @@ You may reference the [grammar file](tree-sitter-dust/grammar.js) and the [Tree 
   - [Comments](#comments)
 <!--toc:end-->
 
+## Root
+
+The root node represents all of the source code. It is a sequence of [statements](#statements) that
+are executed synchronously, in order. The output of the program is always the result of the final
+statement or the first error encountered.
+
 ## Values
 
-There are ten kinds of value in Dust. Some are very simple and are parsed directly from the source code, some are collections and others are used in special ways, like functions and structures. All values can be assinged to an [identifier](#identifiers).
+There are ten kinds of value in Dust. Some are very simple and are parsed directly from the source
+code, some are collections and others are used in special ways, like functions and structures. All
+values can be assinged to an [identifier](#identifiers).
 
-Dust does not have a null type. Absent values are represented with the `none` value, which is a kind of [option](#option). You may not create a variable without a value and no variable can ever be in an 'undefined' state during execution.
+Dust does not have a null type. Absent values are represented with the `none` value, which is a
+kind of [option](#option). You may not create a variable without a value and no variable can ever
+be in an 'undefined' state during execution.
 
 ### Boolean
 
@@ -68,7 +86,10 @@ Booleans are true or false. They are represented by the literal tokens `true` an
 
 ### Integer
 
-Integers are whole numbers that may be positive, negative or zero. Internally, each integer is a signed 64-bit value. Integers always **overflow** when their maximum or minimum value is reached. Overflowing means that if the value is too high or low for the 64-bit integer, it will wrap around. So `maximum_value + 1` yields the minimum value and `minimum_value - 1` yields the maximum value.
+Integers are whole numbers that may be positive, negative or zero. Internally, each integer is a
+signed 64-bit value. Integers always **overflow** when their maximum or minimum value is reached.
+Overflowing means that if the value is too high or low for the 64-bit integer, it will wrap around.
+So `maximum_value + 1` yields the minimum value and `minimum_value - 1` yields the maximum value.
 
 ```dust
 42
@@ -76,7 +97,8 @@ Integers are whole numbers that may be positive, negative or zero. Internally, e
 
 ### Float
 
-A float is a numeric value with a decimal. Floats are 64-bit and, like integers, will **overflow** at their bounds.
+A float is a numeric value with a decimal. Floats are 64-bit and, like integers, will **overflow**
+at their bounds.
 
 ```dust
 42.0
@@ -115,7 +137,10 @@ Note that the commas are optional, including trailing commas.
 
 ### Map
 
-Maps are flexible collections with arbitrary **key-value pairs**, similar to JSON objects. A map is created with a pair of curly braces and its entries are variables declared inside those braces. Map contents can be accessed using a colon `:`. Commas may optionally be included after the key-value pairs.
+Maps are flexible collections with arbitrary **key-value pairs**, similar to JSON objects. A map is
+created with a pair of curly braces and its entries are variables declared inside those braces. Map
+contents can be accessed using a colon `:`. Commas may optionally be included after the key-value
+pairs.
 
 ```dust
 reminder = {
@@ -127,9 +152,13 @@ reminder:message
 # Output: Buy milk
 ```
 
-Internally a map is represented by a b-tree. The implicit advantage of using a b-tree instead of a hash map is that a b-tree is sorted and therefore can be easily compared to another. Maps are also used by the interpreter as the data structure for a **[context](#context)**.
+Internally a map is represented by a b-tree. The implicit advantage of using a b-tree instead of a
+hash map is that a b-tree is sorted and therefore can be easily compared to another. Maps are also
+used by the interpreter as the data structure for a **[context](#context)**.
 
-The map stores an [identifier](#identifiers)'s key, the value it represents and the value's type. For internal use by the interpreter, a type can be set to a key without a value. This makes it possible to check the types of values before they are computed.
+The map stores an [identifier](#identifiers)'s key, the value it represents and the value's type.
+For internal use by the interpreter, a type can be set to a key without a value. This makes it
+possible to check the types of values before they are computed.
 
 ### Function
 
@@ -150,7 +179,8 @@ say_hi()
 assert_equal(add_one(3), 4)
 ```
 
-You don't need commas when listing arguments and you don't need to add whitespace inside the function body but doing so may make your code easier to read.
+You don't need commas when listing arguments and you don't need to add whitespace inside the
+function body but doing so may make your code easier to read.
 
 ### Option
 
@@ -172,7 +202,11 @@ Dust includes built-in functions to work with option values: `is_none`, `is_some
 
 ### Structure
 
-A structure is an **concrete type value**. It is a value, like any other, and can be [assigned](#assignment) to an [identifier](#identifier). It can also be instantiated as a [map](#map) that will only allow the variables present in the structure. Default values may be provided for each variable in the structure, which will be propagated to the map it creates. Values without defaults must be given a value during instantiation.
+A structure is an **concrete type value**. It is a value, like any other, and can be [assigned]
+(#assignment) to an [identifier](#identifier). It can also be instantiated as a [map](#map) that
+will only allow the variables present in the structure. Default values may be provided for each
+variable in the structure, which will be propagated to the map it creates. Values without defaults
+must be given a value during instantiation.
 
 ```dust
 struct User {
@@ -189,13 +223,18 @@ bob = new User {
 # The variable "bob" is a structured map.
 ```
 
-A map created by using [new](#new) is called a **structured map**. In other languages it may be called a "homomorphic mapped type". Dust will generate errors if you try to set any values on the structured map that are not allowed by the structure.
+A map created by using [new](#new) is called a **structured map**. In other languages it may be
+called a "homomorphic mapped type". Dust will generate errors if you try to set any values on the
+structured map that are not allowed by the structure.
 
 ## Types
 
-Dust enforces strict type checking. To make the language easier to write, **type inference** is used to allow variables to be declared without specifying the type. Instead, the interpreter will figure it out and set the strictest type possible.
+Dust enforces strict type checking. To make the language easier to write, **type inference** is used
+to allow variables to be declared without specifying the type. Instead, the interpreter will figure
+it out and set the strictest type possible.
 
-To make the type-setting syntax easier to distinguish from the rest of your code, a **type specification** is wrapped in pointed brackets. So variable assignment using types looks like this:
+To make the type-setting syntax easier to distinguish from the rest of your code, a **type
+specification** is wrapped in pointed brackets. So variable assignment using types looks like this:
 
 ```dust
 my_float <float> = 666.0
@@ -220,17 +259,23 @@ The `any` type does not enforce type bounds.
 
 ### None
 
-The `none` type indicates that no value should be found after executing the statement or block, with one expection: the `none` variant of the `option` type.
+The `none` type indicates that no value should be found after executing the statement or block, with
+one expection: the `none` variant of the `option` type.
 
-### List and List Contents
+### List Type
 
-### Unstructured Map
+A list's contents can be specified to create type-safe lists. The `list(str)` type would only allow
+string values. Writing `list` without the paratheses and content type is equivalent to writing
+`list(any)`.
+
+### Map Type
 
 ### Collection
 
-### Function Types
+### Function Type
 
-A function's type specification is more complex than other types. A function value must always have its arguments and return type specified when the **function value** is created.
+A function's type specification is more complex than other types. A function value must always have
+its arguments and return type specified when the **function value** is created.
 
 ```dust
 my_function = (number <int>, text <str>) <none> {
@@ -239,7 +284,8 @@ my_function = (number <int>, text <str>) <none> {
 }
 ```
 
-But what if we need to specify a **function type** without creating the function value? This is necessary when using callbacks or defining structures that have functions set at instantiation.
+But what if we need to specify a **function type** without creating the function value? This is
+necessary when using callbacks or defining structures that have functions set at instantiation.
 
 ```dust
 use_adder = (adder <(int) -> int>, number <int>) -> <int> {
@@ -294,10 +340,6 @@ TODO
 
 #### Asynchronous Blocks
 
-TODO
-
-Dust features effortless concurrency anywhere in your code. Any block of code can be made to run its contents asynchronously. Dust's concurrency is written in safe Rust and uses a thread pool whose size depends on the number of cores available.
-
 ```dust
 # An async block will run each statement in its own thread.
 async {
@@ -321,8 +363,6 @@ TODO
 ### For Loop
 
 TODO
-
-A `for` loop operates on a list without mutating it or the items inside. It does not return a value.
 
 ```dust
 list = [ 1, 2, 3 ]
