@@ -14,10 +14,28 @@ fn integer() {
 }
 
 #[test]
+fn integer_overflow() {
+    assert_eq!(
+        interpret("9223372036854775807 + 1"),
+        Ok(Value::Integer(i64::MIN))
+    );
+    assert_eq!(
+        interpret("-9223372036854775808 - 1"),
+        Ok(Value::Integer(i64::MAX))
+    );
+}
+
+#[test]
 fn float() {
     assert_eq!(interpret("0.1"), Ok(Value::Float(0.1)));
-    assert_eq!(interpret("12.3"), Ok(Value::Float(12.3)));
-    assert_eq!(interpret("-6.66"), Ok(Value::Float(-6.66)));
+    assert_eq!(
+        interpret("1.7976931348623157e308f64"),
+        Ok(Value::Float(f64::MAX))
+    );
+    assert_eq!(
+        interpret("-1.7976931348623157e308f64"),
+        Ok(Value::Float(f64::MIN))
+    );
 }
 
 #[test]
