@@ -1,4 +1,4 @@
-# The Dust Programming Language
+# Dust Language Reference
 
 !!! This is a **work in progress** and has incomplete information. !!!
 

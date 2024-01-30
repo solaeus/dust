@@ -34,17 +34,10 @@ Dust is an interpreted, strictly typed language with first class functions. It e
 - [Dust](#dust)
   - [Features](#features)
   - [Usage](#usage)
+  - [Dust Language](#dust-language)
   - [Installation](#installation)
   - [Benchmarks](#benchmarks)
   - [Implementation](#implementation)
-  - [The Dust Programming Language](#the-dust-programming-language)
-    - [Declaring Variables](#declaring-variables)
-    - [Lists](#lists)
-    - [Maps](#maps)
-    - [Loops](#loops)
-    - [Functions](#functions)
-    - [Option](#option)
-    - [Concurrency](#concurrency)
   - [Acknowledgements](#acknowledgements)
 <!--toc:end-->
 
@@ -81,6 +74,10 @@ Options:
   -h, --help                     Print help
   -V, --version                  Print version    
 ```
+
+## Dust Language
+
+See [Language Reference](/docs/language.md) for more information.
 
 ## Installation
 
