@@ -86,13 +86,20 @@ Booleans are true or false. They are represented by the literal tokens `true` an
 
 ### Integer
 
-Integers are whole numbers that may be positive, negative or zero. Internally, each integer is a
-signed 64-bit value. Integers always **overflow** when their maximum or minimum value is reached.
-Overflowing means that if the value is too high or low for the 64-bit integer, it will wrap around.
-So `maximum_value + 1` yields the minimum value and `minimum_value - 1` yields the maximum value.
+Integers are whole numbers that may be positive, negative or zero. Internally, an integer is a
+signed 64-bit value.
 
 ```dust
 42
+```
+
+Integers always **overflow** when their maximum or minimum value is reached. Overflowing means that
+if the value is too high or low for the 64-bit integer, it will wrap around. You can use the built-
+in values `int:max` and `int:min` to get the highest and lowest possible values.
+
+```dust
+assert_equal(int:max + 1, int:min)
+assert_equal(int:min - 1, int:max)
 ```
 
 ### Float
@@ -152,9 +159,10 @@ reminder:message
 # Output: Buy milk
 ```
 
-Internally a map is represented by a b-tree. The implicit advantage of using a b-tree instead of a
-hash map is that a b-tree is sorted and therefore can be easily compared to another. Maps are also
-used by the interpreter as the data structure for a **[context](#context)**.
+Internally a map is represented by a B-tree. The implicit advantage of using a B-tree instead of a
+hash map is that a B-tree is sorted and therefore can be easily compared to another. Maps are also
+used by the interpreter as the data structure for holding variables. You can even inspect the active
+**execution context** by calling the built-in `context()` functions.
 
 The map stores an [identifier](#identifiers)'s key, the value it represents and the value's type.
 For internal use by the interpreter, a type can be set to a key without a value. This makes it
@@ -162,7 +170,13 @@ possible to check the types of values before they are computed.
 
 ### Function
 
-Functions are first-class values in Dust, so they are assigned to variables like any other value.
+A function encapsulates a section of the abstract tree so that it can be run seperately and with
+different arguments. The function body is a [block](#block), so adding `async` will cause the body
+to run like any other `async` block. Unlike some languages, there are no concepts like futures or
+async functions in Dust.
+
+Functions are **first-class values** in Dust, so they can be assigned to variables like any other
+value.
 
 ```dust
 # This simple function has no arguments and no return value.
@@ -179,8 +193,18 @@ say_hi()
 assert_equal(add_one(3), 4)
 ```
 
-You don't need commas when listing arguments and you don't need to add whitespace inside the
-function body but doing so may make your code easier to read.
+Functions can also be **anonymous**. This is useful for using **callbacks** (i.e. functions that are
+called by another function).
+
+```dust
+# Use a callback to retain only the numeric characters in a string.
+str:retain(
+	'a1b2c3'
+	(char <str>) <bool> {
+		is_some(int:parse(char))
+	}
+)
+```
 
 ### Option
 
@@ -202,8 +226,8 @@ Dust includes built-in functions to work with option values: `is_none`, `is_some
 
 ### Structure
 
-A structure is an **concrete type value**. It is a value, like any other, and can be [assigned]
-(#assignment) to an [identifier](#identifier). It can also be instantiated as a [map](#map) that
+A structure is a **concrete type value**. It is a value, like any other, and can be [assigned]
+(#assignment) to an [identifier](#identifier). It can then be instantiated as a [map](#map) that
 will only allow the variables present in the structure. Default values may be provided for each
 variable in the structure, which will be propagated to the map it creates. Values without defaults
 must be given a value during instantiation.
@@ -265,7 +289,7 @@ one expection: the `none` variant of the `option` type.
 ### List Type
 
 A list's contents can be specified to create type-safe lists. The `list(str)` type would only allow
-string values. Writing `list` without the paratheses and content type is equivalent to writing
+string values. Writing `list` without the parentheses and content type is equivalent to writing
 `list(any)`.
 
 ### Map Type
