@@ -3,14 +3,15 @@
 !!! This is a **work in progress** and has incomplete information. !!!
 
 <!--toc:start-->
-- [The Dust Programming Language](#the-dust-programming-language)
+- [Dust Language Reference](#dust-language-reference)
   - [Values](#values)
     - [Boolean](#boolean)
     - [Integer](#integer)
     - [Float](#float)
+    - [Range](#range)
     - [String](#string)
     - [List](#list)
-    - [Maps](#maps)
+    - [Map](#map)
     - [Function](#function)
     - [Option](#option)
     - [Structure](#structure)
@@ -21,17 +22,30 @@
     - [None](#none)
     - [List and List Contents](#list-and-list-contents)
     - [Unstructured Map](#unstructured-map)
-    - [Function](#function)
-    - [Option](#option)
+    - [Function Types](#function-types)
+    - [Option Type](#option-type)
     - [Structures](#structures)
-  - [Identifiers](#identifiers)
-  - [Assignment](#assignment)
-  - [Loops](#loops)
-    - [While](#while)
-    - [For/Async For](#forasync-for)
-  - [Blocks](#blocks)
-    - [Synchronous Blocks](#synchronous-blocks)
-    - [Asynchronous Blocks](#asynchronous-blocks)
+  - [Statements](#statements)
+    - [Assignment](#assignment)
+    - [Blocks](#blocks)
+      - [Synchronous Blocks](#synchronous-blocks)
+      - [Asynchronous Blocks](#asynchronous-blocks)
+    - [Break](#break)
+    - [For Loop](#for-loop)
+    - [While Loop](#while-loop)
+    - [If/Else](#ifelse)
+    - [Match](#match)
+    - [Pipe](#pipe)
+    - [Expression](#expression)
+  - [Expressions](#expressions)
+      - [Identifier](#identifier)
+      - [Index](#index)
+      - [Logic](#logic)
+      - [Math](#math)
+      - [Value](#value)
+      - [New](#new)
+      - [Command](#command)
+  - [Built-In Values](#built-in-values)
 <!--toc:end-->
 
 Dust is a general purpose, interpreted and strictly typed language with first-class functions. This guide is an in-depth description of the abstractions and concepts that are used to implement the language.
@@ -40,7 +54,7 @@ Dust aims to be panic-free. That means that the interpreter will only fail to ru
 
 ## Values
 
-There are ten kinds of value in Dust. Some are very simple and are parsed directly from the source code, some are collections and others are used in special ways, like functions and structures. All values can be assinged to an [identifier][].
+There are ten kinds of value in Dust. Some are very simple and are parsed directly from the source code, some are collections and others are used in special ways, like functions and structures. All values can be assinged to an [identifier](#identifiers).
 
 Dust does not have a null type. Absent values are represented with the `none` value, which is a kind of [option](#option). You may not create a variable without a value and no variable can ever be in an 'undefined' state during execution.
 
@@ -63,6 +77,10 @@ A float is a numeric value with a decimal. Floats are 64-bit and, like integers,
 ```dust
 42.0
 ```
+
+### Range
+
+TODO
 
 ### String
 
@@ -91,7 +109,7 @@ Note that the commas are optional, including trailing commas.
 # Output: 3
 ```
 
-### Maps
+### Map
 
 Maps are flexible collections with arbitrary **key-value pairs**, similar to JSON objects. A map is created with a pair of curly braces and its entries are variables declared inside those braces. Map contents can be accessed using a colon `:`. Commas may optionally be included after the key-value pairs.
 
@@ -105,9 +123,9 @@ reminder:message
 # Output: Buy milk
 ```
 
-Internally a map is represented by a b-tree. The implicit advantage of using a b-tree instead of a hash map is that a b-tree is sorted and therefore can be easily compared to another. Maps are also used by the interpreter as the data structure for a **[context][]**.
+Internally a map is represented by a b-tree. The implicit advantage of using a b-tree instead of a hash map is that a b-tree is sorted and therefore can be easily compared to another. Maps are also used by the interpreter as the data structure for a **[context](#context)**.
 
-The map stores an [identifier][]'s key, the value it represents and the value's type. For internal use by the interpreter, a type can be set to a key without a value. This makes it possible to check the types of values before they are computed.
+The map stores an [identifier](#identifiers)'s key, the value it represents and the value's type. For internal use by the interpreter, a type can be set to a key without a value. This makes it possible to check the types of values before they are computed.
 
 ### Function
 
@@ -204,7 +222,7 @@ The `none` type indicates that no value should be found after executing the stat
 
 ### Unstructured Map
 
-### Function
+### Function Types
 
 A function's type specification is more complex than other types. A function value must always have its arguments and return type specified when the **function value** is created.
 
@@ -244,45 +262,33 @@ stdout_message = new Message {
 }
 ```
 
-### Option and None
+### Option Type
+
+TODO
 
 ### Structures
 
-## Identifiers
+TODO
 
-## Assignment
+## Statements
 
-## Loops
+TODO
 
-### While
+### Assignment
 
-A **while** loop continues until a predicate is false.
+TODO
 
-```dust
-i = 0
-while i < 10 {
-    output(i)
-    i += 1
-}
-```
+### Blocks
 
-### For/Async For
+TODO
 
-A **for** loop operates on a list without mutating it or the items inside. It does not return a value.
+#### Synchronous Blocks
 
-```dust
-list = [ 1, 2, 3 ]
+TODO
 
-for number in list {
-    output(number + 1)
-}
-```
+#### Asynchronous Blocks
 
-## Blocks
-
-### Synchronous Blocks
-
-### Asynchronous Blocks
+TODO
 
 Dust features effortless concurrency anywhere in your code. Any block of code can be made to run its contents asynchronously. Dust's concurrency is written in safe Rust and uses a thread pool whose size depends on the number of cores available.
 
@@ -301,3 +307,87 @@ data = async {
     read("examples/assets/faithful.csv")
 }
 ```
+
+### Break
+
+TODO
+
+### For Loop
+
+TODO
+
+A `for` loop operates on a list without mutating it or the items inside. It does not return a value.
+
+```dust
+list = [ 1, 2, 3 ]
+
+for number in list {
+    output(number + 1)
+}
+```
+
+### While Loop
+
+TODO
+
+A **while** loop continues until a predicate is false.
+
+```dust
+i = 0
+while i < 10 {
+    output(i)
+    i += 1
+}
+```
+
+### If/Else
+
+TODO
+
+### Match
+
+TODO
+
+### Pipe
+
+TODO
+
+### Expression
+
+TODO
+
+## Expressions
+
+TODO
+
+#### Identifier
+
+TODO
+
+#### Index
+
+TODO
+
+#### Logic
+
+TODO
+
+#### Math
+
+TODO
+
+#### Value
+
+TODO
+
+#### New
+
+TODO
+
+#### Command
+
+TODO
+
+## Built-In Values
+
+TODO
