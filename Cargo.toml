@@ -20,13 +20,6 @@ opt-level = 3
 [dependencies]
 clap = { version = "4.4.4", features = ["derive"] }
 csv = "1.2.2"
-egui = "0.24.1"
-eframe = { version = "0.24.1", default-features = false, features = [
-    "accesskit",
-    "default_fonts", 
-    "glow",   
-    "persistence",
-] }
 libc = "0.2.148"
 log = "0.4.20"
 rand = "0.8.5"
@@ -36,7 +29,6 @@ serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
 toml = "0.8.1"
 tree-sitter = "0.20.10"
-egui_extras = "0.24.2"
 enum-iterator = "1.4.1"
 env_logger = "0.10"
 reedline = { version = "0.28.0", features = ["clipboard", "sqlite"] }
