@@ -5,6 +5,7 @@ use crate::{
     SyntaxPosition, Type, Value,
 };
 
+/// A function being invoked and the arguments it is being passed.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
     function_expression: FunctionExpression,
@@ -13,6 +14,7 @@ pub struct FunctionCall {
 }
 
 impl FunctionCall {
+    /// Returns a new FunctionCall.
     pub fn new(
         function_expression: FunctionExpression,
         arguments: Vec<Expression>,

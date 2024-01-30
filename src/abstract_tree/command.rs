@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
 
+/// An external program invokation.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Command {
     command_text: String,
