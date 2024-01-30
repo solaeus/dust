@@ -18,15 +18,12 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, Range, Rem, Sub, SubAssign},
 };
 
-pub use self::{
-    function::Function, list::List, map::Map, structure::Structure, type_definition::TypeDefintion,
-};
+pub use self::{function::Function, list::List, map::Map, structure::Structure};
 
 pub mod function;
 pub mod list;
 pub mod map;
 pub mod structure;
-pub mod type_definition;
 
 /// Dust value representation.
 ///
@@ -44,7 +41,7 @@ pub enum Value {
     Boolean(bool),
     Range(Range<i64>),
     Option(Option<Box<Value>>),
-    TypeDefinition(TypeDefintion),
+    Structure(Structure),
 }
 
 impl Default for Value {
@@ -109,8 +106,8 @@ impl Value {
                     Type::None
                 }
             }
-            Value::TypeDefinition(_) => todo!(),
             Value::Range(_) => todo!(),
+            Value::Structure(_) => todo!(),
         }
     }
 
@@ -441,7 +438,7 @@ impl PartialEq for Value {
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Option(left), Value::Option(right)) => left == right,
-            (Value::TypeDefinition(left), Value::TypeDefinition(right)) => left == right,
+            (Value::Structure(left), Value::Structure(right)) => left == right,
             (Value::Range(left), Value::Range(right)) => left == right,
             _ => false,
         }
@@ -479,8 +476,8 @@ impl Ord for Value {
             (Value::Map(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
-            (Value::TypeDefinition(left), Value::TypeDefinition(right)) => left.cmp(right),
-            (Value::TypeDefinition(_), _) => Ordering::Greater,
+            (Value::Structure(left), Value::Structure(right)) => left.cmp(right),
+            (Value::Structure(_), _) => Ordering::Greater,
             (Value::Range(left), Value::Range(right)) => {
                 let left_len = left.end - left.start;
                 let right_len = right.end - right.start;
@@ -517,7 +514,7 @@ impl Serialize for Value {
             Value::Option(inner) => inner.serialize(serializer),
             Value::Map(inner) => inner.serialize(serializer),
             Value::Function(inner) => inner.serialize(serializer),
-            Value::TypeDefinition(inner) => inner.serialize(serializer),
+            Value::Structure(inner) => inner.serialize(serializer),
             Value::Range(range) => range.serialize(serializer),
         }
     }
@@ -540,7 +537,7 @@ impl Display for Value {
             Value::List(list) => write!(f, "{list}"),
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
-            Value::TypeDefinition(structure) => write!(f, "{structure}"),
+            Value::Structure(structure) => write!(f, "{structure}"),
             Value::Range(range) => write!(f, "{}..{}", range.start, range.end),
         }
     }

@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
@@ -167,7 +164,7 @@ impl AbstractTree for FunctionNode {
     }
 
     fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        let self_as_value = Value::Function(Function::ContextDefined(Arc::new(self.clone())));
+        let self_as_value = Value::Function(Function::ContextDefined(self.clone()));
 
         Ok(self_as_value)
     }

@@ -1,11 +1,10 @@
-use std::{cmp::Ordering, collections::BTreeMap, ops::Range, sync::Arc};
+use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeDefintion, TypeSpecification,
-    Value,
+    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -34,7 +33,7 @@ impl AbstractTree for ValueNode {
             "function" => {
                 let function_node = FunctionNode::from_syntax(child, source, context)?;
 
-                ValueNode::Function(Function::ContextDefined(Arc::new(function_node)))
+                ValueNode::Function(Function::ContextDefined(function_node))
             }
             "integer" => ValueNode::Integer(source[child.byte_range()].to_string()),
             "string" => {
@@ -255,7 +254,7 @@ impl AbstractTree for ValueNode {
                     value_map.insert(key.to_string(), (value_option, r#type.clone()));
                 }
 
-                Value::TypeDefinition(TypeDefintion::Structure(Structure::new(value_map)))
+                Value::Structure(Structure::new(value_map))
             }
             ValueNode::Range(range) => Value::Range(range.clone()),
         };

@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    sync::Arc,
-};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,10 +6,10 @@ use crate::{
     built_in_functions::Callable, BuiltInFunction, Format, FunctionNode, Map, Result, Type, Value,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Function {
     BuiltIn(BuiltInFunction),
-    ContextDefined(Arc<FunctionNode>),
+    ContextDefined(FunctionNode),
 }
 
 impl Function {
