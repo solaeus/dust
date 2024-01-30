@@ -19,7 +19,7 @@ async {
 }
 ```
 
-You can use Dust to run complex operations simply and safely, you can even invoke other programs, run them at the same time, capture their output, and pipe them together.
+You can use Dust to run complex operations simply and safely. You can even invoke other programs, run them at the same time, capture their output, and pipe them together.
 
 ```dust
 # Run each statment in this block in its own thread.
@@ -46,7 +46,7 @@ async {
 }
 ```
 
-Dust is an interpreted, strictly typed language with first class functions. It emphasises concurrency by allowing any group of statements to be executed in parallel. Dust includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV.
+Dust is an interpreted, strictly typed language with first class functions, embracing concurrency by allowing any group of statements to be executed in parallel. Dust includes built-in tooling to import and export data in a variety of formats, including JSON, TOML, YAML and CSV. Dust aims to be panic-free. That means that the interpreter will only fail to run a program due to an intended error, such as a type error or syntax error. If your program passes the these checks, it will run correctly.
 
 <!--toc:start-->
 - [Dust](#dust)
@@ -69,18 +69,33 @@ Dust is an interpreted, strictly typed language with first class functions. It e
 
 ## Installation
 
+### Cargo
+
 You must have the default rust toolchain installed and up-to-date. Install [rustup] if it is not already installed. Run `cargo install dust-lang` then run `dust` to start the interactive shell.
 
-To build from source, clone the repository and build the parser. To do so, enter the `tree-sitter-dust` directory and run `tree-sitter-generate`. In the project root, run `cargo run` to start the shell. To see other command line options, use `cargo run -- --help`.
+### Build From Source
+
+To build from source, clone the repository and build the parser. To do so, enter the `tree-sitter-dust` directory and run `tree-sitter-generate`. In the project root, run `cargo run` to start the shell. If you get errors about a linking with C, read them carefully to determine which prerequisites are needed.
+
+On Fedora, you can install these prerequisites with:
+
+```sh
+sudo dnf group install -y 'C Development Tools and Libraries' && sudo dnf install -y cmake
+```
 
 ## Usage
 
-After installation, the command line interpreter can be given source code to run or it can launch the command-line shell.
+After installation, the command line interpreter can be given source code to run or it can launch the command-line shell. As with intepreters like `sh` and `bash`, you can use the `-c` flag to pass source code directly.
 
 ```sh
-cargo install dust-lang
 dust -c "output('Hello world!')"
 # Output: Hello world!
+```
+
+Or just provide a path to the source file.
+
+```sh
+dust examples/hello_world.ds
 ```
 
 Run `dust --help` to see the available commands and options.

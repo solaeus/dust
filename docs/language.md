@@ -2,6 +2,12 @@
 
 !!! This is a **work in progress** and has incomplete information. !!!
 
+This is an in-depth description of the syntax and abstractions used by the Dust language. It is not necessary to read or understand all of it before you start using Dust. Instead, refer to it when you need help with the syntax or understanding how the code is run.
+
+Each section of this document corresponds to a node in the concrete syntax tree. Creating this tree is the first step in interpreting Dust code. Second, the syntax tree is traversed and an abstract tree is generated. Each node in the syntax tree corresponds to a node in the abstract tree. Third, the abstract tree is verified to ensure that it will not generate any values that violate the type restrictions. Finally, the abstract tree is run, beginning at the [root](#root). 
+
+You may reference the [grammar file](tree-sitter-dust/grammar.js) and the [Tree Sitter docs](https://tree-sitter.github.io/) while reading this guide to understand how the language is parsed.
+
 <!--toc:start-->
 - [Dust Language Reference](#dust-language-reference)
   - [Values](#values)
@@ -22,9 +28,10 @@
     - [None](#none)
     - [List and List Contents](#list-and-list-contents)
     - [Unstructured Map](#unstructured-map)
+    - [Collection](#collection)
     - [Function Types](#function-types)
     - [Option Type](#option-type)
-    - [Structures](#structures)
+    - [Custom Types](#custom-types)
   - [Statements](#statements)
     - [Assignment](#assignment)
     - [Blocks](#blocks)
@@ -46,11 +53,8 @@
       - [New](#new)
       - [Command](#command)
   - [Built-In Values](#built-in-values)
+  - [Comments](#comments)
 <!--toc:end-->
-
-Dust is a general purpose, interpreted and strictly typed language with first-class functions. This guide is an in-depth description of the abstractions and concepts that are used to implement the language.
-
-Dust aims to be panic-free. That means that the interpreter will only fail to run a program due to an intended error, such as a type error or a syntax error.
 
 ## Values
 
@@ -168,7 +172,7 @@ Dust includes built-in functions to work with option values: `is_none`, `is_some
 
 ### Structure
 
-A structure is an **concrete type value**. It is a value, like any other, and can be [assigned](#assignment) to an [identifier](). It can also be instantiated as a [map]() that will only allow the variables present in the structure. Default values may be provided for each variable in the structure, which will be propagated to the map it creates. Values without defaults must be given a value during instantiation.
+A structure is an **concrete type value**. It is a value, like any other, and can be [assigned](#assignment) to an [identifier](#identifier). It can also be instantiated as a [map](#map) that will only allow the variables present in the structure. Default values may be provided for each variable in the structure, which will be propagated to the map it creates. Values without defaults must be given a value during instantiation.
 
 ```dust
 struct User {
@@ -185,7 +189,7 @@ bob = new User {
 # The variable "bob" is a structured map.
 ```
 
-A map created by using [new]() is called a **structured map**. In other languages it may be called a "homomorphic mapped type". Dust will generate errors if you try to set any values on the structured map that are not allowed by the structure.
+A map created by using [new](#new) is called a **structured map**. In other languages it may be called a "homomorphic mapped type". Dust will generate errors if you try to set any values on the structured map that are not allowed by the structure.
 
 ## Types
 
@@ -208,7 +212,7 @@ The simple types, and their notation are:
 
 ### Number
 
-The `number` type may represent a value of type `int` or `float`.
+The `num` type may represent a value of type `int` or `float`.
 
 ### Any
 
@@ -221,6 +225,8 @@ The `none` type indicates that no value should be found after executing the stat
 ### List and List Contents
 
 ### Unstructured Map
+
+### Collection
 
 ### Function Types
 
@@ -266,7 +272,7 @@ stdout_message = new Message {
 
 TODO
 
-### Structures
+### Custom Types
 
 TODO
 
@@ -389,5 +395,9 @@ TODO
 TODO
 
 ## Built-In Values
+
+TODO
+
+## Comments
 
 TODO
