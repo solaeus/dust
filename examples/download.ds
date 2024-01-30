@@ -1,9 +1,10 @@
-cast = (download "https://api.sampleapis.com/futurama/cast")
-characters = (download "https://api.sampleapis.com/futurama/characters")	
-episodes = (download "https://api.sampleapis.com/futurama/episodes")
+raw_data = download("https://api.sampleapis.com/futurama/cast")
+cast_data = from_json(raw_data)
 
-cast_len = (length (from_json cast))
-characters_len = (length (from_json characters))
-episodes_len = (length (from_json episodes))
+names = []
 
-(output [cast_len, characters_len, episodes_len])
+for cast_member in cast_data {
+	names += cast_member:name
+}
+
+assert_equal("Billy West", names:0)
