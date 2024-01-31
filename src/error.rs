@@ -176,6 +176,11 @@ pub enum Error {
     SerdeJson(String),
 
     ParserCancelled,
+
+    ParseFloat {
+        reason: String,
+    },
+
     ExpectedIterable {
         actual: Value,
     },
@@ -441,6 +446,13 @@ impl fmt::Display for Error {
                 f,
                 "Parsing was cancelled either manually or because it took too long."
             ),
+            ParseFloat { reason } => {
+                write!(
+                    f,
+                    "Failed to parse a float value. Reason given: {}.",
+                    reason
+                )
+            }
             ExpectedFunctionType { actual } => write!(f, "Expected a function but got {actual}."),
             ExpectedIterable { actual } => {
                 write!(f, "Expected an iterable value but got {actual}.")

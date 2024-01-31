@@ -205,7 +205,11 @@ impl AbstractTree for ValueNode {
     fn run(&self, source: &str, context: &Map) -> Result<Value> {
         let value = match self {
             ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
-            ValueNode::Float(value_source) => Value::Float(value_source.parse().unwrap()),
+            ValueNode::Float(value_source) => {
+                let float = value_source.parse()?;
+
+                Value::Float(float)
+            }
             ValueNode::Function(function) => Value::Function(function.clone()),
             ValueNode::Integer(value_source) => Value::Integer(value_source.parse().unwrap()),
             ValueNode::String(value_source) => Value::string(value_source.clone()),
