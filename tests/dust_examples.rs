@@ -10,6 +10,13 @@ fn r#async() {
 }
 
 #[test]
+fn async_commands() {
+    let file_contents = read_to_string("examples/async_commands.ds").unwrap();
+
+    interpret(&file_contents).unwrap();
+}
+
+#[test]
 #[ignore]
 fn async_download() {
     let file_contents = read_to_string("examples/async_download.ds").unwrap();
@@ -26,8 +33,8 @@ fn clue_solver() {
 
 #[test]
 #[ignore]
-fn fetch() {
-    let file_contents = read_to_string("examples/fetch.ds").unwrap();
+fn download() {
+    let file_contents = read_to_string("examples/download.ds").unwrap();
 
     interpret(&file_contents).unwrap();
 }
@@ -47,13 +54,6 @@ fn fizzbuzz() {
 }
 
 #[test]
-fn for_loop() {
-    let file_contents = read_to_string("examples/for_loop.ds").unwrap();
-
-    interpret(&file_contents).unwrap();
-}
-
-#[test]
 fn hello_world() {
     let file_contents = read_to_string("examples/hello_world.ds").unwrap();
 
@@ -66,28 +66,6 @@ fn jq_data() {
 
     interpret(&file_contents).unwrap();
 }
-
-#[test]
-fn list() {
-    let file_contents = read_to_string("examples/list.ds").unwrap();
-
-    interpret(&file_contents).unwrap();
-}
-
-#[test]
-fn map() {
-    let file_contents = read_to_string("examples/map.ds").unwrap();
-
-    interpret(&file_contents).unwrap();
-}
-
-#[test]
-fn r#match() {
-    let file_contents = read_to_string("examples/match.ds").unwrap();
-
-    interpret(&file_contents).unwrap();
-}
-
 #[test]
 fn random() {
     let file_contents = read_to_string("examples/random.ds").unwrap();
@@ -98,27 +76,6 @@ fn random() {
 #[test]
 fn sea_creatures() {
     let file_contents = read_to_string("examples/sea_creatures.ds").unwrap();
-
-    interpret(&file_contents).unwrap();
-}
-
-#[test]
-fn variables() {
-    let file_contents = read_to_string("examples/variables.ds").unwrap();
-
-    interpret(&file_contents).unwrap();
-}
-
-#[test]
-fn while_loop() {
-    let file_contents = read_to_string("examples/while_loop.ds").unwrap();
-
-    interpret(&file_contents).unwrap();
-}
-
-#[test]
-fn r#yield() {
-    let file_contents = read_to_string("examples/yield.ds").unwrap();
 
     interpret(&file_contents).unwrap();
 }

@@ -1,4 +1,4 @@
-data = json:parse(fs:read('examples/assets/jq_data.json'))
+data = json:parse(fs:read_file('examples/assets/jq_data.json'))
 
 new_data = []
 

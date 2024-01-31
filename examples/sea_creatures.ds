@@ -1,4 +1,4 @@
-raw_data = fs:read('examples/assets/seaCreatures.json')
+raw_data = fs:read_file('examples/assets/seaCreatures.json')
 sea_creatures = json:parse(raw_data)
 
 data = {
