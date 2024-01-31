@@ -85,9 +85,7 @@ Nested Indexes
               (value
                 (integer)))))
         (index_expression
-          (range
-            (integer)
-            (integer)))))))
+          (range))))))
 
 ================================================================================
 Function Call Index

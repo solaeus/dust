@@ -162,6 +162,11 @@
     }
   },
   {
+    "type": "float",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "for",
     "named": true,
     "fields": {},
@@ -535,21 +540,6 @@
     }
   },
   {
-    "type": "range",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "integer",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "return",
     "named": true,
     "fields": {},
@@ -834,10 +824,6 @@
     "named": false
   },
   {
-    "type": "..",
-    "named": false
-  },
-  {
     "type": "/",
     "named": false
   },
@@ -875,6 +861,14 @@
   },
   {
     "type": ">=",
+    "named": false
+  },
+  {
+    "type": "Infinity",
+    "named": false
+  },
+  {
+    "type": "NaN",
     "named": false
   },
   {
@@ -939,10 +933,6 @@
   },
   {
     "type": "float",
-    "named": true
-  },
-  {
-    "type": "float",
     "named": false
   },
   {
@@ -963,6 +953,10 @@
   },
   {
     "type": "in",
+    "named": false
+  },
+  {
+    "type": "infinity",
     "named": false
   },
   {
@@ -990,6 +984,10 @@
     "named": false
   },
   {
+    "type": "nan",
+    "named": false
+  },
+  {
     "type": "new",
     "named": false
   },
@@ -1012,6 +1010,10 @@
   {
     "type": "random",
     "named": false
+  },
+  {
+    "type": "range",
+    "named": true
   },
   {
     "type": "return",

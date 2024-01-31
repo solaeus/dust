@@ -22,7 +22,7 @@ Integers
 ================================================================================
 
 1 2 3
-456 7
+-456 -7
 
 --------------------------------------------------------------------------------
 
@@ -47,6 +47,64 @@ Integers
     (expression
       (value
         (integer)))))
+
+================================================================================
+Floats
+================================================================================
+
+0.0
+1.0
+666.0
+-0.666
+NaN
+Infinity
+infinity
+nan
+
+nana
+infinity_gauntlet
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (value
+        (float))))
+  (statement
+    (expression
+      (identifier)))
+  (statement
+    (expression
+      (identifier))))
 
 ================================================================================
 Strings

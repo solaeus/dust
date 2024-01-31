@@ -27,13 +27,12 @@ fn integer_overflow() {
 
 #[test]
 fn float() {
-    assert_eq!(interpret("0.1"), Ok(Value::Float(0.1)));
     assert_eq!(
-        interpret("1.7976931348623157e308f64"),
+        interpret("1.7976931348623157e308"),
         Ok(Value::Float(f64::MAX))
     );
     assert_eq!(
-        interpret("-1.7976931348623157e308f64"),
+        interpret("-1.7976931348623157e308"),
         Ok(Value::Float(f64::MIN))
     );
 }

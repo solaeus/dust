@@ -66,7 +66,7 @@ impl AbstractTree for For {
             } else {
                 let loop_context = Map::clone_from(context)?;
 
-                for i in range.start..range.end {
+                for i in range {
                     loop_context.set(key.clone(), Value::Integer(i))?;
 
                     self.block.run(source, &loop_context)?;

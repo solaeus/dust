@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
+use std::{
+    cmp::Ordering,
+    collections::BTreeMap,
+    ops::{Range, RangeInclusive},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +23,7 @@ pub enum ValueNode {
     Map(BTreeMap<String, (Statement, Option<Type>)>),
     BuiltInValue(BuiltInValue),
     Structure(BTreeMap<String, (Option<Statement>, Type)>),
-    Range(Range<i64>),
+    Range(RangeInclusive<i64>),
 }
 
 impl AbstractTree for ValueNode {
@@ -164,13 +168,11 @@ impl AbstractTree for ValueNode {
                 ValueNode::Structure(btree_map)
             }
             "range" => {
-                let start_node = child.child(0).unwrap();
-                let end_node = child.child(2).unwrap();
+                let mut split = source[child.byte_range()].split("..");
+                let start = split.next().unwrap().parse().unwrap();
+                let end = split.next().unwrap().parse().unwrap();
 
-                let start = source[start_node.byte_range()].parse().unwrap();
-                let end = source[end_node.byte_range()].parse().unwrap();
-
-                ValueNode::Range(Range { start, end })
+                ValueNode::Range(start..=end)
             }
             _ => {
                 return Err(Error::UnexpectedSyntaxNode {

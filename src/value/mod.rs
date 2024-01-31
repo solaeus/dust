@@ -15,7 +15,7 @@ use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, Mul, Range, Rem, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, Range, RangeInclusive, Rem, Sub, SubAssign},
 };
 
 pub use self::{function::Function, list::List, map::Map, structure::Structure};
@@ -39,7 +39,7 @@ pub enum Value {
     Float(f64),
     Integer(i64),
     Boolean(bool),
-    Range(Range<i64>),
+    Range(RangeInclusive<i64>),
     Option(Option<Box<Value>>),
     Structure(Structure),
 }
@@ -56,7 +56,7 @@ impl Value {
     }
 
     pub fn range(start: i64, end: i64) -> Self {
-        Value::Range(Range { start, end })
+        Value::Range(start..=end)
     }
 
     pub fn r#type(&self) -> Type {
@@ -296,7 +296,9 @@ impl Add for Value {
 
     fn add(self, other: Self) -> Self::Output {
         if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
-            return Ok(Value::Integer(left + right));
+            let (sum, _) = left.overflowing_add(right);
+
+            return Ok(Value::Integer(sum));
         }
 
         if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
@@ -328,7 +330,9 @@ impl Sub for Value {
 
     fn sub(self, other: Self) -> Self::Output {
         if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
-            return Ok(Value::Integer(left - right));
+            let (difference, _) = left.overflowing_sub(right);
+
+            return Ok(Value::Integer(difference));
         }
 
         if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
@@ -479,8 +483,8 @@ impl Ord for Value {
             (Value::Structure(left), Value::Structure(right)) => left.cmp(right),
             (Value::Structure(_), _) => Ordering::Greater,
             (Value::Range(left), Value::Range(right)) => {
-                let left_len = left.end - left.start;
-                let right_len = right.end - right.start;
+                let left_len = left.end() - left.start();
+                let right_len = right.end() - right.start();
 
                 left_len.cmp(&right_len)
             }
@@ -538,7 +542,7 @@ impl Display for Value {
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
             Value::Structure(structure) => write!(f, "{structure}"),
-            Value::Range(range) => write!(f, "{}..{}", range.start, range.end),
+            Value::Range(range) => write!(f, "{}..{}", range.start(), range.end()),
         }
     }
 }

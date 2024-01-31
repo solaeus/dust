@@ -10,6 +10,4 @@ Simple Range
   (statement
     (expression
       (value
-        (range
-          (integer)
-          (integer))))))
+        (range)))))

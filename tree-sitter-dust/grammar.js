@@ -125,12 +125,7 @@ module.exports = grammar({
         $.range,
       ),
 
-    range: $ =>
-      seq(
-        $.integer,
-        token.immediate('..'),
-        $.integer,
-      ),
+    range: $ => /\d+[.]{2}\d+/,
 
     structure: $ =>
       seq(
@@ -181,67 +176,17 @@ module.exports = grammar({
         '}',
       ),
 
-    integer: $ =>
-      token(
-        prec.left(
-          seq(
-            optional('-'),
-            repeat1(
-              choice(
-                '1',
-                '2',
-                '3',
-                '4',
-                '5',
-                '6',
-                '7',
-                '8',
-                '9',
-                '0',
-              ),
-            ),
-          ),
-        ),
-      ),
+    integer: $ => /[-]?\d+/,
 
     float: $ =>
-      token(
-        prec.left(
-          seq(
-            optional('-'),
-            repeat1(
-              choice(
-                '1',
-                '2',
-                '3',
-                '4',
-                '5',
-                '6',
-                '7',
-                '8',
-                '9',
-                '0',
-              ),
-            ),
-            '.',
-            repeat1(
-              choice(
-                '1',
-                '2',
-                '3',
-                '4',
-                '5',
-                '6',
-                '7',
-                '8',
-                '9',
-                '0',
-              ),
-            ),
-          ),
-        ),
+      choice(
+        /[-|+]?\d*[.][\d|e|-]*/,
+        "Infinity",
+        "infinity",
+        "NaN",
+        "nan",
       ),
-
+    
     string: $ =>
       /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
