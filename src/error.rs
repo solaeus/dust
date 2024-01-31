@@ -245,62 +245,64 @@ impl Error {
 }
 
 impl From<LanguageError> for Error {
-    fn from(value: LanguageError) -> Self {
-        Error::External(value.to_string())
+    fn from(error: LanguageError) -> Self {
+        Error::External(error.to_string())
     }
 }
 
 impl<T> From<PoisonError<T>> for Error {
-    fn from(value: PoisonError<T>) -> Self {
-        Error::External(value.to_string())
+    fn from(error: PoisonError<T>) -> Self {
+        Error::External(error.to_string())
     }
 }
 
 impl From<FromUtf8Error> for Error {
-    fn from(value: FromUtf8Error) -> Self {
-        Error::External(value.to_string())
+    fn from(error: FromUtf8Error) -> Self {
+        Error::External(error.to_string())
     }
 }
 
 impl From<ParseFloatError> for Error {
-    fn from(value: ParseFloatError) -> Self {
-        Error::External(value.to_string())
+    fn from(error: ParseFloatError) -> Self {
+        Error::ParseFloat {
+            reason: error.to_string(),
+        }
     }
 }
 
 impl From<csv::Error> for Error {
-    fn from(value: csv::Error) -> Self {
-        Error::External(value.to_string())
+    fn from(error: csv::Error) -> Self {
+        Error::External(error.to_string())
     }
 }
 
 impl From<io::Error> for Error {
-    fn from(value: std::io::Error) -> Self {
-        Error::External(value.to_string())
+    fn from(error: std::io::Error) -> Self {
+        Error::External(error.to_string())
     }
 }
 
 impl From<reqwest::Error> for Error {
-    fn from(value: reqwest::Error) -> Self {
-        Error::External(value.to_string())
+    fn from(error: reqwest::Error) -> Self {
+        Error::External(error.to_string())
     }
 }
 
 impl From<serde_json::Error> for Error {
-    fn from(value: serde_json::Error) -> Self {
-        Error::SerdeJson(value.to_string())
+    fn from(error: serde_json::Error) -> Self {
+        Error::SerdeJson(error.to_string())
     }
 }
 
 impl From<time::SystemTimeError> for Error {
-    fn from(value: time::SystemTimeError) -> Self {
-        Error::External(value.to_string())
+    fn from(error: time::SystemTimeError) -> Self {
+        Error::External(error.to_string())
     }
 }
 
 impl From<toml::de::Error> for Error {
-    fn from(value: toml::de::Error) -> Self {
-        Error::External(value.to_string())
+    fn from(error: toml::de::Error) -> Self {
+        Error::External(error.to_string())
     }
 }
 
