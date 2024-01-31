@@ -7,7 +7,7 @@ use std::fmt::{self, Display, Formatter};
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, Format, Map, Result, Type, Value};
+use crate::{error::RuntimeError, Error, Format, Map, Type, Value};
 
 use self::{fs::Fs, json::Json, str::StrFunction};
 
@@ -15,7 +15,12 @@ pub trait Callable {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn r#type(&self) -> Type;
-    fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value>;
+    fn call(
+        &self,
+        arguments: &[Value],
+        source: &str,
+        outer_context: &Map,
+    ) -> Result<Value, RuntimeError>;
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -78,7 +83,12 @@ impl Callable for BuiltInFunction {
         }
     }
 
-    fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
+    fn call(
+        &self,
+        arguments: &[Value],
+        _source: &str,
+        _outer_context: &Map,
+    ) -> Result<Value, RuntimeError> {
         match self {
             BuiltInFunction::AssertEqual => {
                 Error::expect_argument_amount(self.name(), 2, arguments.len())?;

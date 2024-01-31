@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum MathOperator {
@@ -12,7 +15,7 @@ pub enum MathOperator {
 }
 
 impl AbstractTree for MathOperator {
-    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
         let operator_node = node.child(0).unwrap();
         let operator = match operator_node.kind() {
             "+" => MathOperator::Add,
@@ -33,12 +36,16 @@ impl AbstractTree for MathOperator {
         Ok(operator)
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        Ok(Value::none())
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+        Ok(Type::None)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::None)
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        Ok(())
+    }
+
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+        Ok(Value::none())
     }
 }
 

@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use tree_sitter::Node;
 
 use crate::{
-    AbstractTree, Format, Identifier, Map, Result, Type, TypeSpecification, Value, ValueNode,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Format, Identifier, Map, Type, TypeSpecification, Value, ValueNode,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -12,7 +13,7 @@ pub struct New {
 }
 
 impl AbstractTree for New {
-    fn from_syntax(node: Node, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: Node, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         let identifier_node = node.child(1).unwrap();
         let identifier = Identifier::from_syntax(identifier_node, source, context)?;
 
@@ -24,11 +25,15 @@ impl AbstractTree for New {
         })
     }
 
-    fn run(&self, _source: &str, _context: &crate::Map) -> crate::Result<Value> {
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
         todo!()
     }
 
-    fn expected_type(&self, _context: &crate::Map) -> crate::Result<Type> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        todo!()
+    }
+
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
         todo!()
     }
 }

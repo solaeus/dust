@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, Assignment, Block, Error, Expression, For, Format, IfElse, IndexAssignment, Map,
-    Match, Result, SyntaxNode, Type, Value, While,
+    Match, SyntaxNode, Type, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -20,7 +21,7 @@ pub enum Statement {
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "statement", node)?;
 
         let child = node.child(0).unwrap();
@@ -65,7 +66,21 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        match self {
+            Statement::Assignment(assignment) => assignment.expected_type(context),
+            Statement::Expression(expression) => expression.expected_type(context),
+            Statement::IfElse(if_else) => if_else.expected_type(context),
+            Statement::Match(r#match) => r#match.expected_type(context),
+            Statement::While(r#while) => r#while.expected_type(context),
+            Statement::Block(block) => block.expected_type(context),
+            Statement::For(r#for) => r#for.expected_type(context),
+            Statement::IndexAssignment(index_assignment) => index_assignment.expected_type(context),
+            Statement::Return(statement) => statement.expected_type(context),
+        }
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.check_type(_source, _context),
             Statement::Expression(expression) => expression.check_type(_source, _context),
@@ -81,7 +96,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),
@@ -92,20 +107,6 @@ impl AbstractTree for Statement {
             Statement::For(r#for) => r#for.run(source, context),
             Statement::IndexAssignment(index_assignment) => index_assignment.run(source, context),
             Statement::Return(statement) => statement.run(source, context),
-        }
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        match self {
-            Statement::Assignment(assignment) => assignment.expected_type(context),
-            Statement::Expression(expression) => expression.expected_type(context),
-            Statement::IfElse(if_else) => if_else.expected_type(context),
-            Statement::Match(r#match) => r#match.expected_type(context),
-            Statement::While(r#while) => r#while.expected_type(context),
-            Statement::Block(block) => block.expected_type(context),
-            Statement::For(r#for) => r#for.expected_type(context),
-            Statement::IndexAssignment(index_assignment) => index_assignment.expected_type(context),
-            Statement::Return(statement) => statement.expected_type(context),
         }
     }
 }

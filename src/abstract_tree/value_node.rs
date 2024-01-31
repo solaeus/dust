@@ -1,14 +1,11 @@
-use std::{
-    cmp::Ordering,
-    collections::BTreeMap,
-    ops::{Range, RangeInclusive},
-};
+use std::{cmp::Ordering, collections::BTreeMap, ops::RangeInclusive};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Result, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
+    List, Map, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -27,7 +24,7 @@ pub enum ValueNode {
 }
 
 impl AbstractTree for ValueNode {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "value", node)?;
 
         let child = node.child(0).unwrap();
@@ -189,7 +186,59 @@ impl AbstractTree for ValueNode {
         Ok(value_node)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        let r#type = match self {
+            ValueNode::Boolean(_) => Type::Boolean,
+            ValueNode::Float(_) => Type::Float,
+            ValueNode::Function(function) => function.r#type().clone(),
+            ValueNode::Integer(_) => Type::Integer,
+            ValueNode::String(_) => Type::String,
+            ValueNode::List(expressions) => {
+                let mut previous_type = None;
+
+                for expression in expressions {
+                    let expression_type = expression.expected_type(context)?;
+
+                    if let Some(previous) = previous_type {
+                        if expression_type != previous {
+                            return Ok(Type::List(Box::new(Type::Any)));
+                        }
+                    }
+
+                    previous_type = Some(expression_type);
+                }
+
+                if let Some(previous) = previous_type {
+                    Type::List(Box::new(previous))
+                } else {
+                    Type::List(Box::new(Type::Any))
+                }
+            }
+            ValueNode::Option(option) => {
+                if let Some(expression) = option {
+                    Type::Option(Box::new(expression.expected_type(context)?))
+                } else {
+                    Type::None
+                }
+            }
+            ValueNode::Map(_) => Type::Map(None),
+            ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
+            ValueNode::Structure(node_map) => {
+                let mut value_map = BTreeMap::new();
+
+                for (key, (_statement_option, r#type)) in node_map {
+                    value_map.insert(key.to_string(), (None, r#type.clone()));
+                }
+
+                Type::Map(Some(Structure::new(value_map)))
+            }
+            ValueNode::Range(_) => Type::Range,
+        };
+
+        Ok(r#type)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         match self {
             ValueNode::Function(function) => {
                 if let Function::ContextDefined(function_node) = function {
@@ -202,7 +251,7 @@ impl AbstractTree for ValueNode {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
             ValueNode::Float(value_source) => {
@@ -266,58 +315,6 @@ impl AbstractTree for ValueNode {
         };
 
         Ok(value)
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        let r#type = match self {
-            ValueNode::Boolean(_) => Type::Boolean,
-            ValueNode::Float(_) => Type::Float,
-            ValueNode::Function(function) => function.r#type().clone(),
-            ValueNode::Integer(_) => Type::Integer,
-            ValueNode::String(_) => Type::String,
-            ValueNode::List(expressions) => {
-                let mut previous_type = None;
-
-                for expression in expressions {
-                    let expression_type = expression.expected_type(context)?;
-
-                    if let Some(previous) = previous_type {
-                        if expression_type != previous {
-                            return Ok(Type::List(Box::new(Type::Any)));
-                        }
-                    }
-
-                    previous_type = Some(expression_type);
-                }
-
-                if let Some(previous) = previous_type {
-                    Type::List(Box::new(previous))
-                } else {
-                    Type::List(Box::new(Type::Any))
-                }
-            }
-            ValueNode::Option(option) => {
-                if let Some(expression) = option {
-                    Type::Option(Box::new(expression.expected_type(context)?))
-                } else {
-                    Type::None
-                }
-            }
-            ValueNode::Map(_) => Type::Map(None),
-            ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
-            ValueNode::Structure(node_map) => {
-                let mut value_map = BTreeMap::new();
-
-                for (key, (_statement_option, r#type)) in node_map {
-                    value_map.insert(key.to_string(), (None, r#type.clone()));
-                }
-
-                Type::Map(Some(Structure::new(value_map)))
-            }
-            ValueNode::Range(_) => Type::Range,
-        };
-
-        Ok(r#type)
     }
 }
 

@@ -2,7 +2,10 @@ use std::process;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, Map, Type, Value,
+};
 
 /// An external program invokation.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -12,7 +15,11 @@ pub struct Command {
 }
 
 impl AbstractTree for Command {
-    fn from_syntax(node: tree_sitter::Node, source: &str, _context: &crate::Map) -> Result<Self> {
+    fn from_syntax(
+        node: tree_sitter::Node,
+        source: &str,
+        _context: &crate::Map,
+    ) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "command", node)?;
 
         let command_text_node = node.child(1).unwrap();
@@ -40,7 +47,15 @@ impl AbstractTree for Command {
         })
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+        Ok(Type::String)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        todo!()
+    }
+
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
         let output = process::Command::new(&self.command_text)
             .args(&self.command_arguments)
             .spawn()?
@@ -49,10 +64,6 @@ impl AbstractTree for Command {
         let string = String::from_utf8(output)?;
 
         Ok(Value::String(string))
-    }
-
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::String)
     }
 }
 

@@ -5,7 +5,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, Error, Expression, Format, Map, Result, Statement, SyntaxNode, Type, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Expression, Format, Map, Statement, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a match statement.
@@ -17,7 +18,7 @@ pub struct Match {
 }
 
 impl AbstractTree for Match {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "match", node)?;
 
         let matcher_node = node.child(1).unwrap();
@@ -58,7 +59,28 @@ impl AbstractTree for Match {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        let (_, first_statement) = self.options.first().unwrap();
+
+        first_statement.expected_type(context)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.matcher.check_type(_source, _context)?;
+
+        for (expression, statement) in self.options {
+            expression.check_type(_source, _context)?;
+            statement.check_type(_source, _context)?;
+        }
+
+        if let Some(statement) = self.fallback {
+            statement.check_type(_source, _context)?;
+        }
+
+        Ok(())
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let matcher_value = self.matcher.run(source, context)?;
 
         for (expression, statement) in &self.options {
@@ -74,12 +96,6 @@ impl AbstractTree for Match {
         } else {
             Ok(Value::none())
         }
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        let (_, first_statement) = self.options.first().unwrap();
-
-        first_statement.expected_type(context)
     }
 }
 

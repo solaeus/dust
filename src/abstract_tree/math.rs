@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, Error, Expression, Format, Map, MathOperator, Result, SyntaxNode, Type, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Expression, Format, Map, MathOperator, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a math operation.
@@ -16,7 +17,7 @@ pub struct Math {
 }
 
 impl AbstractTree for Math {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "math", node)?;
 
         let left_node = node.child(0).unwrap();
@@ -35,7 +36,16 @@ impl AbstractTree for Math {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        self.left.expected_type(context)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.left.check_type(_source, _context)?;
+        self.right.check_type(_source, _context)
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let value = match self.operator {
@@ -47,10 +57,6 @@ impl AbstractTree for Math {
         }?;
 
         Ok(value)
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        self.left.expected_type(context)
     }
 }
 

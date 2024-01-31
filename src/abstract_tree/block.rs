@@ -3,7 +3,10 @@ use std::sync::RwLock;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, Statement, SyntaxNode, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, Map, Statement, SyntaxNode, Type, Value,
+};
 
 /// Abstract representation of a block.
 ///
@@ -20,7 +23,7 @@ pub struct Block {
 }
 
 impl AbstractTree for Block {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "block", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -49,7 +52,7 @@ impl AbstractTree for Block {
         })
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
                 return inner_statement.check_type(_source, _context);
@@ -61,7 +64,7 @@ impl AbstractTree for Block {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         if self.is_async {
             let statements = &self.statements;
             let final_result = RwLock::new(Ok(Value::none()));
@@ -110,7 +113,7 @@ impl AbstractTree for Block {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
         if let Some(statement) = self.statements.iter().find(|statement| {
             if let Statement::Return(_) = statement {
                 true

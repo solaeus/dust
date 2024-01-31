@@ -1,7 +1,7 @@
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, List, Map, Result, Type, Value};
+use crate::{error::RuntimeError, Error, List, Map, Type, Value};
 
 use super::Callable;
 
@@ -198,7 +198,12 @@ impl Callable for StrFunction {
         }
     }
 
-    fn call(&self, arguments: &[Value], _source: &str, _outer_context: &Map) -> Result<Value> {
+    fn call(
+        &self,
+        arguments: &[Value],
+        _source: &str,
+        _outer_context: &Map,
+    ) -> Result<Value, RuntimeError> {
         let value = match self {
             StrFunction::AsBytes => {
                 Error::expect_argument_amount(self.name(), 1, arguments.len())?;

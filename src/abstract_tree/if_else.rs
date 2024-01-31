@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Block, Expression, Format, Map, Result, SyntaxNode, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Block, Expression, Format, Map, SyntaxNode, Type, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
@@ -12,7 +15,7 @@ pub struct IfElse {
 }
 
 impl AbstractTree for IfElse {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         let if_expression_node = node.child(0).unwrap().child(1).unwrap();
         let if_expression = Expression::from_syntax(if_expression_node, source, context)?;
 
@@ -54,7 +57,35 @@ impl AbstractTree for IfElse {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        self.if_block.expected_type(context)
+    }
+
+    fn check_type(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+        self.if_expression.check_type(_source, context)?;
+        self.if_block.check_type(_source, context)?;
+
+        let expected_type = self.if_block.expected_type(context)?;
+        let else_ifs = self
+            .else_if_expressions
+            .iter()
+            .zip(self.else_if_blocks.iter());
+
+        for (expression, block) in else_ifs {
+            expression.check_type(_source, context)?;
+            block.check_type(_source, context)?;
+
+            expected_type.check(&block.expected_type(context)?)?;
+        }
+
+        if let Some(expression) = self.else_block {
+            expected_type.check(&expression.expected_type(context)?)?;
+        }
+
+        Ok(())
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let if_boolean = self.if_expression.run(source, context)?.as_boolean()?;
 
         if if_boolean {
@@ -78,10 +109,6 @@ impl AbstractTree for IfElse {
                 Ok(Value::none())
             }
         }
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        self.if_block.expected_type(context)
     }
 }
 

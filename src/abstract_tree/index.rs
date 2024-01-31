@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, Error, Format, IndexExpression, List, Map, Result, SyntaxNode, Type, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, IndexExpression, List, Map, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of an index expression.
@@ -15,7 +16,7 @@ pub struct Index {
 }
 
 impl AbstractTree for Index {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "index", node)?;
 
         let collection_node = node.child(0).unwrap();
@@ -42,7 +43,27 @@ impl AbstractTree for Index {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        match self.collection.expected_type(context)? {
+            Type::List(item_type) => Ok(*item_type.clone()),
+            Type::Map(_) => Ok(Type::Any),
+            Type::None => Ok(Type::None),
+            r#type => Ok(r#type),
+        }
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.collection.check_type(_source, _context)?;
+        self.index.check_type(_source, _context)?;
+
+        if let Some(index_end) = self.index_end {
+            index_end.check_type(_source, _context)?;
+        }
+
+        Ok(())
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let collection = self.collection.run(source, context)?;
 
         match collection {
@@ -95,15 +116,6 @@ impl AbstractTree for Index {
                 Ok(Value::string(item.to_string()))
             }
             _ => Err(Error::ExpectedCollection { actual: collection }),
-        }
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        match self.collection.expected_type(context)? {
-            Type::List(item_type) => Ok(*item_type.clone()),
-            Type::Map(_) => Ok(Type::Any),
-            Type::None => Ok(Type::None),
-            r#type => Ok(r#type),
         }
     }
 }

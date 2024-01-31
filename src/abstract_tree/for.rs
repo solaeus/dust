@@ -2,8 +2,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, Block, Error, Expression, Format, Identifier, Map, Result, SyntaxNode, Type,
-    Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Block, Error, Expression, Format, Identifier, Map, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a for loop statement.
@@ -16,7 +16,7 @@ pub struct For {
 }
 
 impl AbstractTree for For {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "for", node)?;
 
         let for_node = node.child(0).unwrap();
@@ -50,7 +50,15 @@ impl AbstractTree for For {
         })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+        Ok(Type::None)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.block.check_type(_source, _context)
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let expression_run = self.collection.run(source, context)?;
         let key = self.item_id.inner();
 
@@ -97,10 +105,6 @@ impl AbstractTree for For {
         }
 
         Ok(Value::none())
-    }
-
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::None)
     }
 }
 

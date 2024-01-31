@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+};
 
 /// Operators that be used in an assignment statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -11,7 +14,11 @@ pub enum AssignmentOperator {
 }
 
 impl AbstractTree for AssignmentOperator {
-    fn from_syntax(node: SyntaxNode, source: &str, _context: &crate::Map) -> Result<Self> {
+    fn from_syntax(
+        node: SyntaxNode,
+        source: &str,
+        _context: &crate::Map,
+    ) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "assignment_operator", node)?;
 
         let operator_node = node.child(0).unwrap();
@@ -32,12 +39,16 @@ impl AbstractTree for AssignmentOperator {
         Ok(operator)
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
         Ok(Value::none())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
         Ok(Type::None)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        Ok(())
     }
 }
 

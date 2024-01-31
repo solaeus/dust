@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    function_expression::FunctionExpression, AbstractTree, Error, Expression, Format, FunctionCall,
-    Map, Result, SyntaxNode, Type, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    function_expression::FunctionExpression,
+    AbstractTree, Error, Expression, Format, FunctionCall, Map, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a yield expression.
@@ -14,7 +15,7 @@ pub struct Yield {
 }
 
 impl AbstractTree for Yield {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "yield", node)?;
 
         let input_node = node.child(0).unwrap();
@@ -42,12 +43,16 @@ impl AbstractTree for Yield {
         Ok(Yield { call })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        self.call.run(source, context)
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        self.call.expected_type(context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        self.call.expected_type(context)
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.call.check_type(_source, _context)
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+        self.call.run(source, context)
     }
 }
 

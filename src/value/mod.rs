@@ -1,6 +1,6 @@
 //! Types that represent runtime values.
 use crate::{
-    error::{Error, Result},
+    error::{Error, RuntimeError},
     Identifier, Type, TypeSpecification,
 };
 
@@ -15,7 +15,7 @@ use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, Mul, Range, RangeInclusive, Rem, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, RangeInclusive, Rem, Sub, SubAssign},
 };
 
 pub use self::{function::Function, list::List, map::Map, structure::Structure};
@@ -164,7 +164,7 @@ impl Value {
     }
 
     /// Borrows the value stored in `self` as `&String`, or returns `Err` if `self` is not a `Value::String`.
-    pub fn as_string(&self) -> Result<&String> {
+    pub fn as_string(&self) -> Result<&String, RuntimeError> {
         match self {
             Value::String(string) => Ok(string),
             value => Err(Error::ExpectedString {
@@ -174,7 +174,7 @@ impl Value {
     }
 
     /// Copies the value stored in `self` as `i64`, or returns `Err` if `self` is not a `Value::Int`
-    pub fn as_integer(&self) -> Result<i64> {
+    pub fn as_integer(&self) -> Result<i64, RuntimeError> {
         match self {
             Value::Integer(i) => Ok(*i),
             value => Err(Error::ExpectedInteger {
@@ -184,7 +184,7 @@ impl Value {
     }
 
     /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Primitive::Float`.
-    pub fn as_float(&self) -> Result<f64> {
+    pub fn as_float(&self) -> Result<f64, RuntimeError> {
         match self {
             Value::Float(f) => Ok(*f),
             value => Err(Error::ExpectedFloat {
@@ -195,7 +195,7 @@ impl Value {
 
     /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Primitive::Float` or `Value::Int`.
     /// Note that this method silently converts `i64` to `f64`, if `self` is a `Value::Int`.
-    pub fn as_number(&self) -> Result<f64> {
+    pub fn as_number(&self) -> Result<f64, RuntimeError> {
         match self {
             Value::Float(f) => Ok(*f),
             Value::Integer(i) => Ok(*i as f64),
@@ -206,7 +206,7 @@ impl Value {
     }
 
     /// Copies the value stored in  `self` as `bool`, or returns `Err` if `self` is not a `Primitive::Boolean`.
-    pub fn as_boolean(&self) -> Result<bool> {
+    pub fn as_boolean(&self) -> Result<bool, RuntimeError> {
         match self {
             Value::Boolean(boolean) => Ok(*boolean),
             value => Err(Error::ExpectedBoolean {
@@ -216,7 +216,7 @@ impl Value {
     }
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
-    pub fn as_list(&self) -> Result<&List> {
+    pub fn as_list(&self) -> Result<&List, RuntimeError> {
         match self {
             Value::List(list) => Ok(list),
             value => Err(Error::ExpectedList {
@@ -226,7 +226,7 @@ impl Value {
     }
 
     /// Takes ownership of the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
-    pub fn into_inner_list(self) -> Result<List> {
+    pub fn into_inner_list(self) -> Result<List, RuntimeError> {
         match self {
             Value::List(list) => Ok(list),
             value => Err(Error::ExpectedList {
@@ -236,7 +236,7 @@ impl Value {
     }
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::Map`.
-    pub fn as_map(&self) -> Result<&Map> {
+    pub fn as_map(&self) -> Result<&Map, RuntimeError> {
         match self {
             Value::Map(map) => Ok(map),
             value => Err(Error::ExpectedMap {
@@ -247,7 +247,7 @@ impl Value {
 
     /// Borrows the value stored in `self` as `Function`, or returns `Err` if
     /// `self` is not a `Value::Function`.
-    pub fn as_function(&self) -> Result<&Function> {
+    pub fn as_function(&self) -> Result<&Function, RuntimeError> {
         match self {
             Value::Function(function) => Ok(function),
             value => Err(Error::ExpectedFunction {
@@ -257,7 +257,7 @@ impl Value {
     }
 
     /// Returns `Option`, or returns `Err` if `self` is not a `Value::Option`.
-    pub fn as_option(&self) -> Result<&Option<Box<Value>>> {
+    pub fn as_option(&self) -> Result<&Option<Box<Value>>, RuntimeError> {
         match self {
             Value::Option(option) => Ok(option),
             value => Err(Error::ExpectedOption {
@@ -267,7 +267,7 @@ impl Value {
     }
 
     /// Returns `()`, or returns `Err` if `self` is not a `Value::none()`.
-    pub fn as_none(&self) -> Result<()> {
+    pub fn as_none(&self) -> Result<(), RuntimeError> {
         match self {
             Value::Option(option) => {
                 if option.is_none() {
@@ -292,7 +292,7 @@ impl Default for &Value {
 }
 
 impl Add for Value {
-    type Output = Result<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn add(self, other: Self) -> Self::Output {
         if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
@@ -326,7 +326,7 @@ impl Add for Value {
 }
 
 impl Sub for Value {
-    type Output = Result<Self>;
+    type Output = Result<Self, RuntimeError>;
 
     fn sub(self, other: Self) -> Self::Output {
         if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
@@ -346,7 +346,7 @@ impl Sub for Value {
 }
 
 impl Mul for Value {
-    type Output = Result<Self>;
+    type Output = Result<Self, RuntimeError>;
 
     fn mul(self, other: Self) -> Self::Output {
         if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
@@ -362,7 +362,7 @@ impl Mul for Value {
 }
 
 impl Div for Value {
-    type Output = Result<Self>;
+    type Output = Result<Self, RuntimeError>;
 
     fn div(self, other: Self) -> Self::Output {
         if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
@@ -383,7 +383,7 @@ impl Div for Value {
 }
 
 impl Rem for Value {
-    type Output = Result<Self>;
+    type Output = Result<Self, RuntimeError>;
 
     fn rem(self, other: Self) -> Self::Output {
         let left = self.as_integer()?;
@@ -583,7 +583,7 @@ impl From<Vec<Value>> for Value {
     }
 }
 
-impl From<Value> for Result<Value> {
+impl From<Value> for Result<Value, RuntimeError> {
     fn from(value: Value) -> Self {
         Ok(value)
     }

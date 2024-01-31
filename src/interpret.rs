@@ -37,13 +37,16 @@
 //! ```
 use tree_sitter::{Node as SyntaxNode, Parser, Tree as SyntaxTree, TreeCursor};
 
-use crate::{language, AbstractTree, Error, Format, Map, Result, Root, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    language, AbstractTree, Error, Format, Map, Root, Value,
+};
 
 /// Interpret the given source code. Returns the value of last statement or the
 /// first error encountered.
 ///
 /// See the [module-level docs][self] for more info.
-pub fn interpret(source: &str) -> Result<Value> {
+pub fn interpret(source: &str) -> Result<Value, Error> {
     interpret_with_context(source, Map::new())
 }
 
@@ -55,7 +58,7 @@ pub fn interpret(source: &str) -> Result<Value> {
 /// maps.
 ///
 /// See the [module-level docs][self] for more info.
-pub fn interpret_with_context(source: &str, context: Map) -> Result<Value> {
+pub fn interpret_with_context(source: &str, context: Map) -> Result<Value, Error> {
     let mut interpreter = Interpreter::new(context);
     let value = interpreter.run(source)?;
 
@@ -93,7 +96,7 @@ impl Interpreter {
     ///
     /// Tree sitter is designed to be run on every keystroke, so this is generally a lightweight
     /// function to call.
-    pub fn parse(&mut self, source: &str) -> Result<SyntaxTree> {
+    pub fn parse(&mut self, source: &str) -> Result<SyntaxTree, Error> {
         if let Some(tree) = self.parser.parse(source, None) {
             Ok(tree)
         } else {
@@ -109,8 +112,12 @@ impl Interpreter {
     /// - check the syntax tree for errors
     /// - generate an abstract tree from the source and syntax tree
     /// - check the abstract tree for type errors
-    pub fn verify(&mut self, source: &str) -> Result<Root> {
-        fn check_for_error(node: SyntaxNode, source: &str, cursor: &mut TreeCursor) -> Result<()> {
+    pub fn verify(&mut self, source: &str) -> Result<Root, Error> {
+        fn check_for_error(
+            node: SyntaxNode,
+            source: &str,
+            cursor: &mut TreeCursor,
+        ) -> Result<(), ValidationError> {
             if node.is_error() {
                 Err(Error::Syntax {
                     source: source[node.byte_range()].to_string(),
@@ -142,13 +149,13 @@ impl Interpreter {
     ///
     /// This function [parses][Self::parse], [verifies][Self::verify] and [runs][Root::run] using
     /// the same source code.
-    pub fn run(&mut self, source: &str) -> Result<Value> {
+    pub fn run(&mut self, source: &str) -> Result<Value, Error> {
         self.verify(source)?.run(source, &self.context)
     }
 
     /// Return an s-expression displaying a syntax tree of the source, or the ParserCancelled error
     /// if the parser takes too long.
-    pub fn syntax_tree(&mut self, source: &str) -> Result<String> {
+    pub fn syntax_tree(&mut self, source: &str) -> Result<String, Error> {
         Ok(self.parse(source)?.root_node().to_sexp())
     }
 
@@ -157,7 +164,7 @@ impl Interpreter {
     ///
     /// You should call [verify][Interpreter::verify] before calling this function. You can only
     /// create formatted source from a valid abstract tree.
-    pub fn format(&mut self, source: &str) -> Result<String> {
+    pub fn format(&mut self, source: &str) -> Result<String, Error> {
         let mut formatted_output = String::new();
 
         self.verify(source)?.format(&mut formatted_output, 0);

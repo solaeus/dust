@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Error, Format, FunctionCall, Identifier, Index, Map,
-    Result, SyntaxNode, Type, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    value_node::ValueNode,
+    AbstractTree, Error, Format, FunctionCall, Identifier, Index, Map, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -14,7 +15,7 @@ pub enum IndexExpression {
 }
 
 impl AbstractTree for IndexExpression {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "index_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -48,21 +49,32 @@ impl AbstractTree for IndexExpression {
         Ok(abstract_node)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        match self {
-            IndexExpression::Value(value_node) => value_node.run(source, context),
-            IndexExpression::Identifier(identifier) => identifier.run(source, context),
-            IndexExpression::Index(index) => index.run(source, context),
-            IndexExpression::FunctionCall(function_call) => function_call.run(source, context),
-        }
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
         match self {
             IndexExpression::Value(value_node) => value_node.expected_type(context),
             IndexExpression::Identifier(identifier) => identifier.expected_type(context),
             IndexExpression::Index(index) => index.expected_type(context),
             IndexExpression::FunctionCall(function_call) => function_call.expected_type(context),
+        }
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        match self {
+            IndexExpression::Value(value_node) => value_node.check_type(_source, _context),
+            IndexExpression::Identifier(identifier) => identifier.check_type(_source, _context),
+            IndexExpression::Index(index) => index.check_type(_source, _context),
+            IndexExpression::FunctionCall(function_call) => {
+                function_call.check_type(_source, _context)
+            }
+        }
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+        match self {
+            IndexExpression::Value(value_node) => value_node.run(source, context),
+            IndexExpression::Identifier(identifier) => identifier.run(source, context),
+            IndexExpression::Index(index) => index.run(source, context),
+            IndexExpression::FunctionCall(function_call) => function_call.run(source, context),
         }
     }
 }

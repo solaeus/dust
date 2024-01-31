@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, Error, Expression, Format, FunctionExpression, Map, Result, SyntaxNode,
-    SyntaxPosition, Type, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Expression, Format, FunctionExpression, Map, SyntaxNode, SyntaxPosition,
+    Type, Value,
 };
 
 /// A function being invoked and the arguments it is being passed.
@@ -29,7 +30,7 @@ impl FunctionCall {
 }
 
 impl AbstractTree for FunctionCall {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "function_call", node)?;
 
         let function_node = node.child(0).unwrap();
@@ -54,7 +55,37 @@ impl AbstractTree for FunctionCall {
         })
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        match &self.function_expression {
+            FunctionExpression::Identifier(identifier) => {
+                let identifier_type = identifier.expected_type(context)?;
+
+                if let Type::Function {
+                    parameter_types: _,
+                    return_type,
+                } = &identifier_type
+                {
+                    Ok(*return_type.clone())
+                } else {
+                    Ok(identifier_type)
+                }
+            }
+            FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
+            FunctionExpression::Value(value_node) => {
+                let value_type = value_node.expected_type(context)?;
+
+                if let Type::Function { return_type, .. } = value_type {
+                    Ok(*return_type)
+                } else {
+                    Ok(value_type)
+                }
+            }
+            FunctionExpression::Index(index) => index.expected_type(context),
+            FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
+        }
+    }
+
+    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
         let function_expression_type = self.function_expression.expected_type(context)?;
 
         let parameter_types = match function_expression_type {
@@ -89,7 +120,7 @@ impl AbstractTree for FunctionCall {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let value = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
@@ -120,36 +151,6 @@ impl AbstractTree for FunctionCall {
         }
 
         value.as_function()?.call(&arguments, source, context)
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        match &self.function_expression {
-            FunctionExpression::Identifier(identifier) => {
-                let identifier_type = identifier.expected_type(context)?;
-
-                if let Type::Function {
-                    parameter_types: _,
-                    return_type,
-                } = &identifier_type
-                {
-                    Ok(*return_type.clone())
-                } else {
-                    Ok(identifier_type)
-                }
-            }
-            FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
-            FunctionExpression::Value(value_node) => {
-                let value_type = value_node.expected_type(context)?;
-
-                if let Type::Function { return_type, .. } = value_type {
-                    Ok(*return_type)
-                } else {
-                    Ok(value_type)
-                }
-            }
-            FunctionExpression::Index(index) => index.expected_type(context),
-            FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
-        }
     }
 }
 

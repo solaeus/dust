@@ -3,8 +3,9 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, Block, Error, Format, Function, Identifier, Map, Result, SyntaxNode,
-    SyntaxPosition, Type, TypeSpecification, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Block, Error, Format, Function, Identifier, Map, SyntaxNode, SyntaxPosition,
+    Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -56,7 +57,12 @@ impl FunctionNode {
         }
     }
 
-    pub fn call(&self, arguments: &[Value], source: &str, outer_context: &Map) -> Result<Value> {
+    pub fn call(
+        &self,
+        arguments: &[Value],
+        source: &str,
+        outer_context: &Map,
+    ) -> Result<Value, RuntimeError> {
         let function_context = Map::new();
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
@@ -79,7 +85,11 @@ impl FunctionNode {
 }
 
 impl AbstractTree for FunctionNode {
-    fn from_syntax(node: SyntaxNode, source: &str, outer_context: &Map) -> Result<Self> {
+    fn from_syntax(
+        node: SyntaxNode,
+        source: &str,
+        outer_context: &Map,
+    ) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
@@ -132,7 +142,11 @@ impl AbstractTree for FunctionNode {
         })
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+        Ok(self.r#type().clone())
+    }
+
+    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
         let function_context = Map::new();
 
         for (key, (_value, r#type)) in context.variables()?.iter() {
@@ -163,14 +177,10 @@ impl AbstractTree for FunctionNode {
         }
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
         let self_as_value = Value::Function(Function::ContextDefined(self.clone()));
 
         Ok(self_as_value)
-    }
-
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(self.r#type().clone())
     }
 }
 

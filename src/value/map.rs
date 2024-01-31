@@ -13,10 +13,12 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard},
 };
 
-use crate::{value::Value, Result, Structure, Type};
+use crate::{value::Value, Structure, Type};
+
+pub type MapAccessError<'a> = PoisonError<RwLockReadGuard<'a, BTreeMap<String, (Value, Type)>>>;
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -63,7 +65,7 @@ impl Map {
         }
     }
 
-    pub fn clone_from(other: &Self) -> Result<Self> {
+    pub fn clone_from(other: &Self) -> Result<Self, ()> {
         let mut new_map = BTreeMap::new();
 
         for (key, (value, r#type)) in other.variables()?.iter() {
@@ -76,11 +78,13 @@ impl Map {
         })
     }
 
-    pub fn variables(&self) -> Result<RwLockReadGuard<BTreeMap<String, (Value, Type)>>> {
-        Ok(self.variables.read()?)
+    pub fn variables(
+        &self,
+    ) -> Result<RwLockReadGuard<BTreeMap<String, (Value, Type)>>, MapAccessError> {
+        self.variables.read()
     }
 
-    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>> {
+    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>, MapAccessError> {
         log::info!("Setting variable {key} = {value}");
 
         let value_type = value.r#type();
@@ -92,7 +96,7 @@ impl Map {
         Ok(previous)
     }
 
-    pub fn set_type(&self, key: String, r#type: Type) -> Result<Option<(Value, Type)>> {
+    pub fn set_type(&self, key: String, r#type: Type) -> Result<Option<(Value, Type)>, ()> {
         log::info!("Setting type {key} = {}", r#type);
 
         let previous = self.variables.write()?.insert(key, (Value::none(), r#type));

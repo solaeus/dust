@@ -2,7 +2,10 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+};
 
 /// A string by which a variable is known to a context.
 ///
@@ -26,7 +29,7 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
-    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "identifier", node)?;
 
         let text = &source[node.byte_range()];
@@ -36,21 +39,21 @@ impl AbstractTree for Identifier {
         Ok(Identifier(text.to_string()))
     }
 
-    fn run(&self, _source: &str, context: &Map) -> Result<Value> {
-        if let Some((value, _)) = context.variables()?.get(&self.0) {
-            Ok(value.clone())
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        Ok(())
+    }
+
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
+            Ok(r#type.clone())
         } else {
             Err(Error::VariableIdentifierNotFound(self.0.clone()))
         }
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
-        Ok(())
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
-            Ok(r#type.clone())
+    fn run(&self, _source: &str, context: &Map) -> Result<Value, RuntimeError> {
+        if let Some((value, _)) = context.variables()?.get(&self.0) {
+            Ok(value.clone())
         } else {
             Err(Error::VariableIdentifierNotFound(self.0.clone()))
         }

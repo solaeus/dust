@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    value_node::ValueNode, AbstractTree, Command, Error, Format, FunctionCall, Identifier, Index,
-    Logic, Map, Math, New, Result, SyntaxNode, Type, Value, Yield,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    value_node::ValueNode,
+    AbstractTree, Command, Error, Format, FunctionCall, Identifier, Index, Logic, Map, Math, New,
+    SyntaxNode, Type, Value, Yield,
 };
 
 /// Abstract representation of an expression statement.
@@ -24,7 +26,7 @@ pub enum Expression {
 }
 
 impl AbstractTree for Expression {
-    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
@@ -62,7 +64,21 @@ impl AbstractTree for Expression {
         Ok(expression)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<()> {
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+        match self {
+            Expression::Value(value_node) => value_node.expected_type(_context),
+            Expression::Identifier(identifier) => identifier.expected_type(_context),
+            Expression::Math(math) => math.expected_type(_context),
+            Expression::Logic(logic) => logic.expected_type(_context),
+            Expression::FunctionCall(function_call) => function_call.expected_type(_context),
+            Expression::Index(index) => index.expected_type(_context),
+            Expression::Yield(r#yield) => r#yield.expected_type(_context),
+            Expression::New(new) => new.expected_type(_context),
+            Expression::Command(command) => command.expected_type(_context),
+        }
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         match self {
             Expression::Value(value_node) => value_node.check_type(_source, _context),
             Expression::Identifier(identifier) => identifier.check_type(_source, _context),
@@ -76,7 +92,7 @@ impl AbstractTree for Expression {
         }
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
         match self {
             Expression::Value(value_node) => value_node.run(_source, _context),
             Expression::Identifier(identifier) => identifier.run(_source, _context),
@@ -87,20 +103,6 @@ impl AbstractTree for Expression {
             Expression::Yield(r#yield) => r#yield.run(_source, _context),
             Expression::New(new) => new.run(_source, _context),
             Expression::Command(command) => command.run(_source, _context),
-        }
-    }
-
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        match self {
-            Expression::Value(value_node) => value_node.expected_type(_context),
-            Expression::Identifier(identifier) => identifier.expected_type(_context),
-            Expression::Math(math) => math.expected_type(_context),
-            Expression::Logic(logic) => logic.expected_type(_context),
-            Expression::FunctionCall(function_call) => function_call.expected_type(_context),
-            Expression::Index(index) => index.expected_type(_context),
-            Expression::Yield(r#yield) => r#yield.expected_type(_context),
-            Expression::New(new) => new.expected_type(_context),
-            Expression::Command(command) => command.expected_type(_context),
         }
     }
 }

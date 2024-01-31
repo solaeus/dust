@@ -2,7 +2,10 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Identifier, Map, Result, Structure, SyntaxNode, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, Identifier, Map, Structure, SyntaxNode, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
@@ -41,7 +44,7 @@ impl Type {
         Type::Option(Box::new(optional_type))
     }
 
-    pub fn check(&self, other: &Type) -> Result<()> {
+    pub fn check(&self, other: &Type) -> Result<(), ValidationError> {
         log::info!("Checking type {self} against {other}.");
 
         match (self, other) {
@@ -153,7 +156,7 @@ impl Type {
 }
 
 impl AbstractTree for Type {
-    fn from_syntax(node: SyntaxNode, _source: &str, _context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, _source: &str, _context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(_source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
@@ -219,12 +222,16 @@ impl AbstractTree for Type {
         Ok(r#type)
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value> {
-        Ok(Value::none())
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+        Ok(Type::None)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
-        Ok(Type::None)
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        Ok(())
+    }
+
+    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+        Ok(Value::none())
     }
 }
 

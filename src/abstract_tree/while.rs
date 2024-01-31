@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Block, Error, Expression, Format, Map, Result, SyntaxNode, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Block, Error, Expression, Format, Map, SyntaxNode, Type, Value,
+};
 
 /// Abstract representation of a while loop.
 ///
@@ -12,7 +15,7 @@ pub struct While {
 }
 
 impl AbstractTree for While {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> crate::Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "while", node)?;
 
         let expression_node = node.child(1).unwrap();
@@ -24,16 +27,21 @@ impl AbstractTree for While {
         Ok(While { expression, block })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        self.block.expected_type(context)
+    }
+
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.expression.check_type(_source, _context)?;
+        self.block.check_type(_source, _context)
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         while self.expression.run(source, context)?.as_boolean()? {
             self.block.run(source, context)?;
         }
 
         Ok(Value::none())
-    }
-
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        self.block.expected_type(context)
     }
 }
 

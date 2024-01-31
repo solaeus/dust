@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AbstractTree, AssignmentOperator, Error, Format, Identifier, Map, Result, Statement,
-    SyntaxNode, SyntaxPosition, Type, TypeSpecification, Value,
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, AssignmentOperator, Error, Format, Identifier, Map, Statement, SyntaxNode,
+    SyntaxPosition, Type, TypeSpecification, Value,
 };
 
 /// Variable assignment, including add-assign and subtract-assign operations.
@@ -17,7 +18,11 @@ pub struct Assignment {
 }
 
 impl AbstractTree for Assignment {
-    fn from_syntax(syntax_node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(
+        syntax_node: SyntaxNode,
+        source: &str,
+        context: &Map,
+    ) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "assignment", syntax_node)?;
 
         let child_count = syntax_node.child_count();
@@ -57,7 +62,7 @@ impl AbstractTree for Assignment {
         })
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<()> {
+    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
         let actual_type = self.statement.expected_type(context)?;
 
         if let Some(type_specification) = &self.type_specification {
@@ -103,7 +108,7 @@ impl AbstractTree for Assignment {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
         let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
 
@@ -113,7 +118,9 @@ impl AbstractTree for Assignment {
                     previous_value += value;
                     previous_value
                 } else {
-                    return Err(Error::VariableIdentifierNotFound(key.clone()));
+                    return Err(Error::Runtime(RuntimeError::VariableIdentifierNotFound(
+                        key.clone(),
+                    )));
                 }
             }
             AssignmentOperator::MinusEqual => {
@@ -121,7 +128,9 @@ impl AbstractTree for Assignment {
                     previous_value -= value;
                     previous_value
                 } else {
-                    return Err(Error::VariableIdentifierNotFound(key.clone()));
+                    return Err(Error::Runtime(RuntimeError::VariableIdentifierNotFound(
+                        key.clone(),
+                    )));
                 }
             }
             AssignmentOperator::Equal => value,
@@ -132,7 +141,7 @@ impl AbstractTree for Assignment {
         Ok(Value::none())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type> {
+    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 }

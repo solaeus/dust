@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AbstractTree, Error, Format, Map, Result, SyntaxNode, Type, Value};
+use crate::{
+    error::{RuntimeError, SyntaxError, ValidationError},
+    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct TypeSpecification {
@@ -22,7 +25,7 @@ impl TypeSpecification {
 }
 
 impl AbstractTree for TypeSpecification {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
         Error::expect_syntax_node(source, "type_specification", node)?;
 
         let type_node = node.child(1).unwrap();
@@ -31,12 +34,16 @@ impl AbstractTree for TypeSpecification {
         Ok(TypeSpecification { r#type })
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value> {
-        self.r#type.run(source, context)
+    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+        self.r#type.expected_type(context)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type> {
-        self.r#type.expected_type(context)
+    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        Ok(())
+    }
+
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+        self.r#type.run(source, context)
     }
 }
 
