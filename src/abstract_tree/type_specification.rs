@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Format, Map, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -26,7 +26,7 @@ impl TypeSpecification {
 
 impl AbstractTree for TypeSpecification {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "type_specification", node)?;
+        SyntaxError::expect_syntax_node(source, "type_specification", node)?;
 
         let type_node = node.child(1).unwrap();
         let r#type = Type::from_syntax(type_node, source, context)?;

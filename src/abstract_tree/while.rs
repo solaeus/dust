@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Error, Expression, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Block, Expression, Format, Map, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a while loop.
@@ -16,7 +16,7 @@ pub struct While {
 
 impl AbstractTree for While {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "while", node)?;
+        SyntaxError::expect_syntax_node(source, "while", node)?;
 
         let expression_node = node.child(1).unwrap();
         let expression = Expression::from_syntax(expression_node, source, context)?;

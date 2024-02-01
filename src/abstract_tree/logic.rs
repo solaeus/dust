@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Expression, Format, LogicOperator, Map, SyntaxNode, Type, Value,
+    AbstractTree, Expression, Format, LogicOperator, Map, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a logic expression.
@@ -15,7 +15,7 @@ pub struct Logic {
 
 impl AbstractTree for Logic {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "logic", node)?;
+        SyntaxError::expect_syntax_node(source, "logic", node)?;
 
         let first_node = node.child(0).unwrap();
         let (left_node, operator_node, right_node) = {

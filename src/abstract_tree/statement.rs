@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Assignment, Block, Error, Expression, For, Format, IfElse, IndexAssignment, Map,
-    Match, SyntaxNode, Type, Value, While,
+    AbstractTree, Assignment, Block, Expression, For, Format, IfElse, IndexAssignment, Map, Match,
+    SyntaxNode, Type, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -22,7 +22,7 @@ pub enum Statement {
 
 impl AbstractTree for Statement {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "statement", node)?;
+        SyntaxError::expect_syntax_node(source, "statement", node)?;
 
         let child = node.child(0).unwrap();
 

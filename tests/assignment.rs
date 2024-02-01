@@ -1,4 +1,4 @@
-use dust_lang::*;
+use dust_lang::{error::ValidationError, *};
 
 #[test]
 fn simple_assignment() {
@@ -39,8 +39,19 @@ fn list_add_wrong_type() {
             ",
     );
 
-    assert!(result.unwrap_err().is_error(&Error::TypeCheck {
-        expected: Type::String,
-        actual: Type::Integer
-    }))
+    assert_eq!(
+        Err(Error::Validation(ValidationError::TypeCheck {
+            expected: Type::String,
+            actual: Type::Integer,
+            position: SourcePosition {
+                start_byte: 0,
+                end_byte: 0,
+                start_row: 0,
+                start_column: 0,
+                end_row: 0,
+                end_column: 0
+            }
+        })),
+        result
+    );
 }

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Format, Map, SyntaxNode, Type, Value,
 };
 
 /// A string by which a variable is known to a context.
@@ -30,7 +30,7 @@ impl Identifier {
 
 impl AbstractTree for Identifier {
     fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "identifier", node)?;
+        SyntaxError::expect_syntax_node(source, "identifier", node)?;
 
         let text = &source[node.byte_range()];
 

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tree_sitter::Point;
+use tree_sitter::{Node as SyntaxNode, Point};
 
 use crate::SourcePosition;
 
@@ -24,6 +24,32 @@ pub enum SyntaxError {
 
         relevant_source: String,
     },
+}
+
+impl SyntaxError {
+    pub fn expect_syntax_node(
+        source: &str,
+        expected: &str,
+        actual: SyntaxNode,
+    ) -> Result<(), SyntaxError> {
+        log::info!("Converting {} to abstract node", actual.kind());
+
+        if expected == actual.kind() {
+            Ok(())
+        } else if actual.is_error() {
+            Err(SyntaxError::InvalidSource {
+                source: source[actual.byte_range()].to_string(),
+                position: SourcePosition::from(actual.range()),
+            })
+        } else {
+            Err(SyntaxError::UnexpectedSyntaxNode {
+                expected: expected.to_string(),
+                actual: actual.kind().to_string(),
+                location: actual.start_position(),
+                relevant_source: source[actual.byte_range()].to_string(),
+            })
+        }
+    }
 }
 
 impl From<RwLockError> for SyntaxError {

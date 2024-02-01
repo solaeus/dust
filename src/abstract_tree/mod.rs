@@ -46,7 +46,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    Error, Map, SyntaxNode, Value,
+    Map, SyntaxNode, Value,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -82,7 +82,7 @@ pub struct Root {
 // top-level statements in the tree.
 impl AbstractTree for Root {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "root", node)?;
+        SyntaxError::expect_syntax_node(source, "root", node)?;
 
         let statement_count = node.child_count();
         let mut statements = Vec::with_capacity(statement_count);

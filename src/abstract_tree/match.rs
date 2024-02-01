@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Expression, Format, Map, Statement, SyntaxNode, Type, Value,
+    AbstractTree, Expression, Format, Map, Statement, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a match statement.
@@ -19,7 +19,7 @@ pub struct Match {
 
 impl AbstractTree for Match {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "match", node)?;
+        SyntaxError::expect_syntax_node(source, "match", node)?;
 
         let matcher_node = node.child(1).unwrap();
         let matcher = Expression::from_syntax(matcher_node, source, context)?;

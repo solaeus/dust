@@ -11,12 +11,11 @@ pub use runtime_error::RuntimeError;
 pub use syntax_error::SyntaxError;
 pub use validation_error::ValidationError;
 
-use tree_sitter::{LanguageError, Node, Point};
-
-use crate::{SourcePosition};
+use tree_sitter::{LanguageError, Point};
 
 use std::fmt::{self, Formatter};
 
+#[derive(PartialEq)]
 pub enum Error {
     Syntax(SyntaxError),
 
@@ -27,32 +26,6 @@ pub enum Error {
     ParserCancelled,
 
     Language(LanguageError),
-}
-
-impl Error {
-    pub fn expect_syntax_node(
-        source: &str,
-        expected: &str,
-        actual: Node,
-    ) -> Result<(), SyntaxError> {
-        log::info!("Converting {} to abstract node", actual.kind());
-
-        if expected == actual.kind() {
-            Ok(())
-        } else if actual.is_error() {
-            Err(SyntaxError::InvalidSource {
-                source: source[actual.byte_range()].to_string(),
-                position: SourcePosition::from(actual.range()),
-            })
-        } else {
-            Err(SyntaxError::UnexpectedSyntaxNode {
-                expected: expected.to_string(),
-                actual: actual.kind().to_string(),
-                location: actual.start_position(),
-                relevant_source: source[actual.byte_range()].to_string(),
-            })
-        }
-    }
 }
 
 impl From<SyntaxError> for Error {

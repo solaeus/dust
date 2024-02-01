@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Format, Map, SyntaxNode, Type, Value,
 };
 
 /// Operators that be used in an assignment statement.
@@ -19,7 +19,7 @@ impl AbstractTree for AssignmentOperator {
         source: &str,
         _context: &crate::Map,
     ) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "assignment_operator", node)?;
+        SyntaxError::expect_syntax_node(source, "assignment_operator", node)?;
 
         let operator_node = node.child(0).unwrap();
         let operator = match operator_node.kind() {

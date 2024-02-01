@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInValue, Error, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
+    AbstractTree, BuiltInValue, Expression, Format, Function, FunctionNode, Identifier, List, Map,
+    Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -25,7 +25,7 @@ pub enum ValueNode {
 
 impl AbstractTree for ValueNode {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "value", node)?;
+        SyntaxError::expect_syntax_node(source, "value", node)?;
 
         let child = node.child(0).unwrap();
         let value_node = match child.kind() {

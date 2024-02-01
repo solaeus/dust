@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Format, Map, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -19,7 +19,7 @@ pub enum LogicOperator {
 
 impl AbstractTree for LogicOperator {
     fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "logic_operator", node)?;
+        SyntaxError::expect_syntax_node(source, "logic_operator", node)?;
 
         let operator_node = node.child(0).unwrap();
         let operator = match operator_node.kind() {

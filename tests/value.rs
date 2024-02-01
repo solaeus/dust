@@ -99,12 +99,21 @@ fn map_types() {
 
 #[test]
 fn map_type_errors() {
-    assert!(interpret("{ foo <bool> = 'bar' }")
-        .unwrap_err()
-        .is_error(&Error::TypeCheck {
+    assert_eq!(
+        interpret("{ foo <bool> = 'bar' }"),
+        Err(Error::Validation(error::ValidationError::TypeCheck {
             expected: Type::Boolean,
-            actual: Type::String
+            actual: Type::String,
+            position: SourcePosition {
+                start_byte: 0,
+                end_byte: 0,
+                start_row: 0,
+                start_column: 0,
+                end_row: 0,
+                end_column: 0
+            }
         }))
+    );
 }
 
 #[test]

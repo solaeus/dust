@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Identifier, Map, Structure, SyntaxNode, Value,
+    AbstractTree, Format, Identifier, Map, Structure, SyntaxNode, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -127,7 +127,7 @@ impl Type {
 
 impl AbstractTree for Type {
     fn from_syntax(node: SyntaxNode, _source: &str, _context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(_source, "type", node)?;
+        SyntaxError::expect_syntax_node(_source, "type", node)?;
 
         let type_node = node.child(0).unwrap();
 

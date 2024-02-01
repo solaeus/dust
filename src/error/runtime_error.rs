@@ -3,23 +3,24 @@ use std::{
     io,
     num::ParseFloatError,
     string::FromUtf8Error,
-    time::{self, SystemTimeError},
+    time,
 };
 
-use crate::{Value};
+use crate::Value;
 
 use super::rw_lock_error::RwLockError;
 
+#[derive(PartialEq)]
 pub enum RuntimeError {
-    Csv(csv::Error),
+    Csv(String),
 
-    Io(io::Error),
+    Io(String),
 
-    Reqwest(reqwest::Error),
+    Reqwest(String),
 
-    Json(serde_json::Error),
+    Json(String),
 
-    SystemTime(SystemTimeError),
+    SystemTime(String),
 
     Toml(toml::de::Error),
 
@@ -128,31 +129,31 @@ impl RuntimeError {
 
 impl From<csv::Error> for RuntimeError {
     fn from(error: csv::Error) -> Self {
-        RuntimeError::Csv(error)
+        RuntimeError::Csv(error.to_string())
     }
 }
 
 impl From<io::Error> for RuntimeError {
     fn from(error: std::io::Error) -> Self {
-        RuntimeError::Io(error)
+        RuntimeError::Io(error.to_string())
     }
 }
 
 impl From<reqwest::Error> for RuntimeError {
     fn from(error: reqwest::Error) -> Self {
-        RuntimeError::Reqwest(error)
+        RuntimeError::Reqwest(error.to_string())
     }
 }
 
 impl From<serde_json::Error> for RuntimeError {
     fn from(error: serde_json::Error) -> Self {
-        RuntimeError::Json(error)
+        RuntimeError::Json(error.to_string())
     }
 }
 
 impl From<time::SystemTimeError> for RuntimeError {
     fn from(error: time::SystemTimeError) -> Self {
-        RuntimeError::SystemTime(error)
+        RuntimeError::SystemTime(error.to_string())
     }
 }
 

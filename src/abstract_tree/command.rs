@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Map, Type, Value,
+    AbstractTree, Format, Map, Type, Value,
 };
 
 /// An external program invokation.
@@ -20,7 +20,7 @@ impl AbstractTree for Command {
         source: &str,
         _context: &crate::Map,
     ) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "command", node)?;
+        SyntaxError::expect_syntax_node(source, "command", node)?;
 
         let command_text_node = node.child(1).unwrap();
         let command_text = source[command_text_node.byte_range()].to_string();

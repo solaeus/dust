@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, IndexExpression, List, Map, SourcePosition, SyntaxNode, Type,
-    Value,
+    AbstractTree, Format, IndexExpression, List, Map, SourcePosition, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of an index expression.
@@ -19,7 +18,7 @@ pub struct Index {
 
 impl AbstractTree for Index {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "index", node)?;
+        SyntaxError::expect_syntax_node(source, "index", node)?;
 
         let collection_node = node.child(0).unwrap();
         let collection = IndexExpression::from_syntax(collection_node, source, context)?;

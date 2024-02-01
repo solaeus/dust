@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Error, Expression, Format, Identifier, Map, SyntaxNode, Type, Value,
+    AbstractTree, Block, Expression, Format, Identifier, Map, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a for loop statement.
@@ -17,7 +17,7 @@ pub struct For {
 
 impl AbstractTree for For {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "for", node)?;
+        SyntaxError::expect_syntax_node(source, "for", node)?;
 
         let for_node = node.child(0).unwrap();
         let is_async = match for_node.kind() {

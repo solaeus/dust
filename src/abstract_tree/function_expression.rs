@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, FunctionCall, Identifier, Index, Map, SyntaxNode, Type, Value,
-    ValueNode, Yield,
+    AbstractTree, Format, FunctionCall, Identifier, Index, Map, SyntaxNode, Type, Value, ValueNode,
+    Yield,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -17,7 +17,7 @@ pub enum FunctionExpression {
 
 impl AbstractTree for FunctionExpression {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "function_expression", node)?;
+        SyntaxError::expect_syntax_node(source, "function_expression", node)?;
 
         let first_child = node.child(0).unwrap();
         let child = if first_child.is_named() {

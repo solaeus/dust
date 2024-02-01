@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Error, Format, Function, Identifier, Map, SourcePosition, SyntaxNode,
-    Type, TypeSpecification, Value,
+    AbstractTree, Block, Format, Function, Identifier, Map, SourcePosition, SyntaxNode, Type,
+    TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -90,7 +90,7 @@ impl AbstractTree for FunctionNode {
         source: &str,
         outer_context: &Map,
     ) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "function", node)?;
+        SyntaxError::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
         let mut parameters = Vec::new();

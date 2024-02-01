@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Expression, Format, FunctionExpression, Map, SourcePosition, SyntaxNode,
-    Type, Value,
+    AbstractTree, Expression, Format, FunctionExpression, Map, SourcePosition, SyntaxNode, Type,
+    Value,
 };
 
 /// A function being invoked and the arguments it is being passed.
@@ -31,7 +31,7 @@ impl FunctionCall {
 
 impl AbstractTree for FunctionCall {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "function_call", node)?;
+        SyntaxError::expect_syntax_node(source, "function_call", node)?;
 
         let function_node = node.child(0).unwrap();
         let function_expression = FunctionExpression::from_syntax(function_node, source, context)?;

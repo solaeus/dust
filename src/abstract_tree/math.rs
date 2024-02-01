@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Expression, Format, Map, MathOperator, SyntaxNode, Type, Value,
+    AbstractTree, Expression, Format, Map, MathOperator, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a math operation.
@@ -18,7 +18,7 @@ pub struct Math {
 
 impl AbstractTree for Math {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "math", node)?;
+        SyntaxError::expect_syntax_node(source, "math", node)?;
 
         let left_node = node.child(0).unwrap();
         let left = Expression::from_syntax(left_node, source, context)?;

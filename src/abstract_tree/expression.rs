@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     value_node::ValueNode,
-    AbstractTree, Command, Error, Format, FunctionCall, Identifier, Index, Logic, Map, Math, New,
+    AbstractTree, Command, Format, FunctionCall, Identifier, Index, Logic, Map, Math, New,
     SyntaxNode, Type, Value, Yield,
 };
 
@@ -27,7 +27,7 @@ pub enum Expression {
 
 impl AbstractTree for Expression {
     fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "expression", node)?;
+        SyntaxError::expect_syntax_node(source, "expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
             node.child(0).unwrap()

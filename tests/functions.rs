@@ -1,4 +1,4 @@
-use dust_lang::*;
+use dust_lang::{error::ValidationError, *};
 
 #[test]
 fn function_call() {
@@ -48,14 +48,18 @@ fn built_in_function_call() {
 
 #[test]
 fn function_context_does_not_capture_normal_values() {
-    assert!(interpret(
-        "
+    assert_eq!(
+        interpret(
+            "
             x = 1
 
             foo = () <any> { x }
             "
-    )
-    .is_err_and(|error| error.is_error(&Error::VariableIdentifierNotFound("x".to_string()))));
+        ),
+        Err(Error::Validation(
+            ValidationError::VariableIdentifierNotFound(Identifier::new("x".to_string()))
+        ))
+    );
 
     assert_eq!(
         interpret(

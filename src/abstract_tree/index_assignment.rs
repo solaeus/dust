@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Error, Format, Index, IndexExpression, Map, Statement,
-    SyntaxNode, Type, Value,
+    AbstractTree, AssignmentOperator, Format, Index, IndexExpression, Map, Statement, SyntaxNode,
+    Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -15,7 +15,7 @@ pub struct IndexAssignment {
 
 impl AbstractTree for IndexAssignment {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "index_assignment", node)?;
+        SyntaxError::expect_syntax_node(source, "index_assignment", node)?;
 
         let index_node = node.child(0).unwrap();
         let index = Index::from_syntax(index_node, source, context)?;

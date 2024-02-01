@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Error, Format, Identifier, Map, SourcePosition, Statement,
+    AbstractTree, AssignmentOperator, Format, Identifier, Map, SourcePosition, Statement,
     SyntaxNode, Type, TypeSpecification, Value,
 };
 
@@ -23,7 +23,7 @@ impl AbstractTree for Assignment {
         source: &str,
         context: &Map,
     ) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "assignment", syntax_node)?;
+        SyntaxError::expect_syntax_node(source, "assignment", syntax_node)?;
 
         let child_count = syntax_node.child_count();
 

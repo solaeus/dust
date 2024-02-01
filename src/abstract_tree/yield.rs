@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     function_expression::FunctionExpression,
-    AbstractTree, Error, Expression, Format, FunctionCall, Map, SyntaxNode, Type, Value,
+    AbstractTree, Expression, Format, FunctionCall, Map, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a yield expression.
@@ -16,7 +16,7 @@ pub struct Yield {
 
 impl AbstractTree for Yield {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "yield", node)?;
+        SyntaxError::expect_syntax_node(source, "yield", node)?;
 
         let input_node = node.child(0).unwrap();
         let input = Expression::from_syntax(input_node, source, context)?;

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{rw_lock_error::RwLockError, RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Map, Statement, SyntaxNode, Type, Value,
+    AbstractTree, Format, Map, Statement, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a block.
@@ -24,7 +24,7 @@ pub struct Block {
 
 impl AbstractTree for Block {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
-        Error::expect_syntax_node(source, "block", node)?;
+        SyntaxError::expect_syntax_node(source, "block", node)?;
 
         let first_child = node.child(0).unwrap();
         let is_async = first_child.kind() == "async";
