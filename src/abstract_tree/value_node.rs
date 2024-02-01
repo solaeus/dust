@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, BuiltInValue, Expression, Format, Function, FunctionNode, Identifier, List, Map,
-    Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
+    SourcePosition, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -17,7 +17,7 @@ pub enum ValueNode {
     String(String),
     List(Vec<Expression>),
     Option(Option<Box<Expression>>),
-    Map(BTreeMap<String, (Statement, Option<Type>)>),
+    Map(BTreeMap<String, (Statement, Option<Type>)>, SourcePosition),
     BuiltInValue(BuiltInValue),
     Structure(BTreeMap<String, (Option<Statement>, Type)>),
     Range(RangeInclusive<i64>),
@@ -83,7 +83,7 @@ impl AbstractTree for ValueNode {
                     }
                 }
 
-                ValueNode::Map(child_nodes)
+                ValueNode::Map(child_nodes, SourcePosition::from(child.range()))
             }
             "option" => {
                 let first_grandchild = child.child(0).unwrap();
@@ -217,7 +217,7 @@ impl AbstractTree for ValueNode {
                     Type::None
                 }
             }
-            ValueNode::Map(_) => Type::Map(None),
+            ValueNode::Map(_, _) => Type::Map(None),
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
             ValueNode::Structure(node_map) => {
                 let mut value_map = BTreeMap::new();
@@ -234,11 +234,26 @@ impl AbstractTree for ValueNode {
         Ok(r#type)
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
         match self {
             ValueNode::Function(function) => {
                 if let Function::ContextDefined(function_node) = function {
-                    function_node.validate(_source, _context)?;
+                    function_node.validate(_source, context)?;
+                }
+            }
+            ValueNode::Map(statements, source_position) => {
+                for (key, (statement, r#type)) in statements {
+                    if let Some(expected) = r#type {
+                        let actual = statement.expected_type(context)?;
+
+                        if !expected.accepts(&actual) {
+                            return Err(ValidationError::TypeCheck {
+                                expected: expected.clone(),
+                                actual,
+                                position: source_position.clone(),
+                            });
+                        }
+                    }
                 }
             }
             _ => {}
@@ -278,7 +293,7 @@ impl AbstractTree for ValueNode {
 
                 Value::Option(option_value)
             }
-            ValueNode::Map(key_statement_pairs) => {
+            ValueNode::Map(key_statement_pairs, _) => {
                 let map = Map::new();
 
                 {
@@ -344,7 +359,7 @@ impl Format for ValueNode {
                     output.push_str("none");
                 }
             }
-            ValueNode::Map(nodes) => {
+            ValueNode::Map(nodes, _) => {
                 output.push_str("{\n");
 
                 for (key, (statement, type_option)) in nodes {
@@ -413,8 +428,8 @@ impl Ord for ValueNode {
             (ValueNode::List(_), _) => Ordering::Greater,
             (ValueNode::Option(left), ValueNode::Option(right)) => left.cmp(right),
             (ValueNode::Option(_), _) => Ordering::Greater,
-            (ValueNode::Map(left), ValueNode::Map(right)) => left.cmp(right),
-            (ValueNode::Map(_), _) => Ordering::Greater,
+            (ValueNode::Map(left, _), ValueNode::Map(right, _)) => left.cmp(right),
+            (ValueNode::Map(_, _), _) => Ordering::Greater,
             (ValueNode::BuiltInValue(left), ValueNode::BuiltInValue(right)) => left.cmp(right),
             (ValueNode::BuiltInValue(_), _) => Ordering::Greater,
             (ValueNode::Structure(left), ValueNode::Structure(right)) => left.cmp(right),

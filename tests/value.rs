@@ -106,11 +106,11 @@ fn map_type_errors() {
             actual: Type::String,
             position: SourcePosition {
                 start_byte: 0,
-                end_byte: 0,
-                start_row: 0,
+                end_byte: 22,
+                start_row: 1,
                 start_column: 0,
-                end_row: 0,
-                end_column: 0
+                end_row: 1,
+                end_column: 22
             }
         }))
     );

@@ -44,12 +44,12 @@ fn list_add_wrong_type() {
             expected: Type::String,
             actual: Type::Integer,
             position: SourcePosition {
-                start_byte: 0,
-                end_byte: 0,
-                start_row: 0,
-                start_column: 0,
-                end_row: 0,
-                end_column: 0
+                start_byte: 40,
+                end_byte: 46,
+                start_row: 3,
+                start_column: 12,
+                end_row: 3,
+                end_column: 18
             }
         })),
         result

@@ -10,11 +10,11 @@ fn simple_type_check() {
             actual: Type::Integer,
             position: SourcePosition {
                 start_byte: 0,
-                end_byte: 0,
-                start_row: 0,
+                end_byte: 12,
+                start_row: 1,
                 start_column: 0,
-                end_row: 0,
-                end_column: 0,
+                end_row: 1,
+                end_column: 12,
             }
         })),
         result
@@ -59,12 +59,12 @@ fn callback_type_check() {
                 return_type: Box::new(Type::Integer),
             },
             position: SourcePosition {
-                start_byte: 0,
-                end_byte: 0,
-                start_row: 0,
-                start_column: 0,
-                end_row: 0,
-                end_column: 0
+                start_byte: 91,
+                end_byte: 108,
+                start_row: 5,
+                start_column: 12,
+                end_row: 5,
+                end_column: 29,
             }
         })),
         result
