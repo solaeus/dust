@@ -13,12 +13,10 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use crate::{value::Value, Structure, Type};
-
-pub type MapAccessError<'a> = PoisonError<RwLockReadGuard<'a, BTreeMap<String, (Value, Type)>>>;
+use crate::{error::rw_lock_error::RwLockError, value::Value, Structure, Type};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -65,7 +63,7 @@ impl Map {
         }
     }
 
-    pub fn clone_from(other: &Self) -> Result<Self, ()> {
+    pub fn clone_from(other: &Self) -> Result<Self, RwLockError> {
         let mut new_map = BTreeMap::new();
 
         for (key, (value, r#type)) in other.variables()?.iter() {
@@ -80,26 +78,35 @@ impl Map {
 
     pub fn variables(
         &self,
-    ) -> Result<RwLockReadGuard<BTreeMap<String, (Value, Type)>>, MapAccessError> {
-        self.variables.read()
+    ) -> Result<RwLockReadGuard<BTreeMap<String, (Value, Type)>>, RwLockError> {
+        self.variables.read().map_err(|_| RwLockError)
     }
 
-    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>, MapAccessError> {
+    pub fn set(&self, key: String, value: Value) -> Result<Option<(Value, Type)>, RwLockError> {
         log::info!("Setting variable {key} = {value}");
 
         let value_type = value.r#type();
         let previous = self
             .variables
-            .write()?
+            .write()
+            .map_err(|_| RwLockError)?
             .insert(key, (value, value_type.clone()));
 
         Ok(previous)
     }
 
-    pub fn set_type(&self, key: String, r#type: Type) -> Result<Option<(Value, Type)>, ()> {
+    pub fn set_type(
+        &self,
+        key: String,
+        r#type: Type,
+    ) -> Result<Option<(Value, Type)>, RwLockError> {
         log::info!("Setting type {key} = {}", r#type);
 
-        let previous = self.variables.write()?.insert(key, (Value::none(), r#type));
+        let previous = self
+            .variables
+            .write()
+            .map_err(|_| RwLockError)?
+            .insert(key, (Value::none(), r#type));
 
         Ok(previous)
     }

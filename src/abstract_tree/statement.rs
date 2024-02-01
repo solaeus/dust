@@ -56,7 +56,7 @@ impl AbstractTree for Statement {
 
                 Ok(Statement::Return(Box::new(Statement::from_syntax(statement_node, source, context)?)))
             },
-            _ => Err(Error::UnexpectedSyntaxNode {
+            _ => Err(SyntaxError::UnexpectedSyntaxNode {
                 expected:
                     "assignment, index assignment, expression, block, return, if...else, while, for or match".to_string(),
                 actual: child.kind().to_string(),

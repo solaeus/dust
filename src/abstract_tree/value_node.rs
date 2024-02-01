@@ -79,10 +79,6 @@ impl AbstractTree for ValueNode {
                     if child.kind() == "statement" {
                         let statement = Statement::from_syntax(child, source, context)?;
 
-                        if let Some(type_specification) = &current_type {
-                            type_specification.check(&statement.expected_type(context)?)?;
-                        }
-
                         child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
                     }
                 }
@@ -145,20 +141,20 @@ impl AbstractTree for ValueNode {
                         current_statement =
                             Some(Statement::from_syntax(child_syntax_node, source, context)?);
 
-                        if let Some(identifier) = &current_identifier {
-                            let r#type = if let Some(r#type) = &current_type {
-                                r#type.clone()
-                            } else if let Some(statement) = &current_statement {
-                                statement.expected_type(context)?
-                            } else {
-                                Type::None
-                            };
+                        // if let Some(identifier) = &current_identifier {
+                        //     let r#type = if let Some(r#type) = &current_type {
+                        //         r#type.clone()
+                        //     } else if let Some(statement) = &current_statement {
+                        //         statement.expected_type(context)?
+                        //     } else {
+                        //         Type::None
+                        //     };
 
-                            btree_map.insert(
-                                identifier.inner().clone(),
-                                (current_statement.clone(), r#type.clone()),
-                            );
-                        }
+                        //     btree_map.insert(
+                        //         identifier.inner().clone(),
+                        //         (current_statement.clone(), r#type.clone()),
+                        //     );
+                        // }
                     }
                 }
 
@@ -172,7 +168,7 @@ impl AbstractTree for ValueNode {
                 ValueNode::Range(start..=end)
             }
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected:
                         "string, integer, float, boolean, range, list, map, option, function or structure"
                             .to_string(),

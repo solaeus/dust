@@ -1,7 +1,7 @@
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Error, List, Map, Type, Value};
+use crate::{error::RuntimeError, List, Map, Type, Value};
 
 use super::Callable;
 
@@ -206,7 +206,7 @@ impl Callable for StrFunction {
     ) -> Result<Value, RuntimeError> {
         let value = match self {
             StrFunction::AsBytes => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let bytes = string
@@ -217,7 +217,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(bytes))
             }
             StrFunction::EndsWith => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -226,7 +226,7 @@ impl Callable for StrFunction {
                 Value::Boolean(string.ends_with(pattern))
             }
             StrFunction::Find => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -238,21 +238,21 @@ impl Callable for StrFunction {
                 Value::Option(find)
             }
             StrFunction::IsAscii => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
 
                 Value::Boolean(string.is_ascii())
             }
             StrFunction::IsEmpty => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
 
                 Value::Boolean(string.is_empty())
             }
             StrFunction::Insert => {
-                Error::expect_argument_amount(self.name(), 3, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 3, arguments.len())?;
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
                 let index = arguments.get(1).unwrap().as_integer()? as usize;
@@ -263,7 +263,7 @@ impl Callable for StrFunction {
                 Value::String(string)
             }
             StrFunction::Lines => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let lines = string
@@ -274,7 +274,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(lines))
             }
             StrFunction::Matches => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -287,7 +287,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(matches))
             }
             StrFunction::Parse => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
 
@@ -300,7 +300,7 @@ impl Callable for StrFunction {
                 }
             }
             StrFunction::Remove => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let index = arguments.get(1).unwrap().as_integer()? as usize;
@@ -318,7 +318,7 @@ impl Callable for StrFunction {
                 }
             }
             StrFunction::ReplaceRange => {
-                Error::expect_argument_amount(self.name(), 3, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 3, arguments.len())?;
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
                 let range = arguments.get(1).unwrap().as_list()?.items();
@@ -331,7 +331,7 @@ impl Callable for StrFunction {
                 Value::String(string)
             }
             StrFunction::Retain => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
                 let predicate = arguments.get(1).unwrap().as_function()?;
@@ -347,7 +347,7 @@ impl Callable for StrFunction {
                 Value::String(string)
             }
             StrFunction::Split => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -360,7 +360,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(sections))
             }
             StrFunction::SplitAt => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let index = arguments.get(1).unwrap().as_integer()?;
@@ -372,7 +372,7 @@ impl Callable for StrFunction {
                 ]))
             }
             StrFunction::SplitInclusive => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -385,7 +385,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(sections))
             }
             StrFunction::SplitN => {
-                Error::expect_argument_amount(self.name(), 3, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 3, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let count = arguments.get(1).unwrap().as_integer()?;
@@ -399,7 +399,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(sections))
             }
             StrFunction::SplitOnce => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -414,7 +414,7 @@ impl Callable for StrFunction {
                 Value::option(sections)
             }
             StrFunction::SplitTerminator => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -427,7 +427,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(sections))
             }
             StrFunction::SplitWhitespace => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let sections = string
@@ -438,7 +438,7 @@ impl Callable for StrFunction {
                 Value::List(List::with_items(sections))
             }
             StrFunction::StartsWith => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -447,7 +447,7 @@ impl Callable for StrFunction {
                 Value::Boolean(string.starts_with(pattern))
             }
             StrFunction::StripPrefix => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let prefix_string = arguments.get(1).unwrap().as_string()?;
@@ -459,7 +459,7 @@ impl Callable for StrFunction {
                 Value::option(stripped)
             }
             StrFunction::ToLowercase => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let lowercase = string.to_lowercase();
@@ -467,7 +467,7 @@ impl Callable for StrFunction {
                 Value::string(lowercase)
             }
             StrFunction::ToUppercase => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let uppercase = string.to_uppercase();
@@ -475,14 +475,14 @@ impl Callable for StrFunction {
                 Value::string(uppercase)
             }
             StrFunction::Trim => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let trimmed = arguments.first().unwrap().as_string()?.trim().to_string();
 
                 Value::string(trimmed)
             }
             StrFunction::TrimEnd => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let trimmed = arguments
                     .first()
@@ -494,7 +494,7 @@ impl Callable for StrFunction {
                 Value::string(trimmed)
             }
             StrFunction::TrimEndMatches => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern_string = arguments.get(1).unwrap().as_string()?;
@@ -504,7 +504,7 @@ impl Callable for StrFunction {
                 Value::string(trimmed)
             }
             StrFunction::TrimMatches => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern = arguments
@@ -518,7 +518,7 @@ impl Callable for StrFunction {
                 Value::string(trimmed)
             }
             StrFunction::TrimStart => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let trimmed = arguments
                     .first()
@@ -530,7 +530,7 @@ impl Callable for StrFunction {
                 Value::string(trimmed)
             }
             StrFunction::TrimStartMatches => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
                 let pattern = arguments
@@ -544,7 +544,7 @@ impl Callable for StrFunction {
                 Value::string(trimmed)
             }
             StrFunction::Truncate => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let input_string = arguments.first().unwrap().as_string()?;
                 let new_length = arguments.get(1).unwrap().as_integer()? as usize;

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Expression, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Block, Expression, Format, Map, SourcePosition, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -12,6 +12,7 @@ pub struct IfElse {
     else_if_expressions: Vec<Expression>,
     else_if_blocks: Vec<Block>,
     else_block: Option<Block>,
+    source_position: SourcePosition,
 }
 
 impl AbstractTree for IfElse {
@@ -54,6 +55,7 @@ impl AbstractTree for IfElse {
             else_if_expressions,
             else_if_blocks,
             else_block,
+            source_position: SourcePosition::from(node.range()),
         })
     }
 
@@ -65,7 +67,7 @@ impl AbstractTree for IfElse {
         self.if_expression.check_type(_source, context)?;
         self.if_block.check_type(_source, context)?;
 
-        let expected_type = self.if_block.expected_type(context)?;
+        let expected = self.if_block.expected_type(context)?;
         let else_ifs = self
             .else_if_expressions
             .iter()
@@ -75,11 +77,27 @@ impl AbstractTree for IfElse {
             expression.check_type(_source, context)?;
             block.check_type(_source, context)?;
 
-            expected_type.check(&block.expected_type(context)?)?;
+            let actual = block.expected_type(context)?;
+
+            if !expected.accepts(&actual) {
+                return Err(ValidationError::TypeCheck {
+                    expected,
+                    actual,
+                    position: self.source_position,
+                });
+            }
         }
 
-        if let Some(expression) = self.else_block {
-            expected_type.check(&expression.expected_type(context)?)?;
+        if let Some(block) = &self.else_block {
+            let actual = block.expected_type(context)?;
+
+            if !expected.accepts(&actual) {
+                return Err(ValidationError::TypeCheck {
+                    expected,
+                    actual,
+                    position: self.source_position,
+                });
+            }
         }
 
         Ok(())

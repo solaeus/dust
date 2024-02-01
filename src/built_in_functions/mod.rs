@@ -7,7 +7,7 @@ use std::fmt::{self, Display, Formatter};
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Error, Format, Map, Type, Value};
+use crate::{error::RuntimeError, Format, Map, Type, Value};
 
 use self::{fs::Fs, json::Json, str::StrFunction};
 
@@ -91,7 +91,7 @@ impl Callable for BuiltInFunction {
     ) -> Result<Value, RuntimeError> {
         match self {
             BuiltInFunction::AssertEqual => {
-                Error::expect_argument_amount(self.name(), 2, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let left = arguments.first().unwrap();
                 let right = arguments.get(1).unwrap();
@@ -105,7 +105,7 @@ impl Callable for BuiltInFunction {
                 json_function.call(arguments, _source, _outer_context)
             }
             BuiltInFunction::Length => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
                 let length = if let Ok(list) = value.as_list() {
@@ -115,7 +115,7 @@ impl Callable for BuiltInFunction {
                 } else if let Ok(str) = value.as_string() {
                     str.chars().count()
                 } else {
-                    return Err(Error::ExpectedCollection {
+                    return Err(RuntimeError::ExpectedCollection {
                         actual: value.clone(),
                     });
                 };
@@ -123,7 +123,7 @@ impl Callable for BuiltInFunction {
                 Ok(Value::Integer(length as i64))
             }
             BuiltInFunction::Output => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
 
@@ -132,17 +132,17 @@ impl Callable for BuiltInFunction {
                 Ok(Value::none())
             }
             BuiltInFunction::RandomBoolean => {
-                Error::expect_argument_amount(self.name(), 0, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 0, arguments.len())?;
 
                 Ok(Value::Boolean(random()))
             }
             BuiltInFunction::RandomFloat => {
-                Error::expect_argument_amount(self.name(), 0, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 0, arguments.len())?;
 
                 Ok(Value::Float(random()))
             }
             BuiltInFunction::RandomFrom => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
 
@@ -162,7 +162,7 @@ impl Callable for BuiltInFunction {
                 }
             }
             BuiltInFunction::RandomInteger => {
-                Error::expect_argument_amount(self.name(), 0, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 0, arguments.len())?;
 
                 Ok(Value::Integer(random()))
             }

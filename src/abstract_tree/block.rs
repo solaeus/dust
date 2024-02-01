@@ -4,7 +4,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{RuntimeError, SyntaxError, ValidationError},
+    error::{rw_lock_error::RwLockError, RuntimeError, SyntaxError, ValidationError},
     AbstractTree, Error, Format, Map, Statement, SyntaxNode, Type, Value,
 };
 
@@ -91,13 +91,13 @@ impl AbstractTree for Block {
                                 *final_result = result;
                                 None
                             }
-                            Err(error) => Some(Err(error.into())),
+                            Err(_error) => Some(Err(RuntimeError::RwLock(RwLockError))),
                         }
                     } else {
                         None
                     }
                 })
-                .unwrap_or(final_result.into_inner()?)
+                .unwrap_or(final_result.into_inner().map_err(|_| RwLockError)?)
         } else {
             let mut prev_result = None;
 

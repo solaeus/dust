@@ -3,7 +3,7 @@ use std::fs::read_to_string;
 use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Error, Map, Type, Value};
+use crate::{error::RuntimeError, Map, Type, Value};
 
 use super::Callable;
 
@@ -43,7 +43,7 @@ impl Callable for Fs {
     ) -> Result<Value, RuntimeError> {
         match self {
             Fs::ReadFile => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let path = arguments.first().unwrap().as_string()?;
                 let file_content = read_to_string(path.as_str())?;

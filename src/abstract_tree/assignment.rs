@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Error, Format, Identifier, Map, Statement, SyntaxNode,
-    SyntaxPosition, Type, TypeSpecification, Value,
+    AbstractTree, AssignmentOperator, Error, Format, Identifier, Map, SourcePosition, Statement,
+    SyntaxNode, Type, TypeSpecification, Value,
 };
 
 /// Variable assignment, including add-assign and subtract-assign operations.
@@ -14,7 +14,7 @@ pub struct Assignment {
     operator: AssignmentOperator,
     statement: Statement,
 
-    syntax_position: SyntaxPosition,
+    syntax_position: SourcePosition,
 }
 
 impl AbstractTree for Assignment {
@@ -43,15 +43,15 @@ impl AbstractTree for Assignment {
         let statement_node = syntax_node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax(statement_node, source, context)?;
 
-        if let AssignmentOperator::Equal = operator {
-            let r#type = if let Some(definition) = &type_specification {
-                definition.inner().clone()
-            } else {
-                statement.expected_type(context)?
-            };
+        // if let AssignmentOperator::Equal = operator {
+        //     let r#type = if let Some(definition) = &type_specification {
+        //         definition.inner().clone()
+        //     } else {
+        //         statement.expected_type(context)?
+        //     };
 
-            context.set_type(identifier.inner().clone(), r#type)?;
-        }
+        //     context.set_type(identifier.inner().clone(), r#type)?;
+        // }
 
         Ok(Assignment {
             identifier,
@@ -63,28 +63,42 @@ impl AbstractTree for Assignment {
     }
 
     fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
-        let actual_type = self.statement.expected_type(context)?;
-
         if let Some(type_specification) = &self.type_specification {
             match self.operator {
                 AssignmentOperator::Equal => {
-                    type_specification
-                        .inner()
-                        .check(&actual_type)
-                        .map_err(|error| error.at_source_position(source, self.syntax_position))?;
+                    let expected = type_specification.inner();
+                    let actual = self.statement.expected_type(context)?;
+
+                    if !expected.accepts(&actual) {
+                        return Err(ValidationError::TypeCheck {
+                            expected: expected.clone(),
+                            actual,
+                            position: self.syntax_position,
+                        });
+                    }
                 }
                 AssignmentOperator::PlusEqual => {
-                    if let Type::List(item_type) = type_specification.inner() {
-                        item_type.check(&actual_type).map_err(|error| {
-                            error.at_source_position(source, self.syntax_position)
-                        })?;
+                    if let Type::List(expected) = type_specification.inner() {
+                        let actual = self.identifier.expected_type(context)?;
+
+                        if !expected.accepts(&actual) {
+                            return Err(ValidationError::TypeCheck {
+                                expected: expected.as_ref().clone(),
+                                actual,
+                                position: self.syntax_position,
+                            });
+                        }
                     } else {
-                        type_specification
-                            .inner()
-                            .check(&self.identifier.expected_type(context)?)
-                            .map_err(|error| {
-                                error.at_source_position(source, self.syntax_position)
-                            })?;
+                        let expected = type_specification.inner();
+                        let actual = self.identifier.expected_type(context)?;
+
+                        if !expected.accepts(&actual) {
+                            return Err(ValidationError::TypeCheck {
+                                expected: expected.clone(),
+                                actual,
+                                position: self.syntax_position,
+                            });
+                        }
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
@@ -93,10 +107,16 @@ impl AbstractTree for Assignment {
             match self.operator {
                 AssignmentOperator::Equal => {}
                 AssignmentOperator::PlusEqual => {
-                    if let Type::List(item_type) = self.identifier.expected_type(context)? {
-                        item_type.check(&actual_type).map_err(|error| {
-                            error.at_source_position(source, self.syntax_position)
-                        })?;
+                    if let Type::List(expected) = self.identifier.expected_type(context)? {
+                        let actual = self.statement.expected_type(context)?;
+
+                        if !expected.accepts(&actual) {
+                            return Err(ValidationError::TypeCheck {
+                                expected: expected.as_ref().clone(),
+                                actual,
+                                position: self.syntax_position,
+                            });
+                        }
                     }
                 }
                 AssignmentOperator::MinusEqual => todo!(),
@@ -118,9 +138,7 @@ impl AbstractTree for Assignment {
                     previous_value += value;
                     previous_value
                 } else {
-                    return Err(Error::Runtime(RuntimeError::VariableIdentifierNotFound(
-                        key.clone(),
-                    )));
+                    return Err(RuntimeError::VariableIdentifierNotFound(key.clone()));
                 }
             }
             AssignmentOperator::MinusEqual => {
@@ -128,9 +146,7 @@ impl AbstractTree for Assignment {
                     previous_value -= value;
                     previous_value
                 } else {
-                    return Err(Error::Runtime(RuntimeError::VariableIdentifierNotFound(
-                        key.clone(),
-                    )));
+                    return Err(RuntimeError::VariableIdentifierNotFound(key.clone()));
                 }
             }
             AssignmentOperator::Equal => value,

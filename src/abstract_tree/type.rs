@@ -44,7 +44,11 @@ impl Type {
         Type::Option(Box::new(optional_type))
     }
 
-    pub fn check(&self, other: &Type) -> Result<(), ValidationError> {
+    /// Returns a boolean indicating whether is type is accepting of the other.
+    ///
+    /// The types do not need to match exactly. For example, the Any variant matches all of the
+    /// others and the Number variant accepts Number, Integer and Float.
+    pub fn accepts(&self, other: &Type) -> bool {
         log::info!("Checking type {self} against {other}.");
 
         match (self, other) {
@@ -67,41 +71,20 @@ impl Type {
             | (Type::Integer, Type::Number)
             | (Type::Float, Type::Number)
             | (Type::None, Type::None)
-            | (Type::String, Type::String) => Ok(()),
-            (Type::Custom(left), Type::Custom(right)) => {
-                if left == right {
-                    Ok(())
-                } else {
-                    Err(Error::TypeCheck {
-                        expected: self.clone(),
-                        actual: other.clone(),
-                    })
-                }
-            }
+            | (Type::String, Type::String) => true,
+            (Type::Custom(left), Type::Custom(right)) => left == right,
+            (Type::Option(_), Type::None) => true,
             (Type::Option(left), Type::Option(right)) => {
-                if left == right {
-                    Ok(())
-                } else if let Type::Any = left.as_ref() {
-                    Ok(())
-                } else if let Type::Any = right.as_ref() {
-                    Ok(())
+                if let Type::Any = left.as_ref() {
+                    true
+                } else if left == right {
+                    true
                 } else {
-                    Err(Error::TypeCheck {
-                        expected: self.clone(),
-                        actual: other.clone(),
-                    })
+                    false
                 }
             }
-            (Type::Option(_), Type::None) | (Type::None, Type::Option(_)) => Ok(()),
             (Type::List(self_item_type), Type::List(other_item_type)) => {
-                if self_item_type.check(other_item_type).is_err() {
-                    Err(Error::TypeCheck {
-                        expected: self.clone(),
-                        actual: other.clone(),
-                    })
-                } else {
-                    Ok(())
-                }
+                self_item_type.accepts(&other_item_type)
             }
             (
                 Type::Function {
@@ -118,27 +101,14 @@ impl Type {
                     .zip(other_parameter_types.iter());
 
                 for (self_parameter_type, other_parameter_type) in parameter_type_pairs {
-                    if self_parameter_type.check(other_parameter_type).is_err() {
-                        return Err(Error::TypeCheck {
-                            expected: self.clone(),
-                            actual: other.clone(),
-                        });
+                    if self_parameter_type == other_parameter_type {
+                        return false;
                     }
                 }
 
-                if self_return_type.check(other_return_type).is_err() {
-                    Err(Error::TypeCheck {
-                        expected: self.clone(),
-                        actual: other.clone(),
-                    })
-                } else {
-                    Ok(())
-                }
+                self_return_type == other_return_type
             }
-            _ => Err(Error::TypeCheck {
-                expected: self.clone(),
-                actual: other.clone(),
-            }),
+            _ => false,
         }
     }
 
@@ -210,7 +180,7 @@ impl AbstractTree for Type {
                 Type::Option(Box::new(inner_type))
             }
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "any, bool, float, int, num, str, option, (, [ or {".to_string(),
                     actual: type_node.kind().to_string(),
                     location: type_node.start_position(),

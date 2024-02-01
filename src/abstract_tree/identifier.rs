@@ -47,7 +47,7 @@ impl AbstractTree for Identifier {
         if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
             Ok(r#type.clone())
         } else {
-            Err(Error::VariableIdentifierNotFound(self.0.clone()))
+            Err(ValidationError::VariableIdentifierNotFound(self.clone()))
         }
     }
 
@@ -55,7 +55,7 @@ impl AbstractTree for Identifier {
         if let Some((value, _)) = context.variables()?.get(&self.0) {
             Ok(value.clone())
         } else {
-            Err(Error::VariableIdentifierNotFound(self.0.clone()))
+            Err(RuntimeError::VariableIdentifierNotFound(self.0.clone()))
         }
     }
 }

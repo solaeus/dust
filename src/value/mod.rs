@@ -1,8 +1,5 @@
 //! Types that represent runtime values.
-use crate::{
-    error::{Error, RuntimeError},
-    Identifier, Type, TypeSpecification,
-};
+use crate::{error::RuntimeError, Identifier, Type, TypeSpecification};
 
 use serde::{
     de::{MapAccess, SeqAccess, Visitor},
@@ -167,7 +164,7 @@ impl Value {
     pub fn as_string(&self) -> Result<&String, RuntimeError> {
         match self {
             Value::String(string) => Ok(string),
-            value => Err(Error::ExpectedString {
+            value => Err(RuntimeError::ExpectedString {
                 actual: value.clone(),
             }),
         }
@@ -177,7 +174,7 @@ impl Value {
     pub fn as_integer(&self) -> Result<i64, RuntimeError> {
         match self {
             Value::Integer(i) => Ok(*i),
-            value => Err(Error::ExpectedInteger {
+            value => Err(RuntimeError::ExpectedInteger {
                 actual: value.clone(),
             }),
         }
@@ -187,7 +184,7 @@ impl Value {
     pub fn as_float(&self) -> Result<f64, RuntimeError> {
         match self {
             Value::Float(f) => Ok(*f),
-            value => Err(Error::ExpectedFloat {
+            value => Err(RuntimeError::ExpectedFloat {
                 actual: value.clone(),
             }),
         }
@@ -199,7 +196,7 @@ impl Value {
         match self {
             Value::Float(f) => Ok(*f),
             Value::Integer(i) => Ok(*i as f64),
-            value => Err(Error::ExpectedNumber {
+            value => Err(RuntimeError::ExpectedNumber {
                 actual: value.clone(),
             }),
         }
@@ -209,7 +206,7 @@ impl Value {
     pub fn as_boolean(&self) -> Result<bool, RuntimeError> {
         match self {
             Value::Boolean(boolean) => Ok(*boolean),
-            value => Err(Error::ExpectedBoolean {
+            value => Err(RuntimeError::ExpectedBoolean {
                 actual: value.clone(),
             }),
         }
@@ -219,7 +216,7 @@ impl Value {
     pub fn as_list(&self) -> Result<&List, RuntimeError> {
         match self {
             Value::List(list) => Ok(list),
-            value => Err(Error::ExpectedList {
+            value => Err(RuntimeError::ExpectedList {
                 actual: value.clone(),
             }),
         }
@@ -229,7 +226,7 @@ impl Value {
     pub fn into_inner_list(self) -> Result<List, RuntimeError> {
         match self {
             Value::List(list) => Ok(list),
-            value => Err(Error::ExpectedList {
+            value => Err(RuntimeError::ExpectedList {
                 actual: value.clone(),
             }),
         }
@@ -239,7 +236,7 @@ impl Value {
     pub fn as_map(&self) -> Result<&Map, RuntimeError> {
         match self {
             Value::Map(map) => Ok(map),
-            value => Err(Error::ExpectedMap {
+            value => Err(RuntimeError::ExpectedMap {
                 actual: value.clone(),
             }),
         }
@@ -250,7 +247,7 @@ impl Value {
     pub fn as_function(&self) -> Result<&Function, RuntimeError> {
         match self {
             Value::Function(function) => Ok(function),
-            value => Err(Error::ExpectedFunction {
+            value => Err(RuntimeError::ExpectedFunction {
                 actual: value.clone(),
             }),
         }
@@ -260,7 +257,7 @@ impl Value {
     pub fn as_option(&self) -> Result<&Option<Box<Value>>, RuntimeError> {
         match self {
             Value::Option(option) => Ok(option),
-            value => Err(Error::ExpectedOption {
+            value => Err(RuntimeError::ExpectedOption {
                 actual: value.clone(),
             }),
         }
@@ -273,12 +270,12 @@ impl Value {
                 if option.is_none() {
                     Ok(())
                 } else {
-                    Err(Error::ExpectedNone {
+                    Err(RuntimeError::ExpectedNone {
                         actual: self.clone(),
                     })
                 }
             }
-            value => Err(Error::ExpectedNone {
+            value => Err(RuntimeError::ExpectedNone {
                 actual: value.clone(),
             }),
         }
@@ -319,7 +316,7 @@ impl Add for Value {
             other
         };
 
-        Err(Error::ExpectedNumberOrString {
+        Err(RuntimeError::ExpectedNumberOrString {
             actual: non_number_or_string,
         })
     }
@@ -341,7 +338,7 @@ impl Sub for Value {
 
         let non_number = if !self.is_number() { self } else { other };
 
-        Err(Error::ExpectedNumber { actual: non_number })
+        Err(RuntimeError::ExpectedNumber { actual: non_number })
     }
 }
 
@@ -356,7 +353,7 @@ impl Mul for Value {
         } else {
             let non_number = if !self.is_number() { self } else { other };
 
-            Err(Error::ExpectedNumber { actual: non_number })
+            Err(RuntimeError::ExpectedNumber { actual: non_number })
         }
     }
 }
@@ -377,7 +374,7 @@ impl Div for Value {
         } else {
             let non_number = if !self.is_number() { self } else { other };
 
-            Err(Error::ExpectedNumber { actual: non_number })
+            Err(RuntimeError::ExpectedNumber { actual: non_number })
         }
     }
 }
@@ -596,49 +593,49 @@ impl From<()> for Value {
 }
 
 impl TryFrom<Value> for String {
-    type Error = Error;
+    type Error = RuntimeError;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
         if let Value::String(string) = value {
             Ok(string)
         } else {
-            Err(Error::ExpectedString { actual: value })
+            Err(RuntimeError::ExpectedString { actual: value })
         }
     }
 }
 
 impl TryFrom<Value> for f64 {
-    type Error = Error;
+    type Error = RuntimeError;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
         if let Value::Float(value) = value {
             Ok(value)
         } else {
-            Err(Error::ExpectedFloat { actual: value })
+            Err(RuntimeError::ExpectedFloat { actual: value })
         }
     }
 }
 
 impl TryFrom<Value> for i64 {
-    type Error = Error;
+    type Error = RuntimeError;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
         if let Value::Integer(value) = value {
             Ok(value)
         } else {
-            Err(Error::ExpectedInteger { actual: value })
+            Err(RuntimeError::ExpectedInteger { actual: value })
         }
     }
 }
 
 impl TryFrom<Value> for bool {
-    type Error = Error;
+    type Error = RuntimeError;
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
         if let Value::Boolean(value) = value {
             Ok(value)
         } else {
-            Err(Error::ExpectedBoolean { actual: value })
+            Err(RuntimeError::ExpectedBoolean { actual: value })
         }
     }
 }

@@ -11,7 +11,7 @@ use reedline::{
 
 use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
 
-use dust_lang::{built_in_values, Interpreter, Map, Result, Value};
+use dust_lang::{built_in_values, Error, Interpreter, Map, Value};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -332,7 +332,7 @@ impl Completer for DustCompleter {
     }
 }
 
-fn run_shell(context: Map) -> Result<()> {
+fn run_shell(context: Map) -> Result<(), Error> {
     let mut interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 

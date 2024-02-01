@@ -27,7 +27,7 @@ impl AbstractTree for AssignmentOperator {
             "+=" => AssignmentOperator::PlusEqual,
             "-=" => AssignmentOperator::MinusEqual,
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "=, += or -=".to_string(),
                     actual: operator_node.kind().to_string(),
                     location: operator_node.start_position(),

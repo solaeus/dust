@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Error, Format, Function, Identifier, Map, SyntaxNode, SyntaxPosition,
+    AbstractTree, Block, Error, Format, Function, Identifier, Map, SourcePosition, SyntaxNode,
     Type, TypeSpecification, Value,
 };
 
@@ -13,7 +13,7 @@ pub struct FunctionNode {
     parameters: Vec<Identifier>,
     body: Block,
     r#type: Type,
-    syntax_position: SyntaxPosition,
+    syntax_position: SourcePosition,
 }
 
 impl FunctionNode {
@@ -21,7 +21,7 @@ impl FunctionNode {
         parameters: Vec<Identifier>,
         body: Block,
         r#type: Type,
-        syntax_position: SyntaxPosition,
+        syntax_position: SourcePosition,
     ) -> Self {
         FunctionNode {
             parameters,
@@ -43,7 +43,7 @@ impl FunctionNode {
         &self.r#type
     }
 
-    pub fn syntax_position(&self) -> &SyntaxPosition {
+    pub fn syntax_position(&self) -> &SourcePosition {
         &self.syntax_position
     }
 
@@ -164,15 +164,23 @@ impl AbstractTree for FunctionNode {
                 function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
             }
 
-            return_type
-                .check(&self.body.expected_type(&function_context)?)
-                .map_err(|error| error.at_source_position(source, self.syntax_position))?;
+            let actual = self.body.expected_type(&function_context)?;
+
+            if !return_type.accepts(&actual) {
+                return Err(ValidationError::TypeCheck {
+                    expected: return_type.as_ref().clone(),
+                    actual,
+                    position: self.syntax_position,
+                });
+            }
+
             self.body.check_type(source, &function_context)?;
 
             Ok(())
         } else {
-            Err(Error::TypeCheckExpectedFunction {
+            Err(ValidationError::TypeCheckExpectedFunction {
                 actual: self.r#type.clone(),
+                position: self.syntax_position,
             })
         }
     }

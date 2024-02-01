@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Expression, Format, FunctionExpression, Map, SyntaxNode, SyntaxPosition,
+    AbstractTree, Error, Expression, Format, FunctionExpression, Map, SourcePosition, SyntaxNode,
     Type, Value,
 };
 
@@ -11,7 +11,7 @@ use crate::{
 pub struct FunctionCall {
     function_expression: FunctionExpression,
     arguments: Vec<Expression>,
-    syntax_position: SyntaxPosition,
+    syntax_position: SourcePosition,
 }
 
 impl FunctionCall {
@@ -19,7 +19,7 @@ impl FunctionCall {
     pub fn new(
         function_expression: FunctionExpression,
         arguments: Vec<Expression>,
-        syntax_position: SyntaxPosition,
+        syntax_position: SourcePosition,
     ) -> Self {
         Self {
             function_expression,
@@ -85,7 +85,7 @@ impl AbstractTree for FunctionCall {
         }
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn check_type(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
         let function_expression_type = self.function_expression.expected_type(context)?;
 
         let parameter_types = match function_expression_type {
@@ -94,26 +94,32 @@ impl AbstractTree for FunctionCall {
             } => parameter_types,
             Type::Any => return Ok(()),
             _ => {
-                return Err(Error::TypeCheckExpectedFunction {
+                return Err(ValidationError::TypeCheckExpectedFunction {
                     actual: function_expression_type,
-                }
-                .at_source_position(source, self.syntax_position))
+                    position: self.syntax_position,
+                });
             }
         };
 
         if self.arguments.len() != parameter_types.len() {
-            return Err(Error::ExpectedFunctionArgumentAmount {
+            return Err(ValidationError::ExpectedFunctionArgumentAmount {
                 expected: parameter_types.len(),
                 actual: self.arguments.len(),
-            }
-            .at_source_position(source, self.syntax_position));
+                position: self.syntax_position,
+            });
         }
 
         for (index, expression) in self.arguments.iter().enumerate() {
-            if let Some(r#type) = parameter_types.get(index) {
-                r#type
-                    .check(&expression.expected_type(context)?)
-                    .map_err(|error| error.at_source_position(source, self.syntax_position))?;
+            if let Some(expected) = parameter_types.get(index) {
+                let actual = expression.expected_type(context)?;
+
+                if !expected.accepts(&actual) {
+                    return Err(ValidationError::TypeCheck {
+                        expected: expected.clone(),
+                        actual,
+                        position: self.syntax_position,
+                    });
+                }
             }
         }
 
@@ -129,7 +135,7 @@ impl AbstractTree for FunctionCall {
                 if let Some((value, _)) = variables.get(key) {
                     value.clone()
                 } else {
-                    return Err(Error::VariableIdentifierNotFound(
+                    return Err(RuntimeError::VariableIdentifierNotFound(
                         identifier.inner().clone(),
                     ));
                 }

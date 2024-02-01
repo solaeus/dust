@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, IndexExpression, List, Map, SyntaxNode, Type, Value,
+    AbstractTree, Error, Format, IndexExpression, List, Map, SourcePosition, SyntaxNode, Type,
+    Value,
 };
 
 /// Abstract representation of an index expression.
@@ -13,6 +14,7 @@ pub struct Index {
     pub collection: IndexExpression,
     pub index: IndexExpression,
     pub index_end: Option<IndexExpression>,
+    source_position: SourcePosition,
 }
 
 impl AbstractTree for Index {
@@ -40,6 +42,7 @@ impl AbstractTree for Index {
             collection,
             index,
             index_end,
+            source_position: SourcePosition::from(node.range()),
         })
     }
 
@@ -56,7 +59,7 @@ impl AbstractTree for Index {
         self.collection.check_type(_source, _context)?;
         self.index.check_type(_source, _context)?;
 
-        if let Some(index_end) = self.index_end {
+        if let Some(index_end) = &self.index_end {
             index_end.check_type(_source, _context)?;
         }
 
@@ -64,9 +67,9 @@ impl AbstractTree for Index {
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
-        let collection = self.collection.run(source, context)?;
+        let value = self.collection.run(source, context)?;
 
-        match collection {
+        match value {
             Value::List(list) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
 
@@ -104,7 +107,7 @@ impl AbstractTree for Index {
                 };
 
                 if value.is_none() {
-                    Err(Error::VariableIdentifierNotFound(key))
+                    Err(RuntimeError::VariableIdentifierNotFound(key))
                 } else {
                     Ok(value)
                 }
@@ -115,7 +118,7 @@ impl AbstractTree for Index {
 
                 Ok(Value::string(item.to_string()))
             }
-            _ => Err(Error::ExpectedCollection { actual: collection }),
+            _ => Err(RuntimeError::ExpectedCollection { actual: value }),
         }
     }
 }

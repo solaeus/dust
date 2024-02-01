@@ -32,7 +32,7 @@ impl AbstractTree for LogicOperator {
             ">=" => LogicOperator::GreaterOrEqual,
             "<=" => LogicOperator::LessOrEqual,
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "==, !=, &&, ||, >, <, >= or <=".to_string(),
                     actual: operator_node.kind().to_string(),
                     location: operator_node.start_position(),

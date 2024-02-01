@@ -1,7 +1,7 @@
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Error, Map, Type, Value};
+use crate::{error::RuntimeError, Map, Type, Value};
 
 use super::Callable;
 
@@ -49,7 +49,7 @@ impl Callable for Json {
     ) -> Result<Value, RuntimeError> {
         match self {
             Json::Create => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
                 let json_string = serde_json::to_string(value)?;
@@ -57,7 +57,7 @@ impl Callable for Json {
                 Ok(Value::String(json_string))
             }
             Json::CreatePretty => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let value = arguments.first().unwrap();
                 let json_string = serde_json::to_string_pretty(value)?;
@@ -65,7 +65,7 @@ impl Callable for Json {
                 Ok(Value::String(json_string))
             }
             Json::Parse => {
-                Error::expect_argument_amount(self.name(), 1, arguments.len())?;
+                RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let json_string = arguments.first().unwrap().as_string()?;
                 let value = serde_json::from_str(json_string)?;

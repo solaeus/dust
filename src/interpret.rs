@@ -38,8 +38,7 @@
 use tree_sitter::{Node as SyntaxNode, Parser, Tree as SyntaxTree, TreeCursor};
 
 use crate::{
-    error::{RuntimeError, SyntaxError, ValidationError},
-    language, AbstractTree, Error, Format, Map, Root, Value,
+    error::SyntaxError, language, AbstractTree, Error, Format, Map, Root, SourcePosition, Value,
 };
 
 /// Interpret the given source code. Returns the value of last statement or the
@@ -84,7 +83,7 @@ impl Interpreter {
             .set_language(language())
             .expect("Language version is incompatible with tree sitter version.");
 
-        parser.set_logger(Some(Box::new(|log_type, message| {
+        parser.set_logger(Some(Box::new(|_log_type, message| {
             log::info!("{}", message)
         })));
 
@@ -117,12 +116,12 @@ impl Interpreter {
             node: SyntaxNode,
             source: &str,
             cursor: &mut TreeCursor,
-        ) -> Result<(), ValidationError> {
+        ) -> Result<(), Error> {
             if node.is_error() {
-                Err(Error::Syntax {
+                Err(Error::Syntax(SyntaxError::InvalidSource {
                     source: source[node.byte_range()].to_string(),
-                    location: node.start_position(),
-                })
+                    position: SourcePosition::from(node.range()),
+                }))
             } else {
                 for child in node.children(&mut cursor.clone()) {
                     check_for_error(child, source, cursor)?;
@@ -150,7 +149,9 @@ impl Interpreter {
     /// This function [parses][Self::parse], [verifies][Self::verify] and [runs][Root::run] using
     /// the same source code.
     pub fn run(&mut self, source: &str) -> Result<Value, Error> {
-        self.verify(source)?.run(source, &self.context)
+        self.verify(source)?
+            .run(source, &self.context)
+            .map_err(|error| Error::Runtime(error))
     }
 
     /// Return an s-expression displaying a syntax tree of the source, or the ParserCancelled error

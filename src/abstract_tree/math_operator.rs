@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Error, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Format, Map, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -24,7 +24,7 @@ impl AbstractTree for MathOperator {
             "/" => MathOperator::Divide,
             "%" => MathOperator::Modulo,
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "+, -, *, / or %".to_string(),
                     actual: operator_node.kind().to_string(),
                     location: operator_node.start_position(),

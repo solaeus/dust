@@ -48,7 +48,7 @@ impl AbstractTree for IndexAssignment {
         let index_key = if let IndexExpression::Identifier(identifier) = &self.index.index {
             identifier.inner()
         } else {
-            return Err(Error::VariableIdentifierNotFound(
+            return Err(RuntimeError::VariableIdentifierNotFound(
                 self.index.index.run(source, context)?.to_string(),
             ));
         };

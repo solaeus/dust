@@ -37,7 +37,7 @@ impl AbstractTree for IndexExpression {
                 child, source, context,
             )?)),
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "value, identifier, index or function call".to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),

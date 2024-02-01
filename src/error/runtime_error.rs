@@ -1,11 +1,28 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    io,
+    num::ParseFloatError,
+    string::FromUtf8Error,
+    time::{self, SystemTimeError},
+};
 
-use serde::{Deserialize, Serialize};
+use crate::{Value};
 
-use crate::Value;
+use super::rw_lock_error::RwLockError;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum RuntimeError {
+    Csv(csv::Error),
+
+    Io(io::Error),
+
+    Reqwest(reqwest::Error),
+
+    Json(serde_json::Error),
+
+    SystemTime(SystemTimeError),
+
+    Toml(toml::de::Error),
+
     ExpectedString {
         actual: Value,
     },
@@ -71,111 +88,145 @@ pub enum RuntimeError {
         actual: Value,
     },
 
-    /// A function was called with the wrong amount of arguments.
+    /// Failed to read or write a map.
+    ///
+    /// See the [MapError] docs for more info.
+    RwLock(RwLockError),
+
+    ParseFloat(ParseFloatError),
+
+    Utf8(FromUtf8Error),
+
+    /// Failed to find a variable with a value for this key.
+    VariableIdentifierNotFound(String),
+
+    /// A built-in function was called with the wrong amount of arguments.
     ExpectedBuiltInFunctionArgumentAmount {
         function_name: String,
         expected: usize,
         actual: usize,
     },
+}
 
-    /// A function was called with the wrong amount of arguments.
-    ExpectedFunctionArgumentAmount {
+impl RuntimeError {
+    pub fn expect_argument_amount(
+        function_name: &str,
         expected: usize,
         actual: usize,
-    },
+    ) -> Result<(), Self> {
+        if expected == actual {
+            Ok(())
+        } else {
+            Err(RuntimeError::ExpectedBuiltInFunctionArgumentAmount {
+                function_name: function_name.to_string(),
+                expected,
+                actual,
+            })
+        }
+    }
+}
 
-    /// A function was called with the wrong amount of arguments.
-    ExpectedFunctionArgumentMinimum {
-        source: String,
-        minumum_expected: usize,
-        actual: usize,
-    },
+impl From<csv::Error> for RuntimeError {
+    fn from(error: csv::Error) -> Self {
+        RuntimeError::Csv(error)
+    }
+}
 
-    /// Failed to find a variable with a value for this key.
-    VariableIdentifierNotFound(String),
+impl From<io::Error> for RuntimeError {
+    fn from(error: std::io::Error) -> Self {
+        RuntimeError::Io(error)
+    }
+}
+
+impl From<reqwest::Error> for RuntimeError {
+    fn from(error: reqwest::Error) -> Self {
+        RuntimeError::Reqwest(error)
+    }
+}
+
+impl From<serde_json::Error> for RuntimeError {
+    fn from(error: serde_json::Error) -> Self {
+        RuntimeError::Json(error)
+    }
+}
+
+impl From<time::SystemTimeError> for RuntimeError {
+    fn from(error: time::SystemTimeError) -> Self {
+        RuntimeError::SystemTime(error)
+    }
+}
+
+impl From<toml::de::Error> for RuntimeError {
+    fn from(error: toml::de::Error) -> Self {
+        RuntimeError::Toml(error)
+    }
+}
+
+impl From<ParseFloatError> for RuntimeError {
+    fn from(error: ParseFloatError) -> Self {
+        RuntimeError::ParseFloat(error)
+    }
+}
+
+impl From<FromUtf8Error> for RuntimeError {
+    fn from(error: FromUtf8Error) -> Self {
+        RuntimeError::Utf8(error)
+    }
 }
 
 impl Display for RuntimeError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
         use RuntimeError::*;
 
         match self {
-            ExpectedString { actual } => {
-                write!(f, "Expected a string but got {actual}.")
-            }
-            ExpectedInteger { actual } => write!(f, "Expected an integer, but got {actual}."),
-            ExpectedFloat { actual } => write!(f, "Expected a float, but got {actual}."),
-            ExpectedNumber { actual } => {
-                write!(f, "Expected a float or integer but got {actual}.",)
-            }
-            ExpectedNumberOrString { actual } => {
-                write!(f, "Expected a number or string, but got {actual}.")
-            }
-            ExpectedBoolean { actual } => {
-                write!(f, "Expected a boolean, but got {actual}.")
-            }
-            ExpectedList { actual } => write!(f, "Expected a list, but got {actual}."),
-            ExpectedMinLengthList {
-                minimum_len,
-                actual_len,
-            } => write!(
-                f,
-                "Expected a list of at least {minimum_len} values, but got one with {actual_len}.",
-            ),
-            ExpectedFixedLenList {
-                expected_len,
-                actual,
-            } => write!(
-                f,
-                "Expected a list of len {}, but got {:?}.",
-                expected_len, actual
-            ),
-            ExpectedNone { actual } => write!(f, "Expected an empty value, but got {actual}."),
-            ExpectedMap { actual } => write!(f, "Expected a map, but got {actual}."),
-            ExpectedTable { actual } => write!(f, "Expected a table, but got {actual}."),
-            ExpectedFunction { actual } => {
-                write!(f, "Expected function, but got {actual}.")
-            }
-            ExpectedOption { actual } => write!(f, "Expected option, but got {actual}."),
-            ExpectedCollection { actual } => {
-                write!(
-                    f,
-                    "Expected a string, list, map or table, but got {actual}.",
-                )
-            }
-            ExpectedBuiltInFunctionArgumentAmount {
-                function_name,
-                expected,
-                actual,
-            } => todo!(),
-            ExpectedFunctionArgumentAmount { expected, actual } => todo!(),
-            ExpectedFunctionArgumentMinimum {
-                source,
-                minumum_expected,
-                actual,
-            } => todo!(),
-            ExpectedBuiltInFunctionArgumentAmount {
-                function_name: tool_name,
-                expected,
-                actual,
-            } => write!(
-                f,
-                "{tool_name} expected {expected} arguments, but got {actual}.",
-            ),
-            ExpectedFunctionArgumentAmount { expected, actual } => {
-                write!(f, "Expected {expected} arguments, but got {actual}.",)
-            }
-            ExpectedFunctionArgumentMinimum {
-                source,
-                minumum_expected,
-                actual,
-            } => {
-                write!(
-                    f,
-                    "{source} expected at least {minumum_expected} arguments, but got {actual}."
-                )
-            }
             VariableIdentifierNotFound(_) => todo!(),
+            RwLock(_) => todo!(),
+            Csv(_) => todo!(),
+            Io(_) => todo!(),
+            Reqwest(_) => todo!(),
+            Json(_) => todo!(),
+            SystemTime(_) => todo!(),
+            Toml(_) => todo!(),
+            Utf8(_) => todo!(),
+            ParseFloat(_) => todo!(),
+            ExpectedBuiltInFunctionArgumentAmount {
+                function_name: _,
+                expected: _,
+                actual: _,
+            } => todo!(),
+            ExpectedString { actual: _ } => todo!(),
+            ExpectedInteger { actual: _ } => todo!(),
+            ExpectedFloat { actual: _ } => todo!(),
+            ExpectedNumber { actual: _ } => todo!(),
+            ExpectedNumberOrString { actual: _ } => todo!(),
+            ExpectedBoolean { actual: _ } => todo!(),
+            ExpectedList { actual: _ } => todo!(),
+            ExpectedMinLengthList {
+                minimum_len: _,
+                actual_len: _,
+            } => todo!(),
+            ExpectedFixedLenList {
+                expected_len: _,
+                actual: _,
+            } => todo!(),
+            ExpectedNone { actual: _ } => todo!(),
+            ExpectedMap { actual: _ } => todo!(),
+            ExpectedTable { actual: _ } => todo!(),
+            ExpectedFunction { actual: _ } => todo!(),
+            ExpectedOption { actual: _ } => todo!(),
+            ExpectedCollection { actual: _ } => todo!(),
         }
+    }
+}
+
+impl Debug for RuntimeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+impl From<RwLockError> for RuntimeError {
+    fn from(error: RwLockError) -> Self {
+        RuntimeError::RwLock(error)
     }
 }

@@ -50,7 +50,7 @@ impl AbstractTree for Expression {
             "new" => Expression::New(New::from_syntax(child, source, _context)?),
             "command" => Expression::Command(Command::from_syntax(child, source, _context)?),
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected:
                         "value, identifier, index, math, logic, function call, new, context or ->"
                             .to_string(),

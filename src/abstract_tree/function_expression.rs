@@ -40,7 +40,7 @@ impl AbstractTree for FunctionExpression {
                 FunctionExpression::Yield(Box::new(Yield::from_syntax(child, source, context)?))
             }
             _ => {
-                return Err(Error::UnexpectedSyntaxNode {
+                return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "identifier, function call, value, index or yield".to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),

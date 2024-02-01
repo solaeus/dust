@@ -50,7 +50,7 @@ use crate::{
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct SyntaxPosition {
+pub struct SourcePosition {
     pub start_byte: usize,
     pub end_byte: usize,
     pub start_row: usize,
@@ -59,9 +59,9 @@ pub struct SyntaxPosition {
     pub end_column: usize,
 }
 
-impl From<tree_sitter::Range> for SyntaxPosition {
+impl From<tree_sitter::Range> for SourcePosition {
     fn from(range: tree_sitter::Range) -> Self {
-        SyntaxPosition {
+        SourcePosition {
             start_byte: range.start_byte,
             end_byte: range.end_byte,
             start_row: range.start_point.row + 1,
@@ -143,7 +143,8 @@ impl Format for Root {
 /// This trait is implemented by the Evaluator's internal types to form an
 /// executable tree that resolves to a single value.
 pub trait AbstractTree: Sized + Format {
-    /// Interpret the syntax tree at the given node and return the abstraction.
+    /// Interpret the syntax tree at the given node and return the abstraction. Returns a syntax
+    /// error if the source is invalid.
     ///
     /// This function is used to convert nodes in the Tree Sitter concrete
     /// syntax tree into executable nodes in an abstract tree. This function is
@@ -154,13 +155,16 @@ pub trait AbstractTree: Sized + Format {
     /// node's byte range.
     fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError>;
 
-    /// Verify the type integrity of the node.
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError>;
-
-    /// Execute dust code by traversing the tree.
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError>;
-
+    /// Return the type of the value that this abstract node will create when run. Returns a
+    /// validation error if the tree is invalid.
     fn expected_type(&self, context: &Map) -> Result<Type, ValidationError>;
+
+    /// Verify the type integrity of the node. Returns a validation error if the tree is invalid.
+    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError>;
+
+    /// Execute this node's logic and return a value. Returns a runtime error if the node cannot
+    /// resolve to a value.
+    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError>;
 }
 
 pub trait Format {
