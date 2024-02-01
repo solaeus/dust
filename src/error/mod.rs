@@ -61,15 +61,15 @@ impl fmt::Debug for Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, _f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use Error::*;
 
         match self {
-            Syntax(_) => todo!(),
-            Validation(_) => todo!(),
-            Runtime(_) => todo!(),
-            ParserCancelled => todo!(),
-            Language(_) => todo!(),
+            Syntax(error) => write!(f, "Syntax error: {error}"),
+            Validation(error) => write!(f, "Validation error: {error}"),
+            Runtime(error) => write!(f, "Runtime error: {error}"),
+            ParserCancelled => write!(f, "Parsing was cancelled because the parser took too long."),
+            Language(error) => write!(f, "Parser failed to load language grammar."),
         }
     }
 }

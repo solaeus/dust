@@ -139,7 +139,7 @@ impl Interpreter {
 
         let abstract_tree = Root::from_syntax(syntax_tree.root_node(), source, &self.context)?;
 
-        abstract_tree.check_type(source, &self.context)?;
+        abstract_tree.validate(source, &self.context)?;
 
         Ok(abstract_tree)
     }

@@ -29,7 +29,7 @@ impl AbstractTree for New {
         todo!()
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         todo!()
     }
 

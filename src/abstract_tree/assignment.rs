@@ -43,16 +43,6 @@ impl AbstractTree for Assignment {
         let statement_node = syntax_node.child(child_count - 1).unwrap();
         let statement = Statement::from_syntax(statement_node, source, context)?;
 
-        // if let AssignmentOperator::Equal = operator {
-        //     let r#type = if let Some(definition) = &type_specification {
-        //         definition.inner().clone()
-        //     } else {
-        //         statement.expected_type(context)?
-        //     };
-
-        //     context.set_type(identifier.inner().clone(), r#type)?;
-        // }
-
         Ok(Assignment {
             identifier,
             type_specification,
@@ -62,7 +52,18 @@ impl AbstractTree for Assignment {
         })
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
+        if let AssignmentOperator::Equal = self.operator {
+            let key = self.identifier.inner().clone();
+            let r#type = if let Some(definition) = &self.type_specification {
+                definition.inner().clone()
+            } else {
+                self.statement.expected_type(context)?
+            };
+
+            context.set_type(key, r#type)?;
+        }
+
         if let Some(type_specification) = &self.type_specification {
             match self.operator {
                 AssignmentOperator::Equal => {
@@ -123,7 +124,7 @@ impl AbstractTree for Assignment {
             }
         }
 
-        self.statement.check_type(source, context)?;
+        self.statement.validate(source, context)?;
 
         Ok(())
     }

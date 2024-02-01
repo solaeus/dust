@@ -80,19 +80,19 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         match self {
-            Statement::Assignment(assignment) => assignment.check_type(_source, _context),
-            Statement::Expression(expression) => expression.check_type(_source, _context),
-            Statement::IfElse(if_else) => if_else.check_type(_source, _context),
-            Statement::Match(r#match) => r#match.check_type(_source, _context),
-            Statement::While(r#while) => r#while.check_type(_source, _context),
-            Statement::Block(block) => block.check_type(_source, _context),
-            Statement::For(r#for) => r#for.check_type(_source, _context),
+            Statement::Assignment(assignment) => assignment.validate(_source, _context),
+            Statement::Expression(expression) => expression.validate(_source, _context),
+            Statement::IfElse(if_else) => if_else.validate(_source, _context),
+            Statement::Match(r#match) => r#match.validate(_source, _context),
+            Statement::While(r#while) => r#while.validate(_source, _context),
+            Statement::Block(block) => block.validate(_source, _context),
+            Statement::For(r#for) => r#for.validate(_source, _context),
             Statement::IndexAssignment(index_assignment) => {
-                index_assignment.check_type(_source, _context)
+                index_assignment.validate(_source, _context)
             }
-            Statement::Return(statement) => statement.check_type(_source, _context),
+            Statement::Return(statement) => statement.validate(_source, _context),
         }
     }
 

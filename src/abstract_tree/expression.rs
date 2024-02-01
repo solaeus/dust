@@ -78,17 +78,17 @@ impl AbstractTree for Expression {
         }
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         match self {
-            Expression::Value(value_node) => value_node.check_type(_source, _context),
-            Expression::Identifier(identifier) => identifier.check_type(_source, _context),
-            Expression::Math(math) => math.check_type(_source, _context),
-            Expression::Logic(logic) => logic.check_type(_source, _context),
-            Expression::FunctionCall(function_call) => function_call.check_type(_source, _context),
-            Expression::Index(index) => index.check_type(_source, _context),
-            Expression::Yield(r#yield) => r#yield.check_type(_source, _context),
-            Expression::New(new) => new.check_type(_source, _context),
-            Expression::Command(command) => command.check_type(_source, _context),
+            Expression::Value(value_node) => value_node.validate(_source, _context),
+            Expression::Identifier(identifier) => identifier.validate(_source, _context),
+            Expression::Math(math) => math.validate(_source, _context),
+            Expression::Logic(logic) => logic.validate(_source, _context),
+            Expression::FunctionCall(function_call) => function_call.validate(_source, _context),
+            Expression::Index(index) => index.validate(_source, _context),
+            Expression::Yield(r#yield) => r#yield.validate(_source, _context),
+            Expression::New(new) => new.validate(_source, _context),
+            Expression::Command(command) => command.validate(_source, _context),
         }
     }
 

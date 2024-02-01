@@ -63,9 +63,9 @@ impl AbstractTree for IfElse {
         self.if_block.expected_type(context)
     }
 
-    fn check_type(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
-        self.if_expression.check_type(_source, context)?;
-        self.if_block.check_type(_source, context)?;
+    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+        self.if_expression.validate(_source, context)?;
+        self.if_block.validate(_source, context)?;
 
         let expected = self.if_block.expected_type(context)?;
         let else_ifs = self
@@ -74,8 +74,8 @@ impl AbstractTree for IfElse {
             .zip(self.else_if_blocks.iter());
 
         for (expression, block) in else_ifs {
-            expression.check_type(_source, context)?;
-            block.check_type(_source, context)?;
+            expression.validate(_source, context)?;
+            block.validate(_source, context)?;
 
             let actual = block.expected_type(context)?;
 

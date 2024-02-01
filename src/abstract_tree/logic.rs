@@ -44,9 +44,9 @@ impl AbstractTree for Logic {
         Ok(Type::Boolean)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
-        self.left.check_type(_source, _context)?;
-        self.right.check_type(_source, _context)
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.left.validate(_source, _context)?;
+        self.right.validate(_source, _context)
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {

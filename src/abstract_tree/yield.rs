@@ -47,8 +47,8 @@ impl AbstractTree for Yield {
         self.call.expected_type(context)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
-        self.call.check_type(_source, _context)
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.call.validate(_source, _context)
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {

@@ -65,16 +65,16 @@ impl AbstractTree for Match {
         first_statement.expected_type(context)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
-        self.matcher.check_type(_source, _context)?;
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.matcher.validate(_source, _context)?;
 
         for (expression, statement) in &self.options {
-            expression.check_type(_source, _context)?;
-            statement.check_type(_source, _context)?;
+            expression.validate(_source, _context)?;
+            statement.validate(_source, _context)?;
         }
 
         if let Some(statement) = &self.fallback {
-            statement.check_type(_source, _context)?;
+            statement.validate(_source, _context)?;
         }
 
         Ok(())

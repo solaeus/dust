@@ -234,11 +234,11 @@ impl AbstractTree for ValueNode {
         Ok(r#type)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         match self {
             ValueNode::Function(function) => {
                 if let Function::ContextDefined(function_node) = function {
-                    function_node.check_type(_source, _context)?;
+                    function_node.validate(_source, _context)?;
                 }
             }
             _ => {}

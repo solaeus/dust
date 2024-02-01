@@ -58,13 +58,13 @@ impl AbstractTree for IndexExpression {
         }
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         match self {
-            IndexExpression::Value(value_node) => value_node.check_type(_source, _context),
-            IndexExpression::Identifier(identifier) => identifier.check_type(_source, _context),
-            IndexExpression::Index(index) => index.check_type(_source, _context),
+            IndexExpression::Value(value_node) => value_node.validate(_source, _context),
+            IndexExpression::Identifier(identifier) => identifier.validate(_source, _context),
+            IndexExpression::Index(index) => index.validate(_source, _context),
             IndexExpression::FunctionCall(function_call) => {
-                function_call.check_type(_source, _context)
+                function_call.validate(_source, _context)
             }
         }
     }

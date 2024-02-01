@@ -31,9 +31,9 @@ impl AbstractTree for While {
         self.block.expected_type(context)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
-        self.expression.check_type(_source, _context)?;
-        self.block.check_type(_source, _context)
+    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+        self.expression.validate(_source, context)?;
+        self.block.validate(_source, context)
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {

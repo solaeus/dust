@@ -51,7 +51,7 @@ impl AbstractTree for Command {
         Ok(Type::String)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         todo!()
     }
 

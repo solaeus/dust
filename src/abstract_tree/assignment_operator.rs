@@ -47,7 +47,7 @@ impl AbstractTree for AssignmentOperator {
         Ok(Type::None)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         Ok(())
     }
 }

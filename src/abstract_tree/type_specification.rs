@@ -38,7 +38,7 @@ impl AbstractTree for TypeSpecification {
         self.r#type.expected_type(context)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         Ok(())
     }
 

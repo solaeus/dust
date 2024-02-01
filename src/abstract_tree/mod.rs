@@ -97,12 +97,12 @@ impl AbstractTree for Root {
         Ok(Root { statements })
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
-                return inner_statement.check_type(_source, _context);
+                return inner_statement.validate(_source, _context);
             } else {
-                statement.check_type(_source, _context)?;
+                statement.validate(_source, _context)?;
             }
         }
 
@@ -160,7 +160,7 @@ pub trait AbstractTree: Sized + Format {
     fn expected_type(&self, context: &Map) -> Result<Type, ValidationError>;
 
     /// Verify the type integrity of the node. Returns a validation error if the tree is invalid.
-    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError>;
+    fn validate(&self, source: &str, context: &Map) -> Result<(), ValidationError>;
 
     /// Execute this node's logic and return a value. Returns a runtime error if the node cannot
     /// resolve to a value.

@@ -10,7 +10,7 @@ use crate::Value;
 
 use super::rw_lock_error::RwLockError;
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum RuntimeError {
     Csv(String),
 
@@ -176,53 +176,8 @@ impl From<FromUtf8Error> for RuntimeError {
 }
 
 impl Display for RuntimeError {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-        use RuntimeError::*;
-
-        match self {
-            VariableIdentifierNotFound(_) => todo!(),
-            RwLock(_) => todo!(),
-            Csv(_) => todo!(),
-            Io(_) => todo!(),
-            Reqwest(_) => todo!(),
-            Json(_) => todo!(),
-            SystemTime(_) => todo!(),
-            Toml(_) => todo!(),
-            Utf8(_) => todo!(),
-            ParseFloat(_) => todo!(),
-            ExpectedBuiltInFunctionArgumentAmount {
-                function_name: _,
-                expected: _,
-                actual: _,
-            } => todo!(),
-            ExpectedString { actual: _ } => todo!(),
-            ExpectedInteger { actual: _ } => todo!(),
-            ExpectedFloat { actual: _ } => todo!(),
-            ExpectedNumber { actual: _ } => todo!(),
-            ExpectedNumberOrString { actual: _ } => todo!(),
-            ExpectedBoolean { actual: _ } => todo!(),
-            ExpectedList { actual: _ } => todo!(),
-            ExpectedMinLengthList {
-                minimum_len: _,
-                actual_len: _,
-            } => todo!(),
-            ExpectedFixedLenList {
-                expected_len: _,
-                actual: _,
-            } => todo!(),
-            ExpectedNone { actual: _ } => todo!(),
-            ExpectedMap { actual: _ } => todo!(),
-            ExpectedTable { actual: _ } => todo!(),
-            ExpectedFunction { actual: _ } => todo!(),
-            ExpectedOption { actual: _ } => todo!(),
-            ExpectedCollection { actual: _ } => todo!(),
-        }
-    }
-}
-
-impl Debug for RuntimeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{self}")
+        write!(f, "{self:?}")
     }
 }
 

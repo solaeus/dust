@@ -37,9 +37,9 @@ impl AbstractTree for IndexAssignment {
         Ok(Type::None)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
-        self.index.check_type(_source, _context)?;
-        self.statement.check_type(_source, _context)
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.index.validate(_source, _context)?;
+        self.statement.validate(_source, _context)
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {

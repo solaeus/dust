@@ -54,12 +54,12 @@ impl AbstractTree for Index {
         }
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
-        self.collection.check_type(_source, _context)?;
-        self.index.check_type(_source, _context)?;
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+        self.collection.validate(_source, _context)?;
+        self.index.validate(_source, _context)?;
 
         if let Some(index_end) = &self.index_end {
-            index_end.check_type(_source, _context)?;
+            index_end.validate(_source, _context)?;
         }
 
         Ok(())

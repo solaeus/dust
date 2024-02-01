@@ -85,7 +85,7 @@ impl AbstractTree for FunctionCall {
         }
     }
 
-    fn check_type(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
         let function_expression_type = self.function_expression.expected_type(context)?;
 
         let parameter_types = match function_expression_type {

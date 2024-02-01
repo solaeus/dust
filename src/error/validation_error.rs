@@ -1,10 +1,12 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Identifier, SourcePosition, Type, Value};
 
 use super::rw_lock_error::RwLockError;
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValidationError {
     /// The 'assert' macro did not resolve successfully.
     AssertEqualFailed {
@@ -78,5 +80,11 @@ impl ValidationError {
 impl From<RwLockError> for ValidationError {
     fn from(_error: RwLockError) -> Self {
         ValidationError::RwLock(RwLockError)
+    }
+}
+
+impl Display for ValidationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
     }
 }

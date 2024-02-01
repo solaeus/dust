@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Expression, Format, Identifier, Map, SyntaxNode, Type, Value,
+    AbstractTree, Block, Expression, Format, Identifier, Map, SourcePosition, SyntaxNode, Type,
+    Value,
 };
 
 /// Abstract representation of a for loop statement.
@@ -13,6 +14,7 @@ pub struct For {
     item_id: Identifier,
     collection: Expression,
     block: Block,
+    source_position: SourcePosition,
 }
 
 impl AbstractTree for For {
@@ -47,6 +49,7 @@ impl AbstractTree for For {
             item_id: identifier,
             collection: expression,
             block: item,
+            source_position: SourcePosition::from(node.range()),
         })
     }
 
@@ -54,8 +57,23 @@ impl AbstractTree for For {
         Ok(Type::None)
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
-        self.block.check_type(_source, _context)
+    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+        let collection_type = self.collection.expected_type(context)?;
+        let item_type = if let Type::List(item_type) = collection_type {
+            item_type.as_ref().clone()
+        } else if let Type::Range = collection_type {
+            Type::Integer
+        } else {
+            return Err(ValidationError::TypeCheck {
+                expected: Type::Collection,
+                actual: collection_type,
+                position: self.source_position,
+            });
+        };
+        let key = self.item_id.inner().clone();
+
+        context.set_type(key, item_type)?;
+        self.block.validate(_source, context)
     }
 
     fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {

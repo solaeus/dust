@@ -195,7 +195,7 @@ impl AbstractTree for BuiltInValue {
         Ok(self.r#type())
     }
 
-    fn check_type(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         Ok(())
     }
 

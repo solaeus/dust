@@ -146,7 +146,7 @@ impl AbstractTree for FunctionNode {
         Ok(self.r#type().clone())
     }
 
-    fn check_type(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
         let function_context = Map::new();
 
         for (key, (_value, r#type)) in context.variables()?.iter() {
@@ -174,7 +174,7 @@ impl AbstractTree for FunctionNode {
                 });
             }
 
-            self.body.check_type(source, &function_context)?;
+            self.body.validate(source, &function_context)?;
 
             Ok(())
         } else {
