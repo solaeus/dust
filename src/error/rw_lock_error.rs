@@ -1,4 +1,7 @@
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    sync::PoisonError,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -17,5 +20,11 @@ impl Display for RwLockError {
 impl Debug for RwLockError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{self}")
+    }
+}
+
+impl<T> From<PoisonError<T>> for RwLockError {
+    fn from(_: PoisonError<T>) -> Self {
+        RwLockError
     }
 }

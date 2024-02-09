@@ -88,8 +88,7 @@ impl Map {
         let value_type = value.r#type();
         let previous = self
             .variables
-            .write()
-            .map_err(|_| RwLockError)?
+            .write()?
             .insert(key, (value, value_type.clone()));
 
         Ok(previous)
