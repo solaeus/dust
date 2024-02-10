@@ -11,7 +11,7 @@ use crate::{
 ///
 /// Every variable is a key-value pair. An identifier holds the key part of that
 /// pair. Its inner value can be used to retrieve a Value instance from a Map.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier(String);
 
 impl Identifier {

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    context::Context,
     error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, AssignmentOperator, Format, Identifier, Map, SourcePosition, Statement,
     SyntaxNode, Type, TypeSpecification, Value,
@@ -21,7 +22,7 @@ impl AbstractTree for Assignment {
     fn from_syntax(
         syntax_node: SyntaxNode,
         source: &str,
-        context: &Map,
+        context: &Context,
     ) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "assignment", syntax_node)?;
 
@@ -52,7 +53,7 @@ impl AbstractTree for Assignment {
         })
     }
 
-    fn validate(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
         if let AssignmentOperator::Equal = self.operator {
             let key = self.identifier.inner().clone();
             let r#type = if let Some(definition) = &self.type_specification {

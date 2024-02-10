@@ -1,4 +1,3 @@
-#![warn(missing_docs)]
 //! The Dust library is used to parse, format and run dust source code.
 //!
 //! See the [interpret] module for more information.
@@ -13,6 +12,7 @@ pub use tree_sitter::Node as SyntaxNode;
 
 pub mod abstract_tree;
 pub mod built_in_functions;
+pub mod context;
 pub mod error;
 pub mod interpret;
 pub mod value;

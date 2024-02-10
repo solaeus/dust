@@ -45,6 +45,7 @@ pub use {
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    context::Context,
     error::{RuntimeError, SyntaxError, ValidationError},
     Map, SyntaxNode, Value,
 };
@@ -81,7 +82,7 @@ pub struct Root {
 // instead of indexes. This will be more performant when there are a lot of
 // top-level statements in the tree.
 impl AbstractTree for Root {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "root", node)?;
 
         let statement_count = node.child_count();
@@ -97,7 +98,7 @@ impl AbstractTree for Root {
         Ok(Root { statements })
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
                 return inner_statement.validate(_source, _context);
@@ -109,7 +110,7 @@ impl AbstractTree for Root {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let mut value = Value::none();
 
         for statement in &self.statements {
@@ -123,7 +124,7 @@ impl AbstractTree for Root {
         Ok(value)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         self.statements.last().unwrap().expected_type(context)
     }
 }
@@ -153,18 +154,18 @@ pub trait AbstractTree: Sized + Format {
     ///
     /// If necessary, the source code can be accessed directly by getting the
     /// node's byte range.
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError>;
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError>;
 
     /// Return the type of the value that this abstract node will create when run. Returns a
     /// validation error if the tree is invalid.
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError>;
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
 
     /// Verify the type integrity of the node. Returns a validation error if the tree is invalid.
-    fn validate(&self, source: &str, context: &Map) -> Result<(), ValidationError>;
+    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError>;
 
     /// Execute this node's logic and return a value. Returns a runtime error if the node cannot
     /// resolve to a value.
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError>;
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError>;
 }
 
 pub trait Format {

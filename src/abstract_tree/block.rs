@@ -20,6 +20,7 @@ use crate::{
 pub struct Block {
     is_async: bool,
     statements: Vec<Statement>,
+    context: Map,
 }
 
 impl AbstractTree for Block {
@@ -35,12 +36,13 @@ impl AbstractTree for Block {
             node.child_count() - 2
         };
         let mut statements = Vec::with_capacity(statement_count);
+        let block_context = Map::clone_from(context)?;
 
         for index in 1..node.child_count() - 1 {
             let child_node = node.child(index).unwrap();
 
             if child_node.kind() == "statement" {
-                let statement = Statement::from_syntax(child_node, source, context)?;
+                let statement = Statement::from_syntax(child_node, source, &block_context)?;
 
                 statements.push(statement);
             }
@@ -49,15 +51,16 @@ impl AbstractTree for Block {
         Ok(Block {
             is_async,
             statements,
+            context: block_context,
         })
     }
 
     fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
-                return inner_statement.validate(_source, _context);
+                return inner_statement.validate(_source, &self.context);
             } else {
-                statement.validate(_source, _context)?;
+                statement.validate(_source, &self.context)?;
             }
         }
 
@@ -73,7 +76,7 @@ impl AbstractTree for Block {
                 .into_par_iter()
                 .enumerate()
                 .find_map_first(|(index, statement)| {
-                    let result = statement.run(source, context);
+                    let result = statement.run(source, &self.context);
                     let is_last_statement = index == statements.len() - 1;
                     let is_return_statement = if let Statement::Return(_) = statement {
                         true
