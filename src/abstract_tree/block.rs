@@ -1,4 +1,7 @@
-use std::sync::RwLock;
+use std::{
+    fmt::{self, Formatter},
+    sync::RwLock,
+};
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -16,7 +19,7 @@ use crate::{
 /// results in an error. Note that this will be the first statement to encounter
 /// an error at runtime, not necessarilly the first statement as they are
 /// written.
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
     is_async: bool,
     statements: Vec<Statement>,
@@ -44,7 +47,7 @@ impl AbstractTree for Block {
             node.child_count() - 2
         };
         let mut statements = Vec::with_capacity(statement_count);
-        let block_context = Context::inherit_from(context)?;
+        let block_context = Context::with_variables_from(context)?;
 
         for index in 1..node.child_count() - 1 {
             let child_node = node.child(index).unwrap();
@@ -75,7 +78,11 @@ impl AbstractTree for Block {
         Ok(())
     }
 
-    fn run(&self, source: &str, _context: &Context) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
+        self.context.inherit_from(context)?;
+
+        println!("{:?}", self.context);
+
         if self.is_async {
             let statements = &self.statements;
             let final_result = RwLock::new(Ok(Value::none()));
@@ -160,5 +167,14 @@ impl Format for Block {
         output.push('\n');
         Block::indent(output, indent_level);
         output.push('}');
+    }
+}
+
+impl fmt::Debug for Block {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Block")
+            .field("is_async", &self.is_async)
+            .field("statements", &self.statements)
+            .finish()
     }
 }

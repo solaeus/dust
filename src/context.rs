@@ -1,13 +1,12 @@
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
-    fmt::{self, Debug, Display, Formatter},
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use crate::{error::rw_lock_error::RwLockError, Type, Value};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ValueData {
     Value {
         inner: Value,
@@ -77,7 +76,7 @@ impl Ord for ValueData {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Context {
     inner: Arc<RwLock<BTreeMap<String, ValueData>>>,
 }
@@ -93,7 +92,7 @@ impl Context {
         Ok(self.inner.read()?)
     }
 
-    pub fn inherit_from(other: &Context) -> Result<Context, RwLockError> {
+    pub fn with_variables_from(other: &Context) -> Result<Context, RwLockError> {
         let mut new_variables = BTreeMap::new();
 
         for (identifier, value_data) in other.inner.read()?.iter() {
@@ -103,6 +102,16 @@ impl Context {
         Ok(Context {
             inner: Arc::new(RwLock::new(new_variables)),
         })
+    }
+
+    pub fn inherit_from(&self, other: &Context) -> Result<(), RwLockError> {
+        let mut self_variables = self.inner.write()?;
+
+        for (identifier, value_data) in other.inner.read()?.iter() {
+            self_variables.insert(identifier.clone(), value_data.clone());
+        }
+
+        Ok(())
     }
 
     pub fn get_value(&self, key: &str) -> Result<Option<Value>, RwLockError> {
@@ -190,17 +199,5 @@ impl Ord for Context {
         let right = other.inner().unwrap();
 
         left.cmp(&right)
-    }
-}
-
-impl Debug for Context {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{self}")
-    }
-}
-
-impl Display for Context {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-        todo!()
     }
 }
