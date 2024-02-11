@@ -20,6 +20,7 @@ use crate::{
 pub struct Block {
     is_async: bool,
     statements: Vec<Statement>,
+    context: Context,
 }
 
 impl AbstractTree for Block {
@@ -35,12 +36,13 @@ impl AbstractTree for Block {
             node.child_count() - 2
         };
         let mut statements = Vec::with_capacity(statement_count);
+        let block_context = Context::inherit_from(context)?;
 
         for index in 1..node.child_count() - 1 {
             let child_node = node.child(index).unwrap();
 
             if child_node.kind() == "statement" {
-                let statement = Statement::from_syntax(child_node, source, &context)?;
+                let statement = Statement::from_syntax(child_node, source, &block_context)?;
 
                 statements.push(statement);
             }
@@ -49,22 +51,23 @@ impl AbstractTree for Block {
         Ok(Block {
             is_async,
             statements,
+            context: block_context,
         })
     }
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
-                return inner_statement.validate(_source, _context);
+                return inner_statement.validate(_source, &self.context);
             } else {
-                statement.validate(_source, _context)?;
+                statement.validate(_source, &self.context)?;
             }
         }
 
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         if self.is_async {
             let statements = &self.statements;
             let final_result = RwLock::new(Ok(Value::none()));
@@ -73,7 +76,7 @@ impl AbstractTree for Block {
                 .into_par_iter()
                 .enumerate()
                 .find_map_first(|(index, statement)| {
-                    let result = statement.run(source, context);
+                    let result = statement.run(source, &self.context);
                     let is_last_statement = index == statements.len() - 1;
                     let is_return_statement = if let Statement::Return(_) = statement {
                         true
@@ -103,17 +106,17 @@ impl AbstractTree for Block {
 
             for statement in &self.statements {
                 if let Statement::Return(inner_statement) = statement {
-                    return inner_statement.run(source, context);
+                    return inner_statement.run(source, &self.context);
                 }
 
-                prev_result = Some(statement.run(source, context));
+                prev_result = Some(statement.run(source, &self.context));
             }
 
             prev_result.unwrap_or(Ok(Value::none()))
         }
     }
 
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         if let Some(statement) = self.statements.iter().find(|statement| {
             if let Statement::Return(_) = statement {
                 true
@@ -121,9 +124,9 @@ impl AbstractTree for Block {
                 false
             }
         }) {
-            statement.expected_type(context)
+            statement.expected_type(&self.context)
         } else if let Some(statement) = self.statements.last() {
-            statement.expected_type(context)
+            statement.expected_type(&self.context)
         } else {
             Ok(Type::None)
         }
