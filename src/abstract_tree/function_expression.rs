@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Format, FunctionCall, Identifier, Index, Map, SyntaxNode, Type, Value, ValueNode,
-    Yield,
+    AbstractTree, Context, Format, FunctionCall, Identifier, Index, SyntaxNode, Type, Value,
+    ValueNode,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -12,11 +12,10 @@ pub enum FunctionExpression {
     FunctionCall(Box<FunctionCall>),
     Value(ValueNode),
     Index(Index),
-    Yield(Box<Yield>),
 }
 
 impl AbstractTree for FunctionExpression {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "function_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -36,12 +35,9 @@ impl AbstractTree for FunctionExpression {
             )),
             "value" => FunctionExpression::Value(ValueNode::from_syntax(child, source, context)?),
             "index" => FunctionExpression::Index(Index::from_syntax(child, source, context)?),
-            "yield" => {
-                FunctionExpression::Yield(Box::new(Yield::from_syntax(child, source, context)?))
-            }
             _ => {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
-                    expected: "identifier, function call, value, index or yield".to_string(),
+                    expected: "identifier, function call, value or index".to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
                     relevant_source: source[child.byte_range()].to_string(),
@@ -52,17 +48,16 @@ impl AbstractTree for FunctionExpression {
         Ok(function_expression)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.expected_type(context),
             FunctionExpression::FunctionCall(function_call) => function_call.expected_type(context),
             FunctionExpression::Value(value_node) => value_node.expected_type(context),
             FunctionExpression::Index(index) => index.expected_type(context),
-            FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
         }
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.validate(_source, _context),
             FunctionExpression::FunctionCall(function_call) => {
@@ -70,17 +65,15 @@ impl AbstractTree for FunctionExpression {
             }
             FunctionExpression::Value(value_node) => value_node.validate(_source, _context),
             FunctionExpression::Index(index) => index.validate(_source, _context),
-            FunctionExpression::Yield(r#yield) => r#yield.validate(_source, _context),
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         match self {
             FunctionExpression::Identifier(identifier) => identifier.run(source, context),
             FunctionExpression::FunctionCall(function_call) => function_call.run(source, context),
             FunctionExpression::Value(value_node) => value_node.run(source, context),
             FunctionExpression::Index(index) => index.run(source, context),
-            FunctionExpression::Yield(r#yield) => r#yield.run(source, context),
         }
     }
 }
@@ -94,7 +87,6 @@ impl Format for FunctionExpression {
                 function_call.format(output, indent_level)
             }
             FunctionExpression::Index(index) => index.format(output, indent_level),
-            FunctionExpression::Yield(r#yield) => r#yield.format(output, indent_level),
         }
     }
 }

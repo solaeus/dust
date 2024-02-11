@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     value_node::ValueNode,
-    AbstractTree, Format, FunctionCall, Identifier, Index, Map, SyntaxNode, Type, Value,
+    AbstractTree, Context, Format, FunctionCall, Identifier, Index, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -15,7 +15,7 @@ pub enum IndexExpression {
 }
 
 impl AbstractTree for IndexExpression {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "index_expression", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -49,7 +49,7 @@ impl AbstractTree for IndexExpression {
         Ok(abstract_node)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         match self {
             IndexExpression::Value(value_node) => value_node.expected_type(context),
             IndexExpression::Identifier(identifier) => identifier.expected_type(context),
@@ -58,7 +58,7 @@ impl AbstractTree for IndexExpression {
         }
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         match self {
             IndexExpression::Value(value_node) => value_node.validate(_source, _context),
             IndexExpression::Identifier(identifier) => identifier.validate(_source, _context),
@@ -69,7 +69,7 @@ impl AbstractTree for IndexExpression {
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         match self {
             IndexExpression::Value(value_node) => value_node.run(source, context),
             IndexExpression::Identifier(identifier) => identifier.run(source, context),

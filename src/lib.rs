@@ -5,7 +5,8 @@
 //! You can use this library externally by calling either of the "interpret"
 //! functions or by constructing your own Interpreter.
 pub use crate::{
-    abstract_tree::*, built_in_functions::BuiltInFunction, error::Error, interpret::*, value::*,
+    abstract_tree::*, built_in_functions::BuiltInFunction, context::Context, error::Error,
+    interpret::*, value::*,
 };
 
 pub use tree_sitter::Node as SyntaxNode;

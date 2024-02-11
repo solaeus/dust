@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Format, Index, IndexExpression, Map, Statement, SyntaxNode,
-    Type, Value,
+    AbstractTree, AssignmentOperator, Context, Format, Index, IndexExpression, Statement,
+    SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -14,7 +14,7 @@ pub struct IndexAssignment {
 }
 
 impl AbstractTree for IndexAssignment {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "index_assignment", node)?;
 
         let index_node = node.child(0).unwrap();
@@ -33,18 +33,17 @@ impl AbstractTree for IndexAssignment {
         })
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         self.index.validate(_source, _context)?;
         self.statement.validate(_source, _context)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let index_collection = self.index.collection.run(source, context)?;
-        let index_context = index_collection.as_map().unwrap_or(context);
         let index_key = if let IndexExpression::Identifier(identifier) = &self.index.index {
             identifier.inner()
         } else {
@@ -57,9 +56,7 @@ impl AbstractTree for IndexAssignment {
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some((mut previous_value, _)) =
-                    index_context.variables()?.get(index_key).cloned()
-                {
+                if let Some(mut previous_value) = context.get_value(index_key)? {
                     previous_value += value;
                     previous_value
                 } else {
@@ -67,9 +64,7 @@ impl AbstractTree for IndexAssignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some((mut previous_value, _)) =
-                    index_context.variables()?.get(index_key).cloned()
-                {
+                if let Some(mut previous_value) = context.get_value(index_key)? {
                     previous_value -= value;
                     previous_value
                 } else {
@@ -79,7 +74,7 @@ impl AbstractTree for IndexAssignment {
             AssignmentOperator::Equal => value,
         };
 
-        index_context.set(index_key.clone(), new_value)?;
+        context.set_value(index_key.clone(), new_value)?;
 
         Ok(Value::none())
     }

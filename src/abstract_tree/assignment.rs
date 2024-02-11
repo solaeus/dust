@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     context::Context,
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Format, Identifier, Map, SourcePosition, Statement,
-    SyntaxNode, Type, TypeSpecification, Value,
+    AbstractTree, AssignmentOperator, Format, Identifier, SourcePosition, Statement, SyntaxNode,
+    Type, TypeSpecification, Value,
 };
 
 /// Variable assignment, including add-assign and subtract-assign operations.
@@ -130,13 +130,13 @@ impl AbstractTree for Assignment {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some((mut previous_value, _)) = context.variables()?.get(key).cloned() {
+                if let Some(mut previous_value) = context.get_value(key)? {
                     previous_value += value;
                     previous_value
                 } else {
@@ -144,7 +144,7 @@ impl AbstractTree for Assignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some((mut previous_value, _)) = context.variables()?.get(key).cloned() {
+                if let Some(mut previous_value) = context.get_value(key)? {
                     previous_value -= value;
                     previous_value
                 } else {
@@ -154,12 +154,12 @@ impl AbstractTree for Assignment {
             AssignmentOperator::Equal => value,
         };
 
-        context.set(key.clone(), new_value)?;
+        context.set_value(key.clone(), new_value)?;
 
         Ok(Value::none())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 }

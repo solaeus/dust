@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Context, Format, SyntaxNode, Type, Value,
 };
 
 /// Operators that be used in an assignment statement.
@@ -17,7 +17,7 @@ impl AbstractTree for AssignmentOperator {
     fn from_syntax(
         node: SyntaxNode,
         source: &str,
-        _context: &crate::Map,
+        _context: &Context,
     ) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "assignment_operator", node)?;
 
@@ -39,15 +39,15 @@ impl AbstractTree for AssignmentOperator {
         Ok(operator)
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         Ok(Value::none())
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         Ok(())
     }
 }

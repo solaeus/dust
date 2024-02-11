@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     value_node::ValueNode,
-    AbstractTree, Command, Format, FunctionCall, Identifier, Index, Logic, Map, Math, New,
-    SyntaxNode, Type, Value, Yield,
+    AbstractTree, Command, Context, Format, FunctionCall, Identifier, Index, Logic, Math, New,
+    SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of an expression statement.
@@ -20,13 +20,16 @@ pub enum Expression {
     Math(Box<Math>),
     Logic(Box<Logic>),
     FunctionCall(Box<FunctionCall>),
-    Yield(Box<Yield>),
     New(New),
     Command(Command),
 }
 
 impl AbstractTree for Expression {
-    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(
+        node: SyntaxNode,
+        source: &str,
+        _context: &Context,
+    ) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
@@ -46,13 +49,12 @@ impl AbstractTree for Expression {
             "function_call" => Expression::FunctionCall(Box::new(FunctionCall::from_syntax(
                 child, source, _context,
             )?)),
-            "yield" => Expression::Yield(Box::new(Yield::from_syntax(child, source, _context)?)),
             "new" => Expression::New(New::from_syntax(child, source, _context)?),
             "command" => Expression::Command(Command::from_syntax(child, source, _context)?),
             _ => {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected:
-                        "value, identifier, index, math, logic, function call, new, context or ->"
+                        "value, identifier, index, math, logic, function call, new or command"
                             .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
@@ -64,7 +66,7 @@ impl AbstractTree for Expression {
         Ok(expression)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Expression::Value(value_node) => value_node.expected_type(_context),
             Expression::Identifier(identifier) => identifier.expected_type(_context),
@@ -72,13 +74,12 @@ impl AbstractTree for Expression {
             Expression::Logic(logic) => logic.expected_type(_context),
             Expression::FunctionCall(function_call) => function_call.expected_type(_context),
             Expression::Index(index) => index.expected_type(_context),
-            Expression::Yield(r#yield) => r#yield.expected_type(_context),
             Expression::New(new) => new.expected_type(_context),
             Expression::Command(command) => command.expected_type(_context),
         }
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         match self {
             Expression::Value(value_node) => value_node.validate(_source, _context),
             Expression::Identifier(identifier) => identifier.validate(_source, _context),
@@ -86,13 +87,12 @@ impl AbstractTree for Expression {
             Expression::Logic(logic) => logic.validate(_source, _context),
             Expression::FunctionCall(function_call) => function_call.validate(_source, _context),
             Expression::Index(index) => index.validate(_source, _context),
-            Expression::Yield(r#yield) => r#yield.validate(_source, _context),
             Expression::New(new) => new.validate(_source, _context),
             Expression::Command(command) => command.validate(_source, _context),
         }
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         match self {
             Expression::Value(value_node) => value_node.run(_source, _context),
             Expression::Identifier(identifier) => identifier.run(_source, _context),
@@ -100,7 +100,6 @@ impl AbstractTree for Expression {
             Expression::Logic(logic) => logic.run(_source, _context),
             Expression::FunctionCall(function_call) => function_call.run(_source, _context),
             Expression::Index(index) => index.run(_source, _context),
-            Expression::Yield(r#yield) => r#yield.run(_source, _context),
             Expression::New(new) => new.run(_source, _context),
             Expression::Command(command) => command.run(_source, _context),
         }
@@ -116,7 +115,6 @@ impl Format for Expression {
             Expression::Logic(logic) => logic.format(_output, _indent_level),
             Expression::FunctionCall(function_call) => function_call.format(_output, _indent_level),
             Expression::Index(index) => index.format(_output, _indent_level),
-            Expression::Yield(r#yield) => r#yield.format(_output, _indent_level),
             Expression::New(new) => new.format(_output, _indent_level),
             Expression::Command(command) => command.format(_output, _indent_level),
         }

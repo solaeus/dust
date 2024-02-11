@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{rw_lock_error::RwLockError, RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Format, Map, Statement, SyntaxNode, Type, Value,
+    AbstractTree, Context, Format, Statement, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a block.
@@ -20,11 +20,10 @@ use crate::{
 pub struct Block {
     is_async: bool,
     statements: Vec<Statement>,
-    context: Map,
 }
 
 impl AbstractTree for Block {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "block", node)?;
 
         let first_child = node.child(0).unwrap();
@@ -36,13 +35,12 @@ impl AbstractTree for Block {
             node.child_count() - 2
         };
         let mut statements = Vec::with_capacity(statement_count);
-        let block_context = Map::clone_from(context)?;
 
         for index in 1..node.child_count() - 1 {
             let child_node = node.child(index).unwrap();
 
             if child_node.kind() == "statement" {
-                let statement = Statement::from_syntax(child_node, source, &block_context)?;
+                let statement = Statement::from_syntax(child_node, source, &context)?;
 
                 statements.push(statement);
             }
@@ -51,23 +49,22 @@ impl AbstractTree for Block {
         Ok(Block {
             is_async,
             statements,
-            context: block_context,
         })
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         for statement in &self.statements {
             if let Statement::Return(inner_statement) = statement {
-                return inner_statement.validate(_source, &self.context);
+                return inner_statement.validate(_source, _context);
             } else {
-                statement.validate(_source, &self.context)?;
+                statement.validate(_source, _context)?;
             }
         }
 
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         if self.is_async {
             let statements = &self.statements;
             let final_result = RwLock::new(Ok(Value::none()));
@@ -76,7 +73,7 @@ impl AbstractTree for Block {
                 .into_par_iter()
                 .enumerate()
                 .find_map_first(|(index, statement)| {
-                    let result = statement.run(source, &self.context);
+                    let result = statement.run(source, context);
                     let is_last_statement = index == statements.len() - 1;
                     let is_return_statement = if let Statement::Return(_) = statement {
                         true
@@ -116,7 +113,7 @@ impl AbstractTree for Block {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         if let Some(statement) = self.statements.iter().find(|statement| {
             if let Statement::Return(_) = statement {
                 true

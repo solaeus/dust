@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInValue, Expression, Format, Function, FunctionNode, Identifier, List, Map,
-    SourcePosition, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
+    AbstractTree, BuiltInValue, Context, Expression, Format, Function, FunctionNode, Identifier,
+    List, Map, SourcePosition, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -24,7 +24,7 @@ pub enum ValueNode {
 }
 
 impl AbstractTree for ValueNode {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "value", node)?;
 
         let child = node.child(0).unwrap();
@@ -182,7 +182,7 @@ impl AbstractTree for ValueNode {
         Ok(value_node)
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::Float(_) => Type::Float,
@@ -234,7 +234,7 @@ impl AbstractTree for ValueNode {
         Ok(r#type)
     }
 
-    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         match self {
             ValueNode::Function(function) => {
                 if let Function::ContextDefined(function_node) = function {
@@ -262,7 +262,7 @@ impl AbstractTree for ValueNode {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(value_source) => Value::Boolean(value_source.parse().unwrap()),
             ValueNode::Float(value_source) => {

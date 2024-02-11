@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Context, Format, SyntaxNode, Type, Value,
 };
 
 /// A string by which a variable is known to a context.
@@ -29,7 +29,11 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
-    fn from_syntax(node: SyntaxNode, source: &str, _context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(
+        node: SyntaxNode,
+        source: &str,
+        _context: &Context,
+    ) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "identifier", node)?;
 
         let text = &source[node.byte_range()];
@@ -39,20 +43,20 @@ impl AbstractTree for Identifier {
         Ok(Identifier(text.to_string()))
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         Ok(())
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
-        if let Some((_value, r#type)) = context.variables()?.get(&self.0) {
-            Ok(r#type.clone())
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
+        if let Some(r#type) = context.get_type(&self.0)? {
+            Ok(r#type)
         } else {
             Err(ValidationError::VariableIdentifierNotFound(self.clone()))
         }
     }
 
-    fn run(&self, _source: &str, context: &Map) -> Result<Value, RuntimeError> {
-        if let Some((value, _)) = context.variables()?.get(&self.0) {
+    fn run(&self, _source: &str, context: &Context) -> Result<Value, RuntimeError> {
+        if let Some(value) = context.get_value(&self.0)? {
             Ok(value.clone())
         } else {
             Err(RuntimeError::VariableIdentifierNotFound(self.0.clone()))

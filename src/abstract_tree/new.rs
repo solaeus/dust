@@ -3,7 +3,7 @@ use tree_sitter::Node;
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Format, Identifier, Map, Type, TypeSpecification, Value, ValueNode,
+    AbstractTree, Context, Format, Identifier, Type, TypeSpecification, Value, ValueNode,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -13,7 +13,7 @@ pub struct New {
 }
 
 impl AbstractTree for New {
-    fn from_syntax(node: Node, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: Node, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         let identifier_node = node.child(1).unwrap();
         let identifier = Identifier::from_syntax(identifier_node, source, context)?;
 
@@ -25,15 +25,15 @@ impl AbstractTree for New {
         })
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         todo!()
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         todo!()
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         todo!()
     }
 }

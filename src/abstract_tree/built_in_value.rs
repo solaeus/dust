@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     built_in_functions::{fs::fs_functions, json::json_functions, str::string_functions, Callable},
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInFunction, Format, Function, List, Map, SyntaxNode, Type, Value,
+    AbstractTree, BuiltInFunction, Context, Format, Function, List, Map, SyntaxNode, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -175,7 +175,11 @@ impl BuiltInValue {
 }
 
 impl AbstractTree for BuiltInValue {
-    fn from_syntax(node: SyntaxNode, _source: &str, _context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(
+        node: SyntaxNode,
+        _source: &str,
+        _context: &Context,
+    ) -> Result<Self, SyntaxError> {
         let built_in_value = match node.kind() {
             "args" => BuiltInValue::Args,
             "assert_equal" => BuiltInValue::AssertEqual,
@@ -191,15 +195,15 @@ impl AbstractTree for BuiltInValue {
         Ok(built_in_value)
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(self.r#type())
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         Ok(())
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         Ok(self.get().clone())
     }
 }

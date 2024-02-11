@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Expression, Format, Map, Statement, SyntaxNode, Type, Value,
+    AbstractTree, Context, Expression, Format, Statement, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a match statement.
@@ -18,7 +18,7 @@ pub struct Match {
 }
 
 impl AbstractTree for Match {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "match", node)?;
 
         let matcher_node = node.child(1).unwrap();
@@ -59,13 +59,13 @@ impl AbstractTree for Match {
         })
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         let (_, first_statement) = self.options.first().unwrap();
 
         first_statement.expected_type(context)
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         self.matcher.validate(_source, _context)?;
 
         for (expression, statement) in &self.options {
@@ -80,7 +80,7 @@ impl AbstractTree for Match {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let matcher_value = self.matcher.run(source, context)?;
 
         for (expression, statement) in &self.options {

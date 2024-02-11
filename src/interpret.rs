@@ -38,7 +38,7 @@
 use tree_sitter::{Node as SyntaxNode, Parser, Tree as SyntaxTree, TreeCursor};
 
 use crate::{
-    error::SyntaxError, language, AbstractTree, Error, Format, Map, Root, SourcePosition, Value,
+    error::SyntaxError, language, AbstractTree, Context, Error, Format, Root, SourcePosition, Value,
 };
 
 /// Interpret the given source code. Returns the value of last statement or the
@@ -46,7 +46,7 @@ use crate::{
 ///
 /// See the [module-level docs][self] for more info.
 pub fn interpret(source: &str) -> Result<Value, Error> {
-    interpret_with_context(source, Map::new())
+    interpret_with_context(source, Context::new())
 }
 
 /// Interpret the given source code with the given context.
@@ -57,7 +57,7 @@ pub fn interpret(source: &str) -> Result<Value, Error> {
 /// maps.
 ///
 /// See the [module-level docs][self] for more info.
-pub fn interpret_with_context(source: &str, context: Map) -> Result<Value, Error> {
+pub fn interpret_with_context(source: &str, context: Context) -> Result<Value, Error> {
     let mut interpreter = Interpreter::new(context);
     let value = interpreter.run(source)?;
 
@@ -71,12 +71,12 @@ pub fn interpret_with_context(source: &str, context: Map) -> Result<Value, Error
 /// process contains the prior steps, meaning that the same code is always used to create the syntax /// tree, abstract tree and final evaluation. This avoids a critical logic error.
 pub struct Interpreter {
     parser: Parser,
-    context: Map,
+    context: Context,
 }
 
 impl Interpreter {
     /// Creates a new interpreter with the given variable context.
-    pub fn new(context: Map) -> Self {
+    pub fn new(context: Context) -> Self {
         let mut parser = Parser::new();
 
         parser
@@ -176,6 +176,6 @@ impl Interpreter {
 
 impl Default for Interpreter {
     fn default() -> Self {
-        Interpreter::new(Map::new())
+        Interpreter::new(Context::new())
     }
 }

@@ -3,8 +3,8 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    built_in_functions::Callable, error::RuntimeError, BuiltInFunction, Format, FunctionNode, Map,
-    Type, Value,
+    built_in_functions::Callable, error::RuntimeError, BuiltInFunction, Context, Format,
+    FunctionNode, Type, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ impl Function {
         &self,
         arguments: &[Value],
         source: &str,
-        outer_context: &Map,
+        outer_context: &Context,
     ) -> Result<Value, RuntimeError> {
         match self {
             Function::BuiltIn(built_in_function) => {

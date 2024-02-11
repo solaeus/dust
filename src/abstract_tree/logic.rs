@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Expression, Format, LogicOperator, Map, SyntaxNode, Type, Value,
+    AbstractTree, Context, Expression, Format, LogicOperator, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a logic expression.
@@ -14,7 +14,7 @@ pub struct Logic {
 }
 
 impl AbstractTree for Logic {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "logic", node)?;
 
         let first_node = node.child(0).unwrap();
@@ -40,16 +40,16 @@ impl AbstractTree for Logic {
         })
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::Boolean)
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         self.left.validate(_source, _context)?;
         self.right.validate(_source, _context)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let result = match self.operator {

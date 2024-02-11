@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Expression, Format, Map, SourcePosition, SyntaxNode, Type, Value,
+    AbstractTree, Block, Context, Expression, Format, SourcePosition, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -16,7 +16,7 @@ pub struct IfElse {
 }
 
 impl AbstractTree for IfElse {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         let if_expression_node = node.child(0).unwrap().child(1).unwrap();
         let if_expression = Expression::from_syntax(if_expression_node, source, context)?;
 
@@ -59,11 +59,11 @@ impl AbstractTree for IfElse {
         })
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         self.if_block.expected_type(context)
     }
 
-    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         self.if_expression.validate(_source, context)?;
         self.if_block.validate(_source, context)?;
 
@@ -103,7 +103,7 @@ impl AbstractTree for IfElse {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let if_boolean = self.if_expression.run(source, context)?.as_boolean()?;
 
         if if_boolean {

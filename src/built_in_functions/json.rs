@@ -1,7 +1,7 @@
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Map, Type, Value};
+use crate::{error::RuntimeError, Context, Type, Value};
 
 use super::Callable;
 
@@ -45,7 +45,7 @@ impl Callable for Json {
         &self,
         arguments: &[Value],
         _source: &str,
-        _outer_context: &Map,
+        _outer_context: &Context,
     ) -> Result<Value, RuntimeError> {
         match self {
             Json::Create => {

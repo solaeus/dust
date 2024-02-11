@@ -1,10 +1,11 @@
 use std::process;
 
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node as SyntaxNode;
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Format, Map, Type, Value,
+    AbstractTree, Context, Format, Type, Value,
 };
 
 /// An external program invokation.
@@ -16,9 +17,9 @@ pub struct Command {
 
 impl AbstractTree for Command {
     fn from_syntax(
-        node: tree_sitter::Node,
+        node: SyntaxNode,
         source: &str,
-        _context: &crate::Map,
+        _context: &Context,
     ) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "command", node)?;
 
@@ -47,15 +48,15 @@ impl AbstractTree for Command {
         })
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::String)
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         todo!()
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         let output = process::Command::new(&self.command_text)
             .args(&self.command_arguments)
             .spawn()?

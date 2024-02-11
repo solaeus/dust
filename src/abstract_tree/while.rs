@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Expression, Format, Map, SyntaxNode, Type, Value,
+    AbstractTree, Block, Context, Expression, Format, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a while loop.
@@ -15,7 +15,7 @@ pub struct While {
 }
 
 impl AbstractTree for While {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "while", node)?;
 
         let expression_node = node.child(1).unwrap();
@@ -27,16 +27,16 @@ impl AbstractTree for While {
         Ok(While { expression, block })
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         self.block.expected_type(context)
     }
 
-    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         self.expression.validate(_source, context)?;
         self.block.validate(_source, context)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         while self.expression.run(source, context)?.as_boolean()? {
             self.block.run(source, context)?;
         }

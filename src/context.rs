@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock},
 };
 
 use crate::{error::rw_lock_error::RwLockError, Type, Value};
@@ -30,7 +30,7 @@ impl Context {
     pub fn inherit_from(other: &Context) -> Result<Context, RwLockError> {
         let mut new_variables = HashMap::new();
 
-        for (identifier, value_data) in other.variables()?.iter() {
+        for (identifier, value_data) in other.inner.read()?.iter() {
             new_variables.insert(identifier.clone(), value_data.clone());
         }
 
@@ -39,14 +39,10 @@ impl Context {
         })
     }
 
-    pub fn variables(&self) -> Result<RwLockReadGuard<HashMap<String, ValueData>>, RwLockError> {
-        Ok(self.inner.read()?)
-    }
-
-    pub fn get_value(&self, key: &str) -> Result<Option<&Value>, RwLockError> {
+    pub fn get_value(&self, key: &str) -> Result<Option<Value>, RwLockError> {
         if let Some(value_data) = self.inner.read()?.get(key) {
             if let ValueData::Value { inner, .. } = value_data {
-                Ok(Some(inner))
+                Ok(Some(inner.clone()))
             } else {
                 Ok(None)
             }

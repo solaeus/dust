@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Assignment, Block, Expression, For, Format, IfElse, IndexAssignment, Map, Match,
-    SyntaxNode, Type, Value, While,
+    AbstractTree, Assignment, Block, Context, Expression, For, Format, IfElse, IndexAssignment,
+    Match, SyntaxNode, Type, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -21,7 +21,7 @@ pub enum Statement {
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "statement", node)?;
 
         let child = node.child(0).unwrap();
@@ -66,7 +66,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.expected_type(context),
             Statement::Expression(expression) => expression.expected_type(context),
@@ -80,7 +80,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.validate(_source, _context),
             Statement::Expression(expression) => expression.validate(_source, _context),
@@ -96,7 +96,7 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         match self {
             Statement::Assignment(assignment) => assignment.run(source, context),
             Statement::Expression(expression) => expression.run(source, context),

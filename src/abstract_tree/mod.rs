@@ -32,14 +32,13 @@ pub mod r#type;
 pub mod type_specification;
 pub mod value_node;
 pub mod r#while;
-pub mod r#yield;
 
 pub use {
     assignment::*, assignment_operator::*, block::*, built_in_value::*, command::*, expression::*,
     function_call::*, function_expression::*, function_node::*, identifier::*, if_else::*,
     index::*, index_assignment::IndexAssignment, index_expression::*, logic::*, logic_operator::*,
-    math::*, math_operator::*, new::*, r#for::*, r#match::*, r#type::*, r#while::*, r#yield::*,
-    statement::*, type_specification::*, value_node::*,
+    math::*, math_operator::*, new::*, r#for::*, r#match::*, r#type::*, r#while::*, statement::*,
+    type_specification::*, value_node::*,
 };
 
 use serde::{Deserialize, Serialize};
@@ -47,7 +46,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     context::Context,
     error::{RuntimeError, SyntaxError, ValidationError},
-    Map, SyntaxNode, Value,
+    SyntaxNode, Value,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

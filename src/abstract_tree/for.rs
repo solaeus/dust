@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Expression, Format, Identifier, Map, SourcePosition, SyntaxNode, Type,
+    AbstractTree, Block, Context, Expression, Format, Identifier, SourcePosition, SyntaxNode, Type,
     Value,
 };
 
@@ -18,7 +18,7 @@ pub struct For {
 }
 
 impl AbstractTree for For {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "for", node)?;
 
         let for_node = node.child(0).unwrap();
@@ -53,11 +53,11 @@ impl AbstractTree for For {
         })
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 
-    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         let collection_type = self.collection.expected_type(context)?;
         let item_type = if let Type::List(item_type) = collection_type {
             item_type.as_ref().clone()
@@ -76,24 +76,24 @@ impl AbstractTree for For {
         self.block.validate(_source, context)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let expression_run = self.collection.run(source, context)?;
         let key = self.item_id.inner();
 
         if let Value::Range(range) = expression_run {
             if self.is_async {
                 range.into_par_iter().try_for_each(|integer| {
-                    let iter_context = Map::clone_from(context)?;
+                    let iter_context = Context::inherit_from(context)?;
 
-                    iter_context.set(key.clone(), Value::Integer(integer))?;
+                    iter_context.set_value(key.clone(), Value::Integer(integer))?;
 
                     self.block.run(source, &iter_context).map(|_value| ())
                 })?;
             } else {
-                let loop_context = Map::clone_from(context)?;
+                let loop_context = Context::inherit_from(context)?;
 
                 for i in range {
-                    loop_context.set(key.clone(), Value::Integer(i))?;
+                    loop_context.set_value(key.clone(), Value::Integer(i))?;
 
                     self.block.run(source, &loop_context)?;
                 }
@@ -106,17 +106,17 @@ impl AbstractTree for For {
 
         if self.is_async {
             values.par_iter().try_for_each(|value| {
-                let iter_context = Map::clone_from(context)?;
+                let iter_context = Context::inherit_from(context)?;
 
-                iter_context.set(key.clone(), value.clone())?;
+                iter_context.set_value(key.clone(), value.clone())?;
 
                 self.block.run(source, &iter_context).map(|_value| ())
             })?;
         } else {
-            let loop_context = Map::clone_from(context)?;
+            let loop_context = Context::inherit_from(context)?;
 
             for value in values.iter() {
-                loop_context.set(key.clone(), value.clone())?;
+                loop_context.set_value(key.clone(), value.clone())?;
 
                 self.block.run(source, &loop_context)?;
             }

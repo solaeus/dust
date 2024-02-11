@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Expression, Format, Map, MathOperator, SyntaxNode, Type, Value,
+    AbstractTree, Context, Expression, Format, MathOperator, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of a math operation.
@@ -17,7 +17,7 @@ pub struct Math {
 }
 
 impl AbstractTree for Math {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "math", node)?;
 
         let left_node = node.child(0).unwrap();
@@ -36,16 +36,16 @@ impl AbstractTree for Math {
         })
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         self.left.expected_type(context)
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         self.left.validate(_source, _context)?;
         self.right.validate(_source, _context)
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let value = match self.operator {

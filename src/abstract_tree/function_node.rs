@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Block, Format, Function, Identifier, Map, SourcePosition, SyntaxNode, Type,
+    AbstractTree, Block, Context, Format, Function, Identifier, SourcePosition, SyntaxNode, Type,
     TypeSpecification, Value,
 };
 
@@ -61,21 +61,15 @@ impl FunctionNode {
         &self,
         arguments: &[Value],
         source: &str,
-        outer_context: &Map,
+        outer_context: &Context,
     ) -> Result<Value, RuntimeError> {
-        let function_context = Map::new();
+        let function_context = Context::inherit_from(outer_context)?;
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
-
-        for (key, (value, r#type)) in outer_context.variables()?.iter() {
-            if r#type.is_function() {
-                function_context.set(key.clone(), value.clone())?;
-            }
-        }
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
 
-            function_context.set(key, value.clone())?;
+            function_context.set_value(key, value.clone())?;
         }
 
         let return_value = self.body.run(source, &function_context)?;
@@ -88,7 +82,7 @@ impl AbstractTree for FunctionNode {
     fn from_syntax(
         node: SyntaxNode,
         source: &str,
-        outer_context: &Map,
+        outer_context: &Context,
     ) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "function", node)?;
 
@@ -116,16 +110,10 @@ impl AbstractTree for FunctionNode {
         let return_type_node = node.child(child_count - 2).unwrap();
         let return_type = TypeSpecification::from_syntax(return_type_node, source, outer_context)?;
 
-        let function_context = Map::new();
+        let function_context = Context::inherit_from(outer_context)?;
 
         for (parameter, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
             function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
-        }
-
-        for (key, (value, r#type)) in outer_context.variables()?.iter() {
-            if r#type.is_function() {
-                function_context.set(key.clone(), value.clone())?;
-            }
         }
 
         let body_node = node.child(child_count - 1).unwrap();
@@ -142,18 +130,12 @@ impl AbstractTree for FunctionNode {
         })
     }
 
-    fn expected_type(&self, _context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(self.r#type().clone())
     }
 
-    fn validate(&self, source: &str, context: &Map) -> Result<(), ValidationError> {
-        let function_context = Map::new();
-
-        for (key, (_value, r#type)) in context.variables()?.iter() {
-            if r#type.is_function() {
-                function_context.set_type(key.clone(), r#type.clone())?;
-            }
-        }
+    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
+        let function_context = Context::inherit_from(context)?;
 
         if let Type::Function {
             parameter_types,
@@ -185,7 +167,7 @@ impl AbstractTree for FunctionNode {
         }
     }
 
-    fn run(&self, _source: &str, _context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         let self_as_value = Value::Function(Function::ContextDefined(self.clone()));
 
         Ok(self_as_value)

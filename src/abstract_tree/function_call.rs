@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Expression, Format, FunctionExpression, Map, SourcePosition, SyntaxNode, Type,
-    Value,
+    AbstractTree, Context, Expression, Format, FunctionExpression, SourcePosition, SyntaxNode,
+    Type, Value,
 };
 
 /// A function being invoked and the arguments it is being passed.
@@ -30,7 +30,7 @@ impl FunctionCall {
 }
 
 impl AbstractTree for FunctionCall {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "function_call", node)?;
 
         let function_node = node.child(0).unwrap();
@@ -55,7 +55,7 @@ impl AbstractTree for FunctionCall {
         })
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let identifier_type = identifier.expected_type(context)?;
@@ -81,11 +81,10 @@ impl AbstractTree for FunctionCall {
                 }
             }
             FunctionExpression::Index(index) => index.expected_type(context),
-            FunctionExpression::Yield(r#yield) => r#yield.expected_type(context),
         }
     }
 
-    fn validate(&self, _source: &str, context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         let function_expression_type = self.function_expression.expected_type(context)?;
 
         let parameter_types = match function_expression_type {
@@ -126,13 +125,12 @@ impl AbstractTree for FunctionCall {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let value = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 let key = identifier.inner();
-                let variables = context.variables()?;
 
-                if let Some((value, _)) = variables.get(key) {
+                if let Some(value) = context.get_value(key)? {
                     value.clone()
                 } else {
                     return Err(RuntimeError::VariableIdentifierNotFound(
@@ -145,7 +143,6 @@ impl AbstractTree for FunctionCall {
             }
             FunctionExpression::Value(value_node) => value_node.run(source, context)?,
             FunctionExpression::Index(index) => index.run(source, context)?,
-            FunctionExpression::Yield(r#yield) => r#yield.run(source, context)?,
         };
 
         let mut arguments = Vec::with_capacity(self.arguments.len());

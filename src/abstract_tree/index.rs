@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Format, IndexExpression, List, Map, SourcePosition, SyntaxNode, Type, Value,
+    AbstractTree, Context, Format, IndexExpression, List, SourcePosition, SyntaxNode, Type, Value,
 };
 
 /// Abstract representation of an index expression.
@@ -17,7 +17,7 @@ pub struct Index {
 }
 
 impl AbstractTree for Index {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Map) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "index", node)?;
 
         let collection_node = node.child(0).unwrap();
@@ -45,7 +45,7 @@ impl AbstractTree for Index {
         })
     }
 
-    fn expected_type(&self, context: &Map) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         match self.collection.expected_type(context)? {
             Type::List(item_type) => Ok(*item_type.clone()),
             Type::Map(_) => Ok(Type::Any),
@@ -54,7 +54,7 @@ impl AbstractTree for Index {
         }
     }
 
-    fn validate(&self, _source: &str, _context: &Map) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         self.collection.validate(_source, _context)?;
         self.index.validate(_source, _context)?;
 
@@ -65,7 +65,7 @@ impl AbstractTree for Index {
         Ok(())
     }
 
-    fn run(&self, source: &str, context: &Map) -> Result<Value, RuntimeError> {
+    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let value = self.collection.run(source, context)?;
 
         match value {
