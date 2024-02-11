@@ -25,6 +25,12 @@ pub struct Block {
     context: Context,
 }
 
+impl Block {
+    pub fn context(&self) -> &Context {
+        &self.context
+    }
+}
+
 impl AbstractTree for Block {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "block", node)?;

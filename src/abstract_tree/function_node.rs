@@ -63,16 +63,15 @@ impl FunctionNode {
         source: &str,
         outer_context: &Context,
     ) -> Result<Value, RuntimeError> {
-        let function_context = Context::inherit_from(outer_context)?;
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
 
-            function_context.set_value(key, value.clone())?;
+            self.body.context().set_value(key, value.clone())?;
         }
 
-        let return_value = self.body.run(source, &function_context)?;
+        let return_value = self.body.run(source, outer_context)?;
 
         Ok(return_value)
     }
@@ -110,14 +109,13 @@ impl AbstractTree for FunctionNode {
         let return_type_node = node.child(child_count - 2).unwrap();
         let return_type = TypeSpecification::from_syntax(return_type_node, source, outer_context)?;
 
-        let function_context = Context::inherit_from(outer_context)?;
+        let body_node = node.child(child_count - 1).unwrap();
+        let body = Block::from_syntax(body_node, source, &outer_context)?;
 
         for (parameter, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
-            function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
+            body.context()
+                .set_type(parameter.inner().clone(), parameter_type.clone())?;
         }
-
-        let body_node = node.child(child_count - 1).unwrap();
-        let body = Block::from_syntax(body_node, source, &function_context)?;
 
         let r#type = Type::function(parameter_types, return_type.take_inner());
         let syntax_position = node.range().into();
@@ -135,18 +133,12 @@ impl AbstractTree for FunctionNode {
     }
 
     fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
-        let function_context = Context::inherit_from(context)?;
-
         if let Type::Function {
-            parameter_types,
+            parameter_types: _,
             return_type,
         } = &self.r#type
         {
-            for (parameter, parameter_type) in self.parameters.iter().zip(parameter_types.iter()) {
-                function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
-            }
-
-            let actual = self.body.expected_type(&function_context)?;
+            let actual = self.body.expected_type(context)?;
 
             if !return_type.accepts(&actual) {
                 return Err(ValidationError::TypeCheck {
@@ -156,7 +148,7 @@ impl AbstractTree for FunctionNode {
                 });
             }
 
-            self.body.validate(source, &function_context)?;
+            self.body.validate(source, context)?;
 
             Ok(())
         } else {
