@@ -11,7 +11,7 @@ use reedline::{
 
 use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
 
-use dust_lang::{built_in_values, Error, Interpreter, Map, Value};
+use dust_lang::{built_in_values, Context, Error, Interpreter, Value, ValueData};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -50,11 +50,11 @@ fn main() {
     env_logger::init();
 
     let args = Args::parse();
-    let context = Map::new();
+    let context = Context::new();
 
     if let Some(input) = args.input {
         context
-            .set("input".to_string(), Value::string(input))
+            .set_value("input".to_string(), Value::string(input))
             .unwrap();
     }
 
@@ -62,7 +62,7 @@ fn main() {
         let file_contents = read_to_string(path).unwrap();
 
         context
-            .set("input".to_string(), Value::string(file_contents))
+            .set_value("input".to_string(), Value::string(file_contents))
             .unwrap();
     }
 
@@ -117,11 +117,11 @@ fn main() {
 }
 
 struct DustHighlighter {
-    context: Map,
+    context: Context,
 }
 
 impl DustHighlighter {
-    fn new(context: Map) -> Self {
+    fn new(context: Context) -> Self {
         Self { context }
     }
 }
@@ -130,35 +130,26 @@ const HIGHLIGHT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'
 
 impl Highlighter for DustHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
-        fn highlight_identifier(styled: &mut StyledText, word: &str, map: &Map) -> bool {
-            for (key, (value, _type)) in map.variables().unwrap().iter() {
+        let mut styled = StyledText::new();
+
+        for word in line.split_inclusive(&HIGHLIGHT_TERMINATORS) {
+            let mut word_is_highlighted = false;
+
+            for key in self.context.inner().unwrap().keys() {
                 if key == &word {
                     styled.push((Style::new().bold(), word.to_string()));
-
-                    return true;
                 }
 
-                if let Value::Map(nested_map) = value {
-                    return highlight_identifier(styled, word, nested_map);
-                }
+                word_is_highlighted = true;
             }
 
             for built_in_value in built_in_values() {
                 if built_in_value.name() == word {
                     styled.push((Style::new().bold(), word.to_string()));
-
-                    return true;
                 }
+
+                word_is_highlighted = true;
             }
-
-            false
-        }
-
-        let mut styled = StyledText::new();
-
-        for word in line.split_inclusive(&HIGHLIGHT_TERMINATORS) {
-            let word_is_highlighted =
-                highlight_identifier(&mut styled, &word[0..word.len() - 1], &self.context);
 
             if word_is_highlighted {
                 let final_char = word.chars().last().unwrap();
@@ -239,11 +230,11 @@ impl Prompt for StarshipPrompt {
 }
 
 pub struct DustCompleter {
-    context: Map,
+    context: Context,
 }
 
 impl DustCompleter {
-    fn new(context: Map) -> Self {
+    fn new(context: Context) -> Self {
         DustCompleter { context }
     }
 }
@@ -302,7 +293,7 @@ impl Completer for DustCompleter {
             }
 
             if let Value::Map(map) = built_in_value.get() {
-                for (key, (value, _type)) in map.variables().unwrap().iter() {
+                for (key, value) in map.iter() {
                     if key.contains(last_word) {
                         suggestions.push(Suggestion {
                             value: format!("{name}:{key}"),
@@ -316,7 +307,12 @@ impl Completer for DustCompleter {
             }
         }
 
-        for (key, (value, _type)) in self.context.variables().unwrap().iter() {
+        for (key, value_data) in self.context.inner().unwrap().iter() {
+            let value = match value_data {
+                ValueData::Value { inner, .. } => inner,
+                ValueData::ExpectedType { .. } => continue,
+            };
+
             if key.contains(last_word) {
                 suggestions.push(Suggestion {
                     value: key.to_string(),
@@ -332,7 +328,7 @@ impl Completer for DustCompleter {
     }
 }
 
-fn run_shell(context: Map) -> Result<(), Error> {
+fn run_shell(context: Context) -> Result<(), Error> {
     let mut interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 

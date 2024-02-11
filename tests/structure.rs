@@ -17,7 +17,7 @@ fn simple_structure() {
 
 #[test]
 fn new_structure() {
-    let result = interpret(
+    let _result = interpret(
         "
         Coords = struct {
             x <float> = 0.0
@@ -35,7 +35,9 @@ fn new_structure() {
 
     map.insert("x".to_string(), (Some(Value::Integer(0)), Type::Integer));
 
-    let expected = Value::Map(Map::from_structure(Structure::new(map)));
+    // let expected = Value::Map(Map::from_structure(Structure::new(map)));
 
-    assert_eq!(Ok(expected), result);
+    // assert_eq!(Ok(expected), result);
+
+    todo!()
 }

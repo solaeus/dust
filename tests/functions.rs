@@ -89,9 +89,9 @@ fn function_context_captures_functions() {
 
 #[test]
 fn function_context_captures_structure_definitions() {
-    let map = Map::new();
+    let mut map = Map::new();
 
-    map.set("name".to_string(), Value::string("bob")).unwrap();
+    map.set("name".to_string(), Value::string("bob"));
 
     assert_eq!(
         interpret(

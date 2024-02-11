@@ -114,12 +114,11 @@ impl BuiltInValue {
                     let key = fs_function.name().to_string();
                     let value =
                         Value::Function(Function::BuiltIn(BuiltInFunction::Fs(fs_function)));
-                    let r#type = value.r#type();
 
-                    fs_context.insert(key, (value, r#type));
+                    fs_context.insert(key, value);
                 }
 
-                Value::Map(Map::with_variables(fs_context))
+                Value::Map(Map::with_values(fs_context))
             }),
             BuiltInValue::Json => JSON.get_or_init(|| {
                 let mut json_context = BTreeMap::new();
@@ -128,12 +127,11 @@ impl BuiltInValue {
                     let key = json_function.name().to_string();
                     let value =
                         Value::Function(Function::BuiltIn(BuiltInFunction::Json(json_function)));
-                    let r#type = value.r#type();
 
-                    json_context.insert(key, (value, r#type));
+                    json_context.insert(key, value);
                 }
 
-                Value::Map(Map::with_variables(json_context))
+                Value::Map(Map::with_values(json_context))
             }),
             BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
             BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
@@ -148,12 +146,11 @@ impl BuiltInValue {
                 ] {
                     let key = built_in_function.name().to_string();
                     let value = Value::Function(Function::BuiltIn(built_in_function));
-                    let r#type = built_in_function.r#type();
 
-                    random_context.insert(key, (value, r#type));
+                    random_context.insert(key, value);
                 }
 
-                Value::Map(Map::with_variables(random_context))
+                Value::Map(Map::with_values(random_context))
             }),
             BuiltInValue::Str => STRING.get_or_init(|| {
                 let mut string_context = BTreeMap::new();
@@ -163,12 +160,11 @@ impl BuiltInValue {
                     let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
                         string_function,
                     )));
-                    let r#type = string_function.r#type();
 
-                    string_context.insert(key, (value, r#type));
+                    string_context.insert(key, value);
                 }
 
-                Value::Map(Map::with_variables(string_context))
+                Value::Map(Map::with_values(string_context))
             }),
         }
     }

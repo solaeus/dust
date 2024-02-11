@@ -82,7 +82,7 @@ impl Value {
             Value::Map(map) => {
                 let mut identifier_types = Vec::new();
 
-                for (key, (value, _)) in map.variables().unwrap().iter() {
+                for (key, value) in map.iter() {
                     identifier_types.push((
                         Identifier::new(key.clone()),
                         TypeSpecification::new(value.r#type()),
@@ -858,10 +858,10 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let map = Map::new();
+        let mut map = Map::new();
 
         while let Some((key, value)) = access.next_entry::<String, Value>()? {
-            map.set(key, value).unwrap();
+            map.set(key, value);
         }
 
         Ok(Value::Map(map))

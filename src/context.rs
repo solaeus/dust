@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use crate::{error::rw_lock_error::RwLockError, Type, Value};
@@ -16,6 +16,7 @@ pub enum ValueData {
     },
 }
 
+#[derive(Clone)]
 pub struct Context {
     inner: Arc<RwLock<HashMap<String, ValueData>>>,
 }
@@ -25,6 +26,10 @@ impl Context {
         Self {
             inner: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    pub fn inner(&self) -> Result<RwLockReadGuard<HashMap<String, ValueData>>, RwLockError> {
+        Ok(self.inner.read()?)
     }
 
     pub fn inherit_from(other: &Context) -> Result<Context, RwLockError> {

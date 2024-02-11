@@ -11,7 +11,7 @@ pub use runtime_error::RuntimeError;
 pub use syntax_error::SyntaxError;
 pub use validation_error::ValidationError;
 
-use tree_sitter::{LanguageError, Point};
+use tree_sitter::LanguageError;
 
 use std::fmt::{self, Formatter};
 
@@ -69,11 +69,7 @@ impl fmt::Display for Error {
             Validation(error) => write!(f, "Validation error: {error}"),
             Runtime(error) => write!(f, "Runtime error: {error}"),
             ParserCancelled => write!(f, "Parsing was cancelled because the parser took too long."),
-            Language(error) => write!(f, "Parser failed to load language grammar."),
+            Language(_error) => write!(f, "Parser failed to load language grammar."),
         }
     }
-}
-
-fn get_position(position: &Point) -> String {
-    format!("column {}, row {}", position.row + 1, position.column)
 }

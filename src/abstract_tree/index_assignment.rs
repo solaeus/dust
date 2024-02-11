@@ -43,7 +43,7 @@ impl AbstractTree for IndexAssignment {
     }
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        let index_collection = self.index.collection.run(source, context)?;
+        let _index_collection = self.index.collection.run(source, context)?;
         let index_key = if let IndexExpression::Identifier(identifier) = &self.index.index {
             identifier.inner()
         } else {

@@ -242,7 +242,7 @@ impl AbstractTree for ValueNode {
                 }
             }
             ValueNode::Map(statements, source_position) => {
-                for (key, (statement, r#type)) in statements {
+                for (_key, (statement, r#type)) in statements {
                     if let Some(expected) = r#type {
                         let actual = statement.expected_type(context)?;
 
@@ -294,13 +294,13 @@ impl AbstractTree for ValueNode {
                 Value::Option(option_value)
             }
             ValueNode::Map(key_statement_pairs, _) => {
-                let map = Map::new();
+                let mut map = Map::new();
 
                 {
                     for (key, (statement, _)) in key_statement_pairs {
                         let value = statement.run(source, context)?;
 
-                        map.set(key.clone(), value)?;
+                        map.set(key.clone(), value);
                     }
                 }
 
