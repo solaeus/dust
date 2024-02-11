@@ -20,6 +20,8 @@ use crate::{
 pub struct Block {
     is_async: bool,
     statements: Vec<Statement>,
+
+    #[serde(skip)]
     context: Context,
 }
 

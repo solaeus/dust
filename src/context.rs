@@ -1,10 +1,9 @@
 use std::{
-    collections::HashMap,
+    cmp::Ordering,
+    collections::BTreeMap,
     fmt::{self, Debug, Display, Formatter},
     sync::{Arc, RwLock, RwLockReadGuard},
 };
-
-use serde::{Deserialize, Serialize};
 
 use crate::{error::rw_lock_error::RwLockError, Type, Value};
 
@@ -23,7 +22,29 @@ impl Eq for ValueData {}
 
 impl PartialEq for ValueData {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        match (self, other) {
+            (
+                ValueData::Value {
+                    inner: left_inner,
+                    runtime_uses: left_runtime_uses,
+                },
+                ValueData::Value {
+                    inner: right_inner,
+                    runtime_uses: right_runtime_uses,
+                },
+            ) => {
+                if left_inner != right_inner {
+                    return false;
+                } else {
+                    *left_runtime_uses.read().unwrap() == *right_runtime_uses.read().unwrap()
+                }
+            }
+            (
+                ValueData::ExpectedType { inner: left_inner },
+                ValueData::ExpectedType { inner: right_inner },
+            ) => left_inner == right_inner,
+            _ => false,
+        }
     }
 }
 
@@ -34,29 +55,46 @@ impl PartialOrd for ValueData {
 }
 
 impl Ord for ValueData {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        todo!()
+    fn cmp(&self, other: &Self) -> Ordering {
+        use Ordering::*;
+
+        match (self, other) {
+            (
+                ValueData::Value {
+                    inner: inner_left, ..
+                },
+                ValueData::Value {
+                    inner: inner_right, ..
+                },
+            ) => inner_left.cmp(inner_right),
+            (ValueData::Value { .. }, _) => Greater,
+            (
+                ValueData::ExpectedType { inner: inner_left },
+                ValueData::ExpectedType { inner: inner_right },
+            ) => inner_left.cmp(inner_right),
+            (ValueData::ExpectedType { .. }, _) => Less,
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct Context {
-    inner: Arc<RwLock<HashMap<String, ValueData>>>,
+    inner: Arc<RwLock<BTreeMap<String, ValueData>>>,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(RwLock::new(HashMap::new())),
+            inner: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
-    pub fn inner(&self) -> Result<RwLockReadGuard<HashMap<String, ValueData>>, RwLockError> {
+    pub fn inner(&self) -> Result<RwLockReadGuard<BTreeMap<String, ValueData>>, RwLockError> {
         Ok(self.inner.read()?)
     }
 
     pub fn inherit_from(other: &Context) -> Result<Context, RwLockError> {
-        let mut new_variables = HashMap::new();
+        let mut new_variables = BTreeMap::new();
 
         for (identifier, value_data) in other.inner.read()?.iter() {
             new_variables.insert(identifier.clone(), value_data.clone());
@@ -111,6 +149,12 @@ impl Context {
     }
 }
 
+impl Default for Context {
+    fn default() -> Self {
+        Context::new()
+    }
+}
+
 impl Eq for Context {}
 
 impl PartialEq for Context {
@@ -141,26 +185,11 @@ impl PartialOrd for Context {
 }
 
 impl Ord for Context {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        todo!()
-    }
-}
+    fn cmp(&self, other: &Self) -> Ordering {
+        let left = self.inner().unwrap();
+        let right = other.inner().unwrap();
 
-impl<'de> Deserialize<'de> for Context {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        todo!()
-    }
-}
-
-impl Serialize for Context {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        todo!()
+        left.cmp(&right)
     }
 }
 
@@ -171,7 +200,7 @@ impl Debug for Context {
 }
 
 impl Display for Context {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
         todo!()
     }
 }
