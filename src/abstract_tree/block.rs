@@ -67,12 +67,10 @@ impl AbstractTree for Block {
     }
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
+        self.context.inherit_from(_context)?;
+
         for statement in &self.statements {
-            if let Statement::Return(inner_statement) = statement {
-                return inner_statement.validate(_source, &self.context);
-            } else {
-                statement.validate(_source, &self.context)?;
-            }
+            statement.validate(_source, &self.context)?;
         }
 
         Ok(())

@@ -72,7 +72,7 @@ impl AbstractTree for For {
         };
         let key = self.item_id.inner().clone();
 
-        context.set_type(key, item_type)?;
+        self.block.context().set_type(key, item_type)?;
         self.block.validate(_source, context)
     }
 
