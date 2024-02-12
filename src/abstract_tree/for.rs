@@ -83,44 +83,39 @@ impl AbstractTree for For {
         if let Value::Range(range) = expression_run {
             if self.is_async {
                 range.into_par_iter().try_for_each(|integer| {
-                    let iter_context = Context::with_variables_from(context)?;
-
-                    iter_context.set_value(key.clone(), Value::Integer(integer))?;
-
-                    self.block.run(source, &iter_context).map(|_value| ())
+                    self.block
+                        .context()
+                        .set_value(key.clone(), Value::Integer(integer))?;
+                    self.block.run(source, context).map(|_value| ())
                 })?;
             } else {
-                let loop_context = Context::with_variables_from(context)?;
-
                 for i in range {
-                    loop_context.set_value(key.clone(), Value::Integer(i))?;
-
-                    self.block.run(source, &loop_context)?;
+                    self.block
+                        .context()
+                        .set_value(key.clone(), Value::Integer(i))?;
+                    self.block.run(source, context)?;
                 }
             }
 
             return Ok(Value::none());
         }
 
-        if let Value::List(list) = expression_run {
+        if let Value::List(list) = &expression_run {
             if self.is_async {
                 list.items().par_iter().try_for_each(|value| {
-                    let iter_context = Context::with_variables_from(context)?;
-
-                    iter_context.set_value(key.clone(), value.clone())?;
-
-                    self.block.run(source, &iter_context).map(|_value| ())
+                    self.block.context().set_value(key.clone(), value.clone())?;
+                    self.block.run(source, context).map(|_value| ())
                 })?;
             } else {
-                let loop_context = Context::with_variables_from(context)?;
-
                 for value in list.items().iter() {
-                    loop_context.set_value(key.clone(), value.clone())?;
-
-                    self.block.run(source, &loop_context)?;
+                    self.block.context().set_value(key.clone(), value.clone())?;
+                    self.block.run(source, context)?;
                 }
             }
         }
+
+        self.block.context().unset(&key)?;
+        context.inherit_from(self.block.context())?;
 
         Ok(Value::none())
     }

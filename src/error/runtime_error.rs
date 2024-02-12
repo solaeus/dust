@@ -3,6 +3,7 @@ use std::{
     io,
     num::ParseFloatError,
     string::FromUtf8Error,
+    sync::PoisonError,
     time,
 };
 
@@ -184,5 +185,11 @@ impl Display for RuntimeError {
 impl From<RwLockError> for RuntimeError {
     fn from(error: RwLockError) -> Self {
         RuntimeError::RwLock(error)
+    }
+}
+
+impl<T> From<PoisonError<T>> for RuntimeError {
+    fn from(_: PoisonError<T>) -> Self {
+        RuntimeError::RwLock(RwLockError)
     }
 }

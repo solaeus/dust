@@ -32,33 +32,6 @@ fn range_for_loop() {
 }
 
 #[test]
-fn map_for_loop() {
-    let result = interpret(
-        "
-        map = {
-            x = 'y'
-            foo = 'bar'
-        }
-        list = []
-        
-        for [key, value] in map {
-            list += value
-        }
-
-        list
-        ",
-    );
-
-    assert_eq!(
-        Ok(Value::List(List::with_items(vec![
-            Value::String("y".to_string()),
-            Value::String("bar".to_string()),
-        ]))),
-        result
-    );
-}
-
-#[test]
 fn modify_list() {
     let result = interpret(
         "

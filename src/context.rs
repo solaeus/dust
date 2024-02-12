@@ -7,76 +7,6 @@ use std::{
 use crate::{error::rw_lock_error::RwLockError, Type, Value};
 
 #[derive(Clone, Debug)]
-pub enum ValueData {
-    Value {
-        inner: Value,
-        runtime_uses: Arc<RwLock<u16>>,
-    },
-    ExpectedType {
-        inner: Type,
-    },
-}
-
-impl Eq for ValueData {}
-
-impl PartialEq for ValueData {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                ValueData::Value {
-                    inner: left_inner,
-                    runtime_uses: left_runtime_uses,
-                },
-                ValueData::Value {
-                    inner: right_inner,
-                    runtime_uses: right_runtime_uses,
-                },
-            ) => {
-                if left_inner != right_inner {
-                    return false;
-                } else {
-                    *left_runtime_uses.read().unwrap() == *right_runtime_uses.read().unwrap()
-                }
-            }
-            (
-                ValueData::ExpectedType { inner: left_inner },
-                ValueData::ExpectedType { inner: right_inner },
-            ) => left_inner == right_inner,
-            _ => false,
-        }
-    }
-}
-
-impl PartialOrd for ValueData {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ValueData {
-    fn cmp(&self, other: &Self) -> Ordering {
-        use Ordering::*;
-
-        match (self, other) {
-            (
-                ValueData::Value {
-                    inner: inner_left, ..
-                },
-                ValueData::Value {
-                    inner: inner_right, ..
-                },
-            ) => inner_left.cmp(inner_right),
-            (ValueData::Value { .. }, _) => Greater,
-            (
-                ValueData::ExpectedType { inner: inner_left },
-                ValueData::ExpectedType { inner: inner_right },
-            ) => inner_left.cmp(inner_right),
-            (ValueData::ExpectedType { .. }, _) => Less,
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
 pub struct Context {
     inner: Arc<RwLock<BTreeMap<String, ValueData>>>,
 }
@@ -156,6 +86,12 @@ impl Context {
 
         Ok(())
     }
+
+    pub fn unset(&self, key: &str) -> Result<(), RwLockError> {
+        self.inner.write()?.remove(key);
+
+        Ok(())
+    }
 }
 
 impl Default for Context {
@@ -199,5 +135,75 @@ impl Ord for Context {
         let right = other.inner().unwrap();
 
         left.cmp(&right)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ValueData {
+    Value {
+        inner: Value,
+        runtime_uses: Arc<RwLock<u16>>,
+    },
+    ExpectedType {
+        inner: Type,
+    },
+}
+
+impl Eq for ValueData {}
+
+impl PartialEq for ValueData {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                ValueData::Value {
+                    inner: left_inner,
+                    runtime_uses: left_runtime_uses,
+                },
+                ValueData::Value {
+                    inner: right_inner,
+                    runtime_uses: right_runtime_uses,
+                },
+            ) => {
+                if left_inner != right_inner {
+                    return false;
+                } else {
+                    *left_runtime_uses.read().unwrap() == *right_runtime_uses.read().unwrap()
+                }
+            }
+            (
+                ValueData::ExpectedType { inner: left_inner },
+                ValueData::ExpectedType { inner: right_inner },
+            ) => left_inner == right_inner,
+            _ => false,
+        }
+    }
+}
+
+impl PartialOrd for ValueData {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ValueData {
+    fn cmp(&self, other: &Self) -> Ordering {
+        use Ordering::*;
+
+        match (self, other) {
+            (
+                ValueData::Value {
+                    inner: inner_left, ..
+                },
+                ValueData::Value {
+                    inner: inner_right, ..
+                },
+            ) => inner_left.cmp(inner_right),
+            (ValueData::Value { .. }, _) => Greater,
+            (
+                ValueData::ExpectedType { inner: inner_left },
+                ValueData::ExpectedType { inner: inner_right },
+            ) => inner_left.cmp(inner_right),
+            (ValueData::ExpectedType { .. }, _) => Less,
+        }
     }
 }

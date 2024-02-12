@@ -79,8 +79,6 @@ impl AbstractTree for Block {
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         self.context.inherit_from(context)?;
 
-        println!("{:?}", self.context);
-
         if self.is_async {
             let statements = &self.statements;
             let final_result = RwLock::new(Ok(Value::none()));
