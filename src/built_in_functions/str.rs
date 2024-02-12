@@ -333,18 +333,20 @@ impl Callable for StrFunction {
             StrFunction::Retain => {
                 RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let mut string = arguments.first().unwrap().as_string()?.clone();
-                let predicate = arguments.get(1).unwrap().as_function()?;
+                todo!();
 
-                string.retain(|char| {
-                    predicate
-                        .call(&[Value::string(char)], _source, _outer_context)
-                        .unwrap()
-                        .as_boolean()
-                        .unwrap()
-                });
+                // let mut string = arguments.first().unwrap().as_string()?.clone();
+                // let predicate = arguments.get(1).unwrap().as_function()?;
 
-                Value::String(string)
+                // string.retain(|char| {
+                //     predicate
+                //         .call(&[Value::string(char)], _source, _outer_context)
+                //         .unwrap()
+                //         .as_boolean()
+                //         .unwrap()
+                // });
+
+                // Value::String(string)
             }
             StrFunction::Split => {
                 RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;

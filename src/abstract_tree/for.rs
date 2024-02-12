@@ -47,7 +47,7 @@ impl AbstractTree for For {
         let loop_context = Context::with_variables_from(context)?;
 
         let item_node = node.child(4).unwrap();
-        let item = Block::from_syntax(item_node, source, context)?;
+        let item = Block::from_syntax(item_node, source, &loop_context)?;
 
         Ok(For {
             is_async,
@@ -78,11 +78,14 @@ impl AbstractTree for For {
         };
         let key = self.item_id.inner().clone();
 
+        self.context.inherit_from(context)?;
         self.context.set_type(key, item_type)?;
         self.block.validate(_source, &self.context)
     }
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
+        self.context.inherit_from(context)?;
+
         let expression_run = self.collection.run(source, context)?;
         let key = self.item_id.inner();
 

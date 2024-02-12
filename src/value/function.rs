@@ -3,8 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    built_in_functions::Callable, error::RuntimeError, BuiltInFunction, Context, Format,
-    FunctionNode, Identifier, Type, Value,
+    built_in_functions::Callable, BuiltInFunction, Format, FunctionNode, Identifier, Type,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -14,20 +13,6 @@ pub enum Function {
 }
 
 impl Function {
-    pub fn call(
-        &self,
-        arguments: &[Value],
-        source: &str,
-        outer_context: &Context,
-    ) -> Result<Value, RuntimeError> {
-        match self {
-            Function::BuiltIn(built_in_function) => {
-                built_in_function.call(arguments, source, outer_context)
-            }
-            Function::ContextDefined(function_node) => function_node.call(source, outer_context),
-        }
-    }
-
     pub fn r#type(&self) -> Type {
         match self {
             Function::BuiltIn(built_in_function) => built_in_function.r#type(),

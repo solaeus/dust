@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     context::Context,
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Format, Function, Identifier, SourcePosition, Statement,
-    SyntaxNode, Type, TypeSpecification, Value,
+    AbstractTree, AssignmentOperator, Format, Identifier, SourcePosition, Statement, SyntaxNode,
+    Type, TypeSpecification, Value,
 };
 
 /// Variable assignment, including add-assign and subtract-assign operations.

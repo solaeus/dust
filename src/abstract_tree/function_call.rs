@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    built_in_functions::Callable,
     error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, Context, Expression, Format, FunctionExpression, SourcePosition, SyntaxNode,
     Type, Value,
@@ -153,19 +154,32 @@ impl AbstractTree for FunctionCall {
             FunctionExpression::Index(index) => index.run(source, context)?,
         };
         let function = value.as_function()?;
-        let parameter_expression_pairs = function
-            .parameters()
-            .unwrap()
-            .iter()
-            .zip(self.arguments.iter());
 
-        for (identifier, expression) in parameter_expression_pairs {
-            let value = expression.run(source, context)?;
+        match function {
+            crate::Function::BuiltIn(built_in_function) => {
+                let mut arguments = Vec::with_capacity(self.arguments.len());
 
-            self.context.set_value(identifier.inner().clone(), value)?;
+                for expression in &self.arguments {
+                    let value = expression.run(source, context)?;
+
+                    arguments.push(value);
+                }
+
+                built_in_function.call(&arguments, source, &self.context)
+            }
+            crate::Function::ContextDefined(function_node) => {
+                let parameter_expression_pairs =
+                    function_node.parameters().iter().zip(self.arguments.iter());
+
+                for (identifier, expression) in parameter_expression_pairs {
+                    let value = expression.run(source, context)?;
+
+                    self.context.set_value(identifier.inner().clone(), value)?;
+                }
+
+                function_node.call(source, &self.context)
+            }
         }
-
-        function.call(&[], source, &self.context)
     }
 }
 
