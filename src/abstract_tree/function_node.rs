@@ -14,9 +14,6 @@ pub struct FunctionNode {
     body: Block,
     r#type: Type,
     syntax_position: SourcePosition,
-
-    #[serde(skip)]
-    context: Context,
 }
 
 impl FunctionNode {
@@ -31,7 +28,6 @@ impl FunctionNode {
             body,
             r#type,
             syntax_position,
-            context: Context::new(),
         }
     }
 
@@ -61,21 +57,8 @@ impl FunctionNode {
         }
     }
 
-    pub fn call(
-        &self,
-        arguments: &[Value],
-        source: &str,
-        _context: &Context,
-    ) -> Result<Value, RuntimeError> {
-        let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
-
-        for (identifier, value) in parameter_argument_pairs {
-            let key = identifier.inner().clone();
-
-            self.context.set_value(key, value.clone())?;
-        }
-
-        let return_value = self.body.run(source, &self.context)?;
+    pub fn call(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
+        let return_value = self.body.run(source, context)?;
 
         Ok(return_value)
     }
@@ -108,14 +91,8 @@ impl AbstractTree for FunctionNode {
         let return_type_node = node.child(child_count - 2).unwrap();
         let return_type = TypeSpecification::from_syntax(return_type_node, source, context)?;
 
-        let function_context = Context::with_variables_from(context)?;
-
         let body_node = node.child(child_count - 1).unwrap();
         let body = Block::from_syntax(body_node, source, &context)?;
-
-        for (parameter, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
-            function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
-        }
 
         let r#type = Type::function(parameter_types, return_type.take_inner());
         let syntax_position = node.range().into();
@@ -125,7 +102,6 @@ impl AbstractTree for FunctionNode {
             body,
             r#type,
             syntax_position,
-            context: function_context,
         })
     }
 

@@ -12,6 +12,9 @@ pub struct FunctionCall {
     function_expression: FunctionExpression,
     arguments: Vec<Expression>,
     syntax_position: SourcePosition,
+
+    #[serde(skip)]
+    context: Context,
 }
 
 impl FunctionCall {
@@ -20,11 +23,13 @@ impl FunctionCall {
         function_expression: FunctionExpression,
         arguments: Vec<Expression>,
         syntax_position: SourcePosition,
+        context: Context,
     ) -> Self {
         Self {
             function_expression,
             arguments,
             syntax_position,
+            context,
         }
     }
 }
@@ -52,6 +57,7 @@ impl AbstractTree for FunctionCall {
             function_expression,
             arguments,
             syntax_position: node.range().into(),
+            context: Context::new(),
         })
     }
 
@@ -144,16 +150,20 @@ impl AbstractTree for FunctionCall {
             FunctionExpression::Value(value_node) => value_node.run(source, context)?,
             FunctionExpression::Index(index) => index.run(source, context)?,
         };
+        let function = value.as_function()?;
+        let parameter_expression_pairs = function
+            .parameters()
+            .unwrap()
+            .iter()
+            .zip(self.arguments.iter());
 
-        let mut arguments = Vec::with_capacity(self.arguments.len());
-
-        for expression in &self.arguments {
+        for (identifier, expression) in parameter_expression_pairs {
             let value = expression.run(source, context)?;
 
-            arguments.push(value);
+            self.context.set_value(identifier.inner().clone(), value)?;
         }
 
-        value.as_function()?.call(&arguments, source, context)
+        value.as_function()?.call(&[], source, context)
     }
 }
 

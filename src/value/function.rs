@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     built_in_functions::Callable, error::RuntimeError, BuiltInFunction, Context, Format,
-    FunctionNode, Type, Value,
+    FunctionNode, Identifier, Type, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -24,9 +24,7 @@ impl Function {
             Function::BuiltIn(built_in_function) => {
                 built_in_function.call(arguments, source, outer_context)
             }
-            Function::ContextDefined(function_node) => {
-                function_node.call(arguments, source, outer_context)
-            }
+            Function::ContextDefined(function_node) => function_node.call(source, outer_context),
         }
     }
 
@@ -36,6 +34,14 @@ impl Function {
             Function::ContextDefined(context_defined_function) => {
                 context_defined_function.r#type().clone()
             }
+        }
+    }
+
+    pub fn parameters(&self) -> Option<&Vec<Identifier>> {
+        if let Function::ContextDefined(function) = self {
+            Some(function.parameters())
+        } else {
+            None
         }
     }
 }
