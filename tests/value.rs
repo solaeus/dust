@@ -69,10 +69,11 @@ fn empty_list() {
 
 #[test]
 fn map() {
-    let mut map = Map::new();
+    let map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1));
-    map.set("foo".to_string(), Value::string("bar".to_string()));
+    map.set("x".to_string(), Value::Integer(1)).unwrap();
+    map.set("foo".to_string(), Value::string("bar".to_string()))
+        .unwrap();
 
     assert_eq!(interpret("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
 }
@@ -84,10 +85,11 @@ fn empty_map() {
 
 #[test]
 fn map_types() {
-    let mut map = Map::new();
+    let map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1));
-    map.set("foo".to_string(), Value::string("bar".to_string()));
+    map.set("x".to_string(), Value::Integer(1)).unwrap();
+    map.set("foo".to_string(), Value::string("bar".to_string()))
+        .unwrap();
 
     assert_eq!(
         interpret("{ x <int> = 1, foo <str> = 'bar' }"),

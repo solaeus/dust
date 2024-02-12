@@ -92,10 +92,10 @@ fn modify_map() {
         ",
     );
 
-    let mut map = Map::new();
+    let map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1));
-    map.set("y".to_string(), Value::Integer(2));
+    map.set("x".to_string(), Value::Integer(1)).unwrap();
+    map.set("y".to_string(), Value::Integer(2)).unwrap();
 
     assert_eq!(Ok(Value::Map(map)), result);
 }
@@ -137,10 +137,10 @@ fn modify_map_values() {
         ",
     );
 
-    let mut map = Map::new();
+    let map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1));
-    map.set("y".to_string(), Value::Integer(2));
+    map.set("x".to_string(), Value::Integer(1)).unwrap();
+    map.set("y".to_string(), Value::Integer(2)).unwrap();
 
     assert_eq!(Ok(Value::Map(map)), result);
 }

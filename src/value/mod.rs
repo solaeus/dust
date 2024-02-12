@@ -3,12 +3,13 @@ use crate::{error::RuntimeError, Identifier, Type, TypeSpecification};
 
 use serde::{
     de::{MapAccess, SeqAccess, Visitor},
-    ser::SerializeTuple,
+    ser::{SerializeMap, SerializeTuple},
     Deserialize, Serialize, Serializer,
 };
 
 use std::{
     cmp::Ordering,
+    collections::BTreeMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
@@ -82,7 +83,7 @@ impl Value {
             Value::Map(map) => {
                 let mut identifier_types = Vec::new();
 
-                for (key, value) in map.iter() {
+                for (key, value) in map.inner().unwrap().iter() {
                     identifier_types.push((
                         Identifier::new(key.clone()),
                         TypeSpecification::new(value.r#type()),
@@ -513,7 +514,16 @@ impl Serialize for Value {
                 list.end()
             }
             Value::Option(inner) => inner.serialize(serializer),
-            Value::Map(inner) => inner.serialize(serializer),
+            Value::Map(map) => {
+                let entries = map.inner().unwrap();
+                let mut map = serializer.serialize_map(Some(entries.len()))?;
+
+                for (key, value) in entries.iter() {
+                    map.serialize_entry(key, value)?;
+                }
+
+                map.end()
+            }
             Value::Function(inner) => inner.serialize(serializer),
             Value::Structure(inner) => inner.serialize(serializer),
             Value::Range(range) => range.serialize(serializer),
@@ -858,13 +868,13 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let mut map = Map::new();
+        let mut map = BTreeMap::new();
 
         while let Some((key, value)) = access.next_entry::<String, Value>()? {
-            map.set(key, value);
+            map.insert(key, value);
         }
 
-        Ok(Value::Map(map))
+        Ok(Value::Map(Map::with_values(map)))
     }
 
     fn visit_enum<A>(self, data: A) -> std::result::Result<Self::Value, A::Error>

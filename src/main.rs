@@ -293,7 +293,7 @@ impl Completer for DustCompleter {
             }
 
             if let Value::Map(map) = built_in_value.get() {
-                for (key, value) in map.iter() {
+                for (key, value) in map.inner().unwrap().iter() {
                     if key.contains(last_word) {
                         suggestions.push(Suggestion {
                             value: format!("{name}:{key}"),

@@ -294,17 +294,17 @@ impl AbstractTree for ValueNode {
                 Value::Option(option_value)
             }
             ValueNode::Map(key_statement_pairs, _) => {
-                let mut map = Map::new();
+                let mut map = BTreeMap::new();
 
                 {
                     for (key, (statement, _)) in key_statement_pairs {
                         let value = statement.run(source, context)?;
 
-                        map.set(key.clone(), value);
+                        map.insert(key.clone(), value);
                     }
                 }
 
-                Value::Map(map)
+                Value::Map(Map::with_values(map))
             }
             ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
             ValueNode::Structure(node_map) => {

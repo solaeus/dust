@@ -84,6 +84,8 @@ impl AbstractTree for Index {
                 Ok(item)
             }
             Value::Map(map) => {
+                let map = map.inner()?;
+
                 let (key, value) = if let IndexExpression::Identifier(identifier) = &self.index {
                     let key = identifier.inner();
                     let value = map.get(key).unwrap_or_default();

@@ -102,23 +102,23 @@ impl AbstractTree for For {
             return Ok(Value::none());
         }
 
-        let values = expression_run.as_list()?.items();
+        if let Value::List(list) = expression_run {
+            if self.is_async {
+                list.items().par_iter().try_for_each(|value| {
+                    let iter_context = Context::with_variables_from(context)?;
 
-        if self.is_async {
-            values.par_iter().try_for_each(|value| {
-                let iter_context = Context::with_variables_from(context)?;
+                    iter_context.set_value(key.clone(), value.clone())?;
 
-                iter_context.set_value(key.clone(), value.clone())?;
+                    self.block.run(source, &iter_context).map(|_value| ())
+                })?;
+            } else {
+                let loop_context = Context::with_variables_from(context)?;
 
-                self.block.run(source, &iter_context).map(|_value| ())
-            })?;
-        } else {
-            let loop_context = Context::with_variables_from(context)?;
+                for value in list.items().iter() {
+                    loop_context.set_value(key.clone(), value.clone())?;
 
-            for value in values.iter() {
-                loop_context.set_value(key.clone(), value.clone())?;
-
-                self.block.run(source, &loop_context)?;
+                    self.block.run(source, &loop_context)?;
+                }
             }
         }
 
