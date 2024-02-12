@@ -14,6 +14,9 @@ pub struct FunctionNode {
     body: Block,
     r#type: Type,
     syntax_position: SourcePosition,
+
+    #[serde(skip)]
+    context: Context,
 }
 
 impl FunctionNode {
@@ -28,6 +31,7 @@ impl FunctionNode {
             body,
             r#type,
             syntax_position,
+            context: Context::new(),
         }
     }
 
@@ -61,28 +65,24 @@ impl FunctionNode {
         &self,
         arguments: &[Value],
         source: &str,
-        outer_context: &Context,
+        _context: &Context,
     ) -> Result<Value, RuntimeError> {
         let parameter_argument_pairs = self.parameters.iter().zip(arguments.iter());
 
         for (identifier, value) in parameter_argument_pairs {
             let key = identifier.inner().clone();
 
-            self.body.context().set_value(key, value.clone())?;
+            self.context.set_value(key, value.clone())?;
         }
 
-        let return_value = self.body.run(source, outer_context)?;
+        let return_value = self.body.run(source, &self.context)?;
 
         Ok(return_value)
     }
 }
 
 impl AbstractTree for FunctionNode {
-    fn from_syntax(
-        node: SyntaxNode,
-        source: &str,
-        outer_context: &Context,
-    ) -> Result<Self, SyntaxError> {
+    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(source, "function", node)?;
 
         let child_count = node.child_count();
@@ -93,28 +93,28 @@ impl AbstractTree for FunctionNode {
             let child = node.child(index).unwrap();
 
             if child.kind() == "identifier" {
-                let identifier = Identifier::from_syntax(child, source, outer_context)?;
+                let identifier = Identifier::from_syntax(child, source, context)?;
 
                 parameters.push(identifier);
             }
 
             if child.kind() == "type_specification" {
-                let type_specification =
-                    TypeSpecification::from_syntax(child, source, outer_context)?;
+                let type_specification = TypeSpecification::from_syntax(child, source, context)?;
 
                 parameter_types.push(type_specification.take_inner());
             }
         }
 
         let return_type_node = node.child(child_count - 2).unwrap();
-        let return_type = TypeSpecification::from_syntax(return_type_node, source, outer_context)?;
+        let return_type = TypeSpecification::from_syntax(return_type_node, source, context)?;
+
+        let function_context = Context::with_variables_from(context)?;
 
         let body_node = node.child(child_count - 1).unwrap();
-        let body = Block::from_syntax(body_node, source, &outer_context)?;
+        let body = Block::from_syntax(body_node, source, &context)?;
 
         for (parameter, parameter_type) in parameters.iter().zip(parameter_types.iter()) {
-            body.context()
-                .set_type(parameter.inner().clone(), parameter_type.clone())?;
+            function_context.set_type(parameter.inner().clone(), parameter_type.clone())?;
         }
 
         let r#type = Type::function(parameter_types, return_type.take_inner());
@@ -125,6 +125,7 @@ impl AbstractTree for FunctionNode {
             body,
             r#type,
             syntax_position,
+            context: function_context,
         })
     }
 

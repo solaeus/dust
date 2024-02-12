@@ -15,6 +15,9 @@ pub struct For {
     collection: Expression,
     block: Block,
     source_position: SourcePosition,
+
+    #[serde(skip)]
+    context: Context,
 }
 
 impl AbstractTree for For {
@@ -41,6 +44,8 @@ impl AbstractTree for For {
         let expression_node = node.child(3).unwrap();
         let expression = Expression::from_syntax(expression_node, source, context)?;
 
+        let loop_context = Context::with_variables_from(context)?;
+
         let item_node = node.child(4).unwrap();
         let item = Block::from_syntax(item_node, source, context)?;
 
@@ -50,6 +55,7 @@ impl AbstractTree for For {
             collection: expression,
             block: item,
             source_position: SourcePosition::from(node.range()),
+            context: loop_context,
         })
     }
 
@@ -72,8 +78,8 @@ impl AbstractTree for For {
         };
         let key = self.item_id.inner().clone();
 
-        self.block.context().set_type(key, item_type)?;
-        self.block.validate(_source, context)
+        self.context.set_type(key, item_type)?;
+        self.block.validate(_source, &self.context)
     }
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
@@ -83,17 +89,14 @@ impl AbstractTree for For {
         if let Value::Range(range) = expression_run {
             if self.is_async {
                 range.into_par_iter().try_for_each(|integer| {
-                    self.block
-                        .context()
+                    self.context
                         .set_value(key.clone(), Value::Integer(integer))?;
-                    self.block.run(source, context).map(|_value| ())
+                    self.block.run(source, &self.context).map(|_value| ())
                 })?;
             } else {
                 for i in range {
-                    self.block
-                        .context()
-                        .set_value(key.clone(), Value::Integer(i))?;
-                    self.block.run(source, context)?;
+                    self.context.set_value(key.clone(), Value::Integer(i))?;
+                    self.block.run(source, &self.context)?;
                 }
             }
 
@@ -103,19 +106,16 @@ impl AbstractTree for For {
         if let Value::List(list) = &expression_run {
             if self.is_async {
                 list.items().par_iter().try_for_each(|value| {
-                    self.block.context().set_value(key.clone(), value.clone())?;
-                    self.block.run(source, context).map(|_value| ())
+                    self.context.set_value(key.clone(), value.clone())?;
+                    self.block.run(source, &self.context).map(|_value| ())
                 })?;
             } else {
                 for value in list.items().iter() {
-                    self.block.context().set_value(key.clone(), value.clone())?;
-                    self.block.run(source, context)?;
+                    self.context.set_value(key.clone(), value.clone())?;
+                    self.block.run(source, &self.context)?;
                 }
             }
         }
-
-        self.block.context().unset(&key)?;
-        context.inherit_from(self.block.context())?;
 
         Ok(Value::none())
     }

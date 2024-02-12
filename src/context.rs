@@ -38,7 +38,13 @@ impl Context {
         let mut self_variables = self.inner.write()?;
 
         for (identifier, value_data) in other.inner.read()?.iter() {
-            self_variables.insert(identifier.clone(), value_data.clone());
+            let existing_data = self_variables.get(identifier);
+
+            if let Some(ValueData::Value { .. }) = existing_data {
+                continue;
+            } else {
+                self_variables.insert(identifier.clone(), value_data.clone());
+            }
         }
 
         Ok(())

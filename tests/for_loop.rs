@@ -74,7 +74,7 @@ fn modify_map() {
 }
 
 #[test]
-fn modify_list_values() {
+fn do_not_modify_list_values() {
     let result = interpret(
         "
         list = [1 2 3]
@@ -85,37 +85,12 @@ fn modify_list_values() {
 
     assert_eq!(
         Ok(Value::List(List::with_items(vec![
+            Value::Integer(1),
             Value::Integer(2),
             Value::Integer(3),
-            Value::Integer(4),
         ]))),
         result
     );
-}
-
-#[test]
-fn modify_map_values() {
-    let result = interpret(
-        "
-        map = {
-            x = 0
-            y = 1
-        }
-        
-        for [key, value] in map {
-            value += 1
-        }
-        
-        map
-        ",
-    );
-
-    let map = Map::new();
-
-    map.set("x".to_string(), Value::Integer(1)).unwrap();
-    map.set("y".to_string(), Value::Integer(2)).unwrap();
-
-    assert_eq!(Ok(Value::Map(map)), result);
 }
 
 #[test]
