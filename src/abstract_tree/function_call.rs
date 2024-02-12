@@ -137,6 +137,8 @@ impl AbstractTree for FunctionCall {
                 let key = identifier.inner();
 
                 if let Some(value) = context.get_value(key)? {
+                    self.context
+                        .set_value(identifier.inner().clone(), value.clone())?;
                     value.clone()
                 } else {
                     return Err(RuntimeError::VariableIdentifierNotFound(
@@ -163,7 +165,7 @@ impl AbstractTree for FunctionCall {
             self.context.set_value(identifier.inner().clone(), value)?;
         }
 
-        value.as_function()?.call(&[], source, context)
+        function.call(&[], source, &self.context)
     }
 }
 
