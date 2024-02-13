@@ -4,9 +4,8 @@ use clap::{Parser, Subcommand};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::{Color, Style};
 use reedline::{
-    default_emacs_keybindings, ColumnarMenu, Completer, DefaultHinter, EditCommand, Emacs,
-    Highlighter, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span, SqliteBackedHistory,
-    StyledText, Suggestion,
+    default_emacs_keybindings, ColumnarMenu, Completer, DefaultHinter, EditCommand, Emacs, Prompt,
+    Reedline, ReedlineEvent, ReedlineMenu, Signal, Span, SqliteBackedHistory, Suggestion,
 };
 
 use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};

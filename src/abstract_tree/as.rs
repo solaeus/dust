@@ -34,7 +34,7 @@ impl AbstractTree for As {
         Ok(self.r#type.clone())
     }
 
-    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         let expected_type = self.expression.expected_type(context)?;
 
         if let Type::List(item_type) = &self.r#type {
@@ -48,20 +48,20 @@ impl AbstractTree for As {
                         });
                     }
                 }
+                Type::String => {}
                 Type::Any => todo!(),
                 Type::Boolean => todo!(),
                 Type::Collection => todo!(),
                 Type::Custom(_) => todo!(),
                 Type::Float => todo!(),
                 Type::Function {
-                    parameter_types,
-                    return_type,
+                    parameter_types: _,
+                    return_type: _,
                 } => todo!(),
                 Type::Integer => todo!(),
                 Type::Map(_) => todo!(),
                 Type::None => todo!(),
                 Type::Number => todo!(),
-                Type::String => todo!(),
                 Type::Range => todo!(),
                 Type::Option(_) => todo!(),
             }
@@ -101,7 +101,7 @@ impl AbstractTree for As {
 }
 
 impl Format for As {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, _output: &mut String, _indent_level: u8) {
         todo!()
     }
 }
