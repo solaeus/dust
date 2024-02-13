@@ -35,20 +35,28 @@ impl AbstractTree for As {
     }
 
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
-        let expected_type = self.expression.expected_type(context)?;
+        let initial_type = self.expression.expected_type(context)?;
 
         if let Type::List(item_type) = &self.r#type {
-            match &expected_type {
+            match &initial_type {
                 Type::List(expected_item_type) => {
                     if !item_type.accepts(&expected_item_type) {
                         return Err(ValidationError::TypeCheck {
                             expected: self.r#type.clone(),
-                            actual: expected_type.clone(),
+                            actual: initial_type.clone(),
                             position: self.position,
                         });
                     }
                 }
-                Type::String => {}
+                Type::String => {
+                    if let Type::String = item_type.as_ref() {
+                    } else {
+                        return Err(ValidationError::ConversionImpossible {
+                            initial_type,
+                            target_type: self.r#type.clone(),
+                        });
+                    }
+                }
                 Type::Any => todo!(),
                 Type::Boolean => todo!(),
                 Type::Collection => todo!(),

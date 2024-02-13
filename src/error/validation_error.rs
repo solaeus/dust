@@ -18,6 +18,12 @@ pub enum ValidationError {
     /// The 'assert' macro did not resolve successfully.
     AssertFailed { position: SourcePosition },
 
+    /// The attempted conversion is impossible.
+    ConversionImpossible {
+        initial_type: Type,
+        target_type: Type,
+    },
+
     /// A built-in function was called with the wrong amount of arguments.
     ExpectedBuiltInFunctionArgumentAmount {
         function_name: String,
