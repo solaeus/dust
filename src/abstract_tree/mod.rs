@@ -6,6 +6,7 @@
 //! syntax nodes. Then add a new AbstractTree type using the existing types as
 //! examples.
 
+pub mod r#as;
 pub mod assignment;
 pub mod assignment_operator;
 pub mod block;
@@ -37,8 +38,8 @@ pub use {
     assignment::*, assignment_operator::*, block::*, built_in_value::*, command::*, expression::*,
     function_call::*, function_expression::*, function_node::*, identifier::*, if_else::*,
     index::*, index_assignment::IndexAssignment, index_expression::*, logic::*, logic_operator::*,
-    math::*, math_operator::*, new::*, r#for::*, r#match::*, r#type::*, r#while::*, statement::*,
-    type_specification::*, value_node::*,
+    math::*, math_operator::*, new::*, r#as::*, r#for::*, r#match::*, r#type::*, r#while::*,
+    statement::*, type_specification::*, value_node::*,
 };
 
 use serde::{Deserialize, Serialize};

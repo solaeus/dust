@@ -37,7 +37,7 @@ foo as (int) -> int
 As List in For Loop
 ================================================================================
 
-for i in foobar as list {}
+for i in foobar as [string] {}
 
 --------------------------------------------------------------------------------
 
@@ -50,5 +50,6 @@ for i in foobar as list {}
           (expression
             (identifier))
           (type
-            (identifier))))
+            (type
+              (identifier)))))
       (block))))
