@@ -53,13 +53,11 @@ impl Context {
     pub fn get_value(&self, key: &str) -> Result<Option<Value>, RwLockError> {
         if let Some(value_data) = self.inner.read()?.get(key) {
             if let ValueData::Value { inner, .. } = value_data {
-                Ok(Some(inner.clone()))
-            } else {
-                Ok(None)
+                return Ok(Some(inner.clone()));
             }
-        } else {
-            Ok(None)
         }
+
+        Ok(None)
     }
 
     pub fn get_type(&self, key: &str) -> Result<Option<Type>, RwLockError> {

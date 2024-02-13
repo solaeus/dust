@@ -116,59 +116,59 @@ fn main() {
     }
 }
 
-struct DustHighlighter {
-    context: Context,
-}
+// struct DustHighlighter {
+//     context: Context,
+// }
 
-impl DustHighlighter {
-    fn new(context: Context) -> Self {
-        Self { context }
-    }
-}
+// impl DustHighlighter {
+//     fn new(context: Context) -> Self {
+//         Self { context }
+//     }
+// }
 
-const HIGHLIGHT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'];
+// const HIGHLIGHT_TERMINATORS: [char; 8] = [' ', ':', '(', ')', '{', '}', '[', ']'];
 
-impl Highlighter for DustHighlighter {
-    fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
-        let mut styled = StyledText::new();
+// impl Highlighter for DustHighlighter {
+//     fn highlight(&self, line: &str, _cursor: usize) -> reedline::StyledText {
+//         let mut styled = StyledText::new();
 
-        for word in line.split_inclusive(&HIGHLIGHT_TERMINATORS) {
-            let mut word_is_highlighted = false;
+//         for word in line.split_inclusive(&HIGHLIGHT_TERMINATORS) {
+//             let mut word_is_highlighted = false;
 
-            for key in self.context.inner().unwrap().keys() {
-                if key == &word {
-                    styled.push((Style::new().bold(), word.to_string()));
-                }
+//             for key in self.context.inner().unwrap().keys() {
+//                 if key == &word {
+//                     styled.push((Style::new().bold(), word.to_string()));
+//                 }
 
-                word_is_highlighted = true;
-            }
+//                 word_is_highlighted = true;
+//             }
 
-            for built_in_value in built_in_values() {
-                if built_in_value.name() == word {
-                    styled.push((Style::new().bold(), word.to_string()));
-                }
+//             for built_in_value in built_in_values() {
+//                 if built_in_value.name() == word {
+//                     styled.push((Style::new().bold(), word.to_string()));
+//                 }
 
-                word_is_highlighted = true;
-            }
+//                 word_is_highlighted = true;
+//             }
 
-            if word_is_highlighted {
-                let final_char = word.chars().last().unwrap();
+//             if word_is_highlighted {
+//                 let final_char = word.chars().last().unwrap();
 
-                if HIGHLIGHT_TERMINATORS.contains(&final_char) {
-                    let mut terminator_style = Style::new();
+//                 if HIGHLIGHT_TERMINATORS.contains(&final_char) {
+//                     let mut terminator_style = Style::new();
 
-                    terminator_style.foreground = Some(Color::Cyan);
+//                     terminator_style.foreground = Some(Color::Cyan);
 
-                    styled.push((terminator_style, final_char.to_string()));
-                }
-            } else {
-                styled.push((Style::new(), word.to_string()));
-            }
-        }
+//                     styled.push((terminator_style, final_char.to_string()));
+//                 }
+//             } else {
+//                 styled.push((Style::new(), word.to_string()));
+//             }
+//         }
 
-        styled
-    }
-}
+//         styled
+//     }
+// }
 
 struct StarshipPrompt {
     left: String,
@@ -367,7 +367,6 @@ fn run_shell(context: Context) -> Result<(), Error> {
     let mut line_editor = Reedline::create()
         .with_edit_mode(edit_mode)
         .with_history(history)
-        .with_highlighter(Box::new(DustHighlighter::new(context.clone())))
         .with_hinter(hinter)
         .use_kitty_keyboard_enhancement(true)
         .with_completer(Box::new(completer))

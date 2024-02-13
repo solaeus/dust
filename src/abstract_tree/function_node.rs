@@ -109,13 +109,19 @@ impl AbstractTree for FunctionNode {
         Ok(self.r#type().clone())
     }
 
-    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, source: &str, _context: &Context) -> Result<(), ValidationError> {
         if let Type::Function {
-            parameter_types: _,
+            parameter_types,
             return_type,
         } = &self.r#type
         {
-            let actual = self.body.expected_type(context)?;
+            let validation_context = Context::new();
+
+            for (parameter, r#type) in self.parameters.iter().zip(parameter_types.iter()) {
+                validation_context.set_type(parameter.inner().clone(), r#type.clone())?;
+            }
+
+            let actual = self.body.expected_type(&validation_context)?;
 
             if !return_type.accepts(&actual) {
                 return Err(ValidationError::TypeCheck {
@@ -125,7 +131,7 @@ impl AbstractTree for FunctionNode {
                 });
             }
 
-            self.body.validate(source, context)?;
+            self.body.validate(source, &validation_context)?;
 
             Ok(())
         } else {

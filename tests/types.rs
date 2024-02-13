@@ -32,8 +32,21 @@ fn argument_count_check() {
     let result = interpret(source);
 
     assert_eq!(
-        "Expected 1 arguments, but got 0. Occured at (5, 12) to (5, 17). Source: foo()",
-        result.unwrap_err().to_string()
+        Err(Error::Validation(
+            ValidationError::ExpectedFunctionArgumentAmount {
+                expected: 1,
+                actual: 0,
+                position: SourcePosition {
+                    start_byte: 81,
+                    end_byte: 86,
+                    start_row: 5,
+                    start_column: 12,
+                    end_row: 5,
+                    end_column: 17
+                }
+            }
+        )),
+        result
     )
 }
 
