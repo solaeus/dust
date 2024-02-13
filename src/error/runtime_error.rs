@@ -7,12 +7,18 @@ use std::{
     time,
 };
 
-use crate::Value;
+use crate::{Type, Value};
 
 use super::rw_lock_error::RwLockError;
 
 #[derive(Debug, PartialEq)]
 pub enum RuntimeError {
+    /// The attempted conversion is impossible.
+    ConversionImpossible {
+        value: Value,
+        target_type: Type,
+    },
+
     Csv(String),
 
     Io(String),

@@ -11,7 +11,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{Type, Value};
+use crate::{error::rw_lock_error::RwLockError, Map, Type, Value};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Structure(Arc<BTreeMap<String, (Option<Value>, Type)>>);
@@ -19,6 +19,16 @@ pub struct Structure(Arc<BTreeMap<String, (Option<Value>, Type)>>);
 impl Structure {
     pub fn new(map: BTreeMap<String, (Option<Value>, Type)>) -> Self {
         Structure(Arc::new(map))
+    }
+
+    pub fn from_map(map: &Map) -> Result<Self, RwLockError> {
+        let mut structure = BTreeMap::new();
+
+        for (key, value) in map.inner()?.iter() {
+            structure.insert(key.clone(), (Some(value.clone()), value.r#type()));
+        }
+
+        Ok(Structure(Arc::new(structure)))
     }
 
     pub fn inner(&self) -> &BTreeMap<String, (Option<Value>, Type)> {
@@ -42,7 +52,7 @@ impl Display for Structure {
 }
 
 impl Serialize for Structure {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -94,7 +104,7 @@ impl<'de> Visitor<'de> for StructureVisitor {
 }
 
 impl<'de> Deserialize<'de> for Structure {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
