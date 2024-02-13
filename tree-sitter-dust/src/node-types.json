@@ -1,5 +1,24 @@
 [
   {
+    "type": "as",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "type",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "assignment",
     "named": true,
     "fields": {},
@@ -122,6 +141,10 @@
       "multiple": false,
       "required": true,
       "types": [
+        {
+          "type": "as",
+          "named": true
+        },
         {
           "type": "command",
           "named": true
@@ -889,6 +912,10 @@
   },
   {
     "type": "args",
+    "named": false
+  },
+  {
+    "type": "as",
     "named": false
   },
   {

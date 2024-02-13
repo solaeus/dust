@@ -117,6 +117,10 @@
         "members": [
           {
             "type": "SYMBOL",
+            "name": "as"
+          },
+          {
+            "type": "SYMBOL",
             "name": "function_call"
           },
           {
@@ -181,6 +185,23 @@
           ]
         }
       }
+    },
+    "as": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "expression"
+        },
+        {
+          "type": "STRING",
+          "value": "as"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "type"
+        }
+      ]
     },
     "pipe": {
       "type": "PREC",
@@ -507,7 +528,7 @@
       "members": [
         {
           "type": "PATTERN",
-          "value": "[-|+]?\\d*[.][\\d|e|f|-]*"
+          "value": "[-|+]?\\d*[.][\\d|e|-]*"
         },
         {
           "type": "STRING",

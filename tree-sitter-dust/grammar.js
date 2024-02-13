@@ -43,6 +43,7 @@ module.exports = grammar({
     _expression_kind: $ =>
       prec.right(
         choice(
+          $.as,
           $.function_call,
           $.identifier,
           $.index,
@@ -64,6 +65,9 @@ module.exports = grammar({
           ),
         ),
       ),
+
+    as: $ =>
+      seq($.expression, 'as', $.type),
 
     pipe: $ =>
       prec(
@@ -181,12 +185,12 @@ module.exports = grammar({
     float: $ =>
       choice(
         /[-|+]?\d*[.][\d|e|-]*/,
-        "Infinity",
-        "infinity",
-        "NaN",
-        "nan",
+        'Infinity',
+        'infinity',
+        'NaN',
+        'nan',
       ),
-    
+
     string: $ =>
       /("[^"]*?")|('[^']*?')|(`[^`]*?`)/,
 
