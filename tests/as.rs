@@ -4,7 +4,7 @@ use dust_lang::{
 };
 
 #[test]
-fn string_as_list() {
+fn string_as_string_list() {
     assert_eq!(
         interpret("'foobar' as [str]"),
         Ok(Value::List(List::with_items(vec![
@@ -19,7 +19,7 @@ fn string_as_list() {
 }
 
 #[test]
-fn string_as_list_conversion_error() {
+fn string_as_list_error() {
     assert_eq!(
         interpret("'foobar' as [float]"),
         Err(Error::Validation(ValidationError::ConversionImpossible {
