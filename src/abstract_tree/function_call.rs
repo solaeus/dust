@@ -87,7 +87,15 @@ impl AbstractTree for FunctionCall {
                     Ok(value_type)
                 }
             }
-            FunctionExpression::Index(index) => index.expected_type(context),
+            FunctionExpression::Index(index) => {
+                let index_type = index.expected_type(context)?;
+
+                if let Type::Function { return_type, .. } = index_type {
+                    Ok(*return_type)
+                } else {
+                    Ok(index_type)
+                }
+            }
         }
     }
 

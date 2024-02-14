@@ -57,25 +57,18 @@ impl AbstractTree for As {
                         });
                     }
                 }
+
                 Type::Any => {
                     // Do no validation when converting from "any" to a list.
                     // This effectively defers to runtime behavior, potentially
                     // causing a runtime error.
                 }
-                Type::Boolean => todo!(),
-                Type::Collection => todo!(),
-                Type::Custom(_) => todo!(),
-                Type::Float => todo!(),
-                Type::Function {
-                    parameter_types: _,
-                    return_type: _,
-                } => todo!(),
-                Type::Integer => todo!(),
-                Type::Map(_) => todo!(),
-                Type::None => todo!(),
-                Type::Number => todo!(),
-                Type::Range => todo!(),
-                Type::Option(_) => todo!(),
+                _ => {
+                    return Err(ValidationError::ConversionImpossible {
+                        initial_type,
+                        target_type: self.r#type.clone(),
+                    })
+                }
             }
         }
 
