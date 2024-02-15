@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use dust_lang::*;
 
 #[test]
@@ -29,7 +27,7 @@ fn simple_struct() {
 
 #[test]
 fn nested_struct() {
-    let _result = interpret(
+    let result = interpret(
         "
         struct Foo {
             bar <Bar>
@@ -41,14 +39,17 @@ fn nested_struct() {
         }
         ",
     );
+    let mut foo_map = Map::new();
 
-    let mut map = BTreeMap::new();
+    foo_map.set(
+        "bar".to_string(),
+        Value::Struct(StructInstance::new("Bar".to_string(), Map::new())),
+    );
 
-    map.insert("x".to_string(), (Some(Value::Integer(0)), Type::Integer));
+    let expected = Ok(Value::Struct(StructInstance::new(
+        "Foo".to_string(),
+        foo_map,
+    )));
 
-    // let expected = Value::Map(Map::from_structure(Structure::new(map)));
-
-    // assert_eq!(Ok(expected), result);
-
-    todo!()
+    assert_eq!(result, expected)
 }
