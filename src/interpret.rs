@@ -172,12 +172,7 @@ impl Interpreter {
         Ok(self.parse(source)?.root_node().to_sexp())
     }
 
-    /// Return formatted Dust code generated from the current abstract tree, or
-    /// None if no source code has been run successfully.
-    ///
-    /// You should call [validate][Interpreter::validate] before calling this
-    /// function. You can only create formatted source from a valid abstract
-    /// tree.
+    /// Return a formatted version of the source.
     pub fn format(&mut self, source: &str) -> Result<String, Error> {
         let mut formatted_output = String::new();
 
