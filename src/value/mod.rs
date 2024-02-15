@@ -35,16 +35,16 @@ pub mod struct_instance;
 /// value that can be treated as any other.
 #[derive(Debug, Clone)]
 pub enum Value {
+    Boolean(bool),
+    Enum(EnumInstance),
+    Float(f64),
+    Function(Function),
+    Integer(i64),
     List(List),
     Map(Map),
-    Function(Function),
-    String(String),
-    Float(f64),
-    Integer(i64),
-    Boolean(bool),
     Range(RangeInclusive<i64>),
+    String(String),
     Struct(StructInstance),
-    Enum(EnumInstance),
 }
 
 impl Value {
