@@ -696,10 +696,6 @@
         {
           "type": "type",
           "named": true
-        },
-        {
-          "type": "type_specification",
-          "named": true
         }
       ]
     }
@@ -862,6 +858,10 @@
   },
   {
     "type": ":",
+    "named": false
+  },
+  {
+    "type": "::",
     "named": false
   },
   {

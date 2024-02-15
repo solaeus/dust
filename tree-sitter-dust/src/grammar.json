@@ -1038,8 +1038,36 @@
                 "name": "identifier"
               },
               {
-                "type": "SYMBOL",
-                "name": "type_specification"
+                "type": "STRING",
+                "value": "<"
+              },
+              {
+                "type": "REPEAT1",
+                "content": {
+                  "type": "SEQ",
+                  "members": [
+                    {
+                      "type": "SYMBOL",
+                      "name": "type"
+                    },
+                    {
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "STRING",
+                          "value": ","
+                        },
+                        {
+                          "type": "BLANK"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "type": "STRING",
+                "value": ">"
               }
             ]
           },
@@ -1386,16 +1414,12 @@
         "type": "SEQ",
         "members": [
           {
-            "type": "STRING",
-            "value": "new"
-          },
-          {
             "type": "SYMBOL",
             "name": "identifier"
           },
           {
             "type": "STRING",
-            "value": ":"
+            "value": "::"
           },
           {
             "type": "SYMBOL",

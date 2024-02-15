@@ -339,7 +339,14 @@ module.exports = grammar({
           $.identifier,
           seq(
             $.identifier,
-            $.type_specification,
+            '<',
+            repeat1(
+              seq(          
+                $.type,
+                optional(','),
+              ),
+            ),
+            '>',
           ),
           seq('[', $.type, ']'),
           seq(
@@ -447,9 +454,8 @@ module.exports = grammar({
     enum_instance: $ =>
       prec.right(
         seq(
-          'new',
           $.identifier,
-          ':',
+          '::',
           $.identifier,
           optional(
             seq('(', $.expression, ')'),

@@ -88,13 +88,13 @@ impl AbstractTree for ValueNode {
                 ValueNode::Range(start..=end)
             }
             "enum_instance" => {
-                let name_node = child.child(1).unwrap();
+                let name_node = child.child(0).unwrap();
                 let name = Identifier::from_syntax(name_node, source, context)?;
                 
-                let variant_node = child.child(3).unwrap();
+                let variant_node = child.child(2).unwrap();
                 let variant = Identifier::from_syntax(variant_node, source, context)?;
              
-                let expression = if let Some(expression_node) = child.child(5) {                
+                let expression = if let Some(expression_node) = child.child(4) {                
                     Some(Box::new(Expression::from_syntax(expression_node, source, context)?))
                 } else {
                     None
