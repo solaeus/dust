@@ -16,7 +16,7 @@ static RANDOM: OnceLock<Value> = OnceLock::new();
 static STRING: OnceLock<Value> = OnceLock::new();
 
 /// Returns the entire built-in value API.
-pub fn built_in_values() -> impl Iterator<Item = BuiltInValue> {
+pub fn all_built_in_values() -> impl Iterator<Item = BuiltInValue> {
     all()
 }
 
@@ -212,11 +212,11 @@ impl Format for BuiltInValue {
 
 #[cfg(test)]
 mod tests {
-    use crate::built_in_values;
+    use super::all_built_in_values;
 
     #[test]
     fn check_built_in_types() {
-        for built_in_value in built_in_values() {
+        for built_in_value in all_built_in_values() {
             let expected = built_in_value.r#type();
             let actual = built_in_value.get().r#type();
 

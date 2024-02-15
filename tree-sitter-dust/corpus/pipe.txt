@@ -29,8 +29,7 @@ fs:read('file.txt') | output()
         (function_expression
           (index
             (index_expression
-              (value
-                (built_in_value)))
+              (identifier))
             (index_expression
               (identifier))))
         (expression
@@ -38,5 +37,4 @@ fs:read('file.txt') | output()
             (string))))
       (function_call
         (function_expression
-          (value
-            (built_in_value)))))))
+          (identifier))))))

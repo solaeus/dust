@@ -83,11 +83,7 @@ impl Format for IndexExpression {
     fn format(&self, output: &mut String, indent_level: u8) {
         match self {
             IndexExpression::Value(value_node) => {
-                if let ValueNode::BuiltInValue(built_in_value) = value_node {
-                    output.push_str(built_in_value.name());
-                } else {
-                    value_node.format(output, indent_level);
-                }
+                value_node.format(output, indent_level);
             }
             IndexExpression::Identifier(identifier) => identifier.format(output, indent_level),
             IndexExpression::FunctionCall(function_call) => {

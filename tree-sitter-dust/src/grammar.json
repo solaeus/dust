@@ -352,14 +352,6 @@
         },
         {
           "type": "SYMBOL",
-          "name": "option"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "built_in_value"
-        },
-        {
-          "type": "SYMBOL",
           "name": "range"
         },
         {
@@ -523,36 +515,6 @@
           }
         ]
       }
-    },
-    "option": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "none"
-        },
-        {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "STRING",
-              "value": "some"
-            },
-            {
-              "type": "STRING",
-              "value": "("
-            },
-            {
-              "type": "SYMBOL",
-              "name": "expression"
-            },
-            {
-              "type": "STRING",
-              "value": ")"
-            }
-          ]
-        }
-      ]
     },
     "index": {
       "type": "PREC_LEFT",
@@ -1561,47 +1523,6 @@
         {
           "type": "SYMBOL",
           "name": "map"
-        }
-      ]
-    },
-    "built_in_value": {
-      "type": "CHOICE",
-      "members": [
-        {
-          "type": "STRING",
-          "value": "args"
-        },
-        {
-          "type": "STRING",
-          "value": "assert_equal"
-        },
-        {
-          "type": "STRING",
-          "value": "env"
-        },
-        {
-          "type": "STRING",
-          "value": "fs"
-        },
-        {
-          "type": "STRING",
-          "value": "json"
-        },
-        {
-          "type": "STRING",
-          "value": "length"
-        },
-        {
-          "type": "STRING",
-          "value": "output"
-        },
-        {
-          "type": "STRING",
-          "value": "random"
-        },
-        {
-          "type": "STRING",
-          "value": "str"
         }
       ]
     }

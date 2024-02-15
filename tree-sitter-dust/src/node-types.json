@@ -71,11 +71,6 @@
     "fields": {}
   },
   {
-    "type": "built_in_value",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "command",
     "named": true,
     "fields": {},
@@ -532,21 +527,6 @@
     "fields": {}
   },
   {
-    "type": "option",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": false,
-      "required": false,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "pipe",
     "named": true,
     "fields": {},
@@ -771,10 +751,6 @@
           "named": true
         },
         {
-          "type": "built_in_value",
-          "named": true
-        },
-        {
           "type": "enum_instance",
           "named": true
         },
@@ -796,10 +772,6 @@
         },
         {
           "type": "map",
-          "named": true
-        },
-        {
-          "type": "option",
           "named": true
         },
         {
@@ -949,15 +921,7 @@
     "named": false
   },
   {
-    "type": "args",
-    "named": false
-  },
-  {
     "type": "as",
-    "named": false
-  },
-  {
-    "type": "assert_equal",
     "named": false
   },
   {
@@ -993,10 +957,6 @@
     "named": false
   },
   {
-    "type": "env",
-    "named": false
-  },
-  {
     "type": "false",
     "named": false
   },
@@ -1006,10 +966,6 @@
   },
   {
     "type": "for",
-    "named": false
-  },
-  {
-    "type": "fs",
     "named": false
   },
   {
@@ -1035,14 +991,6 @@
   {
     "type": "integer",
     "named": true
-  },
-  {
-    "type": "json",
-    "named": false
-  },
-  {
-    "type": "length",
-    "named": false
   },
   {
     "type": "map",
@@ -1073,23 +1021,11 @@
     "named": false
   },
   {
-    "type": "output",
-    "named": false
-  },
-  {
-    "type": "random",
-    "named": false
-  },
-  {
     "type": "range",
     "named": true
   },
   {
     "type": "return",
-    "named": false
-  },
-  {
-    "type": "some",
     "named": false
   },
   {

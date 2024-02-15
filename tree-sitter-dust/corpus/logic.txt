@@ -65,8 +65,7 @@ Complex Logic Sequence
                 (expression
                   (function_call
                     (function_expression
-                      (value
-                        (built_in_value)))
+                      (identifier))
                     (expression
                       (identifier))))
                 (logic_operator)
@@ -79,8 +78,7 @@ Complex Logic Sequence
                 (expression
                   (function_call
                     (function_expression
-                      (value
-                        (built_in_value)))
+                      (identifier))
                     (expression
                       (identifier))))
                 (logic_operator)
@@ -93,8 +91,7 @@ Complex Logic Sequence
             (expression
               (function_call
                 (function_expression
-                  (value
-                    (built_in_value)))
+                  (identifier))
                 (expression
                   (identifier))))
             (logic_operator)

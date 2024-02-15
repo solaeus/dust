@@ -25,3 +25,15 @@ fn option() {
         )))
     );
 }
+
+#[test]
+fn result() {
+    assert_eq!(
+        interpret("new Result:Ok(1)"),
+        Ok(Value::Enum(EnumInstance::new(
+            "Result".to_string(),
+            "Ok".to_string(),
+            Value::Integer(1)
+        )))
+    );
+}

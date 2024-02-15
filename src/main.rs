@@ -10,7 +10,9 @@ use reedline::{
 
 use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
 
-use dust_lang::{built_in_values, Context, Error, Interpreter, Value, ValueData};
+use dust_lang::{
+    built_in_values::all_built_in_values, Context, Error, Interpreter, Value, ValueData,
+};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -277,7 +279,7 @@ impl Completer for DustCompleter {
             }
         }
 
-        for built_in_value in built_in_values() {
+        for built_in_value in all_built_in_values() {
             let name = built_in_value.name();
             let description = built_in_value.description();
 

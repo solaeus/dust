@@ -5,7 +5,7 @@ use tree_sitter::Node as SyntaxNode;
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInValue, Context, Expression, Format, Function, FunctionNode,
+    AbstractTree, Context, Expression, Format, Function, FunctionNode,
     Identifier, List, Type, Value, TypeDefinition, MapNode,
 };
 
@@ -19,7 +19,6 @@ pub enum ValueNode {
     List(Vec<Expression>),
     Option(Option<Box<Expression>>),
     Map(MapNode),
-    BuiltInValue(BuiltInValue),
     Range(RangeInclusive<i64>),
     Struct {
         name: Identifier,
@@ -80,15 +79,6 @@ impl AbstractTree for ValueNode {
 
                     ValueNode::Option(Some(Box::new(expression)))
                 }
-            }
-            "built_in_value" => {
-                let built_in_value_node = child.child(0).unwrap();
-
-                ValueNode::BuiltInValue(BuiltInValue::from_syntax(
-                    built_in_value_node,
-                    source,
-                    context,
-                )?)
             }
             "range" => {
                 let mut split = source[child.byte_range()].split("..");
@@ -176,7 +166,6 @@ impl AbstractTree for ValueNode {
                 }
             }
             ValueNode::Map(_) => Type::Map,
-            ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
             ValueNode::Struct { name, .. }  => {
                 Type::Custom(name.clone())
             }
@@ -233,7 +222,6 @@ impl AbstractTree for ValueNode {
                 Value::Option(option_value)
             }
             ValueNode::Map(map_node) => map_node.run(source, context)?,
-            ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
             ValueNode::Range(range) => Value::Range(range.clone()),
             ValueNode::Struct { name, properties } => {
                 let instance = if let Some(definition) = context.get_definition(name.inner())? {
@@ -312,7 +300,6 @@ impl Format for ValueNode {
                 }
             }
             ValueNode::Map(map_node) => map_node.format(output, indent_level),
-            ValueNode::BuiltInValue(built_in_value) => built_in_value.format(output, indent_level),
             ValueNode::Struct { name, properties } => {
                 name.format(output, indent_level);
                 properties.format(output, indent_level);
@@ -342,8 +329,6 @@ impl Ord for ValueNode {
             (ValueNode::Option(_), _) => Ordering::Greater,
             (ValueNode::Map(left), ValueNode::Map(right)) => left.cmp(right),
             (ValueNode::Map(_), _) => Ordering::Greater,
-            (ValueNode::BuiltInValue(left), ValueNode::BuiltInValue(right)) => left.cmp(right),
-            (ValueNode::BuiltInValue(_), _) => Ordering::Greater,
             (ValueNode::Struct{ name: left_name, properties: left_properties }, ValueNode::Struct {name: right_name, properties: right_properties} ) => {
                 let name_cmp = left_name.cmp(right_name);
 

@@ -5,8 +5,8 @@ use std::{
 };
 
 use crate::{
-    built_in_type_definitions::all_built_in_type_definitions, error::rw_lock_error::RwLockError,
-    Type, TypeDefinition, Value,
+    built_in_type_definitions::all_built_in_type_definitions, built_in_values::all_built_in_values,
+    error::rw_lock_error::RwLockError, Type, TypeDefinition, Value,
 };
 
 #[derive(Clone, Debug)]
@@ -57,6 +57,12 @@ impl Context {
         if let Some(value_data) = self.inner.read()?.get(key) {
             if let ValueData::Value { inner, .. } = value_data {
                 return Ok(Some(inner.clone()));
+            }
+        }
+
+        for built_in_value in all_built_in_values() {
+            if key == built_in_value.name() {
+                return Ok(Some(built_in_value.get().clone()));
             }
         }
 

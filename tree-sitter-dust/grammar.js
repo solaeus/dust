@@ -122,8 +122,6 @@ module.exports = grammar({
         $.boolean,
         $.list,
         $.map,
-        $.option,
-        $.built_in_value,
         $.range,
         $.struct_instance,
         $.enum_instance,
@@ -179,17 +177,6 @@ module.exports = grammar({
             ),
           ),
           '}',
-        ),
-      ),
-
-    option: $ =>
-      choice(
-        'none',
-        seq(
-          'some',
-          '(',
-          $.expression,
-          ')',
         ),
       ),
 
@@ -499,18 +486,5 @@ module.exports = grammar({
 
     struct_instance: $ =>
       seq('new', $.identifier, $.map),
-
-    built_in_value: $ =>
-      choice(
-        'args',
-        'assert_equal',
-        'env',
-        'fs',
-        'json',
-        'length',
-        'output',
-        'random',
-        'str',
-      ),
   },
 });
