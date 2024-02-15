@@ -4,7 +4,6 @@ use enum_iterator::{all, Sequence};
 
 use crate::{
     error::rw_lock_error::RwLockError, Context, EnumDefinition, Identifier, Type, TypeDefinition,
-    VariantContent,
 };
 
 static OPTION: OnceLock<Result<TypeDefinition, RwLockError>> = OnceLock::new();
@@ -34,8 +33,8 @@ impl BuiltInTypeDefinition {
                 let definition = TypeDefinition::Enum(EnumDefinition::new(
                     Identifier::new(self.name()),
                     vec![
-                        (Identifier::new("Some"), VariantContent::Type(Type::Any)),
-                        (Identifier::new("None"), VariantContent::None),
+                        (Identifier::new("Some"), Some(Type::Any)),
+                        (Identifier::new("None"), None),
                     ],
                 ));
 
@@ -45,8 +44,8 @@ impl BuiltInTypeDefinition {
                 let definition = TypeDefinition::Enum(EnumDefinition::new(
                     Identifier::new(self.name()),
                     vec![
-                        (Identifier::new("Ok"), VariantContent::Type(Type::Any)),
-                        (Identifier::new("Err"), VariantContent::Type(Type::Any)),
+                        (Identifier::new("Ok"), Some(Type::Any)),
+                        (Identifier::new("Err"), Some(Type::Any)),
                     ],
                 ));
 

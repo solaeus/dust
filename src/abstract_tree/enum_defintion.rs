@@ -9,18 +9,11 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct EnumDefinition {
     identifier: Identifier,
-    variants: Vec<(Identifier, VariantContent)>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum VariantContent {
-    Type(Type),
-    TypeDefinition(TypeDefinition),
-    None,
+    variants: Vec<(Identifier, Option<Type>)>,
 }
 
 impl EnumDefinition {
-    pub fn new(identifier: Identifier, variants: Vec<(Identifier, VariantContent)>) -> Self {
+    pub fn new(identifier: Identifier, variants: Vec<(Identifier, Option<Type>)>) -> Self {
         Self {
             identifier,
             variants,
@@ -57,16 +50,7 @@ impl AbstractTree for EnumDefinition {
                 if child.kind() == "type" {
                     let r#type = Type::from_syntax(child, source, context)?;
 
-                    variants.push((identifier.clone(), VariantContent::Type(r#type)));
-                }
-
-                if child.kind() == "type_definition" {
-                    let type_definition = TypeDefinition::from_syntax(child, source, context)?;
-
-                    variants.push((
-                        identifier.clone(),
-                        VariantContent::TypeDefinition(type_definition),
-                    ));
+                    variants.push((identifier.clone(), Some(r#type)));
                 }
             }
         }
