@@ -4,7 +4,7 @@
 //!
 //! - [interpret] is the simplest way to run Dust code inside of an application or library
 //! - [interpret_with_context] allows you to set variables on the execution context
-//! - [Interpreter] is an advanced tool that can parse, verify, run and format Dust code
+//! - [Interpreter] is an advanced tool that can parse, validate, run and format Dust code
 //!
 //! # Examples
 //!
@@ -175,7 +175,7 @@ impl Interpreter {
     /// Return formatted Dust code generated from the current abstract tree, or
     /// None if no source code has been run successfully.
     ///
-    /// You should call [verify][Interpreter::verify] before calling this
+    /// You should call [validate][Interpreter::validate] before calling this
     /// function. You can only create formatted source from a valid abstract
     /// tree.
     pub fn format(&mut self, source: &str) -> Result<String, Error> {
