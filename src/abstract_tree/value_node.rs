@@ -17,7 +17,6 @@ pub enum ValueNode {
     Integer(String),
     String(String),
     List(Vec<Expression>),
-    Option(Option<Box<Expression>>),
     Map(MapNode),
     Range(RangeInclusive<i64>),
     Struct {
@@ -67,18 +66,6 @@ impl AbstractTree for ValueNode {
             }
             "map" => {
                 ValueNode::Map(MapNode::from_syntax(child, source, context)?)
-            }
-            "option" => {
-                let first_grandchild = child.child(0).unwrap();
-
-                if first_grandchild.kind() == "none" {
-                    ValueNode::Option(None)
-                } else {
-                    let expression_node = child.child(2).unwrap();
-                    let expression = Expression::from_syntax(expression_node, source, context)?;
-
-                    ValueNode::Option(Some(Box::new(expression)))
-                }
             }
             "range" => {
                 let mut split = source[child.byte_range()].split("..");
@@ -158,19 +145,21 @@ impl AbstractTree for ValueNode {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            ValueNode::Option(option) => {
-                if let Some(expression) = option {
-                    Type::Option(Box::new(expression.expected_type(context)?))
-                } else {
-                    Type::None
-                }
-            }
             ValueNode::Map(_) => Type::Map,
             ValueNode::Struct { name, .. }  => {
                 Type::Custom(name.clone())
             }
             ValueNode::Range(_) => Type::Range,
-            ValueNode::Enum { name, .. } => Type::Custom(name.clone()),
+            ValueNode::Enum { name, variant: _, expression } => {
+                if let Some(expression) = expression {
+                    Type::CustomWithArgument {
+                        name: name.clone(),
+                        argument: Box::new(expression.expected_type(context)?)
+                    }
+                } else {
+                    Type::Custom(name.clone())
+                }
+            },
         };
 
         Ok(r#type)
@@ -212,15 +201,6 @@ impl AbstractTree for ValueNode {
 
                 Value::List(List::with_items(values))
             }
-            ValueNode::Option(option) => {
-                let option_value = if let Some(expression) = option {
-                    Some(Box::new(expression.run(source, context)?))
-                } else {
-                    None
-                };
-
-                Value::Option(option_value)
-            }
             ValueNode::Map(map_node) => map_node.run(source, context)?,
             ValueNode::Range(range) => Value::Range(range.clone()),
             ValueNode::Struct { name, properties } => {
@@ -247,7 +227,7 @@ impl AbstractTree for ValueNode {
                 };
                 let instance = if let Some(definition) = context.get_definition(name.inner())? {
                     if let TypeDefinition::Enum(enum_defintion) = definition {
-                        enum_defintion.instantiate(variant.inner().clone(), value)
+                        enum_defintion.instantiate(variant.inner().clone(), Some(value))
                     } else {
                         return Err(RuntimeError::ValidationFailure(
                             ValidationError::ExpectedEnumDefintion {
@@ -290,15 +270,6 @@ impl Format for ValueNode {
 
                 output.push(']');
             }
-            ValueNode::Option(option) => {
-                if let Some(expression) = option {
-                    output.push_str("some(");
-                    expression.format(output, indent_level);
-                    output.push(')');
-                } else {
-                    output.push_str("none");
-                }
-            }
             ValueNode::Map(map_node) => map_node.format(output, indent_level),
             ValueNode::Struct { name, properties } => {
                 name.format(output, indent_level);
@@ -325,8 +296,6 @@ impl Ord for ValueNode {
             (ValueNode::String(_), _) => Ordering::Greater,
             (ValueNode::List(left), ValueNode::List(right)) => left.cmp(right),
             (ValueNode::List(_), _) => Ordering::Greater,
-            (ValueNode::Option(left), ValueNode::Option(right)) => left.cmp(right),
-            (ValueNode::Option(_), _) => Ordering::Greater,
             (ValueNode::Map(left), ValueNode::Map(right)) => left.cmp(right),
             (ValueNode::Map(_), _) => Ordering::Greater,
             (ValueNode::Struct{ name: left_name, properties: left_properties }, ValueNode::Struct {name: right_name, properties: right_properties} ) => {

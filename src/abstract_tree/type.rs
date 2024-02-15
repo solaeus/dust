@@ -3,6 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    built_in_types::BuiltInType,
     error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, Context, Format, Identifier, SyntaxNode, Value,
 };
@@ -13,6 +14,10 @@ pub enum Type {
     Boolean,
     Collection,
     Custom(Identifier),
+    CustomWithArgument {
+        name: Identifier,
+        argument: Box<Type>,
+    },
     Float,
     Function {
         parameter_types: Vec<Type>,
@@ -21,14 +26,17 @@ pub enum Type {
     Integer,
     List(Box<Type>),
     Map,
-    None,
     Number,
     String,
     Range,
-    Option(Box<Type>),
+    None,
 }
 
 impl Type {
+    pub fn option(inner_type: Option<Type>) -> Self {
+        BuiltInType::Option.get(inner_type).clone()
+    }
+
     pub fn list(item_type: Type) -> Self {
         Type::List(Box::new(item_type))
     }
@@ -38,10 +46,6 @@ impl Type {
             parameter_types,
             return_type: Box::new(return_type),
         }
-    }
-
-    pub fn option(optional_type: Type) -> Self {
-        Type::Option(Box::new(optional_type))
     }
 
     /// Returns a boolean indicating whether is type is accepting of the other.
@@ -70,17 +74,22 @@ impl Type {
             | (Type::Number, Type::Float)
             | (Type::Integer, Type::Number)
             | (Type::Float, Type::Number)
-            | (Type::None, Type::None)
             | (Type::String, Type::String) => true,
             (Type::Custom(left), Type::Custom(right)) => left == right,
-            (Type::Option(_), Type::None) => true,
-            (Type::Option(left), Type::Option(right)) => {
-                if let Type::Any = left.as_ref() {
-                    true
-                } else if left == right {
-                    true
-                } else {
+            (
+                Type::CustomWithArgument {
+                    name: left_name,
+                    argument: left_argument,
+                },
+                Type::CustomWithArgument {
+                    name: right_name,
+                    argument: right_argument,
+                },
+            ) => {
+                if left_name != right_name {
                     false
+                } else {
+                    left_argument == right_argument
                 }
             }
             (Type::List(self_item_type), Type::List(other_item_type)) => {
@@ -136,7 +145,21 @@ impl AbstractTree for Type {
         let type_node = node.child(0).unwrap();
 
         let r#type = match type_node.kind() {
-            "identifier" => Type::Custom(Identifier::from_syntax(type_node, _source, _context)?),
+            "identifier" => {
+                if node.child_count() == 1 {
+                    Type::Custom(Identifier::from_syntax(type_node, _source, _context)?)
+                } else {
+                    let name = Identifier::from_syntax(type_node, _source, _context)?;
+
+                    let argument_node = node.child(2).unwrap();
+                    let argument = Type::from_syntax(argument_node, _source, _context)?;
+
+                    Type::CustomWithArgument {
+                        name,
+                        argument: Box::new(argument),
+                    }
+                }
+            }
             "[" => {
                 let item_type_node = node.child(1).unwrap();
                 let item_type = Type::from_syntax(item_type_node, _source, _context)?;
@@ -165,7 +188,7 @@ impl AbstractTree for Type {
                 let return_type = if final_node.is_named() {
                     Type::from_syntax(final_node, _source, _context)?
                 } else {
-                    Type::None
+                    Type::option(None)
                 };
 
                 Type::Function {
@@ -178,16 +201,9 @@ impl AbstractTree for Type {
             "num" => Type::Number,
             "none" => Type::None,
             "str" => Type::String,
-            "option" => {
-                let inner_type_node = node.child(2).unwrap();
-                let inner_type = Type::from_syntax(inner_type_node, _source, _context)?;
-
-                Type::Option(Box::new(inner_type))
-            }
             _ => {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
-                    expected: "any, bool, float, int, num, str, option, custom type, (, [ or {"
-                        .to_string(),
+                    expected: "any, bool, float, int, num, str, custom type, (, [ or {".to_string(),
                     actual: type_node.kind().to_string(),
                     location: type_node.start_position(),
                     relevant_source: _source[type_node.byte_range()].to_string(),
@@ -217,8 +233,11 @@ impl Format for Type {
             Type::Any => output.push_str("any"),
             Type::Boolean => output.push_str("bool"),
             Type::Collection => output.push_str("collection"),
-
             Type::Custom(_) => todo!(),
+            Type::CustomWithArgument {
+                name: _,
+                argument: _,
+            } => todo!(),
             Type::Float => output.push_str("float"),
             Type::Function {
                 parameter_types,
@@ -246,14 +265,9 @@ impl Format for Type {
             Type::Map => {
                 output.push_str("map");
             }
-            Type::None => output.push_str("none"),
+            Type::None => output.push_str("Option::None"),
             Type::Number => output.push_str("num"),
             Type::String => output.push_str("str"),
-            Type::Option(optional_type) => {
-                output.push_str("option(");
-                optional_type.format(output, indent_level);
-                output.push(')');
-            }
             Type::Range => todo!(),
         }
     }
@@ -266,6 +280,9 @@ impl Display for Type {
             Type::Boolean => write!(f, "bool"),
             Type::Collection => write!(f, "collection"),
             Type::Custom(identifier) => write!(f, "{identifier}"),
+            Type::CustomWithArgument { name, argument } => {
+                write!(f, "{name}<{argument}>")
+            }
             Type::Float => write!(f, "float"),
             Type::Function {
                 parameter_types,
@@ -290,9 +307,6 @@ impl Display for Type {
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),
-            Type::Option(inner_type) => {
-                write!(f, "option({})", inner_type)
-            }
             Type::Range => todo!(),
         }
     }

@@ -1,20 +1,22 @@
 use std::fmt::{self, Display, Formatter};
 
+use serde::{Deserialize, Serialize};
+
 use crate::Value;
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumInstance {
     name: String,
     variant_name: String,
-    value: Box<Value>,
+    value: Option<Box<Value>>,
 }
 
 impl EnumInstance {
-    pub fn new(name: String, variant_name: String, value: Value) -> Self {
+    pub fn new(name: String, variant_name: String, value: Option<Value>) -> Self {
         Self {
             name,
             variant_name,
-            value: Box::new(value),
+            value: value.map(|value| Box::new(value)),
         }
     }
 
@@ -26,13 +28,13 @@ impl EnumInstance {
         &self.variant_name
     }
 
-    pub fn value(&self) -> &Value {
+    pub fn value(&self) -> &Option<Box<Value>> {
         &self.value
     }
 }
 
 impl Display for EnumInstance {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}::{}({})", self.name, self.variant_name, self.value)
+        write!(f, "{}::{}({:?})", self.name, self.variant_name, self.value)
     }
 }

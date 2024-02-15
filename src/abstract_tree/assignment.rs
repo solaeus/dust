@@ -14,7 +14,6 @@ pub struct Assignment {
     type_specification: Option<TypeSpecification>,
     operator: AssignmentOperator,
     statement: Statement,
-
     syntax_position: SourcePosition,
 }
 

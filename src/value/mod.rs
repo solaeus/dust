@@ -1,5 +1,7 @@
 //! Types that represent runtime values.
-use crate::{error::RuntimeError, Identifier, Type, TypeSpecification};
+use crate::{
+    built_in_values::BuiltInValue, error::RuntimeError, Identifier, Type, TypeSpecification,
+};
 
 use serde::{
     de::{MapAccess, SeqAccess, Visitor},
@@ -42,18 +44,23 @@ pub enum Value {
     Integer(i64),
     Boolean(bool),
     Range(RangeInclusive<i64>),
-    Option(Option<Box<Value>>),
     Struct(StructInstance),
     Enum(EnumInstance),
 }
 
-impl Default for Value {
-    fn default() -> Self {
-        Value::none()
-    }
-}
-
 impl Value {
+    pub fn none() -> Self {
+        BuiltInValue::None.get().clone()
+    }
+
+    pub fn some(value: Value) -> Value {
+        Value::Enum(EnumInstance::new(
+            "Option".to_string(),
+            "Some".to_string(),
+            Some(value),
+        ))
+    }
+
     pub fn string<T: Into<String>>(string: T) -> Self {
         Value::String(string.into())
     }
@@ -102,29 +109,10 @@ impl Value {
             Value::Float(_) => Type::Float,
             Value::Integer(_) => Type::Integer,
             Value::Boolean(_) => Type::Boolean,
-            Value::Option(option) => {
-                if let Some(value) = option {
-                    Type::Option(Box::new(value.r#type()))
-                } else {
-                    Type::None
-                }
-            }
             Value::Range(_) => todo!(),
             Value::Struct(_) => todo!(),
             Value::Enum(_) => todo!(),
         }
-    }
-
-    pub fn none() -> Self {
-        Value::Option(None)
-    }
-
-    pub fn some(value: Value) -> Self {
-        Value::Option(Some(Box::new(value)))
-    }
-
-    pub fn option(option: Option<Value>) -> Self {
-        Value::Option(option.map(Box::new))
     }
 
     pub fn is_string(&self) -> bool {
@@ -151,20 +139,16 @@ impl Value {
         matches!(self, Value::List(_))
     }
 
-    pub fn is_option(&self) -> bool {
-        matches!(self, Value::Option(_))
-    }
-
-    pub fn is_none(&self) -> bool {
-        matches!(self, Value::Option(None))
-    }
-
     pub fn is_map(&self) -> bool {
         matches!(self, Value::Map(_))
     }
 
     pub fn is_function(&self) -> bool {
         matches!(self, Value::Function(_))
+    }
+
+    pub fn is_none(&self) -> bool {
+        self == &Value::none()
     }
 
     /// Borrows the value stored in `self` as `&String`, or returns `Err` if `self` is not a `Value::String`.
@@ -259,39 +243,17 @@ impl Value {
             }),
         }
     }
+}
 
-    /// Returns `Option`, or returns `Err` if `self` is not a `Value::Option`.
-    pub fn as_option(&self) -> Result<&Option<Box<Value>>, RuntimeError> {
-        match self {
-            Value::Option(option) => Ok(option),
-            value => Err(RuntimeError::ExpectedOption {
-                actual: value.clone(),
-            }),
-        }
-    }
-
-    /// Returns `()`, or returns `Err` if `self` is not a `Value::none()`.
-    pub fn as_none(&self) -> Result<(), RuntimeError> {
-        match self {
-            Value::Option(option) => {
-                if option.is_none() {
-                    Ok(())
-                } else {
-                    Err(RuntimeError::ExpectedNone {
-                        actual: self.clone(),
-                    })
-                }
-            }
-            value => Err(RuntimeError::ExpectedNone {
-                actual: value.clone(),
-            }),
-        }
+impl Default for Value {
+    fn default() -> Self {
+        Value::none()
     }
 }
 
 impl Default for &Value {
     fn default() -> Self {
-        &Value::Option(None)
+        BuiltInValue::None.get()
     }
 }
 
@@ -445,7 +407,6 @@ impl PartialEq for Value {
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
-            (Value::Option(left), Value::Option(right)) => left == right,
             (Value::Range(left), Value::Range(right)) => left == right,
             (Value::Struct(left), Value::Struct(right)) => left == right,
             (Value::Enum(left), Value::Enum(right)) => left == right,
@@ -495,9 +456,7 @@ impl Ord for Value {
 
                 left_len.cmp(&right_len)
             }
-            (Value::Range(_), _) => Ordering::Greater,
-            (Value::Option(left), Value::Option(right)) => left.cmp(right),
-            (Value::Option(_), _) => Ordering::Less,
+            (Value::Range(_), _) => Ordering::Less,
         }
     }
 }
@@ -522,7 +481,6 @@ impl Serialize for Value {
 
                 list.end()
             }
-            Value::Option(inner) => inner.serialize(serializer),
             Value::Map(map) => {
                 let entries = map.inner();
                 let mut map = serializer.serialize_map(Some(entries.len()))?;
@@ -548,13 +506,6 @@ impl Display for Value {
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(int) => write!(f, "{int}"),
             Value::Boolean(boolean) => write!(f, "{boolean}"),
-            Value::Option(option) => {
-                if let Some(value) = option {
-                    write!(f, "some({})", value)
-                } else {
-                    write!(f, "none")
-                }
-            }
             Value::List(list) => write!(f, "{list}"),
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
@@ -839,9 +790,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Value::Option(Some(Box::new(Value::deserialize(
-            deserializer,
-        )?))))
+        Ok(Value::Enum(EnumInstance::deserialize(deserializer)?))
     }
 
     fn visit_unit<E>(self) -> std::result::Result<Self::Value, E>

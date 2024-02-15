@@ -43,7 +43,7 @@ fn callback() {
 
 #[test]
 fn built_in_function_call() {
-    assert_eq!(interpret("output('Hiya')"), Ok(Value::Option(None)));
+    assert_eq!(interpret("output('Hiya')"), Ok(Value::none()));
 }
 
 #[test]

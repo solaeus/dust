@@ -1,7 +1,7 @@
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Context, List, Type, Value};
+use crate::{error::RuntimeError, Context, EnumInstance, List, Type, Value};
 
 use super::Callable;
 
@@ -122,7 +122,7 @@ impl Callable for StrFunction {
             }
             StrFunction::Find => Type::function(
                 vec![Type::String, Type::String],
-                Type::option(Type::Integer),
+                Type::option(Some(Type::Integer)),
             ),
             StrFunction::Insert => Type::function(
                 vec![Type::String, Type::Integer, Type::String],
@@ -137,7 +137,7 @@ impl Callable for StrFunction {
             StrFunction::Parse => Type::function(vec![Type::String], Type::Any),
             StrFunction::Remove => Type::function(
                 vec![Type::String, Type::Integer],
-                Type::option(Type::String),
+                Type::option(Some(Type::String)),
             ),
             StrFunction::ReplaceRange => Type::function(
                 vec![Type::String, Type::list(Type::Integer), Type::String],
@@ -175,9 +175,10 @@ impl Callable for StrFunction {
             StrFunction::StartsWith => {
                 Type::function(vec![Type::String, Type::String], Type::Boolean)
             }
-            StrFunction::StripPrefix => {
-                Type::function(vec![Type::String, Type::String], Type::option(Type::String))
-            }
+            StrFunction::StripPrefix => Type::function(
+                vec![Type::String, Type::String],
+                Type::option(Some(Type::String)),
+            ),
             StrFunction::ToLowercase => Type::function(vec![Type::String], Type::String),
             StrFunction::ToUppercase => Type::function(vec![Type::String], Type::String),
             StrFunction::Truncate => {
@@ -233,9 +234,21 @@ impl Callable for StrFunction {
                 let pattern = pattern_string.as_str();
                 let find = string
                     .find(pattern)
-                    .map(|index| Box::new(Value::Integer(index as i64)));
+                    .map(|index| Value::Integer(index as i64));
 
-                Value::Option(find)
+                if let Some(index) = find {
+                    Value::Enum(EnumInstance::new(
+                        "Option".to_string(),
+                        "Some".to_string(),
+                        Some(index),
+                    ))
+                } else {
+                    Value::Enum(EnumInstance::new(
+                        "Option".to_string(),
+                        "None".to_string(),
+                        Some(Value::none()),
+                    ))
+                }
             }
             StrFunction::IsAscii => {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
@@ -292,9 +305,9 @@ impl Callable for StrFunction {
                 let string = arguments.first().unwrap().as_string()?;
 
                 if let Ok(integer) = string.parse::<i64>() {
-                    Value::option(Some(Value::Integer(integer)))
+                    Value::Integer(integer)
                 } else if let Ok(float) = string.parse::<f64>() {
-                    Value::option(Some(Value::Float(float)))
+                    Value::Float(float)
                 } else {
                     Value::none()
                 }
@@ -413,7 +426,11 @@ impl Callable for StrFunction {
                     ]))
                 });
 
-                Value::option(sections)
+                if let Some(sections) = sections {
+                    Value::some(sections)
+                } else {
+                    Value::none()
+                }
             }
             StrFunction::SplitTerminator => {
                 RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
@@ -458,7 +475,15 @@ impl Callable for StrFunction {
                     .strip_prefix(prefix)
                     .map(|remainder| Value::string(remainder.to_string()));
 
-                Value::option(stripped)
+                if let Some(value) = stripped {
+                    Value::Enum(EnumInstance::new(
+                        "Option".to_string(),
+                        "Some".to_string(),
+                        Some(value),
+                    ))
+                } else {
+                    Value::none()
+                }
             }
             StrFunction::ToLowercase => {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;

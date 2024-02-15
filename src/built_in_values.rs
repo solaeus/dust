@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     built_in_functions::{fs::fs_functions, json::json_functions, str::string_functions, Callable},
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInFunction, Context, Format, Function, List, Map, SyntaxNode, Type, Value,
+    AbstractTree, BuiltInFunction, Context, EnumInstance, Format, Function, Identifier, List, Map,
+    SyntaxNode, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -14,6 +15,7 @@ static FS: OnceLock<Value> = OnceLock::new();
 static JSON: OnceLock<Value> = OnceLock::new();
 static RANDOM: OnceLock<Value> = OnceLock::new();
 static STRING: OnceLock<Value> = OnceLock::new();
+static NONE: OnceLock<Value> = OnceLock::new();
 
 /// Returns the entire built-in value API.
 pub fn all_built_in_values() -> impl Iterator<Item = BuiltInValue> {
@@ -38,6 +40,9 @@ pub enum BuiltInValue {
     /// Get the length of a collection.
     Length,
 
+    /// The absence of a value.
+    None,
+
     /// Print a value to stdout.
     Output,
 
@@ -57,6 +62,7 @@ impl BuiltInValue {
             BuiltInValue::Fs => "fs",
             BuiltInValue::Json => "json",
             BuiltInValue::Length => BuiltInFunction::Length.name(),
+            BuiltInValue::None => "None",
             BuiltInValue::Output => "output",
             BuiltInValue::Random => "random",
             BuiltInValue::Str => "str",
@@ -73,6 +79,7 @@ impl BuiltInValue {
             BuiltInValue::Fs => "File and directory tools.",
             BuiltInValue::Json => "JSON formatting tools.",
             BuiltInValue::Length => BuiltInFunction::Length.description(),
+            BuiltInValue::None => "The absence of a value.",
             BuiltInValue::Output => "output",
             BuiltInValue::Random => "random",
             BuiltInValue::Str => "string",
@@ -89,6 +96,7 @@ impl BuiltInValue {
             BuiltInValue::Fs => Type::Map,
             BuiltInValue::Json => Type::Map,
             BuiltInValue::Length => BuiltInFunction::Length.r#type(),
+            BuiltInValue::None => Type::Custom(Identifier::new("Option")),
             BuiltInValue::Output => BuiltInFunction::Output.r#type(),
             BuiltInValue::Random => Type::Map,
             BuiltInValue::Str => Type::Map,
@@ -134,6 +142,13 @@ impl BuiltInValue {
                 Value::Map(Map::with_values(json_context))
             }),
             BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
+            BuiltInValue::None => NONE.get_or_init(|| {
+                Value::Enum(EnumInstance::new(
+                    "Option".to_string(),
+                    "None".to_string(),
+                    None,
+                ))
+            }),
             BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
             BuiltInValue::Random => RANDOM.get_or_init(|| {
                 let mut random_context = BTreeMap::new();

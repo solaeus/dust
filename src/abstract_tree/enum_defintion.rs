@@ -27,7 +27,7 @@ impl EnumDefinition {
         }
     }
 
-    pub fn instantiate(&self, variant: String, content: Value) -> EnumInstance {
+    pub fn instantiate(&self, variant: String, content: Option<Value>) -> EnumInstance {
         EnumInstance::new(self.identifier.inner().clone(), variant, content)
     }
 

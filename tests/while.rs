@@ -2,7 +2,7 @@ use dust_lang::*;
 
 #[test]
 fn while_loop() {
-    assert_eq!(interpret("while false { 'foo' }"), Ok(Value::Option(None)))
+    assert_eq!(interpret("while false { 'foo' }"), Ok(Value::none()))
 }
 
 #[test]

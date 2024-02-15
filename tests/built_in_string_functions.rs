@@ -29,11 +29,11 @@ fn ends_with() {
 fn find() {
     let result = interpret("str:find('abc', 'a')");
 
-    assert_eq!(result, Ok(Value::Option(Some(Box::new(Value::Integer(0))))));
+    assert_eq!(result, Ok(Value::some(Value::Integer(0))));
 
     let result = interpret("str:find('foobar', 'b')");
 
-    assert_eq!(result, Ok(Value::Option(Some(Box::new(Value::Integer(3))))));
+    assert_eq!(result, Ok(Value::some(Value::Integer(3))));
 }
 
 #[test]

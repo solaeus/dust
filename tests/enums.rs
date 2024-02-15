@@ -18,7 +18,7 @@ fn simple_enum() {
         Ok(Value::Enum(EnumInstance::new(
             "Foobar".to_string(),
             "Foo".to_string(),
-            Value::none()
+            Some(Value::none())
         )))
     );
 }
@@ -45,11 +45,11 @@ fn nested_enum() {
         Ok(Value::Enum(EnumInstance::new(
             "Foobar".to_string(),
             "Bar".to_string(),
-            Value::Enum(EnumInstance::new(
+            Some(Value::Enum(EnumInstance::new(
                 "Fizzbuzz".to_string(),
                 "Fizz".to_string(),
-                Value::none()
-            ))
+                Some(Value::none())
+            )))
         )))
     );
 }

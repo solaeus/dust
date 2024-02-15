@@ -380,12 +380,6 @@ module.exports = grammar({
             ')',
             optional(seq('->', $.type)),
           ),
-          seq(
-            'option',
-            '(',
-            $.type,
-            ')',
-          ),
         ),
       ),
 

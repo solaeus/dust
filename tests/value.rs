@@ -2,8 +2,8 @@ use dust_lang::*;
 
 #[test]
 fn empty() {
-    assert_eq!(interpret("x = 9"), Ok(Value::Option(None)));
-    assert_eq!(interpret("x = 1 + 1"), Ok(Value::Option(None)));
+    assert_eq!(interpret("x = 9"), Ok(Value::none()));
+    assert_eq!(interpret("x = 1 + 1"), Ok(Value::none()));
 }
 
 #[test]

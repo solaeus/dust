@@ -103,13 +103,13 @@ impl Callable for BuiltInFunction {
                     Value::Enum(EnumInstance::new(
                         "Result".to_string(),
                         "Ok".to_string(),
-                        Value::none(),
+                        Some(Value::none()),
                     ))
                 } else {
                     Value::Enum(EnumInstance::new(
                         "Result".to_string(),
                         "Error".to_string(),
-                        Value::none(),
+                        Some(Value::none()),
                     ))
                 };
 
