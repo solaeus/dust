@@ -857,17 +857,8 @@
               "type": "SEQ",
               "members": [
                 {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "expression"
-                    },
-                    {
-                      "type": "STRING",
-                      "value": "*"
-                    }
-                  ]
+                  "type": "SYMBOL",
+                  "name": "match_pattern"
                 },
                 {
                   "type": "STRING",
@@ -895,6 +886,69 @@
           {
             "type": "STRING",
             "value": "}"
+          }
+        ]
+      }
+    },
+    "match_pattern": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "enum_pattern"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "value"
+        },
+        {
+          "type": "STRING",
+          "value": "*"
+        }
+      ]
+    },
+    "enum_pattern": {
+      "type": "PREC",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "STRING",
+            "value": "::"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "("
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": ")"
+                  }
+                ]
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
           }
         ]
       }

@@ -290,13 +290,33 @@ module.exports = grammar({
           '{',
           repeat1(
             seq(
-              choice($.expression, '*'),
+              $.match_pattern,
               '=>',
               $.statement,
               optional(','),
             ),
           ),
           '}',
+        ),
+      ),
+
+    match_pattern: $ =>
+      choice(
+        $.enum_pattern,
+        $.value,
+        '*',
+      ),
+
+    enum_pattern: $ =>
+      prec(
+        1,
+        seq(
+          $.identifier,
+          '::',
+          $.identifier,
+          optional(
+            seq('(', $.identifier, ')'),
+          ),
         ),
       ),
 
@@ -341,7 +361,7 @@ module.exports = grammar({
             $.identifier,
             '<',
             repeat1(
-              seq(          
+              seq(
                 $.type,
                 optional(','),
               ),

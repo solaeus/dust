@@ -560,7 +560,7 @@ impl Display for Value {
             Value::Function(function) => write!(f, "{function}"),
             Value::Struct(structure) => write!(f, "{structure}"),
             Value::Range(range) => write!(f, "{}..{}", range.start(), range.end()),
-            Value::Enum(_) => todo!(),
+            Value::Enum(enum_instance) => write!(f, "{enum_instance}"),
         }
     }
 }

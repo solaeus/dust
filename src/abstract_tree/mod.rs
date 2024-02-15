@@ -12,6 +12,7 @@ pub mod assignment_operator;
 pub mod block;
 pub mod command;
 pub mod enum_defintion;
+pub mod enum_pattern;
 pub mod expression;
 pub mod r#for;
 pub mod function_call;
@@ -26,6 +27,7 @@ pub mod logic;
 pub mod logic_operator;
 pub mod map_node;
 pub mod r#match;
+pub mod match_pattern;
 pub mod math;
 pub mod math_operator;
 pub mod new;
@@ -38,12 +40,12 @@ pub mod value_node;
 pub mod r#while;
 
 pub use {
-    assignment::*, assignment_operator::*, block::*, command::*, enum_defintion::*, expression::*,
-    function_call::*, function_expression::*, function_node::*, identifier::*, if_else::*,
-    index::*, index_assignment::IndexAssignment, index_expression::*, logic::*, logic_operator::*,
-    map_node::*, math::*, math_operator::*, new::*, r#as::*, r#for::*, r#match::*, r#type::*,
-    r#while::*, statement::*, struct_definition::*, type_definition::*, type_specification::*,
-    value_node::*,
+    assignment::*, assignment_operator::*, block::*, command::*, enum_defintion::*,
+    enum_pattern::*, expression::*, function_call::*, function_expression::*, function_node::*,
+    identifier::*, if_else::*, index::*, index_assignment::IndexAssignment, index_expression::*,
+    logic::*, logic_operator::*, map_node::*, match_pattern::*, math::*, math_operator::*, new::*,
+    r#as::*, r#for::*, r#match::*, r#type::*, r#while::*, statement::*, struct_definition::*,
+    type_definition::*, type_specification::*, value_node::*,
 };
 
 use serde::{Deserialize, Serialize};

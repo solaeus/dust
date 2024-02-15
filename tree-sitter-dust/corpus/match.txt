@@ -16,7 +16,7 @@ match x {
     (match
       (expression
         (identifier))
-      (expression
+      (match_pattern
         (value
           (integer)))
       (statement
@@ -25,9 +25,42 @@ match x {
             (expression
               (value
                 (boolean))))))
-      (expression
+      (match_pattern
         (value
           (integer)))
+      (statement
+        (expression
+          (value
+            (boolean)))))))
+
+================================================================================
+Match Enum
+================================================================================
+
+match foobar {
+  FooBar::Foo => true
+  FooBar::Bar => false
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (match
+      (expression
+        (identifier))
+      (match_pattern
+        (enum_pattern
+          (identifier)
+          (identifier)))
+      (statement
+        (expression
+          (value
+            (boolean))))
+      (match_pattern
+        (enum_pattern
+          (identifier)
+          (identifier)))
       (statement
         (expression
           (value

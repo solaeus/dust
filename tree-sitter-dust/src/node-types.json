@@ -171,6 +171,21 @@
     }
   },
   {
+    "type": "enum_pattern",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "expression",
     "named": true,
     "fields": {},
@@ -496,7 +511,30 @@
           "named": true
         },
         {
+          "type": "match_pattern",
+          "named": true
+        },
+        {
           "type": "statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "match_pattern",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "enum_pattern",
+          "named": true
+        },
+        {
+          "type": "value",
           "named": true
         }
       ]
