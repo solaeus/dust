@@ -65,10 +65,10 @@ fn modify_map() {
         ",
     );
 
-    let map = Map::new();
+    let mut map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1)).unwrap();
-    map.set("y".to_string(), Value::Integer(2)).unwrap();
+    map.set("x".to_string(), Value::Integer(1));
+    map.set("y".to_string(), Value::Integer(2));
 
     assert_eq!(Ok(Value::Map(map)), result);
 }

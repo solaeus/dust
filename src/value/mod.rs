@@ -17,14 +17,15 @@ use std::{
 };
 
 pub use self::{
-    function::Function, list::List, map::Map, r#enum::EnumInstance, structure::Structure,
+    enum_instance::EnumInstance, function::Function, list::List, map::Map,
+    struct_instance::StructInstance,
 };
 
-pub mod r#enum;
+pub mod enum_instance;
 pub mod function;
 pub mod list;
 pub mod map;
-pub mod structure;
+pub mod struct_instance;
 
 /// Dust value representation.
 ///
@@ -42,7 +43,7 @@ pub enum Value {
     Boolean(bool),
     Range(RangeInclusive<i64>),
     Option(Option<Box<Value>>),
-    Structure(Structure),
+    Struct(StructInstance),
     Enum(EnumInstance),
 }
 
@@ -87,14 +88,14 @@ impl Value {
             Value::Map(map) => {
                 let mut identifier_types = Vec::new();
 
-                for (key, value) in map.inner().unwrap().iter() {
+                for (key, value) in map.inner() {
                     identifier_types.push((
                         Identifier::new(key.clone()),
                         TypeSpecification::new(value.r#type()),
                     ));
                 }
 
-                Type::Map(None)
+                Type::Map
             }
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
@@ -109,7 +110,7 @@ impl Value {
                 }
             }
             Value::Range(_) => todo!(),
-            Value::Structure(_) => todo!(),
+            Value::Struct(_) => todo!(),
             Value::Enum(_) => todo!(),
         }
     }
@@ -446,7 +447,7 @@ impl PartialEq for Value {
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Option(left), Value::Option(right)) => left == right,
             (Value::Range(left), Value::Range(right)) => left == right,
-            (Value::Structure(left), Value::Structure(right)) => left == right,
+            (Value::Struct(left), Value::Struct(right)) => left == right,
             (Value::Enum(left), Value::Enum(right)) => left == right,
             _ => false,
         }
@@ -484,8 +485,8 @@ impl Ord for Value {
             (Value::Map(_), _) => Ordering::Greater,
             (Value::Function(left), Value::Function(right)) => left.cmp(right),
             (Value::Function(_), _) => Ordering::Greater,
-            (Value::Structure(left), Value::Structure(right)) => left.cmp(right),
-            (Value::Structure(_), _) => Ordering::Greater,
+            (Value::Struct(left), Value::Struct(right)) => left.cmp(right),
+            (Value::Struct(_), _) => Ordering::Greater,
             (Value::Enum(left), Value::Enum(right)) => left.cmp(right),
             (Value::Enum(_), _) => Ordering::Greater,
             (Value::Range(left), Value::Range(right)) => {
@@ -523,7 +524,7 @@ impl Serialize for Value {
             }
             Value::Option(inner) => inner.serialize(serializer),
             Value::Map(map) => {
-                let entries = map.inner().unwrap();
+                let entries = map.inner();
                 let mut map = serializer.serialize_map(Some(entries.len()))?;
 
                 for (key, value) in entries.iter() {
@@ -533,7 +534,7 @@ impl Serialize for Value {
                 map.end()
             }
             Value::Function(inner) => inner.serialize(serializer),
-            Value::Structure(inner) => inner.serialize(serializer),
+            Value::Struct(inner) => inner.serialize(serializer),
             Value::Range(range) => range.serialize(serializer),
             Value::Enum(_) => todo!(),
         }
@@ -557,7 +558,7 @@ impl Display for Value {
             Value::List(list) => write!(f, "{list}"),
             Value::Map(map) => write!(f, "{map}"),
             Value::Function(function) => write!(f, "{function}"),
-            Value::Structure(structure) => write!(f, "{structure}"),
+            Value::Struct(structure) => write!(f, "{structure}"),
             Value::Range(range) => write!(f, "{}..{}", range.start(), range.end()),
             Value::Enum(_) => todo!(),
         }

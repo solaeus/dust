@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::BTreeMap, ops::RangeInclusive};
+use std::{cmp::Ordering, ops::RangeInclusive};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node as SyntaxNode;
@@ -6,8 +6,7 @@ use tree_sitter::Node as SyntaxNode;
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, BuiltInValue, Context, Expression, Format, Function, FunctionNode,
-    Identifier, List, Map, SourcePosition, Statement, Structure, Type,
-    TypeSpecification, Value, TypeDefinition,
+    Identifier, List, Type, Value, TypeDefinition, MapNode,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -19,10 +18,13 @@ pub enum ValueNode {
     String(String),
     List(Vec<Expression>),
     Option(Option<Box<Expression>>),
-    Map(BTreeMap<String, (Statement, Option<Type>)>, SourcePosition),
+    Map(MapNode),
     BuiltInValue(BuiltInValue),
     Range(RangeInclusive<i64>),
-    Structure(BTreeMap<String, (Option<Statement>, Type)>),
+    Struct {
+        name: Identifier,
+        properties: MapNode,
+    },
     Enum {
         name: Identifier,
         variant: Identifier,
@@ -65,32 +67,7 @@ impl AbstractTree for ValueNode {
                 ValueNode::List(expressions)
             }
             "map" => {
-                let mut child_nodes = BTreeMap::new();
-                let mut current_key = "".to_string();
-                let mut current_type = None;
-
-                for index in 0..child.child_count() - 1 {
-                    let child = child.child(index).unwrap();
-
-                    if child.kind() == "identifier" {
-                        current_key = Identifier::from_syntax(child, source, context)?.take_inner();
-                        current_type = None;
-                    }
-
-                    if child.kind() == "type_specification" {
-                        current_type = Some(
-                            TypeSpecification::from_syntax(child, source, context)?.take_inner(),
-                        );
-                    }
-
-                    if child.kind() == "statement" {
-                        let statement = Statement::from_syntax(child, source, context)?;
-
-                        child_nodes.insert(current_key.clone(), (statement, current_type.clone()));
-                    }
-                }
-
-                ValueNode::Map(child_nodes, SourcePosition::from(child.range()))
+                ValueNode::Map(MapNode::from_syntax(child, source, context)?)
             }
             "option" => {
                 let first_grandchild = child.child(0).unwrap();
@@ -112,60 +89,6 @@ impl AbstractTree for ValueNode {
                     source,
                     context,
                 )?)
-            }
-            "structure" => {
-                let mut btree_map = BTreeMap::new();
-                let mut current_identifier: Option<Identifier> = None;
-                let mut current_type: Option<Type> = None;
-                let mut current_statement = None;
-
-                for index in 2..child.child_count() - 1 {
-                    let child_syntax_node = child.child(index).unwrap();
-
-                    if child_syntax_node.kind() == "identifier" {
-                        if current_statement.is_none() {
-                            if let (Some(identifier), Some(r#type)) =
-                                (&current_identifier, &current_type)
-                            {
-                                btree_map
-                                    .insert(identifier.inner().clone(), (None, r#type.clone()));
-                            }
-                        }
-
-                        current_type = None;
-                        current_identifier =
-                            Some(Identifier::from_syntax(child_syntax_node, source, context)?);
-                    }
-
-                    if child_syntax_node.kind() == "type_specification" {
-                        current_type = Some(
-                            TypeSpecification::from_syntax(child_syntax_node, source, context)?
-                                .take_inner(),
-                        );
-                    }
-
-                    if child_syntax_node.kind() == "statement" {
-                        current_statement =
-                            Some(Statement::from_syntax(child_syntax_node, source, context)?);
-
-                        // if let Some(identifier) = &current_identifier {
-                        //     let r#type = if let Some(r#type) = &current_type {
-                        //         r#type.clone()
-                        //     } else if let Some(statement) = &current_statement {
-                        //         statement.expected_type(context)?
-                        //     } else {
-                        //         Type::None
-                        //     };
-
-                        //     btree_map.insert(
-                        //         identifier.inner().clone(),
-                        //         (current_statement.clone(), r#type.clone()),
-                        //     );
-                        // }
-                    }
-                }
-
-                ValueNode::Structure(btree_map)
             }
             "range" => {
                 let mut split = source[child.byte_range()].split("..");
@@ -189,10 +112,23 @@ impl AbstractTree for ValueNode {
 
                 ValueNode::Enum { name, variant , expression  }                
             }
+            "struct_instance" => {
+                let name_node = child.child(1).unwrap();
+                let name = Identifier::from_syntax(name_node, source, context)?;
+
+                let properties_node = child.child(2).unwrap();
+                let properties = MapNode::from_syntax(properties_node, source, context)?;
+
+                ValueNode::Struct
+                {
+                    name,
+                    properties
+                }
+            }
             _ => {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected:
-                        "string, integer, float, boolean, range, list, map, option, function, structure or enum"
+                        "string, integer, float, boolean, range, list, map, option, function, struct or enum"
                             .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
@@ -239,16 +175,10 @@ impl AbstractTree for ValueNode {
                     Type::None
                 }
             }
-            ValueNode::Map(_, _) => Type::Map(None),
+            ValueNode::Map(_) => Type::Map,
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
-            ValueNode::Structure(node_map) => {
-                let mut value_map = BTreeMap::new();
-
-                for (key, (_statement_option, r#type)) in node_map {
-                    value_map.insert(key.to_string(), (None, r#type.clone()));
-                }
-
-                Type::Map(Some(Structure::new(value_map)))
+            ValueNode::Struct { name, .. }  => {
+                Type::Custom(name.clone())
             }
             ValueNode::Range(_) => Type::Range,
             ValueNode::Enum { name, .. } => Type::Custom(name.clone()),
@@ -264,21 +194,7 @@ impl AbstractTree for ValueNode {
                     function_node.validate(_source, context)?;
                 }
             }
-            ValueNode::Map(statements, source_position) => {
-                for (_key, (statement, r#type)) in statements {
-                    if let Some(expected) = r#type {
-                        let actual = statement.expected_type(context)?;
-
-                        if !expected.accepts(&actual) {
-                            return Err(ValidationError::TypeCheck {
-                                expected: expected.clone(),
-                                actual,
-                                position: source_position.clone(),
-                            });
-                        }
-                    }
-                }
-            }
+            ValueNode::Map(map_node) => map_node.validate(_source, context)?,
             _ => {},
         }
 
@@ -316,36 +232,25 @@ impl AbstractTree for ValueNode {
 
                 Value::Option(option_value)
             }
-            ValueNode::Map(key_statement_pairs, _) => {
-                let mut map = BTreeMap::new();
-
-                {
-                    for (key, (statement, _)) in key_statement_pairs {
-                        let value = statement.run(source, context)?;
-
-                        map.insert(key.clone(), value);
-                    }
-                }
-
-                Value::Map(Map::with_values(map))
-            }
+            ValueNode::Map(map_node) => map_node.run(source, context)?,
             ValueNode::BuiltInValue(built_in_value) => built_in_value.run(source, context)?,
-            ValueNode::Structure(node_map) => {
-                let mut value_map = BTreeMap::new();
-
-                for (key, (statement_option, r#type)) in node_map {
-                    let value_option = if let Some(statement) = statement_option {
-                        Some(statement.run(source, context)?)
-                    } else {
-                        None
-                    };
-
-                    value_map.insert(key.to_string(), (value_option, r#type.clone()));
-                }
-
-                Value::Structure(Structure::new(value_map))
-            }
             ValueNode::Range(range) => Value::Range(range.clone()),
+            ValueNode::Struct { name, properties } => {
+                let instance = if let Some(definition) = context.get_definition(name.inner())? {
+                    if let TypeDefinition::Struct(struct_definition) = definition {
+                        struct_definition.instantiate(properties, source, context)?
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(ValidationError::ExpectedStructDefintion { actual: definition.clone() }))
+                    }
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::TypeDefinitionNotFound(name.inner().clone())
+                    ));
+                };
+
+                Value::Struct(instance)
+
+            }
             ValueNode::Enum { name, variant, expression } => {
                 let value = if let Some(expression) = expression {
                     expression.run(source, context)?
@@ -406,52 +311,11 @@ impl Format for ValueNode {
                     output.push_str("none");
                 }
             }
-            ValueNode::Map(nodes, _) => {
-                output.push_str("{\n");
-
-                for (key, (statement, type_option)) in nodes {
-                    if let Some(r#type) = type_option {
-                        ValueNode::indent(output, indent_level + 1);
-                        output.push_str(key);
-                        output.push_str(" <");
-                        r#type.format(output, 0);
-                        output.push_str("> = ");
-                        statement.format(output, 0);
-                    } else {
-                        ValueNode::indent(output, indent_level + 1);
-                        output.push_str(key);
-                        output.push_str(" = ");
-                        statement.format(output, 0);
-                    }
-
-                    output.push('\n');
-                }
-
-                ValueNode::indent(output, indent_level);
-                output.push('}');
-            }
+            ValueNode::Map(map_node) => map_node.format(output, indent_level),
             ValueNode::BuiltInValue(built_in_value) => built_in_value.format(output, indent_level),
-            ValueNode::Structure(nodes) => {
-                output.push('{');
-
-                for (key, (value_option, r#type)) in nodes {
-                    if let Some(value) = value_option {
-                        output.push_str("    ");
-                        output.push_str(key);
-                        output.push_str(" <");
-                        r#type.format(output, indent_level);
-                        output.push_str("> = ");
-                        value.format(output, indent_level);
-                    } else {
-                        output.push_str("    ");
-                        output.push_str(key);
-                        output.push_str(" <");
-                        r#type.format(output, indent_level);
-                        output.push('>');
-                    }
-                }
-
-                output.push('}');
+            ValueNode::Struct { name, properties } => {
+                name.format(output, indent_level);
+                properties.format(output, indent_level);
             }
             ValueNode::Range(_) => todo!(),
             ValueNode::Enum { ..  } => todo!(),
@@ -476,12 +340,20 @@ impl Ord for ValueNode {
             (ValueNode::List(_), _) => Ordering::Greater,
             (ValueNode::Option(left), ValueNode::Option(right)) => left.cmp(right),
             (ValueNode::Option(_), _) => Ordering::Greater,
-            (ValueNode::Map(left, _), ValueNode::Map(right, _)) => left.cmp(right),
-            (ValueNode::Map(_, _), _) => Ordering::Greater,
+            (ValueNode::Map(left), ValueNode::Map(right)) => left.cmp(right),
+            (ValueNode::Map(_), _) => Ordering::Greater,
             (ValueNode::BuiltInValue(left), ValueNode::BuiltInValue(right)) => left.cmp(right),
             (ValueNode::BuiltInValue(_), _) => Ordering::Greater,
-            (ValueNode::Structure(left), ValueNode::Structure(right)) => left.cmp(right),
-            (ValueNode::Structure(_), _) => Ordering::Greater,
+            (ValueNode::Struct{ name: left_name, properties: left_properties }, ValueNode::Struct {name: right_name, properties: right_properties} ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp.is_eq() {
+                    left_properties.cmp(right_properties)
+                } else {
+                    name_cmp
+                }
+            },
+            (ValueNode::Struct {..}, _) => Ordering::Greater,
             (
                 ValueNode::Enum {
                     name: left_name, variant: left_variant, expression: left_expression

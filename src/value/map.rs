@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use stanza::{
     renderer::{console::Console, Renderer},
     style::{HAlign, Styles},
@@ -6,52 +7,47 @@ use stanza::{
 use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
-    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use crate::{error::rw_lock_error::RwLockError, value::Value};
+use crate::value::Value;
 
 /// A collection dust variables comprised of key-value pairs.
 ///
 /// The inner value is a BTreeMap in order to allow VariableMap instances to be sorted and compared
 /// to one another.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Map {
-    inner: Arc<RwLock<BTreeMap<String, Value>>>,
+    inner: BTreeMap<String, Value>,
 }
 
 impl Map {
     /// Creates a new instace.
     pub fn new() -> Self {
         Map {
-            inner: Arc::new(RwLock::new(BTreeMap::new())),
+            inner: BTreeMap::new(),
         }
     }
 
     pub fn with_values(variables: BTreeMap<String, Value>) -> Self {
-        Map {
-            inner: Arc::new(RwLock::new(variables)),
-        }
+        Map { inner: variables }
     }
 
-    pub fn inner(&self) -> Result<RwLockReadGuard<BTreeMap<String, Value>>, RwLockError> {
-        Ok(self.inner.read()?)
+    pub fn inner(&self) -> &BTreeMap<String, Value> {
+        &self.inner
     }
 
-    pub fn get(&self, key: &str) -> Result<Option<Value>, RwLockError> {
-        Ok(self.inner()?.get(key).cloned())
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        self.inner.get(key)
     }
 
-    pub fn set(&self, key: String, value: Value) -> Result<(), RwLockError> {
-        self.inner.write()?.insert(key, value);
-
-        Ok(())
+    pub fn set(&mut self, key: String, value: Value) {
+        self.inner.insert(key, value);
     }
 
     pub fn as_text_table(&self) -> Table {
         let mut table = Table::with_styles(Styles::default().with(HAlign::Centred));
 
-        for (key, value) in self.inner().unwrap().iter() {
+        for (key, value) in &self.inner {
             if let Value::Map(map) = value {
                 table.push_row(Row::new(
                     Styles::default(),
@@ -90,36 +86,5 @@ impl Display for Map {
         let renderer = Console::default();
 
         f.write_str(&renderer.render(&self.as_text_table()))
-    }
-}
-
-impl Eq for Map {}
-
-impl PartialEq for Map {
-    fn eq(&self, other: &Self) -> bool {
-        let left = self.inner().unwrap();
-        let right = other.inner().unwrap();
-
-        if left.len() != right.len() {
-            return false;
-        }
-
-        left.iter()
-            .zip(right.iter())
-            .all(|((left_key, left_value), (right_key, right_value))| {
-                left_key == right_key && left_value == right_value
-            })
-    }
-}
-
-impl PartialOrd for Map {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Map {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.inner().unwrap().cmp(&other.inner().unwrap())
     }
 }

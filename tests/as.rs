@@ -39,7 +39,7 @@ fn conversion_runtime_error() {
         interpret(&format!("json:parse('{JSON}') as [map]")),
         Err(Error::Runtime(RuntimeError::ConversionImpossible {
             value: json_value,
-            target_type: Type::List(Box::new(Type::Map(None)))
+            target_type: Type::List(Box::new(Type::Map))
         }))
     )
 }

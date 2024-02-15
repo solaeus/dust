@@ -67,8 +67,11 @@ pub enum ValidationError {
     /// Failed to find a type definition with this key.
     TypeDefinitionNotFound(String),
 
-    /// Failed to find a type definition with this key.
+    /// Failed to find an enum definition with this key.
     ExpectedEnumDefintion { actual: TypeDefinition },
+
+    /// Failed to find a struct definition with this key.
+    ExpectedStructDefintion { actual: TypeDefinition },
 }
 
 impl ValidationError {
