@@ -136,6 +136,7 @@ impl AbstractTree for Type {
         let type_node = node.child(0).unwrap();
 
         let r#type = match type_node.kind() {
+            "identifier" => Type::Custom(Identifier::from_syntax(type_node, _source, _context)?),
             "[" => {
                 let item_type_node = node.child(1).unwrap();
                 let item_type = Type::from_syntax(item_type_node, _source, _context)?;
@@ -185,7 +186,8 @@ impl AbstractTree for Type {
             }
             _ => {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
-                    expected: "any, bool, float, int, num, str, option, (, [ or {".to_string(),
+                    expected: "any, bool, float, int, num, str, option, custom type, (, [ or {"
+                        .to_string(),
                     actual: type_node.kind().to_string(),
                     location: type_node.start_position(),
                     relevant_source: _source[type_node.byte_range()].to_string(),
