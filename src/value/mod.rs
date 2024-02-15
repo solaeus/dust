@@ -1,5 +1,5 @@
 //! Types that represent runtime values.
-use crate::{error::RuntimeError, Identifier, Type, TypeSpecification};
+use crate::{error::RuntimeError, Type};
 
 use serde::{
     de::{MapAccess, SeqAccess, Visitor},
@@ -80,18 +80,7 @@ impl Value {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            Value::Map(map) => {
-                let mut identifier_types = Vec::new();
-
-                for (key, value) in map.inner().unwrap().iter() {
-                    identifier_types.push((
-                        Identifier::new(key.clone()),
-                        TypeSpecification::new(value.r#type()),
-                    ));
-                }
-
-                Type::Map(None)
-            }
+            Value::Map(_) => Type::Map,
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,

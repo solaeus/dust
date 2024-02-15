@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     built_in_functions::{fs::fs_functions, json::json_functions, str::string_functions, Callable},
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInFunction, Context, Format, Function, List, Map, Structure, SyntaxNode,
-    Type, Value,
+    AbstractTree, BuiltInFunction, Context, Format, Function, List, Map, SyntaxNode, Type, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
@@ -87,14 +86,12 @@ impl BuiltInValue {
         match self {
             BuiltInValue::Args => Type::list(Type::String),
             BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
-            BuiltInValue::Fs => Type::Map(None),
-            BuiltInValue::Json => Type::Map(Some(
-                Structure::from_map(self.get().as_map().unwrap()).unwrap(),
-            )),
+            BuiltInValue::Fs => Type::Map,
+            BuiltInValue::Json => Type::Map,
             BuiltInValue::Length => BuiltInFunction::Length.r#type(),
             BuiltInValue::Output => BuiltInFunction::Output.r#type(),
-            BuiltInValue::Random => Type::Map(None),
-            BuiltInValue::Str => Type::Map(None),
+            BuiltInValue::Random => Type::Map,
+            BuiltInValue::Str => Type::Map,
         }
     }
 

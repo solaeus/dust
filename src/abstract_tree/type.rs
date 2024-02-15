@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, Format, Identifier, Structure, SyntaxNode, Value,
+    AbstractTree, Context, Format, Identifier, SyntaxNode, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -20,7 +20,7 @@ pub enum Type {
     },
     Integer,
     List(Box<Type>),
-    Map(Option<Structure>),
+    Map,
     None,
     Number,
     String,
@@ -58,13 +58,13 @@ impl Type {
             | (Type::Collection, Type::Collection)
             | (Type::Collection, Type::List(_))
             | (Type::List(_), Type::Collection)
-            | (Type::Collection, Type::Map(_))
-            | (Type::Map(_), Type::Collection)
+            | (Type::Collection, Type::Map)
+            | (Type::Map, Type::Collection)
             | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::Map(_), Type::Map(_))
+            | (Type::Map, Type::Map)
             | (Type::Number, Type::Number)
             | (Type::Number, Type::Integer)
             | (Type::Number, Type::Float)
@@ -121,7 +121,7 @@ impl Type {
     }
 
     pub fn is_map(&self) -> bool {
-        matches!(self, Type::Map(_))
+        matches!(self, Type::Map)
     }
 }
 
@@ -173,7 +173,7 @@ impl AbstractTree for Type {
                 }
             }
             "int" => Type::Integer,
-            "map" => Type::Map(None),
+            "map" => Type::Map,
             "num" => Type::Number,
             "none" => Type::None,
             "str" => Type::String,
@@ -241,12 +241,8 @@ impl Format for Type {
                 item_type.format(output, indent_level);
                 output.push(']');
             }
-            Type::Map(structure_option) => {
-                if let Some(structure) = structure_option {
-                    output.push_str(&structure.to_string());
-                } else {
-                    output.push_str("map");
-                }
+            Type::Map => {
+                output.push_str("map");
             }
             Type::None => output.push_str("none"),
             Type::Number => output.push_str("num"),
@@ -288,7 +284,7 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map(_) => write!(f, "map"),
+            Type::Map => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),
