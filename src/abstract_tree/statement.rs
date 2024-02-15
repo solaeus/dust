@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, Assignment, Block, Context, Expression, For, Format, IfElse, IndexAssignment,
-    Match, SyntaxNode, Type, Value, While,
+    Match, SyntaxNode, Type, TypeDefinition, Value, While,
 };
 
 /// Abstract representation of a statement.
@@ -18,6 +18,7 @@ pub enum Statement {
     Return(Box<Statement>),
     For(Box<For>),
     IndexAssignment(Box<IndexAssignment>),
+    TypeDefinition(TypeDefinition),
 }
 
 impl AbstractTree for Statement {
@@ -66,17 +67,20 @@ impl AbstractTree for Statement {
         }
     }
 
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
-            Statement::Assignment(assignment) => assignment.expected_type(context),
-            Statement::Expression(expression) => expression.expected_type(context),
-            Statement::IfElse(if_else) => if_else.expected_type(context),
-            Statement::Match(r#match) => r#match.expected_type(context),
-            Statement::While(r#while) => r#while.expected_type(context),
-            Statement::Block(block) => block.expected_type(context),
-            Statement::For(r#for) => r#for.expected_type(context),
-            Statement::IndexAssignment(index_assignment) => index_assignment.expected_type(context),
-            Statement::Return(statement) => statement.expected_type(context),
+            Statement::Assignment(assignment) => assignment.expected_type(_context),
+            Statement::Expression(expression) => expression.expected_type(_context),
+            Statement::IfElse(if_else) => if_else.expected_type(_context),
+            Statement::Match(r#match) => r#match.expected_type(_context),
+            Statement::While(r#while) => r#while.expected_type(_context),
+            Statement::Block(block) => block.expected_type(_context),
+            Statement::For(r#for) => r#for.expected_type(_context),
+            Statement::IndexAssignment(index_assignment) => {
+                index_assignment.expected_type(_context)
+            }
+            Statement::Return(statement) => statement.expected_type(_context),
+            Statement::TypeDefinition(type_definition) => type_definition.expected_type(_context),
         }
     }
 
@@ -93,20 +97,24 @@ impl AbstractTree for Statement {
                 index_assignment.validate(_source, _context)
             }
             Statement::Return(statement) => statement.validate(_source, _context),
+            Statement::TypeDefinition(type_definition) => {
+                type_definition.validate(_source, _context)
+            }
         }
     }
 
-    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         match self {
-            Statement::Assignment(assignment) => assignment.run(source, context),
-            Statement::Expression(expression) => expression.run(source, context),
-            Statement::IfElse(if_else) => if_else.run(source, context),
-            Statement::Match(r#match) => r#match.run(source, context),
-            Statement::While(r#while) => r#while.run(source, context),
-            Statement::Block(block) => block.run(source, context),
-            Statement::For(r#for) => r#for.run(source, context),
-            Statement::IndexAssignment(index_assignment) => index_assignment.run(source, context),
-            Statement::Return(statement) => statement.run(source, context),
+            Statement::Assignment(assignment) => assignment.run(_source, _context),
+            Statement::Expression(expression) => expression.run(_source, _context),
+            Statement::IfElse(if_else) => if_else.run(_source, _context),
+            Statement::Match(r#match) => r#match.run(_source, _context),
+            Statement::While(r#while) => r#while.run(_source, _context),
+            Statement::Block(block) => block.run(_source, _context),
+            Statement::For(r#for) => r#for.run(_source, _context),
+            Statement::IndexAssignment(index_assignment) => index_assignment.run(_source, _context),
+            Statement::Return(statement) => statement.run(_source, _context),
+            Statement::TypeDefinition(type_definition) => type_definition.run(_source, _context),
         }
     }
 }
@@ -127,6 +135,9 @@ impl Format for Statement {
                 index_assignment.format(output, indent_level)
             }
             Statement::Return(statement) => statement.format(output, indent_level),
+            Statement::TypeDefinition(type_definition) => {
+                type_definition.format(output, indent_level)
+            }
         }
     }
 }

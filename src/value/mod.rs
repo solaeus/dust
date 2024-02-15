@@ -16,8 +16,9 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, RangeInclusive, Rem, Sub, SubAssign},
 };
 
-pub use self::{function::Function, list::List, map::Map, structure::Structure};
+pub use self::{function::Function, list::List, map::Map, r#enum::Enum, structure::Structure};
 
+pub mod r#enum;
 pub mod function;
 pub mod list;
 pub mod map;
@@ -40,6 +41,7 @@ pub enum Value {
     Range(RangeInclusive<i64>),
     Option(Option<Box<Value>>),
     Structure(Structure),
+    Enum(Enum),
 }
 
 impl Default for Value {
@@ -106,6 +108,7 @@ impl Value {
             }
             Value::Range(_) => todo!(),
             Value::Structure(_) => todo!(),
+            Value::Enum(_) => todo!(),
         }
     }
 
@@ -489,6 +492,17 @@ impl Ord for Value {
             (Value::Range(_), _) => Ordering::Greater,
             (Value::Option(left), Value::Option(right)) => left.cmp(right),
             (Value::Option(_), _) => Ordering::Less,
+            (Value::Enum(_), Value::List(_)) => todo!(),
+            (Value::Enum(_), Value::Map(_)) => todo!(),
+            (Value::Enum(_), Value::Function(_)) => todo!(),
+            (Value::Enum(_), Value::String(_)) => todo!(),
+            (Value::Enum(_), Value::Float(_)) => todo!(),
+            (Value::Enum(_), Value::Integer(_)) => todo!(),
+            (Value::Enum(_), Value::Boolean(_)) => todo!(),
+            (Value::Enum(_), Value::Range(_)) => todo!(),
+            (Value::Enum(_), Value::Option(_)) => todo!(),
+            (Value::Enum(_), Value::Structure(_)) => todo!(),
+            (Value::Enum(_), Value::Enum(_)) => todo!(),
         }
     }
 }
@@ -527,6 +541,7 @@ impl Serialize for Value {
             Value::Function(inner) => inner.serialize(serializer),
             Value::Structure(inner) => inner.serialize(serializer),
             Value::Range(range) => range.serialize(serializer),
+            Value::Enum(_) => todo!(),
         }
     }
 }
@@ -550,6 +565,7 @@ impl Display for Value {
             Value::Function(function) => write!(f, "{function}"),
             Value::Structure(structure) => write!(f, "{structure}"),
             Value::Range(range) => write!(f, "{}..{}", range.start(), range.end()),
+            Value::Enum(_) => todo!(),
         }
     }
 }
