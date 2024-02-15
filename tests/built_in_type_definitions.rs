@@ -36,4 +36,17 @@ fn result() {
             Value::Integer(1)
         )))
     );
+    assert_eq!(
+        interpret(
+            "
+            result = new Result:Error('uh-oh!')
+            result
+            "
+        ),
+        Ok(Value::Enum(EnumInstance::new(
+            "Result".to_string(),
+            "Error".to_string(),
+            Value::String("uh-oh!".to_string())
+        )))
+    );
 }
