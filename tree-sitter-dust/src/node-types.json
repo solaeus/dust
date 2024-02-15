@@ -134,6 +134,48 @@
     }
   },
   {
+    "type": "enum_definition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type",
+          "named": true
+        },
+        {
+          "type": "type_definition",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "enum_instance",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "expression",
     "named": true,
     "fields": {},
@@ -170,15 +212,7 @@
           "named": true
         },
         {
-          "type": "new",
-          "named": true
-        },
-        {
           "type": "value",
-          "named": true
-        },
-        {
-          "type": "yield",
           "named": true
         }
       ]
@@ -276,10 +310,6 @@
         },
         {
           "type": "value",
-          "named": true
-        },
-        {
-          "type": "yield",
           "named": true
         }
       ]
@@ -502,29 +532,6 @@
     "fields": {}
   },
   {
-    "type": "new",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "statement",
-          "named": true
-        },
-        {
-          "type": "type_specification",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "option",
     "named": true,
     "fields": {},
@@ -637,6 +644,10 @@
           "named": true
         },
         {
+          "type": "type_definition",
+          "named": true
+        },
+        {
           "type": "while",
           "named": true
         }
@@ -649,12 +660,12 @@
     "fields": {}
   },
   {
-    "type": "structure",
+    "type": "struct_definition",
     "named": true,
     "fields": {},
     "children": {
       "multiple": true,
-      "required": false,
+      "required": true,
       "types": [
         {
           "type": "identifier",
@@ -666,6 +677,25 @@
         },
         {
           "type": "type_specification",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "struct_instance",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "map",
           "named": true
         }
       ]
@@ -685,6 +715,25 @@
         },
         {
           "type": "type",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "type_definition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "enum_definition",
+          "named": true
+        },
+        {
+          "type": "struct_definition",
           "named": true
         }
       ]
@@ -722,6 +771,10 @@
           "named": true
         },
         {
+          "type": "enum_instance",
+          "named": true
+        },
+        {
           "type": "float",
           "named": true
         },
@@ -754,7 +807,7 @@
           "named": true
         },
         {
-          "type": "structure",
+          "type": "struct_instance",
           "named": true
         }
       ]
@@ -774,25 +827,6 @@
         },
         {
           "type": "expression",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "yield",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "expression",
-          "named": true
-        },
-        {
-          "type": "function_expression",
           "named": true
         }
       ]
@@ -948,6 +982,10 @@
   },
   {
     "type": "else if",
+    "named": false
+  },
+  {
+    "type": "enum",
     "named": false
   },
   {

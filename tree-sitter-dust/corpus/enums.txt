@@ -1,0 +1,86 @@
+================================================================================
+Simple Enum
+================================================================================
+
+enum Foobar {
+  Foo,
+  Bar,
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (type_definition
+      (enum_definition
+        (identifier)
+        (identifier)
+        (identifier)))))
+
+================================================================================
+Nested Enum
+================================================================================
+
+enum Foobar {
+  Foo(str),
+  Bar(enum BazBuff {
+    Baz,
+    Buff,
+  })
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (type_definition
+      (enum_definition
+        (identifier)
+        (identifier)
+        (type)
+        (identifier)
+        (type_definition
+          (enum_definition
+            (identifier)
+            (identifier)
+            (identifier)))))))
+
+================================================================================
+Simple Enum Instance
+================================================================================
+
+new Foobar:Foo
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (value
+        (enum_instance
+          (identifier)
+          (identifier))))))
+
+================================================================================
+Nested Enum Instance
+================================================================================
+
+new Foobar:Bar(new BazBuf:Baz(123))
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (expression
+      (value
+        (enum_instance
+          (identifier)
+          (identifier)
+          (expression
+            (value
+              (enum_instance
+                (identifier)
+                (identifier)
+                (expression
+                  (value
+                    (integer)))))))))))

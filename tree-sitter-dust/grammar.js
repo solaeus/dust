@@ -25,6 +25,7 @@ module.exports = grammar({
             $.return,
             $.pipe,
             $.while,
+            $.type_definition,
           ),
           optional(';'),
         ),
@@ -50,8 +51,6 @@ module.exports = grammar({
           $.logic,
           $.math,
           $.value,
-          $.yield,
-          $.new,
           $.command,
         ),
       ),
@@ -125,60 +124,12 @@ module.exports = grammar({
         $.map,
         $.option,
         $.built_in_value,
-        $.structure,
         $.range,
+        $.struct_instance,
+        $.enum_instance,
       ),
 
     range: $ => /\d+[.]{2}\d+/,
-
-    structure: $ =>
-      seq(
-        'struct',
-        '{',
-        repeat(
-          choice(
-            seq(
-              $.identifier,
-              $.type_specification,
-            ),
-            seq(
-              $.identifier,
-              '=',
-              $.statement,
-            ),
-            seq(
-              $.identifier,
-              $.type_specification,
-              '=',
-              $.statement,
-            ),
-          ),
-        ),
-        '}',
-      ),
-
-    new: $ =>
-      seq(
-        'new',
-        $.identifier,
-        '{',
-        repeat(
-          choice(
-            seq(
-              $.identifier,
-              '=',
-              $.statement,
-            ),
-            seq(
-              $.identifier,
-              $.type_specification,
-              '=',
-              $.statement,
-            ),
-          ),
-        ),
-        '}',
-      ),
 
     integer: $ => /[-]?\d+/,
 
@@ -453,7 +404,6 @@ module.exports = grammar({
           $.identifier,
           $.index,
           $.value,
-          $.yield,
         ),
       ),
 
@@ -467,22 +417,85 @@ module.exports = grammar({
         ),
       ),
 
-    yield: $ =>
-      prec.left(
-        1,
+    type_definition: $ =>
+      choice(
+        $.enum_definition,
+        $.struct_definition,
+      ),
+
+    enum_definition: $ =>
+      prec.right(
         seq(
-          $.expression,
-          '->',
-          $.function_expression,
-          optional(
+          'enum',
+          $.identifier,
+          repeat(
             seq(
-              '(',
-              $._expression_list,
-              ')',
+              '{',
+              repeat1(
+                seq(
+                  $.identifier,
+                  optional(
+                    seq(
+                      '(',
+                      choice(
+                        $.type,
+                        $.type_definition,
+                      ),
+                      ')',
+                    ),
+                  ),
+                  optional(','),
+                ),
+              ),
+              '}',
             ),
           ),
         ),
       ),
+
+    enum_instance: $ =>
+      prec.right(
+        seq(
+          'new',
+          $.identifier,
+          ':',
+          $.identifier,
+          optional(
+            seq('(', $.expression, ')'),
+          ),
+        ),
+      ),
+
+    struct_definition: $ =>
+      seq(
+        'struct',
+        $.identifier,
+        '{',
+        repeat(
+          choice(
+            seq(
+              $.identifier,
+              $.type_specification,
+            ),
+            seq(
+              $.identifier,
+              '=',
+              $.statement,
+            ),
+            seq(
+              $.identifier,
+              $.type_specification,
+              '=',
+              $.statement,
+            ),
+          ),
+        ),
+        '}',
+      ),
+
+    struct_instance: $ =>
+      seq('new', $.identifier, $.map),
+
 
     built_in_value: $ =>
       choice(
