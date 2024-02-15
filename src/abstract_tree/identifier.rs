@@ -31,6 +31,10 @@ impl Identifier {
         Identifier(Arc::new(key.to_string()))
     }
 
+    pub fn from_raw_parts(arc: Arc<String>) -> Self {
+        Identifier(arc)
+    }
+
     pub fn inner(&self) -> &Arc<String> {
         &self.0
     }

@@ -30,7 +30,6 @@ pub mod r#match;
 pub mod match_pattern;
 pub mod math;
 pub mod math_operator;
-pub mod new;
 pub mod statement;
 pub mod struct_definition;
 pub mod r#type;
@@ -43,8 +42,8 @@ pub use {
     assignment::*, assignment_operator::*, block::*, command::*, enum_defintion::*,
     enum_pattern::*, expression::*, function_call::*, function_expression::*, function_node::*,
     identifier::*, if_else::*, index::*, index_assignment::IndexAssignment, index_expression::*,
-    logic::*, logic_operator::*, map_node::*, match_pattern::*, math::*, math_operator::*, new::*,
-    r#as::*, r#for::*, r#match::*, r#type::*, r#while::*, statement::*, struct_definition::*,
+    logic::*, logic_operator::*, map_node::*, match_pattern::*, math::*, math_operator::*, r#as::*,
+    r#for::*, r#match::*, r#type::*, r#while::*, statement::*, struct_definition::*,
     type_definition::*, type_specification::*, value_node::*,
 };
 
@@ -120,11 +119,7 @@ impl AbstractTree for Root {
         let mut value = Value::none();
 
         for statement in &self.statements {
-            if let Statement::Return(inner_statement) = statement {
-                return inner_statement.run(source, context);
-            } else {
-                value = statement.run(source, context)?;
-            }
+            value = statement.run(source, context)?;
         }
 
         Ok(value)

@@ -149,9 +149,13 @@ impl Interpreter {
 
         check_for_error(root, source, &mut cursor)?;
 
+        println!("abstracting...");
+
         let abstract_tree = Root::from_syntax(syntax_tree.root_node(), source, &self.context)?;
 
         abstract_tree.validate(source, &self.context)?;
+
+        println!("{abstract_tree:?}");
 
         Ok(abstract_tree)
     }
