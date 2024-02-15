@@ -57,9 +57,12 @@ impl AbstractTree for Statement {
 
                 Ok(Statement::Return(Box::new(Statement::from_syntax(statement_node, source, context)?)))
             },
+            "type_definition" => Ok(Statement::TypeDefinition(TypeDefinition::from_syntax(
+                child, source, context
+            )?)),
             _ => Err(SyntaxError::UnexpectedSyntaxNode {
                 expected:
-                    "assignment, index assignment, expression, block, return, if...else, while, for or match".to_string(),
+                    "assignment, index assignment, expression, type_definition, block, return, if...else, while, for or match".to_string(),
                 actual: child.kind().to_string(),
                 location: child.start_position(),
                 relevant_source: source[child.byte_range()].to_string(),

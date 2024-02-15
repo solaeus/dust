@@ -9,7 +9,7 @@ use std::{
 
 use crate::{Type, Value};
 
-use super::rw_lock_error::RwLockError;
+use super::{rw_lock_error::RwLockError, ValidationError};
 
 #[derive(Debug, PartialEq)]
 pub enum RuntimeError {
@@ -114,6 +114,8 @@ pub enum RuntimeError {
         expected: usize,
         actual: usize,
     },
+
+    ValidationFailure(ValidationError),
 }
 
 impl RuntimeError {

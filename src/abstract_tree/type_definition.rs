@@ -34,21 +34,32 @@ impl AbstractTree for TypeDefinition {
         }
     }
 
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+        match self {
+            TypeDefinition::Enum(enum_definition) => enum_definition.expected_type(_context),
+            TypeDefinition::Struct(struct_definition) => struct_definition.expected_type(_context),
+        }
     }
 
-    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
-        todo!()
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
+        match self {
+            TypeDefinition::Enum(enum_definition) => enum_definition.validate(_source, _context),
+            TypeDefinition::Struct(struct_definition) => {
+                struct_definition.validate(_source, _context)
+            }
+        }
     }
 
-    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        todo!()
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
+        match self {
+            TypeDefinition::Enum(enum_definition) => enum_definition.run(_source, _context),
+            TypeDefinition::Struct(struct_definition) => struct_definition.run(_source, _context),
+        }
     }
 }
 
 impl Format for TypeDefinition {
-    fn format(&self, output: &mut String, indent_level: u8) {
+    fn format(&self, _output: &mut String, _indent_level: u8) {
         todo!()
     }
 }

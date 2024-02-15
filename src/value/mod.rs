@@ -16,7 +16,9 @@ use std::{
     ops::{Add, AddAssign, Div, Mul, RangeInclusive, Rem, Sub, SubAssign},
 };
 
-pub use self::{function::Function, list::List, map::Map, r#enum::Enum, structure::Structure};
+pub use self::{
+    function::Function, list::List, map::Map, r#enum::EnumInstance, structure::Structure,
+};
 
 pub mod r#enum;
 pub mod function;
@@ -41,7 +43,7 @@ pub enum Value {
     Range(RangeInclusive<i64>),
     Option(Option<Box<Value>>),
     Structure(Structure),
-    Enum(Enum),
+    Enum(EnumInstance),
 }
 
 impl Default for Value {
@@ -443,8 +445,9 @@ impl PartialEq for Value {
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Option(left), Value::Option(right)) => left == right,
-            (Value::Structure(left), Value::Structure(right)) => left == right,
             (Value::Range(left), Value::Range(right)) => left == right,
+            (Value::Structure(left), Value::Structure(right)) => left == right,
+            (Value::Enum(left), Value::Enum(right)) => left == right,
             _ => false,
         }
     }
@@ -483,6 +486,8 @@ impl Ord for Value {
             (Value::Function(_), _) => Ordering::Greater,
             (Value::Structure(left), Value::Structure(right)) => left.cmp(right),
             (Value::Structure(_), _) => Ordering::Greater,
+            (Value::Enum(left), Value::Enum(right)) => left.cmp(right),
+            (Value::Enum(_), _) => Ordering::Greater,
             (Value::Range(left), Value::Range(right)) => {
                 let left_len = left.end() - left.start();
                 let right_len = right.end() - right.start();
@@ -492,17 +497,6 @@ impl Ord for Value {
             (Value::Range(_), _) => Ordering::Greater,
             (Value::Option(left), Value::Option(right)) => left.cmp(right),
             (Value::Option(_), _) => Ordering::Less,
-            (Value::Enum(_), Value::List(_)) => todo!(),
-            (Value::Enum(_), Value::Map(_)) => todo!(),
-            (Value::Enum(_), Value::Function(_)) => todo!(),
-            (Value::Enum(_), Value::String(_)) => todo!(),
-            (Value::Enum(_), Value::Float(_)) => todo!(),
-            (Value::Enum(_), Value::Integer(_)) => todo!(),
-            (Value::Enum(_), Value::Boolean(_)) => todo!(),
-            (Value::Enum(_), Value::Range(_)) => todo!(),
-            (Value::Enum(_), Value::Option(_)) => todo!(),
-            (Value::Enum(_), Value::Structure(_)) => todo!(),
-            (Value::Enum(_), Value::Enum(_)) => todo!(),
         }
     }
 }

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, SourcePosition, Type, Value};
+use crate::{Identifier, SourcePosition, Type, TypeDefinition, Value};
 
 use super::rw_lock_error::RwLockError;
 
@@ -61,8 +61,14 @@ pub enum ValidationError {
         position: SourcePosition,
     },
 
-    /// Failed to find a variable with a value for this key.
+    /// Failed to find a value with this key.
     VariableIdentifierNotFound(Identifier),
+
+    /// Failed to find a type definition with this key.
+    TypeDefinitionNotFound(String),
+
+    /// Failed to find a type definition with this key.
+    ExpectedEnumDefintion { actual: TypeDefinition },
 }
 
 impl ValidationError {

@@ -15,6 +15,10 @@ fn simple_enum() {
 
     assert_eq!(
         result,
-        Ok(Value::Enum(Enum::new("Foo".to_string(), Value::none())))
+        Ok(Value::Enum(EnumInstance::new(
+            "Foobar".to_string(),
+            "Foo".to_string(),
+            Value::none()
+        )))
     );
 }

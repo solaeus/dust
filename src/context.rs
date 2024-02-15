@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use crate::{error::rw_lock_error::RwLockError, Type, Value};
+use crate::{error::rw_lock_error::RwLockError, Type, TypeDefinition, Value};
 
 #[derive(Clone, Debug)]
 pub struct Context {
@@ -65,10 +65,21 @@ impl Context {
             match value_data {
                 ValueData::Value { inner, .. } => Ok(Some(inner.r#type())),
                 ValueData::ExpectedType { inner, .. } => Ok(Some(inner.clone())),
+                ValueData::TypeDefinition(_) => todo!(),
             }
         } else {
             Ok(None)
         }
+    }
+
+    pub fn get_definition(&self, key: &str) -> Result<Option<TypeDefinition>, RwLockError> {
+        if let Some(value_data) = self.inner.read()?.get(key) {
+            if let ValueData::TypeDefinition(definition) = value_data {
+                return Ok(Some(definition.clone()));
+            }
+        }
+
+        Ok(None)
     }
 
     pub fn set_value(&self, key: String, value: Value) -> Result<(), RwLockError> {
@@ -87,6 +98,18 @@ impl Context {
         self.inner
             .write()?
             .insert(key, ValueData::ExpectedType { inner: r#type });
+
+        Ok(())
+    }
+
+    pub fn set_definition(
+        &self,
+        key: String,
+        definition: TypeDefinition,
+    ) -> Result<(), RwLockError> {
+        self.inner
+            .write()?
+            .insert(key, ValueData::TypeDefinition(definition));
 
         Ok(())
     }
@@ -151,6 +174,7 @@ pub enum ValueData {
     ExpectedType {
         inner: Type,
     },
+    TypeDefinition(TypeDefinition),
 }
 
 impl Eq for ValueData {}
@@ -207,6 +231,8 @@ impl Ord for ValueData {
                 ValueData::ExpectedType { inner: inner_left },
                 ValueData::ExpectedType { inner: inner_right },
             ) => inner_left.cmp(inner_right),
+            (ValueData::TypeDefinition(left), ValueData::TypeDefinition(right)) => left.cmp(right),
+            (ValueData::TypeDefinition(_), _) => Greater,
             (ValueData::ExpectedType { .. }, _) => Less,
         }
     }

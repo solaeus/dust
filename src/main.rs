@@ -310,6 +310,7 @@ impl Completer for DustCompleter {
             let value = match value_data {
                 ValueData::Value { inner, .. } => inner,
                 ValueData::ExpectedType { .. } => continue,
+                ValueData::TypeDefinition(_) => continue,
             };
 
             if key.contains(last_word) {

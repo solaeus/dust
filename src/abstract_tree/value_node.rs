@@ -1,11 +1,13 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::RangeInclusive};
 
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node as SyntaxNode;
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInValue, Context, Expression, Format, Function, FunctionNode, Identifier,
-    List, Map, SourcePosition, Statement, Structure, SyntaxNode, Type, TypeSpecification, Value,
+    AbstractTree, BuiltInValue, Context, Expression, Format, Function, FunctionNode,
+    Identifier, List, Map, SourcePosition, Statement, Structure, Type,
+    TypeSpecification, Value, TypeDefinition,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -19,8 +21,13 @@ pub enum ValueNode {
     Option(Option<Box<Expression>>),
     Map(BTreeMap<String, (Statement, Option<Type>)>, SourcePosition),
     BuiltInValue(BuiltInValue),
-    Structure(BTreeMap<String, (Option<Statement>, Type)>),
     Range(RangeInclusive<i64>),
+    Structure(BTreeMap<String, (Option<Statement>, Type)>),
+    Enum {
+        name: Identifier,
+        variant: Identifier,
+        expression: Option<Box<Expression>>,
+    },
 }
 
 impl AbstractTree for ValueNode {
@@ -167,10 +174,25 @@ impl AbstractTree for ValueNode {
 
                 ValueNode::Range(start..=end)
             }
+            "enum_instance" => {
+                let name_node = child.child(1).unwrap();
+                let name = Identifier::from_syntax(name_node, source, context)?;
+                
+                let variant_node = child.child(3).unwrap();
+                let variant = Identifier::from_syntax(variant_node, source, context)?;
+             
+                let expression = if let Some(expression_node) = child.child(5) {                
+                    Some(Box::new(Expression::from_syntax(expression_node, source, context)?))
+                } else {
+                    None
+                };
+
+                ValueNode::Enum { name, variant , expression  }                
+            }
             _ => {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected:
-                        "string, integer, float, boolean, range, list, map, option, function or structure"
+                        "string, integer, float, boolean, range, list, map, option, function, structure or enum"
                             .to_string(),
                     actual: child.kind().to_string(),
                     location: child.start_position(),
@@ -229,6 +251,7 @@ impl AbstractTree for ValueNode {
                 Type::Map(Some(Structure::new(value_map)))
             }
             ValueNode::Range(_) => Type::Range,
+            ValueNode::Enum { name, .. } => Type::Custom(name.clone()),
         };
 
         Ok(r#type)
@@ -256,7 +279,7 @@ impl AbstractTree for ValueNode {
                     }
                 }
             }
-            _ => {}
+            _ => {},
         }
 
         Ok(())
@@ -323,6 +346,30 @@ impl AbstractTree for ValueNode {
                 Value::Structure(Structure::new(value_map))
             }
             ValueNode::Range(range) => Value::Range(range.clone()),
+            ValueNode::Enum { name, variant, expression } => {
+                let value = if let Some(expression) = expression {
+                    expression.run(source, context)?
+                } else {
+                    Value::none()
+                };
+                let instance = if let Some(definition) = context.get_definition(name.inner())? {
+                    if let TypeDefinition::Enum(enum_defintion) = definition {
+                        enum_defintion.instantiate(variant.inner().clone(), value)
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::ExpectedEnumDefintion {
+                                actual: definition.clone()
+                            }
+                        ));
+                    }
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::TypeDefinitionNotFound(name.inner().clone())
+                    ));
+                };
+
+                Value::Enum(instance)                
+            },
         };
 
         Ok(value)
@@ -407,6 +454,7 @@ impl Format for ValueNode {
                 output.push('}');
             }
             ValueNode::Range(_) => todo!(),
+            ValueNode::Enum { ..  } => todo!(),
         }
     }
 }
@@ -434,6 +482,29 @@ impl Ord for ValueNode {
             (ValueNode::BuiltInValue(_), _) => Ordering::Greater,
             (ValueNode::Structure(left), ValueNode::Structure(right)) => left.cmp(right),
             (ValueNode::Structure(_), _) => Ordering::Greater,
+            (
+                ValueNode::Enum {
+                    name: left_name, variant: left_variant, expression: left_expression
+                },
+                ValueNode::Enum {
+                    name: right_name, variant: right_variant, expression: right_expression
+                }
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp.is_eq() {
+                    let variant_cmp = left_variant.cmp(right_variant);
+
+                    if variant_cmp.is_eq() {
+                        left_expression.cmp(right_expression)
+                    } else {
+                        variant_cmp
+                    }
+                } else {
+                    name_cmp
+                }
+            },
+            (ValueNode::Enum { .. }, _) => Ordering::Greater,
             (ValueNode::Range(left), ValueNode::Range(right)) => left.clone().cmp(right.clone()),
             (ValueNode::Range(_), _) => Ordering::Less,
         }
