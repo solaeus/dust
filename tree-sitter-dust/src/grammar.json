@@ -1072,6 +1072,19 @@
             "type": "SEQ",
             "members": [
               {
+                "type": "SYMBOL",
+                "name": "identifier"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "type_specification"
+              }
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {
                 "type": "STRING",
                 "value": "["
               },

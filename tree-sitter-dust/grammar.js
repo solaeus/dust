@@ -350,6 +350,10 @@ module.exports = grammar({
           'num',
           'str',
           $.identifier,
+          seq(
+            $.identifier,
+            $.type_specification,
+          ),
           seq('[', $.type, ']'),
           seq(
             '(',
@@ -495,7 +499,6 @@ module.exports = grammar({
 
     struct_instance: $ =>
       seq('new', $.identifier, $.map),
-
 
     built_in_value: $ =>
       choice(

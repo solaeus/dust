@@ -13,15 +13,26 @@ pub struct EnumDefinition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-enum VariantContent {
+pub enum VariantContent {
     Type(Type),
     TypeDefinition(TypeDefinition),
     None,
 }
 
 impl EnumDefinition {
+    pub fn new(identifier: Identifier, variants: Vec<(Identifier, VariantContent)>) -> Self {
+        Self {
+            identifier,
+            variants,
+        }
+    }
+
     pub fn instantiate(&self, variant: String, content: Value) -> EnumInstance {
         EnumInstance::new(self.identifier.inner().clone(), variant, content)
+    }
+
+    pub fn identifier(&self) -> &Identifier {
+        &self.identifier
     }
 }
 

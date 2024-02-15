@@ -4,7 +4,10 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use crate::{error::rw_lock_error::RwLockError, Type, TypeDefinition, Value};
+use crate::{
+    built_in_type_definitions::all_built_in_type_definitions, error::rw_lock_error::RwLockError,
+    Type, TypeDefinition, Value,
+};
 
 #[derive(Clone, Debug)]
 pub struct Context {
@@ -76,6 +79,12 @@ impl Context {
         if let Some(value_data) = self.inner.read()?.get(key) {
             if let ValueData::TypeDefinition(definition) = value_data {
                 return Ok(Some(definition.clone()));
+            }
+        }
+
+        for built_in_definition in all_built_in_type_definitions() {
+            if key == built_in_definition.name() {
+                return Ok(Some(built_in_definition.get().clone()));
             }
         }
 

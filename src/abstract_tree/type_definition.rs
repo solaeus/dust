@@ -3,13 +3,22 @@ use tree_sitter::Node as SyntaxNode;
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, EnumDefinition, Format, StructDefinition, Type, Value,
+    AbstractTree, Context, EnumDefinition, Format, Identifier, StructDefinition, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub enum TypeDefinition {
     Enum(EnumDefinition),
     Struct(StructDefinition),
+}
+
+impl TypeDefinition {
+    pub fn identifier(&self) -> &Identifier {
+        match self {
+            TypeDefinition::Enum(enum_definition) => enum_definition.identifier(),
+            TypeDefinition::Struct(_) => todo!(),
+        }
+    }
 }
 
 impl AbstractTree for TypeDefinition {
