@@ -217,9 +217,17 @@ impl AbstractTree for ValueNode {
                     Type::None
                 }
             }
-            ValueNode::Map(_, _) => Type::Map,
+            ValueNode::Map(_, _) => Type::Map(None),
             ValueNode::BuiltInValue(built_in_value) => built_in_value.expected_type(context)?,
-            ValueNode::Structure(_) => Type::Map,
+            ValueNode::Structure(node_map) => {
+                let mut value_map = BTreeMap::new();
+
+                for (key, (_statement_option, r#type)) in node_map {
+                    value_map.insert(key.to_string(), (None, r#type.clone()));
+                }
+
+                Type::Map(Some(Structure::new(value_map)))
+            }
             ValueNode::Range(_) => Type::Range,
         };
 
