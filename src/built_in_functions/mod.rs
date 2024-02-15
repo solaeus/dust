@@ -7,7 +7,7 @@ use std::fmt::{self, Display, Formatter};
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Context, Format, Type, Value};
+use crate::{error::RuntimeError, Context, EnumInstance, Format, Identifier, Type, Value};
 
 use self::{fs::Fs, json::Json, str::StrFunction};
 
@@ -70,7 +70,10 @@ impl Callable for BuiltInFunction {
 
     fn r#type(&self) -> Type {
         match self {
-            BuiltInFunction::AssertEqual => Type::function(vec![Type::Any, Type::Any], Type::None),
+            BuiltInFunction::AssertEqual => Type::function(
+                vec![Type::Any, Type::Any],
+                Type::Custom(Identifier::new("Result")),
+            ),
             BuiltInFunction::Fs(fs_function) => fs_function.r#type(),
             BuiltInFunction::Json(json_function) => json_function.r#type(),
             BuiltInFunction::Length => Type::function(vec![Type::Collection], Type::Integer),
@@ -93,10 +96,24 @@ impl Callable for BuiltInFunction {
             BuiltInFunction::AssertEqual => {
                 RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
-                let left = arguments.first().unwrap();
+                let left = arguments.get(0).unwrap();
                 let right = arguments.get(1).unwrap();
 
-                Ok(Value::Boolean(left == right))
+                let result = if left == right {
+                    Value::Enum(EnumInstance::new(
+                        "Result".to_string(),
+                        "Ok".to_string(),
+                        Value::none(),
+                    ))
+                } else {
+                    Value::Enum(EnumInstance::new(
+                        "Result".to_string(),
+                        "Error".to_string(),
+                        Value::none(),
+                    ))
+                };
+
+                Ok(result)
             }
             BuiltInFunction::Fs(fs_function) => {
                 fs_function.call(arguments, _source, _outer_context)

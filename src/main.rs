@@ -311,7 +311,7 @@ impl Completer for DustCompleter {
         for (key, value_data) in self.context.inner().unwrap().iter() {
             let value = match value_data {
                 ValueData::Value { inner, .. } => inner,
-                ValueData::ExpectedType { .. } => continue,
+                ValueData::TypeHint { .. } => continue,
                 ValueData::TypeDefinition(_) => continue,
             };
 
