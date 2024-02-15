@@ -2,7 +2,7 @@
 //!
 //! This module has three tools to run Dust code.
 //!
-//! - [interpret] is the simples way to run Dust code inside of an application or library
+//! - [interpret] is the simplest way to run Dust code inside of an application or library
 //! - [interpret_with_context] allows you to set variables on the execution context
 //! - [Interpreter] is an advanced tool that can parse, verify, run and format Dust code
 //!
@@ -22,11 +22,11 @@
 //!
 //! ```rust
 //! # use dust_lang::*;
-//! let context = Map::new();
+//! let context = Context::new();
 //!
-//! context.set("one".into(), 1.into());
-//! context.set("two".into(), 2.into());
-//! context.set("three".into(), 3.into());
+//! context.set_value("one".into(), 1.into()).unwrap();
+//! context.set_value("two".into(), 2.into()).unwrap();
+//! context.set_value("three".into(), 3.into()).unwrap();
 //!
 //! let dust_code = "four = 4; one + two + three + four";
 //!
@@ -66,16 +66,27 @@ pub fn interpret_with_context(source: &str, context: Context) -> Result<Value, E
 
 /// A source code interpreter for the Dust language.
 ///
-/// The interpreter's most important functions are used to parse dust source code, verify it is safe
-/// and run it and they are written in a way that forces them to be used safely. Each step in this
-/// process contains the prior steps, meaning that the same code is always used to create the syntax /// tree, abstract tree and final evaluation. This avoids a critical logic error.
+/// The interpreter's most important functions are used to parse dust source
+/// code, verify it is safe and run it. They are written in a way that forces
+/// them to be used safely: each step in this process contains the prior
+/// steps, meaning that the same code is always used to create the syntax tree,
+/// abstract tree and final evaluation. This avoids a critical logic error.
+///
+/// ```
+/// # use dust_lang::*;
+/// let context = Context::new();
+/// let mut interpreter = Interpreter::new(context);
+/// let result = interpreter.run("2 + 2");
+///
+/// assert_eq!(result, Ok(Value::Integer(4)));
+/// ```
 pub struct Interpreter {
     parser: Parser,
     context: Context,
 }
 
 impl Interpreter {
-    /// Creates a new interpreter with the given variable context.
+    /// Create a new interpreter with the given context.
     pub fn new(context: Context) -> Self {
         let mut parser = Parser::new();
 
@@ -90,11 +101,12 @@ impl Interpreter {
         Interpreter { parser, context }
     }
 
-    /// Generates a syntax tree from the source. Returns an error if the the parser is cancelled for
-    /// taking too long. The syntax tree may contain error nodes, which represent syntax errors.
+    /// Generate a syntax tree from the source. Returns an error if the the
+    /// parser is cancelled for taking too long. The syntax tree may contain
+    /// error nodes, which represent syntax errors.
     ///
-    /// Tree sitter is designed to be run on every keystroke, so this is generally a lightweight
-    /// function to call.
+    /// Tree sitter is designed to be run on every keystroke, so this is
+    /// generally a lightweight function to call.
     pub fn parse(&mut self, source: &str) -> Result<SyntaxTree, Error> {
         if let Some(tree) = self.parser.parse(source, None) {
             Ok(tree)
@@ -103,7 +115,7 @@ impl Interpreter {
         }
     }
 
-    /// Checks the source for errors and generates an abstract tree.
+    /// Check the source for errors and generate an abstract tree.
     ///
     /// The order in which this function works is:
     ///
@@ -111,7 +123,7 @@ impl Interpreter {
     /// - check the syntax tree for errors
     /// - generate an abstract tree from the source and syntax tree
     /// - check the abstract tree for type errors
-    pub fn verify(&mut self, source: &str) -> Result<Root, Error> {
+    pub fn validate(&mut self, source: &str) -> Result<Root, Error> {
         fn check_for_error(
             node: SyntaxNode,
             source: &str,
@@ -144,31 +156,32 @@ impl Interpreter {
         Ok(abstract_tree)
     }
 
-    /// Runs the source, returning the final statement's value or first error.
+    /// Run the source, returning the final statement's value or first error.
     ///
-    /// This function [parses][Self::parse], [verifies][Self::verify] and [runs][Root::run] using
-    /// the same source code.
+    /// This function [parses][Self::parse], [validates][Self::validate] and
+    /// [runs][Root::run] using the same source code.
     pub fn run(&mut self, source: &str) -> Result<Value, Error> {
-        self.verify(source)?
+        self.validate(source)?
             .run(source, &self.context)
             .map_err(|error| Error::Runtime(error))
     }
 
-    /// Return an s-expression displaying a syntax tree of the source, or the ParserCancelled error
-    /// if the parser takes too long.
+    /// Return an s-expression displaying a syntax tree of the source, or the
+    /// ParserCancelled error if the parser takes too long.
     pub fn syntax_tree(&mut self, source: &str) -> Result<String, Error> {
         Ok(self.parse(source)?.root_node().to_sexp())
     }
 
-    /// Return formatted Dust code generated from the current abstract tree, or None if no source
-    /// code has been run successfully.
+    /// Return formatted Dust code generated from the current abstract tree, or
+    /// None if no source code has been run successfully.
     ///
-    /// You should call [verify][Interpreter::verify] before calling this function. You can only
-    /// create formatted source from a valid abstract tree.
+    /// You should call [verify][Interpreter::verify] before calling this
+    /// function. You can only create formatted source from a valid abstract
+    /// tree.
     pub fn format(&mut self, source: &str) -> Result<String, Error> {
         let mut formatted_output = String::new();
 
-        self.verify(source)?.format(&mut formatted_output, 0);
+        self.validate(source)?.format(&mut formatted_output, 0);
 
         Ok(formatted_output)
     }
