@@ -86,80 +86,95 @@ impl BuiltInValue {
 
     /// Returns the value by creating it or, if it has already been accessed, retrieving it from its
     /// [OnceLock][].
-    pub fn get(&self) -> &Value {
+    pub fn get(&self) -> Value {
         match self {
-            BuiltInValue::Args => ARGS.get_or_init(|| {
-                let args = args().map(|arg| Value::string(arg.to_string())).collect();
+            BuiltInValue::Args => ARGS
+                .get_or_init(|| {
+                    let args = args().map(|arg| Value::string(arg.to_string())).collect();
 
-                Value::List(List::with_items(args))
-            }),
+                    Value::List(List::with_items(args))
+                })
+                .clone(),
             BuiltInValue::AssertEqual => {
-                &Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
+                Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
             }
-            BuiltInValue::Fs => FS.get_or_init(|| {
-                let mut fs_map = Map::new();
+            BuiltInValue::Fs => FS
+                .get_or_init(|| {
+                    let mut fs_map = Map::new();
 
-                for fs_function in fs_functions() {
-                    let key = fs_function.name();
-                    let value =
-                        Value::Function(Function::BuiltIn(BuiltInFunction::Fs(fs_function)));
+                    for fs_function in fs_functions() {
+                        let key = fs_function.name();
+                        let value =
+                            Value::Function(Function::BuiltIn(BuiltInFunction::Fs(fs_function)));
 
-                    fs_map.set(Identifier::new(key), value);
-                }
+                        fs_map.set(Identifier::new(key), value);
+                    }
 
-                Value::Map(fs_map)
-            }),
-            BuiltInValue::Json => JSON.get_or_init(|| {
-                let mut json_map = Map::new();
+                    Value::Map(fs_map)
+                })
+                .clone(),
+            BuiltInValue::Json => JSON
+                .get_or_init(|| {
+                    let mut json_map = Map::new();
 
-                for json_function in json_functions() {
-                    let key = json_function.name();
-                    let value =
-                        Value::Function(Function::BuiltIn(BuiltInFunction::Json(json_function)));
+                    for json_function in json_functions() {
+                        let key = json_function.name();
+                        let value = Value::Function(Function::BuiltIn(BuiltInFunction::Json(
+                            json_function,
+                        )));
 
-                    json_map.set(Identifier::new(key), value);
-                }
+                        json_map.set(Identifier::new(key), value);
+                    }
 
-                Value::Map(json_map)
-            }),
-            BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
-            BuiltInValue::None => &Value::Enum(EnumInstance::new(
-                Identifier::new("Option"),
-                Identifier::new("None"),
-                None,
-            )),
-            BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
-            BuiltInValue::Random => RANDOM.get_or_init(|| {
-                let mut random_map = Map::new();
+                    Value::Map(json_map)
+                })
+                .clone(),
+            BuiltInValue::Length => Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
+            BuiltInValue::None => NONE
+                .get_or_init(|| {
+                    Value::Enum(EnumInstance::new(
+                        Identifier::new("Option"),
+                        Identifier::new("None"),
+                        None,
+                    ))
+                })
+                .clone(),
+            BuiltInValue::Output => Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
+            BuiltInValue::Random => RANDOM
+                .get_or_init(|| {
+                    let mut random_map = Map::new();
 
-                for built_in_function in [
-                    BuiltInFunction::RandomBoolean,
-                    BuiltInFunction::RandomFloat,
-                    BuiltInFunction::RandomFrom,
-                    BuiltInFunction::RandomInteger,
-                ] {
-                    let identifier = Identifier::new(built_in_function.name());
-                    let value = Value::Function(Function::BuiltIn(built_in_function));
+                    for built_in_function in [
+                        BuiltInFunction::RandomBoolean,
+                        BuiltInFunction::RandomFloat,
+                        BuiltInFunction::RandomFrom,
+                        BuiltInFunction::RandomInteger,
+                    ] {
+                        let identifier = Identifier::new(built_in_function.name());
+                        let value = Value::Function(Function::BuiltIn(built_in_function));
 
-                    random_map.set(identifier, value);
-                }
+                        random_map.set(identifier, value);
+                    }
 
-                Value::Map(random_map)
-            }),
-            BuiltInValue::Str => STR.get_or_init(|| {
-                let mut str_map = Map::new();
+                    Value::Map(random_map)
+                })
+                .clone(),
+            BuiltInValue::Str => STR
+                .get_or_init(|| {
+                    let mut str_map = Map::new();
 
-                for string_function in string_functions() {
-                    let identifier = Identifier::new(string_function.name());
-                    let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
-                        string_function,
-                    )));
+                    for string_function in string_functions() {
+                        let identifier = Identifier::new(string_function.name());
+                        let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
+                            string_function,
+                        )));
 
-                    str_map.set(identifier, value);
-                }
+                        str_map.set(identifier, value);
+                    }
 
-                Value::Map(str_map)
-            }),
+                    Value::Map(str_map)
+                })
+                .clone(),
         }
     }
 }

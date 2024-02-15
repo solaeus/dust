@@ -16,8 +16,8 @@ fn simple_enum() {
     assert_eq!(
         result,
         Ok(Value::Enum(EnumInstance::new(
-            "Foobar".to_string(),
-            "Foo".to_string(),
+            Identifier::new("Foobar"),
+            Identifier::new("Foo"),
             Some(Value::none())
         )))
     );
@@ -43,11 +43,11 @@ fn nested_enum() {
     assert_eq!(
         result,
         Ok(Value::Enum(EnumInstance::new(
-            "Foobar".to_string(),
-            "Bar".to_string(),
+            Identifier::new("Foobar"),
+            Identifier::new("Bar"),
             Some(Value::Enum(EnumInstance::new(
-                "Fizzbuzz".to_string(),
-                "Fizz".to_string(),
+                Identifier::new("Fizzbuzz"),
+                Identifier::new("Fizz"),
                 Some(Value::none())
             )))
         )))

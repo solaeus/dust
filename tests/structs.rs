@@ -17,10 +17,13 @@ fn simple_struct() {
 
     let mut map = Map::new();
 
-    map.set("bar".to_string(), Value::Integer(0));
-    map.set("baz".to_string(), Value::String("hiya".to_string()));
+    map.set(Identifier::new("bar"), Value::Integer(0));
+    map.set(Identifier::new("baz"), Value::String("hiya".to_string()));
 
-    let expected = Ok(Value::Struct(StructInstance::new("Foo".to_string(), map)));
+    let expected = Ok(Value::Struct(StructInstance::new(
+        Identifier::new("Foo"),
+        map,
+    )));
 
     assert_eq!(result, expected);
 }
@@ -42,12 +45,12 @@ fn nested_struct() {
     let mut foo_map = Map::new();
 
     foo_map.set(
-        "bar".to_string(),
-        Value::Struct(StructInstance::new("Bar".to_string(), Map::new())),
+        Identifier::new("bar"),
+        Value::Struct(StructInstance::new(Identifier::new("Bar"), Map::new())),
     );
 
     let expected = Ok(Value::Struct(StructInstance::new(
-        "Foo".to_string(),
+        Identifier::new("Foo"),
         foo_map,
     )));
 

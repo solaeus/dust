@@ -28,7 +28,7 @@ impl BuiltInTypeDefinition {
         }
     }
 
-    pub fn get(&self, context: &Context) -> &Result<TypeDefinition, RwLockError> {
+    pub fn get(&self, _context: &Context) -> &Result<TypeDefinition, RwLockError> {
         match self {
             BuiltInTypeDefinition::Option => OPTION.get_or_init(|| {
                 let definition = TypeDefinition::Enum(EnumDefinition::new(

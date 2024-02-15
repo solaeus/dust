@@ -71,8 +71,8 @@ fn empty_list() {
 fn map() {
     let mut map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1));
-    map.set("foo".to_string(), Value::string("bar".to_string()));
+    map.set(Identifier::new("x"), Value::Integer(1));
+    map.set(Identifier::new("foo"), Value::string("bar".to_string()));
 
     assert_eq!(interpret("{ x = 1, foo = 'bar' }"), Ok(Value::Map(map)));
 }
@@ -86,8 +86,8 @@ fn empty_map() {
 fn map_types() {
     let mut map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1));
-    map.set("foo".to_string(), Value::string("bar".to_string()));
+    map.set(Identifier::new("x"), Value::Integer(1));
+    map.set(Identifier::new("foo"), Value::string("bar".to_string()));
 
     assert_eq!(
         interpret("{ x <int> = 1, foo <str> = 'bar' }"),
@@ -137,10 +137,7 @@ fn function() {
         panic!("Something is wrong with this test...");
     };
 
-    assert_eq!(
-        &vec![Identifier::new_or_get("x".to_string())],
-        function.parameters()
-    );
+    assert_eq!(&vec![Identifier::new("x")], function.parameters());
     assert_eq!(&Type::Boolean, function.return_type());
 }
 

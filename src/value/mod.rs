@@ -250,12 +250,6 @@ impl Default for Value {
     }
 }
 
-impl Default for &Value {
-    fn default() -> Self {
-        BuiltInValue::None.get()
-    }
-}
-
 impl Add for Value {
     type Output = Result<Value, RuntimeError>;
 

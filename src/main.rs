@@ -11,7 +11,7 @@ use reedline::{
 use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
 
 use dust_lang::{
-    built_in_values::all_built_in_values, Context, Error, Interpreter, Value, ValueData,
+    built_in_values::all_built_in_values, Context, Error, Identifier, Interpreter, Value, ValueData,
 };
 
 /// Command-line arguments to be parsed.
@@ -55,7 +55,7 @@ fn main() {
 
     if let Some(input) = args.input {
         context
-            .set_value("input".to_string(), Value::string(input))
+            .set_value(Identifier::new("input"), Value::string(input))
             .unwrap();
     }
 
@@ -63,7 +63,7 @@ fn main() {
         let file_contents = read_to_string(path).unwrap();
 
         context
-            .set_value("input".to_string(), Value::string(file_contents))
+            .set_value(Identifier::new("input"), Value::string(file_contents))
             .unwrap();
     }
 

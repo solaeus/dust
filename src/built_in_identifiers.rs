@@ -18,12 +18,10 @@ pub enum BuiltInIdentifier {
 }
 
 impl BuiltInIdentifier {
-    pub fn get(&self) -> &Identifier {
+    pub fn get(&self) -> Identifier {
         match self {
-            BuiltInIdentifier::Option => {
-                return OPTION.get_or_init(|| Identifier::new("Option"));
-            }
-            BuiltInIdentifier::None => return NONE.get_or_init(|| Identifier::new("None")),
+            BuiltInIdentifier::Option => OPTION.get_or_init(|| Identifier::new("Option")).clone(),
+            BuiltInIdentifier::None => NONE.get_or_init(|| Identifier::new("None")).clone(),
         }
     }
 }

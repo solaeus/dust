@@ -62,24 +62,24 @@ impl AbstractTree for Index {
             Value::Map(map) => {
                 let map = map.inner();
 
-                let (identifier, value) =
-                    if let IndexExpression::Identifier(identifier) = &self.index {
-                        let value = map.get(identifier).unwrap_or_default();
-
-                        (identifier.clone(), value)
+                let value = if let IndexExpression::Identifier(identifier) = &self.index {
+                    if let Some(value) = map.get(identifier) {
+                        value
                     } else {
-                        let index_value = self.index.run(source, context)?;
-                        let identifier = Identifier::new(index_value.as_string()?);
-                        let value = map.get(&identifier).unwrap_or_default();
-
-                        (identifier, value)
-                    };
-
-                if value.is_none() {
-                    Err(RuntimeError::VariableIdentifierNotFound(identifier))
+                        return Err(RuntimeError::VariableIdentifierNotFound(identifier.clone()));
+                    }
                 } else {
-                    Ok(value.clone())
-                }
+                    let index_value = self.index.run(source, context)?;
+                    let identifier = Identifier::new(index_value.as_string()?);
+
+                    if let Some(value) = map.get(&identifier) {
+                        value
+                    } else {
+                        return Err(RuntimeError::VariableIdentifierNotFound(identifier.clone()));
+                    }
+                };
+
+                Ok(value.clone())
             }
             Value::String(string) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;

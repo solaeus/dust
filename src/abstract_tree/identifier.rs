@@ -14,7 +14,7 @@ use crate::{
 /// A string by which a variable is known to a context.
 ///
 /// Every variable is a key-value pair. An identifier holds the key part of that
-/// pair and can be used to retrieve a Value instance from a Map or Context.
+/// pair. Its inner value can be used to retrieve a Value instance from a Map.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier(Arc<String>);
 

@@ -5,8 +5,8 @@ fn option() {
     assert_eq!(
         interpret("Option::None"),
         Ok(Value::Enum(EnumInstance::new(
-            "Option".to_string(),
-            "None".to_string(),
+            Identifier::new("Option"),
+            Identifier::new("None"),
             Some(Value::none()),
         )))
     );
@@ -19,8 +19,8 @@ fn option() {
             "
         ),
         Ok(Value::Enum(EnumInstance::new(
-            "Option".to_string(),
-            "Some".to_string(),
+            Identifier::new("Option"),
+            Identifier::new("None"),
             Some(Value::Integer(1)),
         )))
     );
@@ -31,8 +31,8 @@ fn result() {
     assert_eq!(
         interpret("Result::Ok(1)"),
         Ok(Value::Enum(EnumInstance::new(
-            "Result".to_string(),
-            "Ok".to_string(),
+            Identifier::new("Result"),
+            Identifier::new("Ok"),
             Some(Value::Integer(1)),
         )))
     );
@@ -44,8 +44,8 @@ fn result() {
             "
         ),
         Ok(Value::Enum(EnumInstance::new(
-            "Result".to_string(),
-            "Error".to_string(),
+            Identifier::new("Result"),
+            Identifier::new("Error"),
             Some(Value::String("uh-oh!".to_string())),
         )))
     );

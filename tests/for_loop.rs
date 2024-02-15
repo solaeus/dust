@@ -67,8 +67,8 @@ fn modify_map() {
 
     let mut map = Map::new();
 
-    map.set("x".to_string(), Value::Integer(1));
-    map.set("y".to_string(), Value::Integer(2));
+    map.set(Identifier::new("x"), Value::Integer(1));
+    map.set(Identifier::new("y"), Value::Integer(2));
 
     assert_eq!(Ok(Value::Map(map)), result);
 }

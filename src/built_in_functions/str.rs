@@ -203,7 +203,7 @@ impl Callable for StrFunction {
         &self,
         arguments: &[Value],
         _source: &str,
-        context: &Context,
+        _context: &Context,
     ) -> Result<Value, RuntimeError> {
         let value = match self {
             StrFunction::AsBytes => {
@@ -335,8 +335,8 @@ impl Callable for StrFunction {
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
                 let range = arguments.get(1).unwrap().as_list()?.items();
-                let start = range.first().unwrap_or_default().as_integer()? as usize;
-                let end = range.get(1).unwrap_or_default().as_integer()? as usize;
+                let start = range[0].as_integer()? as usize;
+                let end = range[1].as_integer()? as usize;
                 let pattern = arguments.get(2).unwrap().as_string()?;
 
                 string.replace_range(start..end, pattern);

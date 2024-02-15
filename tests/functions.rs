@@ -57,7 +57,7 @@ fn function_context_does_not_capture_normal_values() {
             "
         ),
         Err(Error::Validation(
-            ValidationError::VariableIdentifierNotFound(Identifier::new("x".to_string()))
+            ValidationError::VariableIdentifierNotFound(Identifier::new("x"))
         ))
     );
 
@@ -91,7 +91,7 @@ fn function_context_captures_functions() {
 fn function_context_captures_structure_definitions() {
     let mut map = Map::new();
 
-    map.set("name".to_string(), Value::string("bob"));
+    map.set(Identifier::new("name"), Value::string("bob"));
 
     assert_eq!(
         interpret(
