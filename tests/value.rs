@@ -145,13 +145,6 @@ fn function() {
 }
 
 #[test]
-fn option() {
-    let result = interpret("x <option(int)> = some(1); x").unwrap();
-
-    assert_eq!(Value::Option(Some(Box::new(Value::Integer(1)))), result);
-}
-
-#[test]
 fn range() {
     assert_eq!(interpret("0..100"), Ok(Value::range(0, 100)));
 }

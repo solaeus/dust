@@ -80,6 +80,12 @@ impl AbstractTree for MapNode {
     fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         let mut map = Map::new();
 
+        for (key, (statement, _)) in &self.properties {
+            let value = statement.run(_source, _context)?;
+
+            map.set(key.clone(), value);
+        }
+
         Ok(Value::Map(map))
     }
 }
