@@ -142,16 +142,11 @@ impl AbstractTree for FunctionCall {
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let value = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
-                let key = identifier.inner();
-
-                if let Some(value) = context.get_value(key)? {
-                    self.context
-                        .set_value(identifier.inner().clone(), value.clone())?;
+                if let Some(value) = context.get_value(identifier)? {
+                    self.context.set_value(identifier.clone(), value.clone())?;
                     value.clone()
                 } else {
-                    return Err(RuntimeError::VariableIdentifierNotFound(
-                        identifier.inner().clone(),
-                    ));
+                    return Err(RuntimeError::VariableIdentifierNotFound(identifier.clone()));
                 }
             }
             FunctionExpression::FunctionCall(function_call) => {
@@ -181,7 +176,7 @@ impl AbstractTree for FunctionCall {
                 for (identifier, expression) in parameter_expression_pairs {
                     let value = expression.run(source, context)?;
 
-                    self.context.set_value(identifier.inner().clone(), value)?;
+                    self.context.set_value(identifier.clone(), value)?;
                 }
 
                 function_node.call(source, &self.context)

@@ -1,7 +1,7 @@
 use enum_iterator::Sequence;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Context, EnumInstance, List, Type, Value};
+use crate::{error::RuntimeError, Context, EnumInstance, Identifier, List, Type, Value};
 
 use super::Callable;
 
@@ -203,7 +203,7 @@ impl Callable for StrFunction {
         &self,
         arguments: &[Value],
         _source: &str,
-        _outer_context: &Context,
+        context: &Context,
     ) -> Result<Value, RuntimeError> {
         let value = match self {
             StrFunction::AsBytes => {
@@ -238,14 +238,14 @@ impl Callable for StrFunction {
 
                 if let Some(index) = find {
                     Value::Enum(EnumInstance::new(
-                        "Option".to_string(),
-                        "Some".to_string(),
+                        Identifier::new("Option"),
+                        Identifier::new("Some"),
                         Some(index),
                     ))
                 } else {
                     Value::Enum(EnumInstance::new(
-                        "Option".to_string(),
-                        "None".to_string(),
+                        Identifier::new("Option"),
+                        Identifier::new("None"),
                         Some(Value::none()),
                     ))
                 }
@@ -477,8 +477,8 @@ impl Callable for StrFunction {
 
                 if let Some(value) = stripped {
                     Value::Enum(EnumInstance::new(
-                        "Option".to_string(),
-                        "Some".to_string(),
+                        Identifier::new("Option"),
+                        Identifier::new("Some"),
                         Some(value),
                     ))
                 } else {

@@ -11,12 +11,12 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MapNode {
-    properties: BTreeMap<String, (Statement, Option<Type>)>,
+    properties: BTreeMap<Identifier, (Statement, Option<Type>)>,
     position: SourcePosition,
 }
 
 impl MapNode {
-    pub fn properties(&self) -> &BTreeMap<String, (Statement, Option<Type>)> {
+    pub fn properties(&self) -> &BTreeMap<Identifier, (Statement, Option<Type>)> {
         &self.properties
     }
 }
@@ -26,14 +26,14 @@ impl AbstractTree for MapNode {
         SyntaxError::expect_syntax_node(source, "map", node)?;
 
         let mut properties = BTreeMap::new();
-        let mut current_key = "".to_string();
+        let mut current_identifier = None;
         let mut current_type = None;
 
         for index in 0..node.child_count() - 1 {
             let child = node.child(index).unwrap();
 
             if child.kind() == "identifier" {
-                current_key = Identifier::from_syntax(child, source, context)?.take_inner();
+                current_identifier = Some(Identifier::from_syntax(child, source, context)?);
                 current_type = None;
             }
 
@@ -45,7 +45,9 @@ impl AbstractTree for MapNode {
             if child.kind() == "statement" {
                 let statement = Statement::from_syntax(child, source, context)?;
 
-                properties.insert(current_key.clone(), (statement, current_type.clone()));
+                if let Some(identifier) = &current_identifier {
+                    properties.insert(identifier.clone(), (statement, current_type.clone()));
+                }
             }
         }
 

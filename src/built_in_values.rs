@@ -1,21 +1,19 @@
-use std::{collections::BTreeMap, env::args, sync::OnceLock};
+use std::{env::args, sync::OnceLock};
 
 use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     built_in_functions::{fs::fs_functions, json::json_functions, str::string_functions, Callable},
-    error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, BuiltInFunction, Context, EnumInstance, Format, Function, Identifier, List, Map,
-    SyntaxNode, Type, Value,
+    BuiltInFunction, EnumInstance, Function, Identifier, List, Map, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
 static FS: OnceLock<Value> = OnceLock::new();
 static JSON: OnceLock<Value> = OnceLock::new();
-static RANDOM: OnceLock<Value> = OnceLock::new();
-static STRING: OnceLock<Value> = OnceLock::new();
 static NONE: OnceLock<Value> = OnceLock::new();
+static RANDOM: OnceLock<Value> = OnceLock::new();
+static STR: OnceLock<Value> = OnceLock::new();
 
 /// Returns the entire built-in value API.
 pub fn all_built_in_values() -> impl Iterator<Item = BuiltInValue> {
@@ -86,23 +84,6 @@ impl BuiltInValue {
         }
     }
 
-    /// Returns the value's type.
-    ///
-    /// This is checked with a unit test to ensure it matches the value.
-    pub fn r#type(&self) -> Type {
-        match self {
-            BuiltInValue::Args => Type::list(Type::String),
-            BuiltInValue::AssertEqual => BuiltInFunction::AssertEqual.r#type(),
-            BuiltInValue::Fs => Type::Map,
-            BuiltInValue::Json => Type::Map,
-            BuiltInValue::Length => BuiltInFunction::Length.r#type(),
-            BuiltInValue::None => Type::Custom(Identifier::new("Option")),
-            BuiltInValue::Output => BuiltInFunction::Output.r#type(),
-            BuiltInValue::Random => Type::Map,
-            BuiltInValue::Str => Type::Map,
-        }
-    }
-
     /// Returns the value by creating it or, if it has already been accessed, retrieving it from its
     /// [OnceLock][].
     pub fn get(&self) -> &Value {
@@ -116,42 +97,40 @@ impl BuiltInValue {
                 &Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
             }
             BuiltInValue::Fs => FS.get_or_init(|| {
-                let mut fs_context = BTreeMap::new();
+                let mut fs_map = Map::new();
 
                 for fs_function in fs_functions() {
-                    let key = fs_function.name().to_string();
+                    let key = fs_function.name();
                     let value =
                         Value::Function(Function::BuiltIn(BuiltInFunction::Fs(fs_function)));
 
-                    fs_context.insert(key, value);
+                    fs_map.set(Identifier::new(key), value);
                 }
 
-                Value::Map(Map::with_values(fs_context))
+                Value::Map(fs_map)
             }),
             BuiltInValue::Json => JSON.get_or_init(|| {
-                let mut json_context = BTreeMap::new();
+                let mut json_map = Map::new();
 
                 for json_function in json_functions() {
-                    let key = json_function.name().to_string();
+                    let key = json_function.name();
                     let value =
                         Value::Function(Function::BuiltIn(BuiltInFunction::Json(json_function)));
 
-                    json_context.insert(key, value);
+                    json_map.set(Identifier::new(key), value);
                 }
 
-                Value::Map(Map::with_values(json_context))
+                Value::Map(json_map)
             }),
             BuiltInValue::Length => &Value::Function(Function::BuiltIn(BuiltInFunction::Length)),
-            BuiltInValue::None => NONE.get_or_init(|| {
-                Value::Enum(EnumInstance::new(
-                    "Option".to_string(),
-                    "None".to_string(),
-                    None,
-                ))
-            }),
+            BuiltInValue::None => &Value::Enum(EnumInstance::new(
+                Identifier::new("Option"),
+                Identifier::new("None"),
+                None,
+            )),
             BuiltInValue::Output => &Value::Function(Function::BuiltIn(BuiltInFunction::Output)),
             BuiltInValue::Random => RANDOM.get_or_init(|| {
-                let mut random_context = BTreeMap::new();
+                let mut random_map = Map::new();
 
                 for built_in_function in [
                     BuiltInFunction::RandomBoolean,
@@ -159,83 +138,28 @@ impl BuiltInValue {
                     BuiltInFunction::RandomFrom,
                     BuiltInFunction::RandomInteger,
                 ] {
-                    let key = built_in_function.name().to_string();
+                    let identifier = Identifier::new(built_in_function.name());
                     let value = Value::Function(Function::BuiltIn(built_in_function));
 
-                    random_context.insert(key, value);
+                    random_map.set(identifier, value);
                 }
 
-                Value::Map(Map::with_values(random_context))
+                Value::Map(random_map)
             }),
-            BuiltInValue::Str => STRING.get_or_init(|| {
-                let mut string_context = BTreeMap::new();
+            BuiltInValue::Str => STR.get_or_init(|| {
+                let mut str_map = Map::new();
 
                 for string_function in string_functions() {
-                    let key = string_function.name().to_string();
+                    let identifier = Identifier::new(string_function.name());
                     let value = Value::Function(Function::BuiltIn(BuiltInFunction::String(
                         string_function,
                     )));
 
-                    string_context.insert(key, value);
+                    str_map.set(identifier, value);
                 }
 
-                Value::Map(Map::with_values(string_context))
+                Value::Map(str_map)
             }),
-        }
-    }
-}
-
-impl AbstractTree for BuiltInValue {
-    fn from_syntax(
-        node: SyntaxNode,
-        _source: &str,
-        _context: &Context,
-    ) -> Result<Self, SyntaxError> {
-        let built_in_value = match node.kind() {
-            "args" => BuiltInValue::Args,
-            "assert_equal" => BuiltInValue::AssertEqual,
-            "fs" => BuiltInValue::Fs,
-            "json" => BuiltInValue::Json,
-            "length" => BuiltInValue::Length,
-            "output" => BuiltInValue::Output,
-            "random" => BuiltInValue::Random,
-            "str" => BuiltInValue::Str,
-            _ => todo!(),
-        };
-
-        Ok(built_in_value)
-    }
-
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        Ok(self.r#type())
-    }
-
-    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
-        Ok(())
-    }
-
-    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
-        Ok(self.get().clone())
-    }
-}
-
-impl Format for BuiltInValue {
-    fn format(&self, output: &mut String, _indent_level: u8) {
-        output.push_str(&self.get().to_string());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::all_built_in_values;
-
-    #[test]
-    fn check_built_in_types() {
-        for built_in_value in all_built_in_values() {
-            let expected = built_in_value.r#type();
-            let actual = built_in_value.get().r#type();
-
-            assert_eq!(expected, actual);
         }
     }
 }

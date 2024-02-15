@@ -35,7 +35,7 @@ use std::{
 
 use crate::{
     built_in_type_definitions::all_built_in_type_definitions, built_in_values::all_built_in_values,
-    error::rw_lock_error::RwLockError, Type, TypeDefinition, Value,
+    error::rw_lock_error::RwLockError, Identifier, Type, TypeDefinition, Value,
 };
 
 /// An execution context that variable and type data during the [Interpreter]'s
@@ -44,7 +44,7 @@ use crate::{
 /// See the [module-level docs][self] for more info.
 #[derive(Clone, Debug)]
 pub struct Context {
-    inner: Arc<RwLock<BTreeMap<String, ValueData>>>,
+    inner: Arc<RwLock<BTreeMap<Identifier, ValueData>>>,
 }
 
 impl Context {
@@ -56,7 +56,7 @@ impl Context {
     }
 
     /// Return a lock guard to the inner BTreeMap.
-    pub fn inner(&self) -> Result<RwLockReadGuard<BTreeMap<String, ValueData>>, RwLockError> {
+    pub fn inner(&self) -> Result<RwLockReadGuard<BTreeMap<Identifier, ValueData>>, RwLockError> {
         Ok(self.inner.read()?)
     }
 
@@ -112,15 +112,15 @@ impl Context {
     ///
     /// This will also return a built-in value if one matches the key. See the
     /// [module-level docs][self] for more info.
-    pub fn get_value(&self, key: &str) -> Result<Option<Value>, RwLockError> {
-        if let Some(value_data) = self.inner.read()?.get(key) {
+    pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockError> {
+        if let Some(value_data) = self.inner.read()?.get(identifier) {
             if let ValueData::Value { inner, .. } = value_data {
                 return Ok(Some(inner.clone()));
             }
         }
 
         for built_in_value in all_built_in_values() {
-            if key == built_in_value.name() {
+            if built_in_value.name() == identifier.inner().as_ref() {
                 return Ok(Some(built_in_value.get().clone()));
             }
         }
@@ -132,18 +132,12 @@ impl Context {
     ///
     /// If the key matches a stored value, its type will be returned. It if
     /// matches a type hint, the type hint will be returned.
-    pub fn get_type(&self, key: &str) -> Result<Option<Type>, RwLockError> {
-        if let Some(value_data) = self.inner.read()?.get(key) {
+    pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockError> {
+        if let Some(value_data) = self.inner.read()?.get(identifier) {
             match value_data {
                 ValueData::Value { inner, .. } => return Ok(Some(inner.r#type())),
                 ValueData::TypeHint { inner, .. } => return Ok(Some(inner.clone())),
                 ValueData::TypeDefinition(_) => todo!(),
-            }
-        }
-
-        for built_in_value in all_built_in_values() {
-            if key == built_in_value.name() {
-                return Ok(Some(built_in_value.r#type()));
             }
         }
 
@@ -154,16 +148,19 @@ impl Context {
     ///
     /// This will also return a built-in type definition if one matches the key.
     /// See the [module-level docs][self] for more info.
-    pub fn get_definition(&self, key: &str) -> Result<Option<TypeDefinition>, RwLockError> {
-        if let Some(value_data) = self.inner.read()?.get(key) {
+    pub fn get_definition(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<TypeDefinition>, RwLockError> {
+        if let Some(value_data) = self.inner.read()?.get(identifier) {
             if let ValueData::TypeDefinition(definition) = value_data {
                 return Ok(Some(definition.clone()));
             }
         }
 
         for built_in_definition in all_built_in_type_definitions() {
-            if key == built_in_definition.name() {
-                return Ok(Some(built_in_definition.get().clone()));
+            if built_in_definition.name() == identifier.inner().as_ref() {
+                return Ok(Some(built_in_definition.get(self).clone()?));
             }
         }
 
@@ -171,7 +168,7 @@ impl Context {
     }
 
     /// Set a value to a key.
-    pub fn set_value(&self, key: String, value: Value) -> Result<(), RwLockError> {
+    pub fn set_value(&self, key: Identifier, value: Value) -> Result<(), RwLockError> {
         self.inner.write()?.insert(
             key,
             ValueData::Value {
@@ -187,7 +184,7 @@ impl Context {
     ///
     /// This allows the interpreter to check a value's type before the value
     /// actually exists by predicting what the abstract tree will produce.
-    pub fn set_type(&self, key: String, r#type: Type) -> Result<(), RwLockError> {
+    pub fn set_type(&self, key: Identifier, r#type: Type) -> Result<(), RwLockError> {
         self.inner
             .write()?
             .insert(key, ValueData::TypeHint { inner: r#type });
@@ -201,7 +198,7 @@ impl Context {
     /// later while using this context.
     pub fn set_definition(
         &self,
-        key: String,
+        key: Identifier,
         definition: TypeDefinition,
     ) -> Result<(), RwLockError> {
         self.inner
@@ -212,7 +209,7 @@ impl Context {
     }
 
     /// Remove a key-value pair.
-    pub fn unset(&self, key: &str) -> Result<(), RwLockError> {
+    pub fn unset(&self, key: &Identifier) -> Result<(), RwLockError> {
         self.inner.write()?.remove(key);
 
         Ok(())

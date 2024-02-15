@@ -54,14 +54,13 @@ impl AbstractTree for Assignment {
 
     fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
         if let AssignmentOperator::Equal = self.operator {
-            let key = self.identifier.inner().clone();
             let r#type = if let Some(definition) = &self.type_specification {
                 definition.inner().clone()
             } else {
                 self.statement.expected_type(context)?
             };
 
-            context.set_type(key, r#type)?;
+            context.set_type(self.identifier.clone(), r#type)?;
         }
 
         if let Some(type_specification) = &self.type_specification {
@@ -130,30 +129,33 @@ impl AbstractTree for Assignment {
     }
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        let key = self.identifier.inner();
         let value = self.statement.run(source, context)?;
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = context.get_value(key)? {
+                if let Some(mut previous_value) = context.get_value(&self.identifier)? {
                     previous_value += value;
                     previous_value
                 } else {
-                    return Err(RuntimeError::VariableIdentifierNotFound(key.clone()));
+                    return Err(RuntimeError::VariableIdentifierNotFound(
+                        self.identifier.clone(),
+                    ));
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = context.get_value(key)? {
+                if let Some(mut previous_value) = context.get_value(&self.identifier)? {
                     previous_value -= value;
                     previous_value
                 } else {
-                    return Err(RuntimeError::VariableIdentifierNotFound(key.clone()));
+                    return Err(RuntimeError::VariableIdentifierNotFound(
+                        self.identifier.clone(),
+                    ));
                 }
             }
             AssignmentOperator::Equal => value,
         };
 
-        context.set_value(key.clone(), new_value)?;
+        context.set_value(self.identifier.clone(), new_value)?;
 
         Ok(Value::none())
     }

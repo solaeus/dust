@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Context, Format, Index, IndexExpression, Statement,
-    SyntaxNode, Type, Value,
+    AbstractTree, AssignmentOperator, Context, Format, Identifier, Index, IndexExpression,
+    Statement, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -44,11 +44,14 @@ impl AbstractTree for IndexAssignment {
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let _index_collection = self.index.collection.run(source, context)?;
-        let index_key = if let IndexExpression::Identifier(identifier) = &self.index.index {
-            identifier.inner()
+        let index_identifier = if let IndexExpression::Identifier(identifier) = &self.index.index {
+            identifier
         } else {
+            let index_run = self.index.index.run(source, context)?;
+            let expected_identifier = Identifier::new(index_run.as_string()?);
+
             return Err(RuntimeError::VariableIdentifierNotFound(
-                self.index.index.run(source, context)?.to_string(),
+                expected_identifier,
             ));
         };
 
@@ -56,7 +59,7 @@ impl AbstractTree for IndexAssignment {
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = context.get_value(index_key)? {
+                if let Some(mut previous_value) = context.get_value(index_identifier)? {
                     previous_value += value;
                     previous_value
                 } else {
@@ -64,7 +67,7 @@ impl AbstractTree for IndexAssignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = context.get_value(index_key)? {
+                if let Some(mut previous_value) = context.get_value(index_identifier)? {
                     previous_value -= value;
                     previous_value
                 } else {
@@ -74,7 +77,7 @@ impl AbstractTree for IndexAssignment {
             AssignmentOperator::Equal => value,
         };
 
-        context.set_value(index_key.clone(), new_value)?;
+        context.set_value(index_identifier.clone(), new_value)?;
 
         Ok(Value::none())
     }

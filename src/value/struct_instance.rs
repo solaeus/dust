@@ -2,16 +2,16 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{ser::SerializeMap, Serialize, Serializer};
 
-use crate::Map;
+use crate::{Identifier, Map};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct StructInstance {
-    name: String,
+    name: Identifier,
     map: Map,
 }
 
 impl StructInstance {
-    pub fn new(name: String, map: Map) -> Self {
+    pub fn new(name: Identifier, map: Map) -> Self {
         StructInstance { name, map }
     }
 }

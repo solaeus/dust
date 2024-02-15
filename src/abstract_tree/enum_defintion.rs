@@ -27,8 +27,8 @@ impl EnumDefinition {
         }
     }
 
-    pub fn instantiate(&self, variant: String, content: Option<Value>) -> EnumInstance {
-        EnumInstance::new(self.identifier.inner().clone(), variant, content)
+    pub fn instantiate(&self, variant: Identifier, content: Option<Value>) -> EnumInstance {
+        EnumInstance::new(self.identifier.clone(), variant, content)
     }
 
     pub fn identifier(&self) -> &Identifier {
@@ -86,10 +86,7 @@ impl AbstractTree for EnumDefinition {
     }
 
     fn run(&self, _source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        context.set_definition(
-            self.identifier.inner().clone(),
-            TypeDefinition::Enum(self.clone()),
-        )?;
+        context.set_definition(self.identifier.clone(), TypeDefinition::Enum(self.clone()))?;
 
         Ok(Value::none())
     }

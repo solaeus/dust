@@ -76,7 +76,7 @@ impl AbstractTree for For {
                 position: self.source_position,
             });
         };
-        let key = self.item_id.inner().clone();
+        let key = self.item_id.clone();
 
         self.context.inherit_from(context)?;
         self.context.set_type(key, item_type)?;
@@ -87,7 +87,7 @@ impl AbstractTree for For {
         self.context.inherit_from(context)?;
 
         let expression_run = self.collection.run(source, context)?;
-        let key = self.item_id.inner();
+        let key = &self.item_id;
 
         if let Value::Range(range) = expression_run {
             if self.is_async {

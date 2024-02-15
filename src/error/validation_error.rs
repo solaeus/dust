@@ -65,7 +65,7 @@ pub enum ValidationError {
     VariableIdentifierNotFound(Identifier),
 
     /// Failed to find a type definition with this key.
-    TypeDefinitionNotFound(String),
+    TypeDefinitionNotFound(Identifier),
 
     /// Failed to find an enum definition with this key.
     ExpectedEnumDefintion { actual: TypeDefinition },

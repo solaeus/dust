@@ -19,7 +19,7 @@ pub trait Callable {
         &self,
         arguments: &[Value],
         source: &str,
-        outer_context: &Context,
+        context: &Context,
     ) -> Result<Value, RuntimeError>;
 }
 
@@ -72,7 +72,10 @@ impl Callable for BuiltInFunction {
         match self {
             BuiltInFunction::AssertEqual => Type::function(
                 vec![Type::Any, Type::Any],
-                Type::Custom(Identifier::new("Result")),
+                Type::Custom {
+                    name: Identifier::new("Result"),
+                    argument: None,
+                },
             ),
             BuiltInFunction::Fs(fs_function) => fs_function.r#type(),
             BuiltInFunction::Json(json_function) => json_function.r#type(),
@@ -90,7 +93,7 @@ impl Callable for BuiltInFunction {
         &self,
         arguments: &[Value],
         _source: &str,
-        _outer_context: &Context,
+        context: &Context,
     ) -> Result<Value, RuntimeError> {
         match self {
             BuiltInFunction::AssertEqual => {
@@ -101,26 +104,22 @@ impl Callable for BuiltInFunction {
 
                 let result = if left == right {
                     Value::Enum(EnumInstance::new(
-                        "Result".to_string(),
-                        "Ok".to_string(),
+                        Identifier::new("Result"),
+                        Identifier::new("Ok"),
                         Some(Value::none()),
                     ))
                 } else {
                     Value::Enum(EnumInstance::new(
-                        "Result".to_string(),
-                        "Error".to_string(),
+                        Identifier::new("Result"),
+                        Identifier::new("Error"),
                         Some(Value::none()),
                     ))
                 };
 
                 Ok(result)
             }
-            BuiltInFunction::Fs(fs_function) => {
-                fs_function.call(arguments, _source, _outer_context)
-            }
-            BuiltInFunction::Json(json_function) => {
-                json_function.call(arguments, _source, _outer_context)
-            }
+            BuiltInFunction::Fs(fs_function) => fs_function.call(arguments, _source, context),
+            BuiltInFunction::Json(json_function) => json_function.call(arguments, _source, context),
             BuiltInFunction::Length => {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
@@ -184,7 +183,7 @@ impl Callable for BuiltInFunction {
                 Ok(Value::Integer(random()))
             }
             BuiltInFunction::String(string_function) => {
-                string_function.call(arguments, _source, _outer_context)
+                string_function.call(arguments, _source, context)
             }
         }
     }

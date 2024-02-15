@@ -1,11 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use tree_sitter::Node as SyntaxNode;
 
 use crate::{
     built_in_types::BuiltInType,
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, Format, Identifier, SyntaxNode, Value,
+    AbstractTree, Context, Format, Identifier, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -13,10 +14,9 @@ pub enum Type {
     Any,
     Boolean,
     Collection,
-    Custom(Identifier),
-    CustomWithArgument {
+    Custom {
         name: Identifier,
-        argument: Box<Type>,
+        argument: Option<Box<Type>>,
     },
     Float,
     Function {
@@ -33,8 +33,15 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn custom(name: Identifier, argument: Option<Type>) -> Self {
+        Type::Custom {
+            name,
+            argument: argument.map(|r#type| Box::new(r#type)),
+        }
+    }
+
     pub fn option(inner_type: Option<Type>) -> Self {
-        BuiltInType::Option.get(inner_type).clone()
+        BuiltInType::Option(inner_type).get().clone()
     }
 
     pub fn list(item_type: Type) -> Self {
@@ -75,13 +82,12 @@ impl Type {
             | (Type::Integer, Type::Number)
             | (Type::Float, Type::Number)
             | (Type::String, Type::String) => true,
-            (Type::Custom(left), Type::Custom(right)) => left == right,
             (
-                Type::CustomWithArgument {
+                Type::Custom {
                     name: left_name,
                     argument: left_argument,
                 },
-                Type::CustomWithArgument {
+                Type::Custom {
                     name: right_name,
                     argument: right_argument,
                 },
@@ -138,7 +144,7 @@ impl AbstractTree for Type {
     fn from_syntax(
         node: SyntaxNode,
         _source: &str,
-        _context: &Context,
+        context: &Context,
     ) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node(_source, "type", node)?;
 
@@ -146,23 +152,18 @@ impl AbstractTree for Type {
 
         let r#type = match type_node.kind() {
             "identifier" => {
-                if node.child_count() == 1 {
-                    Type::Custom(Identifier::from_syntax(type_node, _source, _context)?)
+                let name = Identifier::from_syntax(type_node, _source, context)?;
+                let argument = if let Some(child) = node.child(2) {
+                    Some(Type::from_syntax(child, _source, context)?)
                 } else {
-                    let name = Identifier::from_syntax(type_node, _source, _context)?;
+                    None
+                };
 
-                    let argument_node = node.child(2).unwrap();
-                    let argument = Type::from_syntax(argument_node, _source, _context)?;
-
-                    Type::CustomWithArgument {
-                        name,
-                        argument: Box::new(argument),
-                    }
-                }
+                Type::custom(name, argument)
             }
             "[" => {
                 let item_type_node = node.child(1).unwrap();
-                let item_type = Type::from_syntax(item_type_node, _source, _context)?;
+                let item_type = Type::from_syntax(item_type_node, _source, context)?;
 
                 Type::List(Box::new(item_type))
             }
@@ -178,7 +179,7 @@ impl AbstractTree for Type {
                     let child = node.child(index).unwrap();
 
                     if child.is_named() {
-                        let parameter_type = Type::from_syntax(child, _source, _context)?;
+                        let parameter_type = Type::from_syntax(child, _source, context)?;
 
                         parameter_types.push(parameter_type);
                     }
@@ -186,7 +187,7 @@ impl AbstractTree for Type {
 
                 let final_node = node.child(child_count - 1).unwrap();
                 let return_type = if final_node.is_named() {
-                    Type::from_syntax(final_node, _source, _context)?
+                    Type::from_syntax(final_node, _source, context)?
                 } else {
                     Type::option(None)
                 };
@@ -233,8 +234,7 @@ impl Format for Type {
             Type::Any => output.push_str("any"),
             Type::Boolean => output.push_str("bool"),
             Type::Collection => output.push_str("collection"),
-            Type::Custom(_) => todo!(),
-            Type::CustomWithArgument {
+            Type::Custom {
                 name: _,
                 argument: _,
             } => todo!(),
@@ -279,9 +279,12 @@ impl Display for Type {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
             Type::Collection => write!(f, "collection"),
-            Type::Custom(identifier) => write!(f, "{identifier}"),
-            Type::CustomWithArgument { name, argument } => {
-                write!(f, "{name}<{argument}>")
+            Type::Custom { name, argument } => {
+                if let Some(argument) = argument {
+                    write!(f, "{name}<{argument}>")
+                } else {
+                    write!(f, "{name}")
+                }
             }
             Type::Float => write!(f, "float"),
             Type::Function {

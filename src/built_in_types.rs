@@ -1,34 +1,33 @@
 use std::sync::OnceLock;
 
-use enum_iterator::Sequence;
-use serde::{Deserialize, Serialize};
-
 use crate::{Identifier, Type};
 
 static OPTION: OnceLock<Type> = OnceLock::new();
 
-#[derive(Sequence, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInType {
-    Option,
+    Option(Option<Type>),
 }
 
 impl BuiltInType {
     pub fn name(&self) -> &'static str {
         match self {
-            BuiltInType::Option => todo!(),
+            BuiltInType::Option(_) => "Option",
         }
     }
 
-    pub fn get(&self, inner_type: Option<Type>) -> &Type {
+    pub fn get(&self) -> &Type {
         match self {
-            BuiltInType::Option => OPTION.get_or_init(|| {
-                if let Some(inner_type) = inner_type {
-                    Type::CustomWithArgument {
+            BuiltInType::Option(content_type) => OPTION.get_or_init(|| {
+                if let Some(content_type) = content_type {
+                    Type::Custom {
                         name: Identifier::new("Option"),
-                        argument: Box::new(inner_type),
+                        argument: Some(Box::new(content_type.clone())),
                     }
                 } else {
-                    Type::Custom(Identifier::new("Option"))
+                    Type::Custom {
+                        name: Identifier::new("Option"),
+                        argument: None,
+                    }
                 }
             }),
         }

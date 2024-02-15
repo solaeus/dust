@@ -118,7 +118,7 @@ impl AbstractTree for FunctionNode {
             let validation_context = Context::new();
 
             for (parameter, r#type) in self.parameters.iter().zip(parameter_types.iter()) {
-                validation_context.set_type(parameter.inner().clone(), r#type.clone())?;
+                validation_context.set_type(parameter.clone(), r#type.clone())?;
             }
 
             let actual = self.body.expected_type(&validation_context)?;

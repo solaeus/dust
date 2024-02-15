@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, Format, IndexExpression, List, SourcePosition, SyntaxNode, Type, Value,
+    AbstractTree, Context, Format, Identifier, IndexExpression, SourcePosition, SyntaxNode, Type,
+    Value,
 };
 
 /// Abstract representation of an index expression.
@@ -12,7 +13,6 @@ use crate::{
 pub struct Index {
     pub collection: IndexExpression,
     pub index: IndexExpression,
-    pub index_end: Option<IndexExpression>,
     source_position: SourcePosition,
 }
 
@@ -26,21 +26,9 @@ impl AbstractTree for Index {
         let index_node = node.child(2).unwrap();
         let index = IndexExpression::from_syntax(index_node, source, context)?;
 
-        let index_end_node = node.child(4);
-        let index_end = if let Some(index_end_node) = index_end_node {
-            Some(IndexExpression::from_syntax(
-                index_end_node,
-                source,
-                context,
-            )?)
-        } else {
-            None
-        };
-
         Ok(Index {
             collection,
             index,
-            index_end,
             source_position: SourcePosition::from(node.range()),
         })
     }
@@ -58,10 +46,6 @@ impl AbstractTree for Index {
         self.collection.validate(_source, _context)?;
         self.index.validate(_source, _context)?;
 
-        if let Some(index_end) = &self.index_end {
-            index_end.validate(_source, _context)?;
-        }
-
         Ok(())
     }
 
@@ -71,36 +55,28 @@ impl AbstractTree for Index {
         match value {
             Value::List(list) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
-
-                let item = if let Some(index_end) = &self.index_end {
-                    let index_end = index_end.run(source, context)?.as_integer()? as usize;
-                    let sublist = list.items()[index..=index_end].to_vec();
-
-                    Value::List(List::with_items(sublist))
-                } else {
-                    list.items().get(index).cloned().unwrap_or_default()
-                };
+                let item = list.items().get(index).cloned().unwrap_or_default();
 
                 Ok(item)
             }
             Value::Map(map) => {
                 let map = map.inner();
 
-                let (key, value) = if let IndexExpression::Identifier(identifier) = &self.index {
-                    let key = identifier.inner();
-                    let value = map.get(key).unwrap_or_default();
+                let (identifier, value) =
+                    if let IndexExpression::Identifier(identifier) = &self.index {
+                        let value = map.get(identifier).unwrap_or_default();
 
-                    (key.clone(), value)
-                } else {
-                    let index_value = self.index.run(source, context)?;
-                    let key = index_value.as_string()?;
-                    let value = map.get(key.as_str()).unwrap_or_default();
+                        (identifier.clone(), value)
+                    } else {
+                        let index_value = self.index.run(source, context)?;
+                        let identifier = Identifier::new(index_value.as_string()?);
+                        let value = map.get(&identifier).unwrap_or_default();
 
-                    (key.clone(), value)
-                };
+                        (identifier, value)
+                    };
 
                 if value.is_none() {
-                    Err(RuntimeError::VariableIdentifierNotFound(key))
+                    Err(RuntimeError::VariableIdentifierNotFound(identifier))
                 } else {
                     Ok(value.clone())
                 }
@@ -121,10 +97,5 @@ impl Format for Index {
         self.collection.format(output, indent_level);
         output.push(':');
         self.index.format(output, indent_level);
-
-        if let Some(expression) = &self.index_end {
-            output.push_str("..");
-            expression.format(output, indent_level);
-        }
     }
 }

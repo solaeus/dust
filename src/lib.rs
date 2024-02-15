@@ -17,6 +17,7 @@ pub use tree_sitter::Node as SyntaxNode;
 
 pub mod abstract_tree;
 pub mod built_in_functions;
+pub mod built_in_identifiers;
 pub mod built_in_type_definitions;
 pub mod built_in_types;
 pub mod built_in_values;

@@ -12,7 +12,7 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct StructDefinition {
     name: Identifier,
-    properties: BTreeMap<String, (Option<Statement>, Type)>,
+    properties: BTreeMap<Identifier, (Option<Statement>, Type)>,
 }
 
 impl StructDefinition {
@@ -38,10 +38,7 @@ impl StructDefinition {
             all_properties.set(key.clone(), value);
         }
 
-        Ok(StructInstance::new(
-            self.name.inner().clone(),
-            all_properties,
-        ))
+        Ok(StructInstance::new(self.name.clone(), all_properties))
     }
 }
 
@@ -63,7 +60,7 @@ impl AbstractTree for StructDefinition {
             if child_syntax_node.kind() == "identifier" {
                 if current_statement.is_none() {
                     if let (Some(identifier), Some(r#type)) = (&current_identifier, &current_type) {
-                        properties.insert(identifier.inner().clone(), (None, r#type.clone()));
+                        properties.insert(identifier.clone(), (None, r#type.clone()));
                     }
                 }
 
@@ -91,7 +88,7 @@ impl AbstractTree for StructDefinition {
                     };
 
                     properties.insert(
-                        identifier.inner().clone(),
+                        identifier.clone(),
                         (current_statement.clone(), r#type.clone()),
                     );
                 }
@@ -110,10 +107,7 @@ impl AbstractTree for StructDefinition {
     }
 
     fn run(&self, _source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        context.set_definition(
-            self.name.inner().clone(),
-            TypeDefinition::Struct(self.clone()),
-        )?;
+        context.set_definition(self.name.clone(), TypeDefinition::Struct(self.clone()))?;
 
         Ok(Value::none())
     }

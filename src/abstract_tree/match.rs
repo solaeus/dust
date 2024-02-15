@@ -84,16 +84,15 @@ impl AbstractTree for Match {
             if let (Value::Enum(enum_instance), MatchPattern::EnumPattern(enum_pattern)) =
                 (&matcher_value, pattern)
             {
-                if enum_instance.name() == enum_pattern.name().inner()
-                    && enum_instance.variant_name() == enum_pattern.variant().inner()
+                if enum_instance.name() == enum_pattern.name()
+                    && enum_instance.variant() == enum_pattern.variant()
                 {
                     let statement_context = Context::with_variables_from(context)?;
 
                     if let (Some(identifier), Some(value)) =
                         (enum_pattern.inner_identifier(), enum_instance.value())
                     {
-                        statement_context
-                            .set_value(identifier.inner().clone(), value.as_ref().clone())?;
+                        statement_context.set_value(identifier.clone(), value.as_ref().clone())?;
                     }
 
                     return statement.run(source, &statement_context);

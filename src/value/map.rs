@@ -9,7 +9,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::value::Value;
+use crate::{Identifier, Value};
 
 /// A collection dust variables comprised of key-value pairs.
 ///
@@ -17,7 +17,7 @@ use crate::value::Value;
 /// to one another.
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Map {
-    inner: BTreeMap<String, Value>,
+    inner: BTreeMap<Identifier, Value>,
 }
 
 impl Map {
@@ -28,19 +28,19 @@ impl Map {
         }
     }
 
-    pub fn with_values(variables: BTreeMap<String, Value>) -> Self {
+    pub fn with_values(variables: BTreeMap<Identifier, Value>) -> Self {
         Map { inner: variables }
     }
 
-    pub fn inner(&self) -> &BTreeMap<String, Value> {
+    pub fn inner(&self) -> &BTreeMap<Identifier, Value> {
         &self.inner
     }
 
-    pub fn get(&self, key: &str) -> Option<&Value> {
+    pub fn get(&self, key: &Identifier) -> Option<&Value> {
         self.inner.get(key)
     }
 
-    pub fn set(&mut self, key: String, value: Value) {
+    pub fn set(&mut self, key: Identifier, value: Value) {
         self.inner.insert(key, value);
     }
 
@@ -63,7 +63,7 @@ impl Map {
                     vec![key.into(), list.as_text_table().into()],
                 ));
             } else {
-                table.push_row([key, &value.to_string()]);
+                table.push_row([key.to_string(), value.to_string()]);
             };
         }
 

@@ -138,7 +138,7 @@ fn function() {
     };
 
     assert_eq!(
-        &vec![Identifier::new("x".to_string())],
+        &vec![Identifier::new_or_get("x".to_string())],
         function.parameters()
     );
     assert_eq!(&Type::Boolean, function.return_type());

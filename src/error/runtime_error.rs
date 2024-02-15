@@ -7,7 +7,7 @@ use std::{
     time,
 };
 
-use crate::{Type, Value};
+use crate::{Identifier, Type, Value};
 
 use super::{rw_lock_error::RwLockError, ValidationError};
 
@@ -106,7 +106,7 @@ pub enum RuntimeError {
     Utf8(FromUtf8Error),
 
     /// Failed to find a variable with a value for this key.
-    VariableIdentifierNotFound(String),
+    VariableIdentifierNotFound(Identifier),
 
     /// A built-in function was called with the wrong amount of arguments.
     ExpectedBuiltInFunctionArgumentAmount {

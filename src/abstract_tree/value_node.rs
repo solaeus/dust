@@ -121,7 +121,7 @@ impl AbstractTree for ValueNode {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::Float(_) => Type::Float,
-            ValueNode::Function(function) => function.r#type().clone(),
+            ValueNode::Function(function) => function.r#type(),
             ValueNode::Integer(_) => Type::Integer,
             ValueNode::String(_) => Type::String,
             ValueNode::List(expressions) => {
@@ -147,17 +147,20 @@ impl AbstractTree for ValueNode {
             }
             ValueNode::Map(_) => Type::Map,
             ValueNode::Struct { name, .. }  => {
-                Type::Custom(name.clone())
+                Type::Custom { name: name.clone(), argument: None }
             }
             ValueNode::Range(_) => Type::Range,
             ValueNode::Enum { name, variant: _, expression } => {
                 if let Some(expression) = expression {
-                    Type::CustomWithArgument {
+                    Type::Custom {
                         name: name.clone(),
-                        argument: Box::new(expression.expected_type(context)?)
+                        argument: Some(Box::new(expression.expected_type(context)?))
                     }
                 } else {
-                    Type::Custom(name.clone())
+                    Type::Custom{
+                        name: name.clone(),
+                        argument: None,
+                    }
                 }
             },
         };
@@ -204,7 +207,7 @@ impl AbstractTree for ValueNode {
             ValueNode::Map(map_node) => map_node.run(source, context)?,
             ValueNode::Range(range) => Value::Range(range.clone()),
             ValueNode::Struct { name, properties } => {
-                let instance = if let Some(definition) = context.get_definition(name.inner())? {
+                let instance = if let Some(definition) = context.get_definition(name)? {
                     if let TypeDefinition::Struct(struct_definition) = definition {
                         struct_definition.instantiate(properties, source, context)?
                     } else {
@@ -212,7 +215,7 @@ impl AbstractTree for ValueNode {
                     }
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::TypeDefinitionNotFound(name.inner().clone())
+                        ValidationError::TypeDefinitionNotFound(name.clone())
                     ));
                 };
 
@@ -225,9 +228,9 @@ impl AbstractTree for ValueNode {
                 } else {
                     Value::none()
                 };
-                let instance = if let Some(definition) = context.get_definition(name.inner())? {
+                let instance = if let Some(definition) = context.get_definition(name)? {
                     if let TypeDefinition::Enum(enum_defintion) = definition {
-                        enum_defintion.instantiate(variant.inner().clone(), Some(value))
+                        enum_defintion.instantiate(variant.clone(), Some(value))
                     } else {
                         return Err(RuntimeError::ValidationFailure(
                             ValidationError::ExpectedEnumDefintion {
@@ -237,7 +240,7 @@ impl AbstractTree for ValueNode {
                     }
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::TypeDefinitionNotFound(name.inner().clone())
+                        ValidationError::TypeDefinitionNotFound(name.clone())
                     ));
                 };
 

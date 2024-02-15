@@ -11,7 +11,6 @@ use serde::{
 
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
@@ -55,8 +54,8 @@ impl Value {
 
     pub fn some(value: Value) -> Value {
         Value::Enum(EnumInstance::new(
-            "Option".to_string(),
-            "Some".to_string(),
+            Identifier::new("Option"),
+            Identifier::new("Some"),
             Some(value),
         ))
     }
@@ -97,7 +96,7 @@ impl Value {
 
                 for (key, value) in map.inner() {
                     identifier_types.push((
-                        Identifier::new(key.clone()),
+                        Identifier::new(key.inner()),
                         TypeSpecification::new(value.r#type()),
                     ));
                 }
@@ -828,13 +827,15 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         M: MapAccess<'de>,
     {
-        let mut map = BTreeMap::new();
+        let mut map = Map::new();
 
         while let Some((key, value)) = access.next_entry::<String, Value>()? {
-            map.insert(key, value);
+            let identifier = Identifier::new(&key);
+
+            map.set(identifier, value);
         }
 
-        Ok(Value::Map(Map::with_values(map)))
+        Ok(Value::Map(map))
     }
 
     fn visit_enum<A>(self, data: A) -> std::result::Result<Self::Value, A::Error>
