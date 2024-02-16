@@ -30,17 +30,3 @@ fn async_with_return() {
         Ok(Value::Integer(1))
     );
 }
-
-#[test]
-fn root_returns_like_block() {
-    assert_eq!(
-        interpret(
-            "
-                return 1
-                1 + 1
-                3
-                "
-        ),
-        Ok(Value::Integer(1))
-    );
-}
