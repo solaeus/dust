@@ -14,6 +14,7 @@ module.exports = grammar({
     statement: $ =>
       prec.left(
         seq(
+          optional('return'),
           choice(
             $.assignment,
             $.block,
@@ -22,7 +23,6 @@ module.exports = grammar({
             $.if_else,
             $.index_assignment,
             $.match,
-            $.return,
             $.pipe,
             $.while,
             $.type_definition,
@@ -334,11 +334,6 @@ module.exports = grammar({
         'in',
         $.expression,
         $.block,
-      ),
-
-    return: $ =>
-      prec.right(
-        seq('return', $.statement),
       ),
 
     type_specification: $ =>

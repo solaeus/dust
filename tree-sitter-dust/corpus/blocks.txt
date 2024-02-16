@@ -40,11 +40,9 @@ Block with Return
           (value
             (integer))))
       (statement
-        (return
-          (statement
-            (expression
-              (value
-                (integer))))))
+        (expression
+          (value
+            (integer))))
       (statement
         (expression
           (value
