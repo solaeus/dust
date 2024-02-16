@@ -113,6 +113,10 @@ impl AbstractTree for Root {
 
         for statement in &self.statements {
             value = statement.run(source, context)?;
+
+            if statement.is_return() {
+                return Ok(value);
+            }
         }
 
         Ok(value)
