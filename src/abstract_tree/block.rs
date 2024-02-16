@@ -75,15 +75,8 @@ impl AbstractTree for Block {
                 .find_map_first(|(index, statement)| {
                     let result = statement.run(_source, _context);
                     let is_last_statement = index == statements.len() - 1;
-                    let is_return_statement = if let Statement::Return(_) = statement {
-                        true
-                    } else {
-                        false
-                    };
 
-                    if is_return_statement || result.is_err() {
-                        Some(result)
-                    } else if is_last_statement {
+                    if is_last_statement {
                         let get_write_lock = final_result.write();
 
                         match get_write_lock {
@@ -102,10 +95,6 @@ impl AbstractTree for Block {
             let mut prev_result = None;
 
             for statement in &self.statements {
-                if let Statement::Return(inner_statement) = statement {
-                    return inner_statement.run(_source, _context);
-                }
-
                 prev_result = Some(statement.run(_source, _context));
             }
 
@@ -114,15 +103,7 @@ impl AbstractTree for Block {
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        if let Some(statement) = self.statements.iter().find(|statement| {
-            if let Statement::Return(_) = statement {
-                true
-            } else {
-                false
-            }
-        }) {
-            statement.expected_type(_context)
-        } else if let Some(statement) = self.statements.last() {
+        if let Some(statement) = self.statements.last() {
             statement.expected_type(_context)
         } else {
             Ok(Type::None)

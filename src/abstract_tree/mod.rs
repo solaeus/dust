@@ -105,11 +105,7 @@ impl AbstractTree for Root {
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            if let Statement::Return(inner_statement) = statement {
-                return inner_statement.validate(_source, _context);
-            } else {
-                statement.validate(_source, _context)?;
-            }
+            statement.validate(_source, _context)?;
         }
 
         Ok(())
