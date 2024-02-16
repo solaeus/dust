@@ -81,7 +81,8 @@ impl Type {
             | (Type::Number, Type::Float)
             | (Type::Integer, Type::Number)
             | (Type::Float, Type::Number)
-            | (Type::String, Type::String) => true,
+            | (Type::String, Type::String)
+            | (Type::None, Type::None) => true,
             (
                 Type::Custom {
                     name: left_name,
