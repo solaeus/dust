@@ -13,9 +13,6 @@ pub struct FunctionCall {
     function_expression: FunctionExpression,
     arguments: Vec<Expression>,
     syntax_position: SourcePosition,
-
-    #[serde(skip)]
-    context: Context,
 }
 
 impl FunctionCall {
@@ -24,13 +21,11 @@ impl FunctionCall {
         function_expression: FunctionExpression,
         arguments: Vec<Expression>,
         syntax_position: SourcePosition,
-        context: Context,
     ) -> Self {
         Self {
             function_expression,
             arguments,
             syntax_position,
-            context,
         }
     }
 }
@@ -58,7 +53,6 @@ impl AbstractTree for FunctionCall {
             function_expression,
             arguments,
             syntax_position: node.range().into(),
-            context: Context::new(),
         })
     }
 
@@ -143,7 +137,6 @@ impl AbstractTree for FunctionCall {
         let value = match &self.function_expression {
             FunctionExpression::Identifier(identifier) => {
                 if let Some(value) = context.get_value(identifier)? {
-                    self.context.set_value(identifier.clone(), value.clone())?;
                     value.clone()
                 } else {
                     return Err(RuntimeError::VariableIdentifierNotFound(identifier.clone()));
@@ -167,19 +160,25 @@ impl AbstractTree for FunctionCall {
                     arguments.push(value);
                 }
 
-                built_in_function.call(&arguments, source, &self.context)
+                built_in_function.call(&arguments, source, context)
             }
             Function::ContextDefined(function_node) => {
+                let call_context = Context::with_variables_from(function_node.context())?;
+
+                call_context.inherit_from(context)?;
+
                 let parameter_expression_pairs =
                     function_node.parameters().iter().zip(self.arguments.iter());
 
                 for (identifier, expression) in parameter_expression_pairs {
                     let value = expression.run(source, context)?;
 
-                    self.context.set_value(identifier.clone(), value)?;
+                    call_context.set_value(identifier.clone(), value)?;
                 }
 
-                function_node.call(source, &self.context)
+                println!("{}", call_context);
+
+                function_node.body().run(source, &call_context)
             }
         }
     }

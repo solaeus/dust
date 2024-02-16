@@ -14,23 +14,12 @@ pub struct FunctionNode {
     body: Block,
     r#type: Type,
     syntax_position: SourcePosition,
+
+    #[serde(skip)]
+    context: Context,
 }
 
 impl FunctionNode {
-    pub fn new(
-        parameters: Vec<Identifier>,
-        body: Block,
-        r#type: Type,
-        syntax_position: SourcePosition,
-    ) -> Self {
-        FunctionNode {
-            parameters,
-            body,
-            r#type,
-            syntax_position,
-        }
-    }
-
     pub fn parameters(&self) -> &Vec<Identifier> {
         &self.parameters
     }
@@ -47,6 +36,10 @@ impl FunctionNode {
         &self.syntax_position
     }
 
+    pub fn context(&self) -> &Context {
+        &self.context
+    }
+
     pub fn return_type(&self) -> &Type {
         match &self.r#type {
             Type::Function {
@@ -55,12 +48,6 @@ impl FunctionNode {
             } => return_type.as_ref(),
             _ => &Type::None,
         }
-    }
-
-    pub fn call(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        let return_value = self.body.run(source, context)?;
-
-        Ok(return_value)
     }
 }
 
@@ -91,8 +78,10 @@ impl AbstractTree for FunctionNode {
         let return_type_node = node.child(child_count - 2).unwrap();
         let return_type = TypeSpecification::from_syntax(return_type_node, source, context)?;
 
+        let function_context = Context::with_variables_from(context)?;
+
         let body_node = node.child(child_count - 1).unwrap();
-        let body = Block::from_syntax(body_node, source, &context)?;
+        let body = Block::from_syntax(body_node, source, &function_context)?;
 
         let r#type = Type::function(parameter_types, return_type.take_inner());
         let syntax_position = node.range().into();
@@ -102,6 +91,7 @@ impl AbstractTree for FunctionNode {
             body,
             r#type,
             syntax_position,
+            context: function_context,
         })
     }
 
@@ -109,19 +99,19 @@ impl AbstractTree for FunctionNode {
         Ok(self.r#type().clone())
     }
 
-    fn validate(&self, source: &str, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
         if let Type::Function {
             parameter_types,
             return_type,
         } = &self.r#type
         {
-            let validation_context = Context::new();
+            self.context.inherit_from(context)?;
 
             for (parameter, r#type) in self.parameters.iter().zip(parameter_types.iter()) {
-                validation_context.set_type(parameter.clone(), r#type.clone())?;
+                self.context.set_type(parameter.clone(), r#type.clone())?;
             }
 
-            let actual = self.body.expected_type(&validation_context)?;
+            let actual = self.body.expected_type(&self.context)?;
 
             if !return_type.accepts(&actual) {
                 return Err(ValidationError::TypeCheck {
@@ -131,7 +121,7 @@ impl AbstractTree for FunctionNode {
                 });
             }
 
-            self.body.validate(source, &validation_context)?;
+            self.body.validate(source, &self.context)?;
 
             Ok(())
         } else {
@@ -142,7 +132,9 @@ impl AbstractTree for FunctionNode {
         }
     }
 
-    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
+    fn run(&self, _source: &str, context: &Context) -> Result<Value, RuntimeError> {
+        self.context.inherit_from(context)?;
+
         let self_as_value = Value::Function(Function::ContextDefined(self.clone()));
 
         Ok(self_as_value)

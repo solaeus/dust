@@ -59,8 +59,12 @@ impl AbstractTree for Identifier {
         Ok(Identifier::new(text))
     }
 
-    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
-        Ok(())
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
+        if let Some(_) = context.get_type(self)? {
+            Ok(())
+        } else {
+            Err(ValidationError::VariableIdentifierNotFound(self.clone()))
+        }
     }
 
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {

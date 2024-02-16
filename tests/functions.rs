@@ -5,9 +5,9 @@ fn function_call() {
     assert_eq!(
         interpret(
             "
-                foobar = (message <str>) <str> { message }
-                foobar('Hiya')
-                ",
+            foobar = (message <str>) <str> { message }
+            foobar('Hiya')
+            ",
         ),
         Ok(Value::string("Hiya".to_string()))
     );
@@ -18,9 +18,9 @@ fn call_empty_function() {
     assert_eq!(
         interpret(
             "
-                foobar = (message <str>) <none> {}
-                foobar('Hiya')
-                ",
+            foobar = (message <str>) <none> {}
+            foobar('Hiya')
+            ",
         ),
         Ok(Value::none())
     );
@@ -96,7 +96,7 @@ fn function_context_captures_structure_definitions() {
     assert_eq!(
         interpret(
             "
-            User = struct {
+            struct User {
                 name <str>
             }
             

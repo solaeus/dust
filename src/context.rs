@@ -30,6 +30,7 @@
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
+    fmt::Display,
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
@@ -73,7 +74,7 @@ impl Context {
         })
     }
 
-    /// Modify a context to take on all of the key-value pairs of another.
+    /// Modify a context to take the functions and type definitions of another.
     ///
     /// In the case of the conflict, the inherited value will override the previous
     /// value.
@@ -96,11 +97,19 @@ impl Context {
         let mut self_variables = self.inner.write()?;
 
         for (identifier, value_data) in other.inner.read()?.iter() {
-            let existing_data = self_variables.get(identifier);
+            if let ValueData::Value { inner, .. } = value_data {
+                if inner.is_function() {
+                    self_variables.insert(identifier.clone(), value_data.clone());
+                }
+            }
 
-            if let Some(ValueData::Value { .. }) = existing_data {
-                continue;
-            } else {
+            if let ValueData::TypeHint { inner } = value_data {
+                if inner.is_function() {
+                    self_variables.insert(identifier.clone(), value_data.clone());
+                }
+            }
+
+            if let ValueData::TypeDefinition(_) = value_data {
                 self_variables.insert(identifier.clone(), value_data.clone());
             }
         }
@@ -120,7 +129,6 @@ impl Context {
         }
 
         for built_in_value in all_built_in_values() {
-            println!("{} {}", built_in_value.name(), identifier.inner());
             if built_in_value.name() == identifier.inner().as_ref() {
                 return Ok(Some(built_in_value.get().clone()));
             }
@@ -176,6 +184,8 @@ impl Context {
 
     /// Set a value to a key.
     pub fn set_value(&self, key: Identifier, value: Value) -> Result<(), RwLockError> {
+        log::info!("Setting value: {key} = {value}");
+
         self.inner.write()?.insert(
             key,
             ValueData::Value {
@@ -192,6 +202,8 @@ impl Context {
     /// This allows the interpreter to check a value's type before the value
     /// actually exists by predicting what the abstract tree will produce.
     pub fn set_type(&self, key: Identifier, r#type: Type) -> Result<(), RwLockError> {
+        log::info!("Setting type: {key} <{}>", r#type);
+
         self.inner
             .write()?
             .insert(key, ValueData::TypeHint { inner: r#type });
@@ -337,5 +349,17 @@ impl Ord for ValueData {
             (ValueData::TypeDefinition(_), _) => Greater,
             (ValueData::TypeHint { .. }, _) => Less,
         }
+    }
+}
+
+impl Display for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{{")?;
+
+        for (identifier, value_data) in self.inner.read().unwrap().iter() {
+            writeln!(f, "{identifier} {value_data:?}")?;
+        }
+
+        writeln!(f, "}}")
     }
 }
