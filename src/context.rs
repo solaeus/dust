@@ -117,6 +117,35 @@ impl Context {
         Ok(())
     }
 
+    /// Modify a context to take the functions and type definitions of another.
+    ///
+    /// In the case of the conflict, the inherited value will override the previous
+    /// value.
+    ///
+    /// ```
+    /// # use dust_lang::*;
+    /// let first_context = Context::new();
+    /// let second_context = Context::new();
+    ///
+    /// second_context.set_value(
+    ///     "Foo".into(),
+    ///     Value::String("Bar".to_string())
+    /// );
+    ///
+    /// first_context.inherit_from(&second_context).unwrap();
+    ///
+    /// assert_eq!(first_context, second_context);
+    /// ```
+    pub fn inherit_all_from(&self, other: &Context) -> Result<(), RwLockError> {
+        let mut self_variables = self.inner.write()?;
+
+        for (identifier, value_data) in other.inner.read()?.iter() {
+            self_variables.insert(identifier.clone(), value_data.clone());
+        }
+
+        Ok(())
+    }
+
     /// Get a value from the context.
     ///
     /// This will also return a built-in value if one matches the key. See the

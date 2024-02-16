@@ -78,13 +78,13 @@ impl AbstractTree for For {
         };
         let key = self.item_id.clone();
 
-        self.context.inherit_from(context)?;
+        self.context.inherit_all_from(context)?;
         self.context.set_type(key, item_type)?;
         self.block.validate(_source, &self.context)
     }
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        self.context.inherit_from(context)?;
+        self.context.inherit_all_from(context)?;
 
         let expression_run = self.collection.run(source, context)?;
         let key = &self.item_id;
