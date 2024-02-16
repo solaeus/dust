@@ -65,9 +65,9 @@ impl fmt::Display for Error {
         use Error::*;
 
         match self {
-            Syntax(error) => write!(f, "Syntax error: {error}"),
-            Validation(error) => write!(f, "Validation error: {error}"),
-            Runtime(error) => write!(f, "Runtime error: {error}"),
+            Syntax(error) => write!(f, "{error}"),
+            Validation(error) => write!(f, "{error}"),
+            Runtime(error) => write!(f, "{error}"),
             ParserCancelled => write!(f, "Parsing was cancelled because the parser took too long."),
             Language(_error) => write!(f, "Parser failed to load language grammar."),
         }
