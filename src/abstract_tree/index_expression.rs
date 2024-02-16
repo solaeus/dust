@@ -16,7 +16,7 @@ pub enum IndexExpression {
 
 impl AbstractTree for IndexExpression {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "index_expression", node)?;
+        SyntaxError::expect_syntax_node("index_expression", node)?;
 
         let first_child = node.child(0).unwrap();
         let child = if first_child.is_named() {
@@ -40,8 +40,7 @@ impl AbstractTree for IndexExpression {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "value, identifier, index or function call".to_string(),
                     actual: child.kind().to_string(),
-                    location: child.start_position(),
-                    relevant_source: source[child.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

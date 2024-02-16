@@ -15,7 +15,7 @@ pub struct Logic {
 
 impl AbstractTree for Logic {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "logic", node)?;
+        SyntaxError::expect_syntax_node("logic", node)?;
 
         let first_node = node.child(0).unwrap();
         let (left_node, operator_node, right_node) = {

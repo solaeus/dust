@@ -22,7 +22,7 @@ pub struct For {
 
 impl AbstractTree for For {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "for", node)?;
+        SyntaxError::expect_syntax_node("for", node)?;
 
         let for_node = node.child(0).unwrap();
         let is_async = match for_node.kind() {
@@ -32,8 +32,7 @@ impl AbstractTree for For {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "for or async for".to_string(),
                     actual: for_node.kind().to_string(),
-                    location: for_node.start_position(),
-                    relevant_source: source[for_node.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

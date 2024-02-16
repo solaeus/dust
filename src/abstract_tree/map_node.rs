@@ -23,7 +23,7 @@ impl MapNode {
 
 impl AbstractTree for MapNode {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "map", node)?;
+        SyntaxError::expect_syntax_node("map", node)?;
 
         let mut properties = BTreeMap::new();
         let mut current_identifier = None;

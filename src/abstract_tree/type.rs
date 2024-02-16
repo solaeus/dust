@@ -147,7 +147,7 @@ impl AbstractTree for Type {
         _source: &str,
         context: &Context,
     ) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(_source, "type", node)?;
+        SyntaxError::expect_syntax_node("type", node)?;
 
         let type_node = node.child(0).unwrap();
 
@@ -207,8 +207,7 @@ impl AbstractTree for Type {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "any, bool, float, int, num, str, custom type, (, [ or {".to_string(),
                     actual: type_node.kind().to_string(),
-                    location: type_node.start_position(),
-                    relevant_source: _source[type_node.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

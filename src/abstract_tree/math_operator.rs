@@ -17,7 +17,7 @@ pub enum MathOperator {
 impl AbstractTree for MathOperator {
     fn from_syntax(
         node: SyntaxNode,
-        source: &str,
+        _source: &str,
         _context: &Context,
     ) -> Result<Self, SyntaxError> {
         let operator_node = node.child(0).unwrap();
@@ -31,8 +31,7 @@ impl AbstractTree for MathOperator {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "+, -, *, / or %".to_string(),
                     actual: operator_node.kind().to_string(),
-                    location: operator_node.start_position(),
-                    relevant_source: source[operator_node.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

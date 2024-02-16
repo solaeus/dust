@@ -20,10 +20,10 @@ pub enum LogicOperator {
 impl AbstractTree for LogicOperator {
     fn from_syntax(
         node: SyntaxNode,
-        source: &str,
+        _source: &str,
         _context: &Context,
     ) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "logic_operator", node)?;
+        SyntaxError::expect_syntax_node("logic_operator", node)?;
 
         let operator_node = node.child(0).unwrap();
         let operator = match operator_node.kind() {
@@ -39,8 +39,7 @@ impl AbstractTree for LogicOperator {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "==, !=, &&, ||, >, <, >= or <=".to_string(),
                     actual: operator_node.kind().to_string(),
-                    location: operator_node.start_position(),
-                    relevant_source: source[operator_node.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

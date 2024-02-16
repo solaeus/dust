@@ -16,7 +16,7 @@ pub struct While {
 
 impl AbstractTree for While {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "while", node)?;
+        SyntaxError::expect_syntax_node("while", node)?;
 
         let expression_node = node.child(1).unwrap();
         let expression = Expression::from_syntax(expression_node, source, context)?;

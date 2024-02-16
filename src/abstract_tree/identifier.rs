@@ -50,7 +50,7 @@ impl AbstractTree for Identifier {
         source: &str,
         _context: &Context,
     ) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "identifier", node)?;
+        SyntaxError::expect_syntax_node("identifier", node)?;
 
         let text = &source[node.byte_range()];
 

@@ -44,7 +44,7 @@ impl StructDefinition {
 
 impl AbstractTree for StructDefinition {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "struct_definition", node)?;
+        SyntaxError::expect_syntax_node("struct_definition", node)?;
 
         let name_node = node.child(1).unwrap();
         let name = Identifier::from_syntax(name_node, source, context)?;

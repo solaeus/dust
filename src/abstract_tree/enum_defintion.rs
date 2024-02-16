@@ -31,7 +31,7 @@ impl EnumDefinition {
 
 impl AbstractTree for EnumDefinition {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "enum_definition", node)?;
+        SyntaxError::expect_syntax_node("enum_definition", node)?;
 
         let identifier_node = node.child(1).unwrap();
         let identifier = Identifier::from_syntax(identifier_node, source, context)?;

@@ -30,7 +30,7 @@ impl AbstractTree for Expression {
         source: &str,
         _context: &Context,
     ) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "expression", node)?;
+        SyntaxError::expect_syntax_node("expression", node)?;
 
         let child = if node.child(0).unwrap().is_named() {
             node.child(0).unwrap()
@@ -56,8 +56,7 @@ impl AbstractTree for Expression {
                     expected: "value, identifier, index, math, logic, function call, as or command"
                         .to_string(),
                     actual: child.kind().to_string(),
-                    location: child.start_position(),
-                    relevant_source: source[child.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

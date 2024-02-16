@@ -25,7 +25,7 @@ impl AbstractTree for Statement {
         source: &str,
         _context: &Context,
     ) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "statement", node)?;
+        SyntaxError::expect_syntax_node("statement", node)?;
 
         let first_child = node.child(0).unwrap();
         let mut is_return = first_child.kind() == "return";
@@ -83,7 +83,7 @@ enum StatementKind {
 
 impl AbstractTree for StatementKind {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "statement_kind", node)?;
+        SyntaxError::expect_syntax_node("statement_kind", node)?;
 
         let child = node.child(0).unwrap();
 
@@ -119,8 +119,7 @@ impl AbstractTree for StatementKind {
                 expected:
                     "assignment, index assignment, expression, type_definition, block, return, if...else, while, for or match".to_string(),
                 actual: child.kind().to_string(),
-                location: child.start_position(),
-                relevant_source: source[child.byte_range()].to_string(),
+                position: node.range().into(),
             }),
         }
     }

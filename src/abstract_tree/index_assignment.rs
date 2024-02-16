@@ -15,7 +15,7 @@ pub struct IndexAssignment {
 
 impl AbstractTree for IndexAssignment {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "index_assignment", node)?;
+        SyntaxError::expect_syntax_node("index_assignment", node)?;
 
         let index_node = node.child(0).unwrap();
         let index = Index::from_syntax(index_node, source, context)?;

@@ -85,7 +85,7 @@ pub struct Root {
 // top-level statements in the tree.
 impl AbstractTree for Root {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "root", node)?;
+        SyntaxError::expect_syntax_node("root", node)?;
 
         let statement_count = node.child_count();
         let mut statements = Vec::with_capacity(statement_count);

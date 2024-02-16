@@ -35,11 +35,9 @@
 //!     Ok(Value::Integer(10))
 //! );
 //! ```
-use tree_sitter::{Node as SyntaxNode, Parser, Tree as SyntaxTree, TreeCursor};
+use tree_sitter::{Parser, Tree as SyntaxTree};
 
-use crate::{
-    error::SyntaxError, language, AbstractTree, Context, Error, Format, Root, SourcePosition, Value,
-};
+use crate::{language, AbstractTree, Context, Error, Format, Root, Value};
 
 /// Interpret the given source code. Returns the value of last statement or the
 /// first error encountered.

@@ -20,7 +20,7 @@ pub struct Match {
 
 impl AbstractTree for Match {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "match", node)?;
+        SyntaxError::expect_syntax_node("match", node)?;
 
         let matcher_node = node.child(1).unwrap();
         let matcher = Expression::from_syntax(matcher_node, source, context)?;

@@ -23,7 +23,7 @@ impl AbstractTree for Assignment {
         source: &str,
         context: &Context,
     ) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "assignment", syntax_node)?;
+        SyntaxError::expect_syntax_node("assignment", syntax_node)?;
 
         let child_count = syntax_node.child_count();
 

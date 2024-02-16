@@ -15,7 +15,7 @@ pub struct As {
 
 impl AbstractTree for As {
     fn from_syntax(node: Node, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "as", node)?;
+        SyntaxError::expect_syntax_node("as", node)?;
 
         let expression_node = node.child(0).unwrap();
         let expression = Expression::from_syntax(expression_node, source, context)?;

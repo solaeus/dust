@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
-use tree_sitter::{Node as SyntaxNode, Point};
+use tree_sitter::Node as SyntaxNode;
 
 use crate::SourcePosition;
 
@@ -11,7 +11,6 @@ use super::rw_lock_error::RwLockError;
 pub enum SyntaxError {
     /// Invalid user input.
     InvalidSource {
-        source: String,
         position: SourcePosition,
     },
 
@@ -20,35 +19,25 @@ pub enum SyntaxError {
     UnexpectedSyntaxNode {
         expected: String,
         actual: String,
-
-        #[serde(skip)]
-        location: Point,
-
-        relevant_source: String,
+        position: SourcePosition,
     },
 }
 
 impl SyntaxError {
-    pub fn expect_syntax_node(
-        source: &str,
-        expected: &str,
-        actual: SyntaxNode,
-    ) -> Result<(), SyntaxError> {
+    pub fn expect_syntax_node(expected: &str, actual: SyntaxNode) -> Result<(), SyntaxError> {
         log::info!("Converting {} to abstract node", actual.kind());
 
         if expected == actual.kind() {
             Ok(())
         } else if actual.is_error() {
             Err(SyntaxError::InvalidSource {
-                source: source[actual.byte_range()].to_string(),
                 position: SourcePosition::from(actual.range()),
             })
         } else {
             Err(SyntaxError::UnexpectedSyntaxNode {
                 expected: expected.to_string(),
                 actual: actual.kind().to_string(),
-                location: actual.start_position(),
-                relevant_source: source[actual.byte_range()].to_string(),
+                position: SourcePosition::from(actual.range()),
             })
         }
     }
@@ -61,7 +50,7 @@ impl From<RwLockError> for SyntaxError {
 }
 
 impl Display for SyntaxError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
         todo!()
     }
 }

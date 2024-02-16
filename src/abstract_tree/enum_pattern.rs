@@ -29,7 +29,7 @@ impl EnumPattern {
 
 impl AbstractTree for EnumPattern {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "enum_pattern", node)?;
+        SyntaxError::expect_syntax_node("enum_pattern", node)?;
 
         let enum_name_node = node.child(0).unwrap();
         let name = Identifier::from_syntax(enum_name_node, source, context)?;

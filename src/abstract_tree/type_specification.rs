@@ -26,7 +26,7 @@ impl TypeSpecification {
 
 impl AbstractTree for TypeSpecification {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "type_specification", node)?;
+        SyntaxError::expect_syntax_node("type_specification", node)?;
 
         let type_node = node.child(1).unwrap();
         let r#type = Type::from_syntax(type_node, source, context)?;

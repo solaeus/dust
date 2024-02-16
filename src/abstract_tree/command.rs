@@ -21,7 +21,7 @@ impl AbstractTree for Command {
         source: &str,
         _context: &Context,
     ) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "command", node)?;
+        SyntaxError::expect_syntax_node("command", node)?;
 
         let command_text_node = node.child(1).unwrap();
         let command_text = source[command_text_node.byte_range()].to_string();

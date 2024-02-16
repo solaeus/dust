@@ -16,7 +16,7 @@ pub enum FunctionExpression {
 
 impl AbstractTree for FunctionExpression {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "function_expression", node)?;
+        SyntaxError::expect_syntax_node("function_expression", node)?;
 
         let first_child = node.child(0).unwrap();
         let child = if first_child.is_named() {
@@ -39,8 +39,7 @@ impl AbstractTree for FunctionExpression {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "identifier, function call, value or index".to_string(),
                     actual: child.kind().to_string(),
-                    location: child.start_position(),
-                    relevant_source: source[child.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

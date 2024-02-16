@@ -23,7 +23,7 @@ impl TypeDefinition {
 
 impl AbstractTree for TypeDefinition {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "type_definition", node)?;
+        SyntaxError::expect_syntax_node("type_definition", node)?;
 
         let child = node.child(0).unwrap();
 
@@ -37,8 +37,7 @@ impl AbstractTree for TypeDefinition {
             _ => Err(SyntaxError::UnexpectedSyntaxNode {
                 expected: "enum or struct definition".to_string(),
                 actual: child.kind().to_string(),
-                location: child.start_position(),
-                relevant_source: source[child.byte_range()].to_string(),
+                position: node.range().into(),
             }),
         }
     }

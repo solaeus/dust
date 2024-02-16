@@ -34,7 +34,7 @@ impl Block {
 
 impl AbstractTree for Block {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "block", node)?;
+        SyntaxError::expect_syntax_node("block", node)?;
 
         let first_child = node.child(0).unwrap();
         let is_async = first_child.kind() == "async";

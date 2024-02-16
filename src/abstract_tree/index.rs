@@ -18,7 +18,7 @@ pub struct Index {
 
 impl AbstractTree for Index {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "index", node)?;
+        SyntaxError::expect_syntax_node("index", node)?;
 
         let collection_node = node.child(0).unwrap();
         let collection = IndexExpression::from_syntax(collection_node, source, context)?;

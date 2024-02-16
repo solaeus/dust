@@ -15,7 +15,7 @@ pub enum MatchPattern {
 
 impl AbstractTree for MatchPattern {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "match_pattern", node)?;
+        SyntaxError::expect_syntax_node("match_pattern", node)?;
 
         let child = node.child(0).unwrap();
         let pattern = match child.kind() {
@@ -28,8 +28,7 @@ impl AbstractTree for MatchPattern {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
                     expected: "enum pattern or value".to_string(),
                     actual: child.kind().to_string(),
-                    location: child.start_position(),
-                    relevant_source: source[child.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };

@@ -32,7 +32,7 @@ impl FunctionCall {
 
 impl AbstractTree for FunctionCall {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "function_call", node)?;
+        SyntaxError::expect_syntax_node("function_call", node)?;
 
         let function_node = node.child(0).unwrap();
         let function_expression = FunctionExpression::from_syntax(function_node, source, context)?;

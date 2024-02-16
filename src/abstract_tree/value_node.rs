@@ -32,7 +32,7 @@ pub enum ValueNode {
 
 impl AbstractTree for ValueNode {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "value", node)?;
+        SyntaxError::expect_syntax_node("value", node)?;
 
         let child = node.child(0).unwrap();
         let value_node = match child.kind() {
@@ -108,8 +108,7 @@ impl AbstractTree for ValueNode {
                         "string, integer, float, boolean, range, list, map, option, function, struct or enum"
                             .to_string(),
                     actual: child.kind().to_string(),
-                    location: child.start_position(),
-                    relevant_source: source[child.byte_range()].to_string(),
+                    position: node.range().into(),
                 })
             }
         };
