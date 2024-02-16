@@ -10,19 +10,21 @@ while true {
 
 (root
   (statement
-    (while
-      (expression
-        (value
-          (boolean)))
-      (block
-        (statement
-          (expression
-            (function_call
-              (function_expression
-                (identifier))
+    (statement_kind
+      (while
+        (expression
+          (value
+            (boolean)))
+        (block
+          (statement
+            (statement_kind
               (expression
-                (value
-                  (string))))))))))
+                (function_call
+                  (function_expression
+                    (identifier))
+                  (expression
+                    (value
+                      (string))))))))))))
 
 ================================================================================
 Nested While Loop
@@ -38,27 +40,31 @@ while true {
 
 (root
   (statement
-    (while
-      (expression
-        (value
-          (boolean)))
-      (block
-        (statement
-          (while
-            (expression
-              (logic
+    (statement_kind
+      (while
+        (expression
+          (value
+            (boolean)))
+        (block
+          (statement
+            (statement_kind
+              (while
                 (expression
-                  (identifier))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))
-            (block
-              (statement
-                (assignment
-                  (identifier)
-                  (assignment_operator)
-                  (statement
+                  (logic
+                    (expression
+                      (identifier))
+                    (logic_operator)
                     (expression
                       (value
-                        (integer)))))))))))))
+                        (integer)))))
+                (block
+                  (statement
+                    (statement_kind
+                      (assignment
+                        (identifier)
+                        (assignment_operator)
+                        (statement
+                          (statement_kind
+                            (expression
+                              (value
+                                (integer)))))))))))))))))

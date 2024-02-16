@@ -8,15 +8,16 @@ true && false
 
 (root
   (statement
-    (expression
-      (logic
-        (expression
-          (value
-            (boolean)))
-        (logic_operator)
-        (expression
-          (value
-            (boolean)))))))
+    (statement_kind
+      (expression
+        (logic
+          (expression
+            (value
+              (boolean)))
+          (logic_operator)
+          (expression
+            (value
+              (boolean))))))))
 
 ================================================================================
 Logic Sequence
@@ -28,21 +29,22 @@ Logic Sequence
 
 (root
   (statement
-    (expression
-      (logic
-        (expression
-          (logic
-            (expression
-              (value
-                (integer)))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))
-        (logic_operator)
-        (expression
-          (value
-            (boolean)))))))
+    (statement_kind
+      (expression
+        (logic
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (logic_operator)
+          (expression
+            (value
+              (boolean))))))))
 
 ================================================================================
 Complex Logic Sequence
@@ -56,45 +58,46 @@ Complex Logic Sequence
 
 (root
   (statement
-    (expression
-      (logic
-        (expression
-          (logic
-            (expression
-              (logic
-                (expression
-                  (function_call
-                    (function_expression
-                      (identifier))
-                    (expression
-                      (identifier))))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))
-            (logic_operator)
-            (expression
-              (logic
-                (expression
-                  (function_call
-                    (function_expression
-                      (identifier))
-                    (expression
-                      (identifier))))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))))
-        (logic_operator)
-        (expression
-          (logic
-            (expression
-              (function_call
-                (function_expression
-                  (identifier))
-                (expression
-                  (identifier))))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))))))
+    (statement_kind
+      (expression
+        (logic
+          (expression
+            (logic
+              (expression
+                (logic
+                  (expression
+                    (function_call
+                      (function_expression
+                        (identifier))
+                      (expression
+                        (identifier))))
+                  (logic_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (logic_operator)
+              (expression
+                (logic
+                  (expression
+                    (function_call
+                      (function_expression
+                        (identifier))
+                      (expression
+                        (identifier))))
+                  (logic_operator)
+                  (expression
+                    (value
+                      (integer)))))))
+          (logic_operator)
+          (expression
+            (logic
+              (expression
+                (function_call
+                  (function_expression
+                    (identifier))
+                  (expression
+                    (identifier))))
+              (logic_operator)
+              (expression
+                (value
+                  (integer))))))))))

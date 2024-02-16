@@ -10,15 +10,17 @@ Simple Block
 
 (root
   (statement
-    (block
-      (statement
-        (expression
-          (function_call
-            (function_expression
-              (identifier))
+    (statement_kind
+      (block
+        (statement
+          (statement_kind
             (expression
-              (value
-                (integer)))))))))
+              (function_call
+                (function_expression
+                  (identifier))
+                (expression
+                  (value
+                    (integer)))))))))))
 
 ================================================================================
 Block with Return
@@ -34,16 +36,20 @@ Block with Return
 
 (root
   (statement
-    (block
-      (statement
-        (expression
-          (value
-            (integer))))
-      (statement
-        (expression
-          (value
-            (integer))))
-      (statement
-        (expression
-          (value
-            (integer)))))))
+    (statement_kind
+      (block
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (integer)))))
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (integer)))))
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (integer)))))))))

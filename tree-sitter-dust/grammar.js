@@ -15,19 +15,24 @@ module.exports = grammar({
       prec.left(
         seq(
           optional('return'),
-          choice(
-            $.assignment,
-            $.block,
-            $.expression,
-            $.for,
-            $.if_else,
-            $.index_assignment,
-            $.match,
-            $.pipe,
-            $.while,
-            $.type_definition,
-          ),
+          $.statement_kind,
           optional(';'),
+        ),
+      ),
+
+    statement_kind: $ =>
+      prec.left(
+        choice(
+          $.assignment,
+          $.block,
+          $.expression,
+          $.for,
+          $.if_else,
+          $.index_assignment,
+          $.match,
+          $.pipe,
+          $.while,
+          $.type_definition,
         ),
       ),
 

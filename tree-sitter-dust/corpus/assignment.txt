@@ -8,12 +8,14 @@ x = y
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (identifier))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (identifier))))))))
 
 ================================================================================
 Simple Assignment with Type
@@ -25,14 +27,16 @@ x <int> = y
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (type_specification
-        (type))
-      (assignment_operator)
-      (statement
-        (expression
-          (identifier))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (type_specification
+          (type))
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (identifier))))))))
 
 ================================================================================
 Map Item Assignment
@@ -44,17 +48,19 @@ x:y = 1
 
 (root
   (statement
-    (index_assignment
-      (index
-        (index_expression
-          (identifier))
-        (index_expression
-          (identifier)))
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (integer)))))))
+    (statement_kind
+      (index_assignment
+        (index
+          (index_expression
+            (identifier))
+          (index_expression
+            (identifier)))
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (integer)))))))))
 
 ================================================================================
 List Item Assignment
@@ -66,15 +72,17 @@ x:9 = 'foobar'
 
 (root
   (statement
-    (index_assignment
-      (index
-        (index_expression
-          (identifier))
-        (index_expression
-          (value
-            (integer))))
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (string)))))))
+    (statement_kind
+      (index_assignment
+        (index
+          (index_expression
+            (identifier))
+          (index_expression
+            (value
+              (integer))))
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (string)))))))))

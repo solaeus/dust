@@ -8,6 +8,7 @@ Simple Range
 
 (root
   (statement
-    (expression
-      (value
-        (range)))))
+    (statement_kind
+      (expression
+        (value
+          (range))))))

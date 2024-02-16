@@ -11,11 +11,12 @@ enum Foobar {
 
 (root
   (statement
-    (type_definition
-      (enum_definition
-        (identifier)
-        (identifier)
-        (identifier)))))
+    (statement_kind
+      (type_definition
+        (enum_definition
+          (identifier)
+          (identifier)
+          (identifier))))))
 
 ================================================================================
 Nested Enum
@@ -33,17 +34,18 @@ enum Foobar {
 
 (root
   (statement
-    (type_definition
-      (enum_definition
-        (identifier)
-        (identifier)
-        (type)
-        (identifier)
-        (type_definition
-          (enum_definition
-            (identifier)
-            (identifier)
-            (identifier)))))))
+    (statement_kind
+      (type_definition
+        (enum_definition
+          (identifier)
+          (identifier)
+          (type)
+          (identifier)
+          (type_definition
+            (enum_definition
+              (identifier)
+              (identifier)
+              (identifier))))))))
 
 ================================================================================
 Simple Enum Instance
@@ -55,11 +57,12 @@ Foobar::Foo
 
 (root
   (statement
-    (expression
-      (value
-        (enum_instance
-          (identifier)
-          (identifier))))))
+    (statement_kind
+      (expression
+        (value
+          (enum_instance
+            (identifier)
+            (identifier)))))))
 
 ================================================================================
 Nested Enum Instance
@@ -71,16 +74,17 @@ FooBar::Bar(BazBuf::Baz(123))
 
 (root
   (statement
-    (expression
-      (value
-        (enum_instance
-          (identifier)
-          (identifier)
-          (expression
-            (value
-              (enum_instance
-                (identifier)
-                (identifier)
-                (expression
-                  (value
-                    (integer)))))))))))
+    (statement_kind
+      (expression
+        (value
+          (enum_instance
+            (identifier)
+            (identifier)
+            (expression
+              (value
+                (enum_instance
+                  (identifier)
+                  (identifier)
+                  (expression
+                    (value
+                      (integer))))))))))))

@@ -36,49 +36,8 @@
             ]
           },
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "assignment"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "block"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "expression"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "for"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "if_else"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "index_assignment"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "match"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "pipe"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "while"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "type_definition"
-              }
-            ]
+            "type": "SYMBOL",
+            "name": "statement_kind"
           },
           {
             "type": "CHOICE",
@@ -91,6 +50,55 @@
                 "type": "BLANK"
               }
             ]
+          }
+        ]
+      }
+    },
+    "statement_kind": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "assignment"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "block"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "expression"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "for"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "if_else"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "index_assignment"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "match"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "pipe"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "while"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "type_definition"
           }
         ]
       }

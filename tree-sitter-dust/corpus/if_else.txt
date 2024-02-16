@@ -8,16 +8,18 @@ if true { "True" }
 
 (root
   (statement
-    (if_else
-      (if
-        (expression
-          (value
-            (boolean)))
-        (block
-          (statement
-            (expression
-              (value
-                (string)))))))))
+    (statement_kind
+      (if_else
+        (if
+          (expression
+            (value
+              (boolean)))
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (string)))))))))))
 
 ================================================================================
 Complex If
@@ -29,46 +31,48 @@ if 1 == 1 && 2 == 2 && 3 == 3 { "True" }
 
 (root
   (statement
-    (if_else
-      (if
-        (expression
-          (logic
-            (expression
-              (logic
-                (expression
-                  (logic
-                    (expression
-                      (logic
-                        (expression
-                          (logic
-                            (expression
-                              (value
-                                (integer)))
-                            (logic_operator)
-                            (expression
-                              (value
-                                (integer)))))
-                        (logic_operator)
-                        (expression
-                          (value
-                            (integer)))))
-                    (logic_operator)
-                    (expression
-                      (value
-                        (integer)))))
-                (logic_operator)
+    (statement_kind
+      (if_else
+        (if
+          (expression
+            (logic
+              (expression
+                (logic
+                  (expression
+                    (logic
+                      (expression
+                        (logic
+                          (expression
+                            (logic
+                              (expression
+                                (value
+                                  (integer)))
+                              (logic_operator)
+                              (expression
+                                (value
+                                  (integer)))))
+                          (logic_operator)
+                          (expression
+                            (value
+                              (integer)))))
+                      (logic_operator)
+                      (expression
+                        (value
+                          (integer)))))
+                  (logic_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (block
+            (statement
+              (statement_kind
                 (expression
                   (value
-                    (integer)))))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))
-        (block
-          (statement
-            (expression
-              (value
-                (string)))))))))
+                    (string)))))))))))
 
 ================================================================================
 Nested If
@@ -86,35 +90,39 @@ if true {
 
 (root
   (statement
-    (if_else
-      (if
-        (expression
-          (value
-            (boolean)))
-        (block
-          (statement
-            (if_else
-              (if
-                (expression
-                  (logic
+    (statement_kind
+      (if_else
+        (if
+          (expression
+            (value
+              (boolean)))
+          (block
+            (statement
+              (statement_kind
+                (if_else
+                  (if
                     (expression
-                      (value
-                        (integer)))
-                    (logic_operator)
-                    (expression
-                      (value
-                        (integer)))))
-                (block
-                  (statement
-                    (expression
-                      (value
-                        (string))))))
-              (else
-                (block
-                  (statement
-                    (expression
-                      (value
-                        (string)))))))))))))
+                      (logic
+                        (expression
+                          (value
+                            (integer)))
+                        (logic_operator)
+                        (expression
+                          (value
+                            (integer)))))
+                    (block
+                      (statement
+                        (statement_kind
+                          (expression
+                            (value
+                              (string)))))))
+                  (else
+                    (block
+                      (statement
+                        (statement_kind
+                          (expression
+                            (value
+                              (string))))))))))))))))
 
 ================================================================================
 If Else
@@ -126,22 +134,25 @@ if false { "True" } else { "False" }
 
 (root
   (statement
-    (if_else
-      (if
-        (expression
-          (value
-            (boolean)))
-        (block
-          (statement
-            (expression
-              (value
-                (string))))))
-      (else
-        (block
-          (statement
-            (expression
-              (value
-                (string)))))))))
+    (statement_kind
+      (if_else
+        (if
+          (expression
+            (value
+              (boolean)))
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (string)))))))
+        (else
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (string)))))))))))
 
 ================================================================================
 If Else If
@@ -157,37 +168,40 @@ if 1 == 1 {
 
 (root
   (statement
-    (if_else
-      (if
-        (expression
-          (logic
-            (expression
-              (value
-                (integer)))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))
-        (block
-          (statement
-            (expression
-              (value
-                (string))))))
-      (else_if
-        (expression
-          (logic
-            (expression
-              (value
-                (integer)))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))
-        (block
-          (statement
-            (expression
-              (value
-                (string)))))))))
+    (statement_kind
+      (if_else
+        (if
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (string)))))))
+        (else_if
+          (expression
+            (logic
+              (expression
+                (value
+                  (integer)))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (string)))))))))))
 
 ================================================================================
 If Else Else If Else
@@ -207,49 +221,54 @@ if false {
 
 (root
   (statement
-    (if_else
-      (if
-        (expression
-          (value
-            (boolean)))
-        (block
-          (statement
-            (expression
-              (value
-                (string))))))
-      (else_if
-        (expression
-          (value
-            (boolean)))
-        (block
-          (statement
-            (expression
-              (value
-                (string))))))
-      (else_if
-        (expression
-          (logic
-            (expression
-              (math
+    (statement_kind
+      (if_else
+        (if
+          (expression
+            (value
+              (boolean)))
+          (block
+            (statement
+              (statement_kind
                 (expression
                   (value
-                    (integer)))
-                (math_operator)
+                    (string)))))))
+        (else_if
+          (expression
+            (value
+              (boolean)))
+          (block
+            (statement
+              (statement_kind
                 (expression
                   (value
-                    (integer)))))
-            (logic_operator)
-            (expression
-              (value
-                (integer)))))
-        (block
-          (statement
-            (expression
-              (value
-                (string))))))
-      (else
-        (block
-          (statement
-            (expression
-              (value
-                (string)))))))))
+                    (string)))))))
+        (else_if
+          (expression
+            (logic
+              (expression
+                (math
+                  (expression
+                    (value
+                      (integer)))
+                  (math_operator)
+                  (expression
+                    (value
+                      (integer)))))
+              (logic_operator)
+              (expression
+                (value
+                  (integer)))))
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (string)))))))
+        (else
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (string)))))))))))

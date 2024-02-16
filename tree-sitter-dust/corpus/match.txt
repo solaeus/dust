@@ -13,25 +13,29 @@ match x {
 
 (root
   (statement
-    (match
-      (expression
-        (identifier))
-      (match_pattern
-        (value
-          (integer)))
-      (statement
-        (block
-          (statement
+    (statement_kind
+      (match
+        (expression
+          (identifier))
+        (match_pattern
+          (value
+            (integer)))
+        (statement
+          (statement_kind
+            (block
+              (statement
+                (statement_kind
+                  (expression
+                    (value
+                      (boolean))))))))
+        (match_pattern
+          (value
+            (integer)))
+        (statement
+          (statement_kind
             (expression
               (value
-                (boolean))))))
-      (match_pattern
-        (value
-          (integer)))
-      (statement
-        (expression
-          (value
-            (boolean)))))))
+                (boolean)))))))))
 
 ================================================================================
 Match Enum
@@ -46,22 +50,25 @@ match foobar {
 
 (root
   (statement
-    (match
-      (expression
-        (identifier))
-      (match_pattern
-        (enum_pattern
-          (identifier)
-          (identifier)))
-      (statement
+    (statement_kind
+      (match
         (expression
-          (value
-            (boolean))))
-      (match_pattern
-        (enum_pattern
-          (identifier)
-          (identifier)))
-      (statement
-        (expression
-          (value
-            (boolean)))))))
+          (identifier))
+        (match_pattern
+          (enum_pattern
+            (identifier)
+            (identifier)))
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (boolean)))))
+        (match_pattern
+          (enum_pattern
+            (identifier)
+            (identifier)))
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (boolean)))))))))

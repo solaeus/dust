@@ -8,14 +8,16 @@ Simple Map
 
 (root
   (statement
-    (expression
-      (value
-        (map
-          (identifier)
-          (statement
-            (expression
-              (value
-                (integer)))))))))
+    (statement_kind
+      (expression
+        (value
+          (map
+            (identifier)
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (integer)))))))))))
 
 ================================================================================
 Map with Types
@@ -30,30 +32,33 @@ Map with Types
 
 (root
   (statement
-    (expression
-      (value
-        (map
-          (identifier)
-          (type_specification
-            (type))
-          (statement
-            (expression
-              (value
-                (integer))))
-          (identifier)
-          (type_specification
-            (type
-              (type)))
-          (statement
-            (expression
-              (value
-                (list
-                  (expression
-                    (value
-                      (string)))
-                  (expression
-                    (value
-                      (string))))))))))))
+    (statement_kind
+      (expression
+        (value
+          (map
+            (identifier)
+            (type_specification
+              (type))
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (integer)))))
+            (identifier)
+            (type_specification
+              (type
+                (type)))
+            (statement
+              (statement_kind
+                (expression
+                  (value
+                    (list
+                      (expression
+                        (value
+                          (string)))
+                      (expression
+                        (value
+                          (string))))))))))))))
 
 ================================================================================
 Nested Maps
@@ -73,35 +78,42 @@ x = {
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (map
-              (identifier)
-              (statement
-                (expression
-                  (value
-                    (map
-                      (identifier)
-                      (statement
-                        (expression
-                          (value
-                            (string))))
-                      (identifier)
-                      (statement
-                        (expression
-                          (value
-                            (map
-                              (identifier)
-                              (statement
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (map
+                  (identifier)
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (map
+                            (identifier)
+                            (statement
+                              (statement_kind
                                 (expression
                                   (value
-                                    (string))))))))))))
-              (identifier)
-              (statement
-                (expression
-                  (value
-                    (integer)))))))))))
+                                    (string)))))
+                            (identifier)
+                            (statement
+                              (statement_kind
+                                (expression
+                                  (value
+                                    (map
+                                      (identifier)
+                                      (statement
+                                        (statement_kind
+                                          (expression
+                                            (value
+                                              (string)))))))))))))))
+                  (identifier)
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (integer))))))))))))))

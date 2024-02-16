@@ -8,15 +8,17 @@ async { output ('Whaddup') }
 
 (root
   (statement
-    (block
-      (statement
-        (expression
-          (function_call
-            (function_expression
-              (identifier))
+    (statement_kind
+      (block
+        (statement
+          (statement_kind
             (expression
-              (value
-                (string)))))))))
+              (function_call
+                (function_expression
+                  (identifier))
+                (expression
+                  (value
+                    (string)))))))))))
 
 ================================================================================
 Complex Async Statements
@@ -36,37 +38,42 @@ async {
 
 (root
   (statement
-    (block
-      (statement
-        (if_else
-          (if
-            (expression
-              (logic
+    (statement_kind
+      (block
+        (statement
+          (statement_kind
+            (if_else
+              (if
                 (expression
-                  (math
+                  (logic
                     (expression
-                      (value
-                        (integer)))
-                    (math_operator)
+                      (math
+                        (expression
+                          (value
+                            (integer)))
+                        (math_operator)
+                        (expression
+                          (value
+                            (integer)))))
+                    (logic_operator)
                     (expression
                       (value
                         (integer)))))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))
-            (block
-              (statement
-                (expression
-                  (value
-                    (boolean))))))
-          (else
-            (block
-              (statement
-                (expression
-                  (value
-                    (boolean))))))))
-      (statement
-        (expression
-          (value
-            (string)))))))
+                (block
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (boolean)))))))
+              (else
+                (block
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (boolean))))))))))
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (string)))))))))

@@ -8,11 +8,12 @@ Simple Command Pipe
 
 (root
   (statement
-    (pipe
-      (command
-        (command_text))
-      (command
-        (command_text)))))
+    (statement_kind
+      (pipe
+        (command
+          (command_text))
+        (command
+          (command_text))))))
 
 ================================================================================
 Simple Function Pipe
@@ -24,17 +25,18 @@ fs:read('file.txt') | output()
 
 (root
   (statement
-    (pipe
-      (function_call
-        (function_expression
-          (index
-            (index_expression
-              (identifier))
-            (index_expression
-              (identifier))))
-        (expression
-          (value
-            (string))))
-      (function_call
-        (function_expression
-          (identifier))))))
+    (statement_kind
+      (pipe
+        (function_call
+          (function_expression
+            (index
+              (index_expression
+                (identifier))
+              (index_expression
+                (identifier))))
+          (expression
+            (value
+              (string))))
+        (function_call
+          (function_expression
+            (identifier)))))))

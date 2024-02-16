@@ -10,28 +10,30 @@ for i in [1, 2, 3] {
 
 (root
   (statement
-    (for
-      (identifier)
-      (expression
-        (value
-          (list
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer)))
-            (expression
-              (value
-                (integer))))))
-      (block
-        (statement
-          (expression
-            (function_call
-              (function_expression
-                (identifier))
+    (statement_kind
+      (for
+        (identifier)
+        (expression
+          (value
+            (list
               (expression
-                (identifier)))))))))
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer)))
+              (expression
+                (value
+                  (integer))))))
+        (block
+          (statement
+            (statement_kind
+              (expression
+                (function_call
+                  (function_expression
+                    (identifier))
+                  (expression
+                    (identifier)))))))))))
 
 ================================================================================
 Nested For Loop
@@ -47,21 +49,24 @@ for list in list_of_lists {
 
 (root
   (statement
-    (for
-      (identifier)
-      (expression
-        (identifier))
-      (block
-        (statement
-          (for
-            (identifier)
-            (expression
-              (identifier))
-            (block
-              (statement
+    (statement_kind
+      (for
+        (identifier)
+        (expression
+          (identifier))
+        (block
+          (statement
+            (statement_kind
+              (for
+                (identifier)
                 (expression
-                  (function_call
-                    (function_expression
-                      (identifier))
-                    (expression
-                      (identifier))))))))))))
+                  (identifier))
+                (block
+                  (statement
+                    (statement_kind
+                      (expression
+                        (function_call
+                          (function_expression
+                            (identifier))
+                          (expression
+                            (identifier)))))))))))))))

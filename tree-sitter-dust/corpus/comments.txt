@@ -9,8 +9,9 @@ not_a_comment
 
 (root
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))
 
 ================================================================================
 Partial Line Comments
@@ -22,8 +23,9 @@ not_a_comment # comment
 
 (root
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))
 
 ================================================================================
 Multiline Comments
@@ -37,9 +39,11 @@ not_a_comment #
 
 (root
   (statement
-    (expression
-      (identifier)))
+    (statement_kind
+      (expression
+        (identifier))))
   (statement
-    (expression
-      (value
-        (string)))))
+    (statement_kind
+      (expression
+        (value
+          (string))))))

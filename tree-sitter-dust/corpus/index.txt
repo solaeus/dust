@@ -12,37 +12,40 @@ foobar:1:42
 
 (root
   (statement
-    (expression
-      (index
-        (index_expression
-          (index
-            (index_expression
-              (identifier))
-            (index_expression
-              (value
-                (integer)))))
-        (index_expression
-          (identifier)))))
+    (statement_kind
+      (expression
+        (index
+          (index_expression
+            (index
+              (index_expression
+                (identifier))
+              (index_expression
+                (value
+                  (integer)))))
+          (index_expression
+            (identifier))))))
   (statement
-    (expression
-      (index
-        (index_expression
-          (identifier))
-        (index_expression
-          (identifier)))))
+    (statement_kind
+      (expression
+        (index
+          (index_expression
+            (identifier))
+          (index_expression
+            (identifier))))))
   (statement
-    (expression
-      (index
-        (index_expression
-          (index
-            (index_expression
-              (identifier))
-            (index_expression
-              (value
-                (integer)))))
-        (index_expression
-          (value
-            (integer)))))))
+    (statement_kind
+      (expression
+        (index
+          (index_expression
+            (index
+              (index_expression
+                (identifier))
+              (index_expression
+                (value
+                  (integer)))))
+          (index_expression
+            (value
+              (integer))))))))
 
 ================================================================================
 Nested Indexes
@@ -54,38 +57,39 @@ Nested Indexes
 
 (root
   (statement
-    (expression
-      (index
-        (index_expression
-          (index
-            (index_expression
-              (index
-                (index_expression
-                  (value
-                    (list
-                      (expression
-                        (value
-                          (list
-                            (expression
-                              (value
-                                (string)))
-                            (expression
-                              (value
-                                (string))))))
-                      (expression
-                        (value
-                          (integer)))
-                      (expression
-                        (value
-                          (integer))))))
-                (index_expression
-                  (value
-                    (integer)))))
-            (index_expression
-              (value
-                (integer)))))
-        (index_expression
-          (range))))))
+    (statement_kind
+      (expression
+        (index
+          (index_expression
+            (index
+              (index_expression
+                (index
+                  (index_expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (list
+                              (expression
+                                (value
+                                  (string)))
+                              (expression
+                                (value
+                                  (string))))))
+                        (expression
+                          (value
+                            (integer)))
+                        (expression
+                          (value
+                            (integer))))))
+                  (index_expression
+                    (value
+                      (integer)))))
+              (index_expression
+                (value
+                  (integer)))))
+          (index_expression
+            (range)))))))
 
 ================================================================================
 Function Call Index
@@ -97,16 +101,17 @@ x:(y()):0
 
 (root
   (statement
-    (expression
-      (index
-        (index_expression
-          (index
-            (index_expression
-              (identifier))
-            (index_expression
-              (function_call
-                (function_expression
-                  (identifier))))))
-        (index_expression
-          (value
-            (integer)))))))
+    (statement_kind
+      (expression
+        (index
+          (index_expression
+            (index
+              (index_expression
+                (identifier))
+              (index_expression
+                (function_call
+                  (function_expression
+                    (identifier))))))
+          (index_expression
+            (value
+              (integer))))))))

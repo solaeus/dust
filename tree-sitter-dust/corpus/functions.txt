@@ -8,16 +8,18 @@ Anonymous Function
 
 (root
   (statement
-    (expression
-      (value
-        (function
-          (type_specification
-            (type))
-          (block
-            (statement
-              (expression
-                (value
-                  (string))))))))))
+    (statement_kind
+      (expression
+        (value
+          (function
+            (type_specification
+              (type))
+            (block
+              (statement
+                (statement_kind
+                  (expression
+                    (value
+                      (string))))))))))))
 
 ================================================================================
 Function Assignment
@@ -31,30 +33,33 @@ foobar = (x <int>, y <int>) <int> {
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (function
-              (identifier)
-              (type_specification
-                (type))
-              (identifier)
-              (type_specification
-                (type))
-              (type_specification
-                (type))
-              (block
-                (statement
-                  (expression
-                    (math
-                      (expression
-                        (identifier))
-                      (math_operator)
-                      (expression
-                        (identifier)))))))))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (function
+                  (identifier)
+                  (type_specification
+                    (type))
+                  (identifier)
+                  (type_specification
+                    (type))
+                  (type_specification
+                    (type))
+                  (block
+                    (statement
+                      (statement_kind
+                        (expression
+                          (math
+                            (expression
+                              (identifier))
+                            (math_operator)
+                            (expression
+                              (identifier))))))))))))))))
 
 ================================================================================
 Identifier Function Call
@@ -66,13 +71,14 @@ foobar("Hiya")
 
 (root
   (statement
-    (expression
-      (function_call
-        (function_expression
-          (identifier))
-        (expression
-          (value
-            (string)))))))
+    (statement_kind
+      (expression
+        (function_call
+          (function_expression
+            (identifier))
+          (expression
+            (value
+              (string))))))))
 
 ================================================================================
 Index Function Call
@@ -84,17 +90,18 @@ foo:bar("Hiya")
 
 (root
   (statement
-    (expression
-      (function_call
-        (function_expression
-          (index
-            (index_expression
-              (identifier))
-            (index_expression
-              (identifier))))
-        (expression
-          (value
-            (string)))))))
+    (statement_kind
+      (expression
+        (function_call
+          (function_expression
+            (index
+              (index_expression
+                (identifier))
+              (index_expression
+                (identifier))))
+          (expression
+            (value
+              (string))))))))
 
 ================================================================================
 Double Function Call
@@ -106,15 +113,16 @@ foobar()("Hiya")
 
 (root
   (statement
-    (expression
-      (function_call
-        (function_expression
-          (function_call
-            (function_expression
-              (identifier))))
-        (expression
-          (value
-            (string)))))))
+    (statement_kind
+      (expression
+        (function_call
+          (function_expression
+            (function_call
+              (function_expression
+                (identifier))))
+          (expression
+            (value
+              (string))))))))
 
 ================================================================================
 Anonymous Function Call
@@ -126,23 +134,25 @@ Anonymous Function Call
 
 (root
   (statement
-    (expression
-      (function_call
-        (function_expression
-          (value
-            (function
-              (identifier)
-              (type_specification
-                (type))
-              (type_specification
-                (type))
-              (block
-                (statement
-                  (expression
-                    (identifier)))))))
-        (expression
-          (value
-            (string)))))))
+    (statement_kind
+      (expression
+        (function_call
+          (function_expression
+            (value
+              (function
+                (identifier)
+                (type_specification
+                  (type))
+                (type_specification
+                  (type))
+                (block
+                  (statement
+                    (statement_kind
+                      (expression
+                        (identifier))))))))
+          (expression
+            (value
+              (string))))))))
 
 ================================================================================
 Complex Function Call
@@ -161,29 +171,32 @@ foobar(
 
 (root
   (statement
-    (expression
-      (function_call
-        (function_expression
-          (identifier))
-        (expression
-          (value
-            (string)))
-        (expression
-          (value
-            (integer)))
-        (expression
-          (value
-            (map
-              (identifier)
-              (statement
-                (expression
-                  (value
-                    (integer))))
-              (identifier)
-              (statement
-                (expression
-                  (value
-                    (integer)))))))))))
+    (statement_kind
+      (expression
+        (function_call
+          (function_expression
+            (identifier))
+          (expression
+            (value
+              (string)))
+          (expression
+            (value
+              (integer)))
+          (expression
+            (value
+              (map
+                (identifier)
+                (statement
+                  (statement_kind
+                    (expression
+                      (value
+                        (integer)))))
+                (identifier)
+                (statement
+                  (statement_kind
+                    (expression
+                      (value
+                        (integer)))))))))))))
 
 ================================================================================
 Callback Function Call
@@ -195,20 +208,22 @@ x(() <bool> { true })
 
 (root
   (statement
-    (expression
-      (function_call
-        (function_expression
-          (identifier))
-        (expression
-          (value
-            (function
-              (type_specification
-                (type))
-              (block
-                (statement
-                  (expression
-                    (value
-                      (boolean))))))))))))
+    (statement_kind
+      (expression
+        (function_call
+          (function_expression
+            (identifier))
+          (expression
+            (value
+              (function
+                (type_specification
+                  (type))
+                (block
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (boolean))))))))))))))
 
 ================================================================================
 Nested Function Call
@@ -220,14 +235,15 @@ from_json(read('file.json'))
 
 (root
   (statement
-    (expression
-      (function_call
-        (function_expression
-          (identifier))
-        (expression
-          (function_call
-            (function_expression
-              (identifier))
-            (expression
-              (value
-                (string)))))))))
+    (statement_kind
+      (expression
+        (function_call
+          (function_expression
+            (identifier))
+          (expression
+            (function_call
+              (function_expression
+                (identifier))
+              (expression
+                (value
+                  (string))))))))))

@@ -11,14 +11,18 @@ x123x
 
 (root
   (statement
-    (expression
-      (identifier)))
+    (statement_kind
+      (expression
+        (identifier))))
   (statement
-    (expression
-      (identifier)))
+    (statement_kind
+      (expression
+        (identifier))))
   (statement
-    (expression
-      (identifier)))
+    (statement_kind
+      (expression
+        (identifier))))
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))

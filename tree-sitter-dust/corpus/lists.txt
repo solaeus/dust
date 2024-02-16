@@ -8,15 +8,16 @@ List Declaration
 
 (root
   (statement
-    (expression
-      (value
-        (list
-          (expression
-            (value
-              (string)))
-          (expression
-            (value
-              (integer))))))))
+    (statement_kind
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (integer)))))))))
 
 ================================================================================
 List Nesting
@@ -28,21 +29,22 @@ List Nesting
 
 (root
   (statement
-    (expression
-      (value
-        (list
-          (expression
-            (value
-              (string)))
-          (expression
-            (value
-              (list
-                (expression
-                  (value
-                    (integer)))
-                (expression
-                  (value
-                    (list
-                      (expression
-                        (value
-                          (integer))))))))))))))
+    (statement_kind
+      (expression
+        (value
+          (list
+            (expression
+              (value
+                (string)))
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (integer)))
+                  (expression
+                    (value
+                      (list
+                        (expression
+                          (value
+                            (integer)))))))))))))))

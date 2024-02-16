@@ -10,16 +10,19 @@ x
 
 (root
   (statement
-    (expression
-      (value
-        (integer))))
+    (statement_kind
+      (expression
+        (value
+          (integer)))))
   (statement
-    (expression
-      (value
-        (string))))
+    (statement_kind
+      (expression
+        (value
+          (string)))))
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))
 
 ================================================================================
 Simple Assignment
@@ -32,21 +35,25 @@ y = "one"
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (integer))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (integer))))))))
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (value
-            (string)))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (string)))))))))
 
 ================================================================================
 Complex Assignment
@@ -62,38 +69,42 @@ x = if 1 + 1 == 2 {
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (if_else
-          (if
-            (expression
-              (logic
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (if_else
+              (if
                 (expression
-                  (math
+                  (logic
                     (expression
-                      (value
-                        (integer)))
-                    (math_operator)
+                      (math
+                        (expression
+                          (value
+                            (integer)))
+                        (math_operator)
+                        (expression
+                          (value
+                            (integer)))))
+                    (logic_operator)
                     (expression
                       (value
                         (integer)))))
-                (logic_operator)
-                (expression
-                  (value
-                    (integer)))))
-            (block
-              (statement
-                (expression
-                  (value
-                    (string))))))
-          (else
-            (block
-              (statement
-                (expression
-                  (value
-                    (string)))))))))))
+                (block
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (string)))))))
+              (else
+                (block
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (string))))))))))))))
 
 ================================================================================
 Expression Precedence
@@ -105,28 +116,30 @@ x = 3 == 1 + 2 + 2
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (math
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
             (expression
               (math
                 (expression
-                  (logic
+                  (math
                     (expression
-                      (value
-                        (integer)))
-                    (logic_operator)
+                      (logic
+                        (expression
+                          (value
+                            (integer)))
+                        (logic_operator)
+                        (expression
+                          (value
+                            (integer)))))
+                    (math_operator)
                     (expression
                       (value
                         (integer)))))
                 (math_operator)
                 (expression
                   (value
-                    (integer)))))
-            (math_operator)
-            (expression
-              (value
-                (integer)))))))))
+                    (integer)))))))))))

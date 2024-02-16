@@ -9,13 +9,15 @@ false
 
 (root
   (statement
-    (expression
-      (value
-        (boolean))))
+    (statement_kind
+      (expression
+        (value
+          (boolean)))))
   (statement
-    (expression
-      (value
-        (boolean)))))
+    (statement_kind
+      (expression
+        (value
+          (boolean))))))
 
 ================================================================================
 Integers
@@ -28,25 +30,30 @@ Integers
 
 (root
   (statement
-    (expression
-      (value
-        (integer))))
+    (statement_kind
+      (expression
+        (value
+          (integer)))))
   (statement
-    (expression
-      (value
-        (integer))))
+    (statement_kind
+      (expression
+        (value
+          (integer)))))
   (statement
-    (expression
-      (value
-        (integer))))
+    (statement_kind
+      (expression
+        (value
+          (integer)))))
   (statement
-    (expression
-      (value
-        (integer))))
+    (statement_kind
+      (expression
+        (value
+          (integer)))))
   (statement
-    (expression
-      (value
-        (integer)))))
+    (statement_kind
+      (expression
+        (value
+          (integer))))))
 
 ================================================================================
 Floats
@@ -68,43 +75,53 @@ infinity_gauntlet
 
 (root
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (value
-        (float))))
+    (statement_kind
+      (expression
+        (value
+          (float)))))
   (statement
-    (expression
-      (identifier)))
+    (statement_kind
+      (expression
+        (identifier))))
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))
 
 ================================================================================
 Strings
@@ -116,22 +133,27 @@ Strings
 
 (root
   (statement
-    (expression
-      (value
-        (string))))
+    (statement_kind
+      (expression
+        (value
+          (string)))))
   (statement
-    (expression
-      (value
-        (string))))
+    (statement_kind
+      (expression
+        (value
+          (string)))))
   (statement
-    (expression
-      (value
-        (string))))
+    (statement_kind
+      (expression
+        (value
+          (string)))))
   (statement
-    (expression
-      (value
-        (string))))
+    (statement_kind
+      (expression
+        (value
+          (string)))))
   (statement
-    (expression
-      (value
-        (string)))))
+    (statement_kind
+      (expression
+        (value
+          (string))))))

@@ -11,15 +11,16 @@ struct Foo {
 
 (root
   (statement
-    (type_definition
-      (struct_definition
-        (identifier)
-        (identifier)
-        (type_specification
-          (type))
-        (identifier)
-        (type_specification
-          (type))))))
+    (statement_kind
+      (type_definition
+        (struct_definition
+          (identifier)
+          (identifier)
+          (type_specification
+            (type))
+          (identifier)
+          (type_specification
+            (type)))))))
 
 ================================================================================
 Nested Structure
@@ -38,31 +39,35 @@ struct Foo {
 
 (root
   (statement
-    (type_definition
-      (struct_definition
-        (identifier)
-        (identifier)
-        (type_specification
-          (type))
-        (identifier)
-        (type_specification
-          (type))
-        (statement
-          (expression
-            (value
-              (float))))
-        (identifier)
-        (type_specification
-          (type
-            (identifier)))
-        (statement
-          (expression
-            (value
-              (struct_instance
-                (identifier)
-                (map
-                  (identifier)
-                  (statement
-                    (expression
-                      (value
-                        (integer)))))))))))))
+    (statement_kind
+      (type_definition
+        (struct_definition
+          (identifier)
+          (identifier)
+          (type_specification
+            (type))
+          (identifier)
+          (type_specification
+            (type))
+          (statement
+            (statement_kind
+              (expression
+                (value
+                  (float)))))
+          (identifier)
+          (type_specification
+            (type
+              (identifier)))
+          (statement
+            (statement_kind
+              (expression
+                (value
+                  (struct_instance
+                    (identifier)
+                    (map
+                      (identifier)
+                      (statement
+                        (statement_kind
+                          (expression
+                            (value
+                              (integer))))))))))))))))

@@ -6,39 +6,56 @@ use crate::{
     Match, SyntaxNode, Type, TypeDefinition, Value, While,
 };
 
+/// Abstract representation of a statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Statement {
     is_return: bool,
-    statement_inner: StatementInner,
+    statement_inner: StatementKind,
 }
 
 impl AbstractTree for Statement {
-    fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        todo!()
+    fn from_syntax(
+        node: SyntaxNode,
+        source: &str,
+        _context: &Context,
+    ) -> Result<Self, SyntaxError> {
+        SyntaxError::expect_syntax_node(source, "statement", node)?;
+
+        let first_child = node.child(0).unwrap();
+        let is_return = first_child.kind() == "return";
+        let child = if is_return {
+            node.child(1).unwrap()
+        } else {
+            first_child
+        };
+
+        Ok(Statement {
+            is_return,
+            statement_inner: StatementKind::from_syntax(child, source, _context)?,
+        })
     }
 
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+        self.statement_inner.expected_type(_context)
     }
 
-    fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError> {
-        todo!()
+    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
+        self.statement_inner.validate(_source, _context)
     }
 
-    fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        todo!()
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
+        self.statement_inner.run(_source, _context)
     }
 }
 
 impl Format for Statement {
-    fn format(&self, output: &mut String, indent_level: u8) {
-        todo!()
+    fn format(&self, _output: &mut String, _indent_level: u8) {
+        self.statement_inner.format(_output, _indent_level)
     }
 }
 
-/// Abstract representation of a statement.
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
-pub enum StatementInner {
+enum StatementKind {
     Assignment(Box<Assignment>),
     Expression(Expression),
     IfElse(Box<IfElse>),
@@ -50,38 +67,38 @@ pub enum StatementInner {
     TypeDefinition(TypeDefinition),
 }
 
-impl AbstractTree for StatementInner {
+impl AbstractTree for StatementKind {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node(source, "statement", node)?;
+        SyntaxError::expect_syntax_node(source, "statement_kind", node)?;
 
         let child = node.child(0).unwrap();
 
         match child.kind() {
-            "assignment" => Ok(StatementInner::Assignment(Box::new(
+            "assignment" => Ok(StatementKind::Assignment(Box::new(
                 Assignment::from_syntax(child, source, context)?,
             ))),
-            "expression" => Ok(StatementInner::Expression(Expression::from_syntax(
+            "expression" => Ok(StatementKind::Expression(Expression::from_syntax(
                 child, source, context,
             )?)),
-            "if_else" => Ok(StatementInner::IfElse(Box::new(IfElse::from_syntax(
+            "if_else" => Ok(StatementKind::IfElse(Box::new(IfElse::from_syntax(
                 child, source, context,
             )?))),
-            "while" => Ok(StatementInner::While(Box::new(While::from_syntax(
+            "while" => Ok(StatementKind::While(Box::new(While::from_syntax(
                 child, source, context,
             )?))),
-            "block" => Ok(StatementInner::Block(Box::new(Block::from_syntax(
+            "block" => Ok(StatementKind::Block(Box::new(Block::from_syntax(
                 child, source, context,
             )?))),
-            "for" => Ok(StatementInner::For(Box::new(For::from_syntax(
+            "for" => Ok(StatementKind::For(Box::new(For::from_syntax(
                 child, source, context,
             )?))),
-            "index_assignment" => Ok(StatementInner::IndexAssignment(Box::new(
+            "index_assignment" => Ok(StatementKind::IndexAssignment(Box::new(
                 IndexAssignment::from_syntax(child, source, context)?,
             ))),
-            "match" => Ok(StatementInner::Match(Match::from_syntax(
+            "match" => Ok(StatementKind::Match(Match::from_syntax(
                 child, source, context,
             )?)),
-            "type_definition" => Ok(StatementInner::TypeDefinition(TypeDefinition::from_syntax(
+            "type_definition" => Ok(StatementKind::TypeDefinition(TypeDefinition::from_syntax(
                 child, source, context
             )?)),
             _ => Err(SyntaxError::UnexpectedSyntaxNode {
@@ -96,17 +113,17 @@ impl AbstractTree for StatementInner {
 
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
-            StatementInner::Assignment(assignment) => assignment.expected_type(_context),
-            StatementInner::Expression(expression) => expression.expected_type(_context),
-            StatementInner::IfElse(if_else) => if_else.expected_type(_context),
-            StatementInner::Match(r#match) => r#match.expected_type(_context),
-            StatementInner::While(r#while) => r#while.expected_type(_context),
-            StatementInner::Block(block) => block.expected_type(_context),
-            StatementInner::For(r#for) => r#for.expected_type(_context),
-            StatementInner::IndexAssignment(index_assignment) => {
+            StatementKind::Assignment(assignment) => assignment.expected_type(_context),
+            StatementKind::Expression(expression) => expression.expected_type(_context),
+            StatementKind::IfElse(if_else) => if_else.expected_type(_context),
+            StatementKind::Match(r#match) => r#match.expected_type(_context),
+            StatementKind::While(r#while) => r#while.expected_type(_context),
+            StatementKind::Block(block) => block.expected_type(_context),
+            StatementKind::For(r#for) => r#for.expected_type(_context),
+            StatementKind::IndexAssignment(index_assignment) => {
                 index_assignment.expected_type(_context)
             }
-            StatementInner::TypeDefinition(type_definition) => {
+            StatementKind::TypeDefinition(type_definition) => {
                 type_definition.expected_type(_context)
             }
         }
@@ -114,17 +131,17 @@ impl AbstractTree for StatementInner {
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         match self {
-            StatementInner::Assignment(assignment) => assignment.validate(_source, _context),
-            StatementInner::Expression(expression) => expression.validate(_source, _context),
-            StatementInner::IfElse(if_else) => if_else.validate(_source, _context),
-            StatementInner::Match(r#match) => r#match.validate(_source, _context),
-            StatementInner::While(r#while) => r#while.validate(_source, _context),
-            StatementInner::Block(block) => block.validate(_source, _context),
-            StatementInner::For(r#for) => r#for.validate(_source, _context),
-            StatementInner::IndexAssignment(index_assignment) => {
+            StatementKind::Assignment(assignment) => assignment.validate(_source, _context),
+            StatementKind::Expression(expression) => expression.validate(_source, _context),
+            StatementKind::IfElse(if_else) => if_else.validate(_source, _context),
+            StatementKind::Match(r#match) => r#match.validate(_source, _context),
+            StatementKind::While(r#while) => r#while.validate(_source, _context),
+            StatementKind::Block(block) => block.validate(_source, _context),
+            StatementKind::For(r#for) => r#for.validate(_source, _context),
+            StatementKind::IndexAssignment(index_assignment) => {
                 index_assignment.validate(_source, _context)
             }
-            StatementInner::TypeDefinition(type_definition) => {
+            StatementKind::TypeDefinition(type_definition) => {
                 type_definition.validate(_source, _context)
             }
         }
@@ -132,39 +149,39 @@ impl AbstractTree for StatementInner {
 
     fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         match self {
-            StatementInner::Assignment(assignment) => assignment.run(_source, _context),
-            StatementInner::Expression(expression) => expression.run(_source, _context),
-            StatementInner::IfElse(if_else) => if_else.run(_source, _context),
-            StatementInner::Match(r#match) => r#match.run(_source, _context),
-            StatementInner::While(r#while) => r#while.run(_source, _context),
-            StatementInner::Block(block) => block.run(_source, _context),
-            StatementInner::For(r#for) => r#for.run(_source, _context),
-            StatementInner::IndexAssignment(index_assignment) => {
+            StatementKind::Assignment(assignment) => assignment.run(_source, _context),
+            StatementKind::Expression(expression) => expression.run(_source, _context),
+            StatementKind::IfElse(if_else) => if_else.run(_source, _context),
+            StatementKind::Match(r#match) => r#match.run(_source, _context),
+            StatementKind::While(r#while) => r#while.run(_source, _context),
+            StatementKind::Block(block) => block.run(_source, _context),
+            StatementKind::For(r#for) => r#for.run(_source, _context),
+            StatementKind::IndexAssignment(index_assignment) => {
                 index_assignment.run(_source, _context)
             }
-            StatementInner::TypeDefinition(type_definition) => {
+            StatementKind::TypeDefinition(type_definition) => {
                 type_definition.run(_source, _context)
             }
         }
     }
 }
 
-impl Format for StatementInner {
+impl Format for StatementKind {
     fn format(&self, output: &mut String, indent_level: u8) {
-        StatementInner::indent(output, indent_level);
+        StatementKind::indent(output, indent_level);
 
         match self {
-            StatementInner::Assignment(assignment) => assignment.format(output, indent_level),
-            StatementInner::Expression(expression) => expression.format(output, indent_level),
-            StatementInner::IfElse(if_else) => if_else.format(output, indent_level),
-            StatementInner::Match(r#match) => r#match.format(output, indent_level),
-            StatementInner::While(r#while) => r#while.format(output, indent_level),
-            StatementInner::Block(block) => block.format(output, indent_level),
-            StatementInner::For(r#for) => r#for.format(output, indent_level),
-            StatementInner::IndexAssignment(index_assignment) => {
+            StatementKind::Assignment(assignment) => assignment.format(output, indent_level),
+            StatementKind::Expression(expression) => expression.format(output, indent_level),
+            StatementKind::IfElse(if_else) => if_else.format(output, indent_level),
+            StatementKind::Match(r#match) => r#match.format(output, indent_level),
+            StatementKind::While(r#while) => r#while.format(output, indent_level),
+            StatementKind::Block(block) => block.format(output, indent_level),
+            StatementKind::For(r#for) => r#for.format(output, indent_level),
+            StatementKind::IndexAssignment(index_assignment) => {
                 index_assignment.format(output, indent_level)
             }
-            StatementInner::TypeDefinition(type_definition) => {
+            StatementKind::TypeDefinition(type_definition) => {
                 type_definition.format(output, indent_level)
             }
         }

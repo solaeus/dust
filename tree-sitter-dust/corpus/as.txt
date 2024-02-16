@@ -8,12 +8,13 @@ Simple As
 
 (root
   (statement
-    (expression
-      (as
-        (expression
-          (value
-            (integer)))
-        (type)))))
+    (statement_kind
+      (expression
+        (as
+          (expression
+            (value
+              (integer)))
+          (type))))))
 
 ================================================================================
 As Function
@@ -25,13 +26,14 @@ foo as (int) -> int
 
 (root
   (statement
-    (expression
-      (as
-        (expression
-          (identifier))
-        (type
-          (type)
-          (type))))))
+    (statement_kind
+      (expression
+        (as
+          (expression
+            (identifier))
+          (type
+            (type)
+            (type)))))))
 
 ================================================================================
 As List in For Loop
@@ -43,13 +45,14 @@ for i in foobar as [string] {}
 
 (root
   (statement
-    (for
-      (identifier)
-      (expression
-        (as
-          (expression
-            (identifier))
-          (type
+    (statement_kind
+      (for
+        (identifier)
+        (expression
+          (as
+            (expression
+              (identifier))
             (type
-              (identifier)))))
-      (block))))
+              (type
+                (identifier)))))
+        (block)))))

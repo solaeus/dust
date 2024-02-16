@@ -8,9 +8,10 @@ Simple Command
 
 (root
   (statement
-    (expression
-      (command
-        (command_text)))))
+    (statement_kind
+      (expression
+        (command
+          (command_text))))))
 
 ================================================================================
 Command Sequence
@@ -22,13 +23,15 @@ Command Sequence
 
 (root
   (statement
-    (expression
-      (command
-        (command_text))))
+    (statement_kind
+      (expression
+        (command
+          (command_text)))))
   (statement
-    (expression
-      (command
-        (command_text)))))
+    (statement_kind
+      (expression
+        (command
+          (command_text))))))
 
 ================================================================================
 Command with Arguments
@@ -40,11 +43,12 @@ Command with Arguments
 
 (root
   (statement
-    (expression
-      (command
-        (command_text)
-        (command_argument)
-        (command_argument)))))
+    (statement_kind
+      (expression
+        (command
+          (command_text)
+          (command_argument)
+          (command_argument))))))
 
 ================================================================================
 Command Sequence with Arguments
@@ -57,19 +61,21 @@ Command Sequence with Arguments
 
 (root
   (statement
-    (expression
-      (command
-        (command_text)
-        (command_argument)
-        (command_argument)
-        (command_argument)
-        (command_argument))))
+    (statement_kind
+      (expression
+        (command
+          (command_text)
+          (command_argument)
+          (command_argument)
+          (command_argument)
+          (command_argument)))))
   (statement
-    (expression
-      (command
-        (command_text)
-        (command_argument)
-        (command_argument)))))
+    (statement_kind
+      (expression
+        (command
+          (command_text)
+          (command_argument)
+          (command_argument))))))
 
 ================================================================================
 Command Sequence with Arguments
@@ -82,19 +88,21 @@ Command Sequence with Arguments
 
 (root
   (statement
-    (expression
-      (command
-        (command_text)
-        (command_argument)
-        (command_argument)
-        (command_argument)
-        (command_argument))))
+    (statement_kind
+      (expression
+        (command
+          (command_text)
+          (command_argument)
+          (command_argument)
+          (command_argument)
+          (command_argument)))))
   (statement
-    (expression
-      (command
-        (command_text)
-        (command_argument)
-        (command_argument)))))
+    (statement_kind
+      (expression
+        (command
+          (command_text)
+          (command_argument)
+          (command_argument))))))
 
 ================================================================================
 Command Assignment
@@ -107,24 +115,28 @@ cat_output = ^cat Cargo.toml;
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (command
-            (command_text)
-            (command_argument)
-            (command_argument))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (command
+                (command_text)
+                (command_argument)
+                (command_argument))))))))
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (command
-            (command_text)
-            (command_argument)))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (command
+                (command_text)
+                (command_argument)))))))))
 
 ================================================================================
 Command with Semicolon
@@ -136,18 +148,21 @@ ls_output = ^ls --long -a; ls_output
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (command
-            (command_text)
-            (command_argument)
-            (command_argument))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (command
+                (command_text)
+                (command_argument)
+                (command_argument))))))))
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))
 
 ================================================================================
 Command with Semicolon
@@ -159,18 +174,21 @@ ls_output = ^ls --long -a; ls_output
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (command
-            (command_text)
-            (command_argument)
-            (command_argument))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (command
+                (command_text)
+                (command_argument)
+                (command_argument))))))))
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))
 
 ================================================================================
 Command with Quoted Semicolon
@@ -182,14 +200,17 @@ ls_output = ^echo ';'; ls_output
 
 (root
   (statement
-    (assignment
-      (identifier)
-      (assignment_operator)
-      (statement
-        (expression
-          (command
-            (command_text)
-            (command_argument))))))
+    (statement_kind
+      (assignment
+        (identifier)
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (command
+                (command_text)
+                (command_argument))))))))
   (statement
-    (expression
-      (identifier))))
+    (statement_kind
+      (expression
+        (identifier)))))
