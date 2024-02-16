@@ -1,4 +1,4 @@
-//! An execution context that store variables and type data during the
+//! An execution context that stores variables and type data during the
 //! [Interpreter][crate::Interpreter]'s abstraction and execution process.
 //!
 //! ## Setting values
@@ -144,7 +144,7 @@ impl Context {
         Ok(None)
     }
 
-    /// Get a value from the context.
+    /// Get a type definition from the context.
     ///
     /// This will also return a built-in type definition if one matches the key.
     /// See the [module-level docs][self] for more info.
