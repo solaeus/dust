@@ -7,8 +7,6 @@ pub(crate) mod rw_lock_error;
 mod syntax_error;
 mod validation_error;
 
-use colored::Colorize;
-use lyneate::Report;
 pub use runtime_error::RuntimeError;
 pub use syntax_error::SyntaxError;
 pub use validation_error::ValidationError;
@@ -36,43 +34,13 @@ impl Error {
     /// The `source` argument should be the full source code document that was
     /// used to create this error.
     pub fn create_report(&self, source: &str) -> String {
-        let markers = if let Error::Syntax(SyntaxError::InvalidSource { position }) = self {
-            vec![(
-                position.start_byte..position.end_byte,
-                format!(
-                    "Invalid syntax from ({}, {}) to ({}, {}).",
-                    position.start_row,
-                    position.start_column,
-                    position.end_row,
-                    position.end_column,
-                ),
-                (255, 200, 100),
-            )]
-        } else if let Error::Syntax(SyntaxError::UnexpectedSyntaxNode {
-            expected,
-            actual,
-            position,
-        }) = self
-        {
-            vec![(
-                position.start_byte..position.end_byte,
-                format!(
-                    "Unexpected syntax from ({}, {}) to ({}, {}). {}",
-                    position.start_row,
-                    position.start_column,
-                    position.end_row,
-                    position.end_column,
-                    format!("Expected {} but got {}.", expected, actual).dimmed(),
-                ),
-                (255, 100, 100),
-            )]
-        } else {
-            vec![]
-        };
-
-        let report = Report::new_byte_spanned(source, markers);
-
-        report.display_str()
+        match self {
+            Error::Syntax(syntax_error) => syntax_error.create_report(source),
+            Error::Validation(_) => todo!(),
+            Error::Runtime(runtime_error) => runtime_error.create_report(source),
+            Error::ParserCancelled => todo!(),
+            Error::Language(_) => todo!(),
+        }
     }
 }
 

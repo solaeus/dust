@@ -38,8 +38,16 @@ fn conversion_runtime_error() {
     assert_eq!(
         interpret(&format!("json:parse('{JSON}') as [map]")),
         Err(Error::Runtime(RuntimeError::ConversionImpossible {
-            value: json_value,
-            target_type: Type::List(Box::new(Type::Map))
+            from: json_value.r#type().unwrap(),
+            to: Type::List(Box::new(Type::Map)),
+            position: SourcePosition {
+                start_byte: 0,
+                end_byte: 0,
+                start_row: 0,
+                start_column: 0,
+                end_row: 0,
+                end_column: 0
+            }
         }))
     )
 }

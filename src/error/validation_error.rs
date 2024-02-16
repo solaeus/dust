@@ -8,16 +8,6 @@ use super::rw_lock_error::RwLockError;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValidationError {
-    /// The 'assert' macro did not resolve successfully.
-    AssertEqualFailed {
-        expected: Value,
-        actual: Value,
-        position: SourcePosition,
-    },
-
-    /// The 'assert' macro did not resolve successfully.
-    AssertFailed { position: SourcePosition },
-
     /// Two value are incompatible for addition.
     CannotAdd { left: Value, right: Value },
 

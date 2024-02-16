@@ -90,9 +90,22 @@ impl AbstractTree for As {
                 }
                 _ => {
                     return Err(RuntimeError::ConversionImpossible {
-                        value,
-                        target_type: self.r#type.clone(),
+                        from: value.r#type()?,
+                        to: self.r#type.clone(),
+                        position: self.position.clone(),
                     });
+                }
+            }
+        } else if let Type::Integer = self.r#type {
+            match value {
+                Value::Integer(integer) => Value::Integer(integer),
+                Value::Float(float) => Value::Integer(float as i64),
+                _ => {
+                    return Err(RuntimeError::ConversionImpossible {
+                        from: value.r#type()?,
+                        to: self.r#type.clone(),
+                        position: self.position.clone(),
+                    })
                 }
             }
         } else {

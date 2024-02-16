@@ -7,16 +7,31 @@ use std::{
     time,
 };
 
-use crate::{Type, Value};
+use colored::Colorize;
+use lyneate::Report;
+
+use crate::{SourcePosition, Type, Value};
 
 use super::{rw_lock_error::RwLockError, ValidationError};
 
 #[derive(Debug, PartialEq)]
 pub enum RuntimeError {
+    /// The 'assert' macro did not resolve successfully.
+    AssertEqualFailed {
+        left: Value,
+        right: Value,
+    },
+
+    /// The 'assert' macro did not resolve successfully.
+    AssertFailed {
+        assertion: Value,
+    },
+
     /// The attempted conversion is impossible.
     ConversionImpossible {
-        value: Value,
-        target_type: Type,
+        from: Type,
+        to: Type,
+        position: SourcePosition,
     },
 
     Csv(String),
@@ -116,6 +131,68 @@ pub enum RuntimeError {
 }
 
 impl RuntimeError {
+    pub fn create_report(&self, source: &str) -> String {
+        let messages = match self {
+            RuntimeError::AssertEqualFailed {
+                left: expected,
+                right: actual,
+            } => {
+                vec![(
+                    0..source.len(),
+                    format!("\"assert_equal\" failed. {} != {}", expected, actual),
+                    (200, 100, 100),
+                )]
+            }
+            RuntimeError::AssertFailed { assertion } => todo!(),
+            RuntimeError::ConversionImpossible { from, to, position } => vec![(
+                position.start_byte..position.end_byte,
+                format!(
+                    "Impossible conversion. {}",
+                    format!("Cannot convert from {from} to {to}.").dimmed()
+                ),
+                (255, 100, 100),
+            )],
+            RuntimeError::Csv(_) => todo!(),
+            RuntimeError::Io(_) => todo!(),
+            RuntimeError::Reqwest(_) => todo!(),
+            RuntimeError::Json(_) => todo!(),
+            RuntimeError::SystemTime(_) => todo!(),
+            RuntimeError::Toml(_) => todo!(),
+            RuntimeError::ExpectedString { actual } => todo!(),
+            RuntimeError::ExpectedInteger { actual } => todo!(),
+            RuntimeError::ExpectedFloat { actual } => todo!(),
+            RuntimeError::ExpectedNumber { actual } => todo!(),
+            RuntimeError::ExpectedNumberOrString { actual } => todo!(),
+            RuntimeError::ExpectedBoolean { actual } => todo!(),
+            RuntimeError::ExpectedList { actual } => todo!(),
+            RuntimeError::ExpectedMinLengthList {
+                minimum_len,
+                actual_len,
+            } => todo!(),
+            RuntimeError::ExpectedFixedLenList {
+                expected_len,
+                actual,
+            } => todo!(),
+            RuntimeError::ExpectedNone { actual } => todo!(),
+            RuntimeError::ExpectedMap { actual } => todo!(),
+            RuntimeError::ExpectedTable { actual } => todo!(),
+            RuntimeError::ExpectedFunction { actual } => todo!(),
+            RuntimeError::ExpectedOption { actual } => todo!(),
+            RuntimeError::ExpectedCollection { actual } => todo!(),
+            RuntimeError::RwLock(_) => todo!(),
+            RuntimeError::ParseFloat(_) => todo!(),
+            RuntimeError::Utf8(_) => todo!(),
+            RuntimeError::ExpectedBuiltInFunctionArgumentAmount {
+                function_name,
+                expected,
+                actual,
+            } => todo!(),
+            RuntimeError::ValidationFailure(_) => todo!(),
+        };
+
+        Report::new_byte_spanned(source, messages).display_str()
+    }
+
     pub fn expect_argument_amount(
         function_name: &str,
         expected: usize,

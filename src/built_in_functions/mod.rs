@@ -102,21 +102,18 @@ impl Callable for BuiltInFunction {
                 let left = arguments.get(0).unwrap();
                 let right = arguments.get(1).unwrap();
 
-                let result = if left == right {
-                    Value::Enum(EnumInstance::new(
+                if left == right {
+                    Ok(Value::Enum(EnumInstance::new(
                         Identifier::new("Result"),
                         Identifier::new("Ok"),
                         Some(Value::none()),
-                    ))
+                    )))
                 } else {
-                    Value::Enum(EnumInstance::new(
-                        Identifier::new("Result"),
-                        Identifier::new("Error"),
-                        Some(Value::none()),
-                    ))
-                };
-
-                Ok(result)
+                    Err(RuntimeError::AssertEqualFailed {
+                        left: left.clone(),
+                        right: right.clone(),
+                    })
+                }
             }
             BuiltInFunction::Fs(fs_function) => fs_function.call(arguments, _source, context),
             BuiltInFunction::Json(json_function) => json_function.call(arguments, _source, context),

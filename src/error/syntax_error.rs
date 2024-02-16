@@ -1,5 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
+use lyneate::Report;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node as SyntaxNode;
 
@@ -24,6 +25,32 @@ pub enum SyntaxError {
 }
 
 impl SyntaxError {
+    pub fn create_report(&self, source: &str) -> String {
+        let messages = match self {
+            SyntaxError::InvalidSource { position } => {
+                vec![(
+                    position.start_byte..position.end_byte,
+                    format!(
+                        "Invalid syntax from ({}, {}) to ({}, {}).",
+                        position.start_row,
+                        position.start_column,
+                        position.end_row,
+                        position.end_column,
+                    ),
+                    (255, 200, 100),
+                )]
+            }
+            SyntaxError::RwLock(_) => todo!(),
+            SyntaxError::UnexpectedSyntaxNode {
+                expected,
+                actual,
+                position,
+            } => todo!(),
+        };
+
+        Report::new_byte_spanned(source, messages).display_str()
+    }
+
     pub fn expect_syntax_node(expected: &str, actual: SyntaxNode) -> Result<(), SyntaxError> {
         log::info!("Converting {} to abstract node", actual.kind());
 
