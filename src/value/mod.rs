@@ -1,6 +1,8 @@
 //! Types that represent runtime values.
 use crate::{
-    built_in_values::BuiltInValue, error::RuntimeError, Identifier, Type, TypeSpecification,
+    built_in_values::BuiltInValue,
+    error::{rw_lock_error::RwLockError, RuntimeError, ValidationError},
+    Identifier, Type, TypeSpecification,
 };
 
 use serde::{
@@ -68,17 +70,17 @@ impl Value {
         Value::Range(start..=end)
     }
 
-    pub fn r#type(&self) -> Type {
-        match self {
+    pub fn r#type(&self) -> Result<Type, RwLockError> {
+        let r#type = match self {
             Value::List(list) => {
                 let mut previous_type = None;
 
-                for value in list.items().iter() {
+                for value in list.items()?.iter() {
                     let value_type = value.r#type();
 
                     if let Some(previous) = &previous_type {
                         if &value_type != previous {
-                            return Type::List(Box::new(Type::Any));
+                            return Ok(Type::List(Box::new(Type::Any)));
                         }
                     }
 
@@ -86,7 +88,7 @@ impl Value {
                 }
 
                 if let Some(previous) = previous_type {
-                    Type::List(Box::new(previous))
+                    Type::List(Box::new(previous?))
                 } else {
                     Type::List(Box::new(Type::Any))
                 }
@@ -97,7 +99,7 @@ impl Value {
                 for (key, value) in map.inner() {
                     identifier_types.push((
                         Identifier::new(key.inner()),
-                        TypeSpecification::new(value.r#type()),
+                        TypeSpecification::new(value.r#type()?),
                     ));
                 }
 
@@ -111,7 +113,9 @@ impl Value {
             Value::Range(_) => todo!(),
             Value::Struct(_) => todo!(),
             Value::Enum(_) => todo!(),
-        }
+        };
+
+        Ok(r#type)
     }
 
     pub fn is_string(&self) -> bool {
@@ -150,7 +154,8 @@ impl Value {
         self == &Value::none()
     }
 
-    /// Borrows the value stored in `self` as `&String`, or returns `Err` if `self` is not a `Value::String`.
+    /// Borrows the value stored in `self` as `&String`, or returns `Err` if
+    /// `self` is not a `Value::String`.
     pub fn as_string(&self) -> Result<&String, RuntimeError> {
         match self {
             Value::String(string) => Ok(string),
@@ -160,7 +165,8 @@ impl Value {
         }
     }
 
-    /// Copies the value stored in `self` as `i64`, or returns `Err` if `self` is not a `Value::Int`
+    /// Copies the value stored in `self` as `i64`, or returns `Err` if `self`
+    /// is not a `Value::Int`
     pub fn as_integer(&self) -> Result<i64, RuntimeError> {
         match self {
             Value::Integer(i) => Ok(*i),
@@ -170,7 +176,8 @@ impl Value {
         }
     }
 
-    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Primitive::Float`.
+    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self`
+    /// is not a `Primitive::Float`.
     pub fn as_float(&self) -> Result<f64, RuntimeError> {
         match self {
             Value::Float(f) => Ok(*f),
@@ -180,8 +187,11 @@ impl Value {
         }
     }
 
-    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self` is not a `Primitive::Float` or `Value::Int`.
-    /// Note that this method silently converts `i64` to `f64`, if `self` is a `Value::Int`.
+    /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self`
+    /// is not a `Primitive::Float` or `Value::Int`.
+    ///
+    /// Note that this method silently converts `i64` to `f64`, if `self` is
+    /// a `Value::Int`.
     pub fn as_number(&self) -> Result<f64, RuntimeError> {
         match self {
             Value::Float(f) => Ok(*f),
@@ -192,7 +202,8 @@ impl Value {
         }
     }
 
-    /// Copies the value stored in  `self` as `bool`, or returns `Err` if `self` is not a `Primitive::Boolean`.
+    /// Copies the value stored in  `self` as `bool`, or returns `Err` if `self`
+    /// is not a `Primitive::Boolean`.
     pub fn as_boolean(&self) -> Result<bool, RuntimeError> {
         match self {
             Value::Boolean(boolean) => Ok(*boolean),
@@ -202,7 +213,8 @@ impl Value {
         }
     }
 
-    /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
+    /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if
+    /// `self` is not a `Value::List`.
     pub fn as_list(&self) -> Result<&List, RuntimeError> {
         match self {
             Value::List(list) => Ok(list),
@@ -212,7 +224,8 @@ impl Value {
         }
     }
 
-    /// Takes ownership of the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::List`.
+    /// Takes ownership of the value stored in `self` as `Vec<Value>`, or
+    /// returns `Err` if `self` is not a `Value::List`.
     pub fn into_inner_list(self) -> Result<List, RuntimeError> {
         match self {
             Value::List(list) => Ok(list),
@@ -222,7 +235,8 @@ impl Value {
         }
     }
 
-    /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if `self` is not a `Value::Map`.
+    /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if
+    /// `self` is not a `Value::Map`.
     pub fn as_map(&self) -> Result<&Map, RuntimeError> {
         match self {
             Value::Map(map) => Ok(map),
@@ -240,6 +254,35 @@ impl Value {
             value => Err(RuntimeError::ExpectedFunction {
                 actual: value.clone(),
             }),
+        }
+    }
+
+    pub fn add_assign(self, other: Self) -> Result<Value, ValidationError> {
+        match (self, other) {
+            (Value::Float(_), Value::Float(_)) => todo!(),
+            (Value::Float(_), Value::Integer(_)) => todo!(),
+            (Value::Integer(left), Value::Float(right)) => Ok(Value::Float((left as f64) + right)),
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
+            (Value::List(list), value) | (value, Value::List(list)) => {
+                list.items_mut()?.push(value);
+
+                Ok(Value::List(list))
+            }
+            (Value::Map(_), _) | (_, Value::Map(_)) => todo!(),
+            (Value::String(_), Value::String(_)) => todo!(),
+            (left, right) => Err(ValidationError::CannotAdd { left, right }),
+        }
+    }
+
+    pub fn sub_assign(self, other: Self) -> Result<Value, ValidationError> {
+        match (self, other) {
+            (Value::Float(_), Value::Float(_)) => todo!(),
+            (Value::Float(_), Value::Integer(_)) => todo!(),
+            (Value::Integer(left), Value::Float(right)) => Ok(Value::Float((left as f64) + right)),
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
+            (Value::Map(_), _) | (_, Value::Map(_)) => todo!(),
+            (Value::String(_), Value::String(_)) => todo!(),
+            (left, right) => Err(ValidationError::CannotSubtract { left, right }),
         }
     }
 }
@@ -360,7 +403,6 @@ impl AddAssign for Value {
             (Value::Float(left), Value::Float(right)) => *left += right,
             (Value::Float(left), Value::Integer(right)) => *left += right as f64,
             (Value::String(left), Value::String(right)) => *left += &right,
-            (Value::List(list), value) => list.items_mut().push(value),
             _ => {}
         }
     }
@@ -372,17 +414,6 @@ impl SubAssign for Value {
             (Value::Integer(left), Value::Integer(right)) => *left -= right,
             (Value::Float(left), Value::Float(right)) => *left -= right,
             (Value::Float(left), Value::Integer(right)) => *left -= right as f64,
-            (Value::List(list), value) => {
-                let index_to_remove = list
-                    .items()
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, list_value)| if list_value == &value { Some(i) } else { None });
-
-                if let Some(index) = index_to_remove {
-                    list.items_mut().remove(index);
-                }
-            }
             _ => {}
         }
     }
@@ -465,7 +496,12 @@ impl Serialize for Value {
             Value::Integer(inner) => serializer.serialize_i64(*inner),
             Value::Boolean(inner) => serializer.serialize_bool(*inner),
             Value::List(inner) => {
-                let items = inner.items();
+                let items = if let Ok(items) = inner.items() {
+                    items
+                } else {
+                    return Err(serde::ser::Error::custom("failed to obtain a read lock"));
+                };
+
                 let mut list = serializer.serialize_tuple(items.len())?;
 
                 for value in items.iter() {

@@ -334,7 +334,7 @@ impl Callable for StrFunction {
                 RuntimeError::expect_argument_amount(self.name(), 3, arguments.len())?;
 
                 let mut string = arguments.first().unwrap().as_string()?.clone();
-                let range = arguments.get(1).unwrap().as_list()?.items();
+                let range = arguments.get(1).unwrap().as_list()?.items()?;
                 let start = range[0].as_integer()? as usize;
                 let end = range[1].as_integer()? as usize;
                 let pattern = arguments.get(2).unwrap().as_string()?;

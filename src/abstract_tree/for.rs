@@ -108,12 +108,12 @@ impl AbstractTree for For {
 
         if let Value::List(list) = &expression_run {
             if self.is_async {
-                list.items().par_iter().try_for_each(|value| {
+                list.items()?.par_iter().try_for_each(|value| {
                     self.context.set_value(key.clone(), value.clone())?;
                     self.block.run(source, &self.context).map(|_value| ())
                 })?;
             } else {
-                for value in list.items().iter() {
+                for value in list.items()?.iter() {
                     self.context.set_value(key.clone(), value.clone())?;
                     self.block.run(source, &self.context)?;
                 }

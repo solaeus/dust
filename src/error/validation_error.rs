@@ -18,6 +18,18 @@ pub enum ValidationError {
     /// The 'assert' macro did not resolve successfully.
     AssertFailed { position: SourcePosition },
 
+    /// Two value are incompatible for addition.
+    CannotAdd { left: Value, right: Value },
+
+    /// Two value are incompatible for subtraction.
+    CannotSubtract { left: Value, right: Value },
+
+    /// Two value are incompatible for multiplication.
+    CannotMultiply { left: Value, right: Value },
+
+    /// Two value are incompatible for dividing.
+    CannotDivide { left: Value, right: Value },
+
     /// The attempted conversion is impossible.
     ConversionImpossible {
         initial_type: Type,

@@ -55,7 +55,7 @@ impl AbstractTree for Index {
         match value {
             Value::List(list) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
-                let item = list.items().get(index).cloned().unwrap_or_default();
+                let item = list.items()?.get(index).cloned().unwrap_or_default();
 
                 Ok(item)
             }

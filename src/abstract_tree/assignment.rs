@@ -1,3 +1,5 @@
+use std::ops::AddAssign;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -129,13 +131,12 @@ impl AbstractTree for Assignment {
     }
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        let value = self.statement.run(source, context)?;
+        let right = self.statement.run(source, context)?;
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = context.get_value(&self.identifier)? {
-                    previous_value += value;
-                    previous_value
+                if let Some(left) = context.get_value(&self.identifier)? {
+                    left.add_assign(right)?
                 } else {
                     return Err(RuntimeError::VariableIdentifierNotFound(
                         self.identifier.clone(),
@@ -143,16 +144,15 @@ impl AbstractTree for Assignment {
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = context.get_value(&self.identifier)? {
-                    previous_value -= value;
-                    previous_value
+                if let Some(mut left) = context.get_value(&self.identifier)? {
+                    left.sub_assign(right)?
                 } else {
                     return Err(RuntimeError::VariableIdentifierNotFound(
                         self.identifier.clone(),
                     ));
                 }
             }
-            AssignmentOperator::Equal => value,
+            AssignmentOperator::Equal => right,
         };
 
         context.set_value(self.identifier.clone(), new_value)?;

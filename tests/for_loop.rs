@@ -42,12 +42,12 @@ fn modify_list() {
     );
 
     assert_eq!(
+        result,
         Ok(Value::List(List::with_items(vec![
             Value::Integer(1),
             Value::Integer(2),
             Value::Integer(3),
         ]))),
-        result
     );
 }
 
@@ -74,7 +74,7 @@ fn modify_map() {
 }
 
 #[test]
-fn do_not_modify_list_values() {
+fn modify_list_values() {
     let result = interpret(
         "
         list = [1 2 3]
@@ -84,12 +84,12 @@ fn do_not_modify_list_values() {
     );
 
     assert_eq!(
+        result,
         Ok(Value::List(List::with_items(vec![
-            Value::Integer(1),
             Value::Integer(2),
             Value::Integer(3),
+            Value::Integer(4),
         ]))),
-        result
     );
 }
 

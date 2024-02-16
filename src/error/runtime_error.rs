@@ -136,6 +136,12 @@ impl RuntimeError {
     }
 }
 
+impl From<ValidationError> for RuntimeError {
+    fn from(error: ValidationError) -> Self {
+        RuntimeError::ValidationFailure(error)
+    }
+}
+
 impl From<csv::Error> for RuntimeError {
     fn from(error: csv::Error) -> Self {
         RuntimeError::Csv(error.to_string())
@@ -184,12 +190,6 @@ impl From<FromUtf8Error> for RuntimeError {
     }
 }
 
-impl Display for RuntimeError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{self:?}")
-    }
-}
-
 impl From<RwLockError> for RuntimeError {
     fn from(error: RwLockError) -> Self {
         RuntimeError::RwLock(error)
@@ -199,5 +199,11 @@ impl From<RwLockError> for RuntimeError {
 impl<T> From<PoisonError<T>> for RuntimeError {
     fn from(_: PoisonError<T>) -> Self {
         RuntimeError::RwLock(RwLockError)
+    }
+}
+
+impl Display for RuntimeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{self:?}")
     }
 }

@@ -117,7 +117,7 @@ impl Context {
         Ok(())
     }
 
-    /// Modify a context to take the functions and type definitions of another.
+    /// Modify a context to take all the information of another.
     ///
     /// In the case of the conflict, the inherited value will override the previous
     /// value.
@@ -173,7 +173,7 @@ impl Context {
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockError> {
         if let Some(value_data) = self.inner.read()?.get(identifier) {
             match value_data {
-                ValueData::Value { inner, .. } => return Ok(Some(inner.r#type())),
+                ValueData::Value { inner, .. } => return Ok(Some(inner.r#type()?)),
                 ValueData::TypeHint { inner, .. } => return Ok(Some(inner.clone())),
                 ValueData::TypeDefinition(_) => todo!(),
             }
@@ -181,7 +181,7 @@ impl Context {
 
         for built_in_value in all_built_in_values() {
             if built_in_value.name() == identifier.inner().as_ref() {
-                return Ok(Some(built_in_value.get().r#type()));
+                return Ok(Some(built_in_value.get().r#type()?));
             }
         }
 

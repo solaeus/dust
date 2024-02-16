@@ -125,7 +125,7 @@ impl Callable for BuiltInFunction {
 
                 let value = arguments.first().unwrap();
                 let length = if let Ok(list) = value.as_list() {
-                    list.items().len()
+                    list.items()?.len()
                 } else if let Ok(map) = value.as_map() {
                     map.inner().len()
                 } else if let Ok(str) = value.as_string() {
@@ -163,7 +163,7 @@ impl Callable for BuiltInFunction {
                 let value = arguments.first().unwrap();
 
                 if let Ok(list) = value.as_list() {
-                    let items = list.items();
+                    let items = list.items()?;
 
                     if items.len() == 0 {
                         Ok(Value::none())

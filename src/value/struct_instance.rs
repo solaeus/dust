@@ -21,7 +21,7 @@ impl Display for StructInstance {
         writeln!(f, "{{")?;
 
         for (key, value) in self.map.inner() {
-            writeln!(f, "  {key} <{}> = {value}", value.r#type())?;
+            writeln!(f, "  {key} <{}> = {value}", value.r#type().unwrap())?;
         }
 
         write!(f, "}}")
