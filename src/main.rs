@@ -113,7 +113,7 @@ fn main() {
                 println!("{value}")
             }
         }
-        Err(error) => eprintln!("{error}"),
+        Err(error) => eprintln!("{}", error.create_report(&source)),
     }
 }
 

@@ -7,6 +7,7 @@ pub(crate) mod rw_lock_error;
 mod syntax_error;
 mod validation_error;
 
+use lyneate::Report;
 pub use runtime_error::RuntimeError;
 pub use syntax_error::SyntaxError;
 pub use validation_error::ValidationError;
@@ -26,6 +27,34 @@ pub enum Error {
     ParserCancelled,
 
     Language(LanguageError),
+}
+
+impl Error {
+    /// Create a pretty error report with `lyneate`.
+    ///
+    /// The `source` argument should be the full source code document that was
+    /// used to create this error.
+    pub fn create_report(&self, source: &str) -> String {
+        let markers = if let Error::Syntax(SyntaxError::InvalidSource { source, position }) = self {
+            vec![(
+                position.start_byte..position.end_byte,
+                format!(
+                    "Invalid syntax from ({}, {}) to ({}, {}).",
+                    position.start_row,
+                    position.start_column,
+                    position.end_column,
+                    position.end_row
+                ),
+                (255, 100, 100),
+            )]
+        } else {
+            vec![]
+        };
+
+        let report = Report::new_byte_spanned(source, markers);
+
+        report.display_str()
+    }
 }
 
 impl From<SyntaxError> for Error {

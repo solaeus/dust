@@ -1,6 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use lyneate::Report;
 use serde::{Deserialize, Serialize};
 use tree_sitter::{Node as SyntaxNode, Point};
 
@@ -63,25 +62,6 @@ impl From<RwLockError> for SyntaxError {
 
 impl Display for SyntaxError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if let SyntaxError::InvalidSource { source, position } = self {
-            let report = Report::new_char_spanned(
-                &source,
-                [(
-                    position.start_byte..position.end_byte,
-                    format!(
-                        "Invalid syntax from ({}, {}) to ({}, {}).",
-                        position.start_row,
-                        position.start_column,
-                        position.end_column,
-                        position.end_row
-                    ),
-                    (255, 100, 100),
-                )],
-            );
-
-            f.write_str(&report.display_str())
-        } else {
-            write!(f, "{self:?}")
-        }
+        todo!()
     }
 }
