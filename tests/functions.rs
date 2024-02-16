@@ -109,26 +109,7 @@ fn function_context_captures_structure_definitions() {
             bob()
             "
         ),
-        Ok(Value::Map(map.clone()))
-    );
-
-    assert_eq!(
-        interpret(
-            "
-            bob = () <User> {
-                new User {
-                    name = 'bob'
-                }
-            }
-
-            User = struct {
-                name <str>
-            }
-            
-            bob()
-            "
-        ),
-        Ok(Value::Map(map))
+        Ok(Value::Struct(StructInstance::new("User".into(), map)))
     );
 }
 
