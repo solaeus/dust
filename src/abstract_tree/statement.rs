@@ -10,7 +10,13 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Statement {
     is_return: bool,
-    statement_inner: StatementKind,
+    statement_kind: StatementKind,
+}
+
+impl Statement {
+    pub fn is_return(&self) -> bool {
+        self.is_return
+    }
 }
 
 impl AbstractTree for Statement {
@@ -22,35 +28,43 @@ impl AbstractTree for Statement {
         SyntaxError::expect_syntax_node(source, "statement", node)?;
 
         let first_child = node.child(0).unwrap();
-        let is_return = first_child.kind() == "return";
+        let mut is_return = first_child.kind() == "return";
         let child = if is_return {
             node.child(1).unwrap()
         } else {
             first_child
         };
 
+        let statement_kind = StatementKind::from_syntax(child, source, _context)?;
+
+        if let StatementKind::Block(block) = &statement_kind {
+            if block.contains_return() {
+                is_return = true;
+            }
+        };
+
         Ok(Statement {
             is_return,
-            statement_inner: StatementKind::from_syntax(child, source, _context)?,
+            statement_kind,
         })
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        self.statement_inner.expected_type(_context)
+        self.statement_kind.expected_type(_context)
     }
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
-        self.statement_inner.validate(_source, _context)
+        self.statement_kind.validate(_source, _context)
     }
 
     fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
-        self.statement_inner.run(_source, _context)
+        self.statement_kind.run(_source, _context)
     }
 }
 
 impl Format for Statement {
     fn format(&self, _output: &mut String, _indent_level: u8) {
-        self.statement_inner.format(_output, _indent_level)
+        self.statement_kind.format(_output, _indent_level)
     }
 }
 

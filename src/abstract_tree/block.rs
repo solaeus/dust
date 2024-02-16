@@ -22,7 +22,14 @@ use crate::{
 #[derive(Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
     is_async: bool,
+    contains_return: bool,
     statements: Vec<Statement>,
+}
+
+impl Block {
+    pub fn contains_return(&self) -> bool {
+        self.contains_return
+    }
 }
 
 impl AbstractTree for Block {
@@ -31,6 +38,7 @@ impl AbstractTree for Block {
 
         let first_child = node.child(0).unwrap();
         let is_async = first_child.kind() == "async";
+        let mut contains_return = false;
 
         let statement_count = if is_async {
             node.child_count() - 3
@@ -46,12 +54,17 @@ impl AbstractTree for Block {
             if child_node.kind() == "statement" {
                 let statement = Statement::from_syntax(child_node, source, &block_context)?;
 
+                if statement.is_return() {
+                    contains_return = true;
+                }
+
                 statements.push(statement);
             }
         }
 
         Ok(Block {
             is_async,
+            contains_return,
             statements,
         })
     }
@@ -74,9 +87,13 @@ impl AbstractTree for Block {
                 .enumerate()
                 .find_map_first(|(index, statement)| {
                     let result = statement.run(_source, _context);
-                    let is_last_statement = index == statements.len() - 1;
+                    let should_return = if self.contains_return {
+                        statement.is_return()
+                    } else {
+                        index == statements.len() - 1
+                    };
 
-                    if is_last_statement {
+                    if should_return {
                         let get_write_lock = final_result.write();
 
                         match get_write_lock {
@@ -92,22 +109,32 @@ impl AbstractTree for Block {
                 })
                 .unwrap_or(final_result.into_inner().map_err(|_| RwLockError)?)
         } else {
-            let mut prev_result = None;
+            for (index, statement) in self.statements.iter().enumerate() {
+                if statement.is_return() {
+                    return statement.run(_source, _context);
+                }
 
-            for statement in &self.statements {
-                prev_result = Some(statement.run(_source, _context));
+                if index == self.statements.len() - 1 {
+                    return statement.run(_source, _context);
+                }
             }
 
-            prev_result.unwrap_or(Ok(Value::none()))
+            Ok(Value::none())
         }
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        if let Some(statement) = self.statements.last() {
-            statement.expected_type(_context)
-        } else {
-            Ok(Type::None)
+        for (index, statement) in self.statements.iter().enumerate() {
+            if statement.is_return() {
+                return statement.expected_type(_context);
+            }
+
+            if index == self.statements.len() - 1 {
+                return statement.expected_type(_context);
+            }
         }
+
+        Ok(Type::None)
     }
 }
 
