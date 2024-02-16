@@ -120,6 +120,7 @@ impl Context {
         }
 
         for built_in_value in all_built_in_values() {
+            println!("{} {}", built_in_value.name(), identifier.inner());
             if built_in_value.name() == identifier.inner().as_ref() {
                 return Ok(Some(built_in_value.get().clone()));
             }
@@ -138,6 +139,12 @@ impl Context {
                 ValueData::Value { inner, .. } => return Ok(Some(inner.r#type())),
                 ValueData::TypeHint { inner, .. } => return Ok(Some(inner.clone())),
                 ValueData::TypeDefinition(_) => todo!(),
+            }
+        }
+
+        for built_in_value in all_built_in_values() {
+            if built_in_value.name() == identifier.inner().as_ref() {
+                return Ok(Some(built_in_value.get().r#type()));
             }
         }
 
