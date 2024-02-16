@@ -86,6 +86,18 @@ impl Format for Identifier {
     }
 }
 
+impl From<String> for Identifier {
+    fn from(value: String) -> Self {
+        Identifier::from_raw_parts(Arc::new(value))
+    }
+}
+
+impl From<&str> for Identifier {
+    fn from(value: &str) -> Self {
+        Identifier::new(value)
+    }
+}
+
 impl Display for Identifier {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.0)

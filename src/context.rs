@@ -12,7 +12,7 @@
 //! let context = Context::new();
 //!
 //! context.set_value(
-//!     "foobar".to_string(),
+//!     "foobar".into(),
 //!     Value::String("FOOBAR".to_string())
 //! ).unwrap();
 //!
@@ -84,8 +84,8 @@ impl Context {
     /// let second_context = Context::new();
     ///
     /// second_context.set_value(
-    /// "Foo".to_string(),
-    /// Value::String("Bar".to_string())
+    ///     "Foo".into(),
+    ///     Value::String("Bar".to_string())
     /// );
     ///
     /// first_context.inherit_from(&second_context).unwrap();
