@@ -69,11 +69,11 @@ impl Display for SyntaxError {
                 [(
                     position.start_byte..position.end_byte,
                     format!(
-                        "Syntax error at ({}, {}) to ({}, {}).",
+                        "Invalid syntax from ({}, {}) to ({}, {}).",
                         position.start_row,
                         position.start_column,
-                        position.end_row,
-                        position.end_column
+                        position.end_column,
+                        position.end_row
                     ),
                     (255, 100, 100),
                 )],

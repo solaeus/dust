@@ -124,31 +124,7 @@ impl Interpreter {
     /// - generate an abstract tree from the source and syntax tree
     /// - check the abstract tree for type errors
     pub fn validate(&mut self, source: &str) -> Result<Root, Error> {
-        fn check_for_error(
-            node: SyntaxNode,
-            source: &str,
-            cursor: &mut TreeCursor,
-        ) -> Result<(), Error> {
-            if node.is_error() {
-                Err(Error::Syntax(SyntaxError::InvalidSource {
-                    source: source[node.byte_range()].to_string(),
-                    position: SourcePosition::from(node.range()),
-                }))
-            } else {
-                for child in node.children(&mut cursor.clone()) {
-                    check_for_error(child, source, cursor)?;
-                }
-
-                Ok(())
-            }
-        }
-
         let syntax_tree = self.parse(source)?;
-        let root = syntax_tree.root_node();
-        let mut cursor = syntax_tree.root_node().walk();
-
-        check_for_error(root, source, &mut cursor)?;
-
         let abstract_tree = Root::from_syntax(syntax_tree.root_node(), source, &self.context)?;
 
         abstract_tree.validate(source, &self.context)?;
