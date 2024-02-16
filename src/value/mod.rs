@@ -16,7 +16,7 @@ use std::{
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, Mul, RangeInclusive, Rem, Sub, SubAssign},
+    ops::RangeInclusive,
 };
 
 pub use self::{
@@ -257,10 +257,11 @@ impl Value {
         }
     }
 
-    pub fn add_assign(self, other: Self) -> Result<Value, ValidationError> {
+    /// Return the sum of `self` and `other`.
+    pub fn add(self, other: Self) -> Result<Value, ValidationError> {
         match (self, other) {
-            (Value::Float(_), Value::Float(_)) => todo!(),
-            (Value::Float(_), Value::Integer(_)) => todo!(),
+            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
+            (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left + right as f64)),
             (Value::Integer(left), Value::Float(right)) => Ok(Value::Float((left as f64) + right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
             (Value::List(list), value) | (value, Value::List(list)) => {
@@ -268,21 +269,52 @@ impl Value {
 
                 Ok(Value::List(list))
             }
-            (Value::Map(_), _) | (_, Value::Map(_)) => todo!(),
-            (Value::String(_), Value::String(_)) => todo!(),
+            (Value::String(left), Value::String(right)) => Ok(Value::String(left + &right)),
             (left, right) => Err(ValidationError::CannotAdd { left, right }),
         }
     }
 
-    pub fn sub_assign(self, other: Self) -> Result<Value, ValidationError> {
+    /// Return the difference of `self` and `other`.
+    pub fn subtract(self, other: Self) -> Result<Value, ValidationError> {
         match (self, other) {
-            (Value::Float(_), Value::Float(_)) => todo!(),
-            (Value::Float(_), Value::Integer(_)) => todo!(),
-            (Value::Integer(left), Value::Float(right)) => Ok(Value::Float((left as f64) + right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
-            (Value::Map(_), _) | (_, Value::Map(_)) => todo!(),
-            (Value::String(_), Value::String(_)) => todo!(),
+            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
+            (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left - right as f64)),
+            (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 - right)),
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left - right)),
             (left, right) => Err(ValidationError::CannotSubtract { left, right }),
+        }
+    }
+
+    /// Return the product of `self` and `other`.
+    pub fn multiply(self, other: Self) -> Result<Value, ValidationError> {
+        match (self, other) {
+            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left * right)),
+            (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left * right as f64)),
+            (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 * right)),
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left * right)),
+            (left, right) => Err(ValidationError::CannotMultiply { left, right }),
+        }
+    }
+
+    /// Return the quotient of `self` and `other`.
+    pub fn divide(self, other: Self) -> Result<Value, ValidationError> {
+        match (self, other) {
+            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left / right)),
+            (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left / right as f64)),
+            (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 / right)),
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left / right)),
+            (left, right) => Err(ValidationError::CannotDivide { left, right }),
+        }
+    }
+
+    /// Return the remainder after diving `self` and `other`.
+    pub fn modulo(self, other: Self) -> Result<Value, ValidationError> {
+        match (self, other) {
+            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left % right)),
+            (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left % right as f64)),
+            (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 % right)),
+            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left % right)),
+            (left, right) => Err(ValidationError::CannotDivide { left, right }),
         }
     }
 }
@@ -290,132 +322,6 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::none()
-    }
-}
-
-impl Add for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn add(self, other: Self) -> Self::Output {
-        if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
-            let (sum, _) = left.overflowing_add(right);
-
-            return Ok(Value::Integer(sum));
-        }
-
-        if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
-            return Ok(Value::Float(left + right));
-        }
-
-        if let (Ok(left), Ok(right)) = (self.as_string(), other.as_string()) {
-            return Ok(Value::string(left.to_string() + right.as_str()));
-        }
-
-        if self.is_string() || other.is_string() {
-            return Ok(Value::string(self.to_string() + &other.to_string()));
-        }
-
-        let non_number_or_string = if !self.is_number() == !self.is_string() {
-            self
-        } else {
-            other
-        };
-
-        Err(RuntimeError::ExpectedNumberOrString {
-            actual: non_number_or_string,
-        })
-    }
-}
-
-impl Sub for Value {
-    type Output = Result<Self, RuntimeError>;
-
-    fn sub(self, other: Self) -> Self::Output {
-        if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
-            let (difference, _) = left.overflowing_sub(right);
-
-            return Ok(Value::Integer(difference));
-        }
-
-        if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
-            return Ok(Value::Float(left - right));
-        }
-
-        let non_number = if !self.is_number() { self } else { other };
-
-        Err(RuntimeError::ExpectedNumber { actual: non_number })
-    }
-}
-
-impl Mul for Value {
-    type Output = Result<Self, RuntimeError>;
-
-    fn mul(self, other: Self) -> Self::Output {
-        if let (Ok(left), Ok(right)) = (self.as_integer(), other.as_integer()) {
-            Ok(Value::Integer(left.saturating_mul(right)))
-        } else if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
-            Ok(Value::Float(left * right))
-        } else {
-            let non_number = if !self.is_number() { self } else { other };
-
-            Err(RuntimeError::ExpectedNumber { actual: non_number })
-        }
-    }
-}
-
-impl Div for Value {
-    type Output = Result<Self, RuntimeError>;
-
-    fn div(self, other: Self) -> Self::Output {
-        if let (Ok(left), Ok(right)) = (self.as_number(), other.as_number()) {
-            let divided = left / right;
-            let is_even = divided % 2.0 == 0.0;
-
-            if self.is_integer() && other.is_integer() && is_even {
-                Ok(Value::Integer(divided as i64))
-            } else {
-                Ok(Value::Float(divided))
-            }
-        } else {
-            let non_number = if !self.is_number() { self } else { other };
-
-            Err(RuntimeError::ExpectedNumber { actual: non_number })
-        }
-    }
-}
-
-impl Rem for Value {
-    type Output = Result<Self, RuntimeError>;
-
-    fn rem(self, other: Self) -> Self::Output {
-        let left = self.as_integer()?;
-        let right = other.as_integer()?;
-        let result = left % right;
-
-        Ok(Value::Integer(result))
-    }
-}
-
-impl AddAssign for Value {
-    fn add_assign(&mut self, other: Self) {
-        match (self, other) {
-            (Value::Integer(left), Value::Integer(right)) => *left += right,
-            (Value::Float(left), Value::Float(right)) => *left += right,
-            (Value::Float(left), Value::Integer(right)) => *left += right as f64,
-            (Value::String(left), Value::String(right)) => *left += &right,
-            _ => {}
-        }
-    }
-}
-
-impl SubAssign for Value {
-    fn sub_assign(&mut self, other: Self) {
-        match (self, other) {
-            (Value::Integer(left), Value::Integer(right)) => *left -= right,
-            (Value::Float(left), Value::Float(right)) => *left -= right,
-            (Value::Float(left), Value::Integer(right)) => *left -= right as f64,
-            _ => {}
-        }
     }
 }
 

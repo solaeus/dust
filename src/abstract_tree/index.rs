@@ -66,7 +66,9 @@ impl AbstractTree for Index {
                     if let Some(value) = map.get(identifier) {
                         value
                     } else {
-                        return Err(RuntimeError::VariableIdentifierNotFound(identifier.clone()));
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::VariableIdentifierNotFound(identifier.clone()),
+                        ));
                     }
                 } else {
                     let index_value = self.index.run(source, context)?;
@@ -75,7 +77,9 @@ impl AbstractTree for Index {
                     if let Some(value) = map.get(&identifier) {
                         value
                     } else {
-                        return Err(RuntimeError::VariableIdentifierNotFound(identifier.clone()));
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::VariableIdentifierNotFound(identifier.clone()),
+                        ));
                     }
                 };
 

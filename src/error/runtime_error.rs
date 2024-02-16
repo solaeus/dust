@@ -7,7 +7,7 @@ use std::{
     time,
 };
 
-use crate::{Identifier, Type, Value};
+use crate::{Type, Value};
 
 use super::{rw_lock_error::RwLockError, ValidationError};
 
@@ -104,9 +104,6 @@ pub enum RuntimeError {
     ParseFloat(ParseFloatError),
 
     Utf8(FromUtf8Error),
-
-    /// Failed to find a variable with a value for this key.
-    VariableIdentifierNotFound(Identifier),
 
     /// A built-in function was called with the wrong amount of arguments.
     ExpectedBuiltInFunctionArgumentAmount {

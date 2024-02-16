@@ -139,7 +139,9 @@ impl AbstractTree for FunctionCall {
                 if let Some(value) = context.get_value(identifier)? {
                     value.clone()
                 } else {
-                    return Err(RuntimeError::VariableIdentifierNotFound(identifier.clone()));
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::VariableIdentifierNotFound(identifier.clone()),
+                    ));
                 }
             }
             FunctionExpression::FunctionCall(function_call) => {

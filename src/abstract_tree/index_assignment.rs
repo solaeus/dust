@@ -50,8 +50,8 @@ impl AbstractTree for IndexAssignment {
             let index_run = self.index.index.run(source, context)?;
             let expected_identifier = Identifier::new(index_run.as_string()?);
 
-            return Err(RuntimeError::VariableIdentifierNotFound(
-                expected_identifier,
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::VariableIdentifierNotFound(expected_identifier),
             ));
         };
 
@@ -59,17 +59,17 @@ impl AbstractTree for IndexAssignment {
 
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
-                if let Some(mut previous_value) = context.get_value(index_identifier)? {
-                    previous_value += value;
-                    previous_value
+                if let Some(previous_value) = context.get_value(index_identifier)? {
+                    previous_value.add(value)?
                 } else {
-                    Value::none()
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::VariableIdentifierNotFound(index_identifier.clone()),
+                    ));
                 }
             }
             AssignmentOperator::MinusEqual => {
-                if let Some(mut previous_value) = context.get_value(index_identifier)? {
-                    previous_value -= value;
-                    previous_value
+                if let Some(previous_value) = context.get_value(index_identifier)? {
+                    previous_value.subtract(value)?
                 } else {
                     Value::none()
                 }

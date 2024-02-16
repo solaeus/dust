@@ -49,11 +49,11 @@ impl AbstractTree for Math {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let value = match self.operator {
-            MathOperator::Add => left.add_assign(right)?,
-            MathOperator::Subtract => todo!(),
-            MathOperator::Multiply => todo!(),
-            MathOperator::Divide => todo!(),
-            MathOperator::Modulo => todo!(),
+            MathOperator::Add => left.add(right)?,
+            MathOperator::Subtract => left.subtract(right)?,
+            MathOperator::Multiply => left.multiply(right)?,
+            MathOperator::Divide => left.divide(right)?,
+            MathOperator::Modulo => left.modulo(right)?,
         };
 
         Ok(value)

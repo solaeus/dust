@@ -79,7 +79,9 @@ impl AbstractTree for Identifier {
         if let Some(value) = context.get_value(self)? {
             Ok(value.clone())
         } else {
-            Err(RuntimeError::VariableIdentifierNotFound(self.clone()))
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::VariableIdentifierNotFound(self.clone()),
+            ));
         }
     }
 }
