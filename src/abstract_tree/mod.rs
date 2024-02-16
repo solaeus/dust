@@ -1,11 +1,6 @@
 //! Abstract, executable representations of corresponding items found in Dust
 //! source code. The types that implement [AbstractTree] are inteded to be
-//! created by an [Evaluator].
-//!
-//! When adding new lanugage features, first extend the grammar to recognize new
-//! syntax nodes. Then add a new AbstractTree type using the existing types as
-//! examples.
-
+//! created by an [Interpreter].
 pub mod r#as;
 pub mod assignment;
 pub mod assignment_operator;
@@ -55,6 +50,7 @@ use crate::{
     SyntaxNode, Value,
 };
 
+/// A detailed report of a position in the source code string.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourcePosition {
     pub start_byte: usize,
@@ -78,6 +74,7 @@ impl From<tree_sitter::Range> for SourcePosition {
     }
 }
 
+/// Abstraction that represents a whole, executable unit of dust code.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Root {
     statements: Vec<Statement>,
@@ -141,8 +138,8 @@ impl Format for Root {
 /// This trait is implemented by the Evaluator's internal types to form an
 /// executable tree that resolves to a single value.
 pub trait AbstractTree: Sized + Format {
-    /// Interpret the syntax tree at the given node and return the abstraction. Returns a syntax
-    /// error if the source is invalid.
+    /// Interpret the syntax tree at the given node and return the abstraction.
+    /// Returns a syntax error if the source is invalid.
     ///
     /// This function is used to convert nodes in the Tree Sitter concrete
     /// syntax tree into executable nodes in an abstract tree. This function is
@@ -153,15 +150,16 @@ pub trait AbstractTree: Sized + Format {
     /// node's byte range.
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError>;
 
-    /// Return the type of the value that this abstract node will create when run. Returns a
-    /// validation error if the tree is invalid.
+    /// Return the type of the value that this abstract node will create when
+    /// run. Returns a validation error if the tree is invalid.
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
 
-    /// Verify the type integrity of the node. Returns a validation error if the tree is invalid.
+    /// Verify the type integrity of the node. Returns a validation error if the
+    /// tree is invalid.
     fn validate(&self, source: &str, context: &Context) -> Result<(), ValidationError>;
 
-    /// Execute this node's logic and return a value. Returns a runtime error if the node cannot
-    /// resolve to a value.
+    /// Execute this node's logic and return a value. Returns a runtime error if
+    /// the node cannot resolve to a value.
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError>;
 }
 
