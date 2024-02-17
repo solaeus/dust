@@ -7,7 +7,10 @@ use std::fmt::{self, Display, Formatter};
 use rand::{random, thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-use crate::{error::RuntimeError, Context, EnumInstance, Format, Identifier, Type, Value};
+use crate::{
+    error::{RuntimeError, ValidationError},
+    Context, EnumInstance, Format, Identifier, Type, Value,
+};
 
 use self::{fs::Fs, json::Json, str::StrFunction};
 
@@ -128,9 +131,11 @@ impl Callable for BuiltInFunction {
                 } else if let Ok(str) = value.as_string() {
                     str.chars().count()
                 } else {
-                    return Err(RuntimeError::ExpectedCollection {
-                        actual: value.clone(),
-                    });
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedCollection {
+                            actual: value.clone(),
+                        },
+                    ));
                 };
 
                 Ok(Value::Integer(length as i64))

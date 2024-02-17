@@ -91,7 +91,9 @@ impl AbstractTree for Index {
 
                 Ok(Value::string(item.to_string()))
             }
-            _ => Err(RuntimeError::ExpectedCollection { actual: value }),
+            _ => Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedCollection { actual: value },
+            )),
         }
     }
 }

@@ -46,71 +46,6 @@ pub enum RuntimeError {
 
     Toml(toml::de::Error),
 
-    ExpectedString {
-        actual: Value,
-    },
-
-    ExpectedInteger {
-        actual: Value,
-    },
-
-    ExpectedFloat {
-        actual: Value,
-    },
-
-    /// An integer, floating point or value was expected.
-    ExpectedNumber {
-        actual: Value,
-    },
-
-    /// An integer, floating point or string value was expected.
-    ExpectedNumberOrString {
-        actual: Value,
-    },
-
-    ExpectedBoolean {
-        actual: Value,
-    },
-
-    ExpectedList {
-        actual: Value,
-    },
-
-    ExpectedMinLengthList {
-        minimum_len: usize,
-        actual_len: usize,
-    },
-
-    ExpectedFixedLenList {
-        expected_len: usize,
-        actual: Value,
-    },
-
-    ExpectedNone {
-        actual: Value,
-    },
-
-    ExpectedMap {
-        actual: Value,
-    },
-
-    ExpectedTable {
-        actual: Value,
-    },
-
-    ExpectedFunction {
-        actual: Value,
-    },
-
-    ExpectedOption {
-        actual: Value,
-    },
-
-    /// A string, list, map or table value was expected.
-    ExpectedCollection {
-        actual: Value,
-    },
-
     /// Failed to read or write a map.
     ///
     /// See the [MapError] docs for more info.
@@ -140,17 +75,14 @@ impl RuntimeError {
                 vec![(
                     0..source.len(),
                     format!("\"assert_equal\" failed. {} != {}", expected, actual),
-                    (200, 100, 100),
+                    (200, 0, 0),
                 )]
             }
             RuntimeError::AssertFailed { assertion } => todo!(),
             RuntimeError::ConversionImpossible { from, to, position } => vec![(
                 position.start_byte..position.end_byte,
-                format!(
-                    "Impossible conversion. {}",
-                    format!("Cannot convert from {from} to {to}.").dimmed()
-                ),
-                (255, 100, 100),
+                format!("Cannot convert from {from} to {to}."),
+                (255, 64, 112),
             )],
             RuntimeError::Csv(_) => todo!(),
             RuntimeError::Io(_) => todo!(),
@@ -158,27 +90,6 @@ impl RuntimeError {
             RuntimeError::Json(_) => todo!(),
             RuntimeError::SystemTime(_) => todo!(),
             RuntimeError::Toml(_) => todo!(),
-            RuntimeError::ExpectedString { actual } => todo!(),
-            RuntimeError::ExpectedInteger { actual } => todo!(),
-            RuntimeError::ExpectedFloat { actual } => todo!(),
-            RuntimeError::ExpectedNumber { actual } => todo!(),
-            RuntimeError::ExpectedNumberOrString { actual } => todo!(),
-            RuntimeError::ExpectedBoolean { actual } => todo!(),
-            RuntimeError::ExpectedList { actual } => todo!(),
-            RuntimeError::ExpectedMinLengthList {
-                minimum_len,
-                actual_len,
-            } => todo!(),
-            RuntimeError::ExpectedFixedLenList {
-                expected_len,
-                actual,
-            } => todo!(),
-            RuntimeError::ExpectedNone { actual } => todo!(),
-            RuntimeError::ExpectedMap { actual } => todo!(),
-            RuntimeError::ExpectedTable { actual } => todo!(),
-            RuntimeError::ExpectedFunction { actual } => todo!(),
-            RuntimeError::ExpectedOption { actual } => todo!(),
-            RuntimeError::ExpectedCollection { actual } => todo!(),
             RuntimeError::RwLock(_) => todo!(),
             RuntimeError::ParseFloat(_) => todo!(),
             RuntimeError::Utf8(_) => todo!(),

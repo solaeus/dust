@@ -156,10 +156,10 @@ impl Value {
 
     /// Borrows the value stored in `self` as `&String`, or returns `Err` if
     /// `self` is not a `Value::String`.
-    pub fn as_string(&self) -> Result<&String, RuntimeError> {
+    pub fn as_string(&self) -> Result<&String, ValidationError> {
         match self {
             Value::String(string) => Ok(string),
-            value => Err(RuntimeError::ExpectedString {
+            value => Err(ValidationError::ExpectedString {
                 actual: value.clone(),
             }),
         }
@@ -167,10 +167,10 @@ impl Value {
 
     /// Copies the value stored in `self` as `i64`, or returns `Err` if `self`
     /// is not a `Value::Int`
-    pub fn as_integer(&self) -> Result<i64, RuntimeError> {
+    pub fn as_integer(&self) -> Result<i64, ValidationError> {
         match self {
             Value::Integer(i) => Ok(*i),
-            value => Err(RuntimeError::ExpectedInteger {
+            value => Err(ValidationError::ExpectedInteger {
                 actual: value.clone(),
             }),
         }
@@ -178,10 +178,10 @@ impl Value {
 
     /// Copies the value stored in  `self` as `f64`, or returns `Err` if `self`
     /// is not a `Primitive::Float`.
-    pub fn as_float(&self) -> Result<f64, RuntimeError> {
+    pub fn as_float(&self) -> Result<f64, ValidationError> {
         match self {
             Value::Float(f) => Ok(*f),
-            value => Err(RuntimeError::ExpectedFloat {
+            value => Err(ValidationError::ExpectedFloat {
                 actual: value.clone(),
             }),
         }
@@ -192,11 +192,11 @@ impl Value {
     ///
     /// Note that this method silently converts `i64` to `f64`, if `self` is
     /// a `Value::Int`.
-    pub fn as_number(&self) -> Result<f64, RuntimeError> {
+    pub fn as_number(&self) -> Result<f64, ValidationError> {
         match self {
             Value::Float(f) => Ok(*f),
             Value::Integer(i) => Ok(*i as f64),
-            value => Err(RuntimeError::ExpectedNumber {
+            value => Err(ValidationError::ExpectedNumber {
                 actual: value.clone(),
             }),
         }
@@ -204,10 +204,10 @@ impl Value {
 
     /// Copies the value stored in  `self` as `bool`, or returns `Err` if `self`
     /// is not a `Primitive::Boolean`.
-    pub fn as_boolean(&self) -> Result<bool, RuntimeError> {
+    pub fn as_boolean(&self) -> Result<bool, ValidationError> {
         match self {
             Value::Boolean(boolean) => Ok(*boolean),
-            value => Err(RuntimeError::ExpectedBoolean {
+            value => Err(ValidationError::ExpectedBoolean {
                 actual: value.clone(),
             }),
         }
@@ -215,10 +215,10 @@ impl Value {
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if
     /// `self` is not a `Value::List`.
-    pub fn as_list(&self) -> Result<&List, RuntimeError> {
+    pub fn as_list(&self) -> Result<&List, ValidationError> {
         match self {
             Value::List(list) => Ok(list),
-            value => Err(RuntimeError::ExpectedList {
+            value => Err(ValidationError::ExpectedList {
                 actual: value.clone(),
             }),
         }
@@ -226,10 +226,10 @@ impl Value {
 
     /// Takes ownership of the value stored in `self` as `Vec<Value>`, or
     /// returns `Err` if `self` is not a `Value::List`.
-    pub fn into_inner_list(self) -> Result<List, RuntimeError> {
+    pub fn into_inner_list(self) -> Result<List, ValidationError> {
         match self {
             Value::List(list) => Ok(list),
-            value => Err(RuntimeError::ExpectedList {
+            value => Err(ValidationError::ExpectedList {
                 actual: value.clone(),
             }),
         }
@@ -237,10 +237,10 @@ impl Value {
 
     /// Borrows the value stored in `self` as `Vec<Value>`, or returns `Err` if
     /// `self` is not a `Value::Map`.
-    pub fn as_map(&self) -> Result<&Map, RuntimeError> {
+    pub fn as_map(&self) -> Result<&Map, ValidationError> {
         match self {
             Value::Map(map) => Ok(map),
-            value => Err(RuntimeError::ExpectedMap {
+            value => Err(ValidationError::ExpectedMap {
                 actual: value.clone(),
             }),
         }
@@ -248,10 +248,10 @@ impl Value {
 
     /// Borrows the value stored in `self` as `Function`, or returns `Err` if
     /// `self` is not a `Value::Function`.
-    pub fn as_function(&self) -> Result<&Function, RuntimeError> {
+    pub fn as_function(&self) -> Result<&Function, ValidationError> {
         match self {
             Value::Function(function) => Ok(function),
-            value => Err(RuntimeError::ExpectedFunction {
+            value => Err(ValidationError::ExpectedFunction {
                 actual: value.clone(),
             }),
         }
@@ -506,7 +506,9 @@ impl TryFrom<Value> for String {
         if let Value::String(string) = value {
             Ok(string)
         } else {
-            Err(RuntimeError::ExpectedString { actual: value })
+            Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedString { actual: value },
+            ))
         }
     }
 }
@@ -518,7 +520,9 @@ impl TryFrom<Value> for f64 {
         if let Value::Float(value) = value {
             Ok(value)
         } else {
-            Err(RuntimeError::ExpectedFloat { actual: value })
+            Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedFloat { actual: value },
+            ))
         }
     }
 }
@@ -530,7 +534,9 @@ impl TryFrom<Value> for i64 {
         if let Value::Integer(value) = value {
             Ok(value)
         } else {
-            Err(RuntimeError::ExpectedInteger { actual: value })
+            Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedInteger { actual: value },
+            ))
         }
     }
 }
@@ -542,7 +548,9 @@ impl TryFrom<Value> for bool {
         if let Value::Boolean(value) = value {
             Ok(value)
         } else {
-            Err(RuntimeError::ExpectedBoolean { actual: value })
+            Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedBoolean { actual: value },
+            ))
         }
     }
 }

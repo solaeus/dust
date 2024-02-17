@@ -7,6 +7,7 @@ pub(crate) mod rw_lock_error;
 mod syntax_error;
 mod validation_error;
 
+use colored::Colorize;
 pub use runtime_error::RuntimeError;
 pub use syntax_error::SyntaxError;
 pub use validation_error::ValidationError;
@@ -35,9 +36,25 @@ impl Error {
     /// used to create this error.
     pub fn create_report(&self, source: &str) -> String {
         match self {
-            Error::Syntax(syntax_error) => syntax_error.create_report(source),
+            Error::Syntax(syntax_error) => {
+                let report = syntax_error.create_report(source);
+
+                format!(
+                    "{}\n{}\n{report}",
+                    "Syntax Error".bold().yellow().underline(),
+                    "Dust does not recognize this syntax.".dimmed()
+                )
+            }
             Error::Validation(_) => todo!(),
-            Error::Runtime(runtime_error) => runtime_error.create_report(source),
+            Error::Runtime(runtime_error) => {
+                let report = runtime_error.create_report(source);
+
+                format!(
+                    "{}\n{}\n{report}",
+                    "Runtime Error".bold().red().underline(),
+                    "This error occured while the program was running.".dimmed()
+                )
+            }
             Error::ParserCancelled => todo!(),
             Error::Language(_) => todo!(),
         }

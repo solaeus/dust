@@ -9,21 +9,86 @@ use super::rw_lock_error::RwLockError;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValidationError {
     /// Two value are incompatible for addition.
-    CannotAdd { left: Value, right: Value },
+    CannotAdd {
+        left: Value,
+        right: Value,
+    },
 
     /// Two value are incompatible for subtraction.
-    CannotSubtract { left: Value, right: Value },
+    CannotSubtract {
+        left: Value,
+        right: Value,
+    },
 
     /// Two value are incompatible for multiplication.
-    CannotMultiply { left: Value, right: Value },
+    CannotMultiply {
+        left: Value,
+        right: Value,
+    },
 
     /// Two value are incompatible for dividing.
-    CannotDivide { left: Value, right: Value },
+    CannotDivide {
+        left: Value,
+        right: Value,
+    },
 
     /// The attempted conversion is impossible.
     ConversionImpossible {
         initial_type: Type,
         target_type: Type,
+    },
+
+    ExpectedString {
+        actual: Value,
+    },
+
+    ExpectedInteger {
+        actual: Value,
+    },
+
+    ExpectedFloat {
+        actual: Value,
+    },
+
+    /// An integer, floating point or value was expected.
+    ExpectedNumber {
+        actual: Value,
+    },
+
+    /// An integer, floating point or string value was expected.
+    ExpectedNumberOrString {
+        actual: Value,
+    },
+
+    ExpectedBoolean {
+        actual: Value,
+    },
+
+    ExpectedList {
+        actual: Value,
+    },
+
+    ExpectedMinLengthList {
+        minimum_len: usize,
+        actual_len: usize,
+    },
+
+    ExpectedFixedLenList {
+        expected_len: usize,
+        actual: Value,
+    },
+
+    ExpectedMap {
+        actual: Value,
+    },
+
+    ExpectedFunction {
+        actual: Value,
+    },
+
+    /// A string, list, map or table value was expected.
+    ExpectedCollection {
+        actual: Value,
     },
 
     /// A built-in function was called with the wrong amount of arguments.
@@ -70,10 +135,14 @@ pub enum ValidationError {
     TypeDefinitionNotFound(Identifier),
 
     /// Failed to find an enum definition with this key.
-    ExpectedEnumDefintion { actual: TypeDefinition },
+    ExpectedEnumDefintion {
+        actual: TypeDefinition,
+    },
 
     /// Failed to find a struct definition with this key.
-    ExpectedStructDefintion { actual: TypeDefinition },
+    ExpectedStructDefintion {
+        actual: TypeDefinition,
+    },
 }
 
 impl ValidationError {
