@@ -45,7 +45,15 @@ impl Error {
                     "Dust does not recognize this syntax.".dimmed()
                 )
             }
-            Error::Validation(_) => todo!(),
+            Error::Validation(validation_error) => {
+                let report = validation_error.create_report(source);
+
+                format!(
+                    "{}\n{}\n{report}",
+                    "Validation Error".bold().yellow().underline(),
+                    "Dust prevented the program from running.".dimmed()
+                )
+            }
             Error::Runtime(runtime_error) => {
                 let report = runtime_error.create_report(source);
 

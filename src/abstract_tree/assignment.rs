@@ -134,7 +134,7 @@ impl AbstractTree for Assignment {
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
                 if let Some(left) = context.get_value(&self.identifier)? {
-                    left.add(right)?
+                    left.add(right, self.syntax_position)?
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableIdentifierNotFound(self.identifier.clone()),
@@ -143,7 +143,7 @@ impl AbstractTree for Assignment {
             }
             AssignmentOperator::MinusEqual => {
                 if let Some(left) = context.get_value(&self.identifier)? {
-                    left.subtract(right)?
+                    left.subtract(right, self.syntax_position)?
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableIdentifierNotFound(self.identifier.clone()),

@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, Expression, Format, MathOperator, SyntaxNode, Type, Value,
+    AbstractTree, Context, Expression, Format, MathOperator, SourcePosition, SyntaxNode, Type,
+    Value,
 };
 
 /// Abstract representation of a math operation.
@@ -14,6 +15,7 @@ pub struct Math {
     left: Expression,
     operator: MathOperator,
     right: Expression,
+    position: SourcePosition,
 }
 
 impl AbstractTree for Math {
@@ -33,6 +35,7 @@ impl AbstractTree for Math {
             left,
             operator,
             right,
+            position: node.range().into(),
         })
     }
 
@@ -49,11 +52,11 @@ impl AbstractTree for Math {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
         let value = match self.operator {
-            MathOperator::Add => left.add(right)?,
-            MathOperator::Subtract => left.subtract(right)?,
-            MathOperator::Multiply => left.multiply(right)?,
-            MathOperator::Divide => left.divide(right)?,
-            MathOperator::Modulo => left.modulo(right)?,
+            MathOperator::Add => left.add(right, self.position)?,
+            MathOperator::Subtract => left.subtract(right, self.position)?,
+            MathOperator::Multiply => left.multiply(right, self.position)?,
+            MathOperator::Divide => left.divide(right, self.position)?,
+            MathOperator::Modulo => left.modulo(right, self.position)?,
         };
 
         Ok(value)

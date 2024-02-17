@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
     AbstractTree, AssignmentOperator, Context, Format, Identifier, Index, IndexExpression,
-    Statement, SyntaxNode, Type, Value,
+    SourcePosition, Statement, SyntaxNode, Type, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -11,6 +11,7 @@ pub struct IndexAssignment {
     index: Index,
     operator: AssignmentOperator,
     statement: Statement,
+    position: SourcePosition,
 }
 
 impl AbstractTree for IndexAssignment {
@@ -30,6 +31,7 @@ impl AbstractTree for IndexAssignment {
             index,
             operator,
             statement,
+            position: node.range().into(),
         })
     }
 
@@ -60,7 +62,7 @@ impl AbstractTree for IndexAssignment {
         let new_value = match self.operator {
             AssignmentOperator::PlusEqual => {
                 if let Some(previous_value) = context.get_value(index_identifier)? {
-                    previous_value.add(value)?
+                    previous_value.add(value, self.position)?
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableIdentifierNotFound(index_identifier.clone()),
@@ -69,7 +71,7 @@ impl AbstractTree for IndexAssignment {
             }
             AssignmentOperator::MinusEqual => {
                 if let Some(previous_value) = context.get_value(index_identifier)? {
-                    previous_value.subtract(value)?
+                    previous_value.subtract(value, self.position)?
                 } else {
                     Value::none()
                 }

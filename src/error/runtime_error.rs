@@ -7,7 +7,6 @@ use std::{
     time,
 };
 
-use colored::Colorize;
 use lyneate::Report;
 
 use crate::{SourcePosition, Type, Value};

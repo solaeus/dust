@@ -1,5 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
+use lyneate::Report;
 use serde::{Deserialize, Serialize};
 
 use crate::{Identifier, SourcePosition, Type, TypeDefinition, Value};
@@ -12,24 +13,28 @@ pub enum ValidationError {
     CannotAdd {
         left: Value,
         right: Value,
+        position: SourcePosition,
     },
 
     /// Two value are incompatible for subtraction.
     CannotSubtract {
         left: Value,
         right: Value,
+        position: SourcePosition,
     },
 
     /// Two value are incompatible for multiplication.
     CannotMultiply {
         left: Value,
         right: Value,
+        position: SourcePosition,
     },
 
     /// Two value are incompatible for dividing.
     CannotDivide {
         left: Value,
         right: Value,
+        position: SourcePosition,
     },
 
     /// The attempted conversion is impossible.
@@ -146,6 +151,91 @@ pub enum ValidationError {
 }
 
 impl ValidationError {
+    pub fn create_report(&self, source: &str) -> String {
+        let messages = match self {
+            ValidationError::CannotAdd {
+                left,
+                right,
+                position,
+            } => vec![
+                ((
+                    position.start_byte..position.end_byte,
+                    format!(""),
+                    (255, 159, 64),
+                )),
+            ],
+            ValidationError::CannotSubtract {
+                left,
+                right,
+                position,
+            } => todo!(),
+            ValidationError::CannotMultiply {
+                left,
+                right,
+                position,
+            } => todo!(),
+            ValidationError::CannotDivide {
+                left,
+                right,
+                position,
+            } => todo!(),
+            ValidationError::ConversionImpossible {
+                initial_type,
+                target_type,
+            } => todo!(),
+            ValidationError::ExpectedString { actual } => todo!(),
+            ValidationError::ExpectedInteger { actual } => todo!(),
+            ValidationError::ExpectedFloat { actual } => todo!(),
+            ValidationError::ExpectedNumber { actual } => todo!(),
+            ValidationError::ExpectedNumberOrString { actual } => todo!(),
+            ValidationError::ExpectedBoolean { actual } => todo!(),
+            ValidationError::ExpectedList { actual } => todo!(),
+            ValidationError::ExpectedMinLengthList {
+                minimum_len,
+                actual_len,
+            } => todo!(),
+            ValidationError::ExpectedFixedLenList {
+                expected_len,
+                actual,
+            } => todo!(),
+            ValidationError::ExpectedMap { actual } => todo!(),
+            ValidationError::ExpectedFunction { actual } => todo!(),
+            ValidationError::ExpectedCollection { actual } => todo!(),
+            ValidationError::ExpectedBuiltInFunctionArgumentAmount {
+                function_name,
+                expected,
+                actual,
+            } => todo!(),
+            ValidationError::ExpectedFunctionArgumentAmount {
+                expected,
+                actual,
+                position,
+            } => todo!(),
+            ValidationError::ExpectedFunctionArgumentMinimum {
+                minumum_expected,
+                actual,
+                position,
+            } => todo!(),
+            ValidationError::RwLock(_) => todo!(),
+            ValidationError::TypeCheck {
+                expected,
+                actual,
+                position,
+            } => vec![(
+                position.start_byte..position.end_byte,
+                format!("Type {actual} is incompatible with {expected}."),
+                (200, 200, 200),
+            )],
+            ValidationError::TypeCheckExpectedFunction { actual, position } => todo!(),
+            ValidationError::VariableIdentifierNotFound(_) => todo!(),
+            ValidationError::TypeDefinitionNotFound(_) => todo!(),
+            ValidationError::ExpectedEnumDefintion { actual } => todo!(),
+            ValidationError::ExpectedStructDefintion { actual } => todo!(),
+        };
+
+        Report::new_byte_spanned(source, messages).display_str()
+    }
+
     pub fn expect_argument_amount(
         function_name: &str,
         expected: usize,

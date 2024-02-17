@@ -2,7 +2,7 @@
 use crate::{
     built_in_values::BuiltInValue,
     error::{rw_lock_error::RwLockError, RuntimeError, ValidationError},
-    Identifier, Type, TypeSpecification,
+    Identifier, SourcePosition, Type, TypeSpecification,
 };
 
 use serde::{
@@ -258,7 +258,7 @@ impl Value {
     }
 
     /// Return the sum of `self` and `other`.
-    pub fn add(self, other: Self) -> Result<Value, ValidationError> {
+    pub fn add(self, other: Self, position: SourcePosition) -> Result<Value, ValidationError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
             (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left + right as f64)),
@@ -270,51 +270,71 @@ impl Value {
                 Ok(Value::List(list))
             }
             (Value::String(left), Value::String(right)) => Ok(Value::String(left + &right)),
-            (left, right) => Err(ValidationError::CannotAdd { left, right }),
+            (left, right) => Err(ValidationError::CannotAdd {
+                left,
+                right,
+                position,
+            }),
         }
     }
 
     /// Return the difference of `self` and `other`.
-    pub fn subtract(self, other: Self) -> Result<Value, ValidationError> {
+    pub fn subtract(self, other: Self, position: SourcePosition) -> Result<Value, ValidationError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
             (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left - right as f64)),
             (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 - right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left - right)),
-            (left, right) => Err(ValidationError::CannotSubtract { left, right }),
+            (left, right) => Err(ValidationError::CannotSubtract {
+                left,
+                right,
+                position,
+            }),
         }
     }
 
     /// Return the product of `self` and `other`.
-    pub fn multiply(self, other: Self) -> Result<Value, ValidationError> {
+    pub fn multiply(self, other: Self, position: SourcePosition) -> Result<Value, ValidationError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left * right)),
             (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left * right as f64)),
             (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 * right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left * right)),
-            (left, right) => Err(ValidationError::CannotMultiply { left, right }),
+            (left, right) => Err(ValidationError::CannotMultiply {
+                left,
+                right,
+                position,
+            }),
         }
     }
 
     /// Return the quotient of `self` and `other`.
-    pub fn divide(self, other: Self) -> Result<Value, ValidationError> {
+    pub fn divide(self, other: Self, position: SourcePosition) -> Result<Value, ValidationError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left / right)),
             (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left / right as f64)),
             (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 / right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left / right)),
-            (left, right) => Err(ValidationError::CannotDivide { left, right }),
+            (left, right) => Err(ValidationError::CannotDivide {
+                left,
+                right,
+                position,
+            }),
         }
     }
 
     /// Return the remainder after diving `self` and `other`.
-    pub fn modulo(self, other: Self) -> Result<Value, ValidationError> {
+    pub fn modulo(self, other: Self, position: SourcePosition) -> Result<Value, ValidationError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left % right)),
             (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left % right as f64)),
             (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 % right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left % right)),
-            (left, right) => Err(ValidationError::CannotDivide { left, right }),
+            (left, right) => Err(ValidationError::CannotDivide {
+                left,
+                right,
+                position,
+            }),
         }
     }
 }
