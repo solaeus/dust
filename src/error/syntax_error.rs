@@ -42,9 +42,9 @@ impl SyntaxError {
             }
             SyntaxError::RwLock(_) => todo!(),
             SyntaxError::UnexpectedSyntaxNode {
-                expected,
-                actual,
-                position,
+                expected: _,
+                actual: _,
+                position: _,
             } => todo!(),
         };
 

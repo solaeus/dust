@@ -77,7 +77,7 @@ impl RuntimeError {
                     (200, 0, 0),
                 )]
             }
-            RuntimeError::AssertFailed { assertion } => todo!(),
+            RuntimeError::AssertFailed { assertion: _ } => todo!(),
             RuntimeError::ConversionImpossible { from, to, position } => vec![(
                 position.start_byte..position.end_byte,
                 format!("Cannot convert from {from} to {to}."),
@@ -93,9 +93,9 @@ impl RuntimeError {
             RuntimeError::ParseFloat(_) => todo!(),
             RuntimeError::Utf8(_) => todo!(),
             RuntimeError::ExpectedBuiltInFunctionArgumentAmount {
-                function_name,
-                expected,
-                actual,
+                function_name: _,
+                expected: _,
+                actual: _,
             } => todo!(),
             RuntimeError::ValidationFailure(_) => todo!(),
         };
