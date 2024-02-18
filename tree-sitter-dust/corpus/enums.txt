@@ -56,7 +56,7 @@ Complex Enum
 enum Foobar<T> {
   Foo<Foo>,
   Bar<int, float>,
-  Baz<Option<T>>
+  Baz<Option<T>>,
 }
 
 --------------------------------------------------------------------------------

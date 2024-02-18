@@ -33,7 +33,7 @@ fn nested_enum() {
         }
         enum Foobar {
             Foo,
-            Bar(Fizzbuzz),
+            Bar<Fizzbuzz>,
         }
 
         Foobar::Bar(Fizzbuzz::Fizz)
