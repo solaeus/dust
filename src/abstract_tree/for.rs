@@ -66,16 +66,22 @@ impl AbstractTree for For {
         self.collection.validate(_source, context)?;
 
         let collection_type = self.collection.expected_type(context)?;
-        let item_type = if let Type::ListOf(item_type) = collection_type {
-            item_type.as_ref().clone()
-        } else if let Type::Range = collection_type {
-            Type::Integer
-        } else {
-            return Err(ValidationError::TypeCheck {
-                expected: Type::Collection,
-                actual: collection_type,
-                position: self.source_position,
-            });
+        let item_type = match collection_type {
+            Type::Any => Type::Any,
+            Type::Collection => Type::Any,
+            Type::List => Type::Any,
+            Type::ListOf(_) => todo!(),
+            Type::ListExact(_) => todo!(),
+            Type::Map(_) => todo!(),
+            Type::String => todo!(),
+            Type::Range => todo!(),
+            _ => {
+                return Err(ValidationError::TypeCheck {
+                    expected: Type::Collection,
+                    actual: collection_type,
+                    position: self.source_position,
+                });
+            }
         };
         let key = self.item_id.clone();
 
@@ -116,6 +122,7 @@ impl AbstractTree for For {
                 })?;
             } else {
                 for value in list.items()?.iter() {
+                    self.context.add_allowance(key)?;
                     self.context.set_value(key.clone(), value.clone())?;
                     self.block.run(source, &self.context)?;
                 }

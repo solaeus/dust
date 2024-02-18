@@ -210,6 +210,15 @@ impl AbstractTree for Type {
 
                 Type::ListOf(Box::new(item_type))
             }
+            "list" => {
+                let item_type_node = node.child(1);
+
+                if let Some(child) = item_type_node {
+                    Type::ListOf(Box::new(Type::from_syntax(child, _source, context)?))
+                } else {
+                    Type::List
+                }
+            }
             "any" => Type::Any,
             "bool" => Type::Boolean,
             "collection" => Type::Collection,
@@ -247,7 +256,8 @@ impl AbstractTree for Type {
             "str" => Type::String,
             _ => {
                 return Err(SyntaxError::UnexpectedSyntaxNode {
-                    expected: "any, bool, float, int, num, str, custom type, (, [ or {".to_string(),
+                    expected: "any, bool, float, int, num, str, list, map, custom type, (, [ or {"
+                        .to_string(),
                     actual: type_node.kind().to_string(),
                     position: node.range().into(),
                 })

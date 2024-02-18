@@ -104,7 +104,18 @@ impl Value {
             Value::Boolean(_) => Type::Boolean,
             Value::Range(_) => todo!(),
             Value::Struct(_) => todo!(),
-            Value::Enum(_) => todo!(),
+            Value::Enum(enum_instance) => {
+                let arguments = if let Some(value) = enum_instance.value() {
+                    vec![value.r#type()?]
+                } else {
+                    Vec::with_capacity(0)
+                };
+
+                Type::Custom {
+                    name: enum_instance.name().clone(),
+                    arguments,
+                }
+            }
         };
 
         Ok(r#type)

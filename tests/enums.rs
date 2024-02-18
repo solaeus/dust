@@ -53,3 +53,30 @@ fn nested_enum() {
         )))
     );
 }
+
+#[test]
+fn enum_with_argument() {
+    let result = interpret(
+        "
+        enum FooBar<T> {
+            Foo<T>,
+            Bar,
+        }
+
+        Foobar::Bar(Fizzbuzz::Fizz)
+        ",
+    );
+
+    assert_eq!(
+        result,
+        Ok(Value::Enum(EnumInstance::new(
+            Identifier::new("Foobar"),
+            Identifier::new("Bar"),
+            Some(Value::Enum(EnumInstance::new(
+                Identifier::new("Fizzbuzz"),
+                Identifier::new("Fizz"),
+                Some(Value::none())
+            )))
+        )))
+    );
+}

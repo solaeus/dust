@@ -11,6 +11,7 @@ fn override_built_ins() {
             }
             
             my_option <Option> = Option::Some('foo')
+            my_option
             "
         ),
         Ok(Value::Enum(EnumInstance::new(

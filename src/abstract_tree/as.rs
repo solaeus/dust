@@ -37,9 +37,15 @@ impl AbstractTree for As {
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         let initial_type = self.expression.expected_type(context)?;
 
+        if self.r#type.accepts(&initial_type) {
+            return Ok(());
+        }
+
         if let Type::ListOf(item_type) = &self.r#type {
             match &initial_type {
                 Type::ListOf(expected_item_type) => {
+                    println!("{item_type} {expected_item_type}");
+
                     if !item_type.accepts(&expected_item_type) {
                         return Err(ValidationError::TypeCheck {
                             expected: self.r#type.clone(),
@@ -77,7 +83,9 @@ impl AbstractTree for As {
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let value = self.expression.run(source, context)?;
-        let converted_value = if let Type::ListOf(_) = self.r#type {
+        let converted_value = if self.r#type.accepts(&value.r#type()?) {
+            return Ok(value);
+        } else if let Type::ListOf(_) = self.r#type {
             match value {
                 Value::List(list) => Value::List(list),
                 Value::String(string) => {
