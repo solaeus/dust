@@ -63,6 +63,8 @@ impl AbstractTree for For {
     }
 
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
+        self.collection.validate(_source, context)?;
+
         let collection_type = self.collection.expected_type(context)?;
         let item_type = if let Type::List(item_type) = collection_type {
             item_type.as_ref().clone()
@@ -79,6 +81,7 @@ impl AbstractTree for For {
 
         self.context.inherit_all_from(context)?;
         self.context.set_type(key, item_type)?;
+        self.item_id.validate(_source, &self.context)?;
         self.block.validate(_source, &self.context)
     }
 
