@@ -308,10 +308,10 @@ impl Completer for DustCompleter {
             }
         }
 
-        for (key, value_data) in self.context.inner().unwrap().iter() {
+        for (key, (value_data, _counter)) in self.context.inner().unwrap().iter() {
             let value = match value_data {
-                ValueData::Value { inner, .. } => inner,
-                ValueData::TypeHint { .. } => continue,
+                ValueData::Value(value) => value,
+                ValueData::TypeHint(_) => continue,
                 ValueData::TypeDefinition(_) => continue,
             };
 

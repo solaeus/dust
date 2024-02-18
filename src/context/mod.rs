@@ -27,6 +27,12 @@
 //! has been explicitly set. If nothing is found, it will then check the built-
 //! in values and type definitions for a match. This means that the user can
 //! override the built-ins.
+mod usage_counter;
+mod value_data;
+
+pub use usage_counter::UsageCounter;
+pub use value_data::ValueData;
+
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
@@ -45,7 +51,7 @@ use crate::{
 /// See the [module-level docs][self] for more info.
 #[derive(Clone, Debug)]
 pub struct Context {
-    inner: Arc<RwLock<BTreeMap<Identifier, ValueData>>>,
+    inner: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageCounter)>>>,
 }
 
 impl Context {
@@ -57,7 +63,9 @@ impl Context {
     }
 
     /// Return a lock guard to the inner BTreeMap.
-    pub fn inner(&self) -> Result<RwLockReadGuard<BTreeMap<Identifier, ValueData>>, RwLockError> {
+    pub fn inner(
+        &self,
+    ) -> Result<RwLockReadGuard<BTreeMap<Identifier, (ValueData, UsageCounter)>>, RwLockError> {
         Ok(self.inner.read()?)
     }
 
@@ -96,21 +104,30 @@ impl Context {
     pub fn inherit_from(&self, other: &Context) -> Result<(), RwLockError> {
         let mut self_variables = self.inner.write()?;
 
-        for (identifier, value_data) in other.inner.read()?.iter() {
-            if let ValueData::Value { inner, .. } = value_data {
-                if inner.is_function() {
-                    self_variables.insert(identifier.clone(), value_data.clone());
+        for (identifier, (value_data, _counter)) in other.inner.read()?.iter() {
+            if let ValueData::Value(value) = value_data {
+                if value.is_function() {
+                    self_variables.insert(
+                        identifier.clone(),
+                        (value_data.clone(), UsageCounter::new()),
+                    );
                 }
             }
 
-            if let ValueData::TypeHint { inner } = value_data {
-                if inner.is_function() {
-                    self_variables.insert(identifier.clone(), value_data.clone());
+            if let ValueData::TypeHint(r#type) = value_data {
+                if r#type.is_function() {
+                    self_variables.insert(
+                        identifier.clone(),
+                        (value_data.clone(), UsageCounter::new()),
+                    );
                 }
             }
 
             if let ValueData::TypeDefinition(_) = value_data {
-                self_variables.insert(identifier.clone(), value_data.clone());
+                self_variables.insert(
+                    identifier.clone(),
+                    (value_data.clone(), UsageCounter::new()),
+                );
             }
         }
 
@@ -139,21 +156,33 @@ impl Context {
     pub fn inherit_all_from(&self, other: &Context) -> Result<(), RwLockError> {
         let mut self_variables = self.inner.write()?;
 
-        for (identifier, value_data) in other.inner.read()?.iter() {
-            self_variables.insert(identifier.clone(), value_data.clone());
+        for (identifier, (value_data, _counter)) in other.inner.read()?.iter() {
+            self_variables.insert(
+                identifier.clone(),
+                (value_data.clone(), UsageCounter::new()),
+            );
         }
 
         Ok(())
     }
 
-    /// Get a value from the context.
-    ///
-    /// This will also return a built-in value if one matches the key. See the
-    /// [module-level docs][self] for more info.
+    /// Get a [Value] and its [UsageCounter] from the context.
+    pub fn get_data_and_counter(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<(ValueData, UsageCounter)>, RwLockError> {
+        if let Some((value_data, counter)) = self.inner.read()?.get(identifier) {
+            return Ok(Some((value_data.clone(), counter.clone())));
+        }
+
+        Ok(None)
+    }
+
+    /// Get a [Value] from the context.
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockError> {
-        if let Some(value_data) = self.inner.read()?.get(identifier) {
-            if let ValueData::Value { inner, .. } = value_data {
-                return Ok(Some(inner.clone()));
+        if let Some((value_data, _counter)) = self.inner.read()?.get(identifier) {
+            if let ValueData::Value(value) = value_data {
+                return Ok(Some(value.clone()));
             }
         }
 
@@ -166,15 +195,15 @@ impl Context {
         Ok(None)
     }
 
-    /// Get a type from the context.
+    /// Get a [Type] from the context.
     ///
-    /// If the key matches a stored value, its type will be returned. It if
+    /// If the key matches a stored [Value], its type will be returned. It if
     /// matches a type hint, the type hint will be returned.
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockError> {
-        if let Some(value_data) = self.inner.read()?.get(identifier) {
+        if let Some((value_data, _counter)) = self.inner.read()?.get(identifier) {
             match value_data {
-                ValueData::Value { inner, .. } => return Ok(Some(inner.r#type()?)),
-                ValueData::TypeHint { inner, .. } => return Ok(Some(inner.clone())),
+                ValueData::Value(value) => return Ok(Some(value.r#type()?)),
+                ValueData::TypeHint(r#type) => return Ok(Some(r#type.clone())),
                 ValueData::TypeDefinition(_) => todo!(),
             }
         }
@@ -188,7 +217,7 @@ impl Context {
         Ok(None)
     }
 
-    /// Get a type definition from the context.
+    /// Get a [TypeDefinition] from the context.
     ///
     /// This will also return a built-in type definition if one matches the key.
     /// See the [module-level docs][self] for more info.
@@ -196,7 +225,7 @@ impl Context {
         &self,
         identifier: &Identifier,
     ) -> Result<Option<TypeDefinition>, RwLockError> {
-        if let Some(value_data) = self.inner.read()?.get(identifier) {
+        if let Some((value_data, _counter)) = self.inner.read()?.get(identifier) {
             if let ValueData::TypeDefinition(definition) = value_data {
                 return Ok(Some(definition.clone()));
             }
@@ -215,13 +244,14 @@ impl Context {
     pub fn set_value(&self, key: Identifier, value: Value) -> Result<(), RwLockError> {
         log::info!("Setting value: {key} = {value}");
 
-        self.inner.write()?.insert(
-            key,
-            ValueData::Value {
-                inner: value,
-                runtime_uses: Arc::new(RwLock::new(0)),
-            },
-        );
+        let mut map = self.inner.write()?;
+        let old_data = map.remove(&key);
+
+        if let Some((_, old_counter)) = old_data {
+            map.insert(key, (ValueData::Value(value), old_counter.clone()));
+        } else {
+            map.insert(key, (ValueData::Value(value), UsageCounter::new()));
+        }
 
         Ok(())
     }
@@ -235,7 +265,7 @@ impl Context {
 
         self.inner
             .write()?
-            .insert(key, ValueData::TypeHint { inner: r#type });
+            .insert(key, (ValueData::TypeHint(r#type), UsageCounter::new()));
 
         Ok(())
     }
@@ -249,15 +279,18 @@ impl Context {
         key: Identifier,
         definition: TypeDefinition,
     ) -> Result<(), RwLockError> {
-        self.inner
-            .write()?
-            .insert(key, ValueData::TypeDefinition(definition));
+        self.inner.write()?.insert(
+            key,
+            (ValueData::TypeDefinition(definition), UsageCounter::new()),
+        );
 
         Ok(())
     }
 
     /// Remove a key-value pair.
     pub fn unset(&self, key: &Identifier) -> Result<(), RwLockError> {
+        log::debug!("Dropping variable {key}.");
+
         self.inner.write()?.remove(key);
 
         Ok(())
@@ -294,7 +327,7 @@ impl PartialEq for Context {
 }
 
 impl PartialOrd for Context {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -305,79 +338,6 @@ impl Ord for Context {
         let right = other.inner().unwrap();
 
         left.cmp(&right)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum ValueData {
-    Value {
-        inner: Value,
-        runtime_uses: Arc<RwLock<u16>>,
-    },
-    TypeHint {
-        inner: Type,
-    },
-    TypeDefinition(TypeDefinition),
-}
-
-impl Eq for ValueData {}
-
-impl PartialEq for ValueData {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                ValueData::Value {
-                    inner: left_inner,
-                    runtime_uses: left_runtime_uses,
-                },
-                ValueData::Value {
-                    inner: right_inner,
-                    runtime_uses: right_runtime_uses,
-                },
-            ) => {
-                if left_inner != right_inner {
-                    return false;
-                } else {
-                    *left_runtime_uses.read().unwrap() == *right_runtime_uses.read().unwrap()
-                }
-            }
-            (
-                ValueData::TypeHint { inner: left_inner },
-                ValueData::TypeHint { inner: right_inner },
-            ) => left_inner == right_inner,
-            _ => false,
-        }
-    }
-}
-
-impl PartialOrd for ValueData {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ValueData {
-    fn cmp(&self, other: &Self) -> Ordering {
-        use Ordering::*;
-
-        match (self, other) {
-            (
-                ValueData::Value {
-                    inner: inner_left, ..
-                },
-                ValueData::Value {
-                    inner: inner_right, ..
-                },
-            ) => inner_left.cmp(inner_right),
-            (ValueData::Value { .. }, _) => Greater,
-            (
-                ValueData::TypeHint { inner: inner_left },
-                ValueData::TypeHint { inner: inner_right },
-            ) => inner_left.cmp(inner_right),
-            (ValueData::TypeDefinition(left), ValueData::TypeDefinition(right)) => left.cmp(right),
-            (ValueData::TypeDefinition(_), _) => Greater,
-            (ValueData::TypeHint { .. }, _) => Less,
-        }
     }
 }
 
