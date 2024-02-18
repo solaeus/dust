@@ -42,11 +42,11 @@ fn conversion_runtime_error() {
             to: Type::List(Box::new(Type::Map(None))),
             position: SourcePosition {
                 start_byte: 0,
-                end_byte: 0,
-                start_row: 0,
+                end_byte: 33,
+                start_row: 1,
                 start_column: 0,
-                end_row: 0,
-                end_column: 0
+                end_row: 1,
+                end_column: 33,
             }
         }))
     )
