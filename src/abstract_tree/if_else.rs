@@ -89,6 +89,8 @@ impl AbstractTree for IfElse {
         }
 
         if let Some(block) = &self.else_block {
+            block.validate(_source, context)?;
+
             let actual = block.expected_type(context)?;
 
             if !expected.accepts(&actual) {

@@ -94,6 +94,8 @@ impl AbstractTree for FunctionCall {
     }
 
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
+        self.function_expression.validate(_source, context)?;
+
         let function_expression_type = self.function_expression.expected_type(context)?;
 
         let parameter_types = if let Type::Function {
@@ -117,6 +119,8 @@ impl AbstractTree for FunctionCall {
         }
 
         for (index, expression) in self.arguments.iter().enumerate() {
+            expression.validate(_source, context)?;
+
             if let Some(expected) = parameter_types.get(index) {
                 let actual = expression.expected_type(context)?;
 
@@ -177,8 +181,6 @@ impl AbstractTree for FunctionCall {
 
                     call_context.set_value(identifier.clone(), value)?;
                 }
-
-                println!("{}", call_context);
 
                 function_node.body().run(source, &call_context)
             }

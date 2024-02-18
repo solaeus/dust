@@ -91,8 +91,11 @@ impl Context {
     pub fn with_variables_from(other: &Context) -> Result<Context, RwLockError> {
         let mut new_variables = BTreeMap::new();
 
-        for (identifier, value_data) in other.inner.read()?.iter() {
-            new_variables.insert(identifier.clone(), value_data.clone());
+        for (identifier, (value_data, counter)) in other.inner.read()?.iter() {
+            let (allowances, _runtime_uses) = counter.get_counts()?;
+            let new_counter = UsageCounter::with_counts(allowances, 0);
+
+            new_variables.insert(identifier.clone(), (value_data.clone(), new_counter));
         }
 
         Ok(Context {
@@ -123,30 +126,20 @@ impl Context {
     pub fn inherit_from(&self, other: &Context) -> Result<(), RwLockError> {
         let mut self_variables = self.inner.write()?;
 
-        for (identifier, (value_data, _counter)) in other.inner.read()?.iter() {
+        for (identifier, (value_data, counter)) in other.inner.read()?.iter() {
+            let (allowances, _runtime_uses) = counter.get_counts()?;
+            let new_counter = UsageCounter::with_counts(allowances, 0);
+
             if let ValueData::Value(value) = value_data {
                 if value.is_function() {
-                    self_variables.insert(
-                        identifier.clone(),
-                        (value_data.clone(), UsageCounter::new()),
-                    );
+                    self_variables.insert(identifier.clone(), (value_data.clone(), new_counter));
                 }
-            }
-
-            if let ValueData::TypeHint(r#type) = value_data {
+            } else if let ValueData::TypeHint(r#type) = value_data {
                 if r#type.is_function() {
-                    self_variables.insert(
-                        identifier.clone(),
-                        (value_data.clone(), UsageCounter::new()),
-                    );
+                    self_variables.insert(identifier.clone(), (value_data.clone(), new_counter));
                 }
-            }
-
-            if let ValueData::TypeDefinition(_) = value_data {
-                self_variables.insert(
-                    identifier.clone(),
-                    (value_data.clone(), UsageCounter::new()),
-                );
+            } else if let ValueData::TypeDefinition(_) = value_data {
+                self_variables.insert(identifier.clone(), (value_data.clone(), new_counter));
             }
         }
 

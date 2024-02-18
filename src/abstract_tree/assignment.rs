@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     context::Context,
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, AssignmentOperator, Format, Identifier, SourcePosition, Statement, SyntaxNode,
-    Type, TypeSpecification, Value,
+    AbstractTree, AssignmentOperator, Format, Function, Identifier, SourcePosition, Statement,
+    SyntaxNode, Type, TypeSpecification, Value,
 };
 
 /// Variable assignment, including add-assign and subtract-assign operations.
@@ -148,6 +148,12 @@ impl AbstractTree for Assignment {
             }
             AssignmentOperator::Equal => right,
         };
+
+        if let Value::Function(Function::ContextDefined(function_node)) = &new_value {
+            function_node
+                .context()
+                .set_value(self.identifier.clone(), new_value.clone())?;
+        }
 
         context.set_value(self.identifier.clone(), new_value)?;
 

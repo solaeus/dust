@@ -16,6 +16,13 @@ impl UsageCounter {
         })))
     }
 
+    pub fn with_counts(allowances: usize, runtime_uses: usize) -> UsageCounter {
+        UsageCounter(Arc::new(RwLock::new(UsageCounterInner {
+            allowances,
+            runtime_uses,
+        })))
+    }
+
     pub fn get_counts(&self) -> Result<(usize, usize), RwLockError> {
         let inner = self.0.read()?;
         Ok((inner.allowances, inner.runtime_uses))
