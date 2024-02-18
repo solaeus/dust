@@ -294,6 +294,7 @@ module.exports = grammar({
         seq(
           'match',
           $.expression,
+          '{',
           repeat1(
             seq(
               $.match_pattern,
@@ -302,6 +303,7 @@ module.exports = grammar({
               optional(','),
             ),
           ),
+          '}',
         ),
       ),
 

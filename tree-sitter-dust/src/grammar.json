@@ -873,6 +873,10 @@
             "name": "expression"
           },
           {
+            "type": "STRING",
+            "value": "{"
+          },
+          {
             "type": "REPEAT1",
             "content": {
               "type": "SEQ",
@@ -903,6 +907,10 @@
                 }
               ]
             }
+          },
+          {
+            "type": "STRING",
+            "value": "}"
           }
         ]
       }

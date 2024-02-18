@@ -5,9 +5,9 @@ fn match_value() {
     let test = interpret(
         "
         match 1 {
-            3 => false
-            2 => { false }
-            1 => true
+            3 -> false
+            2 -> { false }
+            1 -> true
         }
         ",
     )
@@ -21,9 +21,9 @@ fn match_assignment() {
     let test = interpret(
         "
         x = match 1 {
-            3 => false
-            2 => { false }
-            1 => true
+            3 -> false
+            2 -> { false }
+            1 -> true
         }
         x
         ",
@@ -40,8 +40,8 @@ fn match_enum() {
         foobar = Option::Some(true)
         
         match foobar {
-            Option::None => false,
-            Option::Some(content) => content,
+            Option::None -> false,
+            Option::Some(content) -> content,
         }
         ",
     );
