@@ -78,7 +78,7 @@ impl AbstractTree for Assignment {
                     }
                 }
                 AssignmentOperator::PlusEqual => {
-                    if let Type::List(expected) = type_specification.inner() {
+                    if let Type::ListOf(expected) = type_specification.inner() {
                         let actual = self.identifier.expected_type(context)?;
 
                         if !expected.accepts(&actual) {
@@ -107,7 +107,7 @@ impl AbstractTree for Assignment {
             match self.operator {
                 AssignmentOperator::Equal => {}
                 AssignmentOperator::PlusEqual => {
-                    if let Type::List(expected) = self.identifier.expected_type(context)? {
+                    if let Type::ListOf(expected) = self.identifier.expected_type(context)? {
                         let actual = self.statement.expected_type(context)?;
 
                         if !expected.accepts(&actual) {

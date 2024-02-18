@@ -19,15 +19,12 @@ enum Foobar {
           (identifier))))))
 
 ================================================================================
-Nested Enum
+Enum with Arguments
 ================================================================================
 
-enum Foobar {
-  Foo(str),
-  Bar(enum BazBuff {
-    Baz,
-    Buff,
-  })
+enum Foobar<T, U> {
+  Foo<T>,
+  Bar<U>,
 }
 
 --------------------------------------------------------------------------------
@@ -38,14 +35,55 @@ enum Foobar {
       (type_definition
         (enum_definition
           (identifier)
+          (type_arguments
+            (type
+              (identifier))
+            (type
+              (identifier)))
           (identifier)
-          (type)
+          (type_arguments
+            (type
+              (identifier)))
           (identifier)
-          (type_definition
-            (enum_definition
-              (identifier)
-              (identifier)
+          (type_arguments
+            (type
               (identifier))))))))
+
+================================================================================
+Complex Enum
+================================================================================
+
+enum Foobar<T> {
+  Foo<Foo>,
+  Bar<int, float>,
+  Baz<Option<T>>
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (statement_kind
+      (type_definition
+        (enum_definition
+          (identifier)
+          (type_arguments
+            (type
+              (identifier)))
+          (identifier)
+          (type_arguments
+            (type
+              (identifier)))
+          (identifier)
+          (type_arguments
+            (type)
+            (type))
+          (identifier)
+          (type_arguments
+            (type
+              (identifier)
+              (type
+                (identifier)))))))))
 
 ================================================================================
 Simple Enum Instance

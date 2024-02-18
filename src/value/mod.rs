@@ -74,25 +74,15 @@ impl Value {
     pub fn r#type(&self) -> Result<Type, RwLockError> {
         let r#type = match self {
             Value::List(list) => {
-                let mut previous_type = None;
+                let mut item_types = Vec::new();
 
                 for value in list.items()?.iter() {
-                    let value_type = value.r#type();
+                    let r#type = value.r#type()?;
 
-                    if let Some(previous) = &previous_type {
-                        if &value_type != previous {
-                            return Ok(Type::List(Box::new(Type::Any)));
-                        }
-                    }
-
-                    previous_type = Some(value_type);
+                    item_types.push(r#type);
                 }
 
-                if let Some(previous) = previous_type {
-                    Type::List(Box::new(previous?))
-                } else {
-                    Type::List(Box::new(Type::Any))
-                }
+                Type::ListExact(item_types)
             }
             Value::Map(map) => {
                 if map.inner().is_empty() {

@@ -19,15 +19,9 @@ impl BuiltInType {
         match self {
             BuiltInType::Option(content_type) => OPTION.get_or_init(|| {
                 if let Some(content_type) = content_type {
-                    Type::Custom {
-                        name: Identifier::new("Option"),
-                        argument: Some(Box::new(content_type.clone())),
-                    }
+                    Type::custom(Identifier::new("Option"), vec![content_type.clone()])
                 } else {
-                    Type::Custom {
-                        name: Identifier::new("Option"),
-                        argument: None,
-                    }
+                    Type::custom(Identifier::new("Option"), Vec::with_capacity(0))
                 }
             }),
         }

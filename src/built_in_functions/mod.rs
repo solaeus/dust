@@ -73,13 +73,7 @@ impl Callable for BuiltInFunction {
 
     fn r#type(&self) -> Type {
         match self {
-            BuiltInFunction::AssertEqual => Type::function(
-                vec![Type::Any, Type::Any],
-                Type::Custom {
-                    name: Identifier::new("Result"),
-                    argument: None,
-                },
-            ),
+            BuiltInFunction::AssertEqual => Type::function(vec![Type::Any, Type::Any], Type::None),
             BuiltInFunction::Fs(fs_function) => fs_function.r#type(),
             BuiltInFunction::Json(json_function) => json_function.r#type(),
             BuiltInFunction::Length => Type::function(vec![Type::Collection], Type::Integer),

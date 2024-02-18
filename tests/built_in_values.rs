@@ -1,4 +1,4 @@
-use dust_lang::*;
+use dust_lang::{error::RuntimeError, *};
 
 #[test]
 fn args() {
@@ -23,10 +23,9 @@ fn assert_equal() {
     );
     assert_eq!(
         interpret("assert_equal(true, false)"),
-        Ok(Value::Enum(EnumInstance::new(
-            Identifier::new("Result"),
-            Identifier::new("Error"),
-            Some(Value::none()),
-        )))
+        Err(Error::Runtime(RuntimeError::AssertEqualFailed {
+            left: true.into(),
+            right: false.into()
+        }))
     );
 }

@@ -33,8 +33,8 @@ impl BuiltInTypeDefinition {
                 let definition = TypeDefinition::Enum(EnumDefinition::new(
                     Identifier::new(self.name()),
                     vec![
-                        (Identifier::new("Some"), Some(Type::Any)),
-                        (Identifier::new("None"), None),
+                        (Identifier::new("Some"), vec![Type::Any]),
+                        (Identifier::new("None"), Vec::with_capacity(0)),
                     ],
                 ));
 
@@ -44,8 +44,8 @@ impl BuiltInTypeDefinition {
                 let definition = TypeDefinition::Enum(EnumDefinition::new(
                     Identifier::new(self.name()),
                     vec![
-                        (Identifier::new("Ok"), Some(Type::Any)),
-                        (Identifier::new("Err"), Some(Type::Any)),
+                        (Identifier::new("Ok"), vec![Type::Any]),
+                        (Identifier::new("Error"), vec![Type::Any]),
                     ],
                 ));
 

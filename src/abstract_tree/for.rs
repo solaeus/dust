@@ -66,7 +66,7 @@ impl AbstractTree for For {
         self.collection.validate(_source, context)?;
 
         let collection_type = self.collection.expected_type(context)?;
-        let item_type = if let Type::List(item_type) = collection_type {
+        let item_type = if let Type::ListOf(item_type) = collection_type {
             item_type.as_ref().clone()
         } else if let Type::Range = collection_type {
             Type::Integer

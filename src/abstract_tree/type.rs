@@ -19,7 +19,7 @@ pub enum Type {
     Collection,
     Custom {
         name: Identifier,
-        argument: Option<Box<Type>>,
+        arguments: Vec<Type>,
     },
     Float,
     Function {
@@ -27,20 +27,19 @@ pub enum Type {
         return_type: Box<Type>,
     },
     Integer,
-    List(Box<Type>),
+    List,
+    ListOf(Box<Type>),
+    ListExact(Vec<Type>),
     Map(Option<BTreeMap<Identifier, Type>>),
+    None,
     Number,
     String,
     Range,
-    None,
 }
 
 impl Type {
-    pub fn custom(name: Identifier, argument: Option<Type>) -> Self {
-        Type::Custom {
-            name,
-            argument: argument.map(|r#type| Box::new(r#type)),
-        }
+    pub fn custom(name: Identifier, arguments: Vec<Type>) -> Self {
+        Type::Custom { name, arguments }
     }
 
     pub fn option(inner_type: Option<Type>) -> Self {
@@ -48,7 +47,7 @@ impl Type {
     }
 
     pub fn list(item_type: Type) -> Self {
-        Type::List(Box::new(item_type))
+        Type::ListOf(Box::new(item_type))
     }
 
     pub fn function(parameter_types: Vec<Type>, return_type: Type) -> Self {
@@ -70,14 +69,15 @@ impl Type {
             | (_, Type::Any)
             | (Type::Boolean, Type::Boolean)
             | (Type::Collection, Type::Collection)
-            | (Type::Collection, Type::List(_))
-            | (Type::List(_), Type::Collection)
+            | (Type::Collection, Type::ListOf(_))
+            | (Type::ListOf(_), Type::Collection)
             | (Type::Collection, Type::Map(_))
             | (Type::Map(_), Type::Collection)
             | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
+            | (Type::List, Type::List)
             | (Type::Map(None), Type::Map(None))
             | (Type::Number, Type::Number)
             | (Type::Number, Type::Integer)
@@ -90,21 +90,24 @@ impl Type {
             (
                 Type::Custom {
                     name: left_name,
-                    argument: left_argument,
+                    arguments: left_arguments,
                 },
                 Type::Custom {
                     name: right_name,
-                    argument: right_argument,
+                    arguments: right_arguments,
                 },
-            ) => {
-                if left_name != right_name {
-                    false
-                } else {
-                    left_argument == right_argument
-                }
-            }
-            (Type::List(self_item_type), Type::List(other_item_type)) => {
+            ) => left_name == right_name && left_arguments == right_arguments,
+            (Type::ListOf(self_item_type), Type::ListOf(other_item_type)) => {
                 self_item_type.accepts(&other_item_type)
+            }
+            (Type::ListExact(self_types), Type::ListExact(other_types)) => {
+                for (left, right) in self_types.iter().zip(other_types.iter()) {
+                    if !left.accepts(right) {
+                        return false;
+                    }
+                }
+
+                true
             }
             (
                 Type::Function {
@@ -137,7 +140,7 @@ impl Type {
     }
 
     pub fn is_list(&self) -> bool {
-        matches!(self, Type::List(_))
+        matches!(self, Type::ListOf(_))
     }
 
     pub fn is_map(&self) -> bool {
@@ -158,13 +161,19 @@ impl AbstractTree for Type {
         let r#type = match type_node.kind() {
             "identifier" => {
                 let name = Identifier::from_syntax(type_node, _source, context)?;
-                let argument = if let Some(child) = node.child(2) {
-                    Some(Type::from_syntax(child, _source, context)?)
-                } else {
-                    None
-                };
+                let mut arguments = Vec::new();
 
-                Type::custom(name, argument)
+                for index in 2..node.child_count() - 1 {
+                    let child = node.child(index).unwrap();
+
+                    if child.is_named() {
+                        let r#type = Type::from_syntax(child, _source, context)?;
+
+                        arguments.push(r#type);
+                    }
+                }
+
+                Type::custom(name, arguments)
             }
             "{" => {
                 let mut type_map = BTreeMap::new();
@@ -191,7 +200,7 @@ impl AbstractTree for Type {
                 let item_type_node = node.child(1).unwrap();
                 let item_type = Type::from_syntax(item_type_node, _source, context)?;
 
-                Type::List(Box::new(item_type))
+                Type::ListOf(Box::new(item_type))
             }
             "any" => Type::Any,
             "bool" => Type::Boolean,
@@ -261,7 +270,7 @@ impl Format for Type {
             Type::Collection => output.push_str("collection"),
             Type::Custom {
                 name: _,
-                argument: _,
+                arguments: _,
             } => todo!(),
             Type::Float => output.push_str("float"),
             Type::Function {
@@ -282,11 +291,13 @@ impl Format for Type {
                 return_type.format(output, indent_level);
             }
             Type::Integer => output.push_str("int"),
-            Type::List(item_type) => {
+            Type::List => todo!(),
+            Type::ListOf(item_type) => {
                 output.push('[');
                 item_type.format(output, indent_level);
                 output.push(']');
             }
+            Type::ListExact(_) => todo!(),
             Type::Map(_) => {
                 output.push_str("map");
             }
@@ -304,9 +315,19 @@ impl Display for Type {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
             Type::Collection => write!(f, "collection"),
-            Type::Custom { name, argument } => {
-                if let Some(argument) = argument {
-                    write!(f, "{name}<{argument}>")
+            Type::Custom { name, arguments } => {
+                if !arguments.is_empty() {
+                    write!(f, "<")?;
+
+                    for (index, r#type) in arguments.into_iter().enumerate() {
+                        if index == arguments.len() - 1 {
+                            write!(f, "{}", r#type)?;
+                        } else {
+                            write!(f, "{}, ", r#type)?;
+                        }
+                    }
+
+                    write!(f, ">")
                 } else {
                     write!(f, "{name}")
                 }
@@ -330,7 +351,21 @@ impl Display for Type {
                 write!(f, " -> {return_type}")
             }
             Type::Integer => write!(f, "int"),
-            Type::List(item_type) => write!(f, "[{item_type}]"),
+            Type::List => write!(f, "list"),
+            Type::ListOf(item_type) => write!(f, "[{item_type}]"),
+            Type::ListExact(types) => {
+                write!(f, "[")?;
+
+                for (index, r#type) in types.into_iter().enumerate() {
+                    if index == types.len() - 1 {
+                        write!(f, "{}", r#type)?;
+                    } else {
+                        write!(f, "{}, ", r#type)?;
+                    }
+                }
+
+                write!(f, "]")
+            }
             Type::Map(_) => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),

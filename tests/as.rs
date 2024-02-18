@@ -24,7 +24,7 @@ fn string_as_list_error() {
         interpret("'foobar' as [float]"),
         Err(Error::Validation(ValidationError::ConversionImpossible {
             initial_type: Type::String,
-            target_type: Type::List(Box::new(Type::Float))
+            target_type: Type::ListOf(Box::new(Type::Float))
         }))
     )
 }
@@ -39,7 +39,7 @@ fn conversion_runtime_error() {
         interpret(&format!("json:parse('{JSON}') as [map]")),
         Err(Error::Runtime(RuntimeError::ConversionImpossible {
             from: json_value.r#type().unwrap(),
-            to: Type::List(Box::new(Type::Map(None))),
+            to: Type::ListOf(Box::new(Type::Map(None))),
             position: SourcePosition {
                 start_byte: 0,
                 end_byte: 33,

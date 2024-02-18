@@ -9,11 +9,11 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
 pub struct EnumDefinition {
     identifier: Identifier,
-    variants: Vec<(Identifier, Option<Type>)>,
+    variants: Vec<(Identifier, Vec<Type>)>,
 }
 
 impl EnumDefinition {
-    pub fn new(identifier: Identifier, variants: Vec<(Identifier, Option<Type>)>) -> Self {
+    pub fn new(identifier: Identifier, variants: Vec<(Identifier, Vec<Type>)>) -> Self {
         Self {
             identifier,
             variants,
@@ -27,6 +27,10 @@ impl EnumDefinition {
     pub fn identifier(&self) -> &Identifier {
         &self.identifier
     }
+
+    pub fn variants(&self) -> &Vec<(Identifier, Vec<Type>)> {
+        &self.variants
+    }
 }
 
 impl AbstractTree for EnumDefinition {
@@ -37,21 +41,25 @@ impl AbstractTree for EnumDefinition {
         let identifier = Identifier::from_syntax(identifier_node, source, context)?;
 
         let mut variants = Vec::new();
-        let mut current_identifier = None;
+        let mut current_identifier: Option<Identifier> = None;
+        let mut types = Vec::new();
 
         for index in 3..node.child_count() - 1 {
             let child = node.child(index).unwrap();
 
             if child.kind() == "identifier" {
+                if let Some(identifier) = &current_identifier {
+                    variants.push((identifier.clone(), types));
+                }
+
                 current_identifier = Some(Identifier::from_syntax(child, source, context)?);
+                types = Vec::new();
             }
 
-            if let Some(identifier) = &current_identifier {
-                if child.kind() == "type" {
-                    let r#type = Type::from_syntax(child, source, context)?;
+            if child.kind() == "type" {
+                let r#type = Type::from_syntax(child, source, context)?;
 
-                    variants.push((identifier.clone(), Some(r#type)));
-                }
+                types.push(r#type);
             }
         }
 
@@ -65,13 +73,14 @@ impl AbstractTree for EnumDefinition {
         Ok(Type::None)
     }
 
-    fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
+        context.set_definition(self.identifier.clone(), TypeDefinition::Enum(self.clone()))?;
+        self.identifier.validate(_source, context)?;
+
         Ok(())
     }
 
-    fn run(&self, _source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        context.set_definition(self.identifier.clone(), TypeDefinition::Enum(self.clone()))?;
-
+    fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         Ok(Value::none())
     }
 }

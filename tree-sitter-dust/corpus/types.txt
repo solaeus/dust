@@ -28,3 +28,69 @@ x <{ y <int> }> = { y = 2 }
                       (expression
                         (value
                           (integer))))))))))))))
+
+================================================================================
+List Of
+================================================================================
+
+x <list<str>> = ['foo', 'bar', 'baz']
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (statement_kind
+      (assignment
+        (identifier)
+        (type_specification
+          (type
+            (type)))
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (string)))
+                  (expression
+                    (value
+                      (string))))))))))))
+
+================================================================================
+Exact List
+================================================================================
+
+foo <[int, float, int]> = [1, 2.0, 3]
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (statement_kind
+      (assignment
+        (identifier)
+        (type_specification
+          (type
+            (type)
+            (type)
+            (type)))
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (list
+                  (expression
+                    (value
+                      (integer)))
+                  (expression
+                    (value
+                      (float)))
+                  (expression
+                    (value
+                      (integer))))))))))))

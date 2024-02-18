@@ -1,6 +1,27 @@
 use dust_lang::*;
 
 #[test]
+fn override_built_ins() {
+    assert_eq!(
+        interpret(
+            "
+            enum Option {
+                Some<str>
+                None
+            }
+            
+            my_option <Option> = Option::Some('foo')
+            "
+        ),
+        Ok(Value::Enum(EnumInstance::new(
+            Identifier::new("Option"),
+            Identifier::new("Some"),
+            Some(Value::String("foo".to_string())),
+        )))
+    );
+}
+
+#[test]
 fn option() {
     assert_eq!(
         interpret("Option::None"),
@@ -13,14 +34,12 @@ fn option() {
     assert_eq!(
         interpret(
             "
-            opt <Option<int>> = Option::Some(1);
-
-            opt
+            Option::Some(1)
             "
         ),
         Ok(Value::Enum(EnumInstance::new(
             Identifier::new("Option"),
-            Identifier::new("None"),
+            Identifier::new("Some"),
             Some(Value::Integer(1)),
         )))
     );
@@ -39,8 +58,7 @@ fn result() {
     assert_eq!(
         interpret(
             "
-            result <Result<int, str>> = Result::Error('uh-oh!')
-            result
+            Result::Error('uh-oh!')
             "
         ),
         Ok(Value::Enum(EnumInstance::new(

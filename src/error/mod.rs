@@ -16,7 +16,7 @@ use tree_sitter::LanguageError;
 
 use std::fmt::{self, Formatter};
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     Syntax(SyntaxError),
 
@@ -94,12 +94,6 @@ impl From<LanguageError> for Error {
 }
 
 impl std::error::Error for Error {}
-
-impl fmt::Debug for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{self}")
-    }
-}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

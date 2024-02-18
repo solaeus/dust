@@ -35,7 +35,7 @@ impl AbstractTree for Index {
 
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         match self.collection.expected_type(context)? {
-            Type::List(item_type) => Ok(*item_type.clone()),
+            Type::ListOf(item_type) => Ok(*item_type.clone()),
             Type::Map(map_types_option) => {
                 if let (Some(map_type), IndexExpression::Identifier(identifier)) =
                     (map_types_option, &self.index)

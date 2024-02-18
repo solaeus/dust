@@ -354,21 +354,15 @@ module.exports = grammar({
           'collection',
           'float',
           'int',
+          'list',
           'map',
-          seq(
-            '{',
-            repeat1(
-              seq(
-                $.identifier,
-                $.type_specification,
-              ),
-            ),
-            '}',
-          ),
           'none',
           'num',
           'str',
+          // Custom type
           $.identifier,
+
+          // Custom type with arguments
           seq(
             $.identifier,
             '<',
@@ -380,7 +374,35 @@ module.exports = grammar({
             ),
             '>',
           ),
-          seq('[', $.type, ']'),
+
+          // Map with exact fields
+          seq(
+            '{',
+            repeat1(
+              seq(
+                $.identifier,
+                $.type_specification,
+              ),
+            ),
+            '}',
+          ),
+
+          // List of
+          seq('list', '<', $.type, '>'),
+
+          // Exact list
+          seq(
+            '[',
+            repeat(
+              seq(
+                $.type,
+                optional(','),
+              ),
+            ),
+            ']',
+          ),
+
+          // Function
           seq(
             '(',
             repeat(
@@ -447,27 +469,31 @@ module.exports = grammar({
         $.struct_definition,
       ),
 
+    type_arguments: $ =>
+      seq(
+        '<',
+        repeat1(
+          seq(
+            $.type,
+            optional(','),
+          ),
+        ),
+        '>',
+      ),
+
     enum_definition: $ =>
       prec.right(
         seq(
           'enum',
           $.identifier,
+          optional($.type_arguments),
           repeat(
             seq(
               '{',
               repeat1(
                 seq(
                   $.identifier,
-                  optional(
-                    seq(
-                      '(',
-                      choice(
-                        $.type,
-                        $.type_definition,
-                      ),
-                      ')',
-                    ),
-                  ),
+                  optional($.type_arguments),
                   optional(','),
                 ),
               ),

@@ -141,11 +141,7 @@
           "named": true
         },
         {
-          "type": "type",
-          "named": true
-        },
-        {
-          "type": "type_definition",
+          "type": "type_arguments",
           "named": true
         }
       ]
@@ -739,6 +735,21 @@
     }
   },
   {
+    "type": "type_arguments",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "type",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "type_definition",
     "named": true,
     "fields": {},
@@ -1029,6 +1040,10 @@
   {
     "type": "integer",
     "named": true
+  },
+  {
+    "type": "list",
+    "named": false
   },
   {
     "type": "map",

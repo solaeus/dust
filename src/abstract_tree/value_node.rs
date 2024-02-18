@@ -124,43 +124,47 @@ impl AbstractTree for ValueNode {
             ValueNode::Integer(_) => Type::Integer,
             ValueNode::String(_) => Type::String,
             ValueNode::List(expressions) => {
-                let mut previous_type = None;
+                let mut item_types = Vec::new();
 
                 for expression in expressions {
                     let expression_type = expression.expected_type(context)?;
 
-                    if let Some(previous) = previous_type {
-                        if expression_type != previous {
-                            return Ok(Type::List(Box::new(Type::Any)));
-                        }
-                    }
-
-                    previous_type = Some(expression_type);
+                    item_types.push(expression_type);
                 }
 
-                if let Some(previous) = previous_type {
-                    Type::List(Box::new(previous))
-                } else {
-                    Type::List(Box::new(Type::Any))
-                }
+                Type::ListExact(item_types)
             }
             ValueNode::Map(map_node) => map_node.expected_type(context)?,
             ValueNode::Struct { name, .. }  => {
-                Type::Custom { name: name.clone(), argument: None }
+                Type::custom(name.clone(), Vec::with_capacity(0))
             }
             ValueNode::Range(_) => Type::Range,
-            ValueNode::Enum { name, variant: _, expression } => {
-                if let Some(expression) = expression {
-                    Type::Custom {
-                        name: name.clone(),
-                        argument: Some(Box::new(expression.expected_type(context)?))
+            ValueNode::Enum { name, variant, expression: _ } => {
+                let types: Vec<Type> = if let Some(type_definition) = context.get_definition(name)? {
+                    if let TypeDefinition::Enum(enum_definition) = type_definition {
+                        let types = enum_definition.variants().into_iter().find_map(|(identifier, types)| {
+                            if identifier == variant {
+                                Some(types.clone())
+                            } else {
+                                None
+                            }
+                        });
+
+                        if let Some(types) = types {
+                            types 
+                        } else {
+                            return Err(ValidationError::VariableIdentifierNotFound(variant.clone()));
+                        }
+                         
+                    } else {
+                        return Err(ValidationError::ExpectedEnumDefintion { actual: type_definition.clone() });
                     }
                 } else {
-                    Type::Custom{
-                        name: name.clone(),
-                        argument: None,
-                    }
-                }
+                     return Err(ValidationError::VariableIdentifierNotFound(name.clone()));
+                };
+
+                Type::custom(name.clone(), types.clone())
+                
             },
         };
 

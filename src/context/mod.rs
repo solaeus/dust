@@ -270,7 +270,7 @@ impl Context {
         let old_data = map.remove(&key);
 
         if let Some((_, old_counter)) = old_data {
-            map.insert(key, (ValueData::Value(value), old_counter.clone()));
+            map.insert(key, (ValueData::Value(value), old_counter));
         } else {
             map.insert(key, (ValueData::Value(value), UsageCounter::new()));
         }
