@@ -129,13 +129,13 @@ impl Interpreter {
     /// This function [parses][Self::parse], [validates][Self::validate] and
     /// [runs][Root::run] using the same source code.
     pub fn run(&mut self, source: &str) -> Result<Value, Error> {
-        self.validate(source)?
-            .run(source, &self.context)
-            .map_err(|error| Error::Runtime(error))
+        let final_value = self.validate(source)?.run(source, &self.context)?;
+
+        Ok(final_value)
     }
 
-    /// Return an s-expression displaying a syntax tree of the source, or the
-    /// ParserCancelled error if the parser takes too long.
+    /// Return an s-expression displaying a syntax tree of the source or an
+    /// error.
     pub fn syntax_tree(&mut self, source: &str) -> Result<String, Error> {
         Ok(self.parse(source)?.root_node().to_sexp())
     }
