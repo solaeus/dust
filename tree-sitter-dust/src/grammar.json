@@ -1081,10 +1081,6 @@
             "members": [
               {
                 "type": "STRING",
-                "value": "map"
-              },
-              {
-                "type": "STRING",
                 "value": "{"
               },
               {

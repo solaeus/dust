@@ -95,13 +95,17 @@ impl Value {
                 }
             }
             Value::Map(map) => {
-                let mut type_map = BTreeMap::new();
+                if map.inner().is_empty() {
+                    Type::Map(None)
+                } else {
+                    let mut type_map = BTreeMap::new();
 
-                for (identifier, value) in map.inner() {
-                    type_map.insert(identifier.clone(), value.r#type()?);
+                    for (identifier, value) in map.inner() {
+                        type_map.insert(identifier.clone(), value.r#type()?);
+                    }
+
+                    Type::Map(Some(type_map))
                 }
-
-                Type::Map(Some(type_map))
             }
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,

@@ -77,7 +77,18 @@ impl From<RwLockError> for SyntaxError {
 }
 
 impl Display for SyntaxError {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            SyntaxError::InvalidSource { position } => write!(f, "Invalid syntax at {position:?}."),
+            SyntaxError::RwLock(_) => todo!(),
+            SyntaxError::UnexpectedSyntaxNode {
+                expected,
+                actual,
+                position,
+            } => write!(
+                f,
+                "Unexpected syntax node. Expected {expected} but got {actual} at {position:?}."
+            ),
+        }
     }
 }

@@ -356,7 +356,6 @@ module.exports = grammar({
           'int',
           'map',
           seq(
-            'map',
             '{',
             repeat1(
               seq(

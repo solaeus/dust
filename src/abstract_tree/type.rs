@@ -9,7 +9,7 @@ use tree_sitter::Node as SyntaxNode;
 use crate::{
     built_in_types::BuiltInType,
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, Format, Identifier, Value,
+    AbstractTree, Context, Format, Identifier, TypeSpecification, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, PartialOrd, Ord)]
@@ -78,7 +78,7 @@ impl Type {
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::Map(_), Type::Map(_))
+            | (Type::Map(None), Type::Map(None))
             | (Type::Number, Type::Number)
             | (Type::Number, Type::Integer)
             | (Type::Number, Type::Float)
@@ -86,6 +86,7 @@ impl Type {
             | (Type::Float, Type::Number)
             | (Type::String, Type::String)
             | (Type::None, Type::None) => true,
+            (Type::Map(left_types), Type::Map(right_types)) => left_types == right_types,
             (
                 Type::Custom {
                     name: left_name,
@@ -164,6 +165,27 @@ impl AbstractTree for Type {
                 };
 
                 Type::custom(name, argument)
+            }
+            "{" => {
+                let mut type_map = BTreeMap::new();
+                let mut previous_identifier = None;
+
+                for index in 1..node.child_count() - 1 {
+                    let child = node.child(index).unwrap();
+
+                    if let Some(identifier) = previous_identifier {
+                        let type_specification =
+                            TypeSpecification::from_syntax(child, _source, context)?;
+
+                        type_map.insert(identifier, type_specification.take_inner());
+                        previous_identifier = None;
+                    } else {
+                        previous_identifier =
+                            Some(Identifier::from_syntax(child, _source, context)?)
+                    }
+                }
+
+                Type::Map(Some(type_map))
             }
             "[" => {
                 let item_type_node = node.child(1).unwrap();

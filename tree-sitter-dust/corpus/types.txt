@@ -6,3 +6,25 @@ x <{ y <int> }> = { y = 2 }
 
 --------------------------------------------------------------------------------
 
+(root
+  (statement
+    (statement_kind
+      (assignment
+        (identifier)
+        (type_specification
+          (type
+            (identifier)
+            (type_specification
+              (type))))
+        (assignment_operator)
+        (statement
+          (statement_kind
+            (expression
+              (value
+                (map
+                  (identifier)
+                  (statement
+                    (statement_kind
+                      (expression
+                        (value
+                          (integer))))))))))))))

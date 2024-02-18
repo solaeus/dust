@@ -58,6 +58,10 @@ impl AbstractTree for MapNode {
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+        if self.properties.is_empty() {
+            return Ok(Type::Map(None));
+        }
+
         let mut type_map = BTreeMap::new();
 
         for (identifier, (statement, r#type_option)) in &self.properties {
