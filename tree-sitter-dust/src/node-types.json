@@ -923,10 +923,6 @@
     "named": false
   },
   {
-    "type": "=>",
-    "named": false
-  },
-  {
     "type": ">",
     "named": false
   },
@@ -1044,10 +1040,6 @@
   },
   {
     "type": "nan",
-    "named": false
-  },
-  {
-    "type": "new",
     "named": false
   },
   {

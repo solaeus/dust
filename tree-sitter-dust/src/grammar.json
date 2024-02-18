@@ -873,10 +873,6 @@
             "name": "expression"
           },
           {
-            "type": "STRING",
-            "value": "{"
-          },
-          {
             "type": "REPEAT1",
             "content": {
               "type": "SEQ",
@@ -887,7 +883,7 @@
                 },
                 {
                   "type": "STRING",
-                  "value": "=>"
+                  "value": "->"
                 },
                 {
                   "type": "SYMBOL",
@@ -907,10 +903,6 @@
                 }
               ]
             }
-          },
-          {
-            "type": "STRING",
-            "value": "}"
           }
         ]
       }
@@ -1607,12 +1599,12 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "STRING",
-          "value": "new"
-        },
-        {
           "type": "SYMBOL",
           "name": "identifier"
+        },
+        {
+          "type": "STRING",
+          "value": "::"
         },
         {
           "type": "SYMBOL",

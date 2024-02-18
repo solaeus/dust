@@ -9,7 +9,7 @@ fn simple_struct() {
             baz <str>
         }
 
-        new Foo {
+        Foo::{
             baz = 'hiya'
         }
         ",
@@ -37,8 +37,8 @@ fn nested_struct() {
         }
         struct Bar {}
 
-        new Foo {
-            bar = new Bar {}
+        Foo::{
+            bar = Bar::{}
         }
         ",
     );

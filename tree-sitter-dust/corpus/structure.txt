@@ -30,7 +30,7 @@ struct Foo {
 	x <int>
 	y <float> = 0.0
 
-    bar <Bar> = new Bar {
+    bar <Bar> = Bar::{
       baz = 42
     }
 }

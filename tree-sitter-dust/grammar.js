@@ -294,16 +294,14 @@ module.exports = grammar({
         seq(
           'match',
           $.expression,
-          '{',
           repeat1(
             seq(
               $.match_pattern,
-              '=>',
+              '->',
               $.statement,
               optional(','),
             ),
           ),
-          '}',
         ),
       ),
 
@@ -517,6 +515,6 @@ module.exports = grammar({
       ),
 
     struct_instance: $ =>
-      seq('new', $.identifier, $.map),
+      seq($.identifier, '::', $.map),
   },
 });

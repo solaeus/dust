@@ -90,7 +90,7 @@ impl AbstractTree for ValueNode {
                 ValueNode::Enum { name, variant , expression  }                
             }
             "struct_instance" => {
-                let name_node = child.child(1).unwrap();
+                let name_node = child.child(0).unwrap();
                 let name = Identifier::from_syntax(name_node, source, context)?;
 
                 let properties_node = child.child(2).unwrap();
