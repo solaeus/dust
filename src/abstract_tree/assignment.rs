@@ -63,6 +63,8 @@ impl AbstractTree for Assignment {
             context.set_type(self.identifier.clone(), r#type)?;
         }
 
+        self.identifier.validate(source, context)?;
+
         if let Some(type_specification) = &self.type_specification {
             match self.operator {
                 AssignmentOperator::Equal => {

@@ -49,11 +49,6 @@ pub fn interpret(source: &str) -> Result<Value, Error> {
 
 /// Interpret the given source code with the given context.
 ///
-/// A context is a [Map] instance, which is dust's
-/// [BTreeMap][std::collections::btree_map::BTreeMap] that is used internally
-/// for the `<map>` type. Any value can be set, including functions and nested
-/// maps.
-///
 /// See the [module-level docs][self] for more info.
 pub fn interpret_with_context(source: &str, context: Context) -> Result<Value, Error> {
     let mut interpreter = Interpreter::new(context);
@@ -93,7 +88,7 @@ impl Interpreter {
             .expect("Language version is incompatible with tree sitter version.");
 
         parser.set_logger(Some(Box::new(|_log_type, message| {
-            log::info!("{}", message)
+            log::debug!("{}", message)
         })));
 
         Interpreter { parser, context }
@@ -118,9 +113,8 @@ impl Interpreter {
     /// The order in which this function works is:
     ///
     /// - parse the source into a syntax tree
-    /// - check the syntax tree for errors
     /// - generate an abstract tree from the source and syntax tree
-    /// - check the abstract tree for type errors
+    /// - check the abstract tree for errors
     pub fn validate(&mut self, source: &str) -> Result<Root, Error> {
         let syntax_tree = self.parse(source)?;
         let abstract_tree = Root::from_syntax(syntax_tree.root_node(), source, &self.context)?;

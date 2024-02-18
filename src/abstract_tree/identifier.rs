@@ -9,7 +9,7 @@ use crate::{
     built_in_identifiers::all_built_in_identifiers,
     built_in_values::all_built_in_values,
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, Format, SyntaxNode, Type, Value, ValueData,
+    AbstractTree, Context, Format, SyntaxNode, Type, Value,
 };
 
 /// A string by which a variable is known to a context.
@@ -61,9 +61,9 @@ impl AbstractTree for Identifier {
     }
 
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
-        if let Some((_, counter)) = context.get_data_and_counter(self)? {
-            counter.add_allowance()?;
+        let variable_exists = context.add_allowance(self)?;
 
+        if variable_exists {
             Ok(())
         } else {
             for built_in_value in all_built_in_values() {
@@ -91,16 +91,8 @@ impl AbstractTree for Identifier {
     }
 
     fn run(&self, _source: &str, context: &Context) -> Result<Value, RuntimeError> {
-        if let Some((value_data, counter)) = context.get_data_and_counter(self)? {
-            if let ValueData::Value(value) = value_data {
-                counter.add_runtime_use()?;
-
-                if counter.runtime_uses() == counter.allowances() {
-                    context.unset(self)?;
-                }
-
-                return Ok(value.clone());
-            }
+        if let Some(value) = context.get_value(self)? {
+            return Ok(value);
         } else {
             for built_in_value in all_built_in_values() {
                 if built_in_value.name() == self.inner().as_ref() {

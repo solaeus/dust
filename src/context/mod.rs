@@ -1,5 +1,6 @@
-//! An execution context that stores variables and type data during the
-//! [Interpreter][crate::Interpreter]'s abstraction and execution process.
+//! A garbage-collecting execution context that stores variables and type data
+//! during the [Interpreter][crate::Interpreter]'s abstraction and execution
+//! process.
 //!
 //! ## Setting values
 //!
@@ -27,6 +28,15 @@
 //! has been explicitly set. If nothing is found, it will then check the built-
 //! in values and type definitions for a match. This means that the user can
 //! override the built-ins.
+//!
+//! ## Garbage Collection
+//!
+//! Every item stored in a Context has a counter attached to it. You must use
+//! [Context::add_allowance][] to let the Context know not to drop the value.
+//! Every time you use [Context::get_value][] it checks the number of times it
+//! has been used and compares it to the number of allowances. If the limit
+//! has been reached, the value will be removed from the context and can no
+//! longer be found.
 mod usage_counter;
 mod value_data;
 
@@ -45,8 +55,8 @@ use crate::{
     error::rw_lock_error::RwLockError, Identifier, Type, TypeDefinition, Value,
 };
 
-/// An execution context that variable and type data during the [Interpreter]'s
-/// abstraction and execution process.
+/// An execution context stores that variable and type data during the
+/// [Interpreter]'s abstraction and execution process.
 ///
 /// See the [module-level docs][self] for more info.
 #[derive(Clone, Debug)]
@@ -166,33 +176,42 @@ impl Context {
         Ok(())
     }
 
-    /// Get a [Value] and its [UsageCounter] from the context.
-    pub fn get_data_and_counter(
-        &self,
-        identifier: &Identifier,
-    ) -> Result<Option<(ValueData, UsageCounter)>, RwLockError> {
-        if let Some((value_data, counter)) = self.inner.read()?.get(identifier) {
-            return Ok(Some((value_data.clone(), counter.clone())));
-        }
+    /// Increment the number of allowances a variable has. Return a boolean
+    /// representing whether or not the variable was found.
+    pub fn add_allowance(&self, identifier: &Identifier) -> Result<bool, RwLockError> {
+        if let Some((_value_data, counter)) = self.inner.read()?.get(identifier) {
+            counter.add_allowance()?;
 
-        Ok(None)
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Get a [Value] from the context.
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockError> {
-        if let Some((value_data, _counter)) = self.inner.read()?.get(identifier) {
-            if let ValueData::Value(value) = value_data {
-                return Ok(Some(value.clone()));
-            }
+        let (value, counter) =
+            if let Some((value_data, counter)) = self.inner.read()?.get(identifier) {
+                if let ValueData::Value(value) = value_data {
+                    (value.clone(), counter.clone())
+                } else {
+                    return Ok(None);
+                }
+            } else {
+                for built_in_value in all_built_in_values() {
+                    if built_in_value.name() == identifier.inner().as_ref() {
+                        return Ok(Some(built_in_value.get().clone()));
+                    }
+                }
+
+                return Ok(None);
+            };
+
+        if counter.allowances() == counter.runtime_uses() {
+            self.unset(identifier)?;
         }
 
-        for built_in_value in all_built_in_values() {
-            if built_in_value.name() == identifier.inner().as_ref() {
-                return Ok(Some(built_in_value.get().clone()));
-            }
-        }
-
-        Ok(None)
+        Ok(Some(value))
     }
 
     /// Get a [Type] from the context.
@@ -273,7 +292,7 @@ impl Context {
     /// Set a type definition.
     ///
     /// This allows defined types (i.e. structs and enums) to be instantiated
-    /// later while using this context.
+    /// later while running the interpreter using this context.
     pub fn set_definition(
         &self,
         key: Identifier,
