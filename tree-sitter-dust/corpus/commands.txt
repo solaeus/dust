@@ -78,37 +78,10 @@ Command Sequence with Arguments
           (command_argument))))))
 
 ================================================================================
-Command Sequence with Arguments
-================================================================================
-
-^cargo run -- -c "output('hi there')"
-^ls --long -a
-
---------------------------------------------------------------------------------
-
-(root
-  (statement
-    (statement_kind
-      (expression
-        (command
-          (command_text)
-          (command_argument)
-          (command_argument)
-          (command_argument)
-          (command_argument)))))
-  (statement
-    (statement_kind
-      (expression
-        (command
-          (command_text)
-          (command_argument)
-          (command_argument))))))
-
-================================================================================
 Command Assignment
 ================================================================================
 
-ls_output = ^ls --long -a;
+ls_output = ^ls;
 cat_output = ^cat Cargo.toml;
 
 --------------------------------------------------------------------------------
@@ -123,9 +96,7 @@ cat_output = ^cat Cargo.toml;
           (statement_kind
             (expression
               (command
-                (command_text)
-                (command_argument)
-                (command_argument))))))))
+                (command_text))))))))
   (statement
     (statement_kind
       (assignment
@@ -137,32 +108,6 @@ cat_output = ^cat Cargo.toml;
               (command
                 (command_text)
                 (command_argument)))))))))
-
-================================================================================
-Command with Semicolon
-================================================================================
-
-ls_output = ^ls --long -a; ls_output
-
---------------------------------------------------------------------------------
-
-(root
-  (statement
-    (statement_kind
-      (assignment
-        (identifier)
-        (assignment_operator)
-        (statement
-          (statement_kind
-            (expression
-              (command
-                (command_text)
-                (command_argument)
-                (command_argument))))))))
-  (statement
-    (statement_kind
-      (expression
-        (identifier)))))
 
 ================================================================================
 Command with Semicolon

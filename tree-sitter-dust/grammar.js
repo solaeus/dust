@@ -101,7 +101,7 @@ module.exports = grammar({
         ),
       ),
 
-    command_text: $ => /\S+/,
+    command_text: $ => /[^\s;]+/,
 
     command_argument: $ =>
       choice(

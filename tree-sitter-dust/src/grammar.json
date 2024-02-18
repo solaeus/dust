@@ -293,7 +293,7 @@
     },
     "command_text": {
       "type": "PATTERN",
-      "value": "\\S+"
+      "value": "[^\\s;]+"
     },
     "command_argument": {
       "type": "CHOICE",

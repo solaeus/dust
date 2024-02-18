@@ -1,4 +1,4 @@
-use std::process;
+use std::process::{self, Stdio};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node as SyntaxNode;
@@ -53,18 +53,19 @@ impl AbstractTree for Command {
     }
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        Ok(())
     }
 
     fn run(&self, _source: &str, _context: &Context) -> Result<Value, RuntimeError> {
         let output = process::Command::new(&self.command_text)
             .args(&self.command_arguments)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
             .spawn()?
             .wait_with_output()?
             .stdout;
-        let string = String::from_utf8(output)?;
 
-        Ok(Value::String(string))
+        Ok(Value::String(String::from_utf8(output)?))
     }
 }
 
