@@ -9,7 +9,7 @@ fn simple_enum() {
             Bar,
         }
 
-        new Foobar:Foo
+        Foobar::Foo
         ",
     );
 
@@ -36,7 +36,7 @@ fn nested_enum() {
             Bar(Fizzbuzz),
         }
 
-        new Foobar:Bar(new Fizzbuzz:Fizz)
+        Foobar::Bar(Fizzbuzz::Fizz)
         ",
     );
 
