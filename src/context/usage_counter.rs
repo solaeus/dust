@@ -16,12 +16,9 @@ impl UsageCounter {
         })))
     }
 
-    pub fn allowances(&self) -> Result<usize, RwLockError> {
-        Ok(self.0.read()?.allowances)
-    }
-
-    pub fn runtime_uses(&self) -> Result<usize, RwLockError> {
-        Ok(self.0.read()?.runtime_uses)
+    pub fn get_counts(&self) -> Result<(usize, usize), RwLockError> {
+        let inner = self.0.read()?;
+        Ok((inner.allowances, inner.runtime_uses))
     }
 
     pub fn add_allowance(&self) -> Result<(), RwLockError> {

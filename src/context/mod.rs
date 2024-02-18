@@ -180,6 +180,8 @@ impl Context {
     /// representing whether or not the variable was found.
     pub fn add_allowance(&self, identifier: &Identifier) -> Result<bool, RwLockError> {
         if let Some((_value_data, counter)) = self.inner.read()?.get(identifier) {
+            log::debug!("Adding allowance for {identifier}.");
+
             counter.add_allowance()?;
 
             Ok(true)
@@ -207,7 +209,13 @@ impl Context {
                 return Ok(None);
             };
 
-        if counter.allowances() == counter.runtime_uses() {
+        counter.add_runtime_use()?;
+
+        log::debug!("Adding runtime use for {identifier}.");
+
+        let (allowances, runtime_uses) = counter.get_counts()?;
+
+        if allowances == runtime_uses {
             self.unset(identifier)?;
         }
 
@@ -369,5 +377,28 @@ impl Display for Context {
         }
 
         writeln!(f, "}}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+
+    #[test]
+    fn drops_variables() {
+        let context = Context::new();
+
+        interpret_with_context(
+            "
+                x = 1
+                y = 2
+
+                z = x + y
+            ",
+            context.clone(),
+        )
+        .unwrap();
+
+        assert_eq!(context.inner.read().unwrap().len(), 1);
     }
 }
