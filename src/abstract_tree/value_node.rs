@@ -344,7 +344,7 @@ impl Ord for ValueNode {
 }
 
 impl PartialOrd for ValueNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }

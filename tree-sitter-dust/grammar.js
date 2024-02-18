@@ -365,14 +365,7 @@ module.exports = grammar({
           // Custom type with arguments
           seq(
             $.identifier,
-            '<',
-            repeat1(
-              seq(
-                $.type,
-                optional(','),
-              ),
-            ),
-            '>',
+            $.type_arguments
           ),
 
           // Map with exact fields
