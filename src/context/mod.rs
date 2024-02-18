@@ -10,7 +10,7 @@
 //!
 //! ```
 //! # use dust_lang::*;
-//! let context = Context::new();
+//! let context = Context::default();
 //!
 //! context.set_value(
 //!     "foobar".into(),
@@ -30,6 +30,14 @@
 //! override the built-ins.
 //!
 //! ## Garbage Collection
+//!
+//! To disable garbage collection, run a Context in AllowGarbage mode.
+//!
+//! ```
+//! # use dust_lang::*;
+//! let context = Context::new(ContextMode::AllowGarbage);   
+//! ```
+//!
 //!
 //! Every item stored in a Context has a counter attached to it. You must use
 //! [Context::add_allowance][] to let the Context know not to drop the value.
@@ -108,21 +116,6 @@ impl Context {
     ///
     /// In the case of the conflict, the inherited value will override the previous
     /// value.
-    ///
-    /// ```
-    /// # use dust_lang::*;
-    /// let first_context = Context::new();
-    /// let second_context = Context::new();
-    ///
-    /// second_context.set_value(
-    ///     "Foo".into(),
-    ///     Value::String("Bar".to_string())
-    /// );
-    ///
-    /// first_context.inherit_from(&second_context).unwrap();
-    ///
-    /// assert_eq!(first_context, second_context);
-    /// ```
     pub fn inherit_from(&self, other: &Context) -> Result<(), RwLockError> {
         let mut self_variables = self.inner.write()?;
 
@@ -153,15 +146,15 @@ impl Context {
     ///
     /// ```
     /// # use dust_lang::*;
-    /// let first_context = Context::new();
-    /// let second_context = Context::new();
+    /// let first_context = Context::default();
+    /// let second_context = Context::default();
     ///
     /// second_context.set_value(
     ///     "Foo".into(),
     ///     Value::String("Bar".to_string())
     /// );
     ///
-    /// first_context.inherit_from(&second_context).unwrap();
+    /// first_context.inherit_all_from(&second_context).unwrap();
     ///
     /// assert_eq!(first_context, second_context);
     /// ```

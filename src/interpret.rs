@@ -22,7 +22,7 @@
 //!
 //! ```rust
 //! # use dust_lang::*;
-//! let context = Context::new();
+//! let context = Context::default();
 //!
 //! context.set_value("one".into(), 1.into()).unwrap();
 //! context.set_value("two".into(), 2.into()).unwrap();
@@ -67,7 +67,7 @@ pub fn interpret_with_context(source: &str, context: Context) -> Result<Value, E
 ///
 /// ```
 /// # use dust_lang::*;
-/// let context = Context::new();
+/// let context = Context::default();
 /// let mut interpreter = Interpreter::new(context);
 /// let result = interpreter.run("2 + 2");
 ///
