@@ -36,7 +36,19 @@ impl AbstractTree for Index {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         match self.collection.expected_type(context)? {
             Type::List(item_type) => Ok(*item_type.clone()),
-            Type::Map => Ok(Type::Any),
+            Type::Map(map_types_option) => {
+                if let (Some(map_type), IndexExpression::Identifier(identifier)) =
+                    (map_types_option, &self.index)
+                {
+                    if let Some(r#type) = map_type.get(&identifier) {
+                        Ok(r#type.clone())
+                    } else {
+                        Ok(Type::Any)
+                    }
+                } else {
+                    Ok(Type::Any)
+                }
+            }
             Type::None => Ok(Type::None),
             r#type => Ok(r#type),
         }
@@ -46,11 +58,20 @@ impl AbstractTree for Index {
         self.collection.validate(_source, _context)?;
 
         let collection_type = self.collection.expected_type(_context)?;
-        let index_type = self.index.expected_type(_context)?;
 
-        if let (Type::Map, Type::String) = (collection_type, index_type) {}
-
-        self.index.validate(_source, _context)?;
+        if let (Type::Map(type_map_option), IndexExpression::Identifier(identifier)) =
+            (collection_type, &self.index)
+        {
+            if let Some(type_map) = type_map_option {
+                if !type_map.contains_key(identifier) {
+                    return Err(ValidationError::VariableIdentifierNotFound(
+                        identifier.clone(),
+                    ));
+                }
+            }
+        } else {
+            self.index.validate(_source, _context)?;
+        }
 
         Ok(())
     }

@@ -144,7 +144,7 @@ impl AbstractTree for ValueNode {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            ValueNode::Map(_) => Type::Map,
+            ValueNode::Map(map_node) => map_node.expected_type(context)?,
             ValueNode::Struct { name, .. }  => {
                 Type::Custom { name: name.clone(), argument: None }
             }

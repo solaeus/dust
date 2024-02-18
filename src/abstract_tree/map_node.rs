@@ -58,7 +58,19 @@ impl AbstractTree for MapNode {
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        Ok(Type::Map)
+        let mut type_map = BTreeMap::new();
+
+        for (identifier, (statement, r#type_option)) in &self.properties {
+            let r#type = if let Some(r#type) = type_option {
+                r#type.clone()
+            } else {
+                statement.expected_type(_context)?
+            };
+
+            type_map.insert(identifier.clone(), r#type);
+        }
+
+        Ok(Type::Map(Some(type_map)))
     }
 
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {

@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Display, Formatter},
+};
 
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node as SyntaxNode;
@@ -25,7 +28,7 @@ pub enum Type {
     },
     Integer,
     List(Box<Type>),
-    Map,
+    Map(Option<BTreeMap<Identifier, Type>>),
     Number,
     String,
     Range,
@@ -69,13 +72,13 @@ impl Type {
             | (Type::Collection, Type::Collection)
             | (Type::Collection, Type::List(_))
             | (Type::List(_), Type::Collection)
-            | (Type::Collection, Type::Map)
-            | (Type::Map, Type::Collection)
+            | (Type::Collection, Type::Map(_))
+            | (Type::Map(_), Type::Collection)
             | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::Map, Type::Map)
+            | (Type::Map(_), Type::Map(_))
             | (Type::Number, Type::Number)
             | (Type::Number, Type::Integer)
             | (Type::Number, Type::Float)
@@ -137,7 +140,7 @@ impl Type {
     }
 
     pub fn is_map(&self) -> bool {
-        matches!(self, Type::Map)
+        matches!(self, Type::Map(_))
     }
 }
 
@@ -199,7 +202,7 @@ impl AbstractTree for Type {
                 }
             }
             "int" => Type::Integer,
-            "map" => Type::Map,
+            "map" => Type::Map(None),
             "num" => Type::Number,
             "none" => Type::None,
             "str" => Type::String,
@@ -262,7 +265,7 @@ impl Format for Type {
                 item_type.format(output, indent_level);
                 output.push(']');
             }
-            Type::Map => {
+            Type::Map(_) => {
                 output.push_str("map");
             }
             Type::None => output.push_str("Option::None"),
@@ -306,7 +309,7 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List(item_type) => write!(f, "[{item_type}]"),
-            Type::Map => write!(f, "map"),
+            Type::Map(_) => write!(f, "map"),
             Type::Number => write!(f, "num"),
             Type::None => write!(f, "none"),
             Type::String => write!(f, "str"),

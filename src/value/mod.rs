@@ -13,6 +13,7 @@ use serde::{
 
 use std::{
     cmp::Ordering,
+    collections::BTreeMap,
     convert::TryFrom,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
@@ -93,7 +94,15 @@ impl Value {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            Value::Map(_) => Type::Map,
+            Value::Map(map) => {
+                let mut type_map = BTreeMap::new();
+
+                for (identifier, value) in map.inner() {
+                    type_map.insert(identifier.clone(), value.r#type()?);
+                }
+
+                Type::Map(Some(type_map))
+            }
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,

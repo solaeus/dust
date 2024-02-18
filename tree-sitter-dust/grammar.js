@@ -355,6 +355,17 @@ module.exports = grammar({
           'float',
           'int',
           'map',
+          seq(
+            'map',
+            '{',
+            repeat1(
+              seq(
+                $.identifier,
+                $.type_specification,
+              ),
+            ),
+            '}',
+          ),
           'none',
           'num',
           'str',
