@@ -88,7 +88,7 @@ impl Interpreter {
             .expect("Language version is incompatible with tree sitter version.");
 
         parser.set_logger(Some(Box::new(|_log_type, message| {
-            log::debug!("{}", message)
+            log::trace!("{}", message)
         })));
 
         Interpreter { parser, context }

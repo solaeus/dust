@@ -52,7 +52,7 @@ impl SyntaxError {
     }
 
     pub fn expect_syntax_node(expected: &str, actual: SyntaxNode) -> Result<(), SyntaxError> {
-        log::info!("Converting {} to abstract node", actual.kind());
+        log::trace!("Converting {} to abstract node", actual.kind());
 
         if expected == actual.kind() {
             Ok(())

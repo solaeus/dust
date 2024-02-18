@@ -1,6 +1,7 @@
 //! Command line interface for the dust programming language.
 
 use clap::{Parser, Subcommand};
+use colored::Colorize;
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_ansi_term::{Color, Style};
 use reedline::{
@@ -8,7 +9,7 @@ use reedline::{
     Reedline, ReedlineEvent, ReedlineMenu, Signal, Span, SqliteBackedHistory, Suggestion,
 };
 
-use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
+use std::{borrow::Cow, fs::read_to_string, io::Write, path::PathBuf, process::Command};
 
 use dust_lang::{
     built_in_values::all_built_in_values, Context, ContextMode, Error, Interpreter, Value,
@@ -41,7 +42,15 @@ pub enum CliCommand {
 }
 
 fn main() {
-    env_logger::init();
+    env_logger::Builder::from_env("DUST_LOG")
+        .format(|buffer, record| {
+            let args = record.args();
+            let log_level = record.level().to_string().bold();
+            let timestamp = buffer.timestamp_seconds().to_string().dimmed();
+
+            writeln!(buffer, "[{log_level} {timestamp}] {args}")
+        })
+        .init();
 
     let args = Args::parse();
     let context = Context::new(ContextMode::AllowGarbage);
