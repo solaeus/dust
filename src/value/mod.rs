@@ -2,7 +2,7 @@
 use crate::{
     built_in_values::BuiltInValue,
     error::{rw_lock_error::RwLockError, RuntimeError, ValidationError},
-    Identifier, SourcePosition, Type, TypeSpecification,
+    Identifier, SourcePosition, Type,
 };
 
 use serde::{
@@ -93,18 +93,7 @@ impl Value {
                     Type::List(Box::new(Type::Any))
                 }
             }
-            Value::Map(map) => {
-                let mut identifier_types = Vec::new();
-
-                for (key, value) in map.inner() {
-                    identifier_types.push((
-                        Identifier::new(key.inner()),
-                        TypeSpecification::new(value.r#type()?),
-                    ));
-                }
-
-                Type::Map
-            }
+            Value::Map(_) => Type::Map,
             Value::Function(function) => function.r#type().clone(),
             Value::String(_) => Type::String,
             Value::Float(_) => Type::Float,
@@ -263,7 +252,9 @@ impl Value {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
             (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left + right as f64)),
             (Value::Integer(left), Value::Float(right)) => Ok(Value::Float((left as f64) + right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
+            (Value::Integer(left), Value::Integer(right)) => {
+                Ok(Value::Integer(left.saturating_add(right)))
+            }
             (Value::List(list), value) | (value, Value::List(list)) => {
                 list.items_mut()?.push(value);
 
@@ -284,7 +275,9 @@ impl Value {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
             (Value::Float(left), Value::Integer(right)) => Ok(Value::Float(left - right as f64)),
             (Value::Integer(left), Value::Float(right)) => Ok(Value::Float(left as f64 - right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left - right)),
+            (Value::Integer(left), Value::Integer(right)) => {
+                Ok(Value::Integer(left.saturating_sub(right)))
+            }
             (left, right) => Err(ValidationError::CannotSubtract {
                 left,
                 right,

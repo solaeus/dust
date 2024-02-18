@@ -55,19 +55,27 @@ use crate::{
     error::rw_lock_error::RwLockError, Identifier, Type, TypeDefinition, Value,
 };
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum ContextMode {
+    AllowGarbage,
+    RemoveGarbage,
+}
+
 /// An execution context stores that variable and type data during the
 /// [Interpreter]'s abstraction and execution process.
 ///
 /// See the [module-level docs][self] for more info.
 #[derive(Clone, Debug)]
 pub struct Context {
+    mode: ContextMode,
     inner: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageCounter)>>>,
 }
 
 impl Context {
     /// Return a new, empty Context.
-    pub fn new() -> Self {
+    pub fn new(mode: ContextMode) -> Self {
         Self {
+            mode,
             inner: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
@@ -88,6 +96,7 @@ impl Context {
         }
 
         Ok(Context {
+            mode: other.mode.clone(),
             inner: Arc::new(RwLock::new(new_variables)),
         })
     }
@@ -215,7 +224,7 @@ impl Context {
 
         let (allowances, runtime_uses) = counter.get_counts()?;
 
-        if allowances == runtime_uses {
+        if self.mode == ContextMode::RemoveGarbage && allowances == runtime_uses {
             self.unset(identifier)?;
         }
 
@@ -326,7 +335,7 @@ impl Context {
 
 impl Default for Context {
     fn default() -> Self {
-        Context::new()
+        Context::new(ContextMode::RemoveGarbage)
     }
 }
 
@@ -386,7 +395,7 @@ mod tests {
 
     #[test]
     fn drops_variables() {
-        let context = Context::new();
+        let context = Context::default();
 
         interpret_with_context(
             "

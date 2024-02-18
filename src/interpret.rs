@@ -37,14 +37,14 @@
 //! ```
 use tree_sitter::{Parser, Tree as SyntaxTree};
 
-use crate::{language, AbstractTree, Context, Error, Format, Root, Value};
+use crate::{language, AbstractTree, Context, ContextMode, Error, Format, Root, Value};
 
 /// Interpret the given source code. Returns the value of last statement or the
 /// first error encountered.
 ///
 /// See the [module-level docs][self] for more info.
 pub fn interpret(source: &str) -> Result<Value, Error> {
-    interpret_with_context(source, Context::new())
+    interpret_with_context(source, Context::new(ContextMode::RemoveGarbage))
 }
 
 /// Interpret the given source code with the given context.
@@ -152,6 +152,6 @@ impl Interpreter {
 
 impl Default for Interpreter {
     fn default() -> Self {
-        Interpreter::new(Context::new())
+        Interpreter::new(Context::default())
     }
 }

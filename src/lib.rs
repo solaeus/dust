@@ -5,11 +5,7 @@
 //! You can use this library externally by calling either of the "interpret"
 //! functions or by constructing your own Interpreter.
 pub use crate::{
-    abstract_tree::*,
-    built_in_functions::BuiltInFunction,
-    context::{Context, ValueData},
-    error::Error,
-    interpret::*,
+    abstract_tree::*, built_in_functions::BuiltInFunction, context::*, error::Error, interpret::*,
     value::*,
 };
 

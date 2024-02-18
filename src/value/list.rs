@@ -86,21 +86,19 @@ impl Eq for List {}
 
 impl PartialEq for List {
     fn eq(&self, other: &Self) -> bool {
-        if let Ok(left) = self.items() {
-            if let Ok(right) = other.items() {
-                if left.len() != right.len() {
-                    return false;
-                } else {
-                    for (i, j) in left.iter().zip(right.iter()) {
-                        if i != j {
-                            return false;
-                        }
+        if let (Ok(left), Ok(right)) = (self.items(), other.items()) {
+            if left.len() != right.len() {
+                return false;
+            } else {
+                for (i, j) in left.iter().zip(right.iter()) {
+                    if i != j {
+                        return false;
                     }
                 }
             }
         }
 
-        false
+        true
     }
 }
 
@@ -112,12 +110,10 @@ impl PartialOrd for List {
 
 impl Ord for List {
     fn cmp(&self, other: &Self) -> Ordering {
-        if let Ok(left) = self.items() {
-            if let Ok(right) = other.items() {
-                return left.cmp(&right);
-            }
+        if let (Ok(left), Ok(right)) = (self.items(), other.items()) {
+            left.cmp(&right)
+        } else {
+            Ordering::Equal
         }
-
-        Ordering::Equal
     }
 }

@@ -1,7 +1,7 @@
 use dust_lang::*;
 
 #[test]
-fn empty() {
+fn none() {
     assert_eq!(interpret("x = 9"), Ok(Value::none()));
     assert_eq!(interpret("x = 1 + 1"), Ok(Value::none()));
 }
@@ -14,14 +14,14 @@ fn integer() {
 }
 
 #[test]
-fn integer_overflow() {
+fn integer_saturation() {
     assert_eq!(
         interpret("9223372036854775807 + 1"),
-        Ok(Value::Integer(i64::MIN))
+        Ok(Value::Integer(i64::MAX))
     );
     assert_eq!(
         interpret("-9223372036854775808 - 1"),
-        Ok(Value::Integer(i64::MAX))
+        Ok(Value::Integer(i64::MIN))
     );
 }
 
@@ -33,6 +33,18 @@ fn float() {
     );
     assert_eq!(
         interpret("-1.7976931348623157e308"),
+        Ok(Value::Float(f64::MIN))
+    );
+}
+
+#[test]
+fn float_saturation() {
+    assert_eq!(
+        interpret("1.7976931348623157e308 + 1"),
+        Ok(Value::Float(f64::MAX))
+    );
+    assert_eq!(
+        interpret("-1.7976931348623157e308 - 1"),
         Ok(Value::Float(f64::MIN))
     );
 }

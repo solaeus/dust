@@ -11,7 +11,8 @@ use reedline::{
 use std::{borrow::Cow, fs::read_to_string, path::PathBuf, process::Command};
 
 use dust_lang::{
-    built_in_values::all_built_in_values, Context, Error, Identifier, Interpreter, Value, ValueData,
+    built_in_values::all_built_in_values, Context, ContextMode, Error, Interpreter, Value,
+    ValueData,
 };
 
 /// Command-line arguments to be parsed.
@@ -21,14 +22,6 @@ struct Args {
     /// Dust source code to evaluate.
     #[arg(short, long)]
     command: Option<String>,
-
-    /// Data to assign to the "input" variable.
-    #[arg(short, long)]
-    input: Option<String>,
-
-    /// File whose contents will be assigned to the "input" variable.
-    #[arg(short = 'p', long)]
-    input_path: Option<String>,
 
     /// Command for alternate functionality besides running the source.
     #[command(subcommand)]
@@ -51,21 +44,7 @@ fn main() {
     env_logger::init();
 
     let args = Args::parse();
-    let context = Context::new();
-
-    if let Some(input) = args.input {
-        context
-            .set_value(Identifier::new("input"), Value::string(input))
-            .unwrap();
-    }
-
-    if let Some(path) = args.input_path {
-        let file_contents = read_to_string(path).unwrap();
-
-        context
-            .set_value(Identifier::new("input"), Value::string(file_contents))
-            .unwrap();
-    }
+    let context = Context::new(ContextMode::AllowGarbage);
 
     if args.path.is_none() && args.command.is_none() {
         let run_shell_result = run_shell(context);

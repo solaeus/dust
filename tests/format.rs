@@ -2,7 +2,7 @@ use dust_lang::*;
 
 #[test]
 fn format_simple_program() {
-    let mut interpreter = Interpreter::new(Context::new());
+    let mut interpreter = Interpreter::new(Context::default());
 
     assert_eq!(interpreter.format("x=1"), Ok("x = 1\n".to_string()));
 }
@@ -16,7 +16,7 @@ const FORMATTED_BLOCK: &str = "{
 
 #[test]
 fn format_block() {
-    let mut interpreter = Interpreter::new(Context::new());
+    let mut interpreter = Interpreter::new(Context::default());
 
     assert_eq!(
         interpreter.format("{1 2 3}"),
@@ -34,7 +34,7 @@ const FORMATTED_MAP: &str = "{
 
 #[test]
 fn format_map() {
-    let mut interpreter = Interpreter::new(Context::new());
+    let mut interpreter = Interpreter::new(Context::default());
 
     assert_eq!(
         interpreter.format("{{x=1 y   <int>     = 2}}"),
@@ -49,7 +49,7 @@ const FORMATTED_FUNCTION: &str = "(x <int>) <num> {
 
 #[test]
 fn format_function() {
-    let mut interpreter = Interpreter::new(Context::new());
+    let mut interpreter = Interpreter::new(Context::default());
     assert_eq!(
         interpreter.format("( x< int > )<num>{x/2}"),
         Ok(FORMATTED_FUNCTION.to_string())
