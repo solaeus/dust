@@ -47,7 +47,7 @@ fn if_else_if_else_if_else_if_else() {
                         'no'
                     } else if 1 + 1 == 1 {
                         'nope'
-                    } else if 9 / 2 == 4 {
+                    } else if 9 / 2 == 42 {
                         'nope'
                     } else if 'foo' == 'bar' {
                         'nope'
