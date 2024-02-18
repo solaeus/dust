@@ -16,6 +16,9 @@ pub struct Match {
     matcher: Expression,
     options: Vec<(MatchPattern, Statement)>,
     fallback: Option<Box<Statement>>,
+
+    #[serde(skip)]
+    context: Context,
 }
 
 impl AbstractTree for Match {
@@ -53,6 +56,7 @@ impl AbstractTree for Match {
             matcher,
             options,
             fallback,
+            context: Context::default(),
         })
     }
 
@@ -65,9 +69,15 @@ impl AbstractTree for Match {
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         self.matcher.validate(_source, _context)?;
 
-        for (expression, statement) in &self.options {
-            expression.validate(_source, _context)?;
-            statement.validate(_source, _context)?;
+        for (match_pattern, statement) in &self.options {
+            if let MatchPattern::EnumPattern(enum_pattern) = match_pattern {
+                if let Some(identifier) = enum_pattern.inner_identifier() {
+                    self.context.set_type(identifier.clone(), Type::Any)?;
+                }
+            }
+
+            match_pattern.validate(_source, _context)?;
+            statement.validate(_source, &self.context)?;
         }
 
         if let Some(statement) = &self.fallback {
