@@ -101,7 +101,7 @@ fn function_context_captures_structure_definitions() {
             }
             
             bob = () <User> {
-                new User {
+                User::{
                     name = 'bob'
                 }
             }
