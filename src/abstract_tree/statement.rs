@@ -28,7 +28,7 @@ impl AbstractTree for Statement {
         SyntaxError::expect_syntax_node("statement", node)?;
 
         let first_child = node.child(0).unwrap();
-        let mut is_return = first_child.kind() == "return";
+        let mut is_return = first_child.kind() == "return" || first_child.kind() == "break";
         let child = if is_return {
             node.child(1).unwrap()
         } else {

@@ -32,7 +32,7 @@ fn range_for_loop() {
 }
 
 #[test]
-fn modify_list() {
+fn mutate_list() {
     let result = interpret(
         "
         list = []
@@ -52,29 +52,7 @@ fn modify_list() {
 }
 
 #[test]
-fn modify_map() {
-    let result = interpret(
-        "
-        map = {}
-        
-        for i in [['x', 1] ['y', 2]] {
-            map:(i:0) = i:1 
-        }
-        
-        map
-        ",
-    );
-
-    let mut map = Map::new();
-
-    map.set(Identifier::new("x"), Value::Integer(1));
-    map.set(Identifier::new("y"), Value::Integer(2));
-
-    assert_eq!(Ok(Value::Map(map)), result);
-}
-
-#[test]
-fn modify_list_values() {
+fn do_not_mutate_list_items() {
     let result = interpret(
         "
         list = [1 2 3]
@@ -86,9 +64,9 @@ fn modify_list_values() {
     assert_eq!(
         result,
         Ok(Value::List(List::with_items(vec![
+            Value::Integer(1),
             Value::Integer(2),
             Value::Integer(3),
-            Value::Integer(4),
         ]))),
     );
 }

@@ -44,6 +44,12 @@ impl AbstractTree for Index {
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
         self.collection.validate(_source, _context)?;
+
+        let collection_type = self.collection.expected_type(_context)?;
+        let index_type = self.index.expected_type(_context)?;
+
+        if let (Type::Map, Type::String) = (collection_type, index_type) {}
+
         self.index.validate(_source, _context)?;
 
         Ok(())

@@ -111,14 +111,15 @@ impl AbstractTree for IfElse {
         if if_boolean {
             self.if_block.run(source, context)
         } else {
-            let expressions = &self.else_if_expressions;
+            let else_ifs = self
+                .else_if_expressions
+                .iter()
+                .zip(self.else_if_blocks.iter());
 
-            for (index, expression) in expressions.iter().enumerate() {
+            for (expression, block) in else_ifs {
                 let if_boolean = expression.run(source, context)?.as_boolean()?;
 
                 if if_boolean {
-                    let block = self.else_if_blocks.get(index).unwrap();
-
                     return block.run(source, context);
                 }
             }

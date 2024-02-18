@@ -14,7 +14,9 @@ module.exports = grammar({
     statement: $ =>
       prec.left(
         seq(
-          optional('return'),
+          optional(
+            choice('return', 'break'),
+          ),
           $.statement_kind,
           optional(';'),
         ),

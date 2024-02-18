@@ -27,8 +27,17 @@
             "type": "CHOICE",
             "members": [
               {
-                "type": "STRING",
-                "value": "return"
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "STRING",
+                    "value": "return"
+                  },
+                  {
+                    "type": "STRING",
+                    "value": "break"
+                  }
+                ]
               },
               {
                 "type": "BLANK"

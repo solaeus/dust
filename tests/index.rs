@@ -2,16 +2,16 @@ use dust_lang::*;
 
 #[test]
 fn list_index() {
-    let test = interpret("x = [1 [2] 3] x:1:0").unwrap();
+    let test = interpret("x = [1 [2] 3] x:1:0");
 
-    assert_eq!(Value::Integer(2), test);
+    assert_eq!(Ok(Value::Integer(2)), test);
 }
 
 #[test]
 fn map_index() {
-    let test = interpret("x = {y = {z = 2}} x:y:z").unwrap();
+    let test = interpret("x = {y = {z = 2}} x:y:z");
 
-    assert_eq!(Value::Integer(2), test);
+    assert_eq!(Ok(Value::Integer(2)), test);
 }
 
 #[test]

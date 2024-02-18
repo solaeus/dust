@@ -63,6 +63,8 @@ impl AbstractTree for MapNode {
 
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
         for (_key, (statement, r#type)) in &self.properties {
+            statement.validate(_source, context)?;
+
             if let Some(expected) = r#type {
                 let actual = statement.expected_type(context)?;
 
