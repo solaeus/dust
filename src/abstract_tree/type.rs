@@ -69,11 +69,15 @@ impl Type {
             | (_, Type::Any)
             | (Type::Boolean, Type::Boolean)
             | (Type::Collection, Type::Collection)
+            | (Type::Collection, Type::String)
+            | (Type::Collection, Type::List)
+            | (Type::List, Type::Collection)
+            | (Type::Collection, Type::ListExact(_))
+            | (Type::ListExact(_), Type::Collection)
             | (Type::Collection, Type::ListOf(_))
             | (Type::ListOf(_), Type::Collection)
             | (Type::Collection, Type::Map(_))
             | (Type::Map(_), Type::Collection)
-            | (Type::Collection, Type::String)
             | (Type::String, Type::Collection)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
@@ -108,6 +112,10 @@ impl Type {
                 }
 
                 true
+            }
+            (Type::ListExact(exact_types), Type::ListOf(of_type))
+            | (Type::ListOf(of_type), Type::ListExact(exact_types)) => {
+                exact_types.iter().all(|r#type| r#type == of_type.as_ref())
             }
             (
                 Type::Function {
