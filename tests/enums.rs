@@ -56,24 +56,30 @@ fn nested_enum() {
 
 #[test]
 fn enum_with_argument() {
+    env_logger::builder().is_test(true).try_init().unwrap();
+
     let result = interpret(
         "
         enum FooBar<T> {
-            Foo<T>,
-            Bar,
+            Foo<T>
+            Bar
+        }
+        enum FizzBuzz {
+            Fizz
+            Buzz
         }
 
-        Foobar::Bar(Fizzbuzz::Fizz)
+        FooBar::Bar(FizzBuzz::Fizz)
         ",
     );
 
     assert_eq!(
         result,
         Ok(Value::Enum(EnumInstance::new(
-            Identifier::new("Foobar"),
+            Identifier::new("FooBar"),
             Identifier::new("Bar"),
             Some(Value::Enum(EnumInstance::new(
-                Identifier::new("Fizzbuzz"),
+                Identifier::new("FizzBuzz"),
                 Identifier::new("Fizz"),
                 Some(Value::none())
             )))
