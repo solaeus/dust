@@ -42,13 +42,15 @@ Dust shows you exactly where your code went wrong and suggests changes.
 
 ## Static analysis
 
-Your code is always validated for safety before it is run. Other interpreted languages can fail halfway through, but Dust is able to avoid runtime errors by analyzing the program *before* it is run.
+Your code is always validated for safety before it is run.
 
 ![Example of type error output.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/type_error.png)
 
+Dust
+
 ## Debugging
 
-Just set the environment variable `DUST_LOG=info` and Dust will tell you exactly what your code is doing while it's doing it. If you set `DUST_LOG=trace`, it will output detailed logs about parsing, abstraction, validation, memory management and runtime.
+Just set the environment variable `DUST_LOG=info` and Dust will tell you exactly what your code is doing while it's doing it. If you set `DUST_LOG=trace`, it will output detailed logs about parsing, abstraction, validation, memory management and runtime. Here are some of the logs from the end of a simple [fizzbuzz example](https://git.jeffa.io/jeff/dust/src/branch/main/examples/fizzbuzz.ds).
 
 ![Example of debug output.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/debugging.png)
 
@@ -69,7 +71,7 @@ match io:stdin() {
 
 ## Installation and Usage
 
-There are two ways to compile Dust. Either way, you must have `rustup`, `cmake` and a C compiler installed.
+There are two ways to compile Dust. **It is best to clone the repository and compile the latest code**, otherwise the program may be a different version than the one shown on GitHub. Either way, you must have `rustup`, `cmake` and a C compiler installed.
 
 To install from the git repository:
 
