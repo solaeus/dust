@@ -2,7 +2,7 @@
 
 High-level programming language with effortless concurrency, automatic memory management, type safety and strict error handling.
 
-![Dust version of an example from The Rust Programming Language.](https://git.jeffa.io/jeff/dust/docs/assets/example_0.png)
+![Dust version of an example from The Rust Programming Language.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/example_0.png)
 
 <!--toc:start-->
 - [Dust](#dust)
@@ -38,22 +38,49 @@ async {
 
 Dust shows you exactly where your code went wrong and suggests changes.
 
-![Example of syntax error output.](https://git.jeffa.io/jeff/dust/docs/assets/syntax_error.png)
+![Example of syntax error output.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/syntax_error.png)
 
 ## Static analysis
 
-Your code is always validated for safety before it is run. Other interpreted languages can fail halfway through, but Dust is able to avoid runtime errors by analyzing the program *before* it is run
+Your code is always validated for safety before it is run. Other interpreted languages can fail halfway through, but Dust is able to avoid runtime errors by analyzing the program *before* it is run.
 
-![Example of type error output.](https://git.jeffa.io/jeff/dust/docs/assets/type_error.png)
+![Example of type error output.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/type_error.png)
 
 ## Debugging
 
 Just set the environment variable `DUST_LOG=info` and Dust will tell you exactly what your code is doing while it's doing it. If you set `DUST_LOG=trace`, it will output detailed logs about parsing, abstraction, validation, memory management and runtime.
 
-![Example of debug output.](https://git.jeffa.io/jeff/dust/docs/assets/debugging.png)
+![Example of debug output.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/debugging.png)
 
 ## Automatic Memory Management
 
+Thanks to static analysis, Dust knows exactly how many times each variable is used. This allows Dust to free memory as soon as the variable will no longer be used, without any help from the user.
+
 ## Error Handling
 
+Runtime errors are no problem with Dust. The `Result` type represents the output of an operation that might fail. The user must decide what to do in the case of an error.
+
+```dust
+match io:stdin() {
+    Result::Ok(input) -> output("We read this input: " + input)
+    Result::Error(message) -> output("We got this error: " + message)
+}
+```
+
 ## Installation and Usage
+
+There are two ways to compile Dust. Either way, you must have `rustup`, `cmake` and a C compiler installed.
+
+To install from the git repository:
+
+```fish
+git clone https://git.jeffa.io/jeff/dust
+cd dust
+cargo build --release
+```
+
+To install with cargo:
+
+```fish
+cargo install dust-lang
+```
