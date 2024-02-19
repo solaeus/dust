@@ -1,5 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
+use colored::Colorize;
 use lyneate::Report;
 use serde::{Deserialize, Serialize};
 use tree_sitter::Node as SyntaxNode;
@@ -12,6 +13,8 @@ use super::rw_lock_error::RwLockError;
 pub enum SyntaxError {
     /// Invalid user input.
     InvalidSource {
+        expected: String,
+        actual: String,
         position: SourcePosition,
     },
 
@@ -27,25 +30,25 @@ pub enum SyntaxError {
 impl SyntaxError {
     pub fn create_report(&self, source: &str) -> String {
         let messages = match self {
-            SyntaxError::InvalidSource { position } => {
+            SyntaxError::InvalidSource { position, .. } => self
+                .to_string()
+                .split_inclusive(".")
+                .map(|message_part| {
+                    (
+                        position.start_byte..position.end_byte,
+                        message_part.to_string(),
+                        (255, 200, 100),
+                    )
+                })
+                .collect(),
+            SyntaxError::RwLock(_) => todo!(),
+            SyntaxError::UnexpectedSyntaxNode { position, .. } => {
                 vec![(
                     position.start_byte..position.end_byte,
-                    format!(
-                        "Invalid syntax from ({}, {}) to ({}, {}).",
-                        position.start_row,
-                        position.start_column,
-                        position.end_row,
-                        position.end_column,
-                    ),
+                    self.to_string(),
                     (255, 200, 100),
                 )]
             }
-            SyntaxError::RwLock(_) => todo!(),
-            SyntaxError::UnexpectedSyntaxNode {
-                expected: _,
-                actual: _,
-                position: _,
-            } => todo!(),
         };
 
         Report::new_byte_spanned(source, messages).display_str()
@@ -58,6 +61,8 @@ impl SyntaxError {
             Ok(())
         } else if actual.is_error() {
             Err(SyntaxError::InvalidSource {
+                expected: expected.to_owned(),
+                actual: actual.kind().to_string(),
                 position: SourcePosition::from(actual.range()),
             })
         } else {
@@ -79,16 +84,43 @@ impl From<RwLockError> for SyntaxError {
 impl Display for SyntaxError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SyntaxError::InvalidSource { position } => write!(f, "Invalid syntax at {position:?}."),
+            SyntaxError::InvalidSource {
+                expected,
+                actual,
+                position,
+            } => {
+                let actual = if actual == "ERROR" {
+                    "unrecognized characters"
+                } else {
+                    actual
+                };
+
+                write!(
+                    f,
+                    "Invalid syntax from ({}, {}) to ({}, {}). Exected {} but found {}.",
+                    position.start_row,
+                    position.start_column,
+                    position.end_row,
+                    position.end_column,
+                    expected.bold().green(),
+                    actual.bold().red(),
+                )
+            }
             SyntaxError::RwLock(_) => todo!(),
             SyntaxError::UnexpectedSyntaxNode {
                 expected,
                 actual,
                 position,
-            } => write!(
-                f,
-                "Unexpected syntax node. Expected {expected} but got {actual} at {position:?}."
-            ),
+            } => {
+                write!(
+                        f,
+                        "Interpreter Error. Tried to parse {actual} as {expected} from ({}, {}) to ({}, {}).",
+                        position.start_row,
+                        position.start_column,
+                        position.end_row,
+                        position.end_column,
+                    )
+            }
         }
     }
 }

@@ -264,8 +264,6 @@ impl Context {
 
     /// Set a value to a key.
     pub fn set_value(&self, key: Identifier, value: Value) -> Result<(), RwLockError> {
-        log::info!("Setting value: {key} = {value}");
-
         let mut map = self.inner.write()?;
         let old_data = map.remove(&key);
 
@@ -283,8 +281,6 @@ impl Context {
     /// This allows the interpreter to check a value's type before the value
     /// actually exists by predicting what the abstract tree will produce.
     pub fn set_type(&self, key: Identifier, r#type: Type) -> Result<(), RwLockError> {
-        log::info!("Setting type: {key} <{}>", r#type);
-
         self.inner
             .write()?
             .insert(key, (ValueData::TypeHint(r#type), UsageCounter::new()));

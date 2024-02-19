@@ -60,6 +60,8 @@ impl AbstractTree for Assignment {
                 self.statement.expected_type(context)?
             };
 
+            log::info!("Setting type: {} <{}>", self.identifier, r#type);
+
             context.set_type(self.identifier.clone(), r#type)?;
         }
 
@@ -154,6 +156,8 @@ impl AbstractTree for Assignment {
                 .context()
                 .set_value(self.identifier.clone(), new_value.clone())?;
         }
+
+        log::info!("RUN assignment: {} = {}", self.identifier, new_value);
 
         context.set_value(self.identifier.clone(), new_value)?;
 

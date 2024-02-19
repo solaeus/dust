@@ -45,6 +45,8 @@ impl AbstractTree for Logic {
     }
 
     fn validate(&self, _source: &str, _context: &Context) -> Result<(), ValidationError> {
+        log::info!("VALIDATE logic expression");
+
         self.left.validate(_source, _context)?;
         self.right.validate(_source, _context)
     }
@@ -52,6 +54,9 @@ impl AbstractTree for Logic {
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
         let left = self.left.run(source, context)?;
         let right = self.right.run(source, context)?;
+
+        log::info!("RUN logic expression: {left} {} {right}", self.operator);
+
         let result = match self.operator {
             LogicOperator::Equal => {
                 if let (Ok(left_num), Ok(right_num)) = (left.as_number(), right.as_number()) {
