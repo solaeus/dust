@@ -32,14 +32,20 @@ impl AbstractTree for While {
     }
 
     fn validate(&self, _source: &str, context: &Context) -> Result<(), ValidationError> {
+        log::info!("VALIDATE while loop");
+
         self.expression.validate(_source, context)?;
         self.block.validate(_source, context)
     }
 
     fn run(&self, source: &str, context: &Context) -> Result<Value, RuntimeError> {
+        log::info!("RUN while loop start");
+
         while self.expression.run(source, context)?.as_boolean()? {
             self.block.run(source, context)?;
         }
+
+        log::info!("RUN while loop end");
 
         Ok(Value::none())
     }

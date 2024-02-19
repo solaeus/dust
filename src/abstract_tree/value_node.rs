@@ -179,7 +179,7 @@ impl AbstractTree for ValueNode {
                 }
             }
             ValueNode::Map(map_node) => map_node.validate(_source, context)?,
-            ValueNode::Enum { name, variant, expression } => {
+            ValueNode::Enum { name, expression, .. } => {
                 name.validate(_source, context)?;
 
                 if let Some(expression) = expression {

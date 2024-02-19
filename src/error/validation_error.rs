@@ -1,5 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
+use colored::Colorize;
 use lyneate::Report;
 use serde::{Deserialize, Serialize};
 
@@ -223,10 +224,17 @@ impl ValidationError {
                 position,
             } => vec![(
                 position.start_byte..position.end_byte,
-                format!("Type {actual} is incompatible with {expected}."),
+                format!(
+                    "Type {} is incompatible with {}.",
+                    actual.to_string().bold().red(),
+                    expected.to_string().bold().green()
+                ),
                 (200, 200, 200),
             )],
-            ValidationError::TypeCheckExpectedFunction { actual: _, position: _ } => todo!(),
+            ValidationError::TypeCheckExpectedFunction {
+                actual: _,
+                position: _,
+            } => todo!(),
             ValidationError::VariableIdentifierNotFound(_) => todo!(),
             ValidationError::TypeDefinitionNotFound(_) => todo!(),
             ValidationError::ExpectedEnumDefintion { actual: _ } => todo!(),

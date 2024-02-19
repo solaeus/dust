@@ -20,6 +20,8 @@ impl AbstractTree for MathOperator {
         _source: &str,
         _context: &Context,
     ) -> Result<Self, SyntaxError> {
+        SyntaxError::expect_syntax_node("math_operator", node)?;
+
         let operator_node = node.child(0).unwrap();
         let operator = match operator_node.kind() {
             "+" => MathOperator::Add,

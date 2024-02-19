@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -71,6 +73,21 @@ impl Format for LogicOperator {
             LogicOperator::Less => output.push('<'),
             LogicOperator::GreaterOrEqual => output.push_str(">="),
             LogicOperator::LessOrEqual => output.push_str("<="),
+        }
+    }
+}
+
+impl Display for LogicOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            LogicOperator::Equal => write!(f, "="),
+            LogicOperator::NotEqual => write!(f, "!="),
+            LogicOperator::And => write!(f, "&&"),
+            LogicOperator::Or => write!(f, "||"),
+            LogicOperator::Greater => write!(f, ">"),
+            LogicOperator::Less => write!(f, "<"),
+            LogicOperator::GreaterOrEqual => write!(f, ">="),
+            LogicOperator::LessOrEqual => write!(f, "<="),
         }
     }
 }
