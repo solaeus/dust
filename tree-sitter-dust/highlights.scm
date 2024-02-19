@@ -1,20 +1,33 @@
-(expression) @expression
+(statement) @statement
+[
+      (expression)
+      (function_expression)
+      (index_expression)
+] @expression
 (value) @value
 (identifier) @variable
+
 (value) @value
 (string) @string
-
 [
       (integer)
       (float)
 ] @number
-
-(function) @function
-
+[
+      (command)
+      (function)
+] @function
+(range) @range
 (boolean) @boolean
 (list) @list
+(map) @map
 
-["," ":" ";"] @punctuation.delimiter
+(struct_definition) @struct
+(enum_definition) @enum
+ 
+(block) @block
+
+["," ";"] @punctuation.delimiter
 
 [
       "["
@@ -27,30 +40,33 @@
       ")"
 ] @punctuation.bracket
 
-[
-      (type)
-      (type_specification)
-] @type
+(type) @type
 
 (assignment_operator) @operator.assignment
 (logic_operator) @operator.logic
 (math_operator) @operator.math
 
 [
+      "as"
       "async"
+      "break"
       "else"
       "else if"
+      "enum"
       "false"
       "for"
       "if"
       "in"
+      "loop"
       "match"
-      "self"
+      "return"
+      "struct"
       "true"
       "while"
       "->"
-      "=>"
+      ":"
+      "::"
+      "^"
 ] @keyword
 
-(built_in_function) @function.builtin
 (function_call) @function.call

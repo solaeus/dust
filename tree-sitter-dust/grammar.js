@@ -31,6 +31,7 @@ module.exports = grammar({
           $.for,
           $.if_else,
           $.index_assignment,
+          $.break_loop,
           $.match,
           $.pipe,
           $.while,
@@ -325,6 +326,12 @@ module.exports = grammar({
             seq('(', $.identifier, ')'),
           ),
         ),
+      ),
+
+    break_loop: $ =>
+      seq(
+        'loop',
+        $.block,
       ),
 
     while: $ =>
