@@ -95,6 +95,10 @@
           },
           {
             "type": "SYMBOL",
+            "name": "loop_node"
+          },
+          {
+            "type": "SYMBOL",
             "name": "match"
           },
           {
@@ -146,7 +150,7 @@
         "members": [
           {
             "type": "SYMBOL",
-            "name": "as"
+            "name": "as_node"
           },
           {
             "type": "SYMBOL",
@@ -207,7 +211,7 @@
         }
       }
     },
-    "as": {
+    "as_node": {
       "type": "SEQ",
       "members": [
         {
@@ -977,6 +981,19 @@
           }
         ]
       }
+    },
+    "loop_node": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "loop"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "block"
+        }
+      ]
     },
     "while": {
       "type": "SEQ",

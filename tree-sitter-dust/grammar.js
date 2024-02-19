@@ -31,7 +31,7 @@ module.exports = grammar({
           $.for,
           $.if_else,
           $.index_assignment,
-          $.break_loop,
+          $.loop_node,
           $.match,
           $.pipe,
           $.while,
@@ -52,7 +52,7 @@ module.exports = grammar({
     _expression_kind: $ =>
       prec.right(
         choice(
-          $.as,
+          $.as_node,
           $.function_call,
           $.identifier,
           $.index,
@@ -73,7 +73,7 @@ module.exports = grammar({
         ),
       ),
 
-    as: $ =>
+    as_node: $ =>
       seq($.expression, 'as', $.type),
 
     pipe: $ =>
@@ -328,7 +328,7 @@ module.exports = grammar({
         ),
       ),
 
-    break_loop: $ =>
+    loop_node: $ =>
       seq(
         'loop',
         $.block,

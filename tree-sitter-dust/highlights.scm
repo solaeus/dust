@@ -46,27 +46,26 @@
 (logic_operator) @operator.logic
 (math_operator) @operator.math
 
-[
-      "as"
-      "async"
-      "break"
-      "else"
-      "else if"
-      "enum"
-      "false"
-      "for"
-      "if"
-      "in"
-      "loop"
-      "match"
-      "return"
-      "struct"
-      "true"
-      "while"
-      "->"
-      ":"
-      "::"
-      "^"
-] @keyword
+
+"as" @keyword
+"async" @keyword
+"break" @keyword
+"else" @keyword
+"else if" @keyword
+"enum" @keyword
+"false" @keyword
+"for" @keyword
+"if" @keyword
+"in" @keyword
+"match" @keyword
+"return" @keyword
+"struct" @keyword
+"true" @keyword
+"while" @keyword
+"->" @keyword
+":" @keyword
+"::" @keyword
+"^" @keyword
+"loop" @keyword
 
 (function_call) @function.call

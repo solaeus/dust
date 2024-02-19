@@ -1,6 +1,6 @@
 [
   {
-    "type": "as",
+    "type": "as_node",
     "named": true,
     "fields": {},
     "children": {
@@ -190,7 +190,7 @@
       "required": true,
       "types": [
         {
-          "type": "as",
+          "type": "as_node",
           "named": true
         },
         {
@@ -472,6 +472,21 @@
     "fields": {}
   },
   {
+    "type": "loop_node",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "block",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "map",
     "named": true,
     "fields": {},
@@ -643,6 +658,10 @@
         },
         {
           "type": "index_assignment",
+          "named": true
+        },
+        {
+          "type": "loop_node",
           "named": true
         },
         {
@@ -1047,6 +1066,10 @@
   },
   {
     "type": "list",
+    "named": false
+  },
+  {
+    "type": "loop",
     "named": false
   },
   {

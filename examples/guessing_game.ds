@@ -9,7 +9,7 @@ secret_number = int:random_range(0..=100);
 loop {
 	output("Please input your guess.")
 
-	input = io::stdin():expect("Failed to read line.")
+	input = io:stdin():expect("Failed to read line.")
 	guess = int:parse(input);
 
 	output("You guessed: " + guess)
@@ -22,7 +22,5 @@ loop {
 			break;
 		}
 	}
-} 
-
-
+}
 

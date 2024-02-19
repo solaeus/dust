@@ -10,7 +10,7 @@ Simple As
   (statement
     (statement_kind
       (expression
-        (as
+        (as_node
           (expression
             (value
               (integer)))
@@ -28,7 +28,7 @@ foo as (int) -> int
   (statement
     (statement_kind
       (expression
-        (as
+        (as_node
           (expression
             (identifier))
           (type
@@ -49,7 +49,7 @@ for i in foobar as [string] {}
       (for
         (identifier)
         (expression
-          (as
+          (as_node
             (expression
               (identifier))
             (type
