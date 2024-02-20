@@ -1,4 +1,4 @@
-use std::fs::read_to_string;
+use std::{fs::File, io::Read};
 
 use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,11 @@ impl Callable for Fs {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let path = arguments.first().unwrap().as_string()?;
-                let file_content = read_to_string(path.as_str())?;
+                let mut file = File::open(path)?;
+                let file_size = file.metadata()?.len() as usize;
+                let mut file_content = String::with_capacity(file_size);
+
+                file.read_to_string(&mut file_content)?;
 
                 Ok(Value::string(file_content))
             }

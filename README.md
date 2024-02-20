@@ -93,6 +93,8 @@ cargo install dust-lang
 dust
 ```
 
+## Benchmarks
+
 ## Development Status
 
 Currently, Dust is being prepared for version 1.0. Until then, there may be breaking changes to the language and CLI.
