@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::PoisonError,
+};
 
 use colored::Colorize;
 use lyneate::Report;
@@ -258,6 +261,12 @@ impl ValidationError {
                 actual,
             })
         }
+    }
+}
+
+impl<T> From<PoisonError<T>> for ValidationError {
+    fn from(_: PoisonError<T>) -> Self {
+        ValidationError::RwLock(RwLockError)
     }
 }
 

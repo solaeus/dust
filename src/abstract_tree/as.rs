@@ -90,8 +90,9 @@ impl AbstractTree for As {
                 Value::List(list) => Value::List(list),
                 Value::String(string) => {
                     let chars = string
+                        .read()?
                         .chars()
-                        .map(|char| Value::String(char.to_string()))
+                        .map(|char| Value::string(char))
                         .collect();
 
                     Value::List(List::with_items(chars))

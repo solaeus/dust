@@ -18,7 +18,7 @@ fn simple_struct() {
     let mut map = Map::new();
 
     map.set(Identifier::new("bar"), Value::Integer(0));
-    map.set(Identifier::new("baz"), Value::String("hiya".to_string()));
+    map.set(Identifier::new("baz"), Value::string("hiya"));
 
     let expected = Ok(Value::Struct(StructInstance::new(
         Identifier::new("Foo"),

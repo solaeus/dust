@@ -65,7 +65,7 @@ impl AbstractTree for Command {
             .wait_with_output()?
             .stdout;
 
-        Ok(Value::String(String::from_utf8(output)?))
+        Ok(Value::string(String::from_utf8(output)?))
     }
 }
 

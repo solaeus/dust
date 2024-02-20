@@ -17,7 +17,7 @@ fn override_built_ins() {
         Ok(Value::Enum(EnumInstance::new(
             Identifier::new("Option"),
             Identifier::new("Some"),
-            Some(Value::String("foo".to_string())),
+            Some(Value::string("foo")),
         )))
     );
 }
@@ -65,7 +65,7 @@ fn result() {
         Ok(Value::Enum(EnumInstance::new(
             Identifier::new("Result"),
             Identifier::new("Error"),
-            Some(Value::String("uh-oh!".to_string())),
+            Some(Value::string("uh-oh!")),
         )))
     );
 }

@@ -50,7 +50,7 @@ impl AbstractTree for IndexAssignment {
             identifier
         } else {
             let index_run = self.index.index.run(source, context)?;
-            let expected_identifier = Identifier::new(index_run.as_string()?);
+            let expected_identifier = Identifier::new(index_run.as_string()?.as_str());
 
             return Err(RuntimeError::ValidationFailure(
                 ValidationError::VariableIdentifierNotFound(expected_identifier),

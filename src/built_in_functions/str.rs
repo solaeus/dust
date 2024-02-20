@@ -221,19 +221,17 @@ impl Callable for StrFunction {
                 RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
-                let pattern_string = arguments.get(1).unwrap().as_string()?;
-                let pattern = pattern_string.as_str();
+                let pattern = arguments.get(1).unwrap().as_string()?;
 
-                Value::Boolean(string.ends_with(pattern))
+                Value::Boolean(string.ends_with(pattern.as_str()))
             }
             StrFunction::Find => {
                 RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
 
                 let string = arguments.first().unwrap().as_string()?;
-                let pattern_string = arguments.get(1).unwrap().as_string()?;
-                let pattern = pattern_string.as_str();
+                let pattern = arguments.get(1).unwrap().as_string()?;
                 let find = string
-                    .find(pattern)
+                    .find(pattern.as_str())
                     .map(|index| Value::Integer(index as i64));
 
                 if let Some(index) = find {
@@ -271,9 +269,9 @@ impl Callable for StrFunction {
                 let index = arguments.get(1).unwrap().as_integer()? as usize;
                 let insertion = arguments.get(2).unwrap().as_string()?;
 
-                string.insert_str(index, insertion);
+                string.insert_str(index, insertion.as_str());
 
-                Value::String(string)
+                Value::none()
             }
             StrFunction::Lines => {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
@@ -339,9 +337,9 @@ impl Callable for StrFunction {
                 let end = range[1].as_integer()? as usize;
                 let pattern = arguments.get(2).unwrap().as_string()?;
 
-                string.replace_range(start..end, pattern);
+                string.replace_range(start..end, pattern.as_str());
 
-                Value::String(string)
+                Value::string(string)
             }
             StrFunction::Retain => {
                 RuntimeError::expect_argument_amount(self.name(), 2, arguments.len())?;
@@ -576,13 +574,9 @@ impl Callable for StrFunction {
                 let input_string = arguments.first().unwrap().as_string()?;
                 let new_length = arguments.get(1).unwrap().as_integer()? as usize;
 
-                let new_string = input_string
-                    .chars()
-                    .take(new_length)
-                    .map(|char| char.to_string())
-                    .collect();
+                let new_string = input_string.chars().take(new_length).collect::<String>();
 
-                Value::String(new_string)
+                Value::string(new_string)
             }
         };
 

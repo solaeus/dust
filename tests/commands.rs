@@ -2,7 +2,7 @@ use dust_lang::{interpret, Value};
 
 #[test]
 fn simple_command() {
-    assert_eq!(interpret("^echo hi"), Ok(Value::String("hi\n".to_string())))
+    assert_eq!(interpret("^echo hi"), Ok(Value::string("hi\n")))
 }
 
 #[test]

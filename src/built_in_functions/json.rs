@@ -54,7 +54,7 @@ impl Callable for Json {
                 let value = arguments.first().unwrap();
                 let json_string = serde_json::to_string(value)?;
 
-                Ok(Value::String(json_string))
+                Ok(Value::string(json_string))
             }
             Json::CreatePretty => {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
@@ -62,13 +62,13 @@ impl Callable for Json {
                 let value = arguments.first().unwrap();
                 let json_string = serde_json::to_string_pretty(value)?;
 
-                Ok(Value::String(json_string))
+                Ok(Value::string(json_string))
             }
             Json::Parse => {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let json_string = arguments.first().unwrap().as_string()?;
-                let value = serde_json::from_str(json_string)?;
+                let value = serde_json::from_str(json_string.as_str())?;
 
                 Ok(value)
             }

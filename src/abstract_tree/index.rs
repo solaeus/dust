@@ -99,7 +99,7 @@ impl AbstractTree for Index {
                     }
                 } else {
                     let index_value = self.index.run(source, context)?;
-                    let identifier = Identifier::new(index_value.as_string()?);
+                    let identifier = Identifier::new(index_value.as_string()?.as_str());
 
                     if let Some(value) = map.get(&identifier) {
                         value
@@ -114,7 +114,7 @@ impl AbstractTree for Index {
             }
             Value::String(string) => {
                 let index = self.index.run(source, context)?.as_integer()? as usize;
-                let item = string.chars().nth(index).unwrap_or_default();
+                let item = string.read()?.chars().nth(index).unwrap_or_default();
 
                 Ok(Value::string(item.to_string()))
             }

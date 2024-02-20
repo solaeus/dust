@@ -24,27 +24,6 @@
         "type": "SEQ",
         "members": [
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "STRING",
-                    "value": "return"
-                  },
-                  {
-                    "type": "STRING",
-                    "value": "break"
-                  }
-                ]
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
-          },
-          {
             "type": "SYMBOL",
             "name": "statement_kind"
           },
@@ -54,6 +33,56 @@
               {
                 "type": "STRING",
                 "value": ";"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "break": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "break"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "statement"
+              },
+              {
+                "type": "BLANK"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "return": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {
+            "type": "STRING",
+            "value": "return"
+          },
+          {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "statement"
               },
               {
                 "type": "BLANK"
@@ -76,6 +105,10 @@
           {
             "type": "SYMBOL",
             "name": "block"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "break"
           },
           {
             "type": "SYMBOL",
@@ -104,6 +137,10 @@
           {
             "type": "SYMBOL",
             "name": "pipe"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "return"
           },
           {
             "type": "SYMBOL",

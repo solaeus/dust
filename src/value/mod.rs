@@ -18,6 +18,7 @@ use std::{
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     ops::RangeInclusive,
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 pub use self::{
@@ -36,7 +37,7 @@ pub mod struct_instance;
 /// Every dust variable has a key and a Value. Variables are represented by
 /// storing them in a VariableMap. This means the map of variables is itself a
 /// value that can be treated as any other.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Value {
     Boolean(bool),
     Enum(EnumInstance),
@@ -46,7 +47,7 @@ pub enum Value {
     List(List),
     Map(Map),
     Range(RangeInclusive<i64>),
-    String(String),
+    String(Arc<RwLock<String>>),
     Struct(StructInstance),
 }
 
@@ -64,7 +65,7 @@ impl Value {
     }
 
     pub fn string<T: Into<String>>(string: T) -> Self {
-        Value::String(string.into())
+        Value::String(Arc::new(RwLock::new(string.into())))
     }
 
     pub fn range(start: i64, end: i64) -> Self {
@@ -157,11 +158,11 @@ impl Value {
         self == &Value::none()
     }
 
-    /// Borrows the value stored in `self` as `&String`, or returns `Err` if
+    /// Borrows the value stored in `self` as `&str`, or returns `Err` if
     /// `self` is not a `Value::String`.
-    pub fn as_string(&self) -> Result<&String, ValidationError> {
+    pub fn as_string(&self) -> Result<RwLockReadGuard<String>, ValidationError> {
         match self {
-            Value::String(string) => Ok(string),
+            Value::String(string) => Ok(string.read()?),
             value => Err(ValidationError::ExpectedString {
                 actual: value.clone(),
             }),
@@ -274,7 +275,12 @@ impl Value {
 
                 Ok(Value::List(list))
             }
-            (Value::String(left), Value::String(right)) => Ok(Value::String(left + &right)),
+            (Value::String(left), Value::String(right)) => {
+                let left = left.read()?.to_string();
+                let right = right.read()?;
+
+                Ok(Value::string(left + right.as_str()))
+            }
             (left, right) => Err(ValidationError::CannotAdd {
                 left,
                 right,
@@ -360,7 +366,13 @@ impl PartialEq for Value {
             (Value::Integer(left), Value::Integer(right)) => left == right,
             (Value::Float(left), Value::Float(right)) => left == right,
             (Value::Boolean(left), Value::Boolean(right)) => left == right,
-            (Value::String(left), Value::String(right)) => left == right,
+            (Value::String(left), Value::String(right)) => {
+                if let (Ok(left), Ok(right)) = (left.read(), right.read()) {
+                    left.as_str() == right.as_str()
+                } else {
+                    false
+                }
+            }
             (Value::List(left), Value::List(right)) => left == right,
             (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Function(left), Value::Function(right)) => left == right,
@@ -381,7 +393,13 @@ impl PartialOrd for Value {
 impl Ord for Value {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Value::String(left), Value::String(right)) => left.cmp(right),
+            (Value::String(left), Value::String(right)) => {
+                if let (Ok(left), Ok(right)) = (left.read(), right.read()) {
+                    left.cmp(&right)
+                } else {
+                    Ordering::Equal
+                }
+            }
             (Value::String(_), _) => Ordering::Greater,
             (Value::Float(left), Value::Float(right)) => left.total_cmp(right),
             (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
@@ -424,7 +442,13 @@ impl Serialize for Value {
         S: Serializer,
     {
         match self {
-            Value::String(inner) => serializer.serialize_str(inner),
+            Value::String(inner) => {
+                let inner = inner
+                    .read()
+                    .map_err(|_| serde::ser::Error::custom("failed to get read lock on string"))?;
+
+                serializer.serialize_str(inner.as_str())
+            }
             Value::Float(inner) => serializer.serialize_f64(*inner),
             Value::Integer(inner) => serializer.serialize_i64(*inner),
             Value::Boolean(inner) => serializer.serialize_bool(*inner),
@@ -461,10 +485,33 @@ impl Serialize for Value {
     }
 }
 
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        log::trace!("Cloning value {self}");
+
+        match self {
+            Value::Boolean(boolean) => Value::Boolean(*boolean),
+            Value::Enum(r#enum) => Value::Enum(r#enum.clone()),
+            Value::Float(float) => Value::Float(*float),
+            Value::Function(function) => Value::Function(function.clone()),
+            Value::Integer(integer) => Value::Integer(*integer),
+            Value::List(list) => Value::List(list.clone()),
+            Value::Map(map) => Value::Map(map.clone()),
+            Value::Range(range) => Value::Range(range.clone()),
+            Value::String(string) => Value::String(string.clone()),
+            Value::Struct(r#struct) => Value::Struct(r#struct.clone()),
+        }
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::String(string) => write!(f, "{string}"),
+            Value::String(string) => {
+                let string = string.read().map_err(|_| fmt::Error)?;
+
+                write!(f, "{}", string.as_str())
+            }
             Value::Float(float) => write!(f, "{float}"),
             Value::Integer(int) => write!(f, "{int}"),
             Value::Boolean(boolean) => write!(f, "{boolean}"),
@@ -531,7 +578,7 @@ impl TryFrom<Value> for String {
 
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
         if let Value::String(string) = value {
-            Ok(string)
+            Ok(string.read()?.clone())
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::ExpectedString { actual: value },

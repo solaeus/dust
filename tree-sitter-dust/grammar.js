@@ -14,12 +14,25 @@ module.exports = grammar({
     statement: $ =>
       prec.left(
         seq(
-          optional(
-            choice('return', 'break'),
-          ),
           $.statement_kind,
           optional(';'),
         ),
+      ),
+
+    break: $ =>
+      prec.left(
+        seq(
+          'break',
+          optional($.statement),
+        ),    
+      ),
+
+    return: $ =>
+      prec.left(
+        seq(
+          'return',
+          optional($.statement),
+        ),      
       ),
 
     statement_kind: $ =>
@@ -27,6 +40,7 @@ module.exports = grammar({
         choice(
           $.assignment,
           $.block,
+          $.break,
           $.expression,
           $.for,
           $.if_else,
@@ -34,6 +48,7 @@ module.exports = grammar({
           $.loop_node,
           $.match,
           $.pipe,
+          $.return,
           $.while,
           $.type_definition,
         ),
@@ -329,10 +344,7 @@ module.exports = grammar({
       ),
 
     loop_node: $ =>
-      seq(
-        'loop',
-        $.block,
-      ),
+      seq('loop', $.block),
 
     while: $ =>
       seq(
@@ -372,7 +384,7 @@ module.exports = grammar({
           // Custom type with arguments
           seq(
             $.identifier,
-            $.type_arguments
+            $.type_arguments,
           ),
 
           // Map with exact fields
@@ -473,10 +485,7 @@ module.exports = grammar({
       seq(
         '<',
         repeat1(
-          seq(
-            $.type,
-            optional(','),
-          ),
+          seq($.type, optional(',')),
         ),
         '>',
       ),
@@ -493,7 +502,9 @@ module.exports = grammar({
               repeat1(
                 seq(
                   $.identifier,
-                  optional($.type_arguments),
+                  optional(
+                    $.type_arguments,
+                  ),
                   optional(','),
                 ),
               ),

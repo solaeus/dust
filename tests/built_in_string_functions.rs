@@ -40,10 +40,10 @@ fn find() {
 fn insert() {
     assert_eq!(
         interpret("str:insert('ac', 1, 'b')"),
-        Ok(Value::String("abc".to_string()))
+        Ok(Value::string("abc"))
     );
     assert_eq!(
         interpret("str:insert('foo', 3, 'bar')"),
-        Ok(Value::String("foobar".to_string()))
+        Ok(Value::string("foobar"))
     );
 }

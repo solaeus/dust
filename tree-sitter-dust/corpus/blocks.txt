@@ -45,6 +45,9 @@ Block with Return
                 (integer)))))
         (statement
           (statement_kind
+            (return)))
+        (statement
+          (statement_kind
             (expression
               (value
                 (integer)))))

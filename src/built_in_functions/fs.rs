@@ -46,7 +46,7 @@ impl Callable for Fs {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
 
                 let path = arguments.first().unwrap().as_string()?;
-                let mut file = File::open(path)?;
+                let mut file = File::open(path.as_str())?;
                 let file_size = file.metadata()?.len() as usize;
                 let mut file_content = String::with_capacity(file_size);
 
