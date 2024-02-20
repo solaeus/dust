@@ -4,22 +4,22 @@
 
 output("Guess the number.")
 
-secret_number = int:random_range(0..=100);
+secret_number = int:random_range(0..=100)
 
 loop {
 	output("Please input your guess.")
 
 	input = io:stdin():expect("Failed to read line.")
-	guess = int:parse(input);
+	guess = int:parse(input)
 
 	output("You guessed: " + guess)
 
 	match cmp(guess, secret_number) {
-		Ordering::Less -> output("Too small!"),
-		Ordering::Greater -> output("Too big!"),
+		Ordering::Less -> output("Too small!")
+		Ordering::Greater -> output("Too big!")
 		Ordering::Equal -> {
-			output("You win!");
-			break;
+			output("You win!")
+			break
 		}
 	}
 }
