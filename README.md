@@ -6,15 +6,20 @@ High-level programming language with effortless concurrency, automatic memory ma
 
 <!--toc:start-->
 - [Dust](#dust)
-  - [Easy to Read and Write](#easy-to-read-and-write)
-  - [Effortless Concurrency](#effortless-concurrency)
-  - [Helpful Errors](#helpful-errors)
-  - [Debugging](#debugging)
-  - [Automatic Memory Management](#automatic-memory-management)
+  - [Features](#features)
+    - [Easy to Read and Write](#easy-to-read-and-write)
+    - [Effortless Concurrency](#effortless-concurrency)
+    - [Helpful Errors](#helpful-errors)
+    - [Static analysis](#static-analysis)
+    - [Debugging](#debugging)
+    - [Automatic Memory Management](#automatic-memory-management)
+    - [Error Handling](#error-handling)
   - [Installation and Usage](#installation-and-usage)
 <!--toc:end-->
 
-## Easy to Read and Write
+## Features
+
+### Easy to Read and Write
 
 Dust has simple, easy-to-learn syntax.
 
@@ -22,7 +27,7 @@ Dust has simple, easy-to-learn syntax.
 output('Hello world!')
 ```
 
-## Effortless Concurrency
+### Effortless Concurrency
 
 Write multi-threaded code as easily as you would write code for a single thread.
 
@@ -34,13 +39,13 @@ async {
 }
 ```
 
-## Helpful Errors
+### Helpful Errors
 
 Dust shows you exactly where your code went wrong and suggests changes.
 
 ![Example of syntax error output.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/syntax_error.png)
 
-## Static analysis
+### Static analysis
 
 Your code is always validated for safety before it is run.
 
@@ -48,17 +53,17 @@ Your code is always validated for safety before it is run.
 
 Dust
 
-## Debugging
+### Debugging
 
 Just set the environment variable `DUST_LOG=info` and Dust will tell you exactly what your code is doing while it's doing it. If you set `DUST_LOG=trace`, it will output detailed logs about parsing, abstraction, validation, memory management and runtime. Here are some of the logs from the end of a simple [fizzbuzz example](https://git.jeffa.io/jeff/dust/src/branch/main/examples/fizzbuzz.ds).
 
 ![Example of debug output.](https://git.jeffa.io/jeff/dust/raw/branch/main/docs/assets/debugging.png)
 
-## Automatic Memory Management
+### Automatic Memory Management
 
 Thanks to static analysis, Dust knows exactly how many times each variable is used. This allows Dust to free memory as soon as the variable will no longer be used, without any help from the user.
 
-## Error Handling
+### Error Handling
 
 Runtime errors are no problem with Dust. The `Result` type represents the output of an operation that might fail. The user must decide what to do in the case of an error.
 
@@ -78,11 +83,16 @@ To install from the git repository:
 ```fish
 git clone https://git.jeffa.io/jeff/dust
 cd dust
-cargo build --release
+cargo run --release
 ```
 
 To install with cargo:
 
 ```fish
 cargo install dust-lang
+dust
 ```
+
+## Development Status
+
+Currently, Dust is being prepared for version 1.0. Until then, there may be breaking changes to the language and CLI.
