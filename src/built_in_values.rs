@@ -4,12 +4,16 @@ use enum_iterator::{all, Sequence};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    built_in_functions::{fs::fs_functions, json::json_functions, str::string_functions, Callable},
+    built_in_functions::{
+        fs::all_fs_functions, io::all_io_functions, json::json_functions, str::string_functions,
+        Callable,
+    },
     BuiltInFunction, EnumInstance, Function, Identifier, List, Map, Value,
 };
 
 static ARGS: OnceLock<Value> = OnceLock::new();
 static FS: OnceLock<Value> = OnceLock::new();
+static IO: OnceLock<Value> = OnceLock::new();
 static JSON: OnceLock<Value> = OnceLock::new();
 static NONE: OnceLock<Value> = OnceLock::new();
 static RANDOM: OnceLock<Value> = OnceLock::new();
@@ -31,6 +35,9 @@ pub enum BuiltInValue {
 
     /// File system tools.
     Fs,
+
+    /// Input and output tools.
+    Io,
 
     /// JSON format tools.
     Json,
@@ -58,6 +65,7 @@ impl BuiltInValue {
             BuiltInValue::Args => "args",
             BuiltInValue::AssertEqual => "assert_equal",
             BuiltInValue::Fs => "fs",
+            BuiltInValue::Io => "io",
             BuiltInValue::Json => "json",
             BuiltInValue::Length => BuiltInFunction::Length.name(),
             BuiltInValue::None => "None",
@@ -75,6 +83,7 @@ impl BuiltInValue {
             BuiltInValue::Args => "The command line arguments sent to this program.",
             BuiltInValue::AssertEqual => "Error if the two values are not equal.",
             BuiltInValue::Fs => "File and directory tools.",
+            BuiltInValue::Io => "Input/output tools.",
             BuiltInValue::Json => "JSON formatting tools.",
             BuiltInValue::Length => BuiltInFunction::Length.description(),
             BuiltInValue::None => "The absence of a value.",
@@ -98,11 +107,26 @@ impl BuiltInValue {
             BuiltInValue::AssertEqual => {
                 Value::Function(Function::BuiltIn(BuiltInFunction::AssertEqual))
             }
+            BuiltInValue::Io => IO
+                .get_or_init(|| {
+                    let mut io_map = Map::new();
+
+                    for io_function in all_io_functions() {
+                        let key = io_function.name();
+                        let value =
+                            Value::Function(Function::BuiltIn(BuiltInFunction::Io(io_function)));
+
+                        io_map.set(Identifier::new(key), value);
+                    }
+
+                    Value::Map(io_map)
+                })
+                .clone(),
             BuiltInValue::Fs => FS
                 .get_or_init(|| {
                     let mut fs_map = Map::new();
 
-                    for fs_function in fs_functions() {
+                    for fs_function in all_fs_functions() {
                         let key = fs_function.name();
                         let value =
                             Value::Function(Function::BuiltIn(BuiltInFunction::Fs(fs_function)));

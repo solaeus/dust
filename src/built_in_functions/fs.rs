@@ -7,7 +7,7 @@ use crate::{error::RuntimeError, Context, Type, Value};
 
 use super::Callable;
 
-pub fn fs_functions() -> impl Iterator<Item = Fs> {
+pub fn all_fs_functions() -> impl Iterator<Item = Fs> {
     all()
 }
 

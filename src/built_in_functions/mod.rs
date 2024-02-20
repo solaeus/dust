@@ -1,4 +1,5 @@
 pub mod fs;
+pub mod io;
 pub mod json;
 pub mod str;
 
@@ -12,7 +13,7 @@ use crate::{
     Context, EnumInstance, Format, Identifier, Type, Value,
 };
 
-use self::{fs::Fs, json::Json, str::StrFunction};
+use self::{fs::Fs, io::Io, json::Json, str::StrFunction};
 
 pub trait Callable {
     fn name(&self) -> &'static str;
@@ -30,6 +31,7 @@ pub trait Callable {
 pub enum BuiltInFunction {
     AssertEqual,
     Fs(Fs),
+    Io(Io),
     Json(Json),
     Length,
     Output,
@@ -45,6 +47,7 @@ impl Callable for BuiltInFunction {
         match self {
             BuiltInFunction::AssertEqual => "assert_equal",
             BuiltInFunction::Fs(fs_function) => fs_function.name(),
+            BuiltInFunction::Io(io_function) => io_function.name(),
             BuiltInFunction::Json(json_function) => json_function.name(),
             BuiltInFunction::Length => "length",
             BuiltInFunction::Output => "output",
@@ -60,6 +63,7 @@ impl Callable for BuiltInFunction {
         match self {
             BuiltInFunction::AssertEqual => "assert_equal",
             BuiltInFunction::Fs(fs_function) => fs_function.description(),
+            BuiltInFunction::Io(io_function) => io_function.description(),
             BuiltInFunction::Json(json_function) => json_function.description(),
             BuiltInFunction::Length => "length",
             BuiltInFunction::Output => "output",
@@ -75,6 +79,7 @@ impl Callable for BuiltInFunction {
         match self {
             BuiltInFunction::AssertEqual => Type::function(vec![Type::Any, Type::Any], Type::None),
             BuiltInFunction::Fs(fs_function) => fs_function.r#type(),
+            BuiltInFunction::Io(io_function) => io_function.r#type(),
             BuiltInFunction::Json(json_function) => json_function.r#type(),
             BuiltInFunction::Length => Type::function(vec![Type::Collection], Type::Integer),
             BuiltInFunction::Output => Type::function(vec![Type::Any], Type::None),
@@ -113,6 +118,7 @@ impl Callable for BuiltInFunction {
                 }
             }
             BuiltInFunction::Fs(fs_function) => fs_function.call(arguments, _source, context),
+            BuiltInFunction::Io(io_function) => io_function.call(arguments, _source, context),
             BuiltInFunction::Json(json_function) => json_function.call(arguments, _source, context),
             BuiltInFunction::Length => {
                 RuntimeError::expect_argument_amount(self.name(), 1, arguments.len())?;
