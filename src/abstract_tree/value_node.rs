@@ -5,7 +5,7 @@ use tree_sitter::Node as SyntaxNode;
 
 use crate::{
     error::{RuntimeError, SyntaxError, ValidationError},
-    AbstractTree, Context, Expression, Format, Function, FunctionNode,
+    AbstractTree, Context, Expression, Format, Function, AnonymousFunction,
     Identifier, List, Type, Value, TypeDefinition, MapNode,
 };
 
@@ -38,8 +38,8 @@ impl AbstractTree for ValueNode {
         let value_node = match child.kind() {
             "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
             "float" => ValueNode::Float(source[child.byte_range()].to_string()),
-            "function" => {
-                let function_node = FunctionNode::from_syntax(child, source, context)?;
+            "anonymous_function" => {
+                let function_node = AnonymousFunction::from_syntax(child, source, context)?;
 
                 ValueNode::Function(Function::ContextDefined(function_node))
             }

@@ -11,7 +11,7 @@ Anonymous Function
     (statement_kind
       (expression
         (value
-          (function
+          (anonymous_function
             (type_specification
               (type))
             (block
@@ -41,7 +41,7 @@ foobar = (x <int>, y <int>) <int> {
           (statement_kind
             (expression
               (value
-                (function
+                (anonymous_function
                   (identifier)
                   (type_specification
                     (type))
@@ -139,7 +139,7 @@ Anonymous Function Call
         (function_call
           (function_expression
             (value
-              (function
+              (anonymous_function
                 (identifier)
                 (type_specification
                   (type))
@@ -215,7 +215,7 @@ x(() <bool> { true })
             (identifier))
           (expression
             (value
-              (function
+              (anonymous_function
                 (type_specification
                   (type))
                 (block
@@ -247,3 +247,35 @@ from_json(read('file.json'))
               (expression
                 (value
                   (string))))))))))
+
+================================================================================
+Function Definition
+================================================================================
+
+fn foo<T> (bar <T>) <T> {
+  bar
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (statement_kind
+      (type_definition
+        (function_definition
+          (identifier)
+          (type_arguments
+            (type
+              (identifier)))
+          (identifier)
+          (type_specification
+            (type
+              (identifier)))
+          (type_specification
+            (type
+              (identifier)))
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (identifier))))))))))

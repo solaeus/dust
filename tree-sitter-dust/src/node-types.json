@@ -1,5 +1,28 @@
 [
   {
+    "type": "anonymous_function",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type_specification",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "as_node",
     "named": true,
     "fields": {},
@@ -268,7 +291,26 @@
     }
   },
   {
-    "type": "function",
+    "type": "function_call",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "expression",
+          "named": true
+        },
+        {
+          "type": "function_expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "function_definition",
     "named": true,
     "fields": {},
     "children": {
@@ -284,26 +326,11 @@
           "named": true
         },
         {
-          "type": "type_specification",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "function_call",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "expression",
+          "type": "type_arguments",
           "named": true
         },
         {
-          "type": "function_expression",
+          "type": "type_specification",
           "named": true
         }
       ]
@@ -823,6 +850,10 @@
           "named": true
         },
         {
+          "type": "function_definition",
+          "named": true
+        },
+        {
           "type": "struct_definition",
           "named": true
         }
@@ -853,6 +884,10 @@
       "required": true,
       "types": [
         {
+          "type": "anonymous_function",
+          "named": true
+        },
+        {
           "type": "boolean",
           "named": true
         },
@@ -862,10 +897,6 @@
         },
         {
           "type": "float",
-          "named": true
-        },
-        {
-          "type": "function",
           "named": true
         },
         {
@@ -1072,6 +1103,10 @@
   },
   {
     "type": "float",
+    "named": false
+  },
+  {
+    "type": "fn",
     "named": false
   },
   {

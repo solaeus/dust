@@ -1,6 +1,7 @@
 //! Abstract, executable representations of corresponding items found in Dust
 //! source code. The types that implement [AbstractTree] are inteded to be
 //! created by an [Interpreter].
+pub mod anonymous_function;
 pub mod r#as;
 pub mod assignment;
 pub mod assignment_operator;
@@ -12,7 +13,6 @@ pub mod expression;
 pub mod r#for;
 pub mod function_call;
 pub mod function_expression;
-pub mod function_node;
 pub mod identifier;
 pub mod if_else;
 pub mod index;
@@ -34,8 +34,8 @@ pub mod value_node;
 pub mod r#while;
 
 pub use {
-    assignment::*, assignment_operator::*, block::*, command::*, enum_defintion::*,
-    enum_pattern::*, expression::*, function_call::*, function_expression::*, function_node::*,
+    anonymous_function::*, assignment::*, assignment_operator::*, block::*, command::*,
+    enum_defintion::*, enum_pattern::*, expression::*, function_call::*, function_expression::*,
     identifier::*, if_else::*, index::*, index_assignment::IndexAssignment, index_expression::*,
     logic::*, logic_operator::*, map_node::*, match_pattern::*, math::*, math_operator::*, r#as::*,
     r#for::*, r#match::*, r#type::*, r#while::*, statement::*, struct_definition::*,

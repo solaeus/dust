@@ -138,7 +138,7 @@ module.exports = grammar({
 
     value: $ =>
       choice(
-        $.function,
+        $.anonymous_function,
         $.integer,
         $.float,
         $.string,
@@ -429,7 +429,7 @@ module.exports = grammar({
         ),
       ),
 
-    function: $ =>
+    anonymous_function: $ =>
       seq(
         '(',
         repeat(
@@ -478,6 +478,7 @@ module.exports = grammar({
     type_definition: $ =>
       choice(
         $.enum_definition,
+        $.function_definition,
         $.struct_definition,
       ),
 
@@ -555,5 +556,23 @@ module.exports = grammar({
 
     struct_instance: $ =>
       seq($.identifier, '::', $.map),
+
+    function_definition: $ =>
+      seq(
+        'fn',
+        $.identifier,
+        optional($.type_arguments),
+        '(',
+        repeat(
+          seq(
+            $.identifier,
+            $.type_specification,
+            optional(','),
+          ),
+        ),
+        ')',
+        $.type_specification,
+        $.block,
+      ),
   },
 });
