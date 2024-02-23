@@ -22,7 +22,7 @@ fib = (i <int>) <int> {
           (statement_kind
             (expression
               (value
-                (function
+                (anonymous_function
                   (identifier)
                   (type_specification
                     (type))

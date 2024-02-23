@@ -3,13 +3,13 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    built_in_functions::Callable, BuiltInFunction, Format, FunctionNode, Identifier, Type,
+    built_in_functions::Callable, AnonymousFunction, BuiltInFunction, Format, Identifier, Type,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Function {
     BuiltIn(BuiltInFunction),
-    ContextDefined(FunctionNode),
+    ContextDefined(AnonymousFunction),
 }
 
 impl Function {

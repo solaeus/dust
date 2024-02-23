@@ -1,5 +1,28 @@
 [
   {
+    "type": "anonymous_function",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type_specification",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "as_node",
     "named": true,
     "fields": {},
@@ -262,29 +285,6 @@
         },
         {
           "type": "identifier",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "function",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "block",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "type_specification",
           "named": true
         }
       ]
@@ -853,6 +853,10 @@
       "required": true,
       "types": [
         {
+          "type": "anonymous_function",
+          "named": true
+        },
+        {
           "type": "boolean",
           "named": true
         },
@@ -862,10 +866,6 @@
         },
         {
           "type": "float",
-          "named": true
-        },
-        {
-          "type": "function",
           "named": true
         },
         {

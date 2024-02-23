@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FunctionNode {
+pub struct AnonymousFunction {
     parameters: Vec<Identifier>,
     body: Block,
     r#type: Type,
@@ -19,7 +19,7 @@ pub struct FunctionNode {
     context: Context,
 }
 
-impl FunctionNode {
+impl AnonymousFunction {
     pub fn parameters(&self) -> &Vec<Identifier> {
         &self.parameters
     }
@@ -51,7 +51,7 @@ impl FunctionNode {
     }
 }
 
-impl AbstractTree for FunctionNode {
+impl AbstractTree for AnonymousFunction {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
         SyntaxError::expect_syntax_node("function", node)?;
 
@@ -86,7 +86,7 @@ impl AbstractTree for FunctionNode {
         let r#type = Type::function(parameter_types, return_type.take_inner());
         let syntax_position = node.range().into();
 
-        Ok(FunctionNode {
+        Ok(AnonymousFunction {
             parameters,
             body,
             r#type,
@@ -141,7 +141,7 @@ impl AbstractTree for FunctionNode {
     }
 }
 
-impl Format for FunctionNode {
+impl Format for AnonymousFunction {
     fn format(&self, output: &mut String, indent_level: u8) {
         let (parameter_types, return_type) = if let Type::Function {
             parameter_types,
@@ -169,7 +169,7 @@ impl Format for FunctionNode {
     }
 }
 
-impl Display for FunctionNode {
+impl Display for AnonymousFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut string = String::new();
 

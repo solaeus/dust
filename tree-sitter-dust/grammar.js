@@ -138,7 +138,7 @@ module.exports = grammar({
 
     value: $ =>
       choice(
-        $.function,
+        $.anonymous_function,
         $.integer,
         $.float,
         $.string,
@@ -429,7 +429,7 @@ module.exports = grammar({
         ),
       ),
 
-    function: $ =>
+    anonymous_function: $ =>
       seq(
         '(',
         repeat(

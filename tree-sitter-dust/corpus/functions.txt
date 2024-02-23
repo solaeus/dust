@@ -11,7 +11,7 @@ Anonymous Function
     (statement_kind
       (expression
         (value
-          (function
+          (anonymous_function
             (type_specification
               (type))
             (block
@@ -41,7 +41,7 @@ foobar = (x <int>, y <int>) <int> {
           (statement_kind
             (expression
               (value
-                (function
+                (anonymous_function
                   (identifier)
                   (type_specification
                     (type))
@@ -139,7 +139,7 @@ Anonymous Function Call
         (function_call
           (function_expression
             (value
-              (function
+              (anonymous_function
                 (identifier)
                 (type_specification
                   (type))
@@ -215,7 +215,7 @@ x(() <bool> { true })
             (identifier))
           (expression
             (value
-              (function
+              (anonymous_function
                 (type_specification
                   (type))
                 (block

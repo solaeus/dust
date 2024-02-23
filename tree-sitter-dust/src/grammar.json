@@ -390,7 +390,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "function"
+          "name": "anonymous_function"
         },
         {
           "type": "SYMBOL",
@@ -1311,7 +1311,7 @@
         ]
       }
     },
-    "function": {
+    "anonymous_function": {
       "type": "SEQ",
       "members": [
         {
