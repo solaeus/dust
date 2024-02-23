@@ -247,3 +247,35 @@ from_json(read('file.json'))
               (expression
                 (value
                   (string))))))))))
+
+================================================================================
+Function Definition
+================================================================================
+
+fn foo<T> (bar <T>) <T> {
+  bar
+}
+
+--------------------------------------------------------------------------------
+
+(root
+  (statement
+    (statement_kind
+      (type_definition
+        (function_definition
+          (identifier)
+          (type_arguments
+            (type
+              (identifier)))
+          (identifier)
+          (type_specification
+            (type
+              (identifier)))
+          (type_specification
+            (type
+              (identifier)))
+          (block
+            (statement
+              (statement_kind
+                (expression
+                  (identifier))))))))))

@@ -53,7 +53,7 @@ impl AnonymousFunction {
 
 impl AbstractTree for AnonymousFunction {
     fn from_syntax(node: SyntaxNode, source: &str, context: &Context) -> Result<Self, SyntaxError> {
-        SyntaxError::expect_syntax_node("function", node)?;
+        SyntaxError::expect_syntax_node("anonymous_function", node)?;
 
         let child_count = node.child_count();
         let mut parameters = Vec::new();

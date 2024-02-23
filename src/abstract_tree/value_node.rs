@@ -38,7 +38,7 @@ impl AbstractTree for ValueNode {
         let value_node = match child.kind() {
             "boolean" => ValueNode::Boolean(source[child.byte_range()].to_string()),
             "float" => ValueNode::Float(source[child.byte_range()].to_string()),
-            "function" => {
+            "anonymous_function" => {
                 let function_node = AnonymousFunction::from_syntax(child, source, context)?;
 
                 ValueNode::Function(Function::ContextDefined(function_node))

@@ -310,6 +310,33 @@
     }
   },
   {
+    "type": "function_definition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "block",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type_arguments",
+          "named": true
+        },
+        {
+          "type": "type_specification",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "function_expression",
     "named": true,
     "fields": {},
@@ -823,6 +850,10 @@
           "named": true
         },
         {
+          "type": "function_definition",
+          "named": true
+        },
+        {
           "type": "struct_definition",
           "named": true
         }
@@ -1072,6 +1103,10 @@
   },
   {
     "type": "float",
+    "named": false
+  },
+  {
+    "type": "fn",
     "named": false
   },
   {
