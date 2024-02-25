@@ -2,7 +2,7 @@ use crate::{context::Context, error::RuntimeError};
 
 use super::{AbstractTree, Assignment, Block, Identifier, Logic, Loop, Value};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Assignment(Assignment),
     Block(Block),

@@ -2,7 +2,7 @@ use crate::{context::Context, error::RuntimeError};
 
 use super::{AbstractTree, Block, Value};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Loop {
     block: Block,
 }

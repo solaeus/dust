@@ -32,6 +32,7 @@ impl<'src> From<RuntimeError> for Error<'src> {
 #[derive(Debug, PartialEq)]
 pub enum RuntimeError {
     RwLockPoison(RwLockPoisonError),
+    ExpectedBoolean,
 }
 
 impl From<RwLockPoisonError> for RuntimeError {

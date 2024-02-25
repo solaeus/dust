@@ -2,7 +2,7 @@ use crate::{error::RuntimeError, Context};
 
 use super::{AbstractTree, Identifier, Statement, Value};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
     statement: Box<Statement>,
