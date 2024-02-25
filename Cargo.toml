@@ -13,5 +13,5 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-ariadne = "0.4.0"
-chumsky = { version = "1.0.0-alpha.6", features = ["pratt"] }
+ariadne = { version = "0.4.0", features = ["auto-color"] }
+chumsky = { version = "1.0.0-alpha.6", features = ["pratt", "label"] }
