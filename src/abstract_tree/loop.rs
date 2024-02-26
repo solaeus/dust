@@ -1,13 +1,13 @@
-use crate::{context::Context, error::RuntimeError};
+use crate::{context::Context, error::RuntimeError, Value};
 
-use super::{AbstractTree, Block, Value};
+use super::{AbstractTree, Block};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Loop {
-    block: Block,
+pub struct Loop<'src> {
+    block: Block<'src>,
 }
 
-impl AbstractTree for Loop {
+impl<'src> AbstractTree for Loop<'src> {
     fn run(self, _: &Context) -> Result<Value, RuntimeError> {
         todo!()
     }

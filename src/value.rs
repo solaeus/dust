@@ -1,13 +1,10 @@
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
     ops::Range,
     sync::{Arc, OnceLock},
 };
 
-use crate::{context::Context, error::RuntimeError};
-
-use super::{AbstractTree, Identifier, Statement};
+use crate::error::RuntimeError;
 
 pub static NONE: OnceLock<Value> = OnceLock::new();
 
@@ -22,8 +19,8 @@ impl Value {
     pub fn none() -> Self {
         NONE.get_or_init(|| {
             Value::r#enum(EnumInstance {
-                type_name: Identifier::new("Option"),
-                variant: Identifier::new("None"),
+                type_name: "Option".to_string(),
+                variant: "None".to_string(),
             })
         })
         .clone()
@@ -41,13 +38,13 @@ impl Value {
         Value(Arc::new(ValueInner::Integer(integer)))
     }
 
-    pub fn list(list: Vec<Statement>) -> Self {
+    pub fn list(list: Vec<Value>) -> Self {
         Value(Arc::new(ValueInner::List(list)))
     }
 
-    pub fn map(map: BTreeMap<Identifier, Value>) -> Self {
-        Value(Arc::new(ValueInner::Map(map)))
-    }
+    // pub fn map(map: BTreeMap<Identifier, Value>) -> Self {
+    //     Value(Arc::new(ValueInner::Map(map)))
+    // }
 
     pub fn range(range: Range<i64>) -> Self {
         Value(Arc::new(ValueInner::Range(range)))
@@ -89,8 +86,8 @@ pub enum ValueInner {
     Boolean(bool),
     Float(f64),
     Integer(i64),
-    List(Vec<Statement>),
-    Map(BTreeMap<Identifier, Value>),
+    List(Vec<Value>),
+    // Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
     Enum(EnumInstance),
@@ -117,8 +114,8 @@ impl Ord for ValueInner {
             (Integer(_), _) => Ordering::Greater,
             (List(left), List(right)) => left.cmp(right),
             (List(_), _) => Ordering::Greater,
-            (Map(left), Map(right)) => left.cmp(right),
-            (Map(_), _) => Ordering::Greater,
+            // (Map(left), Map(right)) => left.cmp(right),
+            // (Map(_), _) => Ordering::Greater,
             (Range(left), Range(right)) => {
                 let start_cmp = left.start.cmp(&right.start);
 
@@ -139,12 +136,6 @@ impl Ord for ValueInner {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct EnumInstance {
-    type_name: Identifier,
-    variant: Identifier,
-}
-
-impl AbstractTree for Value {
-    fn run(self, _: &Context) -> Result<Value, RuntimeError> {
-        Ok(self)
-    }
+    type_name: String,
+    variant: String,
 }

@@ -1,21 +1,21 @@
-use crate::{context::Context, error::RuntimeError};
+use crate::{context::Context, error::RuntimeError, Value};
 
-use super::{AbstractTree, Statement, Value};
+use super::{AbstractTree, Expression};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Logic {
-    Equal(Statement, Statement),
-    NotEqual(Statement, Statement),
-    Greater(Statement, Statement),
-    Less(Statement, Statement),
-    GreaterOrEqual(Statement, Statement),
-    LessOrEqual(Statement, Statement),
-    And(Statement, Statement),
-    Or(Statement, Statement),
-    Not(Statement),
+pub enum Logic<'src> {
+    Equal(Expression<'src>, Expression<'src>),
+    NotEqual(Expression<'src>, Expression<'src>),
+    Greater(Expression<'src>, Expression<'src>),
+    Less(Expression<'src>, Expression<'src>),
+    GreaterOrEqual(Expression<'src>, Expression<'src>),
+    LessOrEqual(Expression<'src>, Expression<'src>),
+    And(Expression<'src>, Expression<'src>),
+    Or(Expression<'src>, Expression<'src>),
+    Not(Expression<'src>),
 }
 
-impl AbstractTree for Logic {
+impl<'src> AbstractTree for Logic<'src> {
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
         let boolean = match self {
             Logic::Equal(left, right) => left.run(_context)? == right.run(_context)?,
@@ -39,13 +39,15 @@ impl AbstractTree for Logic {
 
 #[cfg(test)]
 mod tests {
+    use crate::abstract_tree::{Expression, ValueNode};
+
     use super::*;
 
     #[test]
     fn equal() {
         assert!(Logic::Equal(
-            Statement::Value(Value::integer(42)),
-            Statement::Value(Value::integer(42)),
+            Expression::Value(ValueNode::Integer(42)),
+            Expression::Value(ValueNode::Integer(42)),
         )
         .run(&Context::new())
         .unwrap()

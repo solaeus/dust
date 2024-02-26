@@ -1,26 +1,22 @@
 use crate::{context::Context, error::RuntimeError};
 
-use super::{AbstractTree, Assignment, Block, Identifier, Logic, Loop, Value};
+use super::{AbstractTree, Assignment, Block, Expression, Loop, Value};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Statement {
-    Assignment(Assignment),
-    Block(Block),
-    Identifier(Identifier),
-    Loop(Loop),
-    Value(Value),
-    Logic(Box<Logic>),
+pub enum Statement<'src> {
+    Assignment(Assignment<'src>),
+    Block(Block<'src>),
+    Expression(Expression<'src>),
+    Loop(Loop<'src>),
 }
 
-impl AbstractTree for Statement {
+impl<'src> AbstractTree for Statement<'src> {
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
         match self {
             Statement::Assignment(assignment) => assignment.run(_context),
             Statement::Block(_) => todo!(),
-            Statement::Identifier(identifier) => identifier.run(_context),
+            Statement::Expression(_) => todo!(),
             Statement::Loop(_) => todo!(),
-            Statement::Value(value) => value.run(_context),
-            Statement::Logic(_) => todo!(),
         }
     }
 }

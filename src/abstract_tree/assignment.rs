@@ -1,15 +1,15 @@
-use crate::{error::RuntimeError, Context};
+use crate::{error::RuntimeError, value::Value, Context};
 
-use super::{AbstractTree, Identifier, Statement, Value};
+use super::{AbstractTree, Identifier, Statement};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Assignment {
-    identifier: Identifier,
-    statement: Box<Statement>,
+pub struct Assignment<'src> {
+    identifier: Identifier<'src>,
+    statement: Box<Statement<'src>>,
 }
 
-impl Assignment {
-    pub fn new(identifier: Identifier, statement: Statement) -> Self {
+impl<'src> Assignment<'src> {
+    pub fn new(identifier: Identifier<'src>, statement: Statement<'src>) -> Self {
         Self {
             identifier,
             statement: Box::new(statement),
@@ -17,34 +17,36 @@ impl Assignment {
     }
 }
 
-impl AbstractTree for Assignment {
-    fn run(self, context: &Context) -> Result<Value, RuntimeError> {
-        let value = self.statement.run(context)?;
+impl<'src> AbstractTree for Assignment<'src> {
+    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+        todo!()
+        // let value = self.statement.run(context)?;
 
-        context.set(self.identifier, value)?;
+        // context.set(self.identifier, value)?;
 
-        Ok(Value::none())
+        // Ok(Value::none())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
     #[test]
     fn assign_value() {
-        let context = Context::new();
+        todo!()
+        // let context = Context::new();
 
-        Assignment::new(
-            Identifier::new("foobar"),
-            Statement::Value(Value::integer(42)),
-        )
-        .run(&context)
-        .unwrap();
+        // Assignment::new(
+        //     Identifier::new("foobar"),
+        //     Statement::Value(Value::integer(42)),
+        // )
+        // .run(&context)
+        // .unwrap();
 
-        assert_eq!(
-            context.get(&Identifier::new("foobar")).unwrap(),
-            Some(Value::integer(42))
-        )
+        // assert_eq!(
+        //     context.get(&Identifier::new("foobar")).unwrap(),
+        //     Some(Value::integer(42))
+        // )
     }
 }

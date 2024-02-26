@@ -1,20 +1,21 @@
-use crate::{context::Context, error::RuntimeError};
+use crate::{context::Context, error::RuntimeError, Value};
 
-use super::{AbstractTree, Value};
+use super::AbstractTree;
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Identifier(String);
+pub struct Identifier<'src>(&'src str);
 
-impl Identifier {
-    pub fn new<T: ToString>(string: T) -> Identifier {
-        Identifier(string.to_string())
+impl<'src> Identifier<'src> {
+    pub fn new(string: &'src str) -> Self {
+        Identifier(string)
     }
 }
 
-impl AbstractTree for Identifier {
-    fn run(self, context: &Context) -> Result<Value, RuntimeError> {
-        let value = context.get(&self)?.unwrap_or_else(Value::none).clone();
+impl<'src> AbstractTree for Identifier<'src> {
+    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+        todo!()
+        // let value = context.get(&self)?.unwrap_or_else(Value::none).clone();
 
-        Ok(value)
+        // Ok(value)
     }
 }
