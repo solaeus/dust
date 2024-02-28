@@ -158,6 +158,37 @@ mod tests {
                 Expression::Value(ValueNode::Integer(1))
             ))))
         );
+
+        assert_eq!(
+            parse(&lex("(x == 1) && (y == 2)").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Logic(Box::new(Logic::And(
+                Expression::Logic(Box::new(Logic::Equal(
+                    Expression::Identifier(Identifier::new("x")),
+                    Expression::Value(ValueNode::Integer(1))
+                ))),
+                Expression::Logic(Box::new(Logic::Equal(
+                    Expression::Identifier(Identifier::new("y")),
+                    Expression::Value(ValueNode::Integer(2))
+                ))),
+            ))))
+        );
+
+        assert_eq!(
+            parse(&lex("(x == 1) && (y == 2) && true").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Logic(Box::new(Logic::And(
+                Expression::Logic(Box::new(Logic::And(
+                    Expression::Logic(Box::new(Logic::Equal(
+                        Expression::Identifier(Identifier::new("x")),
+                        Expression::Value(ValueNode::Integer(1))
+                    ))),
+                    Expression::Logic(Box::new(Logic::Equal(
+                        Expression::Identifier(Identifier::new("y")),
+                        Expression::Value(ValueNode::Integer(2))
+                    ))),
+                ))),
+                Expression::Value(ValueNode::Boolean(true))
+            ))))
+        );
     }
 
     #[test]
