@@ -44,10 +44,14 @@ pub fn lexer<'src>() -> impl Parser<
 
     let integer = just('-')
         .or_not()
-        .then(text::int(10).padded())
+        .then(text::int(10))
         .to_slice()
         .map(|text: &str| {
-            let integer = text.parse::<i64>().unwrap();
+            let integer = if let Ok(integer) = text.parse::<i64>() {
+                integer
+            } else {
+                panic!("Failed to parse {text} as integer.");
+            };
 
             Token::Integer(integer)
         });

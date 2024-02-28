@@ -120,7 +120,15 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
             })
             .boxed();
 
-        choice([assignment, expression_statement])
+        let block = statement
+            .clone()
+            .separated_by(just(Token::Control(";")).or_not())
+            .collect()
+            .delimited_by(just(Token::Control("{")), just(Token::Control("}")))
+            .map(|statements| Statement::Block(Block::new(statements)))
+            .boxed();
+
+        choice([assignment, expression_statement, block])
     });
 
     statement
@@ -143,6 +151,57 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn block() {
+        assert_eq!(
+            parse(&lex("{ x }").unwrap()).unwrap()[0].0,
+            Statement::Block(Block::new(vec![Statement::Expression(
+                Expression::Identifier(Identifier::new("x"))
+            ),]))
+        );
+
+        assert_eq!(
+            parse(
+                &lex("
+                {
+                    x;
+                    y;
+                    z
+                }
+                ")
+                .unwrap()
+            )
+            .unwrap()[0]
+                .0,
+            Statement::Block(Block::new(vec![
+                Statement::Expression(Expression::Identifier(Identifier::new("x"))),
+                Statement::Expression(Expression::Identifier(Identifier::new("y"))),
+                Statement::Expression(Expression::Identifier(Identifier::new("z"))),
+            ]))
+        );
+
+        assert_eq!(
+            parse(
+                &lex("
+                {
+                    1 == 1
+                    z
+                }
+                ")
+                .unwrap()
+            )
+            .unwrap()[0]
+                .0,
+            Statement::Block(Block::new(vec![
+                Statement::Expression(Expression::Logic(Box::new(Logic::Equal(
+                    Expression::Value(ValueNode::Integer(1)),
+                    Expression::Value(ValueNode::Integer(1))
+                )))),
+                Statement::Expression(Expression::Identifier(Identifier::new("z"))),
+            ]))
+        );
+    }
 
     #[test]
     fn identifier() {
