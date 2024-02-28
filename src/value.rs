@@ -1,10 +1,11 @@
 use std::{
     cmp::Ordering,
+    collections::BTreeMap,
     ops::Range,
     sync::{Arc, OnceLock},
 };
 
-use crate::error::RuntimeError;
+use crate::{abstract_tree::Identifier, error::RuntimeError};
 
 pub static NONE: OnceLock<Value> = OnceLock::new();
 
@@ -14,16 +15,6 @@ pub struct Value(Arc<ValueInner>);
 impl Value {
     pub fn inner(&self) -> &Arc<ValueInner> {
         &self.0
-    }
-
-    pub fn none() -> Self {
-        NONE.get_or_init(|| {
-            Value::r#enum(EnumInstance {
-                type_name: "Option".to_string(),
-                variant: "None".to_string(),
-            })
-        })
-        .clone()
     }
 
     pub fn boolean(boolean: bool) -> Self {
@@ -42,9 +33,9 @@ impl Value {
         Value(Arc::new(ValueInner::List(list)))
     }
 
-    // pub fn map(map: BTreeMap<Identifier, Value>) -> Self {
-    //     Value(Arc::new(ValueInner::Map(map)))
-    // }
+    pub fn map(map: BTreeMap<Identifier, Value>) -> Self {
+        Value(Arc::new(ValueInner::Map(map)))
+    }
 
     pub fn range(range: Range<i64>) -> Self {
         Value(Arc::new(ValueInner::Range(range)))
@@ -54,8 +45,8 @@ impl Value {
         Value(Arc::new(ValueInner::String(string.to_string())))
     }
 
-    pub fn r#enum(r#enum: EnumInstance) -> Self {
-        Value(Arc::new(ValueInner::Enum(r#enum)))
+    pub fn r#enum(name: Identifier, variant: Identifier) -> Self {
+        Value(Arc::new(ValueInner::Enum(name, variant)))
     }
 
     pub fn as_boolean(&self) -> Result<bool, RuntimeError> {
@@ -87,10 +78,10 @@ pub enum ValueInner {
     Float(f64),
     Integer(i64),
     List(Vec<Value>),
-    // Map(BTreeMap<Identifier, Value>),
+    Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
-    Enum(EnumInstance),
+    Enum(Identifier, Identifier),
 }
 
 impl Eq for ValueInner {}
@@ -114,8 +105,8 @@ impl Ord for ValueInner {
             (Integer(_), _) => Ordering::Greater,
             (List(left), List(right)) => left.cmp(right),
             (List(_), _) => Ordering::Greater,
-            // (Map(left), Map(right)) => left.cmp(right),
-            // (Map(_), _) => Ordering::Greater,
+            (Map(left), Map(right)) => left.cmp(right),
+            (Map(_), _) => Ordering::Greater,
             (Range(left), Range(right)) => {
                 let start_cmp = left.start.cmp(&right.start);
 
@@ -128,14 +119,16 @@ impl Ord for ValueInner {
             (Range(_), _) => Ordering::Greater,
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
-            (Enum(left), Enum(right)) => left.cmp(right),
-            (Enum(_), _) => Ordering::Greater,
+            (Enum(name_left, variant_left), Enum(name_right, variant_right)) => {
+                let name_cmp = name_left.cmp(name_right);
+
+                if name_cmp.is_eq() {
+                    variant_left.cmp(variant_right)
+                } else {
+                    name_cmp
+                }
+            }
+            (Enum(..), _) => Ordering::Greater,
         }
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct EnumInstance {
-    type_name: String,
-    variant: String,
 }

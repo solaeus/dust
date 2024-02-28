@@ -47,11 +47,7 @@ pub fn lexer<'src>() -> impl Parser<
         .then(text::int(10))
         .to_slice()
         .map(|text: &str| {
-            let integer = if let Ok(integer) = text.parse::<i64>() {
-                integer
-            } else {
-                panic!("Failed to parse {text} as integer.");
-            };
+            let integer = text.parse::<i64>().unwrap();
 
             Token::Integer(integer)
         });

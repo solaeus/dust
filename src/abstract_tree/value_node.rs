@@ -10,7 +10,7 @@ pub enum ValueNode<'src> {
     Float(f64),
     Integer(i64),
     List(Vec<Expression<'src>>),
-    Map(BTreeMap<Identifier, Expression<'src>>),
+    Map(Vec<(Identifier, Expression<'src>)>),
     Range(Range<i64>),
     String(&'src str),
     Enum(Identifier, Identifier),
@@ -20,13 +20,33 @@ impl<'src> AbstractTree for ValueNode<'src> {
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
-            ValueNode::Float(float) => todo!(),
-            ValueNode::Integer(integer) => todo!(),
-            ValueNode::List(expression_list) => todo!(),
-            ValueNode::Map(property_list) => todo!(),
-            ValueNode::Range(range) => todo!(),
-            ValueNode::String(string) => todo!(),
-            ValueNode::Enum(name, variant) => todo!(),
+            ValueNode::Float(float) => Value::float(float),
+            ValueNode::Integer(integer) => Value::integer(integer),
+            ValueNode::List(expression_list) => {
+                let mut value_list = Vec::with_capacity(expression_list.len());
+
+                for expression in expression_list {
+                    let value = expression.run(_context)?;
+
+                    value_list.push(value);
+                }
+
+                Value::list(value_list)
+            }
+            ValueNode::Map(property_list) => {
+                let mut property_map = BTreeMap::new();
+
+                for (identifier, expression) in property_list {
+                    let value = expression.run(_context)?;
+
+                    property_map.insert(identifier, value);
+                }
+
+                Value::map(property_map)
+            }
+            ValueNode::Range(range) => Value::range(range),
+            ValueNode::String(string) => Value::string(string),
+            ValueNode::Enum(name, variant) => Value::r#enum(name, variant),
         };
 
         Ok(value)

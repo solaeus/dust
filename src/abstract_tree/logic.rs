@@ -54,4 +54,115 @@ mod tests {
         .as_boolean()
         .unwrap())
     }
+
+    #[test]
+    fn not_equal() {
+        assert!(Logic::NotEqual(
+            Expression::Value(ValueNode::Integer(42)),
+            Expression::Value(ValueNode::Integer(43)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap())
+    }
+
+    #[test]
+    fn greater() {
+        assert!(Logic::Greater(
+            Expression::Value(ValueNode::Integer(43)),
+            Expression::Value(ValueNode::Integer(42)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap())
+    }
+
+    #[test]
+    fn less() {
+        assert!(Logic::Less(
+            Expression::Value(ValueNode::Integer(42)),
+            Expression::Value(ValueNode::Integer(43)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap())
+    }
+
+    #[test]
+    fn greater_or_equal() {
+        assert!(Logic::GreaterOrEqual(
+            Expression::Value(ValueNode::Integer(42)),
+            Expression::Value(ValueNode::Integer(41)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap());
+
+        assert!(Logic::GreaterOrEqual(
+            Expression::Value(ValueNode::Integer(42)),
+            Expression::Value(ValueNode::Integer(42)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap())
+    }
+
+    #[test]
+    fn less_or_equal() {
+        assert!(Logic::LessOrEqual(
+            Expression::Value(ValueNode::Integer(42)),
+            Expression::Value(ValueNode::Integer(43)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap());
+
+        assert!(Logic::LessOrEqual(
+            Expression::Value(ValueNode::Integer(42)),
+            Expression::Value(ValueNode::Integer(42)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap())
+    }
+
+    #[test]
+    fn and() {
+        assert!(Logic::And(
+            Expression::Value(ValueNode::Boolean(true)),
+            Expression::Value(ValueNode::Boolean(true)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap())
+    }
+
+    #[test]
+    fn or() {
+        assert!(Logic::Or(
+            Expression::Value(ValueNode::Boolean(true)),
+            Expression::Value(ValueNode::Boolean(false)),
+        )
+        .run(&Context::new())
+        .unwrap()
+        .as_boolean()
+        .unwrap())
+    }
+
+    #[test]
+    fn not() {
+        assert!(Logic::Not(Expression::Value(ValueNode::Boolean(false)))
+            .run(&Context::new())
+            .unwrap()
+            .as_boolean()
+            .unwrap())
+    }
 }
