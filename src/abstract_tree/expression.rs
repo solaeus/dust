@@ -4,7 +4,7 @@ use super::{AbstractTree, Identifier, Logic, ValueNode};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression<'src> {
-    Identifier(Identifier<'src>),
+    Identifier(Identifier),
     Logic(Box<Logic<'src>>),
     Value(ValueNode<'src>),
 }

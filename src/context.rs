@@ -3,10 +3,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{error::RwLockPoisonError, Value};
+use crate::{abstract_tree::Identifier, error::RwLockPoisonError, Value};
 
 pub struct Context {
-    inner: Arc<RwLock<BTreeMap<String, Value>>>,
+    inner: Arc<RwLock<BTreeMap<Identifier, Value>>>,
 }
 
 impl Context {
@@ -16,20 +16,20 @@ impl Context {
         }
     }
 
-    pub fn with_values(values: BTreeMap<String, Value>) -> Self {
+    pub fn with_values(values: BTreeMap<Identifier, Value>) -> Self {
         Self {
             inner: Arc::new(RwLock::new(values)),
         }
     }
 
-    pub fn get(&self, key: &str) -> Result<Option<Value>, RwLockPoisonError> {
-        let value = self.inner.read()?.get(key).cloned();
+    pub fn get(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
+        let value = self.inner.read()?.get(identifier).cloned();
 
         Ok(value)
     }
 
-    pub fn set(&self, key: String, value: Value) -> Result<(), RwLockPoisonError> {
-        self.inner.write()?.insert(key, value);
+    pub fn set(&self, identifier: Identifier, value: Value) -> Result<(), RwLockPoisonError> {
+        self.inner.write()?.insert(identifier, value);
 
         Ok(())
     }

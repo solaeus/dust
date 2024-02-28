@@ -4,12 +4,12 @@ use super::{AbstractTree, Identifier, Statement};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment<'src> {
-    identifier: Identifier<'src>,
+    identifier: Identifier,
     statement: Box<Statement<'src>>,
 }
 
 impl<'src> Assignment<'src> {
-    pub fn new(identifier: Identifier<'src>, statement: Statement<'src>) -> Self {
+    pub fn new(identifier: Identifier, statement: Statement<'src>) -> Self {
         Self {
             identifier,
             statement: Box::new(statement),

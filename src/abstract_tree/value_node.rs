@@ -10,10 +10,27 @@ pub enum ValueNode<'src> {
     Float(f64),
     Integer(i64),
     List(Vec<Expression<'src>>),
-    Map(BTreeMap<Identifier<'src>, Expression<'src>>),
+    Map(BTreeMap<Identifier, Expression<'src>>),
     Range(Range<i64>),
     String(&'src str),
-    Enum(&'src str, &'src str),
+    Enum(Identifier, Identifier),
+}
+
+impl<'src> AbstractTree for ValueNode<'src> {
+    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+        let value = match self {
+            ValueNode::Boolean(boolean) => Value::boolean(boolean),
+            ValueNode::Float(float) => todo!(),
+            ValueNode::Integer(integer) => todo!(),
+            ValueNode::List(expression_list) => todo!(),
+            ValueNode::Map(property_list) => todo!(),
+            ValueNode::Range(range) => todo!(),
+            ValueNode::String(string) => todo!(),
+            ValueNode::Enum(name, variant) => todo!(),
+        };
+
+        Ok(value)
+    }
 }
 
 impl<'src> Eq for ValueNode<'src> {}
@@ -62,11 +79,5 @@ impl<'src> Ord for ValueNode<'src> {
             }
             (Enum(_, _), _) => Ordering::Greater,
         }
-    }
-}
-
-impl<'src> AbstractTree for ValueNode<'src> {
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
-        todo!()
     }
 }

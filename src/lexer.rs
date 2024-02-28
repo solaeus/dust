@@ -4,14 +4,13 @@ use crate::error::Error;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token<'src> {
-    None,
     Boolean(bool),
     Integer(i64),
     Float(f64),
     String(&'src str),
     Identifier(&'src str),
     Operator(&'src str),
-    Control(char),
+    Control(&'src str),
 }
 
 pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token, SimpleSpan)>, Error<'src>> {
@@ -84,7 +83,18 @@ pub fn lexer<'src>() -> impl Parser<
     ))
     .map(Token::Operator);
 
-    let control = one_of("[](){},;'").map(Token::Control);
+    let control = choice((
+        just("[").padded(),
+        just("]").padded(),
+        just("(").padded(),
+        just(")").padded(),
+        just("{").padded(),
+        just("}").padded(),
+        just(",").padded(),
+        just(";").padded(),
+        just("::").padded(),
+    ))
+    .map(Token::Control);
 
     choice((
         boolean, float, integer, string, identifier, operator, control,

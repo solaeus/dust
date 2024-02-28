@@ -1,3 +1,5 @@
+use std::{cell::RefCell, collections::HashMap};
+
 use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
 use crate::{abstract_tree::*, error::Error, lexer::Token};
@@ -11,43 +13,63 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
     Vec<(Statement<'src>, SimpleSpan)>,
     extra::Err<Rich<'tokens, Token<'src>, SimpleSpan>>,
 > {
+    let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
+
     let identifier = select! {
-        Token::Identifier(text) => Identifier::new(text),
+        Token::Identifier(text) => {
+            let mut identifiers = identifiers.borrow_mut();
+
+            if let Some(identifier) = identifiers.get(&text) {
+                identifier.clone()
+            } else {
+                let new = Identifier::new(text);
+
+                identifiers.insert(text, new.clone());
+
+                new
+            }
+        }
     };
 
     let expression = recursive(|expression| {
         let basic_value = select! {
-            Token::None => ValueNode::Enum("Option", "None"),
             Token::Boolean(boolean) => ValueNode::Boolean(boolean),
             Token::Integer(integer) => ValueNode::Integer(integer),
             Token::Float(float) => ValueNode::Float(float),
             Token::String(string) => ValueNode::String(string),
-        };
+        }
+        .map(|value| Expression::Value(value))
+        .boxed();
 
         let identifier_expression = identifier
+            .clone()
             .map(|identifier| Expression::Identifier(identifier))
             .boxed();
 
         let list = expression
             .clone()
-            .separated_by(just(Token::Control(',')))
+            .separated_by(just(Token::Control(",")))
             .allow_trailing()
             .collect()
-            .delimited_by(just(Token::Control('[')), just(Token::Control(']')))
-            .map(ValueNode::List);
+            .delimited_by(just(Token::Control("[")), just(Token::Control("]")))
+            .map(|list| Expression::Value(ValueNode::List(list)))
+            .boxed();
 
-        let value = choice((
-            basic_value.map(|value| Expression::Value(value)),
-            list.map(|list| Expression::Value(list)),
-        ))
-        .boxed();
+        let r#enum = identifier
+            .clone()
+            .then_ignore(just(Token::Control("::")))
+            .then(identifier.clone())
+            .map(|(name, variant)| Expression::Value(ValueNode::Enum(name, variant)))
+            .boxed();
 
         let atom = choice((
             identifier_expression.clone(),
-            value.clone(),
+            basic_value.clone(),
+            list.clone(),
+            r#enum.clone(),
             expression
                 .clone()
-                .delimited_by(just(Token::Control('(')), just(Token::Control(')'))),
+                .delimited_by(just(Token::Control("(")), just(Token::Control(")"))),
         ));
 
         let logic = atom
@@ -82,7 +104,7 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
             ))
             .boxed();
 
-        choice([logic, identifier_expression, value])
+        choice([r#enum, logic, identifier_expression, list, basic_value])
     });
 
     let statement = recursive(|statement| {
@@ -188,6 +210,17 @@ mod tests {
                 ))),
                 Expression::Value(ValueNode::Boolean(true))
             ))))
+        );
+    }
+
+    #[test]
+    fn r#enum() {
+        assert_eq!(
+            parse(&lex("Option::None").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Value(ValueNode::Enum(
+                Identifier::new("Option"),
+                Identifier::new("None")
+            )))
         );
     }
 
