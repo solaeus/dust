@@ -112,12 +112,30 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .map(|expression| Statement::Expression(expression))
             .boxed();
 
-        let type_specification = just(Token::Control(":")).ignore_then(choice((
+        let basic_type = choice((
             just(Token::Keyword("bool")).to(Type::Boolean),
             just(Token::Keyword("float")).to(Type::Float),
             just(Token::Keyword("int")).to(Type::Integer),
             just(Token::Keyword("range")).to(Type::Range),
             just(Token::Keyword("str")).to(Type::String),
+            just(Token::Keyword("list")).to(Type::List),
+        ));
+
+        let type_arguments = basic_type
+            .clone()
+            .delimited_by(just(Token::Control("(")), just(Token::Control(")")));
+
+        let type_specification = just(Token::Control(":")).ignore_then(choice((
+            basic_type
+                .clone()
+                .separated_by(just(Token::Control(",")))
+                .collect()
+                .delimited_by(just(Token::Control("[")), just(Token::Control("]")))
+                .map(|types| Type::ListExact(types)),
+            just(Token::Keyword("list"))
+                .then(type_arguments)
+                .map(|(_, item_type)| Type::ListOf(Box::new(item_type))),
+            basic_type.clone(),
             identifier
                 .clone()
                 .map(|identifier| Type::Custom(identifier)),
@@ -244,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn assignment_with_type() {
+    fn assignment_with_basic_type() {
         assert_eq!(
             parse(&lex("foobar: int = 1").unwrap()).unwrap()[0].0,
             Statement::Assignment(Assignment::new(
@@ -253,7 +271,10 @@ mod tests {
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
             )),
         );
+    }
 
+    #[test]
+    fn assignment_with_custom_type() {
         assert_eq!(
             parse(&lex("foobar: Foo = Foo::Bar").unwrap()).unwrap()[0].0,
             Statement::Assignment(Assignment::new(
@@ -263,6 +284,39 @@ mod tests {
                     Identifier::new("Foo"),
                     Identifier::new("Bar")
                 )))
+            )),
+        );
+    }
+
+    #[test]
+    fn assignment_with_list_types() {
+        assert_eq!(
+            parse(&lex("foobar: list = []").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::List),
+                Statement::Expression(Expression::Value(ValueNode::List(vec![])))
+            )),
+        );
+
+        assert_eq!(
+            parse(&lex("foobar: list(int) = []").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::ListOf(Box::new(Type::Integer))),
+                Statement::Expression(Expression::Value(ValueNode::List(vec![])))
+            )),
+        );
+
+        assert_eq!(
+            parse(&lex("foobar: [int, str] = [ 42, 'foo' ]").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::ListExact(vec![Type::Integer, Type::String])),
+                Statement::Expression(Expression::Value(ValueNode::List(vec![
+                    Expression::Value(ValueNode::Integer(42)),
+                    Expression::Value(ValueNode::String("foo"))
+                ])))
             )),
         );
     }
