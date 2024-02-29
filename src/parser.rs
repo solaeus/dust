@@ -104,7 +104,7 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
             ))
             .boxed();
 
-        choice([r#enum, logic, identifier_expression, list, basic_value])
+        choice((r#enum, logic, identifier_expression, list, basic_value))
     });
 
     let statement = recursive(|statement| {
@@ -112,11 +112,23 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .map(|expression| Statement::Expression(expression))
             .boxed();
 
+        let type_specification = just(Token::Control(":")).ignore_then(choice((
+            just(Token::Keyword("bool")).to(Type::Boolean),
+            just(Token::Keyword("float")).to(Type::Float),
+            just(Token::Keyword("int")).to(Type::Integer),
+            just(Token::Keyword("range")).to(Type::Range),
+            just(Token::Keyword("str")).to(Type::String),
+            identifier
+                .clone()
+                .map(|identifier| Type::Custom(identifier)),
+        )));
+
         let assignment = identifier
+            .then(type_specification.clone().or_not())
             .then_ignore(just(Token::Operator("=")))
             .then(statement.clone())
-            .map(|(identifier, statement)| {
-                Statement::Assignment(Assignment::new(identifier, statement))
+            .map(|((identifier, r#type), statement)| {
+                Statement::Assignment(Assignment::new(identifier, r#type, statement))
             })
             .boxed();
 
@@ -128,7 +140,7 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .map(|statements| Statement::Block(Block::new(statements)))
             .boxed();
 
-        choice([assignment, expression_statement, block])
+        choice((assignment, expression_statement, block))
     });
 
     statement
@@ -225,7 +237,32 @@ mod tests {
             parse(&lex("foobar = 1").unwrap()).unwrap()[0].0,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
+                None,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+            )),
+        );
+    }
+
+    #[test]
+    fn assignment_with_type() {
+        assert_eq!(
+            parse(&lex("foobar: int = 1").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::Integer),
+                Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+            )),
+        );
+
+        assert_eq!(
+            parse(&lex("foobar: Foo = Foo::Bar").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::Custom(Identifier::new("Foo"))),
+                Statement::Expression(Expression::Value(ValueNode::Enum(
+                    Identifier::new("Foo"),
+                    Identifier::new("Bar")
+                )))
             )),
         );
     }

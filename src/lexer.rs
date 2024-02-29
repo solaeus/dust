@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use chumsky::prelude::*;
 
 use crate::error::Error;
@@ -11,6 +13,22 @@ pub enum Token<'src> {
     Identifier(&'src str),
     Operator(&'src str),
     Control(&'src str),
+    Keyword(&'src str),
+}
+
+impl<'src> Display for Token<'src> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Token::Boolean(boolean) => write!(f, "{boolean}"),
+            Token::Integer(integer) => write!(f, "{integer}"),
+            Token::Float(float) => write!(f, "{float}"),
+            Token::String(string) => write!(f, "{string}"),
+            Token::Identifier(string) => write!(f, "{string}"),
+            Token::Operator(string) => write!(f, "{string}"),
+            Token::Control(string) => write!(f, "{string}"),
+            Token::Keyword(string) => write!(f, "{string}"),
+        }
+    }
 }
 
 pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token, SimpleSpan)>, Error<'src>> {
@@ -93,11 +111,23 @@ pub fn lexer<'src>() -> impl Parser<
         just(",").padded(),
         just(";").padded(),
         just("::").padded(),
+        just(":").padded(),
     ))
     .map(Token::Control);
 
+    let keyword = choice((
+        just("bool").padded(),
+        just("float").padded(),
+        just("int").padded(),
+        just("list").padded(),
+        just("map").padded(),
+        just("range").padded(),
+        just("str").padded(),
+    ))
+    .map(Token::Keyword);
+
     choice((
-        boolean, float, integer, string, identifier, operator, control,
+        boolean, float, integer, string, keyword, identifier, operator, control,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()
@@ -108,6 +138,11 @@ pub fn lexer<'src>() -> impl Parser<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keywords() {
+        assert_eq!(lex("int").unwrap()[0].0, Token::Keyword("int"))
+    }
 
     #[test]
     fn identifier() {

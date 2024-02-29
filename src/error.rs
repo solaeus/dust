@@ -32,12 +32,30 @@ impl<'src> From<RuntimeError> for Error<'src> {
 #[derive(Debug, PartialEq)]
 pub enum RuntimeError {
     RwLockPoison(RwLockPoisonError),
-    ExpectedBoolean,
+    ValidationFailure(ValidationError),
 }
 
 impl From<RwLockPoisonError> for RuntimeError {
     fn from(error: RwLockPoisonError) -> Self {
         RuntimeError::RwLockPoison(error)
+    }
+}
+
+impl From<ValidationError> for RuntimeError {
+    fn from(error: ValidationError) -> Self {
+        RuntimeError::ValidationFailure(error)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ValidationError {
+    RwLockPoison(RwLockPoisonError),
+    ExpectedBoolean,
+}
+
+impl From<RwLockPoisonError> for ValidationError {
+    fn from(error: RwLockPoisonError) -> Self {
+        ValidationError::RwLockPoison(error)
     }
 }
 

@@ -1,8 +1,12 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
-use crate::{context::Context, error::RuntimeError, Value};
+use crate::{
+    context::Context,
+    error::{RuntimeError, ValidationError},
+    Value,
+};
 
-use super::{AbstractTree, Expression, Identifier};
+use super::{AbstractTree, Expression, Identifier, Type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode<'src> {
@@ -17,6 +21,25 @@ pub enum ValueNode<'src> {
 }
 
 impl<'src> AbstractTree for ValueNode<'src> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+        let r#type = match self {
+            ValueNode::Boolean(_) => Type::Boolean,
+            ValueNode::Float(_) => Type::Float,
+            ValueNode::Integer(_) => Type::Integer,
+            ValueNode::List(_) => Type::List,
+            ValueNode::Map(_) => Type::Map,
+            ValueNode::Range(_) => Type::Range,
+            ValueNode::String(_) => Type::String,
+            ValueNode::Enum(name, _) => Type::Custom(name.clone()),
+        };
+
+        Ok(r#type)
+    }
+
+    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+        todo!()
+    }
+
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),

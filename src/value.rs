@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use crate::{abstract_tree::Identifier, error::RuntimeError};
+use crate::{abstract_tree::Identifier, error::ValidationError};
 
 pub static NONE: OnceLock<Value> = OnceLock::new();
 
@@ -49,12 +49,12 @@ impl Value {
         Value(Arc::new(ValueInner::Enum(name, variant)))
     }
 
-    pub fn as_boolean(&self) -> Result<bool, RuntimeError> {
+    pub fn as_boolean(&self) -> Result<bool, ValidationError> {
         if let ValueInner::Boolean(boolean) = self.0.as_ref() {
             return Ok(*boolean);
         }
 
-        Err(RuntimeError::ExpectedBoolean)
+        Err(ValidationError::ExpectedBoolean)
     }
 }
 

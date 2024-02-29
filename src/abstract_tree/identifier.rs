@@ -1,8 +1,12 @@
 use std::sync::Arc;
 
-use crate::{context::Context, error::RuntimeError, Value};
+use crate::{
+    context::Context,
+    error::{RuntimeError, ValidationError},
+    Value,
+};
 
-use super::AbstractTree;
+use super::{AbstractTree, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(Arc<String>);
@@ -14,6 +18,14 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+        todo!()
+    }
+
+    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+        todo!()
+    }
+
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
         todo!()
         // let value = context.get(&self)?.unwrap_or_else(Value::none).clone();

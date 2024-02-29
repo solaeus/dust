@@ -1,6 +1,10 @@
-use crate::{context::Context, error::RuntimeError, Value};
+use crate::{
+    context::Context,
+    error::{RuntimeError, ValidationError},
+    Value,
+};
 
-use super::{AbstractTree, Expression};
+use super::{AbstractTree, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Logic<'src> {
@@ -16,6 +20,14 @@ pub enum Logic<'src> {
 }
 
 impl<'src> AbstractTree for Logic<'src> {
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+        todo!()
+    }
+
+    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+        todo!()
+    }
+
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
         let boolean = match self {
             Logic::Equal(left, right) => left.run(_context)? == right.run(_context)?,
