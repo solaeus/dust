@@ -19,14 +19,54 @@ impl<'src> Block<'src> {
 
 impl<'src> AbstractTree for Block<'src> {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        let final_statement = self.statements.last().unwrap();
+
+        final_statement.expected_type(_context)
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        for statement in &self.statements {
+            statement.validate(_context)?;
+        }
+
+        Ok(())
     }
 
-    fn run(self, _: &Context) -> Result<Value, RuntimeError> {
-        todo!()
+    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+        let mut previous = Value::none();
+
+        for statement in self.statements {
+            previous = statement.run(_context)?;
+        }
+
+        Ok(previous)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::abstract_tree::{Expression, ValueNode};
+
+    use super::*;
+
+    #[test]
+    fn run_returns_value_of_final_statement() {
+        let block = Block::new(vec![
+            Statement::Expression(Expression::Value(ValueNode::Integer(1))),
+            Statement::Expression(Expression::Value(ValueNode::Integer(2))),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+        ]);
+
+        assert_eq!(block.run(&Context::new()), Ok(Value::integer(42)))
+    }
+
+    #[test]
+    fn expected_type_returns_type_of_final_statement() {
+        let block = Block::new(vec![
+            Statement::Expression(Expression::Value(ValueNode::String("42"))),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+        ]);
+
+        assert_eq!(block.expected_type(&Context::new()), Ok(Type::Integer))
     }
 }

@@ -15,7 +15,12 @@ pub enum Statement<'src> {
 
 impl<'src> AbstractTree for Statement<'src> {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        match self {
+            Statement::Assignment(assignment) => assignment.expected_type(_context),
+            Statement::Block(block) => block.expected_type(_context),
+            Statement::Expression(expression) => expression.expected_type(_context),
+            Statement::Loop(r#loop) => r#loop.expected_type(_context),
+        }
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {

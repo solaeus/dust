@@ -15,7 +15,11 @@ pub enum Expression<'src> {
 
 impl<'src> AbstractTree for Expression<'src> {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        match self {
+            Expression::Identifier(identifier) => identifier.expected_type(_context),
+            Expression::Logic(logic) => logic.expected_type(_context),
+            Expression::Value(value_node) => value_node.expected_type(_context),
+        }
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
