@@ -7,6 +7,15 @@ use crate::{abstract_tree::*, error::Error, lexer::Token};
 type ParserInput<'tokens, 'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'tokens [(Token<'src>, SimpleSpan)]>;
 
+pub fn parse<'tokens, 'src: 'tokens>(
+    tokens: &'tokens [(Token<'src>, SimpleSpan)],
+) -> Result<Vec<(Statement<'src>, SimpleSpan)>, Error<'tokens>> {
+    parser()
+        .parse(tokens.spanned((0..0).into()))
+        .into_result()
+        .map_err(|error| Error::Parse(error))
+}
+
 fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
     'tokens,
     ParserInput<'tokens, 'src>,
@@ -158,7 +167,18 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
             .map(|statements| Statement::Block(Block::new(statements)))
             .boxed();
 
-        choice((assignment, expression_statement, block))
+        let r#loop = statement
+            .clone()
+            .separated_by(just(Token::Control(";")).or_not())
+            .collect()
+            .delimited_by(
+                just(Token::Keyword("loop")).then(just(Token::Control("{"))),
+                just(Token::Control("}")),
+            )
+            .map(|statements| Statement::Loop(Loop::new(statements)))
+            .boxed();
+
+        choice((assignment, expression_statement, block, r#loop))
     });
 
     statement
@@ -167,20 +187,19 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
         .collect()
 }
 
-pub fn parse<'tokens, 'src: 'tokens>(
-    tokens: &'tokens [(Token<'src>, SimpleSpan)],
-) -> Result<Vec<(Statement<'src>, SimpleSpan)>, Error<'tokens>> {
-    parser()
-        .parse(tokens.spanned((0..0).into()))
-        .into_result()
-        .map_err(|error| Error::Parse(error))
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn r#loop() {
+        assert_eq!(
+            parse(&lex("loop {}").unwrap()).unwrap()[0].0,
+            Statement::Loop(Loop::new(vec![]))
+        );
+    }
 
     #[test]
     fn block() {

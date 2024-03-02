@@ -123,6 +123,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("map").padded(),
         just("range").padded(),
         just("str").padded(),
+        just("loop").padded(),
     ))
     .map(Token::Keyword);
 
