@@ -15,6 +15,10 @@ impl Identifier {
     pub fn new<T: ToString>(string: T) -> Self {
         Identifier(Arc::new(string.to_string()))
     }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
 impl AbstractTree for Identifier {

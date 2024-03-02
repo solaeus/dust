@@ -17,6 +17,16 @@ impl Value {
         &self.0
     }
 
+    pub fn none() -> Self {
+        NONE.get_or_init(|| {
+            Value(Arc::new(ValueInner::Enum(
+                Identifier::new("Option"),
+                Identifier::new("None"),
+            )))
+        })
+        .clone()
+    }
+
     pub fn boolean(boolean: bool) -> Self {
         Value(Arc::new(ValueInner::Boolean(boolean)))
     }

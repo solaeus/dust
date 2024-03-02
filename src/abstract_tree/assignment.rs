@@ -32,35 +32,36 @@ impl<'src> AbstractTree for Assignment<'src> {
         todo!()
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
-        todo!()
-        // let value = self.statement.run(context)?;
+    fn run(self, context: &Context) -> Result<Value, RuntimeError> {
+        let value = self.statement.run(context)?;
 
-        // context.set(self.identifier, value)?;
+        context.set(self.identifier, value)?;
 
-        // Ok(Value::none())
+        Ok(Value::none())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use crate::abstract_tree::{Expression, ValueNode};
+
+    use super::*;
 
     #[test]
     fn assign_value() {
-        todo!()
-        // let context = Context::new();
+        let context = Context::new();
 
-        // Assignment::new(
-        //     Identifier::new("foobar"),
-        //     Statement::Value(Value::integer(42)),
-        // )
-        // .run(&context)
-        // .unwrap();
+        Assignment::new(
+            Identifier::new("foobar"),
+            None,
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+        )
+        .run(&context)
+        .unwrap();
 
-        // assert_eq!(
-        //     context.get(&Identifier::new("foobar")).unwrap(),
-        //     Some(Value::integer(42))
-        // )
+        assert_eq!(
+            context.get(&Identifier::new("foobar")),
+            Ok(Some(Value::integer(42)))
+        )
     }
 }

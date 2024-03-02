@@ -26,7 +26,7 @@ impl<'src> AbstractTree for Statement<'src> {
         match self {
             Statement::Assignment(assignment) => assignment.run(_context),
             Statement::Block(_) => todo!(),
-            Statement::Expression(_) => todo!(),
+            Statement::Expression(expression) => expression.run(_context),
             Statement::Loop(_) => todo!(),
         }
     }

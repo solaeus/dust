@@ -69,7 +69,13 @@ impl<'src> AbstractTree for ValueNode<'src> {
             }
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
-            ValueNode::Enum(name, variant) => Value::r#enum(name, variant),
+            ValueNode::Enum(name, variant) => {
+                if name.as_str() == "Option" && variant.as_str() == "None" {
+                    Value::none()
+                } else {
+                    Value::r#enum(name, variant)
+                }
+            }
         };
 
         Ok(value)
