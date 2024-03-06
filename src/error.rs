@@ -1,53 +1,21 @@
 use std::sync::PoisonError;
 
-use ariadne::{Color, Label, Report, ReportKind};
+use ariadne::{Label, Report, ReportKind};
 use chumsky::{prelude::Rich, span::SimpleSpan};
 
 use crate::{abstract_tree::Type, lexer::Token};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    Parse {
-        expected: String,
-        found: Option<String>,
-        span: SimpleSpan,
-    },
-    Lex {
-        expected: String,
-        found: Option<char>,
-        span: SimpleSpan,
-    },
+    Parse { expected: String, span: SimpleSpan },
+    Lex { expected: String, span: SimpleSpan },
     Runtime(RuntimeError),
-}
-
-impl Error {
-    pub fn report(&self, source: &str) -> Report {
-        match self {
-            Error::Parse {
-                expected,
-                found,
-                span,
-            } => Report::build(ReportKind::Custom("Parsing Error", Color::Red), (), 0).finish(),
-            Error::Lex {
-                expected,
-                found,
-                span,
-            } => Report::build(ReportKind::Custom("Lexing Error", Color::Red), (), 0)
-                .with_label(Label::new(span.start..span.end).with_message(format!(
-                    "Exptected {expected} but found {}.",
-                    found.unwrap_or(' '),
-                )))
-                .finish(),
-            Error::Runtime(_) => todo!(),
-        }
-    }
 }
 
 impl From<Rich<'_, char>> for Error {
     fn from(error: Rich<'_, char>) -> Self {
         Error::Lex {
             expected: error.expected().map(|error| error.to_string()).collect(),
-            found: error.reason().found().map(|c| c.clone()),
             span: error.span().clone(),
         }
     }
@@ -57,7 +25,6 @@ impl<'src> From<Rich<'_, Token<'src>>> for Error {
     fn from(error: Rich<'_, Token<'src>>) -> Self {
         Error::Parse {
             expected: error.expected().map(|error| error.to_string()).collect(),
-            found: error.reason().found().map(|c| c.to_string()),
             span: error.span().clone(),
         }
     }
@@ -119,4 +86,31 @@ impl<T> From<PoisonError<T>> for RwLockPoisonError {
 pub struct TypeCheckError {
     pub actual: Type,
     pub expected: Type,
+}
+
+pub fn create_report<'a>(errors: &'a [Error]) -> Report<'a> {
+    let mut report = Report::build(ReportKind::Error, (), 0);
+
+    for error in errors {
+        match error {
+            Error::Parse { expected, span } => {
+                report = report.with_label(
+                    Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
+                );
+            }
+            Error::Lex { expected, span } => {
+                let expected = match expected.as_str() {
+                    "" => "something else",
+                    expected => expected,
+                };
+
+                report = report.with_label(
+                    Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
+                );
+            }
+            Error::Runtime(_) => todo!(),
+        }
+    }
+
+    report.finish()
 }

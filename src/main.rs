@@ -6,7 +6,7 @@ use colored::Colorize;
 
 use std::{fs::read_to_string, io::Write};
 
-use dust_lang::{context::Context, Interpreter};
+use dust_lang::{context::Context, error::create_report, Interpreter};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -52,10 +52,8 @@ fn main() {
                 println!("{value}")
             }
         }
-        Err(errors) => {
-            for error in errors {
-                error.report(&source).eprint(Source::from(&source)).unwrap();
-            }
-        }
+        Err(errors) => create_report(&errors)
+            .eprint(Source::from(&source))
+            .unwrap(),
     }
 }
