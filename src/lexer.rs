@@ -31,11 +31,11 @@ impl<'src> Display for Token<'src> {
     }
 }
 
-pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token, SimpleSpan)>, Error<'src>> {
+pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token<'src>, SimpleSpan)>, Vec<Error>> {
     lexer()
         .parse(source)
         .into_result()
-        .map_err(|error| Error::Lex(error))
+        .map_err(|errors| errors.into_iter().map(|error| error.into()).collect())
 }
 
 pub fn lexer<'src>() -> impl Parser<

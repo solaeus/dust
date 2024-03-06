@@ -1,29 +1,69 @@
 use std::sync::PoisonError;
 
-use chumsky::prelude::Rich;
+use ariadne::{Color, Label, Report, ReportKind};
+use chumsky::{prelude::Rich, span::SimpleSpan};
 
 use crate::{abstract_tree::Type, lexer::Token};
 
 #[derive(Debug, PartialEq)]
-pub enum Error<'src> {
-    Parse(Vec<Rich<'src, Token<'src>>>),
-    Lex(Vec<Rich<'src, char>>),
+pub enum Error {
+    Parse {
+        expected: String,
+        found: Option<String>,
+        span: SimpleSpan,
+    },
+    Lex {
+        expected: String,
+        found: Option<char>,
+        span: SimpleSpan,
+    },
     Runtime(RuntimeError),
 }
 
-impl<'src> From<Vec<Rich<'src, Token<'src>>>> for Error<'src> {
-    fn from(errors: Vec<Rich<'src, Token<'src>>>) -> Self {
-        Error::Parse(errors)
+impl Error {
+    pub fn report(&self, source: &str) -> Report {
+        match self {
+            Error::Parse {
+                expected,
+                found,
+                span,
+            } => Report::build(ReportKind::Custom("Parsing Error", Color::Red), (), 0).finish(),
+            Error::Lex {
+                expected,
+                found,
+                span,
+            } => Report::build(ReportKind::Custom("Lexing Error", Color::Red), (), 0)
+                .with_label(Label::new(span.start..span.end).with_message(format!(
+                    "Exptected {expected} but found {}.",
+                    found.unwrap_or(' '),
+                )))
+                .finish(),
+            Error::Runtime(_) => todo!(),
+        }
     }
 }
 
-impl<'src> From<Vec<Rich<'src, char>>> for Error<'src> {
-    fn from(errors: Vec<Rich<'src, char>>) -> Self {
-        Error::Lex(errors)
+impl From<Rich<'_, char>> for Error {
+    fn from(error: Rich<'_, char>) -> Self {
+        Error::Lex {
+            expected: error.expected().map(|error| error.to_string()).collect(),
+            found: error.reason().found().map(|c| c.clone()),
+            span: error.span().clone(),
+        }
     }
 }
 
-impl<'src> From<RuntimeError> for Error<'src> {
+impl<'src> From<Rich<'_, Token<'src>>> for Error {
+    fn from(error: Rich<'_, Token<'src>>) -> Self {
+        Error::Parse {
+            expected: error.expected().map(|error| error.to_string()).collect(),
+            found: error.reason().found().map(|c| c.to_string()),
+            span: error.span().clone(),
+        }
+    }
+}
+
+impl From<RuntimeError> for Error {
     fn from(error: RuntimeError) -> Self {
         Error::Runtime(error)
     }

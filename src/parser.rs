@@ -4,24 +4,27 @@ use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
 use crate::{abstract_tree::*, error::Error, lexer::Token};
 
-type ParserInput<'tokens, 'src> =
-    SpannedInput<Token<'src>, SimpleSpan, &'tokens [(Token<'src>, SimpleSpan)]>;
+pub type DustParser<'src> = Boxed<
+    'src,
+    'src,
+    ParserInput<'src>,
+    Vec<(Statement<'src>, SimpleSpan)>,
+    extra::Err<Rich<'src, Token<'src>, SimpleSpan>>,
+>;
 
-pub fn parse<'tokens, 'src: 'tokens>(
-    tokens: &'tokens [(Token<'src>, SimpleSpan)],
-) -> Result<Vec<(Statement<'src>, SimpleSpan)>, Error<'tokens>> {
+pub type ParserInput<'src> =
+    SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
+
+pub fn parse<'src>(
+    tokens: &'src [(Token<'src>, SimpleSpan)],
+) -> Result<Vec<(Statement<'src>, SimpleSpan)>, Vec<Error>> {
     parser()
-        .parse(tokens.spanned((0..0).into()))
+        .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
-        .map_err(|error| Error::Parse(error))
+        .map_err(|errors| errors.into_iter().map(|error| error.into()).collect())
 }
 
-fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
-    'tokens,
-    ParserInput<'tokens, 'src>,
-    Vec<(Statement<'src>, SimpleSpan)>,
-    extra::Err<Rich<'tokens, Token<'src>, SimpleSpan>>,
-> {
+pub fn parser<'src>() -> DustParser<'src> {
     let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
 
     let identifier = select! {
@@ -185,6 +188,7 @@ fn parser<'tokens, 'src: 'tokens>() -> impl Parser<
         .map_with(|item, state| (item, state.span()))
         .repeated()
         .collect()
+        .boxed()
 }
 
 #[cfg(test)]
@@ -512,7 +516,8 @@ mod tests {
     fn positive_integer() {
         for i in 0..10 {
             let source = i.to_string();
-            let statements = parse(&lex(&source).unwrap()).unwrap();
+            let tokens = lex(&source).unwrap();
+            let statements = parse(&tokens).unwrap();
 
             assert_eq!(
                 statements[0].0,
@@ -537,7 +542,8 @@ mod tests {
     fn negative_integer() {
         for i in -9..1 {
             let source = i.to_string();
-            let statements = parse(&lex(&source).unwrap()).unwrap();
+            let tokens = lex(&source).unwrap();
+            let statements = parse(&tokens).unwrap();
 
             assert_eq!(
                 statements[0].0,

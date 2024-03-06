@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::BTreeMap,
+    fmt::{self, Display, Formatter},
     ops::Range,
     sync::{Arc, OnceLock},
 };
@@ -8,6 +9,15 @@ use std::{
 use crate::{abstract_tree::Identifier, error::ValidationError};
 
 pub static NONE: OnceLock<Value> = OnceLock::new();
+
+fn get_none<'a>() -> &'a Value {
+    NONE.get_or_init(|| {
+        Value(Arc::new(ValueInner::Enum(
+            Identifier::new("Option"),
+            Identifier::new("None"),
+        )))
+    })
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
@@ -18,13 +28,7 @@ impl Value {
     }
 
     pub fn none() -> Self {
-        NONE.get_or_init(|| {
-            Value(Arc::new(ValueInner::Enum(
-                Identifier::new("Option"),
-                Identifier::new("None"),
-            )))
-        })
-        .clone()
+        get_none().clone()
     }
 
     pub fn boolean(boolean: bool) -> Self {
@@ -65,6 +69,27 @@ impl Value {
         }
 
         Err(ValidationError::ExpectedBoolean)
+    }
+
+    pub fn is_none(&self) -> bool {
+        self == get_none()
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        use ValueInner::*;
+
+        match self.inner().as_ref() {
+            Boolean(boolean) => write!(f, "{boolean}"),
+            Float(float) => write!(f, "{float}"),
+            Integer(integer) => write!(f, "{integer}"),
+            List(_) => todo!(),
+            Map(_) => todo!(),
+            Range(_) => todo!(),
+            String(_) => todo!(),
+            Enum(_, _) => todo!(),
+        }
     }
 }
 
