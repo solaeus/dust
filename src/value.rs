@@ -6,7 +6,10 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use crate::{abstract_tree::Identifier, error::ValidationError};
+use crate::{
+    abstract_tree::{Identifier, Type},
+    error::ValidationError,
+};
 
 pub static NONE: OnceLock<Value> = OnceLock::new();
 
@@ -61,6 +64,27 @@ impl Value {
 
     pub fn r#enum(name: Identifier, variant: Identifier) -> Self {
         Value(Arc::new(ValueInner::Enum(name, variant)))
+    }
+
+    pub fn r#type(&self) -> Type {
+        match self.0.as_ref() {
+            ValueInner::Boolean(_) => Type::Boolean,
+            ValueInner::Float(_) => Type::Float,
+            ValueInner::Integer(_) => Type::Integer,
+            ValueInner::List(values) => {
+                let mut types = Vec::with_capacity(values.len());
+
+                for value in values {
+                    types.push(value.r#type());
+                }
+
+                Type::ListExact(types)
+            }
+            ValueInner::Map(_) => Type::Map,
+            ValueInner::Range(_) => Type::Range,
+            ValueInner::String(_) => Type::String,
+            ValueInner::Enum(name, _) => Type::Custom(name.clone()),
+        }
     }
 
     pub fn as_boolean(&self) -> Result<bool, ValidationError> {

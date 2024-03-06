@@ -23,7 +23,11 @@ impl<'src> AbstractTree for Expression<'src> {
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        match self {
+            Expression::Identifier(identifier) => identifier.validate(_context),
+            Expression::Logic(logic) => logic.validate(_context),
+            Expression::Value(value_node) => value_node.validate(_context),
+        }
     }
 
     fn run(self, context: &Context) -> Result<Value, RuntimeError> {

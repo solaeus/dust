@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Arc,
+};
 
 use crate::{
     context::Context,
@@ -22,18 +25,31 @@ impl Identifier {
 }
 
 impl AbstractTree for Identifier {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
+        if let Some(value) = context.get(self)? {
+            Ok(value.r#type())
+        } else {
+            Err(ValidationError::VariableNotFound(self.clone()))
+        }
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        if let Some(_) = context.get(self)? {
+            Ok(())
+        } else {
+            Err(ValidationError::VariableNotFound(self.clone()))
+        }
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
-        todo!()
-        // let value = context.get(&self)?.unwrap_or_else(Value::none).clone();
+    fn run(self, context: &Context) -> Result<Value, RuntimeError> {
+        let value = context.get(&self)?.unwrap_or_else(Value::none).clone();
 
-        // Ok(value)
+        Ok(value)
+    }
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

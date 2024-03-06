@@ -3,14 +3,26 @@ use std::sync::PoisonError;
 use ariadne::{Label, Report, ReportKind};
 use chumsky::{prelude::Rich, span::SimpleSpan};
 
-use crate::{abstract_tree::Type, lexer::Token};
+use crate::{
+    abstract_tree::{Identifier, Type},
+    lexer::Token,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    Parse { expected: String, span: SimpleSpan },
-    Lex { expected: String, span: SimpleSpan },
+    Parse {
+        expected: String,
+        span: SimpleSpan,
+    },
+    Lex {
+        expected: String,
+        span: SimpleSpan,
+    },
     Runtime(RuntimeError),
-    Validation(ValidationError),
+    Validation {
+        error: ValidationError,
+        span: SimpleSpan,
+    },
 }
 
 impl From<Rich<'_, char>> for Error {
@@ -60,6 +72,7 @@ pub enum ValidationError {
     ExpectedBoolean,
     RwLockPoison(RwLockPoisonError),
     TypeCheck(TypeCheckError),
+    VariableNotFound(Identifier),
 }
 
 impl From<RwLockPoisonError> for ValidationError {
@@ -110,7 +123,18 @@ pub fn create_report<'a>(errors: &'a [Error]) -> Report<'a> {
                 );
             }
             Error::Runtime(_) => todo!(),
-            Error::Validation(_) => todo!(),
+            Error::Validation { error, span } => match error {
+                ValidationError::ExpectedBoolean => todo!(),
+                ValidationError::RwLockPoison(_) => todo!(),
+                ValidationError::TypeCheck(_) => todo!(),
+                ValidationError::VariableNotFound(identifier) => {
+                    report =
+                        report
+                            .with_label(Label::new(span.start..span.end).with_message(format!(
+                                "The variable {identifier} does not exist."
+                            )));
+                }
+            },
         }
     }
 

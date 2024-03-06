@@ -24,7 +24,12 @@ impl<'src> AbstractTree for Statement<'src> {
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        match self {
+            Statement::Assignment(assignment) => assignment.validate(_context),
+            Statement::Block(_) => todo!(),
+            Statement::Expression(expression) => expression.validate(_context),
+            Statement::Loop(_) => todo!(),
+        }
     }
 
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {

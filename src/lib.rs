@@ -26,12 +26,14 @@ impl Interpreter {
         let statements = parse(&tokens)?;
         let errors = statements
             .iter()
-            .filter_map(|(statement, _span)| {
-                if let Some(error) = statement.validate(&self.context).err() {
-                    Some(Error::Validation(error))
-                } else {
-                    None
-                }
+            .filter_map(|(statement, span)| {
+                statement
+                    .validate(&self.context)
+                    .map_err(|validation_error| Error::Validation {
+                        error: validation_error,
+                        span: span.clone(),
+                    })
+                    .err()
             })
             .collect::<Vec<Error>>();
 
