@@ -24,6 +24,20 @@ impl Interpreter {
     pub fn run(&mut self, source: &str) -> Result<Value, Vec<Error>> {
         let tokens = lex(source)?;
         let statements = parse(&tokens)?;
+        let errors = statements
+            .iter()
+            .filter_map(|(statement, _span)| {
+                if let Some(error) = statement.validate(&self.context).err() {
+                    Some(Error::Validation(error))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Error>>();
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
 
         let mut value = Value::none();
 

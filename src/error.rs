@@ -10,6 +10,7 @@ pub enum Error {
     Parse { expected: String, span: SimpleSpan },
     Lex { expected: String, span: SimpleSpan },
     Runtime(RuntimeError),
+    Validation(ValidationError),
 }
 
 impl From<Rich<'_, char>> for Error {
@@ -92,7 +93,7 @@ pub fn create_report<'a>(errors: &'a [Error]) -> Report<'a> {
     let mut report = Report::build(ReportKind::Error, (), 0);
 
     for error in errors {
-        match error {
+        match &error {
             Error::Parse { expected, span } => {
                 report = report.with_label(
                     Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
@@ -109,6 +110,7 @@ pub fn create_report<'a>(errors: &'a [Error]) -> Report<'a> {
                 );
             }
             Error::Runtime(_) => todo!(),
+            Error::Validation(_) => todo!(),
         }
     }
 
