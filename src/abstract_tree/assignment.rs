@@ -28,8 +28,14 @@ impl<'src> AbstractTree for Assignment<'src> {
         todo!()
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        if let Some(expected) = &self.r#type {
+            let statement_type = self.statement.expected_type(context)?;
+
+            expected.check(&statement_type)?;
+        }
+
+        Ok(())
     }
 
     fn run(self, context: &Context) -> Result<Value, RuntimeError> {
@@ -43,7 +49,10 @@ impl<'src> AbstractTree for Assignment<'src> {
 
 #[cfg(test)]
 mod tests {
-    use crate::abstract_tree::{Expression, ValueNode};
+    use crate::{
+        abstract_tree::{Expression, ValueNode},
+        error::TypeCheckError,
+    };
 
     use super::*;
 
@@ -62,6 +71,24 @@ mod tests {
         assert_eq!(
             context.get(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
+        )
+    }
+
+    #[test]
+    fn type_check() {
+        let validation = Assignment::new(
+            Identifier::new("foobar"),
+            Some(Type::Boolean),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+        )
+        .validate(&Context::new());
+
+        assert_eq!(
+            validation,
+            Err(ValidationError::TypeCheck(TypeCheckError {
+                actual: Type::Integer,
+                expected: Type::Boolean
+            }))
         )
     }
 }

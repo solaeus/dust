@@ -2,7 +2,7 @@ use std::sync::PoisonError;
 
 use chumsky::prelude::Rich;
 
-use crate::lexer::Token;
+use crate::{abstract_tree::Type, lexer::Token};
 
 #[derive(Debug, PartialEq)]
 pub enum Error<'src> {
@@ -49,13 +49,20 @@ impl From<ValidationError> for RuntimeError {
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
-    RwLockPoison(RwLockPoisonError),
     ExpectedBoolean,
+    RwLockPoison(RwLockPoisonError),
+    TypeCheck(TypeCheckError),
 }
 
 impl From<RwLockPoisonError> for ValidationError {
     fn from(error: RwLockPoisonError) -> Self {
         ValidationError::RwLockPoison(error)
+    }
+}
+
+impl From<TypeCheckError> for ValidationError {
+    fn from(error: TypeCheckError) -> Self {
+        ValidationError::TypeCheck(error)
     }
 }
 
@@ -66,4 +73,10 @@ impl<T> From<PoisonError<T>> for RwLockPoisonError {
     fn from(_: PoisonError<T>) -> Self {
         RwLockPoisonError
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TypeCheckError {
+    pub actual: Type,
+    pub expected: Type,
 }
