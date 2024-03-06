@@ -29,10 +29,14 @@ impl<'src> AbstractTree for Assignment<'src> {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        if let Some(expected) = &self.r#type {
-            let statement_type = self.statement.expected_type(context)?;
+        let statement_type = self.statement.expected_type(context)?;
 
+        if let Some(expected) = &self.r#type {
             expected.check(&statement_type)?;
+
+            context.set_type(self.identifier.clone(), expected.clone())?;
+        } else {
+            context.set_type(self.identifier.clone(), statement_type)?;
         }
 
         Ok(())
@@ -41,7 +45,7 @@ impl<'src> AbstractTree for Assignment<'src> {
     fn run(self, context: &Context) -> Result<Value, RuntimeError> {
         let value = self.statement.run(context)?;
 
-        context.set(self.identifier, value)?;
+        context.set_value(self.identifier, value)?;
 
         Ok(Value::none())
     }
@@ -69,7 +73,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            context.get(&Identifier::new("foobar")),
+            context.get_value(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
         )
     }

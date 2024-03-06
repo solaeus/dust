@@ -26,15 +26,15 @@ impl Identifier {
 
 impl AbstractTree for Identifier {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
-        if let Some(value) = context.get(self)? {
-            Ok(value.r#type())
+        if let Some(r#type) = context.get_type(self)? {
+            Ok(r#type)
         } else {
             Err(ValidationError::VariableNotFound(self.clone()))
         }
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        if let Some(_) = context.get(self)? {
+        if let Some(_) = context.get_data(self)? {
             Ok(())
         } else {
             Err(ValidationError::VariableNotFound(self.clone()))
@@ -42,7 +42,10 @@ impl AbstractTree for Identifier {
     }
 
     fn run(self, context: &Context) -> Result<Value, RuntimeError> {
-        let value = context.get(&self)?.unwrap_or_else(Value::none).clone();
+        let value = context
+            .get_value(&self)?
+            .unwrap_or_else(Value::none)
+            .clone();
 
         Ok(value)
     }

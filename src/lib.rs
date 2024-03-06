@@ -12,6 +12,13 @@ use lexer::lex;
 pub use parser::{parse, parser, DustParser};
 pub use value::Value;
 
+pub fn interpret(source: &str) -> Result<Value, Vec<Error>> {
+    let context = Context::new();
+    let mut interpreter = Interpreter::new(context);
+
+    interpreter.run(source)
+}
+
 pub struct Interpreter {
     context: Context,
 }
