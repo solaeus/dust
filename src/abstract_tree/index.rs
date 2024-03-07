@@ -19,8 +19,8 @@ impl<'src> Index<'src> {
 }
 
 impl<'src> AbstractTree for Index<'src> {
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
-        let left_type = self.left.expected_type(context)?;
+    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+        let left_type = self.left.expected_type(_context)?;
 
         if let (
             Expression::Value(ValueNode::List(expression_list)),
@@ -33,7 +33,7 @@ impl<'src> AbstractTree for Index<'src> {
                 return Ok(Type::None);
             };
 
-            expression.expected_type(context)
+            expression.expected_type(_context)
         } else {
             Err(ValidationError::CannotIndex(left_type))
         }

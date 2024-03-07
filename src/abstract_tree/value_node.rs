@@ -14,7 +14,7 @@ pub enum ValueNode<'src> {
     Float(f64),
     Integer(i64),
     List(Vec<Expression<'src>>),
-    Map(Vec<(Identifier, Expression<'src>)>),
+    Map(Vec<(Identifier, Option<Type>, Expression<'src>)>),
     Range(Range<i64>),
     String(&'src str),
     Enum(Identifier, Identifier),
@@ -67,7 +67,7 @@ impl<'src> AbstractTree for ValueNode<'src> {
             ValueNode::Map(property_list) => {
                 let mut property_map = BTreeMap::new();
 
-                for (identifier, expression) in property_list {
+                for (identifier, _type, expression) in property_list {
                     let value = expression.run(_context)?;
 
                     property_map.insert(identifier, value);

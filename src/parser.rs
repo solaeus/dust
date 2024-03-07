@@ -47,6 +47,39 @@ pub fn parser<'src>() -> DustParser<'src> {
         }
     };
 
+    let basic_type = choice((
+        just(Token::Keyword("bool")).to(Type::Boolean),
+        just(Token::Keyword("float")).to(Type::Float),
+        just(Token::Keyword("int")).to(Type::Integer),
+        just(Token::Keyword("range")).to(Type::Range),
+        just(Token::Keyword("str")).to(Type::String),
+        just(Token::Keyword("list")).to(Type::List),
+    ));
+
+    let type_arguments = basic_type.clone().delimited_by(
+        just(Token::Control(Control::ParenOpen)),
+        just(Token::Control(Control::ParenClose)),
+    );
+
+    let type_specification = just(Token::Control(Control::Colon)).ignore_then(choice((
+        basic_type
+            .clone()
+            .separated_by(just(Token::Control(Control::Comma)))
+            .collect()
+            .delimited_by(
+                just(Token::Control(Control::SquareOpen)),
+                just(Token::Control(Control::SquareClose)),
+            )
+            .map(|types| Type::ListExact(types)),
+        just(Token::Keyword("list"))
+            .then(type_arguments)
+            .map(|(_, item_type)| Type::ListOf(Box::new(item_type))),
+        basic_type.clone(),
+        identifier
+            .clone()
+            .map(|identifier| Type::Custom(identifier)),
+    )));
+
     let expression = recursive(|expression| {
         let basic_value = select! {
             Token::Boolean(boolean) => ValueNode::Boolean(boolean),
@@ -74,6 +107,23 @@ pub fn parser<'src>() -> DustParser<'src> {
             .map(|list| Expression::Value(ValueNode::List(list)))
             .boxed();
 
+        let map_assignment = identifier
+            .clone()
+            .then(type_specification.clone().or_not())
+            .then_ignore(just(Token::Operator(Operator::Assign)))
+            .then(expression.clone())
+            .map(|((identifier, r#type), expression)| (identifier, r#type, expression));
+
+        let map = map_assignment
+            .separated_by(just(Token::Control(Control::Comma)).or_not())
+            .allow_trailing()
+            .collect()
+            .delimited_by(
+                just(Token::Control(Control::CurlyOpen)),
+                just(Token::Control(Control::CurlyClose)),
+            )
+            .map(|map_assigment_list| Expression::Value(ValueNode::Map(map_assigment_list)));
+
         let r#enum = identifier
             .clone()
             .then_ignore(just(Token::Control(Control::DoubleColon)))
@@ -94,7 +144,7 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         use Operator::*;
 
-        let logic_and_math = atom
+        let logic_math_and_index = atom
             .pratt((
                 prefix(2, just(Token::Operator(Not)), |expression| {
                     Expression::Logic(Box::new(Logic::Not(expression)))
@@ -152,9 +202,10 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         choice((
             r#enum,
-            logic_and_math,
+            logic_math_and_index,
             identifier_expression,
             list,
+            map,
             basic_value,
         ))
     });
@@ -163,39 +214,6 @@ pub fn parser<'src>() -> DustParser<'src> {
         let expression_statement = expression
             .map(|expression| Statement::Expression(expression))
             .boxed();
-
-        let basic_type = choice((
-            just(Token::Keyword("bool")).to(Type::Boolean),
-            just(Token::Keyword("float")).to(Type::Float),
-            just(Token::Keyword("int")).to(Type::Integer),
-            just(Token::Keyword("range")).to(Type::Range),
-            just(Token::Keyword("str")).to(Type::String),
-            just(Token::Keyword("list")).to(Type::List),
-        ));
-
-        let type_arguments = basic_type.clone().delimited_by(
-            just(Token::Control(Control::ParenOpen)),
-            just(Token::Control(Control::ParenClose)),
-        );
-
-        let type_specification = just(Token::Control(Control::Colon)).ignore_then(choice((
-            basic_type
-                .clone()
-                .separated_by(just(Token::Control(Control::Comma)))
-                .collect()
-                .delimited_by(
-                    just(Token::Control(Control::SquareOpen)),
-                    just(Token::Control(Control::SquareClose)),
-                )
-                .map(|types| Type::ListExact(types)),
-            just(Token::Keyword("list"))
-                .then(type_arguments)
-                .map(|(_, item_type)| Type::ListOf(Box::new(item_type))),
-            basic_type.clone(),
-            identifier
-                .clone()
-                .map(|identifier| Type::Custom(identifier)),
-        )));
 
         let assignment = identifier
             .then(type_specification.clone().or_not())
@@ -244,6 +262,48 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn map() {
+        assert_eq!(
+            parse(&lex("{ foo = 'bar' }").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Value(ValueNode::Map(vec![(
+                Identifier::new("foo"),
+                None,
+                Expression::Value(ValueNode::String("bar"))
+            )])))
+        );
+        assert_eq!(
+            parse(&lex("{ x = 1, y = 2, }").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Value(ValueNode::Map(vec![
+                (
+                    Identifier::new("x"),
+                    None,
+                    Expression::Value(ValueNode::Integer(1))
+                ),
+                (
+                    Identifier::new("y"),
+                    None,
+                    Expression::Value(ValueNode::Integer(2))
+                ),
+            ])))
+        );
+        assert_eq!(
+            parse(&lex("{ x = 1 y = 2 }").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Value(ValueNode::Map(vec![
+                (
+                    Identifier::new("x"),
+                    None,
+                    Expression::Value(ValueNode::Integer(1))
+                ),
+                (
+                    Identifier::new("y"),
+                    None,
+                    Expression::Value(ValueNode::Integer(2))
+                ),
+            ])))
+        );
+    }
 
     #[test]
     fn math() {

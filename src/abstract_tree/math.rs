@@ -48,11 +48,11 @@ impl<'src> AbstractTree for Math<'src> {
         }
     }
 
-    fn run(self, context: &Context) -> Result<Value, RuntimeError> {
+    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
         match self {
             Math::Add(left, right) => {
-                let left_value = left.run(context)?;
-                let right_value = right.run(context)?;
+                let left_value = left.run(_context)?;
+                let right_value = right.run(_context)?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
@@ -65,8 +65,8 @@ impl<'src> AbstractTree for Math<'src> {
                 }
             }
             Math::Subtract(left, right) => {
-                let left_value = left.run(context)?;
-                let right_value = right.run(context)?;
+                let left_value = left.run(_context)?;
+                let right_value = right.run(_context)?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
@@ -79,8 +79,8 @@ impl<'src> AbstractTree for Math<'src> {
                 }
             }
             Math::Multiply(left, right) => {
-                let left_value = left.run(context)?;
-                let right_value = right.run(context)?;
+                let left_value = left.run(_context)?;
+                let right_value = right.run(_context)?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
@@ -93,8 +93,8 @@ impl<'src> AbstractTree for Math<'src> {
                 }
             }
             Math::Divide(left, right) => {
-                let left_value = left.run(context)?;
-                let right_value = right.run(context)?;
+                let left_value = left.run(_context)?;
+                let right_value = right.run(_context)?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
@@ -107,8 +107,8 @@ impl<'src> AbstractTree for Math<'src> {
                 }
             }
             Math::Modulo(left, right) => {
-                let left_value = left.run(context)?;
-                let right_value = right.run(context)?;
+                let left_value = left.run(_context)?;
+                let right_value = right.run(_context)?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
