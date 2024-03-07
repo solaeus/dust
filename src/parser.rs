@@ -90,7 +90,8 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         use Operator::*;
 
-        let logic = atom
+        let logic_and_math = atom
+            .clone()
             .pratt((
                 prefix(2, just(Token::Operator(Not)), |expression| {
                     Expression::Logic(Box::new(Logic::Not(expression)))
@@ -123,10 +124,31 @@ pub fn parser<'src>() -> DustParser<'src> {
                 infix(left(1), just(Token::Operator(Or)), |left, right| {
                     Expression::Logic(Box::new(Logic::Or(left, right)))
                 }),
+                infix(left(1), just(Token::Operator(Add)), |left, right| {
+                    Expression::Math(Box::new(Math::Add(left, right)))
+                }),
+                infix(left(1), just(Token::Operator(Subtract)), |left, right| {
+                    Expression::Math(Box::new(Math::Subtract(left, right)))
+                }),
+                infix(left(2), just(Token::Operator(Multiply)), |left, right| {
+                    Expression::Math(Box::new(Math::Multiply(left, right)))
+                }),
+                infix(left(2), just(Token::Operator(Divide)), |left, right| {
+                    Expression::Math(Box::new(Math::Divide(left, right)))
+                }),
+                infix(left(1), just(Token::Operator(Modulo)), |left, right| {
+                    Expression::Math(Box::new(Math::Modulo(left, right)))
+                }),
             ))
             .boxed();
 
-        choice((r#enum, logic, identifier_expression, list, basic_value))
+        choice((
+            r#enum,
+            logic_and_math,
+            identifier_expression,
+            list,
+            basic_value,
+        ))
     });
 
     let statement = recursive(|statement| {
@@ -207,6 +229,17 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn math() {
+        assert_eq!(
+            parse(&lex("1 + 1").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Math(Box::new(Math::Add(
+                Expression::Value(ValueNode::Integer(1)),
+                Expression::Value(ValueNode::Integer(1))
+            ))))
+        );
+    }
 
     #[test]
     fn r#loop() {

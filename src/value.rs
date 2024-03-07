@@ -95,6 +95,14 @@ impl Value {
         Err(ValidationError::ExpectedBoolean)
     }
 
+    pub fn as_number(&self) -> Result<bool, ValidationError> {
+        if let ValueInner::Boolean(boolean) = self.0.as_ref() {
+            return Ok(*boolean);
+        }
+
+        Err(ValidationError::ExpectedBoolean)
+    }
+
     pub fn is_none(&self) -> bool {
         self == get_none()
     }

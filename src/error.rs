@@ -67,6 +67,12 @@ impl Error {
                             Label::new(span.start..span.end).with_message("Expected boolean."),
                         );
                     }
+                    ValidationError::ExpectedIntegerOrFloat => {
+                        report = report.with_label(
+                            Label::new(span.start..span.end)
+                                .with_message("Expected integer or float."),
+                        );
+                    }
                     ValidationError::RwLockPoison(_) => todo!(),
                     ValidationError::TypeCheck(TypeCheckError { actual, expected }) => {
                         report = report.with_label(Label::new(span.start..span.end).with_message(
@@ -132,6 +138,7 @@ impl From<ValidationError> for RuntimeError {
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
     ExpectedBoolean,
+    ExpectedIntegerOrFloat,
     RwLockPoison(RwLockPoisonError),
     TypeCheck(TypeCheckError),
     VariableNotFound(Identifier),

@@ -144,16 +144,16 @@ pub fn lexer<'src>() -> impl Parser<
         just("!").padded().to(Operator::Not),
         just("!=").padded().to(Operator::NotEqual),
         just("||").padded().to(Operator::Or),
+        // assignment
+        just("=").padded().to(Operator::Assign),
+        just("+=").padded().to(Operator::AddAssign),
+        just("-=").padded().to(Operator::SubAssign),
         // math
         just("+").padded().to(Operator::Add),
         just("-").padded().to(Operator::Subtract),
         just("*").padded().to(Operator::Multiply),
         just("/").padded().to(Operator::Divide),
         just("%").padded().to(Operator::Modulo),
-        // assignment
-        just("=").padded().to(Operator::Assign),
-        just("+=").padded().to(Operator::AddAssign),
-        just("-=").padded().to(Operator::SubAssign),
     ))
     .map(Token::Operator);
 
@@ -195,6 +195,18 @@ pub fn lexer<'src>() -> impl Parser<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn math_operators() {
+        assert_eq!(
+            lex("1 + 1").unwrap(),
+            vec![
+                (Token::Integer(1), (0..1).into()),
+                (Token::Operator(Operator::Add), (2..4).into()),
+                (Token::Integer(1), (4..5).into())
+            ]
+        )
+    }
 
     #[test]
     fn keywords() {
