@@ -5,7 +5,7 @@ use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 use crate::{
     abstract_tree::*,
     error::Error,
-    lexer::{Operator, Token},
+    lexer::{Control, Operator, Token},
 };
 
 pub type DustParser<'src> = Boxed<
@@ -64,16 +64,19 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let list = expression
             .clone()
-            .separated_by(just(Token::Control(",")))
+            .separated_by(just(Token::Control(Control::Comma)))
             .allow_trailing()
             .collect()
-            .delimited_by(just(Token::Control("[")), just(Token::Control("]")))
+            .delimited_by(
+                just(Token::Control(Control::SquareOpen)),
+                just(Token::Control(Control::SquareClose)),
+            )
             .map(|list| Expression::Value(ValueNode::List(list)))
             .boxed();
 
         let r#enum = identifier
             .clone()
-            .then_ignore(just(Token::Control("::")))
+            .then_ignore(just(Token::Control(Control::DoubleColon)))
             .then(identifier.clone())
             .map(|(name, variant)| Expression::Value(ValueNode::Enum(name, variant)))
             .boxed();
@@ -83,9 +86,10 @@ pub fn parser<'src>() -> DustParser<'src> {
             basic_value.clone(),
             list.clone(),
             r#enum.clone(),
-            expression
-                .clone()
-                .delimited_by(just(Token::Control("(")), just(Token::Control(")"))),
+            expression.clone().delimited_by(
+                just(Token::Control(Control::ParenOpen)),
+                just(Token::Control(Control::ParenClose)),
+            ),
         ));
 
         use Operator::*;
@@ -165,16 +169,20 @@ pub fn parser<'src>() -> DustParser<'src> {
             just(Token::Keyword("list")).to(Type::List),
         ));
 
-        let type_arguments = basic_type
-            .clone()
-            .delimited_by(just(Token::Control("(")), just(Token::Control(")")));
+        let type_arguments = basic_type.clone().delimited_by(
+            just(Token::Control(Control::ParenOpen)),
+            just(Token::Control(Control::ParenClose)),
+        );
 
-        let type_specification = just(Token::Control(":")).ignore_then(choice((
+        let type_specification = just(Token::Control(Control::Colon)).ignore_then(choice((
             basic_type
                 .clone()
-                .separated_by(just(Token::Control(",")))
+                .separated_by(just(Token::Control(Control::Comma)))
                 .collect()
-                .delimited_by(just(Token::Control("[")), just(Token::Control("]")))
+                .delimited_by(
+                    just(Token::Control(Control::SquareOpen)),
+                    just(Token::Control(Control::SquareClose)),
+                )
                 .map(|types| Type::ListExact(types)),
             just(Token::Keyword("list"))
                 .then(type_arguments)
@@ -198,7 +206,10 @@ pub fn parser<'src>() -> DustParser<'src> {
             .clone()
             .repeated()
             .collect()
-            .delimited_by(just(Token::Control("{")), just(Token::Control("}")))
+            .delimited_by(
+                just(Token::Control(Control::CurlyOpen)),
+                just(Token::Control(Control::CurlyClose)),
+            )
             .map(|statements| Statement::Block(Block::new(statements)))
             .boxed();
 
@@ -207,14 +218,14 @@ pub fn parser<'src>() -> DustParser<'src> {
             .repeated()
             .collect()
             .delimited_by(
-                just(Token::Keyword("loop")).then(just(Token::Control("{"))),
-                just(Token::Control("}")),
+                just(Token::Keyword("loop")).then(just(Token::Control(Control::CurlyOpen))),
+                just(Token::Control(Control::CurlyClose)),
             )
             .map(|statements| Statement::Loop(Loop::new(statements)))
             .boxed();
 
         choice((assignment, expression_statement, block, r#loop))
-            .then_ignore(just(Token::Control(";")).or_not())
+            .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
 
     statement

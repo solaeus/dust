@@ -12,7 +12,7 @@ pub enum Token<'src> {
     String(&'src str),
     Identifier(&'src str),
     Operator(Operator),
-    Control(&'src str),
+    Control(Control),
     Keyword(&'src str),
 }
 
@@ -61,6 +61,39 @@ impl Display for Operator {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Control {
+    CurlyOpen,
+    CurlyClose,
+    SquareOpen,
+    SquareClose,
+    ParenOpen,
+    ParenClose,
+    Comma,
+    DoubleColon,
+    Colon,
+    Dot,
+    Semicolon,
+}
+
+impl Display for Control {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Control::CurlyOpen => write!(f, "{{"),
+            Control::CurlyClose => write!(f, "}}"),
+            Control::SquareOpen => write!(f, "["),
+            Control::SquareClose => write!(f, "]"),
+            Control::ParenOpen => write!(f, "("),
+            Control::ParenClose => write!(f, ")"),
+            Control::Comma => write!(f, ","),
+            Control::DoubleColon => write!(f, "::"),
+            Control::Colon => write!(f, ":"),
+            Control::Dot => write!(f, "."),
+            Control::Semicolon => write!(f, ";"),
+        }
+    }
+}
+
 impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -70,7 +103,7 @@ impl<'src> Display for Token<'src> {
             Token::String(string) => write!(f, "{string}"),
             Token::Identifier(string) => write!(f, "{string}"),
             Token::Operator(operator) => write!(f, "{operator}"),
-            Token::Control(string) => write!(f, "{string}"),
+            Token::Control(control) => write!(f, "{control}"),
             Token::Keyword(string) => write!(f, "{string}"),
         }
     }
@@ -158,16 +191,17 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Operator);
 
     let control = choice((
-        just("[").padded(),
-        just("]").padded(),
-        just("(").padded(),
-        just(")").padded(),
-        just("{").padded(),
-        just("}").padded(),
-        just(",").padded(),
-        just(";").padded(),
-        just("::").padded(),
-        just(":").padded(),
+        just("{").padded().to(Control::CurlyOpen),
+        just("}").padded().to(Control::CurlyClose),
+        just("[").padded().to(Control::SquareOpen),
+        just("]").padded().to(Control::SquareClose),
+        just("(").padded().to(Control::ParenOpen),
+        just(")").padded().to(Control::ParenClose),
+        just(",").padded().to(Control::Comma),
+        just(";").padded().to(Control::Semicolon),
+        just("::").padded().to(Control::DoubleColon),
+        just(":").padded().to(Control::Colon),
+        just(".").padded().to(Control::Dot),
     ))
     .map(Token::Control);
 
