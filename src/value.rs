@@ -133,9 +133,17 @@ impl Display for Value {
             Float(float) => write!(f, "{float}"),
             Integer(integer) => write!(f, "{integer}"),
             List(_) => todo!(),
-            Map(_) => todo!(),
+            Map(map) => {
+                writeln!(f, "{{")?;
+
+                for (identifier, value) in map {
+                    writeln!(f, "    {identifier} = {value}")?;
+                }
+
+                write!(f, "}}")
+            }
             Range(_) => todo!(),
-            String(_) => todo!(),
+            String(string) => write!(f, "{string}"),
             Enum(_, _) => todo!(),
         }
     }

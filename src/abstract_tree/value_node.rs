@@ -45,7 +45,7 @@ impl<'src> AbstractTree for ValueNode<'src> {
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        Ok(())
     }
 
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
