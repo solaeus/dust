@@ -44,9 +44,10 @@ pub fn lexer<'src>() -> impl Parser<
     Vec<(Token<'src>, SimpleSpan<usize>)>,
     extra::Err<Rich<'src, char, SimpleSpan<usize>>>,
 > {
-    let boolean = just("true")
-        .or(just("false"))
-        .map(|s: &str| Token::Boolean(s.parse().unwrap()));
+    let boolean = choice((
+        just("true").padded().to(Token::Boolean(true)),
+        just("false").padded().to(Token::Boolean(false)),
+    ));
 
     let float_numeric = just('-')
         .or_not()

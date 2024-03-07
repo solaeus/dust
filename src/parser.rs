@@ -164,7 +164,7 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let block = statement
             .clone()
-            .separated_by(just(Token::Control(";")).or_not())
+            .repeated()
             .collect()
             .delimited_by(just(Token::Control("{")), just(Token::Control("}")))
             .map(|statements| Statement::Block(Block::new(statements)))
@@ -172,7 +172,7 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let r#loop = statement
             .clone()
-            .separated_by(just(Token::Control(";")).or_not())
+            .repeated()
             .collect()
             .delimited_by(
                 just(Token::Keyword("loop")).then(just(Token::Control("{"))),
@@ -182,6 +182,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             .boxed();
 
         choice((assignment, expression_statement, block, r#loop))
+            .then_ignore(just(Token::Control(";")).or_not())
     });
 
     statement
