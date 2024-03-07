@@ -85,6 +85,8 @@ impl Error {
                                 "The variable {identifier} does not exist."
                             )));
                     }
+                    ValidationError::CannotIndex(_) => todo!(),
+                    ValidationError::CannotIndexWith(_, _) => todo!(),
                 }
 
                 report.finish()
@@ -137,6 +139,8 @@ impl From<ValidationError> for RuntimeError {
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
+    CannotIndex(Type),
+    CannotIndexWith(Type, Type),
     ExpectedBoolean,
     ExpectedIntegerOrFloat,
     RwLockPoison(RwLockPoisonError),

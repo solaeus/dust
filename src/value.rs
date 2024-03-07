@@ -103,6 +103,22 @@ impl Value {
         Err(ValidationError::ExpectedBoolean)
     }
 
+    pub fn as_list(&self) -> Option<&Vec<Value>> {
+        if let ValueInner::List(list) = self.inner().as_ref() {
+            Some(list)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_integer(&self) -> Option<i64> {
+        if let ValueInner::Integer(integer) = self.inner().as_ref() {
+            Some(*integer)
+        } else {
+            None
+        }
+    }
+
     pub fn is_none(&self) -> bool {
         self == get_none()
     }

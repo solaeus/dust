@@ -95,7 +95,6 @@ pub fn parser<'src>() -> DustParser<'src> {
         use Operator::*;
 
         let logic_and_math = atom
-            .clone()
             .pratt((
                 prefix(2, just(Token::Operator(Not)), |expression| {
                     Expression::Logic(Box::new(Logic::Not(expression)))
@@ -143,6 +142,11 @@ pub fn parser<'src>() -> DustParser<'src> {
                 infix(left(1), just(Token::Operator(Modulo)), |left, right| {
                     Expression::Math(Box::new(Math::Modulo(left, right)))
                 }),
+                infix(
+                    left(3),
+                    just(Token::Control(Control::Dot)),
+                    |left, right| Expression::Index(Box::new(Index::new(left, right))),
+                ),
             ))
             .boxed();
 

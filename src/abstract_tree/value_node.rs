@@ -26,7 +26,15 @@ impl<'src> AbstractTree for ValueNode<'src> {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::Float(_) => Type::Float,
             ValueNode::Integer(_) => Type::Integer,
-            ValueNode::List(_) => Type::List,
+            ValueNode::List(items) => {
+                let mut item_types = Vec::with_capacity(items.len());
+
+                for expression in items {
+                    item_types.push(expression.expected_type(_context)?);
+                }
+
+                Type::ListExact(item_types)
+            }
             ValueNode::Map(_) => Type::Map,
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,

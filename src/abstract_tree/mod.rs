@@ -2,6 +2,7 @@ pub mod assignment;
 pub mod block;
 pub mod expression;
 pub mod identifier;
+pub mod index;
 pub mod logic;
 pub mod r#loop;
 pub mod math;
@@ -11,7 +12,7 @@ pub mod value_node;
 
 pub use self::{
     assignment::Assignment, block::Block, expression::Expression, identifier::Identifier,
-    logic::Logic, math::Math, r#loop::Loop, r#type::Type, statement::Statement,
+    index::Index, logic::Logic, math::Math, r#loop::Loop, r#type::Type, statement::Statement,
     value_node::ValueNode,
 };
 
