@@ -1,6 +1,6 @@
 use std::sync::PoisonError;
 
-use ariadne::{Label, Report, ReportKind};
+use ariadne::{Color, Label, Report, ReportKind};
 use chumsky::{prelude::Rich, span::SimpleSpan};
 
 use crate::{
@@ -23,6 +23,68 @@ pub enum Error {
         error: ValidationError,
         span: SimpleSpan,
     },
+}
+
+impl Error {
+    pub fn report(&self) -> Report {
+        match self {
+            Error::Parse { expected, span } => Report::build(
+                ReportKind::Custom("Parsing Error", Color::White),
+                (),
+                span.start,
+            )
+            .with_label(
+                Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
+            )
+            .finish(),
+            Error::Lex { expected, span } => {
+                let expected = match expected.as_str() {
+                    "" => "something else",
+                    expected => expected,
+                };
+
+                Report::build(
+                    ReportKind::Custom("Lexing Error", Color::White),
+                    (),
+                    span.start,
+                )
+                .with_label(
+                    Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
+                )
+                .finish()
+            }
+            Error::Runtime(_) => todo!(),
+            Error::Validation { error, span } => {
+                let mut report = Report::build(
+                    ReportKind::Custom("Lexing Error", Color::White),
+                    (),
+                    span.start,
+                );
+
+                match error {
+                    ValidationError::ExpectedBoolean => {
+                        report = report.with_label(
+                            Label::new(span.start..span.end).with_message("Expected boolean."),
+                        );
+                    }
+                    ValidationError::RwLockPoison(_) => todo!(),
+                    ValidationError::TypeCheck(TypeCheckError { actual, expected }) => {
+                        report = report.with_label(Label::new(span.start..span.end).with_message(
+                            format!("Type error. Expected {expected} but got {actual}."),
+                        ));
+                    }
+                    ValidationError::VariableNotFound(identifier) => {
+                        report = report
+                            .with_label(Label::new(span.start..span.end).with_message(format!(
+                                "The variable {identifier} does not exist."
+                            )));
+                    }
+                }
+
+                report.finish()
+            }
+        }
+    }
 }
 
 impl From<Rich<'_, char>> for Error {
@@ -100,43 +162,4 @@ impl<T> From<PoisonError<T>> for RwLockPoisonError {
 pub struct TypeCheckError {
     pub actual: Type,
     pub expected: Type,
-}
-
-pub fn create_report<'a>(errors: &'a [Error]) -> Report<'a> {
-    let mut report = Report::build(ReportKind::Error, (), 0);
-
-    for error in errors {
-        match &error {
-            Error::Parse { expected, span } => {
-                report = report.with_label(
-                    Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
-                );
-            }
-            Error::Lex { expected, span } => {
-                let expected = match expected.as_str() {
-                    "" => "something else",
-                    expected => expected,
-                };
-
-                report = report.with_label(
-                    Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
-                );
-            }
-            Error::Runtime(_) => todo!(),
-            Error::Validation { error, span } => match error {
-                ValidationError::ExpectedBoolean => todo!(),
-                ValidationError::RwLockPoison(_) => todo!(),
-                ValidationError::TypeCheck(_) => todo!(),
-                ValidationError::VariableNotFound(identifier) => {
-                    report =
-                        report
-                            .with_label(Label::new(span.start..span.end).with_message(format!(
-                                "The variable {identifier} does not exist."
-                            )));
-                }
-            },
-        }
-    }
-
-    report.finish()
 }

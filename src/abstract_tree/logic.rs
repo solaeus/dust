@@ -21,11 +21,42 @@ pub enum Logic<'src> {
 
 impl<'src> AbstractTree for Logic<'src> {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        Ok(Type::Boolean)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        match self {
+            Logic::Equal(left, right)
+            | Logic::NotEqual(left, right)
+            | Logic::Greater(left, right)
+            | Logic::Less(left, right)
+            | Logic::GreaterOrEqual(left, right)
+            | Logic::LessOrEqual(left, right) => {
+                let left = left.expected_type(context)?;
+                let right = right.expected_type(context)?;
+
+                left.check(&right)?;
+
+                Ok(())
+            }
+            Logic::And(left, right) | Logic::Or(left, right) => {
+                let left = left.expected_type(context)?;
+                let right = right.expected_type(context)?;
+
+                if let (Type::Boolean, Type::Boolean) = (left, right) {
+                    Ok(())
+                } else {
+                    Err(ValidationError::ExpectedBoolean)
+                }
+            }
+            Logic::Not(expression) => {
+                if let Type::Boolean = expression.expected_type(context)? {
+                    Ok(())
+                } else {
+                    Err(ValidationError::ExpectedBoolean)
+                }
+            }
+        }
     }
 
     fn run(self, _context: &Context) -> Result<Value, RuntimeError> {

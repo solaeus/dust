@@ -107,10 +107,10 @@ pub fn parser<'src>() -> DustParser<'src> {
                 infix(left(1), just(Token::Operator("<=")), |left, right| {
                     Expression::Logic(Box::new(Logic::LessOrEqual(left, right)))
                 }),
-                infix(left(1), just(Token::Operator("&&")), |left, right| {
+                infix(right(1), just(Token::Operator("&&")), |left, right| {
                     Expression::Logic(Box::new(Logic::And(left, right)))
                 }),
-                infix(left(1), just(Token::Operator("||")), |left, right| {
+                infix(right(1), just(Token::Operator("||")), |left, right| {
                     Expression::Logic(Box::new(Logic::Or(left, right)))
                 }),
             ))

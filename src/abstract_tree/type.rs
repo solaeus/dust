@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{
     abstract_tree::Identifier,
     context::Context,
@@ -100,6 +102,37 @@ impl AbstractTree for Type {
 
     fn run(self, _: &Context) -> Result<Value, RuntimeError> {
         Ok(Value::none())
+    }
+}
+
+impl Display for Type {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Type::Any => write!(f, "any"),
+            Type::Boolean => write!(f, "boolean"),
+            Type::Custom(name) => write!(f, "{name}"),
+            Type::Float => write!(f, "float"),
+            Type::Integer => write!(f, "integer"),
+            Type::List => write!(f, "list"),
+            Type::ListOf(item_type) => write!(f, "list of {item_type}"),
+            Type::ListExact(item_types) => {
+                write!(f, "[")?;
+
+                for (index, item_type) in item_types.into_iter().enumerate() {
+                    if index == item_types.len() - 1 {
+                        write!(f, "{item_type}")?;
+                    } else {
+                        write!(f, "{item_type}, ")?;
+                    }
+                }
+
+                write!(f, "]")
+            }
+            Type::Map => write!(f, "map"),
+            Type::None => write!(f, "none"),
+            Type::Range => write!(f, "range"),
+            Type::String => write!(f, "string"),
+        }
     }
 }
 
