@@ -64,7 +64,20 @@ impl<'src> AbstractTree for Math<'src> {
                     ))
                 }
             }
-            Math::Subtract(_, _) => todo!(),
+            Math::Subtract(left, right) => {
+                let left_value = left.run(context)?;
+                let right_value = right.run(context)?;
+
+                if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
+                    (left_value.inner().as_ref(), right_value.inner().as_ref())
+                {
+                    Ok(Value::integer(left - right))
+                } else {
+                    Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedIntegerOrFloat,
+                    ))
+                }
+            }
             Math::Multiply(left, right) => {
                 let left_value = left.run(context)?;
                 let right_value = right.run(context)?;
@@ -79,8 +92,34 @@ impl<'src> AbstractTree for Math<'src> {
                     ))
                 }
             }
-            Math::Divide(_, _) => todo!(),
-            Math::Modulo(_, _) => todo!(),
+            Math::Divide(left, right) => {
+                let left_value = left.run(context)?;
+                let right_value = right.run(context)?;
+
+                if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
+                    (left_value.inner().as_ref(), right_value.inner().as_ref())
+                {
+                    Ok(Value::integer(left / right))
+                } else {
+                    Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedIntegerOrFloat,
+                    ))
+                }
+            }
+            Math::Modulo(left, right) => {
+                let left_value = left.run(context)?;
+                let right_value = right.run(context)?;
+
+                if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
+                    (left_value.inner().as_ref(), right_value.inner().as_ref())
+                {
+                    Ok(Value::integer(left % right))
+                } else {
+                    Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedIntegerOrFloat,
+                    ))
+                }
+            }
         }
     }
 }
