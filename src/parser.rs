@@ -2,7 +2,11 @@ use std::{cell::RefCell, collections::HashMap};
 
 use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
-use crate::{abstract_tree::*, error::Error, lexer::Token};
+use crate::{
+    abstract_tree::*,
+    error::Error,
+    lexer::{Operator, Token},
+};
 
 pub type DustParser<'src> = Boxed<
     'src,
@@ -84,33 +88,39 @@ pub fn parser<'src>() -> DustParser<'src> {
                 .delimited_by(just(Token::Control("(")), just(Token::Control(")"))),
         ));
 
+        use Operator::*;
+
         let logic = atom
             .pratt((
-                prefix(2, just(Token::Operator("!")), |expression| {
+                prefix(2, just(Token::Operator(Not)), |expression| {
                     Expression::Logic(Box::new(Logic::Not(expression)))
                 }),
-                infix(left(1), just(Token::Operator("==")), |left, right| {
+                infix(left(1), just(Token::Operator(Equal)), |left, right| {
                     Expression::Logic(Box::new(Logic::Equal(left, right)))
                 }),
-                infix(left(1), just(Token::Operator("!=")), |left, right| {
+                infix(left(1), just(Token::Operator(NotEqual)), |left, right| {
                     Expression::Logic(Box::new(Logic::NotEqual(left, right)))
                 }),
-                infix(left(1), just(Token::Operator(">")), |left, right| {
+                infix(left(1), just(Token::Operator(Greater)), |left, right| {
                     Expression::Logic(Box::new(Logic::Greater(left, right)))
                 }),
-                infix(left(1), just(Token::Operator("<")), |left, right| {
+                infix(left(1), just(Token::Operator(Less)), |left, right| {
                     Expression::Logic(Box::new(Logic::Less(left, right)))
                 }),
-                infix(left(1), just(Token::Operator(">=")), |left, right| {
-                    Expression::Logic(Box::new(Logic::GreaterOrEqual(left, right)))
-                }),
-                infix(left(1), just(Token::Operator("<=")), |left, right| {
-                    Expression::Logic(Box::new(Logic::LessOrEqual(left, right)))
-                }),
-                infix(left(1), just(Token::Operator("&&")), |left, right| {
+                infix(
+                    left(1),
+                    just(Token::Operator(GreaterOrEqual)),
+                    |left, right| Expression::Logic(Box::new(Logic::GreaterOrEqual(left, right))),
+                ),
+                infix(
+                    left(1),
+                    just(Token::Operator(LessOrEqual)),
+                    |left, right| Expression::Logic(Box::new(Logic::LessOrEqual(left, right))),
+                ),
+                infix(left(1), just(Token::Operator(And)), |left, right| {
                     Expression::Logic(Box::new(Logic::And(left, right)))
                 }),
-                infix(left(1), just(Token::Operator("||")), |left, right| {
+                infix(left(1), just(Token::Operator(Or)), |left, right| {
                     Expression::Logic(Box::new(Logic::Or(left, right)))
                 }),
             ))
@@ -155,7 +165,7 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let assignment = identifier
             .then(type_specification.clone().or_not())
-            .then_ignore(just(Token::Operator("=")))
+            .then_ignore(just(Token::Operator(Operator::Assign)))
             .then(statement.clone())
             .map(|((identifier, r#type), statement)| {
                 Statement::Assignment(Assignment::new(identifier, r#type, statement))

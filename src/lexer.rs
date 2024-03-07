@@ -11,9 +11,54 @@ pub enum Token<'src> {
     Float(f64),
     String(&'src str),
     Identifier(&'src str),
-    Operator(&'src str),
+    Operator(Operator),
     Control(&'src str),
     Keyword(&'src str),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Operator {
+    Add,
+    AddAssign,
+    And,
+    Assign,
+    Divide,
+    Equal,
+    Greater,
+    GreaterOrEqual,
+    Less,
+    LessOrEqual,
+    Modulo,
+    Multiply,
+    Not,
+    NotEqual,
+    Or,
+    SubAssign,
+    Subtract,
+}
+
+impl Display for Operator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Operator::Add => write!(f, "+"),
+            Operator::AddAssign => write!(f, "+="),
+            Operator::And => write!(f, "&&"),
+            Operator::Assign => write!(f, "="),
+            Operator::Divide => write!(f, "="),
+            Operator::Equal => write!(f, "=="),
+            Operator::Greater => write!(f, ">"),
+            Operator::GreaterOrEqual => write!(f, ">="),
+            Operator::Less => write!(f, "<"),
+            Operator::LessOrEqual => write!(f, "<="),
+            Operator::Modulo => write!(f, "%"),
+            Operator::Multiply => write!(f, "*"),
+            Operator::Not => write!(f, "!"),
+            Operator::NotEqual => write!(f, "!="),
+            Operator::Or => write!(f, "||"),
+            Operator::SubAssign => write!(f, "-="),
+            Operator::Subtract => write!(f, "-"),
+        }
+    }
 }
 
 impl<'src> Display for Token<'src> {
@@ -24,7 +69,7 @@ impl<'src> Display for Token<'src> {
             Token::Float(float) => write!(f, "{float}"),
             Token::String(string) => write!(f, "{string}"),
             Token::Identifier(string) => write!(f, "{string}"),
-            Token::Operator(string) => write!(f, "{string}"),
+            Token::Operator(operator) => write!(f, "{operator}"),
             Token::Control(string) => write!(f, "{string}"),
             Token::Keyword(string) => write!(f, "{string}"),
         }
@@ -88,17 +133,27 @@ pub fn lexer<'src>() -> impl Parser<
     let identifier = text::ident().map(|text: &str| Token::Identifier(text));
 
     let operator = choice((
-        just("==").padded(),
-        just("!=").padded(),
-        just(">").padded(),
-        just("<").padded(),
-        just(">=").padded(),
-        just("<=").padded(),
-        just("&&").padded(),
-        just("||").padded(),
-        just("=").padded(),
-        just("+=").padded(),
-        just("-=").padded(),
+        // logic
+        just("&&").padded().to(Operator::And),
+        just("==").padded().to(Operator::Equal),
+        just("!=").padded().to(Operator::NotEqual),
+        just(">").padded().to(Operator::Greater),
+        just(">=").padded().to(Operator::GreaterOrEqual),
+        just("<").padded().to(Operator::Less),
+        just("<=").padded().to(Operator::LessOrEqual),
+        just("!").padded().to(Operator::Not),
+        just("!=").padded().to(Operator::NotEqual),
+        just("||").padded().to(Operator::Or),
+        // math
+        just("+").padded().to(Operator::Add),
+        just("-").padded().to(Operator::Subtract),
+        just("*").padded().to(Operator::Multiply),
+        just("/").padded().to(Operator::Divide),
+        just("%").padded().to(Operator::Modulo),
+        // assignment
+        just("=").padded().to(Operator::Assign),
+        just("+=").padded().to(Operator::AddAssign),
+        just("-=").padded().to(Operator::SubAssign),
     ))
     .map(Token::Operator);
 
