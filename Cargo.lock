@@ -204,6 +204,7 @@ dependencies = [
  "clap",
  "colored",
  "env_logger",
+ "stanza",
 ]
 
 [[package]]
@@ -403,6 +404,12 @@ dependencies = [
  "psm",
  "winapi",
 ]
+
+[[package]]
+name = "stanza"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d230b987a5b524a015ded47fed54c5177598a71c90508acee1c5d0b4c955f74"
 
 [[package]]
 name = "strsim"

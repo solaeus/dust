@@ -6,6 +6,12 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use stanza::{
+    renderer::{console::Console, Renderer},
+    style::{HAlign, MinWidth, Styles},
+    table::Table,
+};
+
 use crate::{
     abstract_tree::{Identifier, Type},
     error::ValidationError,
@@ -128,22 +134,35 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         use ValueInner::*;
 
+        fn create_table() -> Table {
+            Table::with_styles(Styles::default().with(HAlign::Centred).with(MinWidth(3)))
+        }
+
         match self.inner().as_ref() {
             Boolean(boolean) => write!(f, "{boolean}"),
             Float(float) => write!(f, "{float}"),
             Integer(integer) => write!(f, "{integer}"),
-            List(_) => todo!(),
-            Map(map) => {
-                writeln!(f, "{{")?;
+            List(list) => {
+                let mut table = create_table();
 
-                for (identifier, value) in map {
-                    writeln!(f, "    {identifier} = {value}")?;
+                for value in list {
+                    table = table.with_row([value.to_string()]);
                 }
 
-                write!(f, "}}")
+                write!(f, "{}", Console::default().render(&table))
+            }
+            Map(map) => {
+                let mut table = create_table();
+
+                for (identifier, value) in map {
+                    table = table.with_row([identifier.as_str(), &value.to_string()]);
+                }
+
+                write!(f, "{}", Console::default().render(&table))
             }
             Range(_) => todo!(),
             String(string) => write!(f, "{string}"),
+
             Enum(_, _) => todo!(),
         }
     }
