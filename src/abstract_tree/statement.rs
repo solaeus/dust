@@ -6,16 +6,16 @@ use crate::{
 use super::{AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Statement<'src> {
-    Assignment(Assignment<'src>),
-    Block(Block<'src>),
-    Break(Expression<'src>),
-    Expression(Expression<'src>),
-    IfElse(IfElse<'src>),
-    Loop(Loop<'src>),
+pub enum Statement {
+    Assignment(Assignment),
+    Block(Block),
+    Break(Expression),
+    Expression(Expression),
+    IfElse(IfElse),
+    Loop(Loop),
 }
 
-impl<'src> AbstractTree for Statement<'src> {
+impl AbstractTree for Statement {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.expected_type(_context),

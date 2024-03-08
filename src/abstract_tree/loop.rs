@@ -6,17 +6,17 @@ use crate::{
 use super::{AbstractTree, Action, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Loop<'src> {
-    statements: Vec<Statement<'src>>,
+pub struct Loop {
+    statements: Vec<Statement>,
 }
 
-impl<'src> Loop<'src> {
-    pub fn new(statements: Vec<Statement<'src>>) -> Self {
+impl Loop {
+    pub fn new(statements: Vec<Statement>) -> Self {
         Self { statements }
     }
 }
 
-impl<'src> AbstractTree for Loop<'src> {
+impl AbstractTree for Loop {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }

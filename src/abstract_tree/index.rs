@@ -7,18 +7,18 @@ use crate::{
 use super::{AbstractTree, Action, Expression, Type, ValueNode};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Index<'src> {
-    left: Expression<'src>,
-    right: Expression<'src>,
+pub struct Index {
+    left: Expression,
+    right: Expression,
 }
 
-impl<'src> Index<'src> {
-    pub fn new(left: Expression<'src>, right: Expression<'src>) -> Self {
+impl Index {
+    pub fn new(left: Expression, right: Expression) -> Self {
         Self { left, right }
     }
 }
 
-impl<'src> AbstractTree for Index<'src> {
+impl AbstractTree for Index {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let left_type = self.left.expected_type(_context)?;
 

@@ -8,15 +8,15 @@ use crate::{
 use super::{AbstractTree, Action, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Math<'src> {
-    Add(Expression<'src>, Expression<'src>),
-    Subtract(Expression<'src>, Expression<'src>),
-    Multiply(Expression<'src>, Expression<'src>),
-    Divide(Expression<'src>, Expression<'src>),
-    Modulo(Expression<'src>, Expression<'src>),
+pub enum Math {
+    Add(Expression, Expression),
+    Subtract(Expression, Expression),
+    Multiply(Expression, Expression),
+    Divide(Expression, Expression),
+    Modulo(Expression, Expression),
 }
 
-impl<'src> AbstractTree for Math<'src> {
+impl AbstractTree for Math {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Math::Add(left, _)

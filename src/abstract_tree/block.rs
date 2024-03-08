@@ -7,17 +7,17 @@ use crate::{
 use super::{AbstractTree, Action, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Block<'src> {
-    statements: Vec<Statement<'src>>,
+pub struct Block {
+    statements: Vec<Statement>,
 }
 
-impl<'src> Block<'src> {
-    pub fn new(statements: Vec<Statement<'src>>) -> Self {
+impl Block {
+    pub fn new(statements: Vec<Statement>) -> Self {
         Self { statements }
     }
 }
 
-impl<'src> AbstractTree for Block<'src> {
+impl AbstractTree for Block {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let final_statement = self.statements.last().unwrap();
 
@@ -70,7 +70,7 @@ mod tests {
     #[test]
     fn expected_type_returns_type_of_final_statement() {
         let block = Block::new(vec![
-            Statement::Expression(Expression::Value(ValueNode::String("42"))),
+            Statement::Expression(Expression::Value(ValueNode::String("42".to_string()))),
             Statement::Expression(Expression::Value(ValueNode::Integer(42))),
         ]);
 

@@ -6,11 +6,11 @@ use crate::{
 use super::{AbstractTree, Action, Identifier, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Assignment<'src> {
+pub struct Assignment {
     identifier: Identifier,
     r#type: Option<Type>,
     operator: AssignmentOperator,
-    statement: Box<Statement<'src>>,
+    statement: Box<Statement>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -20,12 +20,12 @@ pub enum AssignmentOperator {
     SubAssign,
 }
 
-impl<'src> Assignment<'src> {
+impl Assignment {
     pub fn new(
         identifier: Identifier,
         r#type: Option<Type>,
         operator: AssignmentOperator,
-        statement: Statement<'src>,
+        statement: Statement,
     ) -> Self {
         Self {
             identifier,
@@ -36,7 +36,7 @@ impl<'src> Assignment<'src> {
     }
 }
 
-impl<'src> AbstractTree for Assignment<'src> {
+impl AbstractTree for Assignment {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         todo!()
     }

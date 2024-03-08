@@ -13,7 +13,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{Identifier, Type},
+    abstract_tree::{Identifier, Statement, Type},
     error::ValidationError,
 };
 
@@ -72,6 +72,18 @@ impl Value {
         Value(Arc::new(ValueInner::Enum(name, variant)))
     }
 
+    pub fn function(
+        parameters: Vec<(Identifier, Type)>,
+        return_type: Type,
+        body: Statement,
+    ) -> Self {
+        Value(Arc::new(ValueInner::Function(Function {
+            parameters,
+            return_type,
+            body,
+        })))
+    }
+
     pub fn r#type(&self) -> Type {
         match self.0.as_ref() {
             ValueInner::Boolean(_) => Type::Boolean,
@@ -90,6 +102,7 @@ impl Value {
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
             ValueInner::Enum(name, _) => Type::Custom(name.clone()),
+            ValueInner::Function(_) => todo!(),
         }
     }
 
@@ -152,17 +165,15 @@ impl Value {
 
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use ValueInner::*;
-
         fn create_table() -> Table {
             Table::with_styles(Styles::default().with(HAlign::Centred).with(MinWidth(3)))
         }
 
         match self.inner().as_ref() {
-            Boolean(boolean) => write!(f, "{boolean}"),
-            Float(float) => write!(f, "{float}"),
-            Integer(integer) => write!(f, "{integer}"),
-            List(list) => {
+            ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
+            ValueInner::Float(float) => write!(f, "{float}"),
+            ValueInner::Integer(integer) => write!(f, "{integer}"),
+            ValueInner::List(list) => {
                 let mut table = create_table();
 
                 for value in list {
@@ -171,7 +182,7 @@ impl Display for Value {
 
                 write!(f, "{}", Console::default().render(&table))
             }
-            Map(map) => {
+            ValueInner::Map(map) => {
                 let mut table = create_table();
 
                 for (identifier, value) in map {
@@ -180,10 +191,23 @@ impl Display for Value {
 
                 write!(f, "{}", Console::default().render(&table))
             }
-            Range(_) => todo!(),
-            String(string) => write!(f, "{string}"),
+            ValueInner::Range(_) => todo!(),
+            ValueInner::String(string) => write!(f, "{string}"),
 
-            Enum(_, _) => todo!(),
+            ValueInner::Enum(_, _) => todo!(),
+            ValueInner::Function(Function {
+                parameters,
+                return_type,
+                body,
+            }) => {
+                write!(f, "(")?;
+
+                for (identifier, r#type) in parameters {
+                    write!(f, "{identifier}: {}", r#type)?;
+                }
+
+                write!(f, "): {return_type} {body:?}")
+            }
         }
     }
 }
@@ -206,6 +230,7 @@ impl Ord for Value {
 pub enum ValueInner {
     Boolean(bool),
     Float(f64),
+    Function(Function),
     Integer(i64),
     List(Vec<Value>),
     Map(BTreeMap<Identifier, Value>),
@@ -259,6 +284,15 @@ impl Ord for ValueInner {
                 }
             }
             (Enum(..), _) => Ordering::Greater,
+            (Function(left), Function(right)) => left.cmp(right),
+            (Function(_), _) => Ordering::Greater,
         }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Function {
+    parameters: Vec<(Identifier, Type)>,
+    return_type: Type,
+    body: Statement,
 }

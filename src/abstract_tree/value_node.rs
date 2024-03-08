@@ -6,21 +6,26 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Expression, Identifier, Type};
+use super::{AbstractTree, Action, Expression, Identifier, Statement, Type};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ValueNode<'src> {
+pub enum ValueNode {
     Boolean(bool),
     Float(f64),
     Integer(i64),
-    List(Vec<Expression<'src>>),
-    Map(Vec<(Identifier, Option<Type>, Expression<'src>)>),
+    List(Vec<Expression>),
+    Map(Vec<(Identifier, Option<Type>, Expression)>),
     Range(Range<i64>),
-    String(&'src str),
+    String(String),
     Enum(Identifier, Identifier),
+    Function {
+        parameters: Vec<(Identifier, Type)>,
+        return_type: Type,
+        body: Box<Statement>,
+    },
 }
 
-impl<'src> AbstractTree for ValueNode<'src> {
+impl AbstractTree for ValueNode {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
@@ -39,6 +44,7 @@ impl<'src> AbstractTree for ValueNode<'src> {
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
             ValueNode::Enum(name, _) => Type::Custom(name.clone()),
+            ValueNode::Function { .. } => todo!(),
         };
 
         Ok(r#type)
@@ -84,21 +90,26 @@ impl<'src> AbstractTree for ValueNode<'src> {
                     Value::r#enum(name, variant)
                 }
             }
+            ValueNode::Function {
+                parameters,
+                return_type,
+                body,
+            } => Value::function(parameters, return_type, *body),
         };
 
         Ok(Action::Return(value))
     }
 }
 
-impl<'src> Eq for ValueNode<'src> {}
+impl Eq for ValueNode {}
 
-impl<'src> PartialOrd for ValueNode<'src> {
+impl PartialOrd for ValueNode {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'src> Ord for ValueNode<'src> {
+impl Ord for ValueNode {
     fn cmp(&self, other: &Self) -> Ordering {
         use ValueNode::*;
 
@@ -135,6 +146,33 @@ impl<'src> Ord for ValueNode<'src> {
                 }
             }
             (Enum(_, _), _) => Ordering::Greater,
+            (
+                Function {
+                    parameters: left_parameters,
+                    return_type: left_return,
+                    body: left_body,
+                },
+                Function {
+                    parameters: right_parameters,
+                    return_type: right_return,
+                    body: right_body,
+                },
+            ) => {
+                let parameter_cmp = left_parameters.cmp(right_parameters);
+
+                if parameter_cmp.is_eq() {
+                    let return_cmp = left_return.cmp(right_return);
+
+                    if return_cmp.is_eq() {
+                        left_body.cmp(right_body)
+                    } else {
+                        return_cmp
+                    }
+                } else {
+                    parameter_cmp
+                }
+            }
+            (Function { .. }, _) => Ordering::Greater,
         }
     }
 }

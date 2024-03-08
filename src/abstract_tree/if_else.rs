@@ -6,17 +6,17 @@ use crate::{
 use super::{AbstractTree, Action, Expression, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct IfElse<'src> {
-    if_expression: Expression<'src>,
-    if_statement: Box<Statement<'src>>,
-    else_statement: Option<Box<Statement<'src>>>,
+pub struct IfElse {
+    if_expression: Expression,
+    if_statement: Box<Statement>,
+    else_statement: Option<Box<Statement>>,
 }
 
-impl<'src> IfElse<'src> {
+impl IfElse {
     pub fn new(
-        if_expression: Expression<'src>,
-        if_statement: Statement<'src>,
-        else_statement: Option<Statement<'src>>,
+        if_expression: Expression,
+        if_statement: Statement,
+        else_statement: Option<Statement>,
     ) -> Self {
         Self {
             if_expression,
@@ -26,7 +26,7 @@ impl<'src> IfElse<'src> {
     }
 }
 
-impl<'src> AbstractTree for IfElse<'src> {
+impl AbstractTree for IfElse {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
@@ -71,7 +71,7 @@ mod tests {
         assert_eq!(
             IfElse::new(
                 Expression::Value(ValueNode::Boolean(true)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo"))),
+                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
                 None
             )
             .run(&Context::new()),
@@ -84,9 +84,9 @@ mod tests {
         assert_eq!(
             IfElse::new(
                 Expression::Value(ValueNode::Boolean(false)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo"))),
+                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
                 Some(Statement::Expression(Expression::Value(ValueNode::String(
-                    "bar"
+                    "bar".to_string()
                 ))))
             )
             .run(&Context::new()),

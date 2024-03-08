@@ -7,19 +7,19 @@ use crate::{
 use super::{AbstractTree, Action, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Logic<'src> {
-    Equal(Expression<'src>, Expression<'src>),
-    NotEqual(Expression<'src>, Expression<'src>),
-    Greater(Expression<'src>, Expression<'src>),
-    Less(Expression<'src>, Expression<'src>),
-    GreaterOrEqual(Expression<'src>, Expression<'src>),
-    LessOrEqual(Expression<'src>, Expression<'src>),
-    And(Expression<'src>, Expression<'src>),
-    Or(Expression<'src>, Expression<'src>),
-    Not(Expression<'src>),
+pub enum Logic {
+    Equal(Expression, Expression),
+    NotEqual(Expression, Expression),
+    Greater(Expression, Expression),
+    Less(Expression, Expression),
+    GreaterOrEqual(Expression, Expression),
+    LessOrEqual(Expression, Expression),
+    And(Expression, Expression),
+    Or(Expression, Expression),
+    Not(Expression),
 }
 
-impl<'src> AbstractTree for Logic<'src> {
+impl AbstractTree for Logic {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::Boolean)
     }

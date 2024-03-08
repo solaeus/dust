@@ -12,7 +12,7 @@ pub type DustParser<'src> = Boxed<
     'src,
     'src,
     ParserInput<'src>,
-    Vec<(Statement<'src>, SimpleSpan)>,
+    Vec<(Statement, SimpleSpan)>,
     extra::Err<Rich<'src, Token<'src>, SimpleSpan>>,
 >;
 
@@ -21,7 +21,7 @@ pub type ParserInput<'src> =
 
 pub fn parse<'src>(
     tokens: &'src [(Token<'src>, SimpleSpan)],
-) -> Result<Vec<(Statement<'src>, SimpleSpan)>, Vec<Error>> {
+) -> Result<Vec<(Statement, SimpleSpan)>, Vec<Error>> {
     parser()
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
@@ -85,7 +85,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             Token::Boolean(boolean) => ValueNode::Boolean(boolean),
             Token::Integer(integer) => ValueNode::Integer(integer),
             Token::Float(float) => ValueNode::Float(float),
-            Token::String(string) => ValueNode::String(string),
+            Token::String(string) => ValueNode::String(string.to_string()),
         }
         .map(|value| Expression::Value(value))
         .boxed();
@@ -221,6 +221,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             .map(|expression| Statement::Break(expression));
 
         let assignment = identifier
+            .clone()
             .then(type_specification.clone().or_not())
             .then(choice((
                 just(Token::Operator(Operator::Assign)).to(AssignmentOperator::Assign),
@@ -269,6 +270,25 @@ pub fn parser<'src>() -> DustParser<'src> {
             })
             .boxed();
 
+        let function = identifier
+            .clone()
+            .then(type_specification.clone())
+            .separated_by(just(Token::Control(Control::Comma)))
+            .collect::<Vec<(Identifier, Type)>>()
+            .delimited_by(
+                just(Token::Control(Control::ParenOpen)),
+                just(Token::Control(Control::ParenClose)),
+            )
+            .then(type_specification)
+            .then(statement.clone())
+            .map(|((parameters, return_type), body)| {
+                Statement::Expression(Expression::Value(ValueNode::Function {
+                    parameters,
+                    return_type,
+                    body: Box::new(body),
+                }))
+            });
+
         choice((
             assignment,
             expression_statement,
@@ -276,6 +296,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             block,
             r#loop,
             if_else,
+            function,
         ))
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
@@ -294,12 +315,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn function() {
+        assert_eq!(
+            parse(&lex("(x: int): int x ").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Value(ValueNode::Function {
+                parameters: vec![(Identifier::new("x"), Type::Integer)],
+                return_type: Type::Integer,
+                body: Box::new(Statement::Expression(Expression::Identifier(
+                    Identifier::new("x")
+                )))
+            }))
+        )
+    }
+
+    #[test]
     fn r#if() {
         assert_eq!(
             parse(&lex("if true 'foo'").unwrap()).unwrap()[0].0,
             Statement::IfElse(IfElse::new(
                 Expression::Value(ValueNode::Boolean(true)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo"))),
+                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
                 None
             ))
         )
@@ -311,9 +346,9 @@ mod tests {
             parse(&lex("if true 'foo' else 'bar'").unwrap()).unwrap()[0].0,
             Statement::IfElse(IfElse::new(
                 Expression::Value(ValueNode::Boolean(true)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo"))),
+                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
                 Some(Statement::Expression(Expression::Value(ValueNode::String(
-                    "bar"
+                    "bar".to_string()
                 ))))
             ))
         )
@@ -326,7 +361,7 @@ mod tests {
             Statement::Expression(Expression::Value(ValueNode::Map(vec![(
                 Identifier::new("foo"),
                 None,
-                Expression::Value(ValueNode::String("bar"))
+                Expression::Value(ValueNode::String("bar".to_string()))
             )])))
         );
         assert_eq!(
@@ -521,7 +556,7 @@ mod tests {
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![
                     Expression::Value(ValueNode::Integer(42)),
-                    Expression::Value(ValueNode::String("foo"))
+                    Expression::Value(ValueNode::String("foo".to_string()))
                 ])))
             )),
         );
@@ -596,8 +631,8 @@ mod tests {
             parse(&lex("[42, 'foo', 'bar', [1, 2, 3,]]").unwrap()).unwrap()[0].0,
             Statement::Expression(Expression::Value(ValueNode::List(vec![
                 Expression::Value(ValueNode::Integer(42)),
-                Expression::Value(ValueNode::String("foo")),
-                Expression::Value(ValueNode::String("bar")),
+                Expression::Value(ValueNode::String("foo".to_string())),
+                Expression::Value(ValueNode::String("bar".to_string())),
                 Expression::Value(ValueNode::List(vec![
                     Expression::Value(ValueNode::Integer(1)),
                     Expression::Value(ValueNode::Integer(2)),
@@ -751,15 +786,15 @@ mod tests {
     fn double_quoted_string() {
         assert_eq!(
             parse(&lex("\"\"").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("")))
+            Statement::Expression(Expression::Value(ValueNode::String("".to_string())))
         );
         assert_eq!(
             parse(&lex("\"42\"").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("42")))
+            Statement::Expression(Expression::Value(ValueNode::String("42".to_string())))
         );
         assert_eq!(
             parse(&lex("\"foobar\"").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("foobar")))
+            Statement::Expression(Expression::Value(ValueNode::String("foobar".to_string())))
         );
     }
 
@@ -767,15 +802,15 @@ mod tests {
     fn single_quoted_string() {
         assert_eq!(
             parse(&lex("''").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("")))
+            Statement::Expression(Expression::Value(ValueNode::String("".to_string())))
         );
         assert_eq!(
             parse(&lex("'42'").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("42")))
+            Statement::Expression(Expression::Value(ValueNode::String("42".to_string())))
         );
         assert_eq!(
             parse(&lex("'foobar'").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("foobar")))
+            Statement::Expression(Expression::Value(ValueNode::String("foobar".to_string())))
         );
     }
 
@@ -783,15 +818,15 @@ mod tests {
     fn grave_quoted_string() {
         assert_eq!(
             parse(&lex("``").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("")))
+            Statement::Expression(Expression::Value(ValueNode::String("".to_string())))
         );
         assert_eq!(
             parse(&lex("`42`").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("42")))
+            Statement::Expression(Expression::Value(ValueNode::String("42".to_string())))
         );
         assert_eq!(
             parse(&lex("`foobar`").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::String("foobar")))
+            Statement::Expression(Expression::Value(ValueNode::String("foobar".to_string())))
         );
     }
 }

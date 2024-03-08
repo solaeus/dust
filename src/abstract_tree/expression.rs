@@ -6,15 +6,15 @@ use crate::{
 use super::{AbstractTree, Action, Identifier, Index, Logic, Math, Type, ValueNode};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Expression<'src> {
+pub enum Expression {
     Identifier(Identifier),
-    Index(Box<Index<'src>>),
-    Logic(Box<Logic<'src>>),
-    Math(Box<Math<'src>>),
-    Value(ValueNode<'src>),
+    Index(Box<Index>),
+    Logic(Box<Logic>),
+    Math(Box<Math>),
+    Value(ValueNode),
 }
 
-impl<'src> AbstractTree for Expression<'src> {
+impl AbstractTree for Expression {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Expression::Identifier(identifier) => identifier.expected_type(_context),
