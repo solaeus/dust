@@ -9,14 +9,28 @@ use super::{AbstractTree, Action, Identifier, Statement, Type};
 pub struct Assignment<'src> {
     identifier: Identifier,
     r#type: Option<Type>,
+    operator: AssignmentOperator,
     statement: Box<Statement<'src>>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum AssignmentOperator {
+    Assign,
+    AddAssign,
+    SubAssign,
+}
+
 impl<'src> Assignment<'src> {
-    pub fn new(identifier: Identifier, r#type: Option<Type>, statement: Statement<'src>) -> Self {
+    pub fn new(
+        identifier: Identifier,
+        r#type: Option<Type>,
+        operator: AssignmentOperator,
+        statement: Statement<'src>,
+    ) -> Self {
         Self {
             identifier,
             r#type,
+            operator,
             statement: Box::new(statement),
         }
     }
@@ -71,6 +85,7 @@ mod tests {
         Assignment::new(
             Identifier::new("foobar"),
             None,
+            AssignmentOperator::Assign,
             Statement::Expression(Expression::Value(ValueNode::Integer(42))),
         )
         .run(&context)
@@ -87,6 +102,7 @@ mod tests {
         let validation = Assignment::new(
             Identifier::new("foobar"),
             Some(Type::Boolean),
+            AssignmentOperator::Assign,
             Statement::Expression(Expression::Value(ValueNode::Integer(42))),
         )
         .validate(&Context::new());

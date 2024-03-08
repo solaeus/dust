@@ -222,10 +222,14 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let assignment = identifier
             .then(type_specification.clone().or_not())
-            .then_ignore(just(Token::Operator(Operator::Assign)))
+            .then(choice((
+                just(Token::Operator(Operator::Assign)).to(AssignmentOperator::Assign),
+                just(Token::Operator(Operator::AddAssign)).to(AssignmentOperator::AddAssign),
+                just(Token::Operator(Operator::SubAssign)).to(AssignmentOperator::SubAssign),
+            )))
             .then(statement.clone())
-            .map(|((identifier, r#type), statement)| {
-                Statement::Assignment(Assignment::new(identifier, r#type, statement))
+            .map(|(((identifier, r#type), operator), statement)| {
+                Statement::Assignment(Assignment::new(identifier, r#type, operator, statement))
             })
             .boxed();
 
@@ -406,6 +410,7 @@ mod tests {
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 None,
+                AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
             )),
         );
@@ -418,6 +423,7 @@ mod tests {
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(Type::Integer),
+                AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
             )),
         );
@@ -430,6 +436,7 @@ mod tests {
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(Type::Custom(Identifier::new("Foo"))),
+                AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Enum(
                     Identifier::new("Foo"),
                     Identifier::new("Bar")
@@ -445,6 +452,7 @@ mod tests {
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(Type::List),
+                AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![])))
             )),
         );
@@ -454,6 +462,7 @@ mod tests {
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(Type::ListOf(Box::new(Type::Integer))),
+                AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![])))
             )),
         );
@@ -463,6 +472,7 @@ mod tests {
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(Type::ListExact(vec![Type::Integer, Type::String])),
+                AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![
                     Expression::Value(ValueNode::Integer(42)),
                     Expression::Value(ValueNode::String("foo"))

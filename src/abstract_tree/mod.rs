@@ -11,8 +11,16 @@ pub mod r#type;
 pub mod value_node;
 
 pub use self::{
-    assignment::Assignment, block::Block, expression::Expression, identifier::Identifier,
-    index::Index, logic::Logic, math::Math, r#loop::Loop, r#type::Type, statement::Statement,
+    assignment::{Assignment, AssignmentOperator},
+    block::Block,
+    expression::Expression,
+    identifier::Identifier,
+    index::Index,
+    logic::Logic,
+    math::Math,
+    r#loop::Loop,
+    r#type::Type,
+    statement::Statement,
     value_node::ValueNode,
 };
 
