@@ -128,6 +128,26 @@ impl Value {
     pub fn is_none(&self) -> bool {
         self == get_none()
     }
+
+    pub fn add(&self, other: &Self) -> Result<Value, ValidationError> {
+        if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
+            (self.inner().as_ref(), other.inner().as_ref())
+        {
+            Ok(Value::integer(left + right))
+        } else {
+            Err(ValidationError::ExpectedIntegerOrFloat)
+        }
+    }
+
+    pub fn subtract(&self, other: &Self) -> Result<Value, ValidationError> {
+        if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
+            (self.inner().as_ref(), other.inner().as_ref())
+        {
+            Ok(Value::integer(left - right))
+        } else {
+            Err(ValidationError::ExpectedIntegerOrFloat)
+        }
+    }
 }
 
 impl Display for Value {

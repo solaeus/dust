@@ -62,7 +62,33 @@ impl<'src> AbstractTree for Assignment<'src> {
             r#break => return Ok(r#break),
         };
 
-        context.set_value(self.identifier, value)?;
+        match self.operator {
+            AssignmentOperator::Assign => {
+                context.set_value(self.identifier, value)?;
+            }
+            AssignmentOperator::AddAssign => {
+                if let Some(previous_value) = context.get_value(&self.identifier)? {
+                    let new_value = previous_value.add(&value)?;
+
+                    context.set_value(self.identifier, new_value)?;
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::VariableNotFound(self.identifier),
+                    ));
+                }
+            }
+            AssignmentOperator::SubAssign => {
+                if let Some(previous_value) = context.get_value(&self.identifier)? {
+                    let new_value = previous_value.subtract(&value)?;
+
+                    context.set_value(self.identifier, new_value)?;
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::VariableNotFound(self.identifier),
+                    ));
+                }
+            }
+        }
 
         Ok(Action::None)
     }
@@ -87,6 +113,52 @@ mod tests {
             None,
             AssignmentOperator::Assign,
             Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+        )
+        .run(&context)
+        .unwrap();
+
+        assert_eq!(
+            context.get_value(&Identifier::new("foobar")),
+            Ok(Some(Value::integer(42)))
+        )
+    }
+
+    #[test]
+    fn add_assign_value() {
+        let context = Context::new();
+
+        context
+            .set_value(Identifier::new("foobar"), Value::integer(1))
+            .unwrap();
+
+        Assignment::new(
+            Identifier::new("foobar"),
+            None,
+            AssignmentOperator::AddAssign,
+            Statement::Expression(Expression::Value(ValueNode::Integer(41))),
+        )
+        .run(&context)
+        .unwrap();
+
+        assert_eq!(
+            context.get_value(&Identifier::new("foobar")),
+            Ok(Some(Value::integer(42)))
+        )
+    }
+
+    #[test]
+    fn subtract_assign_value() {
+        let context = Context::new();
+
+        context
+            .set_value(Identifier::new("foobar"), Value::integer(43))
+            .unwrap();
+
+        Assignment::new(
+            Identifier::new("foobar"),
+            None,
+            AssignmentOperator::SubAssign,
+            Statement::Expression(Expression::Value(ValueNode::Integer(1))),
         )
         .run(&context)
         .unwrap();

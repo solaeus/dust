@@ -54,29 +54,13 @@ impl<'src> AbstractTree for Math<'src> {
                 let left_value = left.run(_context)?.as_return_value()?;
                 let right_value = right.run(_context)?.as_return_value()?;
 
-                if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
-                    (left_value.inner().as_ref(), right_value.inner().as_ref())
-                {
-                    Value::integer(left + right)
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedIntegerOrFloat,
-                    ));
-                }
+                left_value.add(&right_value)?
             }
             Math::Subtract(left, right) => {
                 let left_value = left.run(_context)?.as_return_value()?;
                 let right_value = right.run(_context)?.as_return_value()?;
 
-                if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
-                    (left_value.inner().as_ref(), right_value.inner().as_ref())
-                {
-                    Value::integer(left - right)
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedIntegerOrFloat,
-                    ));
-                }
+                left_value.subtract(&right_value)?
             }
             Math::Multiply(left, right) => {
                 let left_value = left.run(_context)?.as_return_value()?;
