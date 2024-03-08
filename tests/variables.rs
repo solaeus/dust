@@ -6,14 +6,17 @@ use dust_lang::{
 
 #[test]
 fn set_and_get_variable() {
-    assert_eq!(interpret("foobar = true; foobar"), Ok(Value::boolean(true)));
+    assert_eq!(
+        interpret("foobar = true; foobar"),
+        Ok(Some(Value::boolean(true)))
+    );
 }
 
 #[test]
 fn set_variable_with_type() {
     assert_eq!(
         interpret("foobar: bool = true; foobar"),
-        Ok(Value::boolean(true))
+        Ok(Some(Value::boolean(true)))
     );
 }
 

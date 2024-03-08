@@ -6,7 +6,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Expression, Identifier, Type};
+use super::{AbstractTree, Action, Expression, Identifier, Type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode<'src> {
@@ -48,7 +48,7 @@ impl<'src> AbstractTree for ValueNode<'src> {
         Ok(())
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
             ValueNode::Float(float) => Value::float(float),
@@ -57,7 +57,7 @@ impl<'src> AbstractTree for ValueNode<'src> {
                 let mut value_list = Vec::with_capacity(expression_list.len());
 
                 for expression in expression_list {
-                    let value = expression.run(_context)?;
+                    let value = expression.run(_context)?.as_return_value()?;
 
                     value_list.push(value);
                 }
@@ -68,7 +68,7 @@ impl<'src> AbstractTree for ValueNode<'src> {
                 let mut property_map = BTreeMap::new();
 
                 for (identifier, _type, expression) in property_list {
-                    let value = expression.run(_context)?;
+                    let value = expression.run(_context)?.as_return_value()?;
 
                     property_map.insert(identifier, value);
                 }
@@ -86,7 +86,7 @@ impl<'src> AbstractTree for ValueNode<'src> {
             }
         };
 
-        Ok(value)
+        Ok(Action::Return(value))
     }
 }
 

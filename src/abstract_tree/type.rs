@@ -4,10 +4,9 @@ use crate::{
     abstract_tree::Identifier,
     context::Context,
     error::{RuntimeError, TypeCheckError, ValidationError},
-    Value,
 };
 
-use super::AbstractTree;
+use super::{AbstractTree, Action};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
@@ -100,8 +99,8 @@ impl AbstractTree for Type {
         Ok(())
     }
 
-    fn run(self, _: &Context) -> Result<Value, RuntimeError> {
-        Ok(Value::none())
+    fn run(self, _: &Context) -> Result<Action, RuntimeError> {
+        Ok(Action::None)
     }
 }
 

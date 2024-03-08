@@ -207,6 +207,7 @@ pub fn lexer<'src>() -> impl Parser<
 
     let keyword = choice((
         just("bool").padded(),
+        just("break").padded(),
         just("float").padded(),
         just("int").padded(),
         just("list").padded(),

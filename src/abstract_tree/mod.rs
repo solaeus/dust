@@ -25,5 +25,22 @@ use crate::{
 pub trait AbstractTree {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
-    fn run(self, context: &Context) -> Result<Value, RuntimeError>;
+    fn run(self, context: &Context) -> Result<Action, RuntimeError>;
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub enum Action {
+    Break(Value),
+    Return(Value),
+    None,
+}
+
+impl Action {
+    pub fn as_return_value(self) -> Result<Value, ValidationError> {
+        if let Action::Return(value) = self {
+            Ok(value)
+        } else {
+            Err(ValidationError::InterpreterExpectedReturn)
+        }
+    }
 }

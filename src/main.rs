@@ -48,7 +48,7 @@ fn main() {
 
     match eval_result {
         Ok(value) => {
-            if !value.is_none() {
+            if let Some(value) = value {
                 println!("{value}")
             }
         }

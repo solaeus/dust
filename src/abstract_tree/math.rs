@@ -5,7 +5,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Expression, Type};
+use super::{AbstractTree, Action, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Math<'src> {
@@ -48,78 +48,80 @@ impl<'src> AbstractTree for Math<'src> {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
-        match self {
+    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+        let value = match self {
             Math::Add(left, right) => {
-                let left_value = left.run(_context)?;
-                let right_value = right.run(_context)?;
+                let left_value = left.run(_context)?.as_return_value()?;
+                let right_value = right.run(_context)?.as_return_value()?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
                 {
-                    Ok(Value::integer(left + right))
+                    Value::integer(left + right)
                 } else {
-                    Err(RuntimeError::ValidationFailure(
+                    return Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedIntegerOrFloat,
-                    ))
+                    ));
                 }
             }
             Math::Subtract(left, right) => {
-                let left_value = left.run(_context)?;
-                let right_value = right.run(_context)?;
+                let left_value = left.run(_context)?.as_return_value()?;
+                let right_value = right.run(_context)?.as_return_value()?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
                 {
-                    Ok(Value::integer(left - right))
+                    Value::integer(left - right)
                 } else {
-                    Err(RuntimeError::ValidationFailure(
+                    return Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedIntegerOrFloat,
-                    ))
+                    ));
                 }
             }
             Math::Multiply(left, right) => {
-                let left_value = left.run(_context)?;
-                let right_value = right.run(_context)?;
+                let left_value = left.run(_context)?.as_return_value()?;
+                let right_value = right.run(_context)?.as_return_value()?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
                 {
-                    Ok(Value::integer(left * right))
+                    Value::integer(left * right)
                 } else {
-                    Err(RuntimeError::ValidationFailure(
+                    return Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedIntegerOrFloat,
-                    ))
+                    ));
                 }
             }
             Math::Divide(left, right) => {
-                let left_value = left.run(_context)?;
-                let right_value = right.run(_context)?;
+                let left_value = left.run(_context)?.as_return_value()?;
+                let right_value = right.run(_context)?.as_return_value()?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
                 {
-                    Ok(Value::integer(left / right))
+                    Value::integer(left / right)
                 } else {
-                    Err(RuntimeError::ValidationFailure(
+                    return Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedIntegerOrFloat,
-                    ))
+                    ));
                 }
             }
             Math::Modulo(left, right) => {
-                let left_value = left.run(_context)?;
-                let right_value = right.run(_context)?;
+                let left_value = left.run(_context)?.as_return_value()?;
+                let right_value = right.run(_context)?.as_return_value()?;
 
                 if let (ValueInner::Integer(left), ValueInner::Integer(right)) =
                     (left_value.inner().as_ref(), right_value.inner().as_ref())
                 {
-                    Ok(Value::integer(left % right))
+                    Value::integer(left % right)
                 } else {
-                    Err(RuntimeError::ValidationFailure(
+                    return Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedIntegerOrFloat,
-                    ))
+                    ));
                 }
             }
-        }
+        };
+
+        Ok(Action::Return(value))
     }
 }

@@ -87,6 +87,7 @@ impl Error {
                     }
                     ValidationError::CannotIndex(_) => todo!(),
                     ValidationError::CannotIndexWith(_, _) => todo!(),
+                    ValidationError::InterpreterExpectedReturn => todo!(),
                 }
 
                 report.finish()
@@ -143,6 +144,7 @@ pub enum ValidationError {
     CannotIndexWith(Type, Type),
     ExpectedBoolean,
     ExpectedIntegerOrFloat,
+    InterpreterExpectedReturn,
     RwLockPoison(RwLockPoisonError),
     TypeCheck(TypeCheckError),
     VariableNotFound(Identifier),

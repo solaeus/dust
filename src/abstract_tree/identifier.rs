@@ -9,7 +9,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Type};
+use super::{AbstractTree, Action, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(Arc<String>);
@@ -41,13 +41,13 @@ impl AbstractTree for Identifier {
         }
     }
 
-    fn run(self, context: &Context) -> Result<Value, RuntimeError> {
+    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
         let value = context
             .get_value(&self)?
             .unwrap_or_else(Value::none)
             .clone();
 
-        Ok(value)
+        Ok(Action::Return(value))
     }
 }
 

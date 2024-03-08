@@ -4,7 +4,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Expression, Type, ValueNode};
+use super::{AbstractTree, Action, Expression, Type, ValueNode};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index<'src> {
@@ -58,15 +58,16 @@ impl<'src> AbstractTree for Index<'src> {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
-        let left_value = self.left.run(_context)?;
-        let right_value = self.right.run(_context)?;
+    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+        let left_value = self.left.run(_context)?.as_return_value()?;
+        let right_value = self.right.run(_context)?.as_return_value()?;
 
         if let (Some(list), Some(index)) = (left_value.as_list(), right_value.as_integer()) {
-            Ok(list
-                .get(index as usize)
-                .cloned()
-                .unwrap_or_else(Value::none))
+            Ok(Action::Return(
+                list.get(index as usize)
+                    .cloned()
+                    .unwrap_or_else(Value::none),
+            ))
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith(left_value.r#type(), right_value.r#type()),

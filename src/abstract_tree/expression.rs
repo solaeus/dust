@@ -1,10 +1,9 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    Value,
 };
 
-use super::{AbstractTree, Identifier, Index, Logic, Math, Type, ValueNode};
+use super::{AbstractTree, Action, Identifier, Index, Logic, Math, Type, ValueNode};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression<'src> {
@@ -36,7 +35,7 @@ impl<'src> AbstractTree for Expression<'src> {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         match self {
             Expression::Identifier(identifier) => identifier.run(_context),
             Expression::Index(index) => index.run(_context),

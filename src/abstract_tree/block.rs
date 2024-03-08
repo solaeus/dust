@@ -4,7 +4,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Statement, Type};
+use super::{AbstractTree, Action, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block<'src> {
@@ -32,14 +32,18 @@ impl<'src> AbstractTree for Block<'src> {
         Ok(())
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let mut previous = Value::none();
 
         for statement in self.statements {
-            previous = statement.run(_context)?;
+            let action = statement.run(_context)?;
+            previous = match action {
+                Action::Return(value) => value,
+                r#break => return Ok(r#break),
+            };
         }
 
-        Ok(previous)
+        Ok(Action::Return(previous))
     }
 }
 
@@ -57,7 +61,10 @@ mod tests {
             Statement::Expression(Expression::Value(ValueNode::Integer(42))),
         ]);
 
-        assert_eq!(block.run(&Context::new()), Ok(Value::integer(42)))
+        assert_eq!(
+            block.run(&Context::new()),
+            Ok(Action::Return(Value::integer(42)))
+        )
     }
 
     #[test]

@@ -1,10 +1,9 @@
 use crate::{
     error::{RuntimeError, ValidationError},
-    value::Value,
     Context,
 };
 
-use super::{AbstractTree, Identifier, Statement, Type};
+use super::{AbstractTree, Action, Identifier, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment<'src> {
@@ -42,12 +41,16 @@ impl<'src> AbstractTree for Assignment<'src> {
         Ok(())
     }
 
-    fn run(self, context: &Context) -> Result<Value, RuntimeError> {
-        let value = self.statement.run(context)?;
+    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+        let action = self.statement.run(context)?;
+        let value = match action {
+            Action::Return(value) => value,
+            r#break => return Ok(r#break),
+        };
 
         context.set_value(self.identifier, value)?;
 
-        Ok(Value::none())
+        Ok(Action::None)
     }
 }
 
@@ -56,6 +59,7 @@ mod tests {
     use crate::{
         abstract_tree::{Expression, ValueNode},
         error::TypeCheckError,
+        Value,
     };
 
     use super::*;

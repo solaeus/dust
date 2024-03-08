@@ -212,8 +212,13 @@ pub fn parser<'src>() -> DustParser<'src> {
 
     let statement = recursive(|statement| {
         let expression_statement = expression
+            .clone()
             .map(|expression| Statement::Expression(expression))
             .boxed();
+
+        let r#break = just(Token::Keyword("break"))
+            .ignore_then(expression)
+            .map(|expression| Statement::Break(expression));
 
         let assignment = identifier
             .then(type_specification.clone().or_not())
@@ -238,6 +243,7 @@ pub fn parser<'src>() -> DustParser<'src> {
         let r#loop = statement
             .clone()
             .repeated()
+            .at_least(1)
             .collect()
             .delimited_by(
                 just(Token::Keyword("loop")).then(just(Token::Control(Control::CurlyOpen))),
@@ -246,7 +252,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             .map(|statements| Statement::Loop(Loop::new(statements)))
             .boxed();
 
-        choice((assignment, expression_statement, block, r#loop))
+        choice((assignment, expression_statement, r#break, block, r#loop))
             .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
 
@@ -319,8 +325,10 @@ mod tests {
     #[test]
     fn r#loop() {
         assert_eq!(
-            parse(&lex("loop {}").unwrap()).unwrap()[0].0,
-            Statement::Loop(Loop::new(vec![]))
+            parse(&lex("loop { 42 }").unwrap()).unwrap()[0].0,
+            Statement::Loop(Loop::new(vec![Statement::Expression(Expression::Value(
+                ValueNode::Integer(42)
+            ))]))
         );
     }
 

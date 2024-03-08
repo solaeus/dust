@@ -5,14 +5,14 @@ pub mod lexer;
 pub mod parser;
 pub mod value;
 
-use abstract_tree::AbstractTree;
+use abstract_tree::{AbstractTree, Action};
 use context::Context;
 use error::Error;
 use lexer::lex;
 pub use parser::{parse, parser, DustParser};
 pub use value::Value;
 
-pub fn interpret(source: &str) -> Result<Value, Vec<Error>> {
+pub fn interpret(source: &str) -> Result<Option<Value>, Vec<Error>> {
     let context = Context::new();
     let mut interpreter = Interpreter::new(context);
 
@@ -28,7 +28,7 @@ impl Interpreter {
         Interpreter { context }
     }
 
-    pub fn run(&mut self, source: &str) -> Result<Value, Vec<Error>> {
+    pub fn run(&mut self, source: &str) -> Result<Option<Value>, Vec<Error>> {
         let tokens = lex(source)?;
         let statements = parse(&tokens)?;
         let errors = statements
@@ -48,11 +48,15 @@ impl Interpreter {
             return Err(errors);
         }
 
-        let mut value = Value::none();
+        let mut value = None;
 
         for (statement, _span) in statements {
             value = match statement.run(&self.context) {
-                Ok(value) => value,
+                Ok(action) => match action {
+                    Action::Break(value) => Some(value),
+                    Action::Return(value) => Some(value),
+                    Action::None => continue,
+                },
                 Err(runtime_error) => return Err(vec![Error::Runtime(runtime_error)]),
             }
         }

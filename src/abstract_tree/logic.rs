@@ -4,7 +4,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Expression, Type};
+use super::{AbstractTree, Action, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Logic<'src> {
@@ -59,24 +59,64 @@ impl<'src> AbstractTree for Logic<'src> {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Value, RuntimeError> {
+    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let boolean = match self {
-            Logic::Equal(left, right) => left.run(_context)? == right.run(_context)?,
-            Logic::NotEqual(left, right) => left.run(_context)? != right.run(_context)?,
-            Logic::Greater(left, right) => left.run(_context)? > right.run(_context)?,
-            Logic::Less(left, right) => left.run(_context)? < right.run(_context)?,
-            Logic::GreaterOrEqual(left, right) => left.run(_context)? >= right.run(_context)?,
-            Logic::LessOrEqual(left, right) => left.run(_context)? <= right.run(_context)?,
+            Logic::Equal(left, right) => {
+                let left = left.run(_context)?.as_return_value()?;
+                let right = right.run(_context)?.as_return_value()?;
+
+                left == right
+            }
+            Logic::NotEqual(left, right) => {
+                let left = left.run(_context)?.as_return_value()?;
+                let right = right.run(_context)?.as_return_value()?;
+
+                left != right
+            }
+            Logic::Greater(left, right) => {
+                let left = left.run(_context)?.as_return_value()?;
+                let right = right.run(_context)?.as_return_value()?;
+
+                left > right
+            }
+            Logic::Less(left, right) => {
+                let left = left.run(_context)?.as_return_value()?;
+                let right = right.run(_context)?.as_return_value()?;
+
+                left < right
+            }
+            Logic::GreaterOrEqual(left, right) => {
+                let left = left.run(_context)?.as_return_value()?;
+                let right = right.run(_context)?.as_return_value()?;
+
+                left >= right
+            }
+            Logic::LessOrEqual(left, right) => {
+                let left = left.run(_context)?.as_return_value()?;
+                let right = right.run(_context)?.as_return_value()?;
+
+                left <= right
+            }
             Logic::And(left, right) => {
-                left.run(_context)?.as_boolean()? && right.run(_context)?.as_boolean()?
+                let left = left.run(_context)?.as_return_value()?.as_boolean()?;
+                let right = right.run(_context)?.as_return_value()?.as_boolean()?;
+
+                left && right
             }
             Logic::Or(left, right) => {
-                left.run(_context)?.as_boolean()? || right.run(_context)?.as_boolean()?
+                let left = left.run(_context)?.as_return_value()?.as_boolean()?;
+                let right = right.run(_context)?.as_return_value()?.as_boolean()?;
+
+                left || right
             }
-            Logic::Not(statement) => !statement.run(_context)?.as_boolean()?,
+            Logic::Not(statement) => {
+                let boolean = statement.run(_context)?.as_return_value()?.as_boolean()?;
+
+                !boolean
+            }
         };
 
-        Ok(Value::boolean(boolean))
+        Ok(Action::Return(Value::boolean(boolean)))
     }
 }
 
@@ -94,6 +134,8 @@ mod tests {
         )
         .run(&Context::new())
         .unwrap()
+        .as_return_value()
+        .unwrap()
         .as_boolean()
         .unwrap())
     }
@@ -105,6 +147,8 @@ mod tests {
             Expression::Value(ValueNode::Integer(43)),
         )
         .run(&Context::new())
+        .unwrap()
+        .as_return_value()
         .unwrap()
         .as_boolean()
         .unwrap())
@@ -118,6 +162,8 @@ mod tests {
         )
         .run(&Context::new())
         .unwrap()
+        .as_return_value()
+        .unwrap()
         .as_boolean()
         .unwrap())
     }
@@ -129,6 +175,8 @@ mod tests {
             Expression::Value(ValueNode::Integer(43)),
         )
         .run(&Context::new())
+        .unwrap()
+        .as_return_value()
         .unwrap()
         .as_boolean()
         .unwrap())
@@ -142,6 +190,8 @@ mod tests {
         )
         .run(&Context::new())
         .unwrap()
+        .as_return_value()
+        .unwrap()
         .as_boolean()
         .unwrap());
 
@@ -150,6 +200,8 @@ mod tests {
             Expression::Value(ValueNode::Integer(42)),
         )
         .run(&Context::new())
+        .unwrap()
+        .as_return_value()
         .unwrap()
         .as_boolean()
         .unwrap())
@@ -163,6 +215,8 @@ mod tests {
         )
         .run(&Context::new())
         .unwrap()
+        .as_return_value()
+        .unwrap()
         .as_boolean()
         .unwrap());
 
@@ -171,6 +225,8 @@ mod tests {
             Expression::Value(ValueNode::Integer(42)),
         )
         .run(&Context::new())
+        .unwrap()
+        .as_return_value()
         .unwrap()
         .as_boolean()
         .unwrap())
@@ -184,6 +240,8 @@ mod tests {
         )
         .run(&Context::new())
         .unwrap()
+        .as_return_value()
+        .unwrap()
         .as_boolean()
         .unwrap())
     }
@@ -196,6 +254,8 @@ mod tests {
         )
         .run(&Context::new())
         .unwrap()
+        .as_return_value()
+        .unwrap()
         .as_boolean()
         .unwrap())
     }
@@ -204,6 +264,8 @@ mod tests {
     fn not() {
         assert!(Logic::Not(Expression::Value(ValueNode::Boolean(false)))
             .run(&Context::new())
+            .unwrap()
+            .as_return_value()
             .unwrap()
             .as_boolean()
             .unwrap())
