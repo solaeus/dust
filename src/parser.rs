@@ -217,7 +217,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             .boxed();
 
         let r#break = just(Token::Keyword("break"))
-            .ignore_then(expression)
+            .ignore_then(expression.clone())
             .map(|expression| Statement::Break(expression));
 
         let assignment = identifier
@@ -256,8 +256,25 @@ pub fn parser<'src>() -> DustParser<'src> {
             .map(|statements| Statement::Loop(Loop::new(statements)))
             .boxed();
 
-        choice((assignment, expression_statement, r#break, block, r#loop))
-            .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
+        let if_else = just(Token::Keyword("if"))
+            .ignore_then(expression.clone())
+            .then(statement.clone())
+            .then_ignore(just(Token::Keyword("else")))
+            .then(statement.clone().or_not())
+            .map(|((if_expression, if_block), else_block)| {
+                Statement::IfElse(IfElse::new(if_expression, if_block, else_block))
+            })
+            .boxed();
+
+        choice((
+            assignment,
+            expression_statement,
+            r#break,
+            block,
+            r#loop,
+            if_else,
+        ))
+        .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
 
     statement
@@ -272,6 +289,20 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn if_else() {
+        assert_eq!(
+            parse(&lex("if true 'foo' else 'bar'").unwrap()).unwrap()[0].0,
+            Statement::IfElse(IfElse::new(
+                Expression::Value(ValueNode::Boolean(true)),
+                Statement::Expression(Expression::Value(ValueNode::String("foo"))),
+                Some(Statement::Expression(Expression::Value(ValueNode::String(
+                    "bar"
+                ))))
+            ))
+        )
+    }
 
     #[test]
     fn map() {

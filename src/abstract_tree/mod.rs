@@ -2,6 +2,7 @@ pub mod assignment;
 pub mod block;
 pub mod expression;
 pub mod identifier;
+pub mod if_else;
 pub mod index;
 pub mod logic;
 pub mod r#loop;
@@ -15,6 +16,7 @@ pub use self::{
     block::Block,
     expression::Expression,
     identifier::Identifier,
+    if_else::IfElse,
     index::Index,
     logic::Logic,
     math::Math,

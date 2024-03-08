@@ -3,7 +3,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Assignment, Block, Expression, Loop, Type};
+use super::{AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement<'src> {
@@ -11,6 +11,7 @@ pub enum Statement<'src> {
     Block(Block<'src>),
     Break(Expression<'src>),
     Expression(Expression<'src>),
+    IfElse(IfElse<'src>),
     Loop(Loop<'src>),
 }
 
@@ -21,6 +22,7 @@ impl<'src> AbstractTree for Statement<'src> {
             Statement::Block(block) => block.expected_type(_context),
             Statement::Break(expression) => expression.expected_type(_context),
             Statement::Expression(expression) => expression.expected_type(_context),
+            Statement::IfElse(_) => todo!(),
             Statement::Loop(r#loop) => r#loop.expected_type(_context),
         }
     }
@@ -31,6 +33,7 @@ impl<'src> AbstractTree for Statement<'src> {
             Statement::Block(_) => todo!(),
             Statement::Break(expression) => expression.validate(_context),
             Statement::Expression(expression) => expression.validate(_context),
+            Statement::IfElse(_) => todo!(),
             Statement::Loop(r#loop) => r#loop.validate(_context),
         }
     }
@@ -41,6 +44,7 @@ impl<'src> AbstractTree for Statement<'src> {
             Statement::Block(_) => todo!(),
             Statement::Break(expression) => expression.run(_context),
             Statement::Expression(expression) => expression.run(_context),
+            Statement::IfElse(_) => todo!(),
             Statement::Loop(r#loop) => r#loop.run(_context),
         }
     }
