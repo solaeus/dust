@@ -15,7 +15,7 @@ fn loops_and_breaks() {
             }
             "
         ),
-        Ok(Some(Value::string("foobar")))
+        Ok(Some(Value::string("foobar".to_string())))
     )
 }
 
@@ -23,7 +23,7 @@ fn loops_and_breaks() {
 fn r#if() {
     assert_eq!(
         interpret("if true 'foobar'"),
-        Ok(Some(Value::string("foobar")))
+        Ok(Some(Value::string("foobar".to_string())))
     )
 }
 
@@ -31,6 +31,6 @@ fn r#if() {
 fn if_else() {
     assert_eq!(
         interpret("if false 'foo' else 'bar'"),
-        Ok(Some(Value::string("bar")))
+        Ok(Some(Value::string("bar".to_string())))
     )
 }

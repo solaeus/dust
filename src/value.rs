@@ -64,8 +64,8 @@ impl Value {
         Value(Arc::new(ValueInner::Range(range)))
     }
 
-    pub fn string<T: ToString>(string: T) -> Self {
-        Value(Arc::new(ValueInner::String(string.to_string())))
+    pub fn string(string: String) -> Self {
+        Value(Arc::new(ValueInner::String(string)))
     }
 
     pub fn r#enum(name: Identifier, variant: Identifier) -> Self {

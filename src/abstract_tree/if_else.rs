@@ -75,7 +75,7 @@ mod tests {
                 None
             )
             .run(&Context::new()),
-            Ok(Action::Return(Value::string("foo")))
+            Ok(Action::Return(Value::string("foo".to_string())))
         )
     }
 
@@ -90,7 +90,7 @@ mod tests {
                 ))))
             )
             .run(&Context::new()),
-            Ok(Action::Return(Value::string("bar")))
+            Ok(Action::Return(Value::string("bar".to_string())))
         )
     }
 }
