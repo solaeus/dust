@@ -259,10 +259,13 @@ pub fn parser<'src>() -> DustParser<'src> {
         let if_else = just(Token::Keyword("if"))
             .ignore_then(expression.clone())
             .then(statement.clone())
-            .then_ignore(just(Token::Keyword("else")))
-            .then(statement.clone().or_not())
-            .map(|((if_expression, if_block), else_block)| {
-                Statement::IfElse(IfElse::new(if_expression, if_block, else_block))
+            .then(
+                just(Token::Keyword("else"))
+                    .ignore_then(statement.clone())
+                    .or_not(),
+            )
+            .map(|((if_expression, if_statement), else_statement)| {
+                Statement::IfElse(IfElse::new(if_expression, if_statement, else_statement))
             })
             .boxed();
 
@@ -289,6 +292,18 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn r#if() {
+        assert_eq!(
+            parse(&lex("if true 'foo'").unwrap()).unwrap()[0].0,
+            Statement::IfElse(IfElse::new(
+                Expression::Value(ValueNode::Boolean(true)),
+                Statement::Expression(Expression::Value(ValueNode::String("foo"))),
+                None
+            ))
+        )
+    }
 
     #[test]
     fn if_else() {

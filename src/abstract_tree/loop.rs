@@ -40,11 +40,12 @@ impl<'src> AbstractTree for Loop<'src> {
             }
 
             let statement = self.statements[index].clone();
+            let action = statement.run(_context)?;
 
-            if let Statement::Break(expression) = statement {
-                break expression.run(_context);
-            } else {
-                statement.run(_context)?;
+            match action {
+                Action::Return(_) => {}
+                Action::None => {}
+                r#break => return Ok(r#break),
             }
         }
     }
@@ -66,6 +67,6 @@ mod tests {
         }
         .run(&Context::new());
 
-        assert_eq!(result, Ok(Action::Return(Value::integer(42))))
+        assert_eq!(result, Ok(Action::Break(Value::integer(42))))
     }
 }

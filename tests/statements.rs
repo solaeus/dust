@@ -18,3 +18,19 @@ fn loops_and_breaks() {
         Ok(Some(Value::string("foobar")))
     )
 }
+
+#[test]
+fn r#if() {
+    assert_eq!(
+        interpret("if true 'foobar'"),
+        Ok(Some(Value::string("foobar")))
+    )
+}
+
+#[test]
+fn if_else() {
+    assert_eq!(
+        interpret("if false 'foo' else 'bar'"),
+        Ok(Some(Value::string("bar")))
+    )
+}

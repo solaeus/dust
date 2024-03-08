@@ -28,11 +28,15 @@ impl<'src> IfElse<'src> {
 
 impl<'src> AbstractTree for IfElse<'src> {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        Ok(Type::None)
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        if let Type::Boolean = self.if_expression.expected_type(_context)? {
+            Ok(())
+        } else {
+            Err(ValidationError::ExpectedBoolean)
+        }
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
