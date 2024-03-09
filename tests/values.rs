@@ -126,7 +126,7 @@ fn map_types() {
     map.insert(Identifier::new("foo"), Value::string("bar".to_string()));
 
     assert_eq!(
-        interpret("{ x <int> = 1, foo <str> = 'bar' }"),
+        interpret("{ x : int = 1, foo : str = 'bar' }"),
         Ok(Some(Value::map(map)))
     );
 }
@@ -134,13 +134,13 @@ fn map_types() {
 #[test]
 fn map_type_errors() {
     assert_eq!(
-        interpret("{ foo <bool> = 'bar' }"),
+        interpret("{ foo : bool = 'bar' }"),
         Err(vec![Error::Validation {
             error: ValidationError::TypeCheck(TypeCheckError {
                 actual: Type::String,
                 expected: Type::Boolean
             }),
-            span: (0..0).into()
+            span: (0..22).into()
         }])
     );
 }

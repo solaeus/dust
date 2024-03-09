@@ -50,7 +50,17 @@ impl AbstractTree for ValueNode {
         Ok(r#type)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        if let ValueNode::Map(map_assignments) = self {
+            for (_identifier, r#type, expression) in map_assignments {
+                if let Some(expected_type) = r#type {
+                    let actual_type = expression.expected_type(context)?;
+
+                    expected_type.check(&actual_type)?;
+                }
+            }
+        }
+
         Ok(())
     }
 
