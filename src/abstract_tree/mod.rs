@@ -48,6 +48,14 @@ pub enum Action {
 }
 
 impl Action {
+    pub fn as_value(self) -> Result<Value, ValidationError> {
+        match self {
+            Action::Break(value) => Ok(value),
+            Action::Return(value) => Ok(value),
+            Action::None => Err(ValidationError::ExpectedValue),
+        }
+    }
+
     pub fn as_return_value(self) -> Result<Value, ValidationError> {
         if let Action::Return(value) = self {
             Ok(value)

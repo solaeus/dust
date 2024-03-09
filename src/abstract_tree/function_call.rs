@@ -22,14 +22,34 @@ impl FunctionCall {
 
 impl AbstractTree for FunctionCall {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        if let Type::Function { return_type, .. } = self.function.expected_type(_context)? {
+            Ok(*return_type)
+        } else {
+            Err(ValidationError::ExpectedFunction)
+        }
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        if let Type::Function { .. } = self.function.expected_type(_context)? {
+            Ok(())
+        } else {
+            Err(ValidationError::ExpectedFunction)
+        }
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        todo!()
+        let value = self.function.run(_context)?.as_value()?;
+        let function = value.as_function()?;
+        let mut arguments = Vec::with_capacity(self.arguments.len());
+
+        for expression in self.arguments {
+            let value = expression.run(_context)?.as_value()?;
+
+            arguments.push(value);
+        }
+
+        let function_context = Context::new();
+
+        function.call(arguments, function_context)
     }
 }

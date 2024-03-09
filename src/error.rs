@@ -88,6 +88,8 @@ impl Error {
                     ValidationError::CannotIndex(_) => todo!(),
                     ValidationError::CannotIndexWith(_, _) => todo!(),
                     ValidationError::InterpreterExpectedReturn => todo!(),
+                    ValidationError::ExpectedFunction => todo!(),
+                    ValidationError::ExpectedValue => todo!(),
                 }
 
                 report.finish()
@@ -143,7 +145,9 @@ pub enum ValidationError {
     CannotIndex(Type),
     CannotIndexWith(Type, Type),
     ExpectedBoolean,
+    ExpectedFunction,
     ExpectedIntegerOrFloat,
+    ExpectedValue,
     InterpreterExpectedReturn,
     RwLockPoison(RwLockPoisonError),
     TypeCheck(TypeCheckError),

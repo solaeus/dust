@@ -13,7 +13,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{Action, Identifier, Statement, Type},
+    abstract_tree::{AbstractTree, Action, Identifier, Statement, Type},
     context::Context,
     error::{RuntimeError, ValidationError},
 };
@@ -127,6 +127,14 @@ impl Value {
         }
 
         Err(ValidationError::ExpectedBoolean)
+    }
+
+    pub fn as_function(&self) -> Result<&Function, ValidationError> {
+        if let ValueInner::Function(function) = self.0.as_ref() {
+            return Ok(function);
+        }
+
+        Err(ValidationError::ExpectedFunction)
     }
 
     pub fn as_list(&self) -> Option<&Vec<Value>> {
@@ -338,6 +346,25 @@ pub enum Function {
     BuiltIn(BuiltInFunction),
 }
 
+impl Function {
+    pub fn call(&self, arguments: Vec<Value>, context: Context) -> Result<Action, RuntimeError> {
+        let action = match self {
+            Function::Parsed(ParsedFunction {
+                parameters, body, ..
+            }) => {
+                for ((identifier, _), value) in parameters.into_iter().zip(arguments.into_iter()) {
+                    context.set_value(identifier.clone(), value)?;
+                }
+
+                body.clone().run(&context)?
+            }
+            Function::BuiltIn(built_in_function) => built_in_function.call(arguments, &context)?,
+        };
+
+        Ok(action)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ParsedFunction {
     parameters: Vec<(Identifier, Type)>,
@@ -368,10 +395,10 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn call(self, value: Value, _context: &Context) -> Result<Action, RuntimeError> {
+    pub fn call(&self, arguments: Vec<Value>, _context: &Context) -> Result<Action, RuntimeError> {
         match self {
             BuiltInFunction::Output => {
-                println!("{value}");
+                println!("{}", arguments[0]);
 
                 Ok(Action::None)
             }
