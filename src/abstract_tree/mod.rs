@@ -1,6 +1,7 @@
 pub mod assignment;
 pub mod block;
 pub mod expression;
+pub mod function_call;
 pub mod identifier;
 pub mod if_else;
 pub mod index;
@@ -15,6 +16,7 @@ pub use self::{
     assignment::{Assignment, AssignmentOperator},
     block::Block,
     expression::Expression,
+    function_call::FunctionCall,
     identifier::Identifier,
     if_else::IfElse,
     index::Index,

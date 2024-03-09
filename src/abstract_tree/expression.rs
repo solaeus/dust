@@ -3,10 +3,11 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Identifier, Index, Logic, Math, Type, ValueNode};
+use super::{AbstractTree, Action, FunctionCall, Identifier, Index, Logic, Math, Type, ValueNode};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression {
+    FunctionCall(FunctionCall),
     Identifier(Identifier),
     Index(Box<Index>),
     Logic(Box<Logic>),
@@ -17,6 +18,7 @@ pub enum Expression {
 impl AbstractTree for Expression {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
+            Expression::FunctionCall(function_call) => function_call.expected_type(_context),
             Expression::Identifier(identifier) => identifier.expected_type(_context),
             Expression::Index(index) => index.expected_type(_context),
             Expression::Logic(logic) => logic.expected_type(_context),
@@ -27,6 +29,7 @@ impl AbstractTree for Expression {
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
         match self {
+            Expression::FunctionCall(function_call) => function_call.validate(_context),
             Expression::Identifier(identifier) => identifier.validate(_context),
             Expression::Index(index) => index.validate(_context),
             Expression::Logic(logic) => logic.validate(_context),
@@ -37,6 +40,7 @@ impl AbstractTree for Expression {
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         match self {
+            Expression::FunctionCall(function_call) => function_call.run(_context),
             Expression::Identifier(identifier) => identifier.run(_context),
             Expression::Index(index) => index.run(_context),
             Expression::Logic(logic) => logic.run(_context),

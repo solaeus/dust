@@ -302,7 +302,26 @@ pub fn parser<'src>() -> DustParser<'src> {
                 }))
             });
 
+        let function_call = expression
+            .clone()
+            .then(
+                expression
+                    .clone()
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::ParenOpen)),
+                        just(Token::Control(Control::ParenClose)),
+                    ),
+            )
+            .map(|(function, arguments)| {
+                Statement::Expression(Expression::FunctionCall(FunctionCall::new(
+                    function, arguments,
+                )))
+            });
+
         choice((
+            function_call,
             assignment,
             expression_statement,
             r#break,
@@ -326,6 +345,17 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn function_call() {
+        assert_eq!(
+            parse(&lex("output()").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::FunctionCall(FunctionCall::new(
+                Expression::Identifier(Identifier::new("output")),
+                Vec::with_capacity(0),
+            )))
+        )
+    }
 
     #[test]
     fn range() {
