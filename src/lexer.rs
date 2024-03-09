@@ -131,6 +131,7 @@ pub fn lexer<'src>() -> impl Parser<
         .or_not()
         .then(text::int(10))
         .then(just('.').then(text::digits(10)))
+        .then(just('e').then(text::digits(10)).or_not())
         .to_slice()
         .map(|text: &str| Token::Float(text.parse().unwrap()));
 

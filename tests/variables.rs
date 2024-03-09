@@ -1,5 +1,5 @@
 use dust_lang::{
-    abstract_tree::Type,
+    abstract_tree::{Expression, Identifier, Statement, Type},
     error::{Error, TypeCheckError, ValidationError},
     *,
 };
@@ -31,5 +31,17 @@ fn set_variable_with_type_error() {
             }),
             span: (0..18).into()
         }])
+    );
+}
+
+#[test]
+fn function_variable() {
+    assert_eq!(
+        interpret("foobar = (x: int): int x; foobar"),
+        Ok(Some(Value::function(
+            vec![(Identifier::new("x"), Type::Integer)],
+            Type::Integer,
+            Statement::Expression(Expression::Identifier(Identifier::new("x")))
+        )))
     );
 }
