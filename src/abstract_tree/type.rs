@@ -14,6 +14,10 @@ pub enum Type {
     Boolean,
     Custom(Identifier),
     Float,
+    Function {
+        parameter_types: Vec<Type>,
+        return_type: Box<Type>,
+    },
     Integer,
     List,
     ListOf(Box<Type>),
@@ -131,6 +135,18 @@ impl Display for Type {
             Type::None => write!(f, "none"),
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "string"),
+            Type::Function {
+                parameter_types,
+                return_type,
+            } => {
+                write!(f, "(")?;
+
+                for r#type in parameter_types {
+                    write!(f, "{} ", r#type)?;
+                }
+
+                write!(f, ") : {return_type}")
+            }
         }
     }
 }

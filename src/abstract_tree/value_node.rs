@@ -44,7 +44,18 @@ impl AbstractTree for ValueNode {
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
             ValueNode::Enum(name, _) => Type::Custom(name.clone()),
-            ValueNode::Function { .. } => todo!(),
+            ValueNode::Function {
+                parameters,
+                return_type,
+                ..
+            } => Type::Function {
+                parameter_types: parameters
+                    .into_iter()
+                    .map(|(_, r#type)| r#type)
+                    .cloned()
+                    .collect(),
+                return_type: Box::new(return_type.clone()),
+            },
         };
 
         Ok(r#type)
