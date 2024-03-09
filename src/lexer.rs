@@ -4,7 +4,7 @@ use chumsky::prelude::*;
 
 use crate::error::Error;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token<'src> {
     Boolean(bool),
     Integer(i64),
@@ -16,7 +16,7 @@ pub enum Token<'src> {
     Keyword(&'src str),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Operator {
     Add,
     AddAssign,
@@ -61,7 +61,7 @@ impl Display for Operator {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Control {
     CurlyOpen,
     CurlyClose,
@@ -73,6 +73,7 @@ pub enum Control {
     DoubleColon,
     Colon,
     Dot,
+    DoubleDot,
     Semicolon,
 }
 
@@ -89,6 +90,7 @@ impl Display for Control {
             Control::DoubleColon => write!(f, "::"),
             Control::Colon => write!(f, ":"),
             Control::Dot => write!(f, "."),
+            Control::DoubleDot => write!(f, ".."),
             Control::Semicolon => write!(f, ";"),
         }
     }
@@ -202,6 +204,7 @@ pub fn lexer<'src>() -> impl Parser<
         just(";").padded().to(Control::Semicolon),
         just("::").padded().to(Control::DoubleColon),
         just(":").padded().to(Control::Colon),
+        just("..").padded().to(Control::DoubleDot),
         just(".").padded().to(Control::Dot),
     ))
     .map(Token::Control);
@@ -233,6 +236,18 @@ pub fn lexer<'src>() -> impl Parser<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn range() {
+        assert_eq!(
+            lex("1..10").unwrap(),
+            vec![
+                (Token::Integer(1), (0..1).into()),
+                (Token::Control(Control::DoubleDot), (1..3).into()),
+                (Token::Integer(10), (3..5).into())
+            ]
+        )
+    }
 
     #[test]
     fn math_operators() {

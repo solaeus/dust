@@ -95,6 +95,18 @@ pub fn parser<'src>() -> DustParser<'src> {
             .map(|identifier| Expression::Identifier(identifier))
             .boxed();
 
+        let range = {
+            let raw_integer = select! {
+                Token::Integer(integer) => integer
+            };
+
+            raw_integer
+                .clone()
+                .then_ignore(just(Token::Control(Control::DoubleDot)))
+                .then(raw_integer)
+                .map(|(start, end)| Expression::Value(ValueNode::Range(start..end)))
+        };
+
         let list = expression
             .clone()
             .separated_by(just(Token::Control(Control::Comma)))
@@ -201,6 +213,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             .boxed();
 
         choice((
+            range,
             r#enum,
             logic_math_and_index,
             identifier_expression,
@@ -313,6 +326,14 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn range() {
+        assert_eq!(
+            parse(&lex("1..10").unwrap()).unwrap()[0].0,
+            Statement::Expression(Expression::Value(ValueNode::Range(1..10)))
+        )
+    }
 
     #[test]
     fn function() {
