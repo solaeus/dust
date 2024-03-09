@@ -87,6 +87,10 @@ impl Value {
         ))))
     }
 
+    pub fn built_in_function(function: BuiltInFunction) -> Self {
+        Value(Arc::new(ValueInner::Function(Function::BuiltIn(function))))
+    }
+
     pub fn r#type(&self) -> Type {
         match self.0.as_ref() {
             ValueInner::Boolean(_) => Type::Boolean,
@@ -343,22 +347,30 @@ pub struct ParsedFunction {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
-    Output(Value),
+    Output,
 }
 
 impl BuiltInFunction {
-    fn r#type(&self, context: &Context) -> Type {
+    pub fn output() -> Value {
+        static OUTPUT: OnceLock<Value> = OnceLock::new();
+
+        OUTPUT
+            .get_or_init(|| Value::built_in_function(BuiltInFunction::Output))
+            .clone()
+    }
+
+    pub fn r#type(&self) -> Type {
         match self {
-            BuiltInFunction::Output(_) => Type::Function {
+            BuiltInFunction::Output => Type::Function {
                 parameter_types: vec![Type::Any],
                 return_type: Box::new(Type::None),
             },
         }
     }
 
-    fn call(self, context: &Context) -> Result<Action, RuntimeError> {
+    pub fn call(self, value: Value, _context: &Context) -> Result<Action, RuntimeError> {
         match self {
-            BuiltInFunction::Output(value) => {
+            BuiltInFunction::Output => {
                 println!("{value}");
 
                 Ok(Action::None)
@@ -370,7 +382,7 @@ impl BuiltInFunction {
 impl Display for BuiltInFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            BuiltInFunction::Output(_) => write!(f, "(to_output : any) : none rust_magic();"),
+            BuiltInFunction::Output => write!(f, "(to_output : any) : none rust_magic();"),
         }
     }
 }

@@ -6,6 +6,7 @@ use std::{
 use crate::{
     abstract_tree::{Identifier, Type},
     error::RwLockPoisonError,
+    value::BuiltInFunction,
     Value,
 };
 
@@ -36,23 +37,42 @@ impl Context {
         &self,
         identifier: &Identifier,
     ) -> Result<Option<ValueData>, RwLockPoisonError> {
-        Ok(self.inner.read()?.get(identifier).cloned())
+        if let Some(value_data) = self.inner.read()?.get(identifier) {
+            return Ok(Some(value_data.clone()));
+        }
+
+        let value_data = match identifier.as_str() {
+            "output" => ValueData::Value(BuiltInFunction::output()),
+            _ => return Ok(None),
+        };
+
+        Ok(Some(value_data))
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
         if let Some(ValueData::Type(r#type)) = self.inner.read()?.get(identifier) {
-            Ok(Some(r#type.clone()))
-        } else {
-            Ok(None)
+            return Ok(Some(r#type.clone()));
         }
+
+        let r#type = match identifier.as_str() {
+            "output" => BuiltInFunction::Output.r#type(),
+            _ => return Ok(None),
+        };
+
+        Ok(Some(r#type))
     }
 
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
         if let Some(ValueData::Value(value)) = self.inner.read()?.get(identifier) {
-            Ok(Some(value.clone()))
-        } else {
-            Ok(None)
+            return Ok(Some(value.clone()));
         }
+
+        let value = match identifier.as_str() {
+            "output" => BuiltInFunction::output(),
+            _ => return Ok(None),
+        };
+
+        Ok(Some(value))
     }
 
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), RwLockPoisonError> {

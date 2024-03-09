@@ -56,7 +56,7 @@ impl Error {
             Error::Runtime(_) => todo!(),
             Error::Validation { error, span } => {
                 let mut report = Report::build(
-                    ReportKind::Custom("Lexing Error", Color::White),
+                    ReportKind::Custom("Validation Error", Color::White),
                     (),
                     span.start,
                 );
