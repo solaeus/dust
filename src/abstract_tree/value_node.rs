@@ -6,7 +6,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Expression, Identifier, Statement, Type};
+use super::{AbstractTree, Action, Block, Expression, Identifier, Type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
@@ -21,7 +21,7 @@ pub enum ValueNode {
     Function {
         parameters: Vec<(Identifier, Type)>,
         return_type: Type,
-        body: Box<Statement>,
+        body: Block,
     },
 }
 
@@ -72,6 +72,23 @@ impl AbstractTree for ValueNode {
             }
         }
 
+        if let ValueNode::Function {
+            parameters,
+            return_type,
+            body,
+        } = self
+        {
+            let function_context = Context::new();
+
+            for (identifier, r#type) in parameters {
+                function_context.set_type(identifier.clone(), r#type.clone())?;
+            }
+
+            let actual_return_type = body.expected_type(&function_context)?;
+
+            return_type.check(&actual_return_type)?;
+        }
+
         Ok(())
     }
 
@@ -115,7 +132,7 @@ impl AbstractTree for ValueNode {
                 parameters,
                 return_type,
                 body,
-            } => Value::function(parameters, return_type, *body),
+            } => Value::function(parameters, return_type, body),
         };
 
         Ok(Action::Return(value))

@@ -38,7 +38,7 @@ fn callback() {
             foobar = (cb : () -> str) : str {
                 cb()
             }
-            foobar(() : str { 'Hiya' })
+            foobar(() : str 'Hiya')
             ",
         ),
         Ok(Some(Value::string("Hiya".to_string())))
@@ -57,12 +57,12 @@ fn function_context_does_not_capture_values() {
             "
             x = 1
 
-            foo = () : any { x }
+            foo = () : any { x } 
             "
         ),
         Err(vec![Error::Validation {
             error: ValidationError::VariableNotFound(Identifier::new("x")),
-            span: (0..0).into()
+            span: (32..66).into()
         }])
     );
 

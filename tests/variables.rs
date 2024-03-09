@@ -1,5 +1,5 @@
 use dust_lang::{
-    abstract_tree::{Expression, Identifier, Statement, Type},
+    abstract_tree::{Block, Expression, Identifier, Statement, Type},
     error::{Error, TypeCheckError, ValidationError},
     *,
 };
@@ -41,7 +41,9 @@ fn function_variable() {
         Ok(Some(Value::function(
             vec![(Identifier::new("x"), Type::Integer)],
             Type::Integer,
-            Statement::Expression(Expression::Identifier(Identifier::new("x")))
+            Block::new(vec![Statement::Expression(Expression::Identifier(
+                Identifier::new("x")
+            ))])
         )))
     );
 }

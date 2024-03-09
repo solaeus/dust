@@ -13,7 +13,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractTree, Action, Identifier, Statement, Type},
+    abstract_tree::{AbstractTree, Action, Block, Identifier, Type},
     context::Context,
     error::{RuntimeError, ValidationError},
 };
@@ -73,11 +73,7 @@ impl Value {
         Value(Arc::new(ValueInner::Enum(name, variant)))
     }
 
-    pub fn function(
-        parameters: Vec<(Identifier, Type)>,
-        return_type: Type,
-        body: Statement,
-    ) -> Self {
+    pub fn function(parameters: Vec<(Identifier, Type)>, return_type: Type, body: Block) -> Self {
         Value(Arc::new(ValueInner::Function(Function::Parsed(
             ParsedFunction {
                 parameters,
@@ -369,7 +365,7 @@ impl Function {
 pub struct ParsedFunction {
     parameters: Vec<(Identifier, Type)>,
     return_type: Type,
-    body: Statement,
+    body: Block,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]

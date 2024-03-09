@@ -210,6 +210,7 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Control);
 
     let keyword = choice((
+        just("any").padded(),
         just("bool").padded(),
         just("break").padded(),
         just("else").padded(),
@@ -218,6 +219,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("if").padded(),
         just("list").padded(),
         just("map").padded(),
+        just("none").padded(),
         just("range").padded(),
         just("str").padded(),
         just("loop").padded(),

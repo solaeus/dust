@@ -1,7 +1,6 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    Value,
 };
 
 use super::{AbstractTree, Action, Statement, Type};
@@ -19,9 +18,11 @@ impl Block {
 
 impl AbstractTree for Block {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        let final_statement = self.statements.last().unwrap();
-
-        final_statement.expected_type(_context)
+        if let Some(statement) = self.statements.last() {
+            statement.expected_type(_context)
+        } else {
+            Ok(Type::None)
+        }
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
@@ -33,23 +34,26 @@ impl AbstractTree for Block {
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let mut previous = Value::none();
+        let mut previous = Action::None;
 
         for statement in self.statements {
             let action = statement.run(_context)?;
             previous = match action {
-                Action::Return(value) => value,
+                Action::Return(value) => Action::Return(value),
                 r#break => return Ok(r#break),
             };
         }
 
-        Ok(Action::Return(previous))
+        Ok(previous)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::abstract_tree::{Expression, ValueNode};
+    use crate::{
+        abstract_tree::{Expression, ValueNode},
+        Value,
+    };
 
     use super::*;
 

@@ -47,10 +47,21 @@ pub fn parser<'src>() -> DustParser<'src> {
         }
     };
 
+    let basic_value = select! {
+        Token::Boolean(boolean) => ValueNode::Boolean(boolean),
+        Token::Integer(integer) => ValueNode::Integer(integer),
+        Token::Float(float) => ValueNode::Float(float),
+        Token::String(string) => ValueNode::String(string.to_string()),
+    }
+    .map(|value| Expression::Value(value))
+    .boxed();
+
     let basic_type = choice((
+        just(Token::Keyword("any")).to(Type::Any),
         just(Token::Keyword("bool")).to(Type::Boolean),
         just(Token::Keyword("float")).to(Type::Float),
         just(Token::Keyword("int")).to(Type::Integer),
+        just(Token::Keyword("none")).to(Type::None),
         just(Token::Keyword("range")).to(Type::Range),
         just(Token::Keyword("str")).to(Type::String),
         just(Token::Keyword("list")).to(Type::List),
@@ -80,150 +91,194 @@ pub fn parser<'src>() -> DustParser<'src> {
             .map(|identifier| Type::Custom(identifier)),
     )));
 
-    let expression = recursive(|expression| {
-        let basic_value = select! {
-            Token::Boolean(boolean) => ValueNode::Boolean(boolean),
-            Token::Integer(integer) => ValueNode::Integer(integer),
-            Token::Float(float) => ValueNode::Float(float),
-            Token::String(string) => ValueNode::String(string.to_string()),
-        }
-        .map(|value| Expression::Value(value))
-        .boxed();
-
-        let identifier_expression = identifier
+    let statement = recursive(|statement| {
+        let block = statement
             .clone()
-            .map(|identifier| Expression::Identifier(identifier))
-            .boxed();
-
-        let range = {
-            let raw_integer = select! {
-                Token::Integer(integer) => integer
-            };
-
-            raw_integer
-                .clone()
-                .then_ignore(just(Token::Control(Control::DoubleDot)))
-                .then(raw_integer)
-                .map(|(start, end)| Expression::Value(ValueNode::Range(start..end)))
-        };
-
-        let list = expression
-            .clone()
-            .separated_by(just(Token::Control(Control::Comma)))
-            .allow_trailing()
-            .collect()
-            .delimited_by(
-                just(Token::Control(Control::SquareOpen)),
-                just(Token::Control(Control::SquareClose)),
-            )
-            .map(|list| Expression::Value(ValueNode::List(list)))
-            .boxed();
-
-        let map_assignment = identifier
-            .clone()
-            .then(type_specification.clone().or_not())
-            .then_ignore(just(Token::Operator(Operator::Assign)))
-            .then(expression.clone())
-            .map(|((identifier, r#type), expression)| (identifier, r#type, expression));
-
-        let map = map_assignment
-            .separated_by(just(Token::Control(Control::Comma)).or_not())
-            .allow_trailing()
+            .repeated()
             .collect()
             .delimited_by(
                 just(Token::Control(Control::CurlyOpen)),
                 just(Token::Control(Control::CurlyClose)),
             )
-            .map(|map_assigment_list| Expression::Value(ValueNode::Map(map_assigment_list)));
+            .map(|statements| Block::new(statements));
 
-        let r#enum = identifier
-            .clone()
-            .then_ignore(just(Token::Control(Control::DoubleColon)))
-            .then(identifier.clone())
-            .map(|(name, variant)| Expression::Value(ValueNode::Enum(name, variant)))
-            .boxed();
+        let expression = recursive(|expression| {
+            let identifier_expression = identifier
+                .clone()
+                .map(|identifier| Expression::Identifier(identifier))
+                .boxed();
 
-        let atom = choice((
-            identifier_expression.clone(),
-            basic_value.clone(),
-            list.clone(),
-            r#enum.clone(),
-            expression.clone().delimited_by(
-                just(Token::Control(Control::ParenOpen)),
-                just(Token::Control(Control::ParenClose)),
-            ),
-        ));
+            let range = {
+                let raw_integer = select! {
+                    Token::Integer(integer) => integer
+                };
 
-        use Operator::*;
+                raw_integer
+                    .clone()
+                    .then_ignore(just(Token::Control(Control::DoubleDot)))
+                    .then(raw_integer)
+                    .map(|(start, end)| Expression::Value(ValueNode::Range(start..end)))
+            };
 
-        let logic_math_and_index = atom
-            .pratt((
-                prefix(2, just(Token::Operator(Not)), |expression| {
-                    Expression::Logic(Box::new(Logic::Not(expression)))
-                }),
-                infix(left(1), just(Token::Operator(Equal)), |left, right| {
-                    Expression::Logic(Box::new(Logic::Equal(left, right)))
-                }),
-                infix(left(1), just(Token::Operator(NotEqual)), |left, right| {
-                    Expression::Logic(Box::new(Logic::NotEqual(left, right)))
-                }),
-                infix(left(1), just(Token::Operator(Greater)), |left, right| {
-                    Expression::Logic(Box::new(Logic::Greater(left, right)))
-                }),
-                infix(left(1), just(Token::Operator(Less)), |left, right| {
-                    Expression::Logic(Box::new(Logic::Less(left, right)))
-                }),
-                infix(
-                    left(1),
-                    just(Token::Operator(GreaterOrEqual)),
-                    |left, right| Expression::Logic(Box::new(Logic::GreaterOrEqual(left, right))),
+            let list = expression
+                .clone()
+                .separated_by(just(Token::Control(Control::Comma)))
+                .allow_trailing()
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::SquareOpen)),
+                    just(Token::Control(Control::SquareClose)),
+                )
+                .map(|list| Expression::Value(ValueNode::List(list)))
+                .boxed();
+
+            let map_assignment = identifier
+                .clone()
+                .then(type_specification.clone().or_not())
+                .then_ignore(just(Token::Operator(Operator::Assign)))
+                .then(expression.clone())
+                .map(|((identifier, r#type), expression)| (identifier, r#type, expression));
+
+            let map = map_assignment
+                .separated_by(just(Token::Control(Control::Comma)).or_not())
+                .allow_trailing()
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::CurlyOpen)),
+                    just(Token::Control(Control::CurlyClose)),
+                )
+                .map(|map_assigment_list| Expression::Value(ValueNode::Map(map_assigment_list)));
+
+            let r#enum = identifier
+                .clone()
+                .then_ignore(just(Token::Control(Control::DoubleColon)))
+                .then(identifier.clone())
+                .map(|(name, variant)| Expression::Value(ValueNode::Enum(name, variant)))
+                .boxed();
+
+            let function = identifier
+                .clone()
+                .then(type_specification.clone())
+                .separated_by(just(Token::Control(Control::Comma)))
+                .collect::<Vec<(Identifier, Type)>>()
+                .delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
+                )
+                .then(type_specification.clone())
+                .then(block.clone())
+                .map(|((parameters, return_type), body)| {
+                    Expression::Value(ValueNode::Function {
+                        parameters,
+                        return_type,
+                        body,
+                    })
+                })
+                .boxed();
+
+            let function_expression = choice((identifier_expression.clone(), function.clone()));
+
+            let function_call = function_expression
+                .then(
+                    expression
+                        .clone()
+                        .separated_by(just(Token::Control(Control::Comma)))
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::ParenOpen)),
+                            just(Token::Control(Control::ParenClose)),
+                        ),
+                )
+                .map(|(function, arguments)| {
+                    Expression::FunctionCall(FunctionCall::new(function, arguments))
+                })
+                .boxed();
+
+            let atom = choice((
+                function_call,
+                identifier_expression.clone(),
+                basic_value.clone(),
+                list.clone(),
+                r#enum.clone(),
+                expression.clone().delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
                 ),
-                infix(
-                    left(1),
-                    just(Token::Operator(LessOrEqual)),
-                    |left, right| Expression::Logic(Box::new(Logic::LessOrEqual(left, right))),
-                ),
-                infix(left(1), just(Token::Operator(And)), |left, right| {
-                    Expression::Logic(Box::new(Logic::And(left, right)))
-                }),
-                infix(left(1), just(Token::Operator(Or)), |left, right| {
-                    Expression::Logic(Box::new(Logic::Or(left, right)))
-                }),
-                infix(left(1), just(Token::Operator(Add)), |left, right| {
-                    Expression::Math(Box::new(Math::Add(left, right)))
-                }),
-                infix(left(1), just(Token::Operator(Subtract)), |left, right| {
-                    Expression::Math(Box::new(Math::Subtract(left, right)))
-                }),
-                infix(left(2), just(Token::Operator(Multiply)), |left, right| {
-                    Expression::Math(Box::new(Math::Multiply(left, right)))
-                }),
-                infix(left(2), just(Token::Operator(Divide)), |left, right| {
-                    Expression::Math(Box::new(Math::Divide(left, right)))
-                }),
-                infix(left(1), just(Token::Operator(Modulo)), |left, right| {
-                    Expression::Math(Box::new(Math::Modulo(left, right)))
-                }),
-                infix(
-                    left(3),
-                    just(Token::Control(Control::Dot)),
-                    |left, right| Expression::Index(Box::new(Index::new(left, right))),
-                ),
+            ));
+
+            use Operator::*;
+
+            let logic_math_and_index = atom
+                .pratt((
+                    prefix(2, just(Token::Operator(Not)), |expression| {
+                        Expression::Logic(Box::new(Logic::Not(expression)))
+                    }),
+                    infix(left(1), just(Token::Operator(Equal)), |left, right| {
+                        Expression::Logic(Box::new(Logic::Equal(left, right)))
+                    }),
+                    infix(left(1), just(Token::Operator(NotEqual)), |left, right| {
+                        Expression::Logic(Box::new(Logic::NotEqual(left, right)))
+                    }),
+                    infix(left(1), just(Token::Operator(Greater)), |left, right| {
+                        Expression::Logic(Box::new(Logic::Greater(left, right)))
+                    }),
+                    infix(left(1), just(Token::Operator(Less)), |left, right| {
+                        Expression::Logic(Box::new(Logic::Less(left, right)))
+                    }),
+                    infix(
+                        left(1),
+                        just(Token::Operator(GreaterOrEqual)),
+                        |left, right| {
+                            Expression::Logic(Box::new(Logic::GreaterOrEqual(left, right)))
+                        },
+                    ),
+                    infix(
+                        left(1),
+                        just(Token::Operator(LessOrEqual)),
+                        |left, right| Expression::Logic(Box::new(Logic::LessOrEqual(left, right))),
+                    ),
+                    infix(left(1), just(Token::Operator(And)), |left, right| {
+                        Expression::Logic(Box::new(Logic::And(left, right)))
+                    }),
+                    infix(left(1), just(Token::Operator(Or)), |left, right| {
+                        Expression::Logic(Box::new(Logic::Or(left, right)))
+                    }),
+                    infix(left(1), just(Token::Operator(Add)), |left, right| {
+                        Expression::Math(Box::new(Math::Add(left, right)))
+                    }),
+                    infix(left(1), just(Token::Operator(Subtract)), |left, right| {
+                        Expression::Math(Box::new(Math::Subtract(left, right)))
+                    }),
+                    infix(left(2), just(Token::Operator(Multiply)), |left, right| {
+                        Expression::Math(Box::new(Math::Multiply(left, right)))
+                    }),
+                    infix(left(2), just(Token::Operator(Divide)), |left, right| {
+                        Expression::Math(Box::new(Math::Divide(left, right)))
+                    }),
+                    infix(left(1), just(Token::Operator(Modulo)), |left, right| {
+                        Expression::Math(Box::new(Math::Modulo(left, right)))
+                    }),
+                    infix(
+                        left(3),
+                        just(Token::Control(Control::Dot)),
+                        |left, right| Expression::Index(Box::new(Index::new(left, right))),
+                    ),
+                ))
+                .boxed();
+
+            choice((
+                function,
+                range,
+                r#enum,
+                logic_math_and_index,
+                identifier_expression,
+                list,
+                map,
+                basic_value,
             ))
-            .boxed();
+            .boxed()
+        });
 
-        choice((
-            range,
-            r#enum,
-            logic_math_and_index,
-            identifier_expression,
-            list,
-            map,
-            basic_value,
-        ))
-    });
-
-    let statement = recursive(|statement| {
         let expression_statement = expression
             .clone()
             .map(|expression| Statement::Expression(expression))
@@ -247,16 +302,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             })
             .boxed();
 
-        let block = statement
-            .clone()
-            .repeated()
-            .collect()
-            .delimited_by(
-                just(Token::Control(Control::CurlyOpen)),
-                just(Token::Control(Control::CurlyClose)),
-            )
-            .map(|statements| Statement::Block(Block::new(statements)))
-            .boxed();
+        let block_statement = block.clone().map(|block| Statement::Block(block));
 
         let r#loop = statement
             .clone()
@@ -283,54 +329,16 @@ pub fn parser<'src>() -> DustParser<'src> {
             })
             .boxed();
 
-        let function = identifier
-            .clone()
-            .then(type_specification.clone())
-            .separated_by(just(Token::Control(Control::Comma)))
-            .collect::<Vec<(Identifier, Type)>>()
-            .delimited_by(
-                just(Token::Control(Control::ParenOpen)),
-                just(Token::Control(Control::ParenClose)),
-            )
-            .then(type_specification)
-            .then(statement.clone())
-            .map(|((parameters, return_type), body)| {
-                Statement::Expression(Expression::Value(ValueNode::Function {
-                    parameters,
-                    return_type,
-                    body: Box::new(body),
-                }))
-            });
-
-        let function_call = expression
-            .clone()
-            .then(
-                expression
-                    .clone()
-                    .separated_by(just(Token::Control(Control::Comma)))
-                    .collect()
-                    .delimited_by(
-                        just(Token::Control(Control::ParenOpen)),
-                        just(Token::Control(Control::ParenClose)),
-                    ),
-            )
-            .map(|(function, arguments)| {
-                Statement::Expression(Expression::FunctionCall(FunctionCall::new(
-                    function, arguments,
-                )))
-            });
-
         choice((
-            function_call,
             assignment,
             expression_statement,
             r#break,
-            block,
+            block_statement,
             r#loop,
             if_else,
-            function,
         ))
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
+        .boxed()
     });
 
     statement
@@ -368,13 +376,13 @@ mod tests {
     #[test]
     fn function() {
         assert_eq!(
-            parse(&lex("(x: int): int x ").unwrap()).unwrap()[0].0,
+            parse(&lex("(x: int): int { x }").unwrap()).unwrap()[0].0,
             Statement::Expression(Expression::Value(ValueNode::Function {
                 parameters: vec![(Identifier::new("x"), Type::Integer)],
                 return_type: Type::Integer,
-                body: Box::new(Statement::Expression(Expression::Identifier(
+                body: Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x")
-                )))
+                ))])
             }))
         )
     }
