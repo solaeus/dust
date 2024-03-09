@@ -3,25 +3,21 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Expression, Statement, Type};
+use super::{AbstractTree, Action, Block, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
     if_expression: Expression,
-    if_statement: Box<Statement>,
-    else_statement: Option<Box<Statement>>,
+    if_block: Block,
+    else_block: Option<Block>,
 }
 
 impl IfElse {
-    pub fn new(
-        if_expression: Expression,
-        if_statement: Statement,
-        else_statement: Option<Statement>,
-    ) -> Self {
+    pub fn new(if_expression: Expression, if_block: Block, else_block: Option<Block>) -> Self {
         Self {
             if_expression,
-            if_statement: Box::new(if_statement),
-            else_statement: else_statement.map(|statement| Box::new(statement)),
+            if_block,
+            else_block,
         }
     }
 }
@@ -47,8 +43,8 @@ impl AbstractTree for IfElse {
             .as_boolean()?;
 
         if if_boolean {
-            self.if_statement.run(_context)
-        } else if let Some(else_statement) = self.else_statement {
+            self.if_block.run(_context)
+        } else if let Some(else_statement) = self.else_block {
             else_statement.run(_context)
         } else {
             Ok(Action::None)
@@ -59,7 +55,7 @@ impl AbstractTree for IfElse {
 #[cfg(test)]
 mod tests {
     use crate::{
-        abstract_tree::{Action, ValueNode},
+        abstract_tree::{Action, Statement, ValueNode},
         context::Context,
         Value,
     };
@@ -71,7 +67,9 @@ mod tests {
         assert_eq!(
             IfElse::new(
                 Expression::Value(ValueNode::Boolean(true)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
+                Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("foo".to_string())
+                )),]),
                 None
             )
             .run(&Context::new()),
@@ -84,10 +82,12 @@ mod tests {
         assert_eq!(
             IfElse::new(
                 Expression::Value(ValueNode::Boolean(false)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
-                Some(Statement::Expression(Expression::Value(ValueNode::String(
-                    "bar".to_string()
-                ))))
+                Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("foo".to_string())
+                )),]),
+                Some(Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("bar".to_string())
+                ))]))
             )
             .run(&Context::new()),
             Ok(Action::Return(Value::string("bar".to_string())))

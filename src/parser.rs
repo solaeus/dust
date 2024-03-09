@@ -56,40 +56,60 @@ pub fn parser<'src>() -> DustParser<'src> {
     .map(|value| Expression::Value(value))
     .boxed();
 
-    let basic_type = choice((
-        just(Token::Keyword("any")).to(Type::Any),
-        just(Token::Keyword("bool")).to(Type::Boolean),
-        just(Token::Keyword("float")).to(Type::Float),
-        just(Token::Keyword("int")).to(Type::Integer),
-        just(Token::Keyword("none")).to(Type::None),
-        just(Token::Keyword("range")).to(Type::Range),
-        just(Token::Keyword("str")).to(Type::String),
-        just(Token::Keyword("list")).to(Type::List),
-    ));
+    let type_specification = recursive(|type_specification| {
+        let r#type = recursive(|r#type| {
+            let function_type = type_specification
+                .clone()
+                .separated_by(just(Token::Control(Control::Comma)))
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
+                )
+                .then_ignore(just(Token::Control(Control::Colon)))
+                .then(r#type.clone())
+                .map(|(parameter_types, return_type)| Type::Function {
+                    parameter_types,
+                    return_type: Box::new(return_type),
+                });
 
-    let type_arguments = basic_type.clone().delimited_by(
-        just(Token::Control(Control::ParenOpen)),
-        just(Token::Control(Control::ParenClose)),
-    );
+            choice((
+                function_type,
+                just(Token::Keyword("any")).to(Type::Any),
+                just(Token::Keyword("bool")).to(Type::Boolean),
+                just(Token::Keyword("float")).to(Type::Float),
+                just(Token::Keyword("int")).to(Type::Integer),
+                just(Token::Keyword("none")).to(Type::None),
+                just(Token::Keyword("range")).to(Type::Range),
+                just(Token::Keyword("str")).to(Type::String),
+                just(Token::Keyword("list")).to(Type::List),
+            ))
+        });
 
-    let type_specification = just(Token::Control(Control::Colon)).ignore_then(choice((
-        basic_type
-            .clone()
-            .separated_by(just(Token::Control(Control::Comma)))
-            .collect()
-            .delimited_by(
-                just(Token::Control(Control::SquareOpen)),
-                just(Token::Control(Control::SquareClose)),
-            )
-            .map(|types| Type::ListExact(types)),
-        just(Token::Keyword("list"))
-            .then(type_arguments)
-            .map(|(_, item_type)| Type::ListOf(Box::new(item_type))),
-        basic_type.clone(),
-        identifier
-            .clone()
-            .map(|identifier| Type::Custom(identifier)),
-    )));
+        let type_arguments = r#type.clone().delimited_by(
+            just(Token::Control(Control::ParenOpen)),
+            just(Token::Control(Control::ParenClose)),
+        );
+
+        just(Token::Control(Control::Colon)).ignore_then(choice((
+            r#type
+                .clone()
+                .separated_by(just(Token::Control(Control::Comma)))
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::SquareOpen)),
+                    just(Token::Control(Control::SquareClose)),
+                )
+                .map(|types| Type::ListExact(types)),
+            just(Token::Keyword("list"))
+                .then(type_arguments)
+                .map(|(_, item_type)| Type::ListOf(Box::new(item_type))),
+            r#type.clone(),
+            identifier
+                .clone()
+                .map(|identifier| Type::Custom(identifier)),
+        )))
+    });
 
     let statement = recursive(|statement| {
         let block = statement
@@ -318,14 +338,14 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let if_else = just(Token::Keyword("if"))
             .ignore_then(expression.clone())
-            .then(statement.clone())
+            .then(block.clone())
             .then(
                 just(Token::Keyword("else"))
-                    .ignore_then(statement.clone())
+                    .ignore_then(block.clone())
                     .or_not(),
             )
-            .map(|((if_expression, if_statement), else_statement)| {
-                Statement::IfElse(IfElse::new(if_expression, if_statement, else_statement))
+            .map(|((if_expression, if_block), else_block)| {
+                Statement::IfElse(IfElse::new(if_expression, if_block, else_block))
             })
             .boxed();
 
@@ -390,10 +410,12 @@ mod tests {
     #[test]
     fn r#if() {
         assert_eq!(
-            parse(&lex("if true 'foo'").unwrap()).unwrap()[0].0,
+            parse(&lex("if true { 'foo' }").unwrap()).unwrap()[0].0,
             Statement::IfElse(IfElse::new(
                 Expression::Value(ValueNode::Boolean(true)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
+                Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("foo".to_string())
+                ))]),
                 None
             ))
         )
@@ -402,13 +424,15 @@ mod tests {
     #[test]
     fn if_else() {
         assert_eq!(
-            parse(&lex("if true 'foo' else 'bar'").unwrap()).unwrap()[0].0,
+            parse(&lex("if true {'foo' } else { 'bar' }").unwrap()).unwrap()[0].0,
             Statement::IfElse(IfElse::new(
                 Expression::Value(ValueNode::Boolean(true)),
-                Statement::Expression(Expression::Value(ValueNode::String("foo".to_string()))),
-                Some(Statement::Expression(Expression::Value(ValueNode::String(
-                    "bar".to_string()
-                ))))
+                Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("foo".to_string())
+                ))]),
+                Some(Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("bar".to_string())
+                ))]))
             ))
         )
     }
