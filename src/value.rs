@@ -13,8 +13,9 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{Identifier, Statement, Type},
-    error::ValidationError,
+    abstract_tree::{Action, Identifier, Statement, Type},
+    context::Context,
+    error::{RuntimeError, ValidationError},
 };
 
 pub static NONE: OnceLock<Value> = OnceLock::new();
@@ -77,11 +78,13 @@ impl Value {
         return_type: Type,
         body: Statement,
     ) -> Self {
-        Value(Arc::new(ValueInner::Function(Function {
-            parameters,
-            return_type,
-            body,
-        })))
+        Value(Arc::new(ValueInner::Function(Function::Parsed(
+            ParsedFunction {
+                parameters,
+                return_type,
+                body,
+            },
+        ))))
     }
 
     pub fn r#type(&self) -> Type {
@@ -227,11 +230,11 @@ impl Display for Value {
             ValueInner::String(string) => write!(f, "{string}"),
 
             ValueInner::Enum(_, _) => todo!(),
-            ValueInner::Function(Function {
+            ValueInner::Function(Function::Parsed(ParsedFunction {
                 parameters,
                 return_type,
                 body,
-            }) => {
+            })) => {
                 write!(f, "(")?;
 
                 for (identifier, r#type) in parameters {
@@ -239,6 +242,9 @@ impl Display for Value {
                 }
 
                 write!(f, "): {return_type} {body:?}")
+            }
+            ValueInner::Function(Function::BuiltIn(built_in_function)) => {
+                write!(f, "{built_in_function}")
             }
         }
     }
@@ -323,8 +329,48 @@ impl Ord for ValueInner {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Function {
+pub enum Function {
+    Parsed(ParsedFunction),
+    BuiltIn(BuiltInFunction),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct ParsedFunction {
     parameters: Vec<(Identifier, Type)>,
     return_type: Type,
     body: Statement,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum BuiltInFunction {
+    Output(Value),
+}
+
+impl BuiltInFunction {
+    fn r#type(&self, context: &Context) -> Type {
+        match self {
+            BuiltInFunction::Output(_) => Type::Function {
+                parameter_types: vec![Type::Any],
+                return_type: Box::new(Type::None),
+            },
+        }
+    }
+
+    fn call(self, context: &Context) -> Result<Action, RuntimeError> {
+        match self {
+            BuiltInFunction::Output(value) => {
+                println!("{value}");
+
+                Ok(Action::None)
+            }
+        }
+    }
+}
+
+impl Display for BuiltInFunction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            BuiltInFunction::Output(_) => write!(f, "(to_output : any) : none rust_magic();"),
+        }
+    }
 }
