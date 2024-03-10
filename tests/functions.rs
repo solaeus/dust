@@ -38,7 +38,7 @@ fn callback() {
             foobar = (cb : () -> str) : str {
                 cb()
             }
-            foobar(() : str 'Hiya')
+            foobar(() : str { 'Hiya' })
             ",
         ),
         Ok(Some(Value::string("Hiya".to_string())))

@@ -63,6 +63,7 @@ impl Display for Operator {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Control {
+    Arrow,
     CurlyOpen,
     CurlyClose,
     SquareOpen,
@@ -80,6 +81,7 @@ pub enum Control {
 impl Display for Control {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            Control::Arrow => write!(f, "->"),
             Control::CurlyOpen => write!(f, "{{"),
             Control::CurlyClose => write!(f, "}}"),
             Control::SquareOpen => write!(f, "["),
@@ -173,10 +175,10 @@ pub fn lexer<'src>() -> impl Parser<
         just("&&").padded().to(Operator::And),
         just("==").padded().to(Operator::Equal),
         just("!=").padded().to(Operator::NotEqual),
-        just(">").padded().to(Operator::Greater),
         just(">=").padded().to(Operator::GreaterOrEqual),
-        just("<").padded().to(Operator::Less),
         just("<=").padded().to(Operator::LessOrEqual),
+        just(">").padded().to(Operator::Greater),
+        just("<").padded().to(Operator::Less),
         just("!").padded().to(Operator::Not),
         just("!=").padded().to(Operator::NotEqual),
         just("||").padded().to(Operator::Or),
@@ -194,6 +196,7 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Operator);
 
     let control = choice((
+        just("->").padded().to(Control::Arrow),
         just("{").padded().to(Control::CurlyOpen),
         just("}").padded().to(Control::CurlyClose),
         just("[").padded().to(Control::SquareOpen),
@@ -227,7 +230,7 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Keyword);
 
     choice((
-        boolean, float, integer, string, keyword, identifier, operator, control,
+        boolean, float, integer, string, keyword, identifier, control, operator,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()

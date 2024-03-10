@@ -66,15 +66,34 @@ pub fn parser<'src>() -> DustParser<'src> {
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
                 )
-                .then_ignore(just(Token::Control(Control::Colon)))
+                .then_ignore(just(Token::Control(Control::Arrow)))
                 .then(r#type.clone())
                 .map(|(parameter_types, return_type)| Type::Function {
                     parameter_types,
                     return_type: Box::new(return_type),
                 });
 
+            let list_of = just(Token::Keyword("list"))
+                .ignore_then(r#type.clone().delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
+                ))
+                .map(|item_type| Type::ListOf(Box::new(item_type)));
+
+            let list_exact = r#type
+                .clone()
+                .separated_by(just(Token::Control(Control::Comma)))
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::SquareOpen)),
+                    just(Token::Control(Control::SquareClose)),
+                )
+                .map(|types| Type::ListExact(types));
+
             choice((
                 function_type,
+                list_of,
+                list_exact,
                 just(Token::Keyword("any")).to(Type::Any),
                 just(Token::Keyword("bool")).to(Type::Boolean),
                 just(Token::Keyword("float")).to(Type::Float),
@@ -83,32 +102,13 @@ pub fn parser<'src>() -> DustParser<'src> {
                 just(Token::Keyword("range")).to(Type::Range),
                 just(Token::Keyword("str")).to(Type::String),
                 just(Token::Keyword("list")).to(Type::List),
+                identifier
+                    .clone()
+                    .map(|identifier| Type::Custom(identifier)),
             ))
         });
 
-        let type_arguments = r#type.clone().delimited_by(
-            just(Token::Control(Control::ParenOpen)),
-            just(Token::Control(Control::ParenClose)),
-        );
-
-        just(Token::Control(Control::Colon)).ignore_then(choice((
-            r#type
-                .clone()
-                .separated_by(just(Token::Control(Control::Comma)))
-                .collect()
-                .delimited_by(
-                    just(Token::Control(Control::SquareOpen)),
-                    just(Token::Control(Control::SquareClose)),
-                )
-                .map(|types| Type::ListExact(types)),
-            just(Token::Keyword("list"))
-                .then(type_arguments)
-                .map(|(_, item_type)| Type::ListOf(Box::new(item_type))),
-            r#type.clone(),
-            identifier
-                .clone()
-                .map(|identifier| Type::Custom(identifier)),
-        )))
+        just(Token::Control(Control::Colon)).ignore_then(r#type)
     });
 
     let statement = recursive(|statement| {
@@ -350,12 +350,12 @@ pub fn parser<'src>() -> DustParser<'src> {
             .boxed();
 
         choice((
+            if_else,
             assignment,
             expression_statement,
             r#break,
             block_statement,
             r#loop,
-            if_else,
         ))
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
         .boxed()
@@ -373,6 +373,54 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn types() {
+        assert_eq!(
+            parse(&lex("foobar : bool = true").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::Boolean),
+                AssignmentOperator::Assign,
+                Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
+            ))
+        );
+        assert_eq!(
+            parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::ListOf(Box::new(Type::Boolean))),
+                AssignmentOperator::Assign,
+                Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
+                    ValueNode::Boolean(true)
+                )])))
+            ))
+        );
+        assert_eq!(
+            parse(&lex("foobar : [bool, str] = [true, '42']").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::ListExact(vec![Type::Boolean, Type::String])),
+                AssignmentOperator::Assign,
+                Statement::Expression(Expression::Value(ValueNode::List(vec![
+                    Expression::Value(ValueNode::Boolean(true)),
+                    Expression::Value(ValueNode::String("42".to_string()))
+                ])))
+            ))
+        );
+        assert_eq!(
+            parse(&lex("foobar : () -> any = some_function").unwrap()).unwrap()[0].0,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::Function {
+                    parameter_types: vec![],
+                    return_type: Box::new(Type::Any)
+                }),
+                AssignmentOperator::Assign,
+                Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
+            ))
+        );
+    }
 
     #[test]
     fn function_call() {
@@ -418,7 +466,7 @@ mod tests {
                 ))]),
                 None
             ))
-        )
+        );
     }
 
     #[test]
