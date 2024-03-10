@@ -37,18 +37,18 @@ impl AbstractTree for FunctionCall {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let value = self.function.run(_context)?.as_value()?;
+    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+        let value = self.function.run(context)?.as_value()?;
         let function = value.as_function()?;
         let mut arguments = Vec::with_capacity(self.arguments.len());
 
         for expression in self.arguments {
-            let value = expression.run(_context)?.as_value()?;
+            let value = expression.run(context)?.as_value()?;
 
             arguments.push(value);
         }
 
-        let function_context = Context::new();
+        let function_context = Context::with_data_from(context)?;
 
         function.call(arguments, function_context)
     }

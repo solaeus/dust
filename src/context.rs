@@ -33,6 +33,28 @@ impl Context {
         }
     }
 
+    pub fn with_types_from(other: &Context) -> Result<Self, RwLockPoisonError> {
+        let mut new_data = BTreeMap::new();
+
+        for (identifier, value_data) in other.inner.read()?.iter() {
+            if let ValueData::Type(_) = value_data {
+                new_data.insert(identifier.clone(), value_data.clone());
+            }
+        }
+
+        Ok(Self::with_data(new_data))
+    }
+
+    pub fn with_data_from(other: &Context) -> Result<Self, RwLockPoisonError> {
+        let mut new_data = BTreeMap::new();
+
+        for (identifier, value_data) in other.inner.read()?.iter() {
+            new_data.insert(identifier.clone(), value_data.clone());
+        }
+
+        Ok(Self::with_data(new_data))
+    }
+
     pub fn get_data(
         &self,
         identifier: &Identifier,

@@ -78,7 +78,7 @@ impl AbstractTree for ValueNode {
             body,
         } = self
         {
-            let function_context = Context::new();
+            let function_context = Context::with_types_from(context)?;
 
             for (identifier, r#type) in parameters {
                 function_context.set_type(identifier.clone(), r#type.clone())?;

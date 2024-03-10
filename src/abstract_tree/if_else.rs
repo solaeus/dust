@@ -24,11 +24,18 @@ impl IfElse {
 
 impl AbstractTree for IfElse {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        Ok(Type::None)
+        self.if_block.expected_type(_context)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        if let Type::Boolean = self.if_expression.expected_type(_context)? {
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        if let Type::Boolean = self.if_expression.expected_type(context)? {
+            if let Some(else_block) = &self.else_block {
+                let expected = self.if_block.expected_type(context)?;
+                let actual = else_block.expected_type(context)?;
+
+                expected.check(&actual)?;
+            }
+
             Ok(())
         } else {
             Err(ValidationError::ExpectedBoolean)
