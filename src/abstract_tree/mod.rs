@@ -11,6 +11,7 @@ pub mod math;
 pub mod statement;
 pub mod r#type;
 pub mod value_node;
+pub mod r#while;
 
 pub use self::{
     assignment::{Assignment, AssignmentOperator},
@@ -24,6 +25,7 @@ pub use self::{
     math::Math,
     r#loop::Loop,
     r#type::Type,
+    r#while::While,
     statement::Statement,
     value_node::ValueNode,
 };

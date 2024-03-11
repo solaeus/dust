@@ -92,8 +92,8 @@ impl Display for Control {
             Control::DoubleColon => write!(f, "::"),
             Control::Colon => write!(f, ":"),
             Control::Dot => write!(f, "."),
-            Control::DoubleDot => write!(f, ".."),
             Control::Semicolon => write!(f, ";"),
+            Control::DoubleDot => write!(f, ".."),
         }
     }
 }
@@ -226,6 +226,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("range").padded(),
         just("str").padded(),
         just("loop").padded(),
+        just("while").padded(),
     ))
     .map(Token::Keyword);
 

@@ -334,6 +334,11 @@ pub fn parser<'src>() -> DustParser<'src> {
             .map(|statements| Statement::Loop(Loop::new(statements)))
             .boxed();
 
+        let r#while = just(Token::Keyword("while"))
+            .ignore_then(expression.clone())
+            .then(block.clone())
+            .map(|(expression, block)| Statement::While(While::new(expression, block)));
+
         let if_else = just(Token::Keyword("if"))
             .ignore_then(expression.clone())
             .then(block.clone())
@@ -354,6 +359,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             r#break,
             block_statement,
             r#loop,
+            r#while,
         ))
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
         .boxed()
@@ -371,6 +377,22 @@ mod tests {
     use crate::{abstract_tree::Logic, lexer::lex};
 
     use super::*;
+
+    #[test]
+    fn r#while() {
+        assert_eq!(
+            parse(&lex("while true { output('hi') }").unwrap()).unwrap()[0].0,
+            Statement::While(While::new(
+                Expression::Value(ValueNode::Boolean(true)),
+                Block::new(vec![Statement::Expression(Expression::FunctionCall(
+                    FunctionCall::new(
+                        Expression::Identifier(Identifier::new("output")),
+                        vec![Expression::Value(ValueNode::String("hi".to_string()))]
+                    )
+                ))])
+            ))
+        )
+    }
 
     #[test]
     fn types() {
