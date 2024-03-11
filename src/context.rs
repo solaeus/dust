@@ -33,7 +33,7 @@ impl Context {
         }
     }
 
-    pub fn with_types_from(other: &Context) -> Result<Self, RwLockPoisonError> {
+    pub fn inherit_types_from(other: &Context) -> Result<Self, RwLockPoisonError> {
         let mut new_data = BTreeMap::new();
 
         for (identifier, value_data) in other.inner.read()?.iter() {
@@ -47,7 +47,7 @@ impl Context {
         Ok(Self::with_data(new_data))
     }
 
-    pub fn with_data_from(other: &Context) -> Result<Self, RwLockPoisonError> {
+    pub fn inherit_data_from(other: &Context) -> Result<Self, RwLockPoisonError> {
         let mut new_data = BTreeMap::new();
 
         for (identifier, value_data) in other.inner.read()?.iter() {

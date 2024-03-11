@@ -48,7 +48,7 @@ impl AbstractTree for FunctionCall {
             arguments.push(value);
         }
 
-        let function_context = Context::with_data_from(context)?;
+        let function_context = Context::inherit_data_from(context)?;
 
         function.call(arguments, function_context)
     }
