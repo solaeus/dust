@@ -42,7 +42,7 @@ pub trait AbstractTree {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Action {
-    Break(Option<Value>),
+    Break,
     Return(Value),
     None,
 }
@@ -50,15 +50,8 @@ pub enum Action {
 impl Action {
     pub fn as_value(self) -> Result<Value, ValidationError> {
         match self {
-            Action::Break(value) => {
-                if let Some(value) = value {
-                    Ok(value)
-                } else {
-                    Err(ValidationError::ExpectedValue)
-                }
-            }
             Action::Return(value) => Ok(value),
-            Action::None => Err(ValidationError::ExpectedValue),
+            _ => Err(ValidationError::ExpectedValue),
         }
     }
 

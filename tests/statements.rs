@@ -17,7 +17,22 @@ fn loops_and_breaks() {
             "
         ),
         Ok(Some(Value::integer(3)))
-    )
+    );
+    assert_eq!(
+        interpret(
+            "
+            foobar = {
+                while true {
+                    break
+                }
+                'foobar'
+            }
+
+            foobar
+            "
+        ),
+        Ok(Some(Value::string("foobar".to_string())))
+    );
 }
 
 #[test]
