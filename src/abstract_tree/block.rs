@@ -40,7 +40,8 @@ impl AbstractTree for Block {
             let action = statement.run(_context)?;
             previous = match action {
                 Action::Return(value) => Action::Return(value),
-                r#break => return Ok(r#break),
+                Action::None => Action::None,
+                Action::Break => return Ok(action),
             };
         }
 

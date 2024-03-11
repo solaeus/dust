@@ -19,14 +19,27 @@ impl While {
 
 impl AbstractTree for While {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        Ok(Type::None)
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        todo!()
+        self.expression.validate(_context)?;
+        self.block.validate(_context)
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        todo!()
+        while self
+            .expression
+            .clone()
+            .run(_context)?
+            .as_return_value()?
+            .as_boolean()?
+        {
+            if let Action::Break = self.block.clone().run(_context)? {
+                break;
+            }
+        }
+
+        Ok(Action::None)
     }
 }
