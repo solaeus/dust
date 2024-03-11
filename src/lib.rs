@@ -53,7 +53,13 @@ impl Interpreter {
         for (statement, _span) in statements {
             value = match statement.run(&self.context) {
                 Ok(action) => match action {
-                    Action::Break(value) => Some(value),
+                    Action::Break(value_option) => {
+                        if let Some(value) = value_option {
+                            Some(value)
+                        } else {
+                            None
+                        }
+                    }
                     Action::Return(value) => Some(value),
                     Action::None => continue,
                 },

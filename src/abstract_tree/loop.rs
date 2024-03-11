@@ -63,10 +63,12 @@ mod tests {
     #[test]
     fn basic_loop() {
         let result = Loop {
-            statements: vec![Statement::Break(Expression::Value(ValueNode::Integer(42)))],
+            statements: vec![Statement::Break(Some(Expression::Value(
+                ValueNode::Integer(42),
+            )))],
         }
         .run(&Context::new());
 
-        assert_eq!(result, Ok(Action::Break(Value::integer(42))))
+        assert_eq!(result, Ok(Action::Break(Some(Value::integer(42)))))
     }
 }

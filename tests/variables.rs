@@ -37,7 +37,7 @@ fn set_variable_with_type_error() {
 #[test]
 fn function_variable() {
     assert_eq!(
-        interpret("foobar = (x: int): int x; foobar"),
+        interpret("foobar = (x: int): int { x }; foobar"),
         Ok(Some(Value::function(
             vec![(Identifier::new("x"), Type::Integer)],
             Type::Integer,

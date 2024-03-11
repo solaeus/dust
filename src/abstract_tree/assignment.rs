@@ -38,7 +38,7 @@ impl Assignment {
 
 impl AbstractTree for Assignment {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        todo!()
+        Ok(Type::None)
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {

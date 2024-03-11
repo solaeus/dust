@@ -305,7 +305,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             .boxed();
 
         let r#break = just(Token::Keyword("break"))
-            .ignore_then(expression.clone())
+            .ignore_then(expression.clone().or_not())
             .map(|expression| Statement::Break(expression));
 
         let assignment = identifier
