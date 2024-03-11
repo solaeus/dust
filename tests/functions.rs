@@ -94,8 +94,6 @@ fn function_context_captures_functions() {
 
 #[test]
 fn recursion() {
-    env_logger::builder().is_test(true).try_init().unwrap();
-
     assert_eq!(
         interpret(
             "

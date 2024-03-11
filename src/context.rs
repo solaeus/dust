@@ -6,7 +6,7 @@ use std::{
 use crate::{
     abstract_tree::{Identifier, Type},
     error::RwLockPoisonError,
-    value::BuiltInFunction,
+    value::{BuiltInFunction, ValueInner},
     Value,
 };
 
@@ -37,8 +37,10 @@ impl Context {
         let mut new_data = BTreeMap::new();
 
         for (identifier, value_data) in other.inner.read()?.iter() {
-            if let ValueData::Type(_) = value_data {
-                new_data.insert(identifier.clone(), value_data.clone());
+            if let ValueData::Type(r#type) = value_data {
+                if let Type::Function { .. } = r#type {
+                    new_data.insert(identifier.clone(), value_data.clone());
+                }
             }
         }
 
@@ -49,7 +51,16 @@ impl Context {
         let mut new_data = BTreeMap::new();
 
         for (identifier, value_data) in other.inner.read()?.iter() {
-            new_data.insert(identifier.clone(), value_data.clone());
+            if let ValueData::Type(r#type) = value_data {
+                if let Type::Function { .. } = r#type {
+                    new_data.insert(identifier.clone(), value_data.clone());
+                }
+            }
+            if let ValueData::Value(value) = value_data {
+                if let ValueInner::Function { .. } = value.inner().as_ref() {
+                    new_data.insert(identifier.clone(), value_data.clone());
+                }
+            }
         }
 
         Ok(Self::with_data(new_data))

@@ -84,6 +84,8 @@ impl AbstractTree for ValueNode {
                 function_context.set_type(identifier.clone(), r#type.clone())?;
             }
 
+            body.validate(&function_context)?;
+
             let actual_return_type = body.expected_type(&function_context)?;
 
             return_type.check(&actual_return_type)?;

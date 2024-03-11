@@ -42,8 +42,6 @@ impl AbstractTree for Assignment {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        self.statement.validate(context)?;
-
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(expected) = &self.r#type {
@@ -53,6 +51,8 @@ impl AbstractTree for Assignment {
         } else {
             context.set_type(self.identifier.clone(), statement_type)?;
         }
+
+        self.statement.validate(context)?;
 
         Ok(())
     }
