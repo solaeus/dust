@@ -204,6 +204,7 @@ dependencies = [
  "clap",
  "colored",
  "env_logger",
+ "log",
  "stanza",
 ]
 

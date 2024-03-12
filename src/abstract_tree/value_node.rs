@@ -17,7 +17,6 @@ pub enum ValueNode {
     Map(Vec<(Identifier, Option<Type>, Expression)>),
     Range(Range<i64>),
     String(String),
-    Enum(Identifier, Identifier),
     Function {
         parameters: Vec<(Identifier, Type)>,
         return_type: Type,
@@ -43,7 +42,6 @@ impl AbstractTree for ValueNode {
             ValueNode::Map(_) => Type::Map,
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
-            ValueNode::Enum(name, _) => Type::Custom(name.clone()),
             ValueNode::Function {
                 parameters,
                 return_type,
@@ -123,13 +121,6 @@ impl AbstractTree for ValueNode {
             }
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
-            ValueNode::Enum(name, variant) => {
-                if name.as_str() == "Option" && variant.as_str() == "None" {
-                    Value::none()
-                } else {
-                    Value::r#enum(name, variant)
-                }
-            }
             ValueNode::Function {
                 parameters,
                 return_type,
@@ -176,16 +167,6 @@ impl Ord for ValueNode {
             (Range(_), _) => Ordering::Greater,
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
-            (Enum(left_name, left_variant), Enum(right_name, right_variant)) => {
-                let name_cmp = left_name.cmp(right_name);
-
-                if name_cmp.is_eq() {
-                    left_variant.cmp(right_variant)
-                } else {
-                    name_cmp
-                }
-            }
-            (Enum(_, _), _) => Ordering::Greater,
             (
                 Function {
                     parameters: left_parameters,

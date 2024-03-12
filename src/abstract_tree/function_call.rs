@@ -38,12 +38,12 @@ impl AbstractTree for FunctionCall {
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let value = self.function.run(context)?.as_value()?;
+        let value = self.function.run(context)?.as_return_value()?;
         let function = value.as_function()?;
         let mut arguments = Vec::with_capacity(self.arguments.len());
 
         for expression in self.arguments {
-            let value = expression.run(context)?.as_value()?;
+            let value = expression.run(context)?.as_return_value()?;
 
             arguments.push(value);
         }

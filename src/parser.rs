@@ -169,13 +169,6 @@ pub fn parser<'src>() -> DustParser<'src> {
                 )
                 .map(|map_assigment_list| Expression::Value(ValueNode::Map(map_assigment_list)));
 
-            let r#enum = identifier
-                .clone()
-                .then_ignore(just(Token::Control(Control::DoubleColon)))
-                .then(identifier.clone())
-                .map(|(name, variant)| Expression::Value(ValueNode::Enum(name, variant)))
-                .boxed();
-
             let function = identifier
                 .clone()
                 .then(type_specification.clone())
@@ -219,7 +212,6 @@ pub fn parser<'src>() -> DustParser<'src> {
                 identifier_expression.clone(),
                 basic_value.clone(),
                 list.clone(),
-                r#enum.clone(),
                 expression.clone().delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
@@ -289,7 +281,6 @@ pub fn parser<'src>() -> DustParser<'src> {
             choice((
                 function,
                 range,
-                r#enum,
                 logic_math_and_index,
                 identifier_expression,
                 list,
@@ -662,22 +653,6 @@ mod tests {
     }
 
     #[test]
-    fn assignment_with_custom_type() {
-        assert_eq!(
-            parse(&lex("foobar: Foo = Foo::Bar").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::Custom(Identifier::new("Foo"))),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::Enum(
-                    Identifier::new("Foo"),
-                    Identifier::new("Bar")
-                )))
-            )),
-        );
-    }
-
-    #[test]
     fn assignment_with_list_types() {
         assert_eq!(
             parse(&lex("foobar: list = []").unwrap()).unwrap()[0].0,
@@ -752,17 +727,6 @@ mod tests {
                 ))),
                 Expression::Value(ValueNode::Boolean(true))
             ))))
-        );
-    }
-
-    #[test]
-    fn r#enum() {
-        assert_eq!(
-            parse(&lex("Option::None").unwrap()).unwrap()[0].0,
-            Statement::Expression(Expression::Value(ValueNode::Enum(
-                Identifier::new("Option"),
-                Identifier::new("None")
-            )))
         );
     }
 

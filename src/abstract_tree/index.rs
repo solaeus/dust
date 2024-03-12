@@ -1,7 +1,6 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    Value,
 };
 
 use super::{AbstractTree, Action, Expression, Type, ValueNode};
@@ -63,11 +62,13 @@ impl AbstractTree for Index {
         let right_value = self.right.run(_context)?.as_return_value()?;
 
         if let (Some(list), Some(index)) = (left_value.as_list(), right_value.as_integer()) {
-            Ok(Action::Return(
-                list.get(index as usize)
-                    .cloned()
-                    .unwrap_or_else(Value::none),
-            ))
+            let found_item = list.get(index as usize);
+
+            if let Some(item) = found_item {
+                Ok(Action::Return(item.clone()))
+            } else {
+                Ok(Action::None)
+            }
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith(left_value.r#type(), right_value.r#type()),

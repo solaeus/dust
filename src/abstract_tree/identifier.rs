@@ -6,7 +6,6 @@ use std::{
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    Value,
 };
 
 use super::{AbstractTree, Action, Type};
@@ -34,7 +33,7 @@ impl AbstractTree for Identifier {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        if let Some(_) = context.get_data(self)? {
+        if context.add_allowance(self)? {
             Ok(())
         } else {
             Err(ValidationError::VariableNotFound(self.clone()))
@@ -42,12 +41,15 @@ impl AbstractTree for Identifier {
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let value = context
-            .get_value(&self)?
-            .unwrap_or_else(Value::none)
-            .clone();
+        let return_action = context.get_value(&self)?.map(|value| Action::Return(value));
 
-        Ok(Action::Return(value))
+        if let Some(action) = return_action {
+            Ok(action)
+        } else {
+            Err(RuntimeError::ValidationFailure(
+                ValidationError::VariableNotFound(self.clone()),
+            ))
+        }
     }
 }
 

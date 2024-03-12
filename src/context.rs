@@ -11,7 +11,25 @@ use crate::{
 };
 
 pub struct Context {
-    inner: Arc<RwLock<BTreeMap<Identifier, ValueData>>>,
+    inner: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageData)>>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct UsageData(Arc<RwLock<UsageDataInner>>);
+
+#[derive(Clone, Debug)]
+pub struct UsageDataInner {
+    pub allowances: usize,
+    pub uses: usize,
+}
+
+impl Default for UsageData {
+    fn default() -> Self {
+        UsageData(Arc::new(RwLock::new(UsageDataInner {
+            allowances: 0,
+            uses: 0,
+        })))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -27,7 +45,7 @@ impl Context {
         }
     }
 
-    pub fn with_data(data: BTreeMap<Identifier, ValueData>) -> Self {
+    pub fn with_data(data: BTreeMap<Identifier, (ValueData, UsageData)>) -> Self {
         Self {
             inner: Arc::new(RwLock::new(data)),
         }
@@ -36,10 +54,10 @@ impl Context {
     pub fn inherit_types_from(other: &Context) -> Result<Self, RwLockPoisonError> {
         let mut new_data = BTreeMap::new();
 
-        for (identifier, value_data) in other.inner.read()?.iter() {
+        for (identifier, (value_data, usage_data)) in other.inner.read()?.iter() {
             if let ValueData::Type(r#type) = value_data {
                 if let Type::Function { .. } = r#type {
-                    new_data.insert(identifier.clone(), value_data.clone());
+                    new_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
                 }
             }
         }
@@ -50,15 +68,15 @@ impl Context {
     pub fn inherit_data_from(other: &Context) -> Result<Self, RwLockPoisonError> {
         let mut new_data = BTreeMap::new();
 
-        for (identifier, value_data) in other.inner.read()?.iter() {
+        for (identifier, (value_data, usage_data)) in other.inner.read()?.iter() {
             if let ValueData::Type(r#type) = value_data {
                 if let Type::Function { .. } = r#type {
-                    new_data.insert(identifier.clone(), value_data.clone());
+                    new_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
                 }
             }
             if let ValueData::Value(value) = value_data {
                 if let ValueInner::Function { .. } = value.inner().as_ref() {
-                    new_data.insert(identifier.clone(), value_data.clone());
+                    new_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
                 }
             }
         }
@@ -66,12 +84,41 @@ impl Context {
         Ok(Self::with_data(new_data))
     }
 
+    pub fn add_allowance(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
+        if let Some((_, usage_data)) = self.inner.read()?.get(identifier) {
+            usage_data.0.write()?.allowances += 1;
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
     pub fn get_data(
         &self,
         identifier: &Identifier,
     ) -> Result<Option<ValueData>, RwLockPoisonError> {
-        if let Some(value_data) = self.inner.read()?.get(identifier) {
-            return Ok(Some(value_data.clone()));
+        let should_remove =
+            if let Some((value_data, usage_data)) = self.inner.read()?.get(identifier) {
+                let mut usage_data = usage_data.0.write()?;
+
+                log::trace!("Adding use for variable: {identifier}");
+
+                usage_data.uses += 1;
+
+                if usage_data.uses == usage_data.allowances {
+                    true
+                } else {
+                    return Ok(Some(value_data.clone()));
+                }
+            } else {
+                false
+            };
+
+        if should_remove {
+            log::trace!("Removing varialble: {identifier}");
+
+            self.inner.write()?.remove(identifier);
         }
 
         let value_data = match identifier.as_str() {
@@ -83,7 +130,11 @@ impl Context {
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
-        if let Some(ValueData::Type(r#type)) = self.inner.read()?.get(identifier) {
+        if let Some((ValueData::Type(r#type), usage_data)) = self.inner.read()?.get(identifier) {
+            log::trace!("Adding use for variable: {identifier}");
+
+            usage_data.0.write()?.uses += 1;
+
             return Ok(Some(r#type.clone()));
         }
 
@@ -96,8 +147,28 @@ impl Context {
     }
 
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
-        if let Some(ValueData::Value(value)) = self.inner.read()?.get(identifier) {
-            return Ok(Some(value.clone()));
+        let should_remove = if let Some((ValueData::Value(value), usage_data)) =
+            self.inner.read()?.get(identifier)
+        {
+            let mut usage_data = usage_data.0.write()?;
+
+            log::trace!("Adding use for variable: {identifier}");
+
+            usage_data.uses += 1;
+
+            if usage_data.uses == usage_data.allowances {
+                true
+            } else {
+                return Ok(Some(value.clone()));
+            }
+        } else {
+            false
+        };
+
+        if should_remove {
+            log::trace!("Removing varialble: {identifier}");
+
+            self.inner.write()?.remove(identifier);
         }
 
         let value = match identifier.as_str() {
@@ -111,15 +182,19 @@ impl Context {
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), RwLockPoisonError> {
         self.inner
             .write()?
-            .insert(identifier, ValueData::Type(r#type));
+            .insert(identifier, (ValueData::Type(r#type), UsageData::default()));
 
         Ok(())
     }
 
     pub fn set_value(&self, identifier: Identifier, value: Value) -> Result<(), RwLockPoisonError> {
-        self.inner
-            .write()?
-            .insert(identifier, ValueData::Value(value));
+        let mut inner = self.inner.write()?;
+
+        if let Some((_value_data, usage_data)) = inner.remove(&identifier) {
+            inner.insert(identifier, (ValueData::Value(value), usage_data));
+        } else {
+            inner.insert(identifier, (ValueData::Value(value), UsageData::default()));
+        }
 
         Ok(())
     }

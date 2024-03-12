@@ -27,15 +27,15 @@ impl AbstractTree for While {
         self.block.validate(_context)
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
         while self
             .expression
             .clone()
-            .run(_context)?
+            .run(context)?
             .as_return_value()?
             .as_boolean()?
         {
-            if let Action::Break = self.block.clone().run(_context)? {
+            if let Action::Break = self.block.clone().run(context)? {
                 break;
             }
         }

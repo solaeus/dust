@@ -18,27 +18,12 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-pub static NONE: OnceLock<Value> = OnceLock::new();
-
-fn get_none<'a>() -> &'a Value {
-    NONE.get_or_init(|| {
-        Value(Arc::new(ValueInner::Enum(
-            Identifier::new("Option"),
-            Identifier::new("None"),
-        )))
-    })
-}
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
 
 impl Value {
     pub fn inner(&self) -> &Arc<ValueInner> {
         &self.0
-    }
-
-    pub fn none() -> Self {
-        get_none().clone()
     }
 
     pub fn boolean(boolean: bool) -> Self {
@@ -67,10 +52,6 @@ impl Value {
 
     pub fn string(string: String) -> Self {
         Value(Arc::new(ValueInner::String(string)))
-    }
-
-    pub fn r#enum(name: Identifier, variant: Identifier) -> Self {
-        Value(Arc::new(ValueInner::Enum(name, variant)))
     }
 
     pub fn function(parameters: Vec<(Identifier, Type)>, return_type: Type, body: Block) -> Self {
@@ -104,7 +85,6 @@ impl Value {
             ValueInner::Map(_) => Type::Map,
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
-            ValueInner::Enum(name, _) => Type::Custom(name.clone()),
             ValueInner::Function(_) => todo!(),
         }
     }
@@ -147,10 +127,6 @@ impl Value {
         } else {
             None
         }
-    }
-
-    pub fn is_none(&self) -> bool {
-        self == get_none()
     }
 
     pub fn add(&self, other: &Self) -> Result<Value, ValidationError> {
@@ -236,8 +212,6 @@ impl Display for Value {
             }
             ValueInner::Range(_) => todo!(),
             ValueInner::String(string) => write!(f, "{string}"),
-
-            ValueInner::Enum(_, _) => todo!(),
             ValueInner::Function(Function::Parsed(ParsedFunction {
                 parameters,
                 return_type,
@@ -282,7 +256,6 @@ pub enum ValueInner {
     Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
-    Enum(Identifier, Identifier),
 }
 
 impl Eq for ValueInner {}
@@ -320,16 +293,6 @@ impl Ord for ValueInner {
             (Range(_), _) => Ordering::Greater,
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
-            (Enum(name_left, variant_left), Enum(name_right, variant_right)) => {
-                let name_cmp = name_left.cmp(name_right);
-
-                if name_cmp.is_eq() {
-                    variant_left.cmp(variant_right)
-                } else {
-                    name_cmp
-                }
-            }
-            (Enum(..), _) => Ordering::Greater,
             (Function(left), Function(right)) => left.cmp(right),
             (Function(_), _) => Ordering::Greater,
         }

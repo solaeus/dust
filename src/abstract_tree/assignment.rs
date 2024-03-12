@@ -52,6 +52,7 @@ impl AbstractTree for Assignment {
             context.set_type(self.identifier.clone(), statement_type)?;
         }
 
+        self.identifier.validate(context)?;
         self.statement.validate(context)?;
 
         Ok(())
