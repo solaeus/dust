@@ -94,7 +94,7 @@ impl Context {
         }
     }
 
-    pub fn get_data(
+    pub fn use_data(
         &self,
         identifier: &Identifier,
     ) -> Result<Option<ValueData>, RwLockPoisonError> {
@@ -129,7 +129,7 @@ impl Context {
         Ok(Some(value_data))
     }
 
-    pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
+    pub fn use_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
         if let Some((ValueData::Type(r#type), usage_data)) = self.inner.read()?.get(identifier) {
             log::trace!("Adding use for variable: {identifier}");
 
@@ -146,7 +146,7 @@ impl Context {
         Ok(Some(r#type))
     }
 
-    pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
+    pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
         let should_remove = if let Some((ValueData::Value(value), usage_data)) =
             self.inner.read()?.get(identifier)
         {
