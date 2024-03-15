@@ -3,11 +3,11 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, Type, While};
+use super::{AbstractTree, Action, Assignment, Block, Expression, IfElse, Item, Loop, Type, While};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
-    Assignment(Assignment),
+    Assignment(Item<Assignment>),
     Block(Block),
     Break,
     Expression(Expression),

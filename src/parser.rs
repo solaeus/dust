@@ -306,8 +306,10 @@ pub fn parser<'src>() -> DustParser<'src> {
                 just(Token::Operator(Operator::SubAssign)).to(AssignmentOperator::SubAssign),
             )))
             .then(statement.clone())
-            .map(|(((identifier, r#type), operator), statement)| {
-                Statement::Assignment(Assignment::new(identifier, r#type, operator, statement))
+            .map_with(|(((identifier, r#type), operator), statement), state| {
+                let assignment = Assignment::new(identifier, r#type, operator, statement);
+
+                Statement::Assignment(Item(assignment, state.span()))
             })
             .boxed();
 
@@ -389,46 +391,58 @@ mod tests {
     fn types() {
         assert_eq!(
             parse(&lex("foobar : bool = true").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::Boolean),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::Boolean),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
+                ),
+                (0..20).into()
             ))
         );
         assert_eq!(
             parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::ListOf(Box::new(Type::Boolean))),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
-                    ValueNode::Boolean(true)
-                )])))
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::ListOf(Box::new(Type::Boolean))),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::List(vec![
+                        Expression::Value(ValueNode::Boolean(true))
+                    ])))
+                ),
+                (0..28).into()
             ))
         );
         assert_eq!(
             parse(&lex("foobar : [bool, str] = [true, '42']").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::ListExact(vec![Type::Boolean, Type::String])),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![
-                    Expression::Value(ValueNode::Boolean(true)),
-                    Expression::Value(ValueNode::String("42".to_string()))
-                ])))
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::ListExact(vec![Type::Boolean, Type::String])),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::List(vec![
+                        Expression::Value(ValueNode::Boolean(true)),
+                        Expression::Value(ValueNode::String("42".to_string()))
+                    ])))
+                ),
+                (0..35).into()
             ))
         );
         assert_eq!(
             parse(&lex("foobar : () -> any = some_function").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::Function {
-                    parameter_types: vec![],
-                    return_type: Box::new(Type::Any)
-                }),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::Function {
+                        parameter_types: vec![],
+                        return_type: Box::new(Type::Any)
+                    }),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
+                ),
+                (0..34).into()
             ))
         );
     }
@@ -630,12 +644,15 @@ mod tests {
     fn assignment() {
         assert_eq!(
             parse(&lex("foobar = 1").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                None,
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::Integer(1)))
-            )),
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    None,
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+                ),
+                (0..0).into()
+            ))
         );
     }
 
@@ -643,12 +660,15 @@ mod tests {
     fn assignment_with_basic_type() {
         assert_eq!(
             parse(&lex("foobar: int = 1").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::Integer),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::Integer(1)))
-            )),
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::Integer),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+                ),
+                (0..0).into()
+            ))
         );
     }
 
@@ -656,35 +676,44 @@ mod tests {
     fn assignment_with_list_types() {
         assert_eq!(
             parse(&lex("foobar: list = []").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::List),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![])))
-            )),
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::List),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::List(vec![])))
+                ),
+                (0..0).into()
+            ))
         );
 
         assert_eq!(
             parse(&lex("foobar: list(int) = []").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::ListOf(Box::new(Type::Integer))),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![])))
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::ListOf(Box::new(Type::Integer))),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::List(vec![])))
+                ),
+                (0..0).into()
             )),
         );
 
         assert_eq!(
             parse(&lex("foobar: [int, str] = [ 42, 'foo' ]").unwrap()).unwrap()[0].0,
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::ListExact(vec![Type::Integer, Type::String])),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![
-                    Expression::Value(ValueNode::Integer(42)),
-                    Expression::Value(ValueNode::String("foo".to_string()))
-                ])))
-            )),
+            Statement::Assignment(Item(
+                Assignment::new(
+                    Identifier::new("foobar"),
+                    Some(Type::ListExact(vec![Type::Integer, Type::String])),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(ValueNode::List(vec![
+                        Expression::Value(ValueNode::Integer(42)),
+                        Expression::Value(ValueNode::String("foo".to_string()))
+                    ])))
+                ),
+                (0..0).into()
+            ))
         );
     }
 
