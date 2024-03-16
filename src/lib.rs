@@ -33,12 +33,12 @@ impl Interpreter {
         let statements = parse(&tokens)?;
         let errors = statements
             .iter()
-            .filter_map(|(statement, span)| {
+            .filter_map(|statement| {
                 statement
                     .validate(&self.context)
                     .map_err(|validation_error| Error::Validation {
                         error: validation_error,
-                        span: span.clone(),
+                        span: statement.span(),
                     })
                     .err()
             })
@@ -50,7 +50,7 @@ impl Interpreter {
 
         let mut value = None;
 
-        for (statement, _span) in statements {
+        for statement in statements {
             value = match statement.run(&self.context) {
                 Ok(action) => match action {
                     Action::Break => None,

@@ -29,7 +29,7 @@ fn set_variable_with_type_error() {
                 actual: Type::Boolean,
                 expected: Type::String
             }),
-            span: (0..18).into()
+            span: (0, 18)
         }])
     );
 }
@@ -41,9 +41,10 @@ fn function_variable() {
         Ok(Some(Value::function(
             vec![(Identifier::new("x"), Type::Integer)],
             Type::Integer,
-            Block::new(vec![Statement::Expression(Expression::Identifier(
-                Identifier::new("x")
-            ))])
+            Block::new(vec![Statement::expression(
+                Expression::Identifier(Identifier::new("x")),
+                (0..0).into()
+            )])
         )))
     );
 }

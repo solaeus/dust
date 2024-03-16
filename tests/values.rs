@@ -140,7 +140,7 @@ fn map_type_errors() {
                 actual: Type::String,
                 expected: Type::Boolean
             }),
-            span: (0..22).into()
+            span: (0, 22)
         }])
     );
 }

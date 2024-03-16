@@ -1,7 +1,7 @@
 use std::sync::PoisonError;
 
 use ariadne::{Color, Label, Report, ReportKind};
-use chumsky::{prelude::Rich, span::SimpleSpan};
+use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
     abstract_tree::{Identifier, Type},
@@ -12,76 +12,70 @@ use crate::{
 pub enum Error {
     Parse {
         expected: String,
-        span: SimpleSpan,
+        span: (usize, usize),
     },
     Lex {
         expected: String,
-        span: SimpleSpan,
+        span: (usize, usize),
     },
     Runtime(RuntimeError),
     Validation {
         error: ValidationError,
-        span: SimpleSpan,
+        span: (usize, usize),
     },
 }
 
 impl Error {
     pub fn report(&self) -> Report {
         match self {
-            Error::Parse { expected, span } => Report::build(
-                ReportKind::Custom("Parsing Error", Color::White),
-                (),
-                span.start,
-            )
-            .with_label(
-                Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
-            )
-            .finish(),
-            Error::Lex { expected, span } => {
-                let expected = match expected.as_str() {
-                    "" => "something else",
-                    expected => expected,
+            Error::Parse { expected, span } => {
+                let message = match expected.as_str() {
+                    "" => "Invalid character.".to_string(),
+                    expected => format!("Expected {expected}."),
                 };
 
-                Report::build(
-                    ReportKind::Custom("Lexing Error", Color::White),
-                    (),
-                    span.start,
-                )
-                .with_label(
-                    Label::new(span.start..span.end).with_message(format!("Expected {expected}.")),
-                )
-                .finish()
+                Report::build(ReportKind::Custom("Lexing Error", Color::White), (), span.0)
+                    .with_label(Label::new(span.0..span.1).with_message(message))
+                    .finish()
+            }
+            Error::Lex { expected, span } => {
+                let message = match expected.as_str() {
+                    "" => "Invalid character.".to_string(),
+                    expected => format!("Expected {expected}."),
+                };
+
+                Report::build(ReportKind::Custom("Lexing Error", Color::White), (), span.0)
+                    .with_label(Label::new(span.0..span.1).with_message(message))
+                    .finish()
             }
             Error::Runtime(_) => todo!(),
             Error::Validation { error, span } => {
                 let mut report = Report::build(
                     ReportKind::Custom("Validation Error", Color::White),
                     (),
-                    span.start,
+                    span.0,
                 );
 
                 match error {
                     ValidationError::ExpectedBoolean => {
                         report = report.with_label(
-                            Label::new(span.start..span.end).with_message("Expected boolean."),
+                            Label::new(span.0..span.1).with_message("Expected boolean."),
                         );
                     }
                     ValidationError::ExpectedIntegerOrFloat => {
                         report = report.with_label(
-                            Label::new(span.start..span.end)
-                                .with_message("Expected integer or float."),
+                            Label::new(span.0..span.1).with_message("Expected integer or float."),
                         );
                     }
                     ValidationError::RwLockPoison(_) => todo!(),
                     ValidationError::TypeCheck(TypeCheckError { actual, expected }) => {
-                        report = report.with_label(Label::new(span.start..span.end).with_message(
+                        report = report.with_label(Label::new(span.0..span.1).with_message(
                             format!("Type error. Expected {expected} but got {actual}."),
                         ));
                     }
                     ValidationError::VariableNotFound(identifier) => {
                         report = report
-                            .with_label(Label::new(span.start..span.end).with_message(format!(
+                            .with_label(Label::new(span.0..span.1).with_message(format!(
                                 "The variable {identifier} does not exist."
                             )));
                     }
@@ -102,7 +96,7 @@ impl From<Rich<'_, char>> for Error {
     fn from(error: Rich<'_, char>) -> Self {
         Error::Lex {
             expected: error.expected().map(|error| error.to_string()).collect(),
-            span: error.span().clone(),
+            span: (error.span().start(), error.span().end()),
         }
     }
 }
@@ -111,7 +105,7 @@ impl<'src> From<Rich<'_, Token<'src>>> for Error {
     fn from(error: Rich<'_, Token<'src>>) -> Self {
         Error::Parse {
             expected: error.expected().map(|error| error.to_string()).collect(),
-            span: error.span().clone(),
+            span: (error.span().start(), error.span().end()),
         }
     }
 }

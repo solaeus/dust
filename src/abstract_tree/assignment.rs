@@ -115,7 +115,7 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::Assign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+            Statement::expression(Expression::Value(ValueNode::Integer(42)), (0..0).into()),
         )
         .run(&context)
         .unwrap();
@@ -138,7 +138,7 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::AddAssign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(41))),
+            Statement::expression(Expression::Value(ValueNode::Integer(41)), (0..0).into()),
         )
         .run(&context)
         .unwrap();
@@ -161,7 +161,7 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::SubAssign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(1))),
+            Statement::expression(Expression::Value(ValueNode::Integer(1)), (0..0).into()),
         )
         .run(&context)
         .unwrap();
@@ -178,7 +178,7 @@ mod tests {
             Identifier::new("foobar"),
             Some(Type::Boolean),
             AssignmentOperator::Assign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+            Statement::expression(Expression::Value(ValueNode::Integer(42)), (0..0).into()),
         )
         .validate(&Context::new());
 

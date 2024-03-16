@@ -122,7 +122,7 @@ impl AbstractTree for Logic {
 
 #[cfg(test)]
 mod tests {
-    use crate::abstract_tree::{Expression, ValueNode};
+    use crate::abstract_tree::ValueNode;
 
     use super::*;
 
