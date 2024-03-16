@@ -651,7 +651,7 @@ mod tests {
                     AssignmentOperator::Assign,
                     Statement::Expression(Expression::Value(ValueNode::Integer(1)))
                 ),
-                (0..0).into()
+                (0..10).into()
             ))
         );
     }
@@ -667,7 +667,7 @@ mod tests {
                     AssignmentOperator::Assign,
                     Statement::Expression(Expression::Value(ValueNode::Integer(1)))
                 ),
-                (0..0).into()
+                (0..15).into()
             ))
         );
     }
@@ -683,7 +683,7 @@ mod tests {
                     AssignmentOperator::Assign,
                     Statement::Expression(Expression::Value(ValueNode::List(vec![])))
                 ),
-                (0..0).into()
+                (0..17).into()
             ))
         );
 
@@ -696,7 +696,7 @@ mod tests {
                     AssignmentOperator::Assign,
                     Statement::Expression(Expression::Value(ValueNode::List(vec![])))
                 ),
-                (0..0).into()
+                (0..22).into()
             )),
         );
 
@@ -712,7 +712,7 @@ mod tests {
                         Expression::Value(ValueNode::String("foo".to_string()))
                     ])))
                 ),
-                (0..0).into()
+                (0..34).into()
             ))
         );
     }
