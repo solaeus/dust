@@ -80,7 +80,7 @@ impl AbstractTree for Assignment {
                 context.set_value(self.identifier, value)?;
             }
             AssignmentOperator::AddAssign => {
-                if let Some(previous_value) = context.use_value(&self.identifier)? {
+                if let Some(previous_value) = context.get_value(&self.identifier)? {
                     let new_value = previous_value.add(&value)?;
 
                     context.set_value(self.identifier, new_value)?;
@@ -91,7 +91,7 @@ impl AbstractTree for Assignment {
                 }
             }
             AssignmentOperator::SubAssign => {
-                if let Some(previous_value) = context.use_value(&self.identifier)? {
+                if let Some(previous_value) = context.get_value(&self.identifier)? {
                     let new_value = previous_value.subtract(&value)?;
 
                     context.set_value(self.identifier, new_value)?;
@@ -131,7 +131,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            context.use_value(&Identifier::new("foobar")),
+            context.get_value(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
         )
     }
@@ -154,7 +154,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            context.use_value(&Identifier::new("foobar")),
+            context.get_value(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
         )
     }
@@ -177,7 +177,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            context.use_value(&Identifier::new("foobar")),
+            context.get_value(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
         )
     }

@@ -6,36 +6,13 @@ use std::{
 use crate::{
     abstract_tree::{Identifier, Type},
     error::RwLockPoisonError,
-    value::{BuiltInFunction, ValueInner},
+    value::BuiltInFunction,
     Value,
 };
 
+#[derive(Clone, Debug)]
 pub struct Context {
-    inner: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageData)>>>,
-}
-
-#[derive(Clone, Debug)]
-pub struct UsageData(Arc<RwLock<UsageDataInner>>);
-
-#[derive(Clone, Debug)]
-pub struct UsageDataInner {
-    pub allowances: usize,
-    pub uses: usize,
-}
-
-impl Default for UsageData {
-    fn default() -> Self {
-        UsageData(Arc::new(RwLock::new(UsageDataInner {
-            allowances: 0,
-            uses: 0,
-        })))
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum ValueData {
-    Type(Type),
-    Value(Value),
+    inner: Arc<RwLock<BTreeMap<Identifier, ValueData>>>,
 }
 
 impl Context {
@@ -45,95 +22,46 @@ impl Context {
         }
     }
 
-    pub fn with_data(data: BTreeMap<Identifier, (ValueData, UsageData)>) -> Self {
+    pub fn with_data(data: BTreeMap<Identifier, ValueData>) -> Self {
         Self {
             inner: Arc::new(RwLock::new(data)),
         }
     }
 
-    pub fn inherit_types_from(other: &Context) -> Result<Self, RwLockPoisonError> {
-        let mut new_data = BTreeMap::new();
+    pub fn inherit_types_from(&self, other: &Context) -> Result<(), RwLockPoisonError> {
+        let mut self_data = self.inner.write()?;
 
-        for (identifier, (value_data, usage_data)) in other.inner.read()?.iter() {
+        for (identifier, value_data) in other.inner.read()?.iter() {
             if let ValueData::Type(r#type) = value_data {
                 if let Type::Function { .. } = r#type {
-                    new_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
+                    self_data.insert(identifier.clone(), value_data.clone());
                 }
             }
         }
 
-        Ok(Self::with_data(new_data))
+        Ok(())
     }
 
-    pub fn inherit_data_from(other: &Context) -> Result<Self, RwLockPoisonError> {
-        let mut new_data = BTreeMap::new();
+    pub fn inherit_data_from(&self, other: &Context) -> Result<(), RwLockPoisonError> {
+        let mut self_data = self.inner.write()?;
 
-        for (identifier, (value_data, usage_data)) in other.inner.read()?.iter() {
-            if let ValueData::Type(r#type) = value_data {
-                if let Type::Function { .. } = r#type {
-                    new_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
-                }
-            }
-            if let ValueData::Value(value) = value_data {
-                if let ValueInner::Function { .. } = value.inner().as_ref() {
-                    new_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
-                }
-            }
+        for (identifier, value_data) in other.inner.read()?.iter() {
+            self_data.insert(identifier.clone(), value_data.clone());
         }
 
-        Ok(Self::with_data(new_data))
+        Ok(())
     }
 
-    pub fn add_allowance(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
-        if let Some((_, usage_data)) = self.inner.read()?.get(identifier) {
-            usage_data.0.write()?.allowances += 1;
-
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+    pub fn contains(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
+        Ok(self.inner.read()?.contains_key(identifier))
     }
 
-    pub fn use_data(
-        &self,
-        identifier: &Identifier,
-    ) -> Result<Option<ValueData>, RwLockPoisonError> {
-        let should_remove =
-            if let Some((value_data, usage_data)) = self.inner.read()?.get(identifier) {
-                let mut usage_data = usage_data.0.write()?;
-
-                log::trace!("Adding use for variable: {identifier}");
-
-                usage_data.uses += 1;
-
-                if usage_data.uses == usage_data.allowances {
-                    true
-                } else {
-                    return Ok(Some(value_data.clone()));
-                }
-            } else {
-                false
+    pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
+        if let Some(value_data) = self.inner.read()?.get(identifier) {
+            let r#type = match value_data {
+                ValueData::Type(r#type) => r#type.clone(),
+                ValueData::Value(value) => value.r#type(),
             };
-
-        if should_remove {
-            log::trace!("Removing varialble: {identifier}");
-
-            self.inner.write()?.remove(identifier);
-        }
-
-        let value_data = match identifier.as_str() {
-            "output" => ValueData::Value(BuiltInFunction::output()),
-            _ => return Ok(None),
-        };
-
-        Ok(Some(value_data))
-    }
-
-    pub fn use_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
-        if let Some((ValueData::Type(r#type), usage_data)) = self.inner.read()?.get(identifier) {
-            log::trace!("Adding use for variable: {identifier}");
-
-            usage_data.0.write()?.uses += 1;
 
             return Ok(Some(r#type.clone()));
         }
@@ -146,43 +74,23 @@ impl Context {
         Ok(Some(r#type))
     }
 
-    pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
-        let should_remove = if let Some((ValueData::Value(value), usage_data)) =
-            self.inner.read()?.get(identifier)
-        {
-            let mut usage_data = usage_data.0.write()?;
-
-            log::trace!("Adding use for variable: {identifier}");
-
-            usage_data.uses += 1;
-
-            if usage_data.uses == usage_data.allowances {
-                true
-            } else {
-                return Ok(Some(value.clone()));
-            }
+    pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
+        if let Some(ValueData::Value(value)) = self.inner.read()?.get(identifier) {
+            Ok(Some(value.clone()))
         } else {
-            false
-        };
+            let value = match identifier.as_str() {
+                "output" => Value::built_in_function(BuiltInFunction::Output),
+                _ => return Ok(None),
+            };
 
-        if should_remove {
-            log::trace!("Removing varialble: {identifier}");
-
-            self.inner.write()?.remove(identifier);
+            Ok(Some(value))
         }
-
-        let value = match identifier.as_str() {
-            "output" => BuiltInFunction::output(),
-            _ => return Ok(None),
-        };
-
-        Ok(Some(value))
     }
 
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), RwLockPoisonError> {
         self.inner
             .write()?
-            .insert(identifier, (ValueData::Type(r#type), UsageData::default()));
+            .insert(identifier, ValueData::Type(r#type));
 
         Ok(())
     }
@@ -190,12 +98,14 @@ impl Context {
     pub fn set_value(&self, identifier: Identifier, value: Value) -> Result<(), RwLockPoisonError> {
         let mut inner = self.inner.write()?;
 
-        if let Some((_value_data, usage_data)) = inner.remove(&identifier) {
-            inner.insert(identifier, (ValueData::Value(value), usage_data));
-        } else {
-            inner.insert(identifier, (ValueData::Value(value), UsageData::default()));
-        }
+        inner.insert(identifier, ValueData::Value(value));
 
         Ok(())
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueData {
+    Type(Type),
+    Value(Value),
 }

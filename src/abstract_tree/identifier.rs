@@ -25,7 +25,7 @@ impl Identifier {
 
 impl AbstractTree for Identifier {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
-        if let Some(r#type) = context.use_type(self)? {
+        if let Some(r#type) = context.get_type(self)? {
             Ok(r#type)
         } else {
             Err(ValidationError::VariableNotFound(self.clone()))
@@ -33,7 +33,7 @@ impl AbstractTree for Identifier {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        if context.add_allowance(self)? {
+        if context.contains(self)? {
             Ok(())
         } else {
             Err(ValidationError::VariableNotFound(self.clone()))
@@ -41,7 +41,7 @@ impl AbstractTree for Identifier {
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let return_action = context.use_value(&self)?.map(|value| Action::Return(value));
+        let return_action = context.get_value(&self)?.map(|value| Action::Return(value));
 
         if let Some(action) = return_action {
             Ok(action)

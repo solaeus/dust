@@ -1,6 +1,6 @@
-use std::sync::PoisonError;
+use std::{ops::Range, sync::PoisonError};
 
-use ariadne::{Color, Label, Report, ReportKind};
+use ariadne::{Label, ReportBuilder};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
@@ -18,7 +18,10 @@ pub enum Error {
         expected: String,
         span: (usize, usize),
     },
-    Runtime(RuntimeError),
+    Runtime {
+        error: RuntimeError,
+        position: SourcePosition,
+    },
     Validation {
         error: ValidationError,
         position: SourcePosition,
@@ -26,7 +29,10 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn report(&self) -> Report {
+    pub fn build_report(
+        self,
+        mut builder: ReportBuilder<'_, Range<usize>>,
+    ) -> ReportBuilder<'_, Range<usize>> {
         match self {
             Error::Parse { expected, span } => {
                 let message = match expected.as_str() {
@@ -34,9 +40,7 @@ impl Error {
                     expected => format!("Expected {expected}."),
                 };
 
-                Report::build(ReportKind::Custom("Lexing Error", Color::White), (), span.0)
-                    .with_label(Label::new(span.0..span.1).with_message(message))
-                    .finish()
+                builder.add_label(Label::new(span.0..span.1).with_message(message));
             }
             Error::Lex { expected, span } => {
                 let message = match expected.as_str() {
@@ -44,62 +48,59 @@ impl Error {
                     expected => format!("Expected {expected}."),
                 };
 
-                Report::build(ReportKind::Custom("Lexing Error", Color::White), (), span.0)
-                    .with_label(Label::new(span.0..span.1).with_message(message))
-                    .finish()
+                builder.add_label(Label::new(span.0..span.1).with_message(message));
             }
-            Error::Runtime(_) => todo!(),
-            Error::Validation { error, position } => {
-                let mut report = Report::build(
-                    ReportKind::Custom("Validation Error: The code was not run.", Color::White),
-                    (),
-                    0,
-                )
-                .with_label(
-                    Label::new(position.0..position.1).with_message("Error found in this item."),
-                );
-
-                match error {
-                    ValidationError::ExpectedBoolean => {
-                        report =
-                            report.with_label(Label::new(0..0).with_message("Expected boolean."));
-                    }
-                    ValidationError::ExpectedIntegerOrFloat => {
-                        report = report.with_label(
-                            Label::new(0..0).with_message("Expected integer or float."),
-                        );
-                    }
-                    ValidationError::RwLockPoison(_) => todo!(),
-                    ValidationError::TypeCheck {
-                        conflict,
-                        actual_position,
-                        expected_position: expected_postion,
-                    } => {
-                        let TypeConflict { actual, expected } = conflict;
-
-                        report = report.with_labels([
-                            Label::new(expected_postion.0..expected_postion.1)
-                                .with_message(format!("Type {expected} established here.")),
-                            Label::new(actual_position.0..actual_position.1)
-                                .with_message(format!("Got type {actual} here.")),
-                        ]);
-                    }
-                    ValidationError::VariableNotFound(identifier) => {
-                        report = report
-                            .with_label(Label::new(0..0).with_message(format!(
-                                "The variable {identifier} does not exist."
-                            )));
-                    }
-                    ValidationError::CannotIndex(_) => todo!(),
-                    ValidationError::CannotIndexWith(_, _) => todo!(),
-                    ValidationError::InterpreterExpectedReturn => todo!(),
-                    ValidationError::ExpectedFunction => todo!(),
-                    ValidationError::ExpectedValue => todo!(),
+            Error::Runtime { error, position } => match error {
+                RuntimeError::RwLockPoison(_) => todo!(),
+                RuntimeError::ValidationFailure(validation_error) => {
+                    builder =
+                        Error::Validation {
+                            error: validation_error,
+                            position,
+                        }
+                        .build_report(builder.with_note(
+                            "The interpreter failed to catch this error during validation.",
+                        ));
                 }
+            },
+            Error::Validation { error, position } => match error {
+                ValidationError::ExpectedBoolean => {
+                    builder.add_label(Label::new(0..0).with_message("Expected boolean."));
+                }
+                ValidationError::ExpectedIntegerOrFloat => {
+                    builder.add_label(Label::new(0..0).with_message("Expected integer or float."));
+                }
+                ValidationError::RwLockPoison(_) => todo!(),
+                ValidationError::TypeCheck {
+                    conflict,
+                    actual_position,
+                    expected_position: expected_postion,
+                } => {
+                    let TypeConflict { actual, expected } = conflict;
 
-                report.finish()
-            }
+                    builder.add_labels([
+                        Label::new(expected_postion.0..expected_postion.1)
+                            .with_message(format!("Type {expected} established here.")),
+                        Label::new(actual_position.0..actual_position.1)
+                            .with_message(format!("Got type {actual} here.")),
+                    ]);
+                }
+                ValidationError::VariableNotFound(identifier) => {
+                    builder.add_label(
+                        Label::new(position.0..position.1)
+                            .with_message(format!("The variable {identifier} does not exist."))
+                            .with_priority(1),
+                    );
+                }
+                ValidationError::CannotIndex(_) => todo!(),
+                ValidationError::CannotIndexWith(_, _) => todo!(),
+                ValidationError::InterpreterExpectedReturn => todo!(),
+                ValidationError::ExpectedFunction => todo!(),
+                ValidationError::ExpectedValue => todo!(),
+            },
         }
+
+        builder
     }
 }
 
@@ -118,12 +119,6 @@ impl<'src> From<Rich<'_, Token<'src>>> for Error {
             expected: error.expected().map(|error| error.to_string()).collect(),
             span: (error.span().start(), error.span().end()),
         }
-    }
-}
-
-impl From<RuntimeError> for Error {
-    fn from(error: RuntimeError) -> Self {
-        Error::Runtime(error)
     }
 }
 

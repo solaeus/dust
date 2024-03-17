@@ -1,6 +1,6 @@
 //! Command line interface for the dust programming language.
 
-use ariadne::Source;
+use ariadne::{Color, Report, ReportKind, Source};
 use clap::Parser;
 use colored::Colorize;
 
@@ -53,9 +53,17 @@ fn main() {
             }
         }
         Err(errors) => {
+            let mut report_builder =
+                Report::build(ReportKind::Custom("Dust Error", Color::White), (), 5);
+
             for error in errors {
-                error.report().eprint(Source::from(&source)).unwrap();
+                report_builder = error.build_report(report_builder);
             }
+
+            report_builder
+                .finish()
+                .eprint(Source::from(source))
+                .unwrap()
         }
     }
 }

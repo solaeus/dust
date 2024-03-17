@@ -656,6 +656,26 @@ mod tests {
             ),)
             .with_position((7, 9))]),)
         );
+        assert_eq!(
+            parse(&lex("loop { if i > 2 { break } else { i += 1 } }").unwrap()).unwrap()[0].node,
+            Statement::Loop(Loop::new(vec![Statement::IfElse(IfElse::new(
+                Expression::Logic(Box::new(Logic::Greater(
+                    Expression::Identifier(Identifier::new("i")).with_position((10, 11)),
+                    Expression::Value(ValueNode::Integer(2)).with_position((14, 15))
+                )))
+                .with_position((10, 15)),
+                Block::new(vec![Statement::Break.with_position((18, 24))]),
+                Some(Block::new(vec![Statement::Assignment(Assignment::new(
+                    Identifier::new("i"),
+                    None,
+                    AssignmentOperator::AddAssign,
+                    Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+                        .with_position((38, 39))
+                ))
+                .with_position((33, 39))]))
+            ),)
+            .with_position((7, 42))]))
+        );
     }
 
     #[test]

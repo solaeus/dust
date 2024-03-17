@@ -32,8 +32,13 @@ impl AbstractTree for IfElse {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        self.if_expression.node.validate(context)?;
+        self.if_block.validate(context)?;
+
         if let Type::Boolean = self.if_expression.node.expected_type(context)? {
             if let Some(else_block) = &self.else_block {
+                else_block.validate(context)?;
+
                 let expected = self.if_block.expected_type(context)?;
                 let actual = else_block.expected_type(context)?;
 

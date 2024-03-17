@@ -41,12 +41,7 @@ impl AbstractTree for Block {
         let mut previous = Action::None;
 
         for statement in self.statements {
-            let action = statement.node.run(_context)?;
-            previous = match action {
-                Action::Return(value) => Action::Return(value),
-                Action::None => Action::None,
-                Action::Break => return Ok(action),
-            };
+            previous = statement.node.run(_context)?;
         }
 
         Ok(previous)

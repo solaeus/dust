@@ -56,7 +56,12 @@ impl Interpreter {
                     Action::Return(value) => Some(value),
                     Action::None => continue,
                 },
-                Err(runtime_error) => return Err(vec![Error::Runtime(runtime_error)]),
+                Err(runtime_error) => {
+                    return Err(vec![Error::Runtime {
+                        error: runtime_error,
+                        position: statement.position,
+                    }])
+                }
             }
         }
 

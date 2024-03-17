@@ -141,8 +141,8 @@ fn map_type_errors() {
                     actual: Type::String,
                     expected: Type::Boolean
                 },
-                actual_position: (0, 0).into(),
-                expected_position: (0, 0).into(),
+                actual_position: (15, 20).into(),
+                expected_position: (8, 13).into(),
             },
             position: (0, 22).into()
         }])

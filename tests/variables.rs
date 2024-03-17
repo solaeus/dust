@@ -30,8 +30,8 @@ fn set_variable_with_type_error() {
                     actual: Type::Boolean,
                     expected: Type::String
                 },
-                actual_position: (0, 0).into(),
-                expected_position: (0, 0).into()
+                actual_position: (14, 18).into(),
+                expected_position: (8, 12).into()
             },
             position: (0, 18).into()
         }])
@@ -43,13 +43,13 @@ fn function_variable() {
     assert_eq!(
         interpret("foobar = (x: int): int { x }; foobar"),
         Ok(Some(Value::function(
-            vec![(Identifier::new("x"), Type::Integer.with_position((0, 0)))],
-            Type::Integer.with_position((0, 0)),
+            vec![(Identifier::new("x"), Type::Integer.with_position((13, 16)))],
+            Type::Integer.with_position((19, 23)),
             Block::new(vec![Statement::Expression(Expression::Identifier(
                 Identifier::new("x")
             ))
-            .with_position((0, 0))])
-            .with_position((0, 0))
+            .with_position((25, 26))])
+            .with_position((9, 28))
         )))
     );
 }
