@@ -1,6 +1,7 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
+    value::ValueInner,
 };
 
 use super::{AbstractTree, Action, Expression, Type, WithPosition};
@@ -25,24 +26,43 @@ impl FunctionCall {
 
 impl AbstractTree for FunctionCall {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        if let Type::Function { return_type, .. } = self.function.node.expected_type(_context)? {
+        let function_node_type = self.function.node.expected_type(_context)?;
+
+        if let Type::Function { return_type, .. } = function_node_type {
             Ok(*return_type)
         } else {
-            Err(ValidationError::ExpectedFunction)
+            Err(ValidationError::ExpectedFunction {
+                actual: function_node_type,
+                position: self.function.position,
+            })
         }
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        if let Type::Function { .. } = self.function.node.expected_type(_context)? {
+        let function_node_type = self.function.node.expected_type(_context)?;
+
+        if let Type::Function { .. } = function_node_type {
             Ok(())
         } else {
-            Err(ValidationError::ExpectedFunction)
+            Err(ValidationError::ExpectedFunction {
+                actual: function_node_type,
+                position: self.function.position,
+            })
         }
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
         let value = self.function.node.run(context)?.as_return_value()?;
-        let function = value.as_function()?;
+        let function = if let ValueInner::Function(function) = value.inner().as_ref() {
+            function
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedFunction {
+                    actual: value.r#type(),
+                    position: self.function.position,
+                },
+            ));
+        };
         let mut arguments = Vec::with_capacity(self.arguments.len());
 
         for expression in self.arguments {

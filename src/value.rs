@@ -93,28 +93,12 @@ impl Value {
         }
     }
 
-    pub fn as_boolean(&self) -> Result<bool, ValidationError> {
+    pub fn as_boolean(&self) -> Option<bool> {
         if let ValueInner::Boolean(boolean) = self.0.as_ref() {
-            return Ok(*boolean);
+            Some(*boolean)
+        } else {
+            None
         }
-
-        Err(ValidationError::ExpectedBoolean)
-    }
-
-    pub fn as_number(&self) -> Result<bool, ValidationError> {
-        if let ValueInner::Boolean(boolean) = self.0.as_ref() {
-            return Ok(*boolean);
-        }
-
-        Err(ValidationError::ExpectedBoolean)
-    }
-
-    pub fn as_function(&self) -> Result<&Function, ValidationError> {
-        if let ValueInner::Function(function) = self.0.as_ref() {
-            return Ok(function);
-        }
-
-        Err(ValidationError::ExpectedFunction)
     }
 
     pub fn as_list(&self) -> Option<&Vec<Value>> {

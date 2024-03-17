@@ -1,6 +1,7 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
+    value::ValueInner,
     Value,
 };
 
@@ -52,14 +53,20 @@ impl AbstractTree for Logic {
                 if let (Type::Boolean, Type::Boolean) = (left, right) {
                     Ok(())
                 } else {
-                    Err(ValidationError::ExpectedBoolean)
+                    Err(ValidationError::ExpectedBoolean {
+                        actual: todo!(),
+                        position: todo!(),
+                    })
                 }
             }
             Logic::Not(expression) => {
                 if let Type::Boolean = expression.node.expected_type(context)? {
                     Ok(())
                 } else {
-                    Err(ValidationError::ExpectedBoolean)
+                    Err(ValidationError::ExpectedBoolean {
+                        actual: todo!(),
+                        position: todo!(),
+                    })
                 }
             }
         }
@@ -104,25 +111,72 @@ impl AbstractTree for Logic {
                 left <= right
             }
             Logic::And(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?.as_boolean()?;
-                let right = right.node.run(_context)?.as_return_value()?.as_boolean()?;
+                let left_value = left.node.run(_context)?.as_return_value()?;
+                let right_value = right.node.run(_context)?.as_return_value()?;
 
-                left && right
+                let left = if let ValueInner::Boolean(boolean) = left_value.inner().as_ref() {
+                    boolean
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedBoolean {
+                            actual: left_value.r#type(),
+                            position: left.position,
+                        },
+                    ));
+                };
+                let right = if let ValueInner::Boolean(boolean) = right_value.inner().as_ref() {
+                    boolean
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedBoolean {
+                            actual: right_value.r#type(),
+                            position: right.position,
+                        },
+                    ));
+                };
+
+                *left && *right
             }
             Logic::Or(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?.as_boolean()?;
-                let right = right.node.run(_context)?.as_return_value()?.as_boolean()?;
+                let left_value = left.node.run(_context)?.as_return_value()?;
+                let right_value = right.node.run(_context)?.as_return_value()?;
 
-                left || right
+                let left = if let ValueInner::Boolean(boolean) = left_value.inner().as_ref() {
+                    boolean
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedBoolean {
+                            actual: left_value.r#type(),
+                            position: left.position,
+                        },
+                    ));
+                };
+                let right = if let ValueInner::Boolean(boolean) = right_value.inner().as_ref() {
+                    boolean
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedBoolean {
+                            actual: right_value.r#type(),
+                            position: right.position,
+                        },
+                    ));
+                };
+
+                *left || *right
             }
             Logic::Not(statement) => {
-                let boolean = statement
-                    .node
-                    .run(_context)?
-                    .as_return_value()?
-                    .as_boolean()?;
+                let value = statement.node.run(_context)?.as_return_value()?;
 
-                !boolean
+                if let ValueInner::Boolean(boolean) = value.inner().as_ref() {
+                    !boolean
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedBoolean {
+                            actual: value.r#type(),
+                            position: statement.position,
+                        },
+                    ));
+                }
             }
         };
 

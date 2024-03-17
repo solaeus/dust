@@ -386,9 +386,18 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let r#while = just(Token::Keyword("while"))
             .ignore_then(positioned_expression.clone())
-            .then(block.clone())
-            .map_with(|(expression, block), state| {
-                Statement::While(While::new(expression, block)).with_position(state.span())
+            .then(
+                positioned_statement
+                    .clone()
+                    .repeated()
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::CurlyOpen)),
+                        just(Token::Control(Control::CurlyClose)),
+                    ),
+            )
+            .map_with(|(expression, statements), state| {
+                Statement::While(While::new(expression, statements)).with_position(state.span())
             });
 
         let if_else = just(Token::Keyword("if"))
@@ -431,14 +440,14 @@ mod tests {
             parse(&lex("while true { output('hi') }").unwrap()).unwrap()[0].node,
             Statement::While(While::new(
                 Expression::Value(ValueNode::Boolean(true)).with_position((6, 11)),
-                Block::new(vec![Statement::Expression(Expression::FunctionCall(
-                    FunctionCall::new(
+                vec![
+                    Statement::Expression(Expression::FunctionCall(FunctionCall::new(
                         Expression::Identifier(Identifier::new("output")).with_position((13, 19)),
                         vec![Expression::Value(ValueNode::String("hi".to_string()))
                             .with_position((20, 24))]
-                    )
-                ))
-                .with_position((13, 26))])
+                    )))
+                    .with_position((13, 26))
+                ]
             ))
         )
     }

@@ -64,11 +64,17 @@ impl Error {
                 }
             },
             Error::Validation { error, position } => match error {
-                ValidationError::ExpectedBoolean => {
-                    builder.add_label(Label::new(0..0).with_message("Expected boolean."));
+                ValidationError::ExpectedBoolean { actual, position } => {
+                    builder.add_label(
+                        Label::new(position.0..position.1)
+                            .with_message(format!("Expected boolean but got {actual}.")),
+                    );
                 }
                 ValidationError::ExpectedIntegerOrFloat => {
-                    builder.add_label(Label::new(0..0).with_message("Expected integer or float."));
+                    builder.add_label(
+                        Label::new(position.0..position.1)
+                            .with_message("Expected integer or float."),
+                    );
                 }
                 ValidationError::RwLockPoison(_) => todo!(),
                 ValidationError::TypeCheck {
@@ -95,7 +101,7 @@ impl Error {
                 ValidationError::CannotIndex(_) => todo!(),
                 ValidationError::CannotIndexWith(_, _) => todo!(),
                 ValidationError::InterpreterExpectedReturn => todo!(),
-                ValidationError::ExpectedFunction => todo!(),
+                ValidationError::ExpectedFunction { actual, position } => todo!(),
                 ValidationError::ExpectedValue => todo!(),
             },
         }
@@ -144,8 +150,14 @@ impl From<ValidationError> for RuntimeError {
 pub enum ValidationError {
     CannotIndex(Type),
     CannotIndexWith(Type, Type),
-    ExpectedBoolean,
-    ExpectedFunction,
+    ExpectedBoolean {
+        actual: Type,
+        position: SourcePosition,
+    },
+    ExpectedFunction {
+        actual: Type,
+        position: SourcePosition,
+    },
     ExpectedIntegerOrFloat,
     ExpectedValue,
     InterpreterExpectedReturn,

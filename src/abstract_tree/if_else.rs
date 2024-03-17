@@ -1,6 +1,7 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
+    value::ValueInner,
 };
 
 use super::{AbstractTree, Action, Block, Expression, Type, WithPosition};
@@ -35,7 +36,9 @@ impl AbstractTree for IfElse {
         self.if_expression.node.validate(context)?;
         self.if_block.validate(context)?;
 
-        if let Type::Boolean = self.if_expression.node.expected_type(context)? {
+        let if_expression_type = self.if_expression.node.expected_type(context)?;
+
+        if let Type::Boolean = if_expression_type {
             if let Some(else_block) = &self.else_block {
                 else_block.validate(context)?;
 
@@ -53,24 +56,31 @@ impl AbstractTree for IfElse {
 
             Ok(())
         } else {
-            Err(ValidationError::ExpectedBoolean)
+            Err(ValidationError::ExpectedBoolean {
+                actual: if_expression_type,
+                position: self.if_expression.position,
+            })
         }
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let if_boolean = self
-            .if_expression
-            .node
-            .run(_context)?
-            .as_return_value()?
-            .as_boolean()?;
+        let value = self.if_expression.node.run(_context)?.as_return_value()?;
 
-        if if_boolean {
-            self.if_block.run(_context)
-        } else if let Some(else_statement) = self.else_block {
-            else_statement.run(_context)
+        if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
+            if *if_boolean {
+                self.if_block.run(_context)
+            } else if let Some(else_statement) = self.else_block {
+                else_statement.run(_context)
+            } else {
+                Ok(Action::None)
+            }
         } else {
-            Ok(Action::None)
+            Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedBoolean {
+                    actual: value.r#type(),
+                    position: self.if_expression.position,
+                },
+            ))
         }
     }
 }
