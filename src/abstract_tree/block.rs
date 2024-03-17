@@ -14,6 +14,10 @@ impl Block {
     pub fn new(statements: Vec<WithPosition<Statement>>) -> Self {
         Self { statements }
     }
+
+    pub fn last_statement(&self) -> &WithPosition<Statement> {
+        self.statements.last().unwrap()
+    }
 }
 
 impl AbstractTree for Block {

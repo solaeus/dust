@@ -121,10 +121,6 @@ pub fn parser<'src>() -> DustParser<'src> {
             )
             .map(|statements| Block::new(statements));
 
-        let positioned_block = block
-            .clone()
-            .map_with(|block, state| block.with_position(state.span()));
-
         let positioned_expression = recursive(|positioned_expression| {
             let identifier_expression = identifier.clone().map_with(|identifier, state| {
                 Expression::Identifier(identifier).with_position(state.span())
@@ -336,10 +332,10 @@ pub fn parser<'src>() -> DustParser<'src> {
             ));
 
             choice((
-                function,
-                function_call,
                 range,
                 logic_math_and_index,
+                function,
+                function_call,
                 identifier_expression,
                 list,
                 map,
@@ -397,10 +393,10 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let if_else = just(Token::Keyword("if"))
             .ignore_then(positioned_expression.clone())
-            .then(positioned_block.clone())
+            .then(block.clone())
             .then(
                 just(Token::Keyword("else"))
-                    .ignore_then(positioned_block.clone())
+                    .ignore_then(block.clone())
                     .or_not(),
             )
             .map_with(|((if_expression, if_block), else_block), state| {
@@ -574,8 +570,7 @@ mod tests {
                 Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::String("foo".to_string())
                 ),)
-                .with_position((10, 15))])
-                .with_position((8, 17)),
+                .with_position((10, 15))]),
                 None
             ),)
         );
@@ -590,15 +585,11 @@ mod tests {
                 Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::String("foo".to_string())
                 ),)
-                .with_position((9, 14))])
-                .with_position((8, 17)),
-                Some(
-                    Block::new(vec![Statement::Expression(Expression::Value(
-                        ValueNode::String("bar".to_string())
-                    ),)
-                    .with_position((24, 29))])
-                    .with_position((22, 31))
-                )
+                .with_position((9, 14))]),
+                Some(Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("bar".to_string())
+                ),)
+                .with_position((24, 29))]))
             ),)
         )
     }
