@@ -4,7 +4,7 @@ use ariadne::{Color, Label, Report, ReportKind};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
-    abstract_tree::{Identifier, Type},
+    abstract_tree::{Identifier, SourcePosition, Type},
     lexer::Token,
 };
 
@@ -21,7 +21,7 @@ pub enum Error {
     Runtime(RuntimeError),
     Validation {
         error: ValidationError,
-        position: (usize, usize),
+        position: SourcePosition,
     },
 }
 
@@ -160,10 +160,10 @@ pub enum ValidationError {
         conflict: TypeConflict,
 
         /// The position of the item that gave the "actual" type.
-        actual_position: (usize, usize),
+        actual_position: SourcePosition,
 
         /// The position of the item that gave the "expected" type.
-        expected_position: (usize, usize),
+        expected_position: SourcePosition,
     },
     VariableNotFound(Identifier),
 }

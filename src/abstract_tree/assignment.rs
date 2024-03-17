@@ -125,8 +125,7 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::Assign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
-                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))).with_position((0, 0)),
         )
         .run(&context)
         .unwrap();
@@ -149,8 +148,7 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::AddAssign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(41)))
-                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(41))).with_position((0, 0)),
         )
         .run(&context)
         .unwrap();
@@ -173,8 +171,7 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::SubAssign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(1)))
-                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(1))).with_position((0, 0)),
         )
         .run(&context)
         .unwrap();
@@ -191,11 +188,10 @@ mod tests {
             Identifier::new("foobar"),
             Some(WithPosition {
                 node: Type::Boolean,
-                position: (0, 0),
+                position: (0, 0).into(),
             }),
             AssignmentOperator::Assign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
-                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))).with_position((0, 0)),
         )
         .validate(&Context::new());
 
@@ -206,8 +202,8 @@ mod tests {
                     actual: Type::Integer,
                     expected: Type::Boolean
                 },
-                actual_position: (0, 0),
-                expected_position: (0, 0),
+                actual_position: (0, 0).into(),
+                expected_position: (0, 0).into(),
             })
         )
     }

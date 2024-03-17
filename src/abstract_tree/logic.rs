@@ -139,8 +139,8 @@ mod tests {
     #[test]
     fn equal() {
         assert!(Logic::Equal(
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -153,8 +153,8 @@ mod tests {
     #[test]
     fn not_equal() {
         assert!(Logic::NotEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -167,8 +167,8 @@ mod tests {
     #[test]
     fn greater() {
         assert!(Logic::Greater(
-            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -181,8 +181,8 @@ mod tests {
     #[test]
     fn less() {
         assert!(Logic::Less(
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -195,8 +195,8 @@ mod tests {
     #[test]
     fn greater_or_equal() {
         assert!(Logic::GreaterOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(41)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(41)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -206,8 +206,8 @@ mod tests {
         .unwrap());
 
         assert!(Logic::GreaterOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -220,8 +220,8 @@ mod tests {
     #[test]
     fn less_or_equal() {
         assert!(Logic::LessOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -231,8 +231,8 @@ mod tests {
         .unwrap());
 
         assert!(Logic::LessOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -245,8 +245,8 @@ mod tests {
     #[test]
     fn and() {
         assert!(Logic::And(
-            Expression::Value(ValueNode::Boolean(true)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Boolean(true)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+            Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -259,8 +259,8 @@ mod tests {
     #[test]
     fn or() {
         assert!(Logic::Or(
-            Expression::Value(ValueNode::Boolean(true)).with_position((0..0).into()),
-            Expression::Value(ValueNode::Boolean(false)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+            Expression::Value(ValueNode::Boolean(false)).with_position((0, 0)),
         )
         .run(&Context::new())
         .unwrap()
@@ -272,14 +272,14 @@ mod tests {
 
     #[test]
     fn not() {
-        assert!(Logic::Not(
-            Expression::Value(ValueNode::Boolean(false)).with_position((0..0).into())
+        assert!(
+            Logic::Not(Expression::Value(ValueNode::Boolean(false)).with_position((0, 0)))
+                .run(&Context::new())
+                .unwrap()
+                .as_return_value()
+                .unwrap()
+                .as_boolean()
+                .unwrap()
         )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
     }
 }

@@ -350,8 +350,8 @@ pub fn parser<'src>() -> DustParser<'src> {
         let expression_statement =
             positioned_expression
                 .clone()
-                .map_with(|positioned_expression, state| {
-                    Statement::Expression(positioned_expression.node).with_position(state.span())
+                .map(|WithPosition { node, position }| {
+                    Statement::Expression(node).with_position(position)
                 });
 
         let r#break = just(Token::Keyword("break"))
@@ -434,18 +434,17 @@ mod tests {
         assert_eq!(
             parse(&lex("while true { output('hi') }").unwrap()).unwrap()[0],
             Statement::While(While::new(
-                Expression::Value(ValueNode::Boolean(true)).with_position((6..11).into()),
+                Expression::Value(ValueNode::Boolean(true)).with_position((6, 11)),
                 Block::new(vec![Statement::Expression(Expression::FunctionCall(
                     FunctionCall::new(
-                        Expression::Identifier(Identifier::new("output"))
-                            .with_position((13..19).into()),
+                        Expression::Identifier(Identifier::new("output")).with_position((13, 19)),
                         vec![Expression::Value(ValueNode::String("hi".to_string()))
-                            .with_position((20..24).into())]
+                            .with_position((20, 24))]
                     )
                 ))
-                .with_position((13..26).into())])
+                .with_position((13, 26))])
             ))
-            .with_position((0..27).into())
+            .with_position((0, 27))
         )
     }
 
@@ -455,12 +454,12 @@ mod tests {
             parse(&lex("foobar : bool = true").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
-                Some(Type::Boolean.with_position((9..14).into())),
+                Some(Type::Boolean.with_position((9, 14))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
-                    .with_position((16..20).into())
+                    .with_position((16, 20))
             ),)
-            .with_position((0..20).into())
+            .with_position((0, 20))
         );
     }
 
@@ -470,15 +469,15 @@ mod tests {
             parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
-                Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9..20).into())),
+                Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9, 20))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
                     ValueNode::Boolean(true)
                 )
-                .with_position((23..27).into())])))
-                .with_position((22..28).into())
+                .with_position((23, 27))])))
+                .with_position((22, 28))
             ))
-            .with_position((0..28).into())
+            .with_position((0, 28))
         );
     }
 
@@ -488,19 +487,15 @@ mod tests {
             parse(&lex("foobar : [bool, str] = [true, '42']").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
-                Some(
-                    Type::ListExact(vec![Type::Boolean, Type::String])
-                        .with_position((9..21).into())
-                ),
+                Some(Type::ListExact(vec![Type::Boolean, Type::String]).with_position((9, 21))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![
-                    Expression::Value(ValueNode::Boolean(true)).with_position((24..28).into()),
-                    Expression::Value(ValueNode::String("42".to_string()))
-                        .with_position((30..34).into())
+                    Expression::Value(ValueNode::Boolean(true)).with_position((24, 28)),
+                    Expression::Value(ValueNode::String("42".to_string())).with_position((30, 34))
                 ])))
-                .with_position((23..35).into())
+                .with_position((23, 35))
             ),)
-            .with_position((0..35).into())
+            .with_position((0, 35))
         );
     }
 
@@ -515,13 +510,13 @@ mod tests {
                         parameter_types: vec![],
                         return_type: Box::new(Type::Any)
                     }
-                    .with_position((9..19).into())
+                    .with_position((9, 19))
                 ),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
-                    .with_position((21..34).into())
+                    .with_position((21, 34))
             ),)
-            .with_position((0..34).into())
+            .with_position((0, 34))
         );
     }
 
@@ -530,10 +525,10 @@ mod tests {
         assert_eq!(
             parse(&lex("output()").unwrap()).unwrap()[0],
             Statement::Expression(Expression::FunctionCall(FunctionCall::new(
-                Expression::Identifier(Identifier::new("output")).with_position((0..6).into()),
+                Expression::Identifier(Identifier::new("output")).with_position((0, 6)),
                 Vec::with_capacity(0),
             )))
-            .with_position((0..8).into())
+            .with_position((0, 8))
         )
     }
 
@@ -541,8 +536,7 @@ mod tests {
     fn range() {
         assert_eq!(
             parse(&lex("1..10").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(ValueNode::Range(1..10)))
-                .with_position((0..5).into())
+            Statement::Expression(Expression::Value(ValueNode::Range(1..10))).with_position((0, 5))
         )
     }
 
@@ -556,7 +550,7 @@ mod tests {
     //                 return_type: Type::Integer,
     //                 body: Block::new(vec![Statement::expression(
     //                     Expression::Identifier(Identifier::new("x")),
-    //                     (0..0).into()
+    //                     (0..0)
     //                 )])
     //             }),
     //             (0..0).into()

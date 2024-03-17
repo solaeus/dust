@@ -61,12 +61,9 @@ mod tests {
     #[test]
     fn run_returns_value_of_final_statement() {
         let block = Block::new(vec![
-            Statement::Expression(Expression::Value(ValueNode::Integer(1)))
-                .with_position((0..0).into()),
-            Statement::Expression(Expression::Value(ValueNode::Integer(2)))
-                .with_position((0..0).into()),
-            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
-                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(1))).with_position((0, 0)),
+            Statement::Expression(Expression::Value(ValueNode::Integer(2))).with_position((0, 0)),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))).with_position((0, 0)),
         ]);
 
         assert_eq!(
@@ -79,9 +76,8 @@ mod tests {
     fn expected_type_returns_type_of_final_statement() {
         let block = Block::new(vec![
             Statement::Expression(Expression::Value(ValueNode::String("42".to_string())))
-                .with_position((0..0).into()),
-            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
-                .with_position((0..0).into()),
+                .with_position((0, 0)),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42))).with_position((0, 0)),
         ]);
 
         assert_eq!(block.expected_type(&Context::new()), Ok(Type::Integer))

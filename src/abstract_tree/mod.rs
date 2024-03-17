@@ -41,7 +41,22 @@ use crate::{
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct WithPosition<T> {
     pub node: T,
-    pub position: (usize, usize),
+    pub position: SourcePosition,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct SourcePosition(pub usize, pub usize);
+
+impl From<SimpleSpan> for SourcePosition {
+    fn from(span: SimpleSpan) -> Self {
+        SourcePosition(span.start(), span.end())
+    }
+}
+
+impl From<(usize, usize)> for SourcePosition {
+    fn from((start, end): (usize, usize)) -> Self {
+        SourcePosition(start, end)
+    }
 }
 
 pub trait AbstractTree: Sized {
@@ -49,10 +64,10 @@ pub trait AbstractTree: Sized {
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
     fn run(self, context: &Context) -> Result<Action, RuntimeError>;
 
-    fn with_position(self, span: SimpleSpan) -> WithPosition<Self> {
+    fn with_position<T: Into<SourcePosition>>(self, span: T) -> WithPosition<Self> {
         WithPosition {
             node: self,
-            position: (span.start(), span.end()),
+            position: span.into(),
         }
     }
 }
