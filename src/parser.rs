@@ -12,7 +12,7 @@ pub type DustParser<'src> = Boxed<
     'src,
     'src,
     ParserInput<'src>,
-    Vec<Statement>,
+    Vec<Positioned<Statement>>,
     extra::Err<Rich<'src, Token<'src>, SimpleSpan>>,
 >;
 
@@ -21,7 +21,7 @@ pub type ParserInput<'src> =
 
 pub fn parse<'src>(
     tokens: &'src [(Token<'src>, SimpleSpan)],
-) -> Result<Vec<Statement>, Vec<Error>> {
+) -> Result<Vec<Positioned<Statement>>, Vec<Error>> {
     parser()
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
@@ -111,6 +111,9 @@ pub fn parser<'src>() -> DustParser<'src> {
         just(Token::Control(Control::Colon)).ignore_then(r#type)
     });
 
+    let positioned_type =
+        type_specification.map_with(|r#type, state| r#type.positioned(state.span()));
+
     let statement = recursive(|statement| {
         let block = statement
             .clone()
@@ -121,6 +124,10 @@ pub fn parser<'src>() -> DustParser<'src> {
                 just(Token::Control(Control::CurlyClose)),
             )
             .map(|statements| Block::new(statements));
+
+        let positioned_block = block
+            .clone()
+            .map_with(|block, state| block.positioned(state.span()));
 
         let expression = recursive(|expression| {
             let identifier_expression = identifier
@@ -154,10 +161,17 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             let map_assignment = identifier
                 .clone()
-                .then(type_specification.clone().or_not())
+                .then(
+                    type_specification
+                        .map_with(|r#type, state| r#type.positioned(state.span()))
+                        .clone()
+                        .or_not(),
+                )
                 .then_ignore(just(Token::Operator(Operator::Assign)))
                 .then(expression.clone())
-                .map(|((identifier, r#type), expression)| (identifier, r#type, expression));
+                .map_with(|((identifier, r#type), expression), state| {
+                    (identifier, r#type, expression.positioned(state.span()))
+                });
 
             let map = map_assignment
                 .separated_by(just(Token::Control(Control::Comma)).or_not())
@@ -180,11 +194,11 @@ pub fn parser<'src>() -> DustParser<'src> {
                 )
                 .then(type_specification.clone())
                 .then(block.clone())
-                .map(|((parameters, return_type), body)| {
+                .map_with(|((parameters, return_type), body), state| {
                     Expression::Value(ValueNode::Function {
                         parameters,
-                        return_type,
-                        body,
+                        return_type: return_type.positioned(state.span()),
+                        body: body.positioned(state.span()),
                     })
                 })
                 .boxed();
@@ -216,7 +230,8 @@ pub fn parser<'src>() -> DustParser<'src> {
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
                 ),
-            ));
+            ))
+            .map_with(|expression, state| expression.positioned(state.span()));
 
             use Operator::*;
 
@@ -280,6 +295,7 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             choice((
                 function,
+                function_call,
                 range,
                 logic_math_and_index,
                 identifier_expression,
@@ -290,17 +306,22 @@ pub fn parser<'src>() -> DustParser<'src> {
             .boxed()
         });
 
+        let positioned_expression = expression
+            .clone()
+            .map_with(|expression, state| expression.positioned(state.span()));
+
         let expression_statement = expression
             .clone()
-            .map_with(|expression, state| Statement::expression(expression, state.span()))
+            .map_with(|expression, state| {
+                Statement::Expression(expression.positioned(state.span()))
+            })
             .boxed();
 
-        let r#break =
-            just(Token::Keyword("break")).map_with(|_, state| Statement::r#break(state.span()));
+        let r#break = just(Token::Keyword("break")).to(Statement::Break);
 
         let assignment = identifier
             .clone()
-            .then(type_specification.clone().or_not())
+            .then(positioned_type.clone().or_not())
             .then(choice((
                 just(Token::Operator(Operator::Assign)).to(AssignmentOperator::Assign),
                 just(Token::Operator(Operator::AddAssign)).to(AssignmentOperator::AddAssign),
@@ -308,16 +329,18 @@ pub fn parser<'src>() -> DustParser<'src> {
             )))
             .then(statement.clone())
             .map_with(|(((identifier, r#type), operator), statement), state| {
-                Statement::assignment(
-                    Assignment::new(identifier, r#type, operator, statement),
-                    state.span(),
-                )
+                Statement::Assignment(Assignment::new(
+                    identifier,
+                    r#type,
+                    operator,
+                    statement.positioned(state.span()),
+                ))
             })
             .boxed();
 
         let block_statement = block
             .clone()
-            .map_with(|block, state| Statement::block(block, state.span()));
+            .map_with(|block, state| Statement::Block(block));
 
         let r#loop = statement
             .clone()
@@ -328,29 +351,24 @@ pub fn parser<'src>() -> DustParser<'src> {
                 just(Token::Keyword("loop")).then(just(Token::Control(Control::CurlyOpen))),
                 just(Token::Control(Control::CurlyClose)),
             )
-            .map_with(|statements, state| Statement::r#loop(Loop::new(statements), state.span()))
+            .map_with(|statements, state| Statement::Loop(Loop::new(statements)))
             .boxed();
 
         let r#while = just(Token::Keyword("while"))
             .ignore_then(expression.clone())
             .then(block.clone())
-            .map_with(|(expression, block), state| {
-                Statement::r#while(While::new(expression, block), state.span())
-            });
+            .map_with(|(expression, block), state| Statement::While(While::new(expression, block)));
 
         let if_else = just(Token::Keyword("if"))
-            .ignore_then(expression.clone())
-            .then(block.clone())
+            .ignore_then(positioned_expression.clone())
+            .then(positioned_block.clone())
             .then(
                 just(Token::Keyword("else"))
-                    .ignore_then(block.clone())
+                    .ignore_then(positioned_block.clone())
                     .or_not(),
             )
             .map_with(|((if_expression, if_block), else_block), state| {
-                Statement::if_else(
-                    IfElse::new(if_expression, if_block, else_block),
-                    state.span(),
-                )
+                Statement::IfElse(IfElse::new(if_expression, if_block, else_block))
             })
             .boxed();
 
@@ -367,13 +385,15 @@ pub fn parser<'src>() -> DustParser<'src> {
         .boxed()
     });
 
-    statement.repeated().collect().boxed()
+    statement
+        .map_with(|statement, state| statement.positioned(state.span()))
+        .repeated()
+        .collect()
+        .boxed()
 }
 
 #[cfg(test)]
 mod tests {
-    use tests::statement::StatementInner;
-
     use crate::lexer::lex;
 
     use super::*;

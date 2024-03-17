@@ -35,9 +35,10 @@ impl Interpreter {
             .iter()
             .filter_map(|statement| {
                 statement
+                    .node
                     .validate(&self.context)
                     .err()
-                    .map(|validation_error| Error::Validation(validation_error))
+                    .map(|validation_error| Error::Validation(validation_error, statement.position))
             })
             .collect::<Vec<Error>>();
 
@@ -48,7 +49,7 @@ impl Interpreter {
         let mut value = None;
 
         for statement in statements {
-            value = match statement.run(&self.context) {
+            value = match statement.node.run(&self.context) {
                 Ok(action) => match action {
                     Action::Break => None,
                     Action::Return(value) => Some(value),

@@ -19,7 +19,7 @@ pub enum Error {
         span: (usize, usize),
     },
     Runtime(RuntimeError),
-    Validation(ValidationError),
+    Validation(ValidationError, (usize, usize)),
 }
 
 impl Error {
@@ -46,9 +46,15 @@ impl Error {
                     .finish()
             }
             Error::Runtime(_) => todo!(),
-            Error::Validation(validation_error) => {
-                let mut report =
-                    Report::build(ReportKind::Custom("Validation Error", Color::White), (), 0);
+            Error::Validation(validation_error, position) => {
+                let mut report = Report::build(
+                    ReportKind::Custom("Validation Error: The code was not run.", Color::White),
+                    (),
+                    0,
+                )
+                .with_label(
+                    Label::new(position.0..position.1).with_message("Error found in this item."),
+                );
 
                 match validation_error {
                     ValidationError::ExpectedBoolean => {

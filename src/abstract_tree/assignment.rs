@@ -126,7 +126,9 @@ mod tests {
             None,
             AssignmentOperator::Assign,
             Positioned {
-                node: Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+                node: Statement::Expression(
+                    Expression::Value(ValueNode::Integer(42)).positioned((0..1).into()),
+                ),
                 position: (0, 0),
             },
         )
@@ -152,7 +154,9 @@ mod tests {
             None,
             AssignmentOperator::AddAssign,
             Positioned {
-                node: Statement::Expression(Expression::Value(ValueNode::Integer(41))),
+                node: Statement::Expression(
+                    Expression::Value(ValueNode::Integer(41)).positioned((0..1).into()),
+                ),
                 position: (0, 0),
             },
         )
@@ -178,7 +182,9 @@ mod tests {
             None,
             AssignmentOperator::SubAssign,
             Positioned {
-                node: Statement::Expression(Expression::Value(ValueNode::Integer(1))),
+                node: Statement::Expression(
+                    Expression::Value(ValueNode::Integer(1)).positioned((0..1).into()),
+                ),
                 position: (0, 0),
             },
         )
@@ -201,7 +207,9 @@ mod tests {
             }),
             AssignmentOperator::Assign,
             Positioned {
-                node: Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+                node: Statement::Expression(
+                    Expression::Value(ValueNode::Integer(42)).positioned((0..1).into()),
+                ),
                 position: (0, 0),
             },
         )

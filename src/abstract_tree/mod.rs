@@ -13,6 +13,8 @@ pub mod r#type;
 pub mod value_node;
 pub mod r#while;
 
+use chumsky::span::{SimpleSpan, Span};
+
 pub use self::{
     assignment::{Assignment, AssignmentOperator},
     block::Block,
@@ -47,10 +49,10 @@ pub trait AbstractTree: Sized {
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
     fn run(self, context: &Context) -> Result<Action, RuntimeError>;
 
-    fn positioned(self, position: (usize, usize)) -> Positioned<Self> {
+    fn positioned(self, span: SimpleSpan) -> Positioned<Self> {
         Positioned {
             node: self,
-            position,
+            position: (span.start(), span.end()),
         }
     }
 }

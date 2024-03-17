@@ -83,11 +83,12 @@ mod tests {
     fn simple_if() {
         assert_eq!(
             IfElse::new(
-                Expression::Value(ValueNode::Boolean(true)).positioned((0, 0)),
-                Block::new(vec![Statement::Expression(Expression::Value(
-                    ValueNode::String("foo".to_string())
-                ),)])
-                .positioned((0, 0)),
+                Expression::Value(ValueNode::Boolean(true)).positioned((0..0).into()),
+                Block::new(vec![Statement::Expression(
+                    Expression::Value(ValueNode::String("foo".to_string()))
+                        .positioned((0..0).into())
+                )])
+                .positioned((0..0).into()),
                 None
             )
             .run(&Context::new()),
@@ -99,16 +100,18 @@ mod tests {
     fn simple_if_else() {
         assert_eq!(
             IfElse::new(
-                Expression::Value(ValueNode::Boolean(false)).positioned((0, 0)),
-                Block::new(vec![Statement::Expression(Expression::Value(
-                    ValueNode::String("foo".to_string())
-                ))])
-                .positioned((0, 0)),
+                Expression::Value(ValueNode::Boolean(false)).positioned((0..0).into()),
+                Block::new(vec![Statement::Expression(
+                    Expression::Value(ValueNode::String("foo".to_string()))
+                        .positioned((0..0).into())
+                )])
+                .positioned((0..0).into()),
                 Some(
-                    Block::new(vec![Statement::Expression(Expression::Value(
-                        ValueNode::String("bar".to_string())
-                    ))])
-                    .positioned((0, 0))
+                    Block::new(vec![Statement::Expression(
+                        Expression::Value(ValueNode::String("bar".to_string()))
+                            .positioned((0..0).into())
+                    )])
+                    .positioned((0..0).into())
                 )
             )
             .run(&Context::new()),
