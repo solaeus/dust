@@ -1,6 +1,6 @@
 use std::{io, ops::Range, sync::PoisonError};
 
-use ariadne::{Label, ReportBuilder};
+use ariadne::{Color, Fmt, Label, ReportBuilder};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
@@ -33,6 +33,8 @@ impl Error {
         self,
         mut builder: ReportBuilder<'_, Range<usize>>,
     ) -> ReportBuilder<'_, Range<usize>> {
+        let type_color = Color::Green;
+
         match self {
             Error::Parse { expected, span } => {
                 let message = match expected.as_str() {
@@ -66,16 +68,18 @@ impl Error {
             },
             Error::Validation { error, position } => match error {
                 ValidationError::ExpectedBoolean { actual, position } => {
-                    builder.add_label(
-                        Label::new(position.0..position.1)
-                            .with_message(format!("Expected boolean but got {actual}.")),
-                    );
+                    builder.add_label(Label::new(position.0..position.1).with_message(format!(
+                        "Expected {} but got {}.",
+                        "boolean".fg(type_color),
+                        actual.fg(type_color)
+                    )));
                 }
                 ValidationError::ExpectedIntegerOrFloat => {
-                    builder.add_label(
-                        Label::new(position.0..position.1)
-                            .with_message("Expected integer or float."),
-                    );
+                    builder.add_label(Label::new(position.0..position.1).with_message(format!(
+                        "Expected {} or {}.",
+                        "integer".fg(type_color),
+                        "float".fg(type_color)
+                    )));
                 }
                 ValidationError::RwLockPoison(_) => todo!(),
                 ValidationError::TypeCheck {
@@ -86,10 +90,12 @@ impl Error {
                     let TypeConflict { actual, expected } = conflict;
 
                     builder.add_labels([
-                        Label::new(expected_postion.0..expected_postion.1)
-                            .with_message(format!("Type {expected} established here.")),
+                        Label::new(expected_postion.0..expected_postion.1).with_message(format!(
+                            "Type {} established here.",
+                            expected.fg(type_color)
+                        )),
                         Label::new(actual_position.0..actual_position.1)
-                            .with_message(format!("Got type {actual} here.")),
+                            .with_message(format!("Got type {} here.", actual.fg(type_color))),
                     ]);
                 }
                 ValidationError::VariableNotFound(identifier) => {
@@ -99,7 +105,10 @@ impl Error {
                             .with_priority(1),
                     );
                 }
-                ValidationError::CannotIndex(_) => todo!(),
+                ValidationError::CannotIndex { r#type, position } => builder.add_label(
+                    Label::new(position.0..position.1)
+                        .with_message(format!("Cannot index into a {}.", r#type.fg(type_color))),
+                ),
                 ValidationError::CannotIndexWith(_, _) => todo!(),
                 ValidationError::InterpreterExpectedReturn => todo!(),
                 ValidationError::ExpectedFunction { .. } => todo!(),
@@ -169,7 +178,10 @@ impl PartialEq for RuntimeError {
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
-    CannotIndex(Type),
+    CannotIndex {
+        r#type: Type,
+        position: SourcePosition,
+    },
     CannotIndexWith(Type, Type),
     ExpectedBoolean {
         actual: Type,

@@ -6,7 +6,7 @@ use std::{
 use crate::{
     abstract_tree::{Identifier, Type},
     error::RwLockPoisonError,
-    value::BuiltInFunction,
+    value::{BuiltInFunction, BuiltInValue},
     Value,
 };
 
@@ -53,7 +53,14 @@ impl Context {
     }
 
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
-        Ok(self.inner.read()?.contains_key(identifier))
+        if self.inner.read()?.contains_key(identifier) {
+            Ok(true)
+        } else {
+            match identifier.as_str() {
+                "io" | "output" => Ok(true),
+                _ => Ok(false),
+            }
+        }
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
@@ -67,6 +74,7 @@ impl Context {
         }
 
         let r#type = match identifier.as_str() {
+            "io" => BuiltInValue::Io.r#type(),
             "output" => BuiltInFunction::Output.r#type(),
             _ => return Ok(None),
         };
@@ -79,6 +87,7 @@ impl Context {
             Ok(Some(value.clone()))
         } else {
             let value = match identifier.as_str() {
+                "io" => BuiltInValue::Io.value(),
                 "output" => Value::built_in_function(BuiltInFunction::Output),
                 _ => return Ok(None),
             };

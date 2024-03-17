@@ -34,7 +34,10 @@ impl AbstractTree for Index {
 
             expression.node.expected_type(_context)
         } else {
-            Err(ValidationError::CannotIndex(left_type))
+            Err(ValidationError::CannotIndex {
+                r#type: left_type,
+                position: self.left.position,
+            })
         }
     }
 
@@ -53,7 +56,10 @@ impl AbstractTree for Index {
                     Err(ValidationError::CannotIndexWith(left_type, right_type))
                 }
             }
-            _ => Err(ValidationError::CannotIndex(left_type)),
+            _ => Err(ValidationError::CannotIndex {
+                r#type: left_type,
+                position: self.left.position,
+            }),
         }
     }
 

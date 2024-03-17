@@ -377,24 +377,34 @@ impl BuiltInFunction {
 impl Display for BuiltInFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            BuiltInFunction::Output => write!(f, "(to_output : any) : none rust_magic();"),
-            BuiltInFunction::ReadLine => todo!(),
+            BuiltInFunction::Output => write!(f, "(to_output : any) : none {{ *MAGIC* }}"),
+            BuiltInFunction::ReadLine => write!(f, "() : str {{ *MAGIC* }}"),
         }
     }
 }
+
+static IO: OnceLock<Value> = OnceLock::new();
 
 pub enum BuiltInValue {
     Io,
 }
 
 impl BuiltInValue {
-    pub fn io() -> Value {
-        static IO: OnceLock<Value> = OnceLock::new();
+    pub fn value(self) -> Value {
+        match self {
+            BuiltInValue::Io => {
+                let mut properties = BTreeMap::new();
 
-        let mut properties = BTreeMap::new();
+                properties.insert(Identifier::new("read_line"), BuiltInFunction::read_line());
 
-        properties.insert(Identifier::new("read_line"), BuiltInFunction::read_line());
+                IO.get_or_init(|| Value::map(properties)).clone()
+            }
+        }
+    }
 
-        IO.get_or_init(|| Value::map(properties)).clone()
+    pub fn r#type(self) -> Type {
+        match self {
+            BuiltInValue::Io => Type::Map,
+        }
     }
 }
