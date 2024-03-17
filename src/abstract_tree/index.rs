@@ -3,16 +3,16 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Expression, Positioned, Type, ValueNode};
+use super::{AbstractTree, Action, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
-    left: Positioned<Expression>,
-    right: Positioned<Expression>,
+    left: WithPosition<Expression>,
+    right: WithPosition<Expression>,
 }
 
 impl Index {
-    pub fn new(left: Positioned<Expression>, right: Positioned<Expression>) -> Self {
+    pub fn new(left: WithPosition<Expression>, right: WithPosition<Expression>) -> Self {
         Self { left, right }
     }
 }

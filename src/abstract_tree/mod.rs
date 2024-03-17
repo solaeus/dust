@@ -39,7 +39,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Positioned<T> {
+pub struct WithPosition<T> {
     pub node: T,
     pub position: (usize, usize),
 }
@@ -49,8 +49,8 @@ pub trait AbstractTree: Sized {
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
     fn run(self, context: &Context) -> Result<Action, RuntimeError>;
 
-    fn positioned(self, span: SimpleSpan) -> Positioned<Self> {
-        Positioned {
+    fn with_position(self, span: SimpleSpan) -> WithPosition<Self> {
+        WithPosition {
             node: self,
             position: (span.start(), span.end()),
         }

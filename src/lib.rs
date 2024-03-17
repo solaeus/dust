@@ -5,7 +5,7 @@ pub mod lexer;
 pub mod parser;
 pub mod value;
 
-use abstract_tree::{AbstractTree, Action};
+use abstract_tree::{AbstractTree, Action, WithPosition};
 use context::Context;
 use error::Error;
 use lexer::lex;
@@ -33,12 +33,13 @@ impl Interpreter {
         let statements = parse(&tokens)?;
         let errors = statements
             .iter()
-            .filter_map(|statement| {
-                statement
-                    .node
-                    .validate(&self.context)
+            .filter_map(|WithPosition { node, position }| {
+                node.validate(&self.context)
                     .err()
-                    .map(|validation_error| Error::Validation(validation_error, statement.position))
+                    .map(|error| Error::Validation {
+                        error,
+                        position: position.clone(),
+                    })
             })
             .collect::<Vec<Error>>();
 

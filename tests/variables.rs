@@ -1,5 +1,5 @@
 use dust_lang::{
-    abstract_tree::{Block, Expression, Identifier, Statement, Type},
+    abstract_tree::{AbstractTree, Block, Expression, Identifier, Statement, Type},
     error::{Error, TypeConflict, ValidationError},
     *,
 };
@@ -25,11 +25,15 @@ fn set_variable_with_type_error() {
     assert_eq!(
         interpret("foobar: str = true"),
         Err(vec![Error::Validation {
-            error: ValidationError::TypeCheck(TypeConflict {
-                actual: Type::Boolean,
-                expected: Type::String
-            }),
-            span: (0, 18)
+            error: ValidationError::TypeCheck {
+                conflict: TypeConflict {
+                    actual: Type::Boolean,
+                    expected: Type::String
+                },
+                actual_position: (0, 0),
+                expected_position: (0, 0)
+            },
+            position: (0, 18)
         }])
     );
 }
@@ -39,12 +43,16 @@ fn function_variable() {
     assert_eq!(
         interpret("foobar = (x: int): int { x }; foobar"),
         Ok(Some(Value::function(
-            vec![(Identifier::new("x"), Type::Integer)],
-            Type::Integer,
-            Block::new(vec![Statement::expression(
-                Expression::Identifier(Identifier::new("x")),
-                (0..0).into()
-            )])
+            vec![(
+                Identifier::new("x"),
+                Type::Integer.with_position((0..0).into())
+            )],
+            Type::Integer.with_position((0..0).into()),
+            Block::new(vec![Statement::Expression(Expression::Identifier(
+                Identifier::new("x")
+            ))
+            .with_position((0..0).into())])
+            .with_position((0..0).into())
         )))
     );
 }

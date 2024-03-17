@@ -4,19 +4,19 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Expression, Positioned, Type};
+use super::{AbstractTree, Action, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Logic {
-    Equal(Positioned<Expression>, Positioned<Expression>),
-    NotEqual(Positioned<Expression>, Positioned<Expression>),
-    Greater(Positioned<Expression>, Positioned<Expression>),
-    Less(Positioned<Expression>, Positioned<Expression>),
-    GreaterOrEqual(Positioned<Expression>, Positioned<Expression>),
-    LessOrEqual(Positioned<Expression>, Positioned<Expression>),
-    And(Positioned<Expression>, Positioned<Expression>),
-    Or(Positioned<Expression>, Positioned<Expression>),
-    Not(Positioned<Expression>),
+    Equal(WithPosition<Expression>, WithPosition<Expression>),
+    NotEqual(WithPosition<Expression>, WithPosition<Expression>),
+    Greater(WithPosition<Expression>, WithPosition<Expression>),
+    Less(WithPosition<Expression>, WithPosition<Expression>),
+    GreaterOrEqual(WithPosition<Expression>, WithPosition<Expression>),
+    LessOrEqual(WithPosition<Expression>, WithPosition<Expression>),
+    And(WithPosition<Expression>, WithPosition<Expression>),
+    Or(WithPosition<Expression>, WithPosition<Expression>),
+    Not(WithPosition<Expression>),
 }
 
 impl AbstractTree for Logic {
@@ -139,8 +139,8 @@ mod tests {
     #[test]
     fn equal() {
         assert!(Logic::Equal(
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -153,8 +153,8 @@ mod tests {
     #[test]
     fn not_equal() {
         assert!(Logic::NotEqual(
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(43)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -167,8 +167,8 @@ mod tests {
     #[test]
     fn greater() {
         assert!(Logic::Greater(
-            Expression::Value(ValueNode::Integer(43)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -181,8 +181,8 @@ mod tests {
     #[test]
     fn less() {
         assert!(Logic::Less(
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(43)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -195,8 +195,8 @@ mod tests {
     #[test]
     fn greater_or_equal() {
         assert!(Logic::GreaterOrEqual(
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(41)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(41)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -206,8 +206,8 @@ mod tests {
         .unwrap());
 
         assert!(Logic::GreaterOrEqual(
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -220,8 +220,8 @@ mod tests {
     #[test]
     fn less_or_equal() {
         assert!(Logic::LessOrEqual(
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(43)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(43)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -231,8 +231,8 @@ mod tests {
         .unwrap());
 
         assert!(Logic::LessOrEqual(
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Integer(42)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -245,8 +245,8 @@ mod tests {
     #[test]
     fn and() {
         assert!(Logic::And(
-            Expression::Value(ValueNode::Boolean(true)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Boolean(true)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Boolean(true)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Boolean(true)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -259,8 +259,8 @@ mod tests {
     #[test]
     fn or() {
         assert!(Logic::Or(
-            Expression::Value(ValueNode::Boolean(true)).positioned((0..0).into()),
-            Expression::Value(ValueNode::Boolean(false)).positioned((0..0).into()),
+            Expression::Value(ValueNode::Boolean(true)).with_position((0..0).into()),
+            Expression::Value(ValueNode::Boolean(false)).with_position((0..0).into()),
         )
         .run(&Context::new())
         .unwrap()
@@ -272,14 +272,14 @@ mod tests {
 
     #[test]
     fn not() {
-        assert!(
-            Logic::Not(Expression::Value(ValueNode::Boolean(false)).positioned((0..0).into()))
-                .run(&Context::new())
-                .unwrap()
-                .as_return_value()
-                .unwrap()
-                .as_boolean()
-                .unwrap()
+        assert!(Logic::Not(
+            Expression::Value(ValueNode::Boolean(false)).with_position((0..0).into())
         )
+        .run(&Context::new())
+        .unwrap()
+        .as_return_value()
+        .unwrap()
+        .as_boolean()
+        .unwrap())
     }
 }

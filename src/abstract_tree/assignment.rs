@@ -3,14 +3,14 @@ use crate::{
     Context,
 };
 
-use super::{AbstractTree, Action, Identifier, Positioned, Statement, Type};
+use super::{AbstractTree, Action, Identifier, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    r#type: Option<Positioned<Type>>,
+    r#type: Option<WithPosition<Type>>,
     operator: AssignmentOperator,
-    statement: Box<Positioned<Statement>>,
+    statement: Box<WithPosition<Statement>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -23,9 +23,9 @@ pub enum AssignmentOperator {
 impl Assignment {
     pub fn new(
         identifier: Identifier,
-        r#type: Option<Positioned<Type>>,
+        r#type: Option<WithPosition<Type>>,
         operator: AssignmentOperator,
-        statement: Positioned<Statement>,
+        statement: WithPosition<Statement>,
     ) -> Self {
         Self {
             identifier,
@@ -44,7 +44,7 @@ impl AbstractTree for Assignment {
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
         let statement_type = self.statement.node.expected_type(context)?;
 
-        if let Some(Positioned {
+        if let Some(WithPosition {
             node: expected_type,
             position: expected_position,
         }) = &self.r#type
@@ -125,12 +125,8 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::Assign,
-            Positioned {
-                node: Statement::Expression(
-                    Expression::Value(ValueNode::Integer(42)).positioned((0..1).into()),
-                ),
-                position: (0, 0),
-            },
+            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
+                .with_position((0..0).into()),
         )
         .run(&context)
         .unwrap();
@@ -153,12 +149,8 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::AddAssign,
-            Positioned {
-                node: Statement::Expression(
-                    Expression::Value(ValueNode::Integer(41)).positioned((0..1).into()),
-                ),
-                position: (0, 0),
-            },
+            Statement::Expression(Expression::Value(ValueNode::Integer(41)))
+                .with_position((0..0).into()),
         )
         .run(&context)
         .unwrap();
@@ -181,12 +173,8 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::SubAssign,
-            Positioned {
-                node: Statement::Expression(
-                    Expression::Value(ValueNode::Integer(1)).positioned((0..1).into()),
-                ),
-                position: (0, 0),
-            },
+            Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+                .with_position((0..0).into()),
         )
         .run(&context)
         .unwrap();
@@ -201,17 +189,13 @@ mod tests {
     fn type_check() {
         let validation = Assignment::new(
             Identifier::new("foobar"),
-            Some(Positioned {
+            Some(WithPosition {
                 node: Type::Boolean,
                 position: (0, 0),
             }),
             AssignmentOperator::Assign,
-            Positioned {
-                node: Statement::Expression(
-                    Expression::Value(ValueNode::Integer(42)).positioned((0..1).into()),
-                ),
-                position: (0, 0),
-            },
+            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
+                .with_position((0..0).into()),
         )
         .validate(&Context::new());
 

@@ -13,7 +13,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractTree, Action, Block, Identifier, Positioned, Type},
+    abstract_tree::{AbstractTree, Action, Block, Identifier, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
 };
@@ -55,9 +55,9 @@ impl Value {
     }
 
     pub fn function(
-        parameters: Vec<(Identifier, Positioned<Type>)>,
-        return_type: Positioned<Type>,
-        body: Positioned<Block>,
+        parameters: Vec<(Identifier, WithPosition<Type>)>,
+        return_type: WithPosition<Type>,
+        body: WithPosition<Block>,
     ) -> Self {
         Value(Arc::new(ValueInner::Function(Function::Parsed(
             ParsedFunction {
@@ -330,9 +330,9 @@ impl Function {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ParsedFunction {
-    parameters: Vec<(Identifier, Positioned<Type>)>,
-    return_type: Positioned<Type>,
-    body: Positioned<Block>,
+    parameters: Vec<(Identifier, WithPosition<Type>)>,
+    return_type: WithPosition<Type>,
+    body: WithPosition<Block>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]

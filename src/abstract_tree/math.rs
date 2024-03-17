@@ -5,15 +5,15 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Expression, Positioned, Type};
+use super::{AbstractTree, Action, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Math {
-    Add(Positioned<Expression>, Positioned<Expression>),
-    Subtract(Positioned<Expression>, Positioned<Expression>),
-    Multiply(Positioned<Expression>, Positioned<Expression>),
-    Divide(Positioned<Expression>, Positioned<Expression>),
-    Modulo(Positioned<Expression>, Positioned<Expression>),
+    Add(WithPosition<Expression>, WithPosition<Expression>),
+    Subtract(WithPosition<Expression>, WithPosition<Expression>),
+    Multiply(WithPosition<Expression>, WithPosition<Expression>),
+    Divide(WithPosition<Expression>, WithPosition<Expression>),
+    Modulo(WithPosition<Expression>, WithPosition<Expression>),
 }
 
 impl AbstractTree for Math {

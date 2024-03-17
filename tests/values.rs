@@ -136,11 +136,15 @@ fn map_type_errors() {
     assert_eq!(
         interpret("{ foo : bool = 'bar' }"),
         Err(vec![Error::Validation {
-            error: ValidationError::TypeCheck(TypeConflict {
-                actual: Type::String,
-                expected: Type::Boolean
-            }),
-            span: (0, 22)
+            error: ValidationError::TypeCheck {
+                conflict: TypeConflict {
+                    actual: Type::String,
+                    expected: Type::Boolean
+                },
+                actual_position: (0, 0),
+                expected_position: (0, 0),
+            },
+            position: (0, 22)
         }])
     );
 }

@@ -3,20 +3,20 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Block, Expression, Positioned, Type};
+use super::{AbstractTree, Action, Block, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
-    if_expression: Positioned<Expression>,
-    if_block: Positioned<Block>,
-    else_block: Option<Positioned<Block>>,
+    if_expression: WithPosition<Expression>,
+    if_block: WithPosition<Block>,
+    else_block: Option<WithPosition<Block>>,
 }
 
 impl IfElse {
     pub fn new(
-        if_expression: Positioned<Expression>,
-        if_block: Positioned<Block>,
-        else_block: Option<Positioned<Block>>,
+        if_expression: WithPosition<Expression>,
+        if_block: WithPosition<Block>,
+        else_block: Option<WithPosition<Block>>,
     ) -> Self {
         Self {
             if_expression,
@@ -83,13 +83,12 @@ mod tests {
     fn simple_if() {
         assert_eq!(
             IfElse::new(
-                Expression::Value(ValueNode::Boolean(true)).positioned((0..0).into()),
-                Block::new(vec![Statement::Expression(
-                    Expression::Value(ValueNode::String("foo".to_string()))
-                        .positioned((0..0).into())
-                )
-                .positioned((0..0).into())])
-                .positioned((0..0).into()),
+                Expression::Value(ValueNode::Boolean(true)).with_position((0..0).into()),
+                Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("foo".to_string())
+                ))
+                .with_position((0..0).into())])
+                .with_position((0..0).into()),
                 None
             )
             .run(&Context::new()),
@@ -101,20 +100,18 @@ mod tests {
     fn simple_if_else() {
         assert_eq!(
             IfElse::new(
-                Expression::Value(ValueNode::Boolean(false)).positioned((0..0).into()),
-                Block::new(vec![Statement::Expression(
-                    Expression::Value(ValueNode::String("foo".to_string()))
-                        .positioned((0..0).into())
-                )
-                .positioned((0..0).into())])
-                .positioned((0..0).into()),
+                Expression::Value(ValueNode::Boolean(false)).with_position((0..0).into()),
+                Block::new(vec![Statement::Expression(Expression::Value(
+                    ValueNode::String("foo".to_string())
+                ))
+                .with_position((0..0).into())])
+                .with_position((0..0).into()),
                 Some(
-                    Block::new(vec![Statement::Expression(
-                        Expression::Value(ValueNode::String("bar".to_string()))
-                            .positioned((0..0).into())
-                    )
-                    .positioned((0..0).into())])
-                    .positioned((0..0).into())
+                    Block::new(vec![Statement::Expression(Expression::Value(
+                        ValueNode::String("bar".to_string())
+                    ))
+                    .with_position((0..0).into())])
+                    .with_position((0..0).into())
                 )
             )
             .run(&Context::new()),

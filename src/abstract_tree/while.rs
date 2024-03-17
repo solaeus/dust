@@ -3,16 +3,16 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Block, Expression, Positioned, Type};
+use super::{AbstractTree, Action, Block, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
-    expression: Positioned<Expression>,
+    expression: WithPosition<Expression>,
     block: Block,
 }
 
 impl While {
-    pub fn new(expression: Positioned<Expression>, block: Block) -> Self {
+    pub fn new(expression: WithPosition<Expression>, block: Block) -> Self {
         Self { expression, block }
     }
 }

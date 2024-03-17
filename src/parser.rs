@@ -12,7 +12,7 @@ pub type DustParser<'src> = Boxed<
     'src,
     'src,
     ParserInput<'src>,
-    Vec<Positioned<Statement>>,
+    Vec<WithPosition<Statement>>,
     extra::Err<Rich<'src, Token<'src>, SimpleSpan>>,
 >;
 
@@ -21,7 +21,7 @@ pub type ParserInput<'src> =
 
 pub fn parse<'src>(
     tokens: &'src [(Token<'src>, SimpleSpan)],
-) -> Result<Vec<Positioned<Statement>>, Vec<Error>> {
+) -> Result<Vec<WithPosition<Statement>>, Vec<Error>> {
     parser()
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
@@ -53,7 +53,7 @@ pub fn parser<'src>() -> DustParser<'src> {
         Token::Float(float) => ValueNode::Float(float),
         Token::String(string) => ValueNode::String(string.to_string()),
     }
-    .map_with(|value, state| Expression::Value(value).positioned(state.span()))
+    .map_with(|value, state| Expression::Value(value).with_position(state.span()))
     .boxed();
 
     let r#type = recursive(|r#type| {
@@ -106,12 +106,12 @@ pub fn parser<'src>() -> DustParser<'src> {
                 .map(|identifier| Type::Custom(identifier)),
         ))
     })
-    .map_with(|r#type, state| r#type.positioned(state.span()));
+    .map_with(|r#type, state| r#type.with_position(state.span()));
 
     let type_specification = just(Token::Control(Control::Colon)).ignore_then(r#type.clone());
 
-    let statement = recursive(|statement| {
-        let block = statement
+    let positioned_statement = recursive(|positioned_statement| {
+        let block = positioned_statement
             .clone()
             .repeated()
             .collect()
@@ -123,11 +123,11 @@ pub fn parser<'src>() -> DustParser<'src> {
 
         let positioned_block = block
             .clone()
-            .map_with(|block, state| block.positioned(state.span()));
+            .map_with(|block, state| block.with_position(state.span()));
 
-        let expression = recursive(|expression| {
+        let positioned_expression = recursive(|positioned_expression| {
             let identifier_expression = identifier.clone().map_with(|identifier, state| {
-                Expression::Identifier(identifier).positioned(state.span())
+                Expression::Identifier(identifier).with_position(state.span())
             });
 
             let range = {
@@ -140,11 +140,11 @@ pub fn parser<'src>() -> DustParser<'src> {
                     .then_ignore(just(Token::Control(Control::DoubleDot)))
                     .then(raw_integer)
                     .map_with(|(start, end), state| {
-                        Expression::Value(ValueNode::Range(start..end)).positioned(state.span())
+                        Expression::Value(ValueNode::Range(start..end)).with_position(state.span())
                     })
             };
 
-            let list = expression
+            let list = positioned_expression
                 .clone()
                 .separated_by(just(Token::Control(Control::Comma)))
                 .allow_trailing()
@@ -154,14 +154,14 @@ pub fn parser<'src>() -> DustParser<'src> {
                     just(Token::Control(Control::SquareClose)),
                 )
                 .map_with(|list, state| {
-                    Expression::Value(ValueNode::List(list)).positioned(state.span())
+                    Expression::Value(ValueNode::List(list)).with_position(state.span())
                 });
 
             let map_assignment = identifier
                 .clone()
                 .then(type_specification.clone().or_not())
                 .then_ignore(just(Token::Operator(Operator::Assign)))
-                .then(expression.clone())
+                .then(positioned_expression.clone())
                 .map(|((identifier, r#type), expression)| (identifier, r#type, expression));
 
             let map = map_assignment
@@ -173,7 +173,8 @@ pub fn parser<'src>() -> DustParser<'src> {
                     just(Token::Control(Control::CurlyClose)),
                 )
                 .map_with(|map_assigment_list, state| {
-                    Expression::Value(ValueNode::Map(map_assigment_list)).positioned(state.span())
+                    Expression::Value(ValueNode::Map(map_assigment_list))
+                        .with_position(state.span())
                 });
 
             let function = identifier
@@ -191,16 +192,16 @@ pub fn parser<'src>() -> DustParser<'src> {
                     Expression::Value(ValueNode::Function {
                         parameters,
                         return_type,
-                        body: body.positioned(state.span()),
+                        body: body.with_position(state.span()),
                     })
-                    .positioned(state.span())
+                    .with_position(state.span())
                 });
 
             let function_expression = choice((identifier_expression.clone(), function.clone()));
 
             let function_call = function_expression
                 .then(
-                    expression
+                    positioned_expression
                         .clone()
                         .separated_by(just(Token::Control(Control::Comma)))
                         .collect()
@@ -211,7 +212,7 @@ pub fn parser<'src>() -> DustParser<'src> {
                 )
                 .map_with(|(function, arguments), state| {
                     Expression::FunctionCall(FunctionCall::new(function, arguments))
-                        .positioned(state.span())
+                        .with_position(state.span())
                 });
 
             let atom = choice((
@@ -219,7 +220,7 @@ pub fn parser<'src>() -> DustParser<'src> {
                 identifier_expression.clone(),
                 basic_value.clone(),
                 list.clone(),
-                expression.clone().delimited_by(
+                positioned_expression.clone().delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
                 ),
@@ -229,41 +230,42 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             let logic_math_and_index = atom.pratt((
                 prefix(2, just(Token::Operator(Not)), |_, expression, span| {
-                    Expression::Logic(Box::new(Logic::Not(expression))).positioned(span)
+                    Expression::Logic(Box::new(Logic::Not(expression))).with_position(span)
                 }),
                 infix(
                     left(3),
                     just(Token::Control(Control::Dot)),
                     |left, _, right, span| {
-                        Expression::Index(Box::new(Index::new(left, right))).positioned(span)
+                        Expression::Index(Box::new(Index::new(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(Equal)),
                     |left, _, right, span| {
-                        Expression::Logic(Box::new(Logic::Equal(left, right))).positioned(span)
+                        Expression::Logic(Box::new(Logic::Equal(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(NotEqual)),
                     |left, _, right, span| {
-                        Expression::Logic(Box::new(Logic::NotEqual(left, right))).positioned(span)
+                        Expression::Logic(Box::new(Logic::NotEqual(left, right)))
+                            .with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(Greater)),
                     |left, _, right, span| {
-                        Expression::Logic(Box::new(Logic::Greater(left, right))).positioned(span)
+                        Expression::Logic(Box::new(Logic::Greater(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(Less)),
                     |left, _, right, span| {
-                        Expression::Logic(Box::new(Logic::Less(left, right))).positioned(span)
+                        Expression::Logic(Box::new(Logic::Less(left, right))).with_position(span)
                     },
                 ),
                 infix(
@@ -271,7 +273,7 @@ pub fn parser<'src>() -> DustParser<'src> {
                     just(Token::Operator(GreaterOrEqual)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::GreaterOrEqual(left, right)))
-                            .positioned(span)
+                            .with_position(span)
                     },
                 ),
                 infix(
@@ -279,56 +281,56 @@ pub fn parser<'src>() -> DustParser<'src> {
                     just(Token::Operator(LessOrEqual)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::LessOrEqual(left, right)))
-                            .positioned(span)
+                            .with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(And)),
                     |left, _, right, span| {
-                        Expression::Logic(Box::new(Logic::And(left, right))).positioned(span)
+                        Expression::Logic(Box::new(Logic::And(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(Or)),
                     |left, _, right, span| {
-                        Expression::Logic(Box::new(Logic::Or(left, right))).positioned(span)
+                        Expression::Logic(Box::new(Logic::Or(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(Add)),
                     |left, _, right, span| {
-                        Expression::Math(Box::new(Math::Add(left, right))).positioned(span)
+                        Expression::Math(Box::new(Math::Add(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(Subtract)),
                     |left, _, right, span| {
-                        Expression::Math(Box::new(Math::Subtract(left, right))).positioned(span)
+                        Expression::Math(Box::new(Math::Subtract(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(2),
                     just(Token::Operator(Multiply)),
                     |left, _, right, span| {
-                        Expression::Math(Box::new(Math::Multiply(left, right))).positioned(span)
+                        Expression::Math(Box::new(Math::Multiply(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(2),
                     just(Token::Operator(Divide)),
                     |left, _, right, span| {
-                        Expression::Math(Box::new(Math::Divide(left, right))).positioned(span)
+                        Expression::Math(Box::new(Math::Divide(left, right))).with_position(span)
                     },
                 ),
                 infix(
                     left(1),
                     just(Token::Operator(Modulo)),
                     |left, _, right, span| {
-                        Expression::Math(Box::new(Math::Modulo(left, right))).positioned(span)
+                        Expression::Math(Box::new(Math::Modulo(left, right))).with_position(span)
                     },
                 ),
             ));
@@ -345,12 +347,15 @@ pub fn parser<'src>() -> DustParser<'src> {
             ))
         });
 
-        let expression_statement = expression.clone().map_with(|expression, state| {
-            Statement::Expression(expression).positioned(state.span())
-        });
+        let expression_statement =
+            positioned_expression
+                .clone()
+                .map_with(|positioned_expression, state| {
+                    Statement::Expression(positioned_expression.node).with_position(state.span())
+                });
 
         let r#break = just(Token::Keyword("break"))
-            .map_with(|_, state| Statement::Break.positioned(state.span()));
+            .map_with(|_, state| Statement::Break.with_position(state.span()));
 
         let assignment = identifier
             .clone()
@@ -360,17 +365,17 @@ pub fn parser<'src>() -> DustParser<'src> {
                 just(Token::Operator(Operator::AddAssign)).to(AssignmentOperator::AddAssign),
                 just(Token::Operator(Operator::SubAssign)).to(AssignmentOperator::SubAssign),
             )))
-            .then(statement.clone())
+            .then(positioned_statement.clone())
             .map_with(|(((identifier, r#type), operator), statement), state| {
                 Statement::Assignment(Assignment::new(identifier, r#type, operator, statement))
-                    .positioned(state.span())
+                    .with_position(state.span())
             });
 
         let block_statement = block
             .clone()
-            .map_with(|block, state| Statement::Block(block).positioned(state.span()));
+            .map_with(|block, state| Statement::Block(block).with_position(state.span()));
 
-        let r#loop = statement
+        let r#loop = positioned_statement
             .clone()
             .repeated()
             .at_least(1)
@@ -380,18 +385,18 @@ pub fn parser<'src>() -> DustParser<'src> {
                 just(Token::Control(Control::CurlyClose)),
             )
             .map_with(|statements, state| {
-                Statement::Loop(Loop::new(statements)).positioned(state.span())
+                Statement::Loop(Loop::new(statements)).with_position(state.span())
             });
 
         let r#while = just(Token::Keyword("while"))
-            .ignore_then(expression.clone())
+            .ignore_then(positioned_expression.clone())
             .then(block.clone())
             .map_with(|(expression, block), state| {
-                Statement::While(While::new(expression, block)).positioned(state.span())
+                Statement::While(While::new(expression, block)).with_position(state.span())
             });
 
         let if_else = just(Token::Keyword("if"))
-            .ignore_then(expression.clone())
+            .ignore_then(positioned_expression.clone())
             .then(positioned_block.clone())
             .then(
                 just(Token::Keyword("else"))
@@ -400,7 +405,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             )
             .map_with(|((if_expression, if_block), else_block), state| {
                 Statement::IfElse(IfElse::new(if_expression, if_block, else_block))
-                    .positioned(state.span())
+                    .with_position(state.span())
             });
 
         choice((
@@ -415,7 +420,7 @@ pub fn parser<'src>() -> DustParser<'src> {
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
 
-    statement.repeated().collect().boxed()
+    positioned_statement.repeated().collect().boxed()
 }
 
 #[cfg(test)]
@@ -429,19 +434,18 @@ mod tests {
         assert_eq!(
             parse(&lex("while true { output('hi') }").unwrap()).unwrap()[0],
             Statement::While(While::new(
-                Expression::Value(ValueNode::Boolean(true)).positioned((6..11).into()),
-                Block::new(vec![Statement::Expression(
-                    Expression::FunctionCall(FunctionCall::new(
+                Expression::Value(ValueNode::Boolean(true)).with_position((6..11).into()),
+                Block::new(vec![Statement::Expression(Expression::FunctionCall(
+                    FunctionCall::new(
                         Expression::Identifier(Identifier::new("output"))
-                            .positioned((13..19).into()),
+                            .with_position((13..19).into()),
                         vec![Expression::Value(ValueNode::String("hi".to_string()))
-                            .positioned((20..24).into())]
-                    ))
-                    .positioned((13..26).into())
-                )
-                .positioned((13..26).into())])
+                            .with_position((20..24).into())]
+                    )
+                ))
+                .with_position((13..26).into())])
             ))
-            .positioned((0..27).into())
+            .with_position((0..27).into())
         )
     }
 
@@ -451,14 +455,12 @@ mod tests {
             parse(&lex("foobar : bool = true").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
-                Some(Type::Boolean.positioned((9..14).into())),
+                Some(Type::Boolean.with_position((9..14).into())),
                 AssignmentOperator::Assign,
-                Statement::Expression(
-                    Expression::Value(ValueNode::Boolean(true)).positioned((16..20).into())
-                )
-                .positioned((16..20).into())
+                Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
+                    .with_position((16..20).into())
             ),)
-            .positioned((0..20).into())
+            .with_position((0..20).into())
         );
     }
 
@@ -468,18 +470,15 @@ mod tests {
             parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
-                Some(Type::ListOf(Box::new(Type::Boolean)).positioned((9..20).into())),
+                Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9..20).into())),
                 AssignmentOperator::Assign,
-                Statement::Expression(
-                    Expression::Value(ValueNode::List(vec![Expression::Value(
-                        ValueNode::Boolean(true)
-                    )
-                    .positioned((23..27).into())]))
-                    .positioned((22..28).into())
+                Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
+                    ValueNode::Boolean(true)
                 )
-                .positioned((22..28).into())
+                .with_position((23..27).into())])))
+                .with_position((22..28).into())
             ))
-            .positioned((0..28).into())
+            .with_position((0..28).into())
         );
     }
 
@@ -489,19 +488,19 @@ mod tests {
             parse(&lex("foobar : [bool, str] = [true, '42']").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
-                Some(Type::ListExact(vec![Type::Boolean, Type::String]).positioned((9..21).into())),
+                Some(
+                    Type::ListExact(vec![Type::Boolean, Type::String])
+                        .with_position((9..21).into())
+                ),
                 AssignmentOperator::Assign,
-                Statement::Expression(
-                    Expression::Value(ValueNode::List(vec![
-                        Expression::Value(ValueNode::Boolean(true)).positioned((24..28).into()),
-                        Expression::Value(ValueNode::String("42".to_string()))
-                            .positioned((30..34).into())
-                    ]))
-                    .positioned((23..35).into())
-                )
-                .positioned((23..35).into())
+                Statement::Expression(Expression::Value(ValueNode::List(vec![
+                    Expression::Value(ValueNode::Boolean(true)).with_position((24..28).into()),
+                    Expression::Value(ValueNode::String("42".to_string()))
+                        .with_position((30..34).into())
+                ])))
+                .with_position((23..35).into())
             ),)
-            .positioned((0..35).into())
+            .with_position((0..35).into())
         );
     }
 
@@ -516,40 +515,36 @@ mod tests {
                         parameter_types: vec![],
                         return_type: Box::new(Type::Any)
                     }
-                    .positioned((9..19).into())
+                    .with_position((9..19).into())
                 ),
                 AssignmentOperator::Assign,
-                Statement::Expression(
-                    Expression::Identifier(Identifier::new("some_function"))
-                        .positioned((21..34).into())
-                )
-                .positioned((21..34).into())
+                Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
+                    .with_position((21..34).into())
             ),)
-            .positioned((0..34).into())
+            .with_position((0..34).into())
         );
     }
 
-    // #[test]
-    // fn function_call() {
-    //     assert_eq!(
-    //         parse(&lex("output()").unwrap()).unwrap()[0],
-    //         Statement::expression(
-    //             Expression::FunctionCall(FunctionCall::new(
-    //                 Expression::Identifier(Identifier::new("output")),
-    //                 Vec::with_capacity(0),
-    //             )),
-    //             (0..0).into()
-    //         )
-    //     )
-    // }
+    #[test]
+    fn function_call() {
+        assert_eq!(
+            parse(&lex("output()").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::FunctionCall(FunctionCall::new(
+                Expression::Identifier(Identifier::new("output")).with_position((0..6).into()),
+                Vec::with_capacity(0),
+            )))
+            .with_position((0..8).into())
+        )
+    }
 
-    // #[test]
-    // fn range() {
-    //     assert_eq!(
-    //         parse(&lex("1..10").unwrap()).unwrap()[0],
-    //         Statement::expression(Expression::Value(ValueNode::Range(1..10)), (0..0).into())
-    //     )
-    // }
+    #[test]
+    fn range() {
+        assert_eq!(
+            parse(&lex("1..10").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::Value(ValueNode::Range(1..10)))
+                .with_position((0..5).into())
+        )
+    }
 
     // #[test]
     // fn function() {

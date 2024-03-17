@@ -3,16 +3,19 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Expression, Positioned, Type};
+use super::{AbstractTree, Action, Expression, Type, WithPosition};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
-    function: Box<Positioned<Expression>>,
-    arguments: Vec<Positioned<Expression>>,
+    function: Box<WithPosition<Expression>>,
+    arguments: Vec<WithPosition<Expression>>,
 }
 
 impl FunctionCall {
-    pub fn new(function: Positioned<Expression>, arguments: Vec<Positioned<Expression>>) -> Self {
+    pub fn new(
+        function: WithPosition<Expression>,
+        arguments: Vec<WithPosition<Expression>>,
+    ) -> Self {
         FunctionCall {
             function: Box::new(function),
             arguments,

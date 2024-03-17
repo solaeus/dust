@@ -3,15 +3,15 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Positioned, Statement, Type};
+use super::{AbstractTree, Action, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
-    statements: Vec<Positioned<Statement>>,
+    statements: Vec<WithPosition<Statement>>,
 }
 
 impl Block {
-    pub fn new(statements: Vec<Positioned<Statement>>) -> Self {
+    pub fn new(statements: Vec<WithPosition<Statement>>) -> Self {
         Self { statements }
     }
 }
@@ -61,18 +61,12 @@ mod tests {
     #[test]
     fn run_returns_value_of_final_statement() {
         let block = Block::new(vec![
-            Statement::Expression(
-                Expression::Value(ValueNode::Integer(1)).positioned((0..0).into()),
-            )
-            .positioned((0..0).into()),
-            Statement::Expression(
-                Expression::Value(ValueNode::Integer(2)).positioned((0..0).into()),
-            )
-            .positioned((0..0).into()),
-            Statement::Expression(
-                Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            )
-            .positioned((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(2)))
+                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
+                .with_position((0..0).into()),
         ]);
 
         assert_eq!(
@@ -84,14 +78,10 @@ mod tests {
     #[test]
     fn expected_type_returns_type_of_final_statement() {
         let block = Block::new(vec![
-            Statement::Expression(
-                Expression::Value(ValueNode::String("42".to_string())).positioned((0..0).into()),
-            )
-            .positioned((0..0).into()),
-            Statement::Expression(
-                Expression::Value(ValueNode::Integer(42)).positioned((0..0).into()),
-            )
-            .positioned((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::String("42".to_string())))
+                .with_position((0..0).into()),
+            Statement::Expression(Expression::Value(ValueNode::Integer(42)))
+                .with_position((0..0).into()),
         ]);
 
         assert_eq!(block.expected_type(&Context::new()), Ok(Type::Integer))

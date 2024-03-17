@@ -62,7 +62,7 @@ fn function_context_does_not_capture_values() {
         ),
         Err(vec![Error::Validation {
             error: ValidationError::VariableNotFound(Identifier::new("x")),
-            span: (32, 66)
+            position: (0, 0)
         }])
     );
 

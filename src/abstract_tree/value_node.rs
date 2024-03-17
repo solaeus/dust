@@ -6,21 +6,27 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Block, Expression, Identifier, Positioned, Type};
+use super::{AbstractTree, Action, Block, Expression, Identifier, Type, WithPosition};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
     Boolean(bool),
     Float(f64),
     Integer(i64),
-    List(Vec<Positioned<Expression>>),
-    Map(Vec<(Identifier, Option<Positioned<Type>>, Positioned<Expression>)>),
+    List(Vec<WithPosition<Expression>>),
+    Map(
+        Vec<(
+            Identifier,
+            Option<WithPosition<Type>>,
+            WithPosition<Expression>,
+        )>,
+    ),
     Range(Range<i64>),
     String(String),
     Function {
-        parameters: Vec<(Identifier, Positioned<Type>)>,
-        return_type: Positioned<Type>,
-        body: Positioned<Block>,
+        parameters: Vec<(Identifier, WithPosition<Type>)>,
+        return_type: WithPosition<Type>,
+        body: WithPosition<Block>,
     },
 }
 
@@ -70,7 +76,7 @@ impl AbstractTree for ValueNode {
                             actual_position: expression.position,
                             expected_position: expected_type.position,
                         }
-                    });
+                    })?;
                 }
             }
         }

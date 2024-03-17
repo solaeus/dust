@@ -3,15 +3,15 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Positioned, Statement, Type};
+use super::{AbstractTree, Action, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Loop {
-    statements: Vec<Positioned<Statement>>,
+    statements: Vec<WithPosition<Statement>>,
 }
 
 impl Loop {
-    pub fn new(statements: Vec<Positioned<Statement>>) -> Self {
+    pub fn new(statements: Vec<WithPosition<Statement>>) -> Self {
         Self { statements }
     }
 }
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn basic_loop() {
         let result = Loop {
-            statements: vec![Statement::Break.positioned((0..0).into())],
+            statements: vec![Statement::Break.with_position((0..0).into())],
         }
         .run(&Context::new());
 
