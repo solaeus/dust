@@ -13,7 +13,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractTree, Action, Block, Identifier, Type},
+    abstract_tree::{AbstractTree, Action, Block, Identifier, Positioned, Type},
     context::Context,
     error::{RuntimeError, ValidationError},
 };
@@ -54,7 +54,11 @@ impl Value {
         Value(Arc::new(ValueInner::String(string)))
     }
 
-    pub fn function(parameters: Vec<(Identifier, Type)>, return_type: Type, body: Block) -> Self {
+    pub fn function(
+        parameters: Vec<(Identifier, Type)>,
+        return_type: Positioned<Type>,
+        body: Positioned<Block>,
+    ) -> Self {
         Value(Arc::new(ValueInner::Function(Function::Parsed(
             ParsedFunction {
                 parameters,
@@ -223,7 +227,7 @@ impl Display for Value {
                     write!(f, "{identifier}: {}", r#type)?;
                 }
 
-                write!(f, "): {return_type} {body:?}")
+                write!(f, "): {} {:?}", return_type.node, body.node)
             }
             ValueInner::Function(Function::BuiltIn(built_in_function)) => {
                 write!(f, "{built_in_function}")
@@ -306,7 +310,7 @@ pub enum Function {
 }
 
 impl Function {
-    pub fn call(&self, arguments: Vec<Value>, context: Context) -> Result<Action, RuntimeError> {
+    pub fn call(self, arguments: Vec<Value>, context: Context) -> Result<Action, RuntimeError> {
         let action = match self {
             Function::Parsed(ParsedFunction {
                 parameters, body, ..
@@ -315,7 +319,7 @@ impl Function {
                     context.set_value(identifier.clone(), value)?;
                 }
 
-                body.clone().run(&context)?
+                body.node.run(&context)?
             }
             Function::BuiltIn(built_in_function) => built_in_function.call(arguments, &context)?,
         };
@@ -327,8 +331,8 @@ impl Function {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ParsedFunction {
     parameters: Vec<(Identifier, Type)>,
-    return_type: Type,
-    body: Block,
+    return_type: Positioned<Type>,
+    body: Positioned<Block>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]

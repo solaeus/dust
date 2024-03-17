@@ -50,6 +50,6 @@ impl AbstractTree for FunctionCall {
 
         let function_context = Context::inherit_data_from(context)?;
 
-        function.call(arguments, function_context)
+        function.clone().call(arguments, function_context)
     }
 }

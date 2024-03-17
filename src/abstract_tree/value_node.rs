@@ -2,11 +2,11 @@ use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
 use crate::{
     context::Context,
-    error::{RuntimeError, ValidationError},
+    error::{RuntimeError, TypeConflict, ValidationError},
     Value,
 };
 
-use super::{AbstractTree, Action, Block, Expression, Identifier, Type};
+use super::{AbstractTree, Action, Block, Expression, Identifier, Positioned, Type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
@@ -14,13 +14,13 @@ pub enum ValueNode {
     Float(f64),
     Integer(i64),
     List(Vec<Expression>),
-    Map(Vec<(Identifier, Option<Type>, Expression)>),
+    Map(Vec<(Identifier, Option<Positioned<Type>>, Positioned<Expression>)>),
     Range(Range<i64>),
     String(String),
     Function {
         parameters: Vec<(Identifier, Type)>,
-        return_type: Type,
-        body: Block,
+        return_type: Positioned<Type>,
+        body: Positioned<Block>,
     },
 }
 
@@ -52,7 +52,7 @@ impl AbstractTree for ValueNode {
                     .map(|(_, r#type)| r#type)
                     .cloned()
                     .collect(),
-                return_type: Box::new(return_type.clone()),
+                return_type: Box::new(return_type.node.clone()),
             },
         };
 
@@ -63,9 +63,15 @@ impl AbstractTree for ValueNode {
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, r#type, expression) in map_assignments {
                 if let Some(expected_type) = r#type {
-                    let actual_type = expression.expected_type(context)?;
+                    let actual_type = expression.node.expected_type(context)?;
 
-                    expected_type.check(&actual_type)?;
+                    expected_type.node.check(&actual_type).map_err(|conflict| {
+                        ValidationError::TypeCheck {
+                            conflict,
+                            actual_position: expression.position,
+                            expected_position: expected_type.position,
+                        }
+                    });
                 }
             }
         }
@@ -82,11 +88,18 @@ impl AbstractTree for ValueNode {
                 function_context.set_type(identifier.clone(), r#type.clone())?;
             }
 
-            body.validate(&function_context)?;
+            body.node.validate(&function_context)?;
 
-            let actual_return_type = body.expected_type(&function_context)?;
+            let actual_return_type = body.node.expected_type(&function_context)?;
 
-            return_type.check(&actual_return_type)?;
+            return_type
+                .node
+                .check(&actual_return_type)
+                .map_err(|conflict| ValidationError::TypeCheck {
+                    conflict,
+                    actual_position: body.position,
+                    expected_position: return_type.position,
+                })?;
         }
 
         Ok(())
@@ -112,7 +125,7 @@ impl AbstractTree for ValueNode {
                 let mut property_map = BTreeMap::new();
 
                 for (identifier, _type, expression) in property_list {
-                    let value = expression.run(_context)?.as_return_value()?;
+                    let value = expression.node.run(_context)?.as_return_value()?;
 
                     property_map.insert(identifier, value);
                 }

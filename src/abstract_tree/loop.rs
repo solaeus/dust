@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn basic_loop() {
         let result = Loop {
-            statements: vec![Statement::r#break((0..1).into())],
+            statements: vec![Statement::Break],
         }
         .run(&Context::new());
 
