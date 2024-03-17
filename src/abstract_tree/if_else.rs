@@ -105,8 +105,9 @@ mod tests {
                 .with_position((0, 0))]),
                 None
             )
-            .run(&Context::new()),
-            Ok(Action::Return(Value::string("foo".to_string())))
+            .run(&Context::new())
+            .unwrap(),
+            Action::Return(Value::string("foo".to_string()))
         )
     }
 
@@ -124,8 +125,9 @@ mod tests {
                 ))
                 .with_position((0, 0))]))
             )
-            .run(&Context::new()),
-            Ok(Action::Return(Value::string("bar".to_string())))
+            .run(&Context::new())
+            .unwrap(),
+            Action::Return(Value::string("bar".to_string()))
         )
     }
 }

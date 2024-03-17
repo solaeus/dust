@@ -47,25 +47,36 @@ impl AbstractTree for Logic {
                 Ok(())
             }
             Logic::And(left, right) | Logic::Or(left, right) => {
-                let left = left.node.expected_type(context)?;
-                let right = right.node.expected_type(context)?;
+                let left_type = left.node.expected_type(context)?;
+                let right_type = right.node.expected_type(context)?;
 
-                if let (Type::Boolean, Type::Boolean) = (left, right) {
-                    Ok(())
+                if let Type::Boolean = left_type {
                 } else {
-                    Err(ValidationError::ExpectedBoolean {
-                        actual: todo!(),
-                        position: todo!(),
-                    })
+                    return Err(ValidationError::ExpectedBoolean {
+                        actual: left_type,
+                        position: left.position,
+                    });
                 }
+
+                if let Type::Boolean = right_type {
+                } else {
+                    return Err(ValidationError::ExpectedBoolean {
+                        actual: right_type,
+                        position: right.position,
+                    });
+                }
+
+                Ok(())
             }
             Logic::Not(expression) => {
-                if let Type::Boolean = expression.node.expected_type(context)? {
+                let expression_type = expression.node.expected_type(context)?;
+
+                if let Type::Boolean = expression_type {
                     Ok(())
                 } else {
                     Err(ValidationError::ExpectedBoolean {
-                        actual: todo!(),
-                        position: todo!(),
+                        actual: expression_type,
+                        position: expression.position,
                     })
                 }
             }

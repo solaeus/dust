@@ -1,4 +1,4 @@
-use std::{ops::Range, sync::PoisonError};
+use std::{io, ops::Range, sync::PoisonError};
 
 use ariadne::{Label, ReportBuilder};
 use chumsky::{prelude::Rich, span::Span};
@@ -62,6 +62,7 @@ impl Error {
                             "The interpreter failed to catch this error during validation.",
                         ));
                 }
+                RuntimeError::Io(_) => todo!(),
             },
             Error::Validation { error, position } => match error {
                 ValidationError::ExpectedBoolean { actual, position } => {
@@ -101,7 +102,7 @@ impl Error {
                 ValidationError::CannotIndex(_) => todo!(),
                 ValidationError::CannotIndexWith(_, _) => todo!(),
                 ValidationError::InterpreterExpectedReturn => todo!(),
-                ValidationError::ExpectedFunction { actual, position } => todo!(),
+                ValidationError::ExpectedFunction { .. } => todo!(),
                 ValidationError::ExpectedValue => todo!(),
             },
         }
@@ -128,8 +129,9 @@ impl<'src> From<Rich<'_, Token<'src>>> for Error {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum RuntimeError {
+    Io(io::Error),
     RwLockPoison(RwLockPoisonError),
     ValidationFailure(ValidationError),
 }
@@ -143,6 +145,25 @@ impl From<RwLockPoisonError> for RuntimeError {
 impl From<ValidationError> for RuntimeError {
     fn from(error: ValidationError) -> Self {
         RuntimeError::ValidationFailure(error)
+    }
+}
+
+impl From<io::Error> for RuntimeError {
+    fn from(error: io::Error) -> Self {
+        RuntimeError::Io(error)
+    }
+}
+
+impl PartialEq for RuntimeError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (RuntimeError::Io(_), RuntimeError::Io(_)) => false,
+            (RuntimeError::RwLockPoison(_), RuntimeError::RwLockPoison(_)) => true,
+            (RuntimeError::ValidationFailure(left), RuntimeError::ValidationFailure(right)) => {
+                left == right
+            }
+            _ => false,
+        }
     }
 }
 

@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn simple_while_loop() {
-        let result = Statement::Block(Block::new(vec![
+        let action = Statement::Block(Block::new(vec![
             Statement::Assignment(Assignment::new(
                 Identifier::new("i"),
                 None,
@@ -103,8 +103,9 @@ mod tests {
             Statement::Expression(Expression::Identifier(Identifier::new("i")))
                 .with_position((0, 0)),
         ]))
-        .run(&Context::new());
+        .run(&Context::new())
+        .unwrap();
 
-        assert_eq!(result, Ok(Action::Return(Value::integer(3))))
+        assert_eq!(action, Action::Return(Value::integer(3)))
     }
 }

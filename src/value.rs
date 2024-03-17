@@ -2,6 +2,7 @@ use std::{
     cmp::Ordering,
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
+    io::stdin,
     ops::Range,
     sync::{Arc, OnceLock},
 };
@@ -322,6 +323,7 @@ pub struct ParsedFunction {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
     Output,
+    ReadLine,
 }
 
 impl BuiltInFunction {
@@ -333,11 +335,23 @@ impl BuiltInFunction {
             .clone()
     }
 
+    pub fn read_line() -> Value {
+        static READ_LINE: OnceLock<Value> = OnceLock::new();
+
+        READ_LINE
+            .get_or_init(|| Value::built_in_function(BuiltInFunction::ReadLine))
+            .clone()
+    }
+
     pub fn r#type(&self) -> Type {
         match self {
             BuiltInFunction::Output => Type::Function {
                 parameter_types: vec![Type::Any],
                 return_type: Box::new(Type::None),
+            },
+            BuiltInFunction::ReadLine => Type::Function {
+                parameter_types: Vec::with_capacity(0),
+                return_type: Box::new(Type::String),
             },
         }
     }
@@ -349,6 +363,13 @@ impl BuiltInFunction {
 
                 Ok(Action::None)
             }
+            BuiltInFunction::ReadLine => {
+                let mut input = String::new();
+
+                stdin().read_line(&mut input)?;
+
+                Ok(Action::Return(Value::string(input)))
+            }
         }
     }
 }
@@ -357,6 +378,23 @@ impl Display for BuiltInFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             BuiltInFunction::Output => write!(f, "(to_output : any) : none rust_magic();"),
+            BuiltInFunction::ReadLine => todo!(),
         }
+    }
+}
+
+pub enum BuiltInValue {
+    Io,
+}
+
+impl BuiltInValue {
+    pub fn io() -> Value {
+        static IO: OnceLock<Value> = OnceLock::new();
+
+        let mut properties = BTreeMap::new();
+
+        properties.insert(Identifier::new("read_line"), BuiltInFunction::read_line());
+
+        IO.get_or_init(|| Value::map(properties)).clone()
     }
 }

@@ -79,14 +79,16 @@ mod tests {
 
     #[test]
     fn basic_loop() {
-        let result = Loop::new(vec![Statement::Break.with_position((0, 0))]).run(&Context::new());
+        let action = Loop::new(vec![Statement::Break.with_position((0, 0))])
+            .run(&Context::new())
+            .unwrap();
 
-        assert_eq!(result, Ok(Action::Break))
+        assert_eq!(action, Action::Break)
     }
 
     #[test]
     fn complex_loop() {
-        let result = Block::new(vec![
+        let action = Block::new(vec![
             Statement::Assignment(Assignment::new(
                 Identifier::new("i"),
                 None,
@@ -116,8 +118,9 @@ mod tests {
             Statement::Expression(Expression::Identifier(Identifier::new("i")))
                 .with_position((0, 0)),
         ])
-        .run(&Context::new());
+        .run(&Context::new())
+        .unwrap();
 
-        assert_eq!(result, Ok(Action::Return(Value::integer(3))))
+        assert_eq!(action, Action::Return(Value::integer(3)))
     }
 }

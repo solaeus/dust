@@ -66,8 +66,8 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.run(&Context::new()),
-            Ok(Action::Return(Value::integer(42)))
+            block.run(&Context::new()).unwrap(),
+            Action::Return(Value::integer(42))
         )
     }
 
