@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use dust_lang::{
     abstract_tree::{Identifier, Type},
-    error::{Error, TypeCheckError, ValidationError},
+    error::{Error, TypeConflict, ValidationError},
     *,
 };
 
@@ -136,7 +136,7 @@ fn map_type_errors() {
     assert_eq!(
         interpret("{ foo : bool = 'bar' }"),
         Err(vec![Error::Validation {
-            error: ValidationError::TypeCheck(TypeCheckError {
+            error: ValidationError::TypeCheck(TypeConflict {
                 actual: Type::String,
                 expected: Type::Boolean
             }),

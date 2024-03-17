@@ -36,10 +36,23 @@ use crate::{
     Value,
 };
 
-pub trait AbstractTree {
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct Positioned<T> {
+    pub node: T,
+    pub position: (usize, usize),
+}
+
+pub trait AbstractTree: Sized {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
     fn run(self, context: &Context) -> Result<Action, RuntimeError>;
+
+    fn positioned(self, position: (usize, usize)) -> Positioned<Self> {
+        Positioned {
+            node: self,
+            position,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]

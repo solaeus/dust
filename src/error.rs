@@ -19,10 +19,7 @@ pub enum Error {
         span: (usize, usize),
     },
     Runtime(RuntimeError),
-    Validation {
-        error: ValidationError,
-        span: (usize, usize),
-    },
+    Validation(ValidationError),
 }
 
 impl Error {
@@ -49,33 +46,38 @@ impl Error {
                     .finish()
             }
             Error::Runtime(_) => todo!(),
-            Error::Validation { error, span } => {
-                let mut report = Report::build(
-                    ReportKind::Custom("Validation Error", Color::White),
-                    (),
-                    span.0,
-                );
+            Error::Validation(validation_error) => {
+                let mut report =
+                    Report::build(ReportKind::Custom("Validation Error", Color::White), (), 0);
 
-                match error {
+                match validation_error {
                     ValidationError::ExpectedBoolean => {
-                        report = report.with_label(
-                            Label::new(span.0..span.1).with_message("Expected boolean."),
-                        );
+                        report =
+                            report.with_label(Label::new(0..0).with_message("Expected boolean."));
                     }
                     ValidationError::ExpectedIntegerOrFloat => {
                         report = report.with_label(
-                            Label::new(span.0..span.1).with_message("Expected integer or float."),
+                            Label::new(0..0).with_message("Expected integer or float."),
                         );
                     }
                     ValidationError::RwLockPoison(_) => todo!(),
-                    ValidationError::TypeCheck(TypeCheckError { actual, expected }) => {
-                        report = report.with_label(Label::new(span.0..span.1).with_message(
-                            format!("Type error. Expected {expected} but got {actual}."),
-                        ));
+                    ValidationError::TypeCheck {
+                        conflict,
+                        actual_position,
+                        expected_position: expected_postion,
+                    } => {
+                        let TypeConflict { actual, expected } = conflict;
+
+                        report = report.with_labels([
+                            Label::new(expected_postion.0..expected_postion.1)
+                                .with_message(format!("Type {expected} established here.")),
+                            Label::new(actual_position.0..actual_position.1)
+                                .with_message(format!("Got type {actual} here.")),
+                        ]);
                     }
                     ValidationError::VariableNotFound(identifier) => {
                         report = report
-                            .with_label(Label::new(span.0..span.1).with_message(format!(
+                            .with_label(Label::new(0..0).with_message(format!(
                                 "The variable {identifier} does not exist."
                             )));
                     }
@@ -144,19 +146,22 @@ pub enum ValidationError {
     ExpectedValue,
     InterpreterExpectedReturn,
     RwLockPoison(RwLockPoisonError),
-    TypeCheck(TypeCheckError),
+    TypeCheck {
+        /// The mismatch that caused the error.
+        conflict: TypeConflict,
+
+        /// The position of the item that gave the "actual" type.
+        actual_position: (usize, usize),
+
+        /// The position of the item that gave the "expected" type.
+        expected_position: (usize, usize),
+    },
     VariableNotFound(Identifier),
 }
 
 impl From<RwLockPoisonError> for ValidationError {
     fn from(error: RwLockPoisonError) -> Self {
         ValidationError::RwLockPoison(error)
-    }
-}
-
-impl From<TypeCheckError> for ValidationError {
-    fn from(error: TypeCheckError) -> Self {
-        ValidationError::TypeCheck(error)
     }
 }
 
@@ -170,7 +175,7 @@ impl<T> From<PoisonError<T>> for RwLockPoisonError {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct TypeCheckError {
+pub struct TypeConflict {
     pub actual: Type,
     pub expected: Type,
 }

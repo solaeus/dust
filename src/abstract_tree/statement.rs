@@ -8,72 +8,7 @@ use crate::{
 use super::{AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, Type, While};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Statement {
-    pub inner: StatementInner,
-    pub span: (usize, usize),
-}
-
-impl Statement {
-    pub fn assignment(assignment: Assignment, span: SimpleSpan) -> Self {
-        Statement {
-            inner: StatementInner::Assignment(assignment),
-            span: (span.start(), span.end()),
-        }
-    }
-
-    pub fn block(block: Block, span: SimpleSpan) -> Self {
-        Statement {
-            inner: StatementInner::Block(block),
-            span: (span.start(), span.end()),
-        }
-    }
-
-    pub fn r#break(span: SimpleSpan) -> Self {
-        Statement {
-            inner: StatementInner::Break,
-            span: (span.start(), span.end()),
-        }
-    }
-
-    pub fn expression(expression: Expression, span: SimpleSpan) -> Self {
-        Statement {
-            inner: StatementInner::Expression(expression),
-            span: (span.start(), span.end()),
-        }
-    }
-
-    pub fn if_else(if_else: IfElse, span: SimpleSpan) -> Self {
-        Statement {
-            inner: StatementInner::IfElse(if_else),
-            span: (span.start(), span.end()),
-        }
-    }
-
-    pub fn r#loop(r#loop: Loop, span: SimpleSpan) -> Self {
-        Statement {
-            inner: StatementInner::Loop(r#loop),
-            span: (span.start(), span.end()),
-        }
-    }
-
-    pub fn r#while(r#while: While, span: SimpleSpan) -> Self {
-        Statement {
-            inner: StatementInner::While(r#while),
-            span: (span.start(), span.end()),
-        }
-    }
-
-    pub fn span(&self) -> (usize, usize) {
-        self.span
-    }
-
-    pub fn inner(&self) -> &StatementInner {
-        &self.inner
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum StatementInner {
+pub enum Statement {
     Assignment(Assignment),
     Block(Block),
     Break,
@@ -85,7 +20,7 @@ pub enum StatementInner {
 
 impl AbstractTree for Statement {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        match &self.inner {
+        match self {
             StatementInner::Assignment(assignment) => assignment.expected_type(_context),
             StatementInner::Block(block) => block.expected_type(_context),
             StatementInner::Break => Ok(Type::None),
@@ -97,7 +32,7 @@ impl AbstractTree for Statement {
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        match &self.inner {
+        match self {
             StatementInner::Assignment(assignment) => assignment.validate(_context),
             StatementInner::Block(block) => block.validate(_context),
             StatementInner::Break => Ok(()),
@@ -109,7 +44,7 @@ impl AbstractTree for Statement {
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        match self.inner {
+        match self {
             StatementInner::Assignment(assignment) => assignment.run(_context),
             StatementInner::Block(block) => block.run(_context),
             StatementInner::Break => Ok(Action::Break),

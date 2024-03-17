@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use crate::{
     abstract_tree::Identifier,
     context::Context,
-    error::{RuntimeError, TypeCheckError, ValidationError},
+    error::{RuntimeError, TypeConflict, ValidationError},
 };
 
 use super::{AbstractTree, Action};
@@ -29,7 +29,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn check(&self, other: &Type) -> Result<(), TypeCheckError> {
+    pub fn check(&self, other: &Type) -> Result<(), TypeConflict> {
         match (self, other) {
             (Type::Any, _)
             | (_, Type::Any)
@@ -49,7 +49,7 @@ impl Type {
                 if left == right {
                     Ok(())
                 } else {
-                    Err(TypeCheckError {
+                    Err(TypeConflict {
                         actual: other.clone(),
                         expected: self.clone(),
                     })
@@ -59,7 +59,7 @@ impl Type {
                 if let Ok(()) = left.check(right) {
                     Ok(())
                 } else {
-                    Err(TypeCheckError {
+                    Err(TypeConflict {
                         actual: left.as_ref().clone(),
                         expected: right.as_ref().clone(),
                     })
@@ -86,7 +86,7 @@ impl Type {
 
                 Ok(())
             }
-            _ => Err(TypeCheckError {
+            _ => Err(TypeConflict {
                 actual: other.clone(),
                 expected: self.clone(),
             }),
@@ -188,14 +188,14 @@ mod tests {
 
         assert_eq!(
             foo.check(&bar),
-            Err(TypeCheckError {
+            Err(TypeConflict {
                 actual: bar.clone(),
                 expected: foo.clone()
             })
         );
         assert_eq!(
             bar.check(&foo),
-            Err(TypeCheckError {
+            Err(TypeConflict {
                 actual: foo.clone(),
                 expected: bar.clone()
             })
@@ -222,7 +222,7 @@ mod tests {
 
             assert_eq!(
                 left.check(right),
-                Err(TypeCheckError {
+                Err(TypeConflict {
                     actual: right.clone(),
                     expected: left.clone()
                 })

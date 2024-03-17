@@ -3,14 +3,14 @@ use crate::{
     Context,
 };
 
-use super::{AbstractTree, Action, Identifier, Statement, Type};
+use super::{AbstractTree, Action, Identifier, Positioned, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: Identifier,
-    r#type: Option<Type>,
+    r#type: Option<Positioned<Type>>,
     operator: AssignmentOperator,
-    statement: Box<Statement>,
+    statement: Box<Positioned<Statement>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -23,9 +23,9 @@ pub enum AssignmentOperator {
 impl Assignment {
     pub fn new(
         identifier: Identifier,
-        r#type: Option<Type>,
+        r#type: Option<Positioned<Type>>,
         operator: AssignmentOperator,
-        statement: Statement,
+        statement: Positioned<Statement>,
     ) -> Self {
         Self {
             identifier,
@@ -42,24 +42,34 @@ impl AbstractTree for Assignment {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        let statement_type = self.statement.expected_type(context)?;
+        let statement_type = self.statement.node.expected_type(context)?;
 
-        if let Some(expected) = &self.r#type {
-            expected.check(&statement_type)?;
+        if let Some(Positioned {
+            node: expected_type,
+            position: expected_position,
+        }) = &self.r#type
+        {
+            expected_type.check(&statement_type).map_err(|conflict| {
+                ValidationError::TypeCheck {
+                    conflict,
+                    actual_position: self.statement.position,
+                    expected_position: expected_position.clone(),
+                }
+            })?;
 
-            context.set_type(self.identifier.clone(), expected.clone())?;
+            context.set_type(self.identifier.clone(), expected_type.clone())?;
         } else {
             context.set_type(self.identifier.clone(), statement_type)?;
         }
 
         self.identifier.validate(context)?;
-        self.statement.validate(context)?;
+        self.statement.node.validate(context)?;
 
         Ok(())
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let action = self.statement.run(context)?;
+        let action = self.statement.node.run(context)?;
         let value = match action {
             Action::Return(value) => value,
             r#break => return Ok(r#break),
@@ -101,7 +111,7 @@ impl AbstractTree for Assignment {
 mod tests {
     use crate::{
         abstract_tree::{Expression, ValueNode},
-        error::TypeCheckError,
+        error::TypeConflict,
         Value,
     };
 
@@ -115,7 +125,10 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::Assign,
-            Statement::expression(Expression::Value(ValueNode::Integer(42)), (0..0).into()),
+            Positioned {
+                node: Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+                position: (0, 0),
+            },
         )
         .run(&context)
         .unwrap();
@@ -138,7 +151,10 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::AddAssign,
-            Statement::expression(Expression::Value(ValueNode::Integer(41)), (0..0).into()),
+            Positioned {
+                node: Statement::Expression(Expression::Value(ValueNode::Integer(41))),
+                position: (0, 0),
+            },
         )
         .run(&context)
         .unwrap();
@@ -161,7 +177,10 @@ mod tests {
             Identifier::new("foobar"),
             None,
             AssignmentOperator::SubAssign,
-            Statement::expression(Expression::Value(ValueNode::Integer(1)), (0..0).into()),
+            Positioned {
+                node: Statement::Expression(Expression::Value(ValueNode::Integer(1))),
+                position: (0, 0),
+            },
         )
         .run(&context)
         .unwrap();
@@ -176,18 +195,28 @@ mod tests {
     fn type_check() {
         let validation = Assignment::new(
             Identifier::new("foobar"),
-            Some(Type::Boolean),
+            Some(Positioned {
+                node: Type::Boolean,
+                position: (0, 0),
+            }),
             AssignmentOperator::Assign,
-            Statement::expression(Expression::Value(ValueNode::Integer(42)), (0..0).into()),
+            Positioned {
+                node: Statement::Expression(Expression::Value(ValueNode::Integer(42))),
+                position: (0, 0),
+            },
         )
         .validate(&Context::new());
 
         assert_eq!(
             validation,
-            Err(ValidationError::TypeCheck(TypeCheckError {
-                actual: Type::Integer,
-                expected: Type::Boolean
-            }))
+            Err(ValidationError::TypeCheck {
+                conflict: TypeConflict {
+                    actual: Type::Integer,
+                    expected: Type::Boolean
+                },
+                actual_position: (0, 0),
+                expected_position: (0, 0),
+            })
         )
     }
 }

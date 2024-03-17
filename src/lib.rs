@@ -36,11 +36,8 @@ impl Interpreter {
             .filter_map(|statement| {
                 statement
                     .validate(&self.context)
-                    .map_err(|validation_error| Error::Validation {
-                        error: validation_error,
-                        span: statement.span(),
-                    })
                     .err()
+                    .map(|validation_error| Error::Validation(validation_error))
             })
             .collect::<Vec<Error>>();
 
