@@ -3,16 +3,16 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Block, Expression, Type};
+use super::{AbstractTree, Action, Block, Expression, Positioned, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
-    expression: Expression,
+    expression: Positioned<Expression>,
     block: Block,
 }
 
 impl While {
-    pub fn new(expression: Expression, block: Block) -> Self {
+    pub fn new(expression: Positioned<Expression>, block: Block) -> Self {
         Self { expression, block }
     }
 }
@@ -23,13 +23,14 @@ impl AbstractTree for While {
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        self.expression.validate(_context)?;
+        self.expression.node.validate(_context)?;
         self.block.validate(_context)
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
         while self
             .expression
+            .node
             .clone()
             .run(context)?
             .as_return_value()?

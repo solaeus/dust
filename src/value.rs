@@ -55,7 +55,7 @@ impl Value {
     }
 
     pub fn function(
-        parameters: Vec<(Identifier, Type)>,
+        parameters: Vec<(Identifier, Positioned<Type>)>,
         return_type: Positioned<Type>,
         body: Positioned<Block>,
     ) -> Self {
@@ -224,7 +224,7 @@ impl Display for Value {
                 write!(f, "(")?;
 
                 for (identifier, r#type) in parameters {
-                    write!(f, "{identifier}: {}", r#type)?;
+                    write!(f, "{identifier}: {}", r#type.node)?;
                 }
 
                 write!(f, "): {} {:?}", return_type.node, body.node)
@@ -330,7 +330,7 @@ impl Function {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ParsedFunction {
-    parameters: Vec<(Identifier, Type)>,
+    parameters: Vec<(Identifier, Positioned<Type>)>,
     return_type: Positioned<Type>,
     body: Positioned<Block>,
 }

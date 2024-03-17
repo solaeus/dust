@@ -3,15 +3,15 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Statement, Type};
+use super::{AbstractTree, Action, Positioned, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Loop {
-    statements: Vec<Statement>,
+    statements: Vec<Positioned<Statement>>,
 }
 
 impl Loop {
-    pub fn new(statements: Vec<Statement>) -> Self {
+    pub fn new(statements: Vec<Positioned<Statement>>) -> Self {
         Self { statements }
     }
 }
@@ -23,7 +23,7 @@ impl AbstractTree for Loop {
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.validate(_context)?;
+            statement.node.validate(_context)?;
         }
 
         Ok(())
@@ -40,7 +40,7 @@ impl AbstractTree for Loop {
             }
 
             let statement = self.statements[index].clone();
-            let action = statement.run(_context)?;
+            let action = statement.node.run(_context)?;
 
             match action {
                 Action::Return(_) => {}
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn basic_loop() {
         let result = Loop {
-            statements: vec![Statement::Break],
+            statements: vec![Statement::Break.positioned((0..0).into())],
         }
         .run(&Context::new());
 

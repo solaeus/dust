@@ -3,28 +3,28 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Expression, Type, ValueNode};
+use super::{AbstractTree, Action, Expression, Positioned, Type, ValueNode};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Index {
-    left: Expression,
-    right: Expression,
+    left: Positioned<Expression>,
+    right: Positioned<Expression>,
 }
 
 impl Index {
-    pub fn new(left: Expression, right: Expression) -> Self {
+    pub fn new(left: Positioned<Expression>, right: Positioned<Expression>) -> Self {
         Self { left, right }
     }
 }
 
 impl AbstractTree for Index {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        let left_type = self.left.expected_type(_context)?;
+        let left_type = self.left.node.expected_type(_context)?;
 
         if let (
             Expression::Value(ValueNode::List(expression_list)),
             Expression::Value(ValueNode::Integer(index)),
-        ) = (&self.left, &self.right)
+        ) = (&self.left.node, &self.right.node)
         {
             let expression = if let Some(expression) = expression_list.get(*index as usize) {
                 expression
@@ -32,20 +32,20 @@ impl AbstractTree for Index {
                 return Ok(Type::None);
             };
 
-            expression.expected_type(_context)
+            expression.node.expected_type(_context)
         } else {
             Err(ValidationError::CannotIndex(left_type))
         }
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        let left_type = self.left.expected_type(context)?;
+        let left_type = self.left.node.expected_type(context)?;
 
         match left_type {
             Type::List => todo!(),
             Type::ListOf(_) => todo!(),
             Type::ListExact(_) => {
-                let right_type = self.right.expected_type(context)?;
+                let right_type = self.right.node.expected_type(context)?;
 
                 if let Type::Integer = right_type {
                     Ok(())
@@ -58,8 +58,8 @@ impl AbstractTree for Index {
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let left_value = self.left.run(_context)?.as_return_value()?;
-        let right_value = self.right.run(_context)?.as_return_value()?;
+        let left_value = self.left.node.run(_context)?.as_return_value()?;
+        let right_value = self.right.node.run(_context)?.as_return_value()?;
 
         if let (Some(list), Some(index)) = (left_value.as_list(), right_value.as_integer()) {
             let found_item = list.get(index as usize);

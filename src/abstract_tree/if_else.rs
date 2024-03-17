@@ -87,7 +87,8 @@ mod tests {
                 Block::new(vec![Statement::Expression(
                     Expression::Value(ValueNode::String("foo".to_string()))
                         .positioned((0..0).into())
-                )])
+                )
+                .positioned((0..0).into())])
                 .positioned((0..0).into()),
                 None
             )
@@ -104,13 +105,15 @@ mod tests {
                 Block::new(vec![Statement::Expression(
                     Expression::Value(ValueNode::String("foo".to_string()))
                         .positioned((0..0).into())
-                )])
+                )
+                .positioned((0..0).into())])
                 .positioned((0..0).into()),
                 Some(
                     Block::new(vec![Statement::Expression(
                         Expression::Value(ValueNode::String("bar".to_string()))
                             .positioned((0..0).into())
-                    )])
+                    )
+                    .positioned((0..0).into())])
                     .positioned((0..0).into())
                 )
             )

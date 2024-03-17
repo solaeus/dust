@@ -2,7 +2,7 @@ use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
 use crate::{
     context::Context,
-    error::{RuntimeError, TypeConflict, ValidationError},
+    error::{RuntimeError, ValidationError},
     Value,
 };
 
@@ -13,12 +13,12 @@ pub enum ValueNode {
     Boolean(bool),
     Float(f64),
     Integer(i64),
-    List(Vec<Expression>),
+    List(Vec<Positioned<Expression>>),
     Map(Vec<(Identifier, Option<Positioned<Type>>, Positioned<Expression>)>),
     Range(Range<i64>),
     String(String),
     Function {
-        parameters: Vec<(Identifier, Type)>,
+        parameters: Vec<(Identifier, Positioned<Type>)>,
         return_type: Positioned<Type>,
         body: Positioned<Block>,
     },
@@ -34,7 +34,7 @@ impl AbstractTree for ValueNode {
                 let mut item_types = Vec::with_capacity(items.len());
 
                 for expression in items {
-                    item_types.push(expression.expected_type(_context)?);
+                    item_types.push(expression.node.expected_type(_context)?);
                 }
 
                 Type::ListExact(item_types)
@@ -49,8 +49,7 @@ impl AbstractTree for ValueNode {
             } => Type::Function {
                 parameter_types: parameters
                     .into_iter()
-                    .map(|(_, r#type)| r#type)
-                    .cloned()
+                    .map(|(_, r#type)| r#type.node.clone())
                     .collect(),
                 return_type: Box::new(return_type.node.clone()),
             },
@@ -85,7 +84,7 @@ impl AbstractTree for ValueNode {
             let function_context = Context::inherit_types_from(context)?;
 
             for (identifier, r#type) in parameters {
-                function_context.set_type(identifier.clone(), r#type.clone())?;
+                function_context.set_type(identifier.clone(), r#type.node.clone())?;
             }
 
             body.node.validate(&function_context)?;
@@ -114,7 +113,7 @@ impl AbstractTree for ValueNode {
                 let mut value_list = Vec::with_capacity(expression_list.len());
 
                 for expression in expression_list {
-                    let value = expression.run(_context)?.as_return_value()?;
+                    let value = expression.node.run(_context)?.as_return_value()?;
 
                     value_list.push(value);
                 }
