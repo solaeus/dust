@@ -179,14 +179,14 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             let function = identifier
                 .clone()
-                .then(r#type.clone())
+                .then(type_specification.clone())
                 .separated_by(just(Token::Control(Control::Comma)))
                 .collect()
                 .delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
                 )
-                .then(r#type.clone())
+                .then(type_specification.clone())
                 .then(block.clone())
                 .map_with(|((parameters, return_type), body), state| {
                     Expression::Value(ValueNode::Function {
@@ -432,7 +432,7 @@ mod tests {
     #[test]
     fn r#while() {
         assert_eq!(
-            parse(&lex("while true { output('hi') }").unwrap()).unwrap()[0],
+            parse(&lex("while true { output('hi') }").unwrap()).unwrap()[0].node,
             Statement::While(While::new(
                 Expression::Value(ValueNode::Boolean(true)).with_position((6, 11)),
                 Block::new(vec![Statement::Expression(Expression::FunctionCall(
@@ -444,14 +444,13 @@ mod tests {
                 ))
                 .with_position((13, 26))])
             ))
-            .with_position((0, 27))
         )
     }
 
     #[test]
     fn boolean_type() {
         assert_eq!(
-            parse(&lex("foobar : bool = true").unwrap()).unwrap()[0],
+            parse(&lex("foobar : bool = true").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(Type::Boolean.with_position((9, 14))),
@@ -459,14 +458,27 @@ mod tests {
                 Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
                     .with_position((16, 20))
             ),)
-            .with_position((0, 20))
+        );
+    }
+
+    #[test]
+    fn list_type() {
+        assert_eq!(
+            parse(&lex("foobar: list = []").unwrap()).unwrap()[0].node,
+            Statement::Assignment(Assignment::new(
+                Identifier::new("foobar"),
+                Some(Type::List.with_position((8, 13))),
+                AssignmentOperator::Assign,
+                Statement::Expression(Expression::Value(ValueNode::List(vec![])))
+                    .with_position((15, 17))
+            ),)
         );
     }
 
     #[test]
     fn list_of_type() {
         assert_eq!(
-            parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0],
+            parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9, 20))),
@@ -477,7 +489,6 @@ mod tests {
                 .with_position((23, 27))])))
                 .with_position((22, 28))
             ))
-            .with_position((0, 28))
         );
     }
 
@@ -502,7 +513,7 @@ mod tests {
     #[test]
     fn function_type() {
         assert_eq!(
-            parse(&lex("foobar : () -> any = some_function").unwrap()).unwrap()[0],
+            parse(&lex("foobar : () -> any = some_function").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 Some(
@@ -516,165 +527,154 @@ mod tests {
                 Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
                     .with_position((21, 34))
             ),)
-            .with_position((0, 34))
         );
     }
 
     #[test]
     fn function_call() {
         assert_eq!(
-            parse(&lex("output()").unwrap()).unwrap()[0],
+            parse(&lex("output()").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::FunctionCall(FunctionCall::new(
                 Expression::Identifier(Identifier::new("output")).with_position((0, 6)),
                 Vec::with_capacity(0),
             )))
-            .with_position((0, 8))
         )
     }
 
     #[test]
     fn range() {
         assert_eq!(
-            parse(&lex("1, 10").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(ValueNode::Range(1..10))).with_position((0, 5))
+            parse(&lex("1..10").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::Range(1..10)))
         )
     }
 
     #[test]
     fn function() {
         assert_eq!(
-            parse(&lex("(x: int): int { x }").unwrap()).unwrap()[0],
+            parse(&lex("(x: int) : int { x }").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Function {
-                parameters: vec![(Identifier::new("x"), Type::Integer.with_position((0, 0)))],
-                return_type: Type::Integer.with_position((0, 0)),
+                parameters: vec![(Identifier::new("x"), Type::Integer.with_position((4, 7)))],
+                return_type: Type::Integer.with_position((11, 15)),
                 body: Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x")
                 ),)
-                .with_position((0, 0))])
-                .with_position((0, 0))
+                .with_position((17, 18))])
+                .with_position((0, 20))
             }),)
-            .with_position((0, 0))
         )
     }
 
     #[test]
     fn r#if() {
         assert_eq!(
-            parse(&lex("if true { 'foo' }").unwrap()).unwrap()[0],
+            parse(&lex("if true { 'foo' }").unwrap()).unwrap()[0].node,
             Statement::IfElse(IfElse::new(
-                Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+                Expression::Value(ValueNode::Boolean(true)).with_position((3, 8)),
                 Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::String("foo".to_string())
                 ),)
-                .with_position((0, 0))])
-                .with_position((0, 0)),
+                .with_position((10, 15))])
+                .with_position((8, 17)),
                 None
             ),)
-            .with_position((0, 0))
         );
     }
 
     #[test]
     fn if_else() {
         assert_eq!(
-            parse(&lex("if true {'foo' } else { 'bar' }").unwrap()).unwrap()[0],
+            parse(&lex("if true {'foo' } else { 'bar' }").unwrap()).unwrap()[0].node,
             Statement::IfElse(IfElse::new(
-                Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+                Expression::Value(ValueNode::Boolean(true)).with_position((3, 8)),
                 Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::String("foo".to_string())
                 ),)
-                .with_position((0, 0))])
-                .with_position((0, 0)),
+                .with_position((9, 14))])
+                .with_position((8, 17)),
                 Some(
                     Block::new(vec![Statement::Expression(Expression::Value(
                         ValueNode::String("bar".to_string())
                     ),)
-                    .with_position((0, 0))])
-                    .with_position((0, 0))
+                    .with_position((24, 29))])
+                    .with_position((22, 31))
                 )
             ),)
-            .with_position((0, 0))
         )
     }
 
     #[test]
     fn map() {
         assert_eq!(
-            parse(&lex("{ foo = 'bar' }").unwrap()).unwrap()[0],
+            parse(&lex("{ foo = 'bar' }").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Map(vec![(
                 Identifier::new("foo"),
                 None,
-                Expression::Value(ValueNode::String("bar".to_string())).with_position((0, 0))
+                Expression::Value(ValueNode::String("bar".to_string())).with_position((8, 13))
             )])),)
-            .with_position((0, 0))
         );
         assert_eq!(
-            parse(&lex("{ x = 1, y = 2, }").unwrap()).unwrap()[0],
+            parse(&lex("{ x = 1, y = 2, }").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Map(vec![
                 (
                     Identifier::new("x"),
                     None,
-                    Expression::Value(ValueNode::Integer(1)).with_position((0, 0))
+                    Expression::Value(ValueNode::Integer(1)).with_position((6, 7))
                 ),
                 (
                     Identifier::new("y"),
                     None,
-                    Expression::Value(ValueNode::Integer(2)).with_position((0, 0))
+                    Expression::Value(ValueNode::Integer(2)).with_position((13, 14))
                 ),
             ])),)
-            .with_position((0, 0))
         );
         assert_eq!(
-            parse(&lex("{ x = 1 y = 2 }").unwrap()).unwrap()[0],
+            parse(&lex("{ x = 1 y = 2 }").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Map(vec![
                 (
                     Identifier::new("x"),
                     None,
-                    Expression::Value(ValueNode::Integer(1)).with_position((0, 0))
+                    Expression::Value(ValueNode::Integer(1)).with_position((6, 7))
                 ),
                 (
                     Identifier::new("y"),
                     None,
-                    Expression::Value(ValueNode::Integer(2)).with_position((0, 0))
+                    Expression::Value(ValueNode::Integer(2)).with_position((12, 13))
                 ),
             ])),)
-            .with_position((0, 0))
         );
     }
 
     #[test]
     fn math() {
         assert_eq!(
-            parse(&lex("1 + 1").unwrap()).unwrap()[0],
+            parse(&lex("1 + 1").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Math(Box::new(Math::Add(
-                Expression::Value(ValueNode::Integer(1)).with_position((0, 0)),
-                Expression::Value(ValueNode::Integer(1)).with_position((0, 0))
+                Expression::Value(ValueNode::Integer(1)).with_position((0, 1)),
+                Expression::Value(ValueNode::Integer(1)).with_position((4, 5))
             ))),)
-            .with_position((0, 0))
         );
     }
 
     #[test]
     fn r#loop() {
         assert_eq!(
-            parse(&lex("loop { 42 }").unwrap()).unwrap()[0],
+            parse(&lex("loop { 42 }").unwrap()).unwrap()[0].node,
             Statement::Loop(Loop::new(vec![Statement::Expression(Expression::Value(
                 ValueNode::Integer(42)
             ),)
-            .with_position((0, 0))]),)
-            .with_position((0, 0))
+            .with_position((7, 9))]),)
         );
     }
 
     #[test]
     fn block() {
         assert_eq!(
-            parse(&lex("{ x }").unwrap()).unwrap()[0],
+            parse(&lex("{ x }").unwrap()).unwrap()[0].node,
             Statement::Block(Block::new(vec![Statement::Expression(
                 Expression::Identifier(Identifier::new("x")),
             )
-            .with_position((0, 0))]),)
-            .with_position((0, 0))
+            .with_position((2, 3))]),)
         );
 
         assert_eq!(
@@ -688,16 +688,16 @@ mod tests {
                 ")
                 .unwrap()
             )
-            .unwrap()[0],
+            .unwrap()[0]
+                .node,
             Statement::Block(Block::new(vec![
                 Statement::Expression(Expression::Identifier(Identifier::new("x")))
-                    .with_position((0, 0)),
+                    .with_position((39, 40)),
                 Statement::Expression(Expression::Identifier(Identifier::new("y")))
-                    .with_position((0, 0)),
+                    .with_position((62, 63)),
                 Statement::Expression(Expression::Identifier(Identifier::new("z")))
-                    .with_position((0, 0)),
+                    .with_position((85, 86)),
             ]),)
-            .with_position((0, 0))
         );
 
         assert_eq!(
@@ -710,264 +710,205 @@ mod tests {
                 ")
                 .unwrap()
             )
-            .unwrap()[0],
+            .unwrap()[0]
+                .node,
             Statement::Block(Block::new(vec![
                 Statement::Expression(Expression::Logic(Box::new(Logic::Equal(
-                    Expression::Value(ValueNode::Integer(1)).with_position((0, 0)),
-                    Expression::Value(ValueNode::Integer(1)).with_position((0, 0))
+                    Expression::Value(ValueNode::Integer(1)).with_position((39, 40)),
+                    Expression::Value(ValueNode::Integer(1)).with_position((44, 45))
                 ))),)
-                .with_position((0, 0)),
+                .with_position((39, 45)),
                 Statement::Expression(Expression::Identifier(Identifier::new("z")))
-                    .with_position((0, 0)),
+                    .with_position((66, 67)),
             ]),)
-            .with_position((0, 0))
         );
     }
 
     #[test]
     fn identifier() {
         assert_eq!(
-            parse(&lex("x").unwrap()).unwrap()[0],
+            parse(&lex("x").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Identifier(Identifier::new("x")))
-                .with_position((0, 0))
         );
         assert_eq!(
-            parse(&lex("foobar").unwrap()).unwrap()[0],
+            parse(&lex("foobar").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Identifier(Identifier::new("foobar")))
-                .with_position((0, 0))
         );
         assert_eq!(
-            parse(&lex("HELLO").unwrap()).unwrap()[0],
+            parse(&lex("HELLO").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Identifier(Identifier::new("HELLO")))
-                .with_position((0, 0))
         );
     }
 
     #[test]
     fn assignment() {
         assert_eq!(
-            parse(&lex("foobar = 1").unwrap()).unwrap()[0],
+            parse(&lex("foobar = 1").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
                 None,
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
-                    .with_position((0, 0))
+                    .with_position((9, 10))
             ),)
-            .with_position((0, 0)),
         );
     }
 
     #[test]
-    fn assignment_with_basic_type() {
+    fn assignment_with_type() {
         assert_eq!(
-            parse(&lex("foobar: int = 1").unwrap()).unwrap()[0],
+            parse(&lex("foobar: int = 1").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar"),
-                Some(Type::Integer.with_position((0, 0))),
+                Some(Type::Integer.with_position((8, 12))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
-                    .with_position((0, 0))
+                    .with_position((14, 15))
             ),)
-            .with_position((0, 0)),
-        );
-    }
-
-    #[test]
-    fn assignment_with_list_types() {
-        assert_eq!(
-            parse(&lex("foobar: list = []").unwrap()).unwrap()[0],
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::List.with_position((0, 0))),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![])))
-                    .with_position((0, 0))
-            ),)
-            .with_position((0, 0)),
-        );
-
-        assert_eq!(
-            parse(&lex("foobar: list(int) = []").unwrap()).unwrap()[0],
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::ListOf(Box::new(Type::Integer)).with_position((0, 0))),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![])))
-                    .with_position((0, 0))
-            ),)
-            .with_position((0, 0)),
-        );
-
-        assert_eq!(
-            parse(&lex("foobar: [int, str] = [ 42, 'foo' ]").unwrap()).unwrap()[0],
-            Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
-                Some(Type::ListExact(vec![Type::Integer, Type::String]).with_position((0, 0))),
-                AssignmentOperator::Assign,
-                Statement::Expression(Expression::Value(ValueNode::List(vec![
-                    Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-                    Expression::Value(ValueNode::String("foo".to_string())).with_position((0, 0)),
-                ])),)
-                .with_position((0, 0))
-            ),)
-            .with_position((0, 0)),
         );
     }
 
     #[test]
     fn logic() {
         assert_eq!(
-            parse(&lex("x == 1").unwrap()).unwrap()[0],
+            parse(&lex("x == 1").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Logic(Box::new(Logic::Equal(
-                Expression::Identifier(Identifier::new("x")).with_position((0, 0)),
-                Expression::Value(ValueNode::Integer(1)).with_position((0, 0)),
+                Expression::Identifier(Identifier::new("x")).with_position((0, 1)),
+                Expression::Value(ValueNode::Integer(1)).with_position((5, 6)),
             ))),)
-            .with_position((0, 0))
         );
 
         assert_eq!(
-            parse(&lex("(x == 1) && (y == 2)").unwrap()).unwrap()[0],
+            parse(&lex("(x == 1) && (y == 2)").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Logic(Box::new(Logic::And(
                 Expression::Logic(Box::new(Logic::Equal(
-                    Expression::Identifier(Identifier::new("x")).with_position((0, 0)),
-                    Expression::Value(ValueNode::Integer(1)).with_position((0, 0)),
+                    Expression::Identifier(Identifier::new("x")).with_position((1, 2)),
+                    Expression::Value(ValueNode::Integer(1)).with_position((6, 7)),
                 )))
-                .with_position((0, 0)),
+                .with_position((1, 7)),
                 Expression::Logic(Box::new(Logic::Equal(
-                    Expression::Identifier(Identifier::new("y")).with_position((0, 0)),
-                    Expression::Value(ValueNode::Integer(2)).with_position((0, 0)),
+                    Expression::Identifier(Identifier::new("y")).with_position((13, 14)),
+                    Expression::Value(ValueNode::Integer(2)).with_position((18, 19)),
                 )))
-                .with_position((0, 0)),
+                .with_position((13, 19)),
             ))),)
-            .with_position((0, 0))
         );
 
         assert_eq!(
-            parse(&lex("(x == 1) && (y == 2) && true").unwrap()).unwrap()[0],
+            parse(&lex("(x == 1) && (y == 2) && true").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Logic(Box::new(Logic::And(
                 Expression::Logic(Box::new(Logic::And(
                     Expression::Logic(Box::new(Logic::Equal(
-                        Expression::Identifier(Identifier::new("x")).with_position((0, 0)),
-                        Expression::Value(ValueNode::Integer(1)).with_position((0, 0))
+                        Expression::Identifier(Identifier::new("x")).with_position((1, 2)),
+                        Expression::Value(ValueNode::Integer(1)).with_position((6, 7))
                     )))
-                    .with_position((0, 0)),
+                    .with_position((1, 7)),
                     Expression::Logic(Box::new(Logic::Equal(
-                        Expression::Identifier(Identifier::new("y")).with_position((0, 0)),
-                        Expression::Value(ValueNode::Integer(2)).with_position((0, 0))
+                        Expression::Identifier(Identifier::new("y")).with_position((13, 14)),
+                        Expression::Value(ValueNode::Integer(2)).with_position((18, 19))
                     )))
-                    .with_position((0, 0)),
+                    .with_position((13, 19)),
                 )))
-                .with_position((0, 0)),
-                Expression::Value(ValueNode::Boolean(true)).with_position((0, 0))
+                .with_position((0, 21)),
+                Expression::Value(ValueNode::Boolean(true)).with_position((24, 28))
             ))),)
-            .with_position((0, 0))
         );
     }
 
     #[test]
     fn list() {
         assert_eq!(
-            parse(&lex("[]").unwrap()).unwrap()[0],
+            parse(&lex("[]").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::List(Vec::with_capacity(0))),)
-                .with_position((0, 0))
         );
         assert_eq!(
-            parse(&lex("[42]").unwrap()).unwrap()[0],
+            parse(&lex("[42]").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
                 ValueNode::Integer(42)
             )
-            .with_position((0, 0))])),)
-            .with_position((0, 0))
+            .with_position((1, 3))])),)
         );
         assert_eq!(
-            parse(&lex("[42, 'foo', 'bar', [1, 2, 3,]]").unwrap()).unwrap()[0],
+            parse(&lex("[42, 'foo', 'bar', [1, 2, 3,]]").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::List(vec![
-                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-                Expression::Value(ValueNode::String("foo".to_string())).with_position((0, 0)),
-                Expression::Value(ValueNode::String("bar".to_string())).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(42)).with_position((1, 3)),
+                Expression::Value(ValueNode::String("foo".to_string())).with_position((5, 10)),
+                Expression::Value(ValueNode::String("bar".to_string())).with_position((12, 17)),
                 Expression::Value(ValueNode::List(vec![
-                    Expression::Value(ValueNode::Integer(1)).with_position((0, 0)),
-                    Expression::Value(ValueNode::Integer(2)).with_position((0, 0)),
-                    Expression::Value(ValueNode::Integer(3)).with_position((0, 0)),
+                    Expression::Value(ValueNode::Integer(1)).with_position((20, 21)),
+                    Expression::Value(ValueNode::Integer(2)).with_position((23, 24)),
+                    Expression::Value(ValueNode::Integer(3)).with_position((26, 27)),
                 ]))
-                .with_position((0, 0))
+                .with_position((19, 29))
             ])),)
-            .with_position((0, 0))
         );
     }
 
     #[test]
     fn r#true() {
         assert_eq!(
-            parse(&lex("true").unwrap()).unwrap()[0],
+            parse(&lex("true").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
-                .with_position((0, 0))
         );
     }
 
     #[test]
     fn r#false() {
         assert_eq!(
-            parse(&lex("false").unwrap()).unwrap()[0],
+            parse(&lex("false").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Boolean(false)))
-                .with_position((0, 0))
         );
     }
 
     #[test]
     fn positive_float() {
         assert_eq!(
-            parse(&lex("0").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(ValueNode::Float(0.0))).with_position((0, 0))
+            parse(&lex("0.0").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::Float(0.0)))
         );
         assert_eq!(
-            parse(&lex("42").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(ValueNode::Float(42.0))).with_position((0, 0))
+            parse(&lex("42.0").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::Float(42.0)))
         );
 
         let max_float = f64::MAX.to_string() + ".0";
 
         assert_eq!(
-            parse(&lex(&max_float).unwrap()).unwrap()[0],
+            parse(&lex(&max_float).unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Float(f64::MAX)))
-                .with_position((0, 0))
         );
 
         let min_positive_float = f64::MIN_POSITIVE.to_string();
 
         assert_eq!(
-            parse(&lex(&min_positive_float).unwrap()).unwrap()[0],
+            parse(&lex(&min_positive_float).unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Float(f64::MIN_POSITIVE)),)
-                .with_position((0, 0))
         );
     }
 
     #[test]
     fn negative_float() {
         assert_eq!(
-            parse(&lex("-0.0").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(ValueNode::Float(-0.0))).with_position((0, 0))
+            parse(&lex("-0.0").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::Float(-0.0)))
         );
         assert_eq!(
-            parse(&lex("-42.0").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(ValueNode::Float(-42.0))).with_position((0, 0))
+            parse(&lex("-42.0").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::Float(-42.0)))
         );
 
         let min_float = f64::MIN.to_string() + ".0";
 
         assert_eq!(
-            parse(&lex(&min_float).unwrap()).unwrap()[0],
+            parse(&lex(&min_float).unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Float(f64::MIN)))
-                .with_position((0, 0))
         );
 
         let max_negative_float = format!("-{}", f64::MIN_POSITIVE);
 
         assert_eq!(
-            parse(&lex(&max_negative_float).unwrap()).unwrap()[0],
+            parse(&lex(&max_negative_float).unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Float(-f64::MIN_POSITIVE)),)
-                .with_position((0, 0))
         );
     }
 
@@ -1031,8 +972,8 @@ mod tests {
         }
 
         assert_eq!(
-            parse(&lex("-42").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(ValueNode::Integer(-42))).with_position((0, 0))
+            parse(&lex("-42").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::Integer(-42)))
         );
 
         let minimum_integer = i64::MIN.to_string();
