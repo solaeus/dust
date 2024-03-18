@@ -30,7 +30,7 @@ pub enum Error {
 
 impl Error {
     pub fn build_report<'a>(self) -> ReportBuilder<'a, (&'a str, Range<usize>)> {
-        let (mut builder, validation_error) = match &self {
+        let (mut builder, validation_error, error_position) = match self {
             Error::Parse { expected, span } => {
                 let message = if expected.is_empty() {
                     "Invalid token.".to_string()
@@ -50,6 +50,7 @@ impl Error {
                             .with_color(Color::Red),
                     ),
                     None,
+                    span.into(),
                 )
             }
             Error::Lex { expected, span } => {
@@ -71,6 +72,7 @@ impl Error {
                             .with_color(Color::Red),
                     ),
                     None,
+                    span.into(),
                 )
             }
             Error::Runtime { error, position } => (
@@ -84,6 +86,7 @@ impl Error {
                 } else {
                     None
                 },
+                position,
             ),
             Error::Validation { error, position } => (
                 Report::build(
@@ -92,6 +95,7 @@ impl Error {
                     position.1,
                 ),
                 Some(error),
+                position,
             ),
         };
 
@@ -134,10 +138,14 @@ impl Error {
                             .with_message(format!("Got type {} here.", actual.fg(type_color))),
                     ]);
                 }
-                ValidationError::VariableNotFound(identifier) => builder.set_message(format!(
-                    "{} does not exist in this context.",
-                    identifier.fg(identifier_color)
-                )),
+                ValidationError::VariableNotFound(identifier) => builder.add_label(
+                    Label::new(("input", error_position.0..error_position.1)).with_message(
+                        format!(
+                            "Variable {} does not exist in this context.",
+                            identifier.fg(identifier_color)
+                        ),
+                    ),
+                ),
                 ValidationError::CannotIndex { r#type, position } => builder.add_label(
                     Label::new(("input", position.0..position.1))
                         .with_message(format!("Cannot index into a {}.", r#type.fg(type_color))),
