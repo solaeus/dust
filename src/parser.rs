@@ -191,26 +191,8 @@ pub fn parser<'src>() -> DustParser<'src> {
                     .with_position(state.span())
                 });
 
-            let function_expression = choice((identifier_expression.clone(), function.clone()));
-
-            let function_call = function_expression
-                .then(
-                    positioned_expression
-                        .clone()
-                        .separated_by(just(Token::Control(Control::Comma)))
-                        .collect()
-                        .delimited_by(
-                            just(Token::Control(Control::ParenOpen)),
-                            just(Token::Control(Control::ParenClose)),
-                        ),
-                )
-                .map_with(|(function, arguments), state| {
-                    Expression::FunctionCall(FunctionCall::new(function, arguments))
-                        .with_position(state.span())
-                });
-
             let atom = choice((
-                function_call.clone(),
+                function.clone(),
                 identifier_expression.clone(),
                 basic_value.clone(),
                 list.clone(),
@@ -223,7 +205,7 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             use Operator::*;
 
-            let logic_math_and_indexes = atom.pratt((
+            let logic_math_indexes_and_function_calls = atom.pratt((
                 prefix(2, just(Token::Operator(Not)), |_, expression, span| {
                     Expression::Logic(Box::new(Logic::Not(expression))).with_position(span)
                 }),
@@ -233,13 +215,28 @@ pub fn parser<'src>() -> DustParser<'src> {
                         just(Token::Control(Control::SquareOpen)),
                         just(Token::Control(Control::SquareClose)),
                     ),
+                    |left, right, span| {
+                        Expression::ListIndex(Box::new(ListIndex::new(left, right)))
+                            .with_position(span)
+                    },
+                ),
+                postfix(
+                    3,
+                    positioned_expression
+                        .clone()
+                        .separated_by(just(Token::Control(Control::Comma)))
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::ParenOpen)),
+                            just(Token::Control(Control::ParenClose)),
+                        ),
                     |op, expression, span| {
-                        Expression::ListIndex(Box::new(ListIndex::new(op, expression)))
+                        Expression::FunctionCall(FunctionCall::new(op, expression))
                             .with_position(span)
                     },
                 ),
                 infix(
-                    left(3),
+                    left(4),
                     just(Token::Control(Control::Dot)),
                     |left, _, right, span| {
                         Expression::MapIndex(Box::new(MapIndex::new(left, right)))
@@ -344,9 +341,8 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             choice((
                 range,
-                logic_math_and_indexes,
+                logic_math_indexes_and_function_calls,
                 function,
-                function_call,
                 list,
                 map,
                 basic_value,

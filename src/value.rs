@@ -90,7 +90,17 @@ impl Value {
             ValueInner::Map(_) => Type::Map,
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
-            ValueInner::Function(_) => todo!(),
+            ValueInner::Function(function) => match function {
+                Function::Parsed(parsed_function) => Type::Function {
+                    parameter_types: parsed_function
+                        .parameters
+                        .iter()
+                        .map(|(_, r#type)| r#type.node.clone())
+                        .collect(),
+                    return_type: Box::new(parsed_function.return_type.node.clone()),
+                },
+                Function::BuiltIn(built_in_function) => built_in_function.r#type(),
+            },
         }
     }
 

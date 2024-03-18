@@ -117,7 +117,11 @@ impl Error {
                     collection_type,
                     index_type,
                     position,
-                } => todo!(),
+                } => builder.add_label(Label::new(position.0..position.1).with_message(format!(
+                    "Cannot index into a {} with a {}.",
+                    collection_type.fg(type_color),
+                    index_type.fg(type_color)
+                ))),
                 ValidationError::InterpreterExpectedReturn => todo!(),
                 ValidationError::ExpectedFunction { .. } => todo!(),
                 ValidationError::ExpectedValue => todo!(),
