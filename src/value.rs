@@ -32,6 +32,10 @@ impl Value {
         Value(Arc::new(ValueInner::Boolean(boolean)))
     }
 
+    pub fn enum_instance(enum_instance: EnumInstance) -> Self {
+        Value(Arc::new(ValueInner::EnumInstance(enum_instance)))
+    }
+
     pub fn float(float: f64) -> Self {
         Value(Arc::new(ValueInner::Float(float)))
     }
@@ -77,6 +81,7 @@ impl Value {
     pub fn r#type(&self) -> Type {
         match self.0.as_ref() {
             ValueInner::Boolean(_) => Type::Boolean,
+            ValueInner::EnumInstance(EnumInstance { name, .. }) => Type::Custom(name.clone()),
             ValueInner::Float(_) => Type::Float,
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
@@ -138,6 +143,23 @@ impl Display for Value {
 
         match self.inner().as_ref() {
             ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
+            ValueInner::EnumInstance(EnumInstance {
+                name,
+                variant,
+                value: content,
+            }) => {
+                write!(f, "{name}::{variant}(")?;
+
+                for (index, value) in content.into_iter().enumerate() {
+                    if index == content.len() - 1 {
+                        write!(f, "{value}")?;
+                    } else {
+                        write!(f, "{value} ")?;
+                    }
+                }
+
+                write!(f, ")")
+            }
             ValueInner::Float(float) => write!(f, "{float}"),
             ValueInner::Integer(integer) => write!(f, "{integer}"),
             ValueInner::List(list) => {
@@ -197,6 +219,7 @@ impl Ord for Value {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueInner {
     Boolean(bool),
+    EnumInstance(EnumInstance),
     Float(f64),
     Function(Function),
     Integer(i64),
@@ -221,6 +244,8 @@ impl Ord for ValueInner {
         match (self, other) {
             (Boolean(left), Boolean(right)) => left.cmp(right),
             (Boolean(_), _) => Ordering::Greater,
+            (EnumInstance(left), EnumInstance(right)) => left.cmp(right),
+            (EnumInstance(_), _) => Ordering::Greater,
             (Float(left), Float(right)) => left.total_cmp(right),
             (Float(_), _) => Ordering::Greater,
             (Integer(left), Integer(right)) => left.cmp(right),
@@ -243,6 +268,23 @@ impl Ord for ValueInner {
             (String(_), _) => Ordering::Greater,
             (Function(left), Function(right)) => left.cmp(right),
             (Function(_), _) => Ordering::Greater,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct EnumInstance {
+    name: Identifier,
+    variant: Identifier,
+    value: Vec<Value>,
+}
+
+impl EnumInstance {
+    pub fn new(name: Identifier, variant: Identifier, value: Vec<Value>) -> Self {
+        Self {
+            name,
+            variant,
+            value,
         }
     }
 }

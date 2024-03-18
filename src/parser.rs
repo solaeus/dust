@@ -343,7 +343,32 @@ pub fn parser<'src>() -> DustParser<'src> {
                 ),
             ));
 
+            let enum_instance = identifier
+                .clone()
+                .then_ignore(just(Token::Control(Control::DoubleColon)))
+                .then(identifier.clone())
+                .then(
+                    positioned_expression
+                        .clone()
+                        .separated_by(just(Token::Control(Control::Comma)))
+                        .allow_trailing()
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::ParenOpen)),
+                            just(Token::Control(Control::ParenClose)),
+                        ),
+                )
+                .map_with(|((name, variant), expressions), state| {
+                    Expression::Value(ValueNode::EnumInstance {
+                        name,
+                        variant,
+                        expressions,
+                    })
+                    .with_position(state.span())
+                });
+
             choice((
+                enum_instance,
                 range,
                 logic_math_indexes_and_function_calls,
                 function,
@@ -433,7 +458,8 @@ pub fn parser<'src>() -> DustParser<'src> {
                 .delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
-                ),
+                )
+                .or_not(),
         );
 
         let enum_definition = just(Token::Keyword("enum"))
@@ -506,11 +532,15 @@ mod tests {
                 vec![
                     (
                         Identifier::new("Foo"),
-                        vec![Type::Custom(Identifier::new("F")).with_position((62, 63))],
+                        Some(vec![
+                            Type::Custom(Identifier::new("F")).with_position((62, 63))
+                        ]),
                     ),
                     (
                         Identifier::new("Bar"),
-                        vec![Type::Custom(Identifier::new("B")).with_position((90, 91))]
+                        Some(vec![
+                            Type::Custom(Identifier::new("B")).with_position((90, 91))
+                        ])
                     )
                 ]
             ))

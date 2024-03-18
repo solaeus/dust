@@ -3,6 +3,7 @@ use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
+    value::EnumInstance,
     Value,
 };
 
@@ -11,6 +12,11 @@ use super::{AbstractTree, Action, Block, Expression, Identifier, Type, WithPosit
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
     Boolean(bool),
+    EnumInstance {
+        name: Identifier,
+        variant: Identifier,
+        expressions: Vec<WithPosition<Expression>>,
+    },
     Float(f64),
     Integer(i64),
     List(Vec<WithPosition<Expression>>),
@@ -34,6 +40,8 @@ impl AbstractTree for ValueNode {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
+
+            ValueNode::EnumInstance { name, .. } => Type::Custom(name.clone()),
             ValueNode::Float(_) => Type::Float,
             ValueNode::Integer(_) => Type::Integer,
             ValueNode::List(items) => {
@@ -115,6 +123,26 @@ impl AbstractTree for ValueNode {
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
+            ValueNode::EnumInstance {
+                name,
+                variant,
+                expressions,
+            } => {
+                let mut values = Vec::with_capacity(expressions.len());
+
+                for expression in expressions {
+                    let action = expression.node.run(_context)?;
+                    let value = if let Action::Return(value) = action {
+                        value
+                    } else {
+                        todo!()
+                    };
+
+                    values.push(value);
+                }
+
+                Value::enum_instance(EnumInstance::new(name, variant, values))
+            }
             ValueNode::Float(float) => Value::float(float),
             ValueNode::Integer(integer) => Value::integer(integer),
             ValueNode::List(expression_list) => {
@@ -181,6 +209,33 @@ impl Ord for ValueNode {
         match (self, other) {
             (Boolean(left), Boolean(right)) => left.cmp(right),
             (Boolean(_), _) => Ordering::Greater,
+            (
+                EnumInstance {
+                    name: left_name,
+                    variant: left_variant,
+                    expressions: left_expressions,
+                },
+                EnumInstance {
+                    name: right_name,
+                    variant: right_variant,
+                    expressions: right_expressions,
+                },
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp.is_eq() {
+                    let variant_cmp = left_variant.cmp(right_variant);
+
+                    if variant_cmp.is_eq() {
+                        left_expressions.cmp(right_expressions)
+                    } else {
+                        variant_cmp
+                    }
+                } else {
+                    name_cmp
+                }
+            }
+            (EnumInstance { .. }, _) => Ordering::Greater,
             (Float(left), Float(right)) => left.total_cmp(right),
             (Float(_), _) => Ordering::Greater,
             (Integer(left), Integer(right)) => left.cmp(right),

@@ -9,14 +9,14 @@ use super::{AbstractTree, Action, Identifier, Type, WithPosition};
 pub struct EnumDefinition {
     name: Identifier,
     type_parameters: Vec<Identifier>,
-    variants: Vec<(Identifier, Vec<WithPosition<Type>>)>,
+    variants: Vec<(Identifier, Option<Vec<WithPosition<Type>>>)>,
 }
 
 impl EnumDefinition {
     pub fn new(
         name: Identifier,
         type_parameters: Vec<Identifier>,
-        variants: Vec<(Identifier, Vec<WithPosition<Type>>)>,
+        variants: Vec<(Identifier, Option<Vec<WithPosition<Type>>>)>,
     ) -> Self {
         Self {
             name,
