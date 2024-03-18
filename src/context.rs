@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::{Identifier, Type},
+    abstract_tree::{EnumDefinition, Identifier, Type},
     error::RwLockPoisonError,
     value::{BUILT_IN_FUNCTIONS, BUILT_IN_MODULES},
     Value,
@@ -77,6 +77,7 @@ impl Context {
             let r#type = match value_data {
                 ValueData::Type(r#type) => r#type.clone(),
                 ValueData::Value(value) => value.r#type(),
+                ValueData::EnumDefinition(_) => return Ok(None),
             };
 
             return Ok(Some(r#type.clone()));
@@ -117,6 +118,18 @@ impl Context {
         }
     }
 
+    pub fn set_enum_definition(
+        &self,
+        identifier: Identifier,
+        definition: EnumDefinition,
+    ) -> Result<(), RwLockPoisonError> {
+        let mut inner = self.inner.write()?;
+
+        inner.insert(identifier, ValueData::EnumDefinition(definition));
+
+        Ok(())
+    }
+
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), RwLockPoisonError> {
         self.inner
             .write()?
@@ -138,4 +151,5 @@ impl Context {
 pub enum ValueData {
     Type(Type),
     Value(Value),
+    EnumDefinition(EnumDefinition),
 }

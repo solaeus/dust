@@ -506,11 +506,11 @@ mod tests {
                 vec![
                     (
                         Identifier::new("Foo"),
-                        vec![Type::Custom(Identifier::new("F")).with_position((0, 0))],
+                        vec![Type::Custom(Identifier::new("F")).with_position((62, 63))],
                     ),
                     (
                         Identifier::new("Bar"),
-                        vec![Type::Custom(Identifier::new("B")).with_position((0, 0))]
+                        vec![Type::Custom(Identifier::new("B")).with_position((90, 91))]
                     )
                 ]
             ))
