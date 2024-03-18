@@ -121,7 +121,14 @@ impl AbstractTree for ValueNode {
                 let mut value_list = Vec::with_capacity(expression_list.len());
 
                 for expression in expression_list {
-                    let value = expression.node.run(_context)?.as_return_value()?;
+                    let action = expression.node.run(_context)?;
+                    let value = if let Action::Return(value) = action {
+                        value
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::InterpreterExpectedReturn(expression.position),
+                        ));
+                    };
 
                     value_list.push(value);
                 }
@@ -132,7 +139,14 @@ impl AbstractTree for ValueNode {
                 let mut property_map = BTreeMap::new();
 
                 for (identifier, _type, expression) in property_list {
-                    let value = expression.node.run(_context)?.as_return_value()?;
+                    let action = expression.node.run(_context)?;
+                    let value = if let Action::Return(value) = action {
+                        value
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::InterpreterExpectedReturn(expression.position),
+                        ));
+                    };
 
                     property_map.insert(identifier, value);
                 }

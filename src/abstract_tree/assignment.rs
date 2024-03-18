@@ -1,6 +1,7 @@
 use crate::{
     error::{RuntimeError, ValidationError},
-    Context,
+    value::ValueInner,
+    Context, Value,
 };
 
 use super::{AbstractTree, Action, Identifier, Statement, Type, WithPosition};
@@ -70,40 +71,94 @@ impl AbstractTree for Assignment {
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
         let action = self.statement.node.run(context)?;
-        let value = match action {
+        let right = match action {
             Action::Return(value) => value,
             r#break => return Ok(r#break),
         };
 
         match self.operator {
             AssignmentOperator::Assign => {
-                context.set_value(self.identifier.node, value)?;
+                context.set_value(self.identifier.node, right)?;
             }
             AssignmentOperator::AddAssign => {
-                if let Some(previous_value) = context.get_value(&self.identifier.node)? {
-                    let new_value = previous_value.add(&value)?;
+                if let Some(left) = context.get_value(&self.identifier.node)? {
+                    let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
+                        (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                            let sum = left.saturating_add(*right);
 
+                            Value::integer(sum)
+                        }
+                        (ValueInner::Float(left), ValueInner::Float(right)) => {
+                            let sum = left + right;
+
+                            Value::float(sum)
+                        }
+                        (ValueInner::Float(left), ValueInner::Integer(right)) => {
+                            let sum = left + *right as f64;
+
+                            Value::float(sum)
+                        }
+                        (ValueInner::Integer(left), ValueInner::Float(right)) => {
+                            let sum = *left as f64 + right;
+
+                            Value::float(sum)
+                        }
+                        (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
+                            return Err(RuntimeError::ValidationFailure(
+                                ValidationError::ExpectedIntegerOrFloat(self.statement.position),
+                            ))
+                        }
+                        _ => {
+                            return Err(RuntimeError::ValidationFailure(
+                                ValidationError::ExpectedIntegerOrFloat(self.identifier.position),
+                            ))
+                        }
+                    };
                     context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::VariableNotFound {
-                            identifier: self.identifier.node,
-                            position: self.identifier.position,
-                        },
+                        ValidationError::VariableNotFound(self.identifier.node),
                     ));
                 }
             }
             AssignmentOperator::SubAssign => {
-                if let Some(previous_value) = context.get_value(&self.identifier.node)? {
-                    let new_value = previous_value.subtract(&value)?;
+                if let Some(left) = context.get_value(&self.identifier.node)? {
+                    let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
+                        (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                            let difference = left.saturating_sub(*right);
 
+                            Value::integer(difference)
+                        }
+                        (ValueInner::Float(left), ValueInner::Float(right)) => {
+                            let difference = left - right;
+
+                            Value::float(difference)
+                        }
+                        (ValueInner::Float(left), ValueInner::Integer(right)) => {
+                            let difference = left - *right as f64;
+
+                            Value::float(difference)
+                        }
+                        (ValueInner::Integer(left), ValueInner::Float(right)) => {
+                            let difference = *left as f64 - right;
+
+                            Value::float(difference)
+                        }
+                        (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
+                            return Err(RuntimeError::ValidationFailure(
+                                ValidationError::ExpectedIntegerOrFloat(self.statement.position),
+                            ))
+                        }
+                        _ => {
+                            return Err(RuntimeError::ValidationFailure(
+                                ValidationError::ExpectedIntegerOrFloat(self.identifier.position),
+                            ))
+                        }
+                    };
                     context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::VariableNotFound {
-                            identifier: self.identifier.node,
-                            position: self.identifier.position,
-                        },
+                        ValidationError::VariableNotFound(self.identifier.node),
                     ));
                 }
             }
@@ -118,7 +173,6 @@ mod tests {
     use crate::{
         abstract_tree::{Expression, ValueNode},
         error::TypeConflict,
-        Value,
     };
 
     use super::*;

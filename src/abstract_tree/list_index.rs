@@ -69,8 +69,22 @@ impl AbstractTree for ListIndex {
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let left_value = self.left.node.run(_context)?.as_return_value()?;
-        let right_value = self.right.node.run(_context)?.as_return_value()?;
+        let left_action = self.left.node.run(_context)?;
+        let left_value = if let Action::Return(value) = left_action {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::InterpreterExpectedReturn(self.left.position),
+            ));
+        };
+        let right_action = self.right.node.run(_context)?;
+        let right_value = if let Action::Return(value) = right_action {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::InterpreterExpectedReturn(self.left.position),
+            ));
+        };
 
         if let (Some(list), Some(index)) = (left_value.as_list(), right_value.as_integer()) {
             let found_item = list.get(index as usize);

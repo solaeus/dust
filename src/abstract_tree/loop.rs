@@ -90,7 +90,7 @@ mod tests {
     fn complex_loop() {
         let action = Block::new(vec![
             Statement::Assignment(Assignment::new(
-                Identifier::new("i"),
+                Identifier::new("i").with_position((0, 0)),
                 None,
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
@@ -105,7 +105,7 @@ mod tests {
                 .with_position((10, 15)),
                 Block::new(vec![Statement::Break.with_position((18, 24))]),
                 Some(Block::new(vec![Statement::Assignment(Assignment::new(
-                    Identifier::new("i"),
+                    Identifier::new("i").with_position((0, 0)),
                     None,
                     AssignmentOperator::AddAssign,
                     Statement::Expression(Expression::Value(ValueNode::Integer(1)))

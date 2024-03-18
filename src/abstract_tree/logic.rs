@@ -84,110 +84,100 @@ impl AbstractTree for Logic {
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let boolean = match self {
-            Logic::Equal(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?;
-                let right = right.node.run(_context)?.as_return_value()?;
-
-                left == right
-            }
-            Logic::NotEqual(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?;
-                let right = right.node.run(_context)?.as_return_value()?;
-
-                left != right
-            }
-            Logic::Greater(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?;
-                let right = right.node.run(_context)?.as_return_value()?;
-
-                left > right
-            }
-            Logic::Less(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?;
-                let right = right.node.run(_context)?.as_return_value()?;
-
-                left < right
-            }
-            Logic::GreaterOrEqual(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?;
-                let right = right.node.run(_context)?.as_return_value()?;
-
-                left >= right
-            }
-            Logic::LessOrEqual(left, right) => {
-                let left = left.node.run(_context)?.as_return_value()?;
-                let right = right.node.run(_context)?.as_return_value()?;
-
-                left <= right
-            }
-            Logic::And(left, right) => {
-                let left_value = left.node.run(_context)?.as_return_value()?;
-                let right_value = right.node.run(_context)?.as_return_value()?;
-
-                let left = if let ValueInner::Boolean(boolean) = left_value.inner().as_ref() {
-                    boolean
+        let run_and_expect_value =
+            |expression: WithPosition<Expression>| -> Result<Value, RuntimeError> {
+                let action = expression.node.run(_context)?;
+                let value = if let Action::Return(value) = action {
+                    value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedBoolean {
-                            actual: left_value.r#type(),
-                            position: left.position,
-                        },
-                    ));
-                };
-                let right = if let ValueInner::Boolean(boolean) = right_value.inner().as_ref() {
-                    boolean
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedBoolean {
-                            actual: right_value.r#type(),
-                            position: right.position,
-                        },
+                        ValidationError::InterpreterExpectedReturn(expression.position),
                     ));
                 };
 
-                *left && *right
-            }
-            Logic::Or(left, right) => {
-                let left_value = left.node.run(_context)?.as_return_value()?;
-                let right_value = right.node.run(_context)?.as_return_value()?;
+                Ok(value)
+            };
 
-                let left = if let ValueInner::Boolean(boolean) = left_value.inner().as_ref() {
-                    boolean
+        let run_and_expect_boolean =
+            |expression: WithPosition<Expression>| -> Result<bool, RuntimeError> {
+                let action = expression.node.run(_context)?;
+                let value = if let Action::Return(value) = action {
+                    value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedBoolean {
-                            actual: left_value.r#type(),
-                            position: left.position,
-                        },
+                        ValidationError::InterpreterExpectedReturn(expression.position),
                     ));
                 };
-                let right = if let ValueInner::Boolean(boolean) = right_value.inner().as_ref() {
-                    boolean
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedBoolean {
-                            actual: right_value.r#type(),
-                            position: right.position,
-                        },
-                    ));
-                };
-
-                *left || *right
-            }
-            Logic::Not(statement) => {
-                let value = statement.node.run(_context)?.as_return_value()?;
 
                 if let ValueInner::Boolean(boolean) = value.inner().as_ref() {
-                    !boolean
+                    Ok(*boolean)
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedBoolean {
                             actual: value.r#type(),
-                            position: statement.position,
+                            position: expression.position,
                         },
                     ));
                 }
+            };
+
+        let boolean = match self {
+            Logic::Equal(left, right) => {
+                let (left_value, right_value) =
+                    (run_and_expect_value(left)?, run_and_expect_value(right)?);
+
+                left_value == right_value
+            }
+            Logic::NotEqual(left, right) => {
+                let (left_value, right_value) =
+                    (run_and_expect_value(left)?, run_and_expect_value(right)?);
+
+                left_value != right_value
+            }
+            Logic::Greater(left, right) => {
+                let (left_value, right_value) =
+                    (run_and_expect_value(left)?, run_and_expect_value(right)?);
+
+                left_value > right_value
+            }
+            Logic::Less(left, right) => {
+                let (left_value, right_value) =
+                    (run_and_expect_value(left)?, run_and_expect_value(right)?);
+
+                left_value < right_value
+            }
+            Logic::GreaterOrEqual(left, right) => {
+                let (left_value, right_value) =
+                    (run_and_expect_value(left)?, run_and_expect_value(right)?);
+
+                left_value >= right_value
+            }
+            Logic::LessOrEqual(left, right) => {
+                let (left_value, right_value) =
+                    (run_and_expect_value(left)?, run_and_expect_value(right)?);
+
+                left_value <= right_value
+            }
+            Logic::And(left, right) => {
+                let (left_boolean, right_boolean) = (
+                    run_and_expect_boolean(left)?,
+                    run_and_expect_boolean(right)?,
+                );
+
+                left_boolean && right_boolean
+            }
+            Logic::Or(left, right) => {
+                let (left_boolean, right_boolean) = (
+                    run_and_expect_boolean(left)?,
+                    run_and_expect_boolean(right)?,
+                );
+
+                left_boolean || right_boolean
+            }
+            Logic::Not(statement) => {
+                let boolean = run_and_expect_boolean(statement)?;
+
+                !boolean
             }
         };
 
@@ -203,148 +193,124 @@ mod tests {
 
     #[test]
     fn equal() {
-        assert!(Logic::Equal(
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+        assert_eq!(
+            Logic::Equal(
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
         )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
     }
 
     #[test]
     fn not_equal() {
-        assert!(Logic::NotEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
+        assert_eq!(
+            Logic::NotEqual(
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
         )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
     }
 
     #[test]
     fn greater() {
-        assert!(Logic::Greater(
-            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+        assert_eq!(
+            Logic::Greater(
+                Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
         )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
     }
 
     #[test]
     fn less() {
-        assert!(Logic::Less(
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
+        assert_eq!(
+            Logic::Less(
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
         )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
     }
 
     #[test]
     fn greater_or_equal() {
-        assert!(Logic::GreaterOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(41)).with_position((0, 0)),
-        )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap());
+        assert_eq!(
+            Logic::GreaterOrEqual(
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(41)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
+        );
 
-        assert!(Logic::GreaterOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-        )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
+        assert_eq!(
+            Logic::GreaterOrEqual(
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
+        );
     }
 
     #[test]
     fn less_or_equal() {
-        assert!(Logic::LessOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(43)).with_position((0, 0)),
-        )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap());
+        assert_eq!(
+            Logic::LessOrEqual(
+                Expression::Value(ValueNode::Integer(41)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
+        );
 
-        assert!(Logic::LessOrEqual(
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-            Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
-        )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
+        assert_eq!(
+            Logic::LessOrEqual(
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+                Expression::Value(ValueNode::Integer(42)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
+        );
     }
 
     #[test]
     fn and() {
-        assert!(Logic::And(
-            Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
-            Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+        assert_eq!(
+            Logic::And(
+                Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+                Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
         )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
     }
 
     #[test]
     fn or() {
-        assert!(Logic::Or(
-            Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
-            Expression::Value(ValueNode::Boolean(false)).with_position((0, 0)),
+        assert_eq!(
+            Logic::Or(
+                Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+                Expression::Value(ValueNode::Boolean(false)).with_position((0, 0)),
+            )
+            .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
         )
-        .run(&Context::new())
-        .unwrap()
-        .as_return_value()
-        .unwrap()
-        .as_boolean()
-        .unwrap())
     }
 
     #[test]
     fn not() {
-        assert!(
-            Logic::Not(Expression::Value(ValueNode::Boolean(false)).with_position((0, 0)))
-                .run(&Context::new())
-                .unwrap()
-                .as_return_value()
-                .unwrap()
-                .as_boolean()
-                .unwrap()
+        assert_eq!(
+            Logic::Not(Expression::Value(ValueNode::Boolean(false)).with_position((0, 0)),)
+                .run(&Context::new()),
+            Ok(Action::Return(Value::boolean(true)))
         )
     }
 }

@@ -42,9 +42,15 @@ impl AbstractTree for While {
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
-            let value = self.expression.node.run(_context)?.as_return_value()?;
+            let action = self.expression.node.run(_context)?;
 
-            Ok(value)
+            if let Action::Return(value) = action {
+                Ok(value)
+            } else {
+                Err(RuntimeError::ValidationFailure(
+                    ValidationError::InterpreterExpectedReturn(self.expression.position),
+                ))
+            }
         };
 
         if let ValueInner::Boolean(boolean) = get_boolean()?.inner().as_ref() {
@@ -77,7 +83,7 @@ mod tests {
     fn simple_while_loop() {
         let action = Statement::Block(Block::new(vec![
             Statement::Assignment(Assignment::new(
-                Identifier::new("i"),
+                Identifier::new("i").with_position((0, 0)),
                 None,
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(3)))
@@ -91,7 +97,7 @@ mod tests {
                 )))
                 .with_position((0, 0)),
                 statements: vec![Statement::Assignment(Assignment::new(
-                    Identifier::new("i"),
+                    Identifier::new("i").with_position((0, 0)),
                     None,
                     AssignmentOperator::AddAssign,
                     Statement::Expression(Expression::Value(ValueNode::Integer(1)))

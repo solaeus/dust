@@ -64,7 +64,14 @@ impl AbstractTree for IfElse {
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let value = self.if_expression.node.run(_context)?.as_return_value()?;
+        let action = self.if_expression.node.run(_context)?;
+        let value = if let Action::Return(value) = action {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::InterpreterExpectedReturn(self.if_expression.position),
+            ));
+        };
 
         if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
             if *if_boolean {

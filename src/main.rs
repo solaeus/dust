@@ -1,13 +1,12 @@
 //! Command line interface for the dust programming language.
 
-use ariadne::{sources, Color, Label, Report, ReportKind, Source};
-use chumsky::span::SimpleSpan;
+use ariadne::sources;
 use clap::Parser;
 use colored::Colorize;
 
-use std::{fs::read_to_string, io::Write, ops::Range};
+use std::{fs::read_to_string, io::Write};
 
-use dust_lang::{context::Context, error::Error, Interpreter};
+use dust_lang::{context::Context, Interpreter};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -55,58 +54,8 @@ fn main() {
         }
         Err(errors) => {
             for error in errors {
-                let mut report_builder = match &error {
-                    Error::Parse { expected, span } => {
-                        let message = if expected.is_empty() {
-                            "Invalid token.".to_string()
-                        } else {
-                            format!("Expected {expected}.")
-                        };
-
-                        Report::build(
-                            ReportKind::Custom("Parsing Error", Color::White),
-                            "input",
-                            span.1,
-                        )
-                        .with_label(
-                            Label::new(("input", span.0..span.1))
-                                .with_message(message)
-                                .with_color(Color::Red),
-                        )
-                    }
-                    Error::Lex { expected, span } => {
-                        let message = if expected.is_empty() {
-                            "Invalid token.".to_string()
-                        } else {
-                            format!("Expected {expected}.")
-                        };
-
-                        Report::build(
-                            ReportKind::Custom("Dust Error", Color::White),
-                            "input",
-                            span.1,
-                        )
-                        .with_label(
-                            Label::new(("input", span.0..span.1))
-                                .with_message(message)
-                                .with_color(Color::Red),
-                        )
-                    }
-                    Error::Runtime { error, position } => Report::build(
-                        ReportKind::Custom("Dust Error", Color::White),
-                        "input",
-                        position.1,
-                    ),
-                    Error::Validation { error, position } => Report::build(
-                        ReportKind::Custom("Dust Error", Color::White),
-                        "input",
-                        position.1,
-                    ),
-                };
-
-                report_builder = error.build_report(report_builder);
-
-                report_builder
+                error
+                    .build_report()
                     .finish()
                     .eprint(sources([("input", &source)]))
                     .unwrap()

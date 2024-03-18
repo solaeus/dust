@@ -491,7 +491,7 @@ mod tests {
         assert_eq!(
             parse(&lex("foobar : bool = true").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
+                Identifier::new("foobar").with_position((0, 6)),
                 Some(Type::Boolean.with_position((9, 14))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
@@ -505,7 +505,7 @@ mod tests {
         assert_eq!(
             parse(&lex("foobar: list = []").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
+                Identifier::new("foobar").with_position((0, 6)),
                 Some(Type::List.with_position((8, 13))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![])))
@@ -519,7 +519,7 @@ mod tests {
         assert_eq!(
             parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
+                Identifier::new("foobar").with_position((0, 6)),
                 Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9, 20))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
@@ -536,7 +536,7 @@ mod tests {
         assert_eq!(
             parse(&lex("foobar : [bool, str] = [true, '42']").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
+                Identifier::new("foobar").with_position((0, 6)),
                 Some(Type::ListExact(vec![Type::Boolean, Type::String]).with_position((9, 21))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![
@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(
             parse(&lex("foobar : () -> any = some_function").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
+                Identifier::new("foobar").with_position((0, 6)),
                 Some(
                     Type::Function {
                         parameter_types: vec![],
@@ -709,7 +709,7 @@ mod tests {
                 .with_position((10, 15)),
                 Block::new(vec![Statement::Break.with_position((18, 24))]),
                 Some(Block::new(vec![Statement::Assignment(Assignment::new(
-                    Identifier::new("i"),
+                    Identifier::new("i").with_position((33, 34)),
                     None,
                     AssignmentOperator::AddAssign,
                     Statement::Expression(Expression::Value(ValueNode::Integer(1)))
@@ -799,7 +799,7 @@ mod tests {
         assert_eq!(
             parse(&lex("foobar = 1").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
+                Identifier::new("foobar").with_position((0, 6)),
                 None,
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
@@ -813,7 +813,7 @@ mod tests {
         assert_eq!(
             parse(&lex("foobar: int = 1").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
-                Identifier::new("foobar"),
+                Identifier::new("foobar").with_position((0, 6)),
                 Some(Type::Integer.with_position((8, 12))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))

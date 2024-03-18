@@ -16,7 +16,7 @@ use stanza::{
 use crate::{
     abstract_tree::{AbstractTree, Action, Block, Identifier, Type, WithPosition},
     context::Context,
-    error::{RuntimeError, ValidationError},
+    error::RuntimeError,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -125,58 +125,6 @@ impl Value {
             Some(*integer)
         } else {
             None
-        }
-    }
-
-    pub fn add(&self, other: &Self) -> Result<Value, ValidationError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                let sum = left.saturating_add(*right);
-
-                Ok(Value::integer(sum))
-            }
-            (ValueInner::Float(left), ValueInner::Float(right)) => {
-                let sum = left + right;
-
-                Ok(Value::float(sum))
-            }
-            (ValueInner::Float(left), ValueInner::Integer(right)) => {
-                let sum = left + *right as f64;
-
-                Ok(Value::float(sum))
-            }
-            (ValueInner::Integer(left), ValueInner::Float(right)) => {
-                let sum = *left as f64 + right;
-
-                Ok(Value::float(sum))
-            }
-            _ => Err(ValidationError::ExpectedIntegerOrFloat),
-        }
-    }
-
-    pub fn subtract(&self, other: &Self) -> Result<Value, ValidationError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                let sum = left.saturating_sub(*right);
-
-                Ok(Value::integer(sum))
-            }
-            (ValueInner::Float(left), ValueInner::Float(right)) => {
-                let sum = left - right;
-
-                Ok(Value::float(sum))
-            }
-            (ValueInner::Float(left), ValueInner::Integer(right)) => {
-                let sum = left - *right as f64;
-
-                Ok(Value::float(sum))
-            }
-            (ValueInner::Integer(left), ValueInner::Float(right)) => {
-                let sum = *left as f64 - right;
-
-                Ok(Value::float(sum))
-            }
-            _ => Err(ValidationError::ExpectedIntegerOrFloat),
         }
     }
 }

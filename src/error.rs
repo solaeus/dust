@@ -96,6 +96,7 @@ impl Error {
         };
 
         let type_color = Color::Green;
+        let identifier_color = Color::Blue;
 
         if let Some(validation_error) = validation_error {
             match validation_error {
@@ -133,16 +134,10 @@ impl Error {
                             .with_message(format!("Got type {} here.", actual.fg(type_color))),
                     ]);
                 }
-                ValidationError::VariableNotFound {
-                    identifier,
-                    position,
-                } => {
-                    builder.add_label(
-                        Label::new(("input", position.0..position.1))
-                            .with_message(format!("The variable {identifier} does not exist."))
-                            .with_priority(1),
-                    );
-                }
+                ValidationError::VariableNotFound(identifier) => builder.set_message(format!(
+                    "{} does not exist in this context.",
+                    identifier.fg(identifier_color)
+                )),
                 ValidationError::CannotIndex { r#type, position } => builder.add_label(
                     Label::new(("input", position.0..position.1))
                         .with_message(format!("Cannot index into a {}.", r#type.fg(type_color))),
@@ -270,11 +265,7 @@ pub enum ValidationError {
         /// The position of the item that gave the "expected" type.
         expected_position: SourcePosition,
     },
-    VariableNotFound {
-        identifier: Identifier,
-        position: SourcePosition,
-    },
-
+    VariableNotFound(Identifier),
     PropertyNotFound {
         identifier: Identifier,
         position: SourcePosition,

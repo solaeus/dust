@@ -39,9 +39,10 @@ impl AbstractTree for MapIndex {
                 return if let Some(value) = map.get(index_identifier) {
                     Ok(value.r#type())
                 } else {
-                    Err(ValidationError::PropertyNotFound(
-                        collection_identifier.clone(),
-                    ))
+                    Err(ValidationError::PropertyNotFound {
+                        identifier: index_identifier.clone(),
+                        position: self.right.position,
+                    })
                 };
             };
         }
@@ -72,7 +73,7 @@ impl AbstractTree for MapIndex {
 
         Err(ValidationError::CannotIndexWith {
             collection_type: left_type,
-            collection_position: todo!(),
+            collection_position: self.left.position,
             index_type: self.right.node.expected_type(_context)?,
             index_position: self.right.position,
         })
@@ -100,7 +101,14 @@ impl AbstractTree for MapIndex {
     }
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let collection = self.left.node.run(_context)?.as_return_value()?;
+        let action = self.left.node.run(_context)?;
+        let collection = if let Action::Return(value) = action {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::InterpreterExpectedReturn(self.left.position),
+            ));
+        };
 
         if let (ValueInner::Map(map), Expression::Identifier(identifier)) =
             (collection.inner().as_ref(), &self.right.node)
@@ -115,7 +123,7 @@ impl AbstractTree for MapIndex {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith {
                     collection_type: collection.r#type(),
-                    collection_position: todo!(),
+                    collection_position: self.left.position,
                     index_type: self.right.node.expected_type(_context)?,
                     index_position: self.right.position,
                 },
