@@ -6,7 +6,7 @@ use std::{
 use crate::{
     abstract_tree::{Identifier, Type},
     error::RwLockPoisonError,
-    value::{BuiltInFunction, BuiltInValue},
+    value::{BUILT_IN_FUNCTIONS, BUILT_IN_MODULES},
     Value,
 };
 
@@ -56,10 +56,19 @@ impl Context {
         if self.inner.read()?.contains_key(identifier) {
             Ok(true)
         } else {
-            match identifier.as_str() {
-                "io" | "output" => Ok(true),
-                _ => Ok(false),
+            for module in BUILT_IN_MODULES {
+                if identifier.as_str() == module.name() {
+                    return Ok(true);
+                }
             }
+
+            for function in BUILT_IN_FUNCTIONS {
+                if identifier.as_str() == function.name() {
+                    return Ok(true);
+                }
+            }
+
+            Ok(false)
         }
     }
 
@@ -73,26 +82,38 @@ impl Context {
             return Ok(Some(r#type.clone()));
         }
 
-        let r#type = match identifier.as_str() {
-            "io" => BuiltInValue::Io.r#type(),
-            "output" => BuiltInFunction::Output.r#type(),
-            _ => return Ok(None),
-        };
+        for module in BUILT_IN_MODULES {
+            if identifier.as_str() == module.name() {
+                return Ok(Some(module.r#type()));
+            }
+        }
 
-        Ok(Some(r#type))
+        for function in BUILT_IN_MODULES {
+            if identifier.as_str() == function.name() {
+                return Ok(Some(function.r#type()));
+            }
+        }
+
+        Ok(None)
     }
 
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
         if let Some(ValueData::Value(value)) = self.inner.read()?.get(identifier) {
             Ok(Some(value.clone()))
         } else {
-            let value = match identifier.as_str() {
-                "io" => BuiltInValue::Io.value(),
-                "output" => Value::built_in_function(BuiltInFunction::Output),
-                _ => return Ok(None),
-            };
+            for module in BUILT_IN_MODULES {
+                if identifier.as_str() == module.name() {
+                    return Ok(Some(module.value()));
+                }
+            }
 
-            Ok(Some(value))
+            for function in BUILT_IN_MODULES {
+                if identifier.as_str() == function.name() {
+                    return Ok(Some(function.value()));
+                }
+            }
+
+            Ok(None)
         }
     }
 

@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use chumsky::prelude::*;
+use chumsky::{prelude::*, text::whitespace};
 
 use crate::error::Error;
 
@@ -228,10 +228,11 @@ pub fn lexer<'src>() -> impl Parser<
         just("loop").padded(),
         just("while").padded(),
     ))
+    .delimited_by(whitespace(), whitespace())
     .map(Token::Keyword);
 
     choice((
-        boolean, float, integer, string, keyword, identifier, control, operator,
+        boolean, float, integer, string, identifier, keyword, control, operator,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()
