@@ -4,9 +4,10 @@ pub mod expression;
 pub mod function_call;
 pub mod identifier;
 pub mod if_else;
-pub mod index;
+pub mod list_index;
 pub mod logic;
 pub mod r#loop;
+pub mod map_index;
 pub mod math;
 pub mod statement;
 pub mod r#type;
@@ -22,8 +23,9 @@ pub use self::{
     function_call::FunctionCall,
     identifier::Identifier,
     if_else::IfElse,
-    index::Index,
+    list_index::ListIndex,
     logic::Logic,
+    map_index::MapIndex,
     math::Math,
     r#loop::Loop,
     r#type::Type,

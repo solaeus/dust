@@ -42,6 +42,8 @@ impl Error {
                     expected => format!("Expected {expected}."),
                 };
 
+                builder = builder.with_note("Parsing error.");
+
                 builder.add_label(Label::new(span.0..span.1).with_message(message));
             }
             Error::Lex { expected, span } => {
@@ -49,6 +51,8 @@ impl Error {
                     "" => "Invalid character.".to_string(),
                     expected => format!("Expected {expected}."),
                 };
+
+                builder = builder.with_note("Lexing error.");
 
                 builder.add_label(Label::new(span.0..span.1).with_message(message));
             }
@@ -109,10 +113,15 @@ impl Error {
                     Label::new(position.0..position.1)
                         .with_message(format!("Cannot index into a {}.", r#type.fg(type_color))),
                 ),
-                ValidationError::CannotIndexWith(_, _) => todo!(),
+                ValidationError::CannotIndexWith {
+                    collection_type,
+                    index_type,
+                    position,
+                } => todo!(),
                 ValidationError::InterpreterExpectedReturn => todo!(),
                 ValidationError::ExpectedFunction { .. } => todo!(),
                 ValidationError::ExpectedValue => todo!(),
+                ValidationError::PropertyNotFound(_) => todo!(),
             },
         }
 
@@ -182,7 +191,11 @@ pub enum ValidationError {
         r#type: Type,
         position: SourcePosition,
     },
-    CannotIndexWith(Type, Type),
+    CannotIndexWith {
+        collection_type: Type,
+        index_type: Type,
+        position: SourcePosition,
+    },
     ExpectedBoolean {
         actual: Type,
         position: SourcePosition,
@@ -206,6 +219,7 @@ pub enum ValidationError {
         expected_position: SourcePosition,
     },
     VariableNotFound(Identifier),
+    PropertyNotFound(Identifier),
 }
 
 impl From<RwLockPoisonError> for ValidationError {

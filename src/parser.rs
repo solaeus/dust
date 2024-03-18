@@ -49,8 +49,8 @@ pub fn parser<'src>() -> DustParser<'src> {
 
     let basic_value = select! {
         Token::Boolean(boolean) => ValueNode::Boolean(boolean),
-        Token::Integer(integer) => ValueNode::Integer(integer),
         Token::Float(float) => ValueNode::Float(float),
+        Token::Integer(integer) => ValueNode::Integer(integer),
         Token::String(string) => ValueNode::String(string.to_string()),
     }
     .map_with(|value, state| Expression::Value(value).with_position(state.span()))
@@ -126,19 +126,17 @@ pub fn parser<'src>() -> DustParser<'src> {
                 Expression::Identifier(identifier).with_position(state.span())
             });
 
-            let range = {
-                let raw_integer = select! {
-                    Token::Integer(integer) => integer
-                };
-
-                raw_integer
-                    .clone()
-                    .then_ignore(just(Token::Control(Control::DoubleDot)))
-                    .then(raw_integer)
-                    .map_with(|(start, end), state| {
-                        Expression::Value(ValueNode::Range(start..end)).with_position(state.span())
-                    })
+            let raw_integer = select! {
+                Token::Integer(integer) => integer
             };
+
+            let range = raw_integer
+                .clone()
+                .then_ignore(just(Token::Control(Control::DoubleDot)))
+                .then(raw_integer)
+                .map_with(|(start, end), state| {
+                    Expression::Value(ValueNode::Range(start..end)).with_position(state.span())
+                });
 
             let list = positioned_expression
                 .clone()
@@ -216,6 +214,7 @@ pub fn parser<'src>() -> DustParser<'src> {
                 identifier_expression.clone(),
                 basic_value.clone(),
                 list.clone(),
+                map.clone(),
                 positioned_expression.clone().delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
@@ -224,15 +223,27 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             use Operator::*;
 
-            let logic_math_and_index = atom.pratt((
+            let logic_math_and_indexes = atom.pratt((
                 prefix(2, just(Token::Operator(Not)), |_, expression, span| {
                     Expression::Logic(Box::new(Logic::Not(expression))).with_position(span)
                 }),
+                postfix(
+                    2,
+                    positioned_expression.clone().delimited_by(
+                        just(Token::Control(Control::SquareOpen)),
+                        just(Token::Control(Control::SquareClose)),
+                    ),
+                    |op, expression, span| {
+                        Expression::ListIndex(Box::new(ListIndex::new(expression, op)))
+                            .with_position(span)
+                    },
+                ),
                 infix(
                     left(3),
                     just(Token::Control(Control::Dot)),
                     |left, _, right, span| {
-                        Expression::Index(Box::new(Index::new(left, right))).with_position(span)
+                        Expression::MapIndex(Box::new(MapIndex::new(left, right)))
+                            .with_position(span)
                     },
                 ),
                 infix(
@@ -333,13 +344,13 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             choice((
                 range,
-                logic_math_and_index,
+                logic_math_and_indexes,
                 function,
                 function_call,
-                identifier_expression,
                 list,
                 map,
                 basic_value,
+                identifier_expression,
             ))
         });
 
@@ -433,6 +444,29 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn map_index() {
+        assert_eq!(
+            parse(&lex("{ x = 42}.x").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::MapIndex(Box::new(MapIndex::new(
+                Expression::Value(ValueNode::Map(vec![(
+                    Identifier::new("x"),
+                    None,
+                    Expression::Value(ValueNode::Integer(42)).with_position((6, 8))
+                )]))
+                .with_position((0, 9)),
+                Expression::Identifier(Identifier::new("x")).with_position((10, 11))
+            ))))
+        );
+        assert_eq!(
+            parse(&lex("foo.x").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::MapIndex(Box::new(MapIndex::new(
+                Expression::Identifier(Identifier::new("foo")).with_position((0, 3)),
+                Expression::Identifier(Identifier::new("x")).with_position((4, 5))
+            ))))
+        );
+    }
 
     #[test]
     fn r#while() {

@@ -6,18 +6,18 @@ use crate::{
 use super::{AbstractTree, Action, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Index {
+pub struct ListIndex {
     left: WithPosition<Expression>,
     right: WithPosition<Expression>,
 }
 
-impl Index {
+impl ListIndex {
     pub fn new(left: WithPosition<Expression>, right: WithPosition<Expression>) -> Self {
         Self { left, right }
     }
 }
 
-impl AbstractTree for Index {
+impl AbstractTree for ListIndex {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let left_type = self.left.node.expected_type(_context)?;
 
@@ -53,7 +53,11 @@ impl AbstractTree for Index {
                 if let Type::Integer = right_type {
                     Ok(())
                 } else {
-                    Err(ValidationError::CannotIndexWith(left_type, right_type))
+                    Err(ValidationError::CannotIndexWith {
+                        collection_type: todo!(),
+                        index_type: todo!(),
+                        position: todo!(),
+                    })
                 }
             }
             _ => Err(ValidationError::CannotIndex {
@@ -77,7 +81,11 @@ impl AbstractTree for Index {
             }
         } else {
             Err(RuntimeError::ValidationFailure(
-                ValidationError::CannotIndexWith(left_value.r#type(), right_value.r#type()),
+                ValidationError::CannotIndexWith {
+                    collection_type: todo!(),
+                    index_type: todo!(),
+                    position: todo!(),
+                },
             ))
         }
     }

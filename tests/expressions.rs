@@ -21,7 +21,16 @@ fn math() {
 #[test]
 fn list_index() {
     assert_eq!(
-        interpret("foo = [1, 2, 3]; foo.2").unwrap(),
+        interpret("foo = [1, 2, 3]; foo[2]").unwrap(),
+        Some(Value::integer(3))
+    );
+}
+
+#[test]
+fn map_index() {
+    assert_eq!(interpret("{ x = 3 }.x").unwrap(), Some(Value::integer(3)));
+    assert_eq!(
+        interpret("foo = { x = 3 }; foo.x").unwrap(),
         Some(Value::integer(3))
     );
 }
