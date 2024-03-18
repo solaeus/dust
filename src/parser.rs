@@ -107,7 +107,7 @@ pub fn parser<'src>() -> DustParser<'src> {
             just(Token::Keyword("list")).to(Type::List),
             identifier
                 .clone()
-                .map(|identifier| Type::Custom(identifier)),
+                .map(|identifier| Type::Parameter(identifier)),
         ))
     })
     .map_with(|r#type, state| r#type.with_position(state.span()));
@@ -345,10 +345,8 @@ pub fn parser<'src>() -> DustParser<'src> {
 
             let enum_instance = identifier
                 .clone()
-                .then_ignore(just(Token::Control(Control::DoubleColon)))
-                .then(identifier.clone())
                 .then(
-                    positioned_expression
+                    r#type
                         .clone()
                         .separated_by(just(Token::Control(Control::Comma)))
                         .allow_trailing()
@@ -356,13 +354,21 @@ pub fn parser<'src>() -> DustParser<'src> {
                         .delimited_by(
                             just(Token::Control(Control::ParenOpen)),
                             just(Token::Control(Control::ParenClose)),
-                        ),
+                        )
+                        .or_not(),
                 )
-                .map_with(|((name, variant), expressions), state| {
+                .then_ignore(just(Token::Control(Control::DoubleColon)))
+                .then(identifier.clone())
+                .then(positioned_expression.delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
+                ))
+                .map_with(|(((name, type_arguments), variant), expression), state| {
                     Expression::Value(ValueNode::EnumInstance {
                         name,
+                        type_arguments,
                         variant,
-                        expressions,
+                        expression: Box::new(expression),
                     })
                     .with_position(state.span())
                 });
@@ -452,9 +458,6 @@ pub fn parser<'src>() -> DustParser<'src> {
         let enum_variant = identifier.clone().then(
             r#type
                 .clone()
-                .separated_by(just(Token::Control(Control::Comma)))
-                .allow_trailing()
-                .collect()
                 .delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
@@ -473,7 +476,8 @@ pub fn parser<'src>() -> DustParser<'src> {
                     .delimited_by(
                         just(Token::Control(Control::ParenOpen)),
                         just(Token::Control(Control::ParenClose)),
-                    ),
+                    )
+                    .or_not(),
             )
             .then(
                 enum_variant
@@ -517,9 +521,9 @@ mod tests {
         assert_eq!(
             parse(
                 &lex("
-                enum FooBar (F, B) {
-                    Foo(F),
-                    Bar(B),    
+                enum FooBar {
+                    Foo,
+                    Bar,    
                 }
                 ")
                 .unwrap()
@@ -528,20 +532,10 @@ mod tests {
                 .node,
             Statement::EnumDefinition(EnumDefinition::new(
                 Identifier::new("FooBar"),
-                vec![Identifier::new("F"), Identifier::new("B")],
+                None,
                 vec![
-                    (
-                        Identifier::new("Foo"),
-                        Some(vec![
-                            Type::Custom(Identifier::new("F")).with_position((62, 63))
-                        ]),
-                    ),
-                    (
-                        Identifier::new("Bar"),
-                        Some(vec![
-                            Type::Custom(Identifier::new("B")).with_position((90, 91))
-                        ])
-                    )
+                    (Identifier::new("Foo"), None),
+                    (Identifier::new("Bar"), None)
                 ]
             ))
         );

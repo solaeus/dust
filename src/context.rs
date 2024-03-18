@@ -77,7 +77,34 @@ impl Context {
             let r#type = match value_data {
                 ValueData::Type(r#type) => r#type.clone(),
                 ValueData::Value(value) => value.r#type(),
-                ValueData::EnumDefinition(_) => return Ok(None),
+                ValueData::EnumDefinition(enum_definition) => {
+                    let type_arguments =
+                        enum_definition
+                            .type_parameters()
+                            .as_ref()
+                            .map(|identifier_list| {
+                                identifier_list
+                                    .into_iter()
+                                    .map(|identifier| Type::Parameter(identifier.clone()))
+                                    .collect()
+                            });
+                    let variants = enum_definition
+                        .variants()
+                        .into_iter()
+                        .map(|(identifier, type_option)| {
+                            (
+                                identifier.clone(),
+                                type_option.clone().map(|r#type| r#type.node),
+                            )
+                        })
+                        .collect();
+
+                    Type::Enum {
+                        name: enum_definition.name().clone(),
+                        type_arguments,
+                        variants,
+                    }
+                }
             };
 
             return Ok(Some(r#type.clone()));

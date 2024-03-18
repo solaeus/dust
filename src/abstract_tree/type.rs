@@ -12,7 +12,12 @@ use super::{AbstractTree, Action};
 pub enum Type {
     Any,
     Boolean,
-    Custom(Identifier),
+    Parameter(Identifier),
+    Enum {
+        name: Identifier,
+        type_arguments: Option<Vec<Type>>,
+        variants: Vec<(Identifier, Option<Type>)>,
+    },
     Float,
     Function {
         parameter_types: Vec<Type>,
@@ -45,7 +50,7 @@ impl Type {
             | (Type::None, Type::None)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => Ok(()),
-            (Type::Custom(left), Type::Custom(right)) => {
+            (Type::Parameter(left), Type::Parameter(right)) => {
                 if left == right {
                     Ok(())
                 } else {
@@ -113,7 +118,26 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "boolean"),
-            Type::Custom(name) => write!(f, "{name}"),
+            Type::Parameter(name) => write!(f, "{name}"),
+            Type::Enum {
+                name,
+                type_arguments,
+                variants: _,
+            } => {
+                write!(f, "{name}(")?;
+
+                if let Some(type_arguments) = type_arguments {
+                    for (index, r#type) in type_arguments.into_iter().enumerate() {
+                        if index == type_arguments.len() - 1 {
+                            write!(f, "{}", r#type)?;
+                        } else {
+                            write!(f, "{}, ", r#type)?;
+                        }
+                    }
+                }
+
+                write!(f, ")")
+            }
             Type::Float => write!(f, "float"),
             Type::Integer => write!(f, "integer"),
             Type::List => write!(f, "list"),
@@ -160,7 +184,7 @@ mod tests {
         assert_eq!(Type::Any.check(&Type::Any), Ok(()));
         assert_eq!(Type::Boolean.check(&Type::Boolean), Ok(()));
         assert_eq!(
-            Type::Custom(Identifier::new("foo")).check(&Type::Custom(Identifier::new("foo"))),
+            Type::Parameter(Identifier::new("foo")).check(&Type::Parameter(Identifier::new("foo"))),
             Ok(())
         );
         assert_eq!(Type::Float.check(&Type::Float), Ok(()));
@@ -183,8 +207,8 @@ mod tests {
 
     #[test]
     fn errors() {
-        let foo = Type::Custom(Identifier::new("foo"));
-        let bar = Type::Custom(Identifier::new("bar"));
+        let foo = Type::Parameter(Identifier::new("foo"));
+        let bar = Type::Parameter(Identifier::new("bar"));
 
         assert_eq!(
             foo.check(&bar),

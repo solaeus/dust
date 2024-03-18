@@ -15,7 +15,8 @@ pub enum ValueNode {
     EnumInstance {
         name: Identifier,
         variant: Identifier,
-        expressions: Vec<WithPosition<Expression>>,
+        type_arguments: Option<Vec<WithPosition<Type>>>,
+        expression: Box<WithPosition<Expression>>,
     },
     Float(f64),
     Integer(i64),
@@ -37,18 +38,29 @@ pub enum ValueNode {
 }
 
 impl AbstractTree for ValueNode {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
 
-            ValueNode::EnumInstance { name, .. } => Type::Custom(name.clone()),
+            ValueNode::EnumInstance {
+                name,
+                variant: _,
+                type_arguments,
+                expression: _,
+            } => {
+                if let Some(r#type) = context.get_type(name)? {
+                    r#type
+                } else {
+                    Type::None
+                }
+            }
             ValueNode::Float(_) => Type::Float,
             ValueNode::Integer(_) => Type::Integer,
             ValueNode::List(items) => {
                 let mut item_types = Vec::with_capacity(items.len());
 
                 for expression in items {
-                    item_types.push(expression.node.expected_type(_context)?);
+                    item_types.push(expression.node.expected_type(context)?);
                 }
 
                 Type::ListExact(item_types)
@@ -117,6 +129,16 @@ impl AbstractTree for ValueNode {
                 })?;
         }
 
+        if let ValueNode::EnumInstance {
+            name,
+            variant,
+            type_arguments,
+            expression,
+        } = self
+        {
+            let r#type = self.expected_type(context)?;
+        }
+
         Ok(())
     }
 
@@ -126,22 +148,17 @@ impl AbstractTree for ValueNode {
             ValueNode::EnumInstance {
                 name,
                 variant,
-                expressions,
+                type_arguments: _,
+                expression,
             } => {
-                let mut values = Vec::with_capacity(expressions.len());
+                let action = expression.node.run(_context)?;
+                let value = if let Action::Return(value) = action {
+                    value
+                } else {
+                    todo!()
+                };
 
-                for expression in expressions {
-                    let action = expression.node.run(_context)?;
-                    let value = if let Action::Return(value) = action {
-                        value
-                    } else {
-                        todo!()
-                    };
-
-                    values.push(value);
-                }
-
-                Value::enum_instance(EnumInstance::new(name, variant, values))
+                Value::enum_instance(EnumInstance::new(name, variant, value))
             }
             ValueNode::Float(float) => Value::float(float),
             ValueNode::Integer(integer) => Value::integer(integer),
@@ -213,12 +230,14 @@ impl Ord for ValueNode {
                 EnumInstance {
                     name: left_name,
                     variant: left_variant,
-                    expressions: left_expressions,
+                    type_arguments: left_types,
+                    expression: left_expression,
                 },
                 EnumInstance {
                     name: right_name,
                     variant: right_variant,
-                    expressions: right_expressions,
+                    type_arguments: right_types,
+                    expression: right_expression,
                 },
             ) => {
                 let name_cmp = left_name.cmp(right_name);
@@ -227,7 +246,13 @@ impl Ord for ValueNode {
                     let variant_cmp = left_variant.cmp(right_variant);
 
                     if variant_cmp.is_eq() {
-                        left_expressions.cmp(right_expressions)
+                        let type_cmp = left_types.cmp(right_types);
+
+                        if type_cmp.is_eq() {
+                            left_expression.cmp(right_expression)
+                        } else {
+                            type_cmp
+                        }
                     } else {
                         variant_cmp
                     }

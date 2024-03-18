@@ -8,21 +8,33 @@ use super::{AbstractTree, Action, Identifier, Type, WithPosition};
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct EnumDefinition {
     name: Identifier,
-    type_parameters: Vec<Identifier>,
-    variants: Vec<(Identifier, Option<Vec<WithPosition<Type>>>)>,
+    type_parameters: Option<Vec<Identifier>>,
+    variants: Vec<(Identifier, Option<WithPosition<Type>>)>,
 }
 
 impl EnumDefinition {
     pub fn new(
         name: Identifier,
-        type_parameters: Vec<Identifier>,
-        variants: Vec<(Identifier, Option<Vec<WithPosition<Type>>>)>,
+        type_parameters: Option<Vec<Identifier>>,
+        variants: Vec<(Identifier, Option<WithPosition<Type>>)>,
     ) -> Self {
         Self {
             name,
             type_parameters,
             variants,
         }
+    }
+
+    pub fn name(&self) -> &Identifier {
+        &self.name
+    }
+
+    pub fn type_parameters(&self) -> &Option<Vec<Identifier>> {
+        &self.type_parameters
+    }
+
+    pub fn variants(&self) -> &Vec<(Identifier, Option<WithPosition<Type>>)> {
+        &self.variants
     }
 }
 

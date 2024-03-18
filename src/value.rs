@@ -81,7 +81,7 @@ impl Value {
     pub fn r#type(&self) -> Type {
         match self.0.as_ref() {
             ValueInner::Boolean(_) => Type::Boolean,
-            ValueInner::EnumInstance(EnumInstance { name, .. }) => Type::Custom(name.clone()),
+            ValueInner::EnumInstance(EnumInstance { name, .. }) => Type::Parameter(name.clone()),
             ValueInner::Float(_) => Type::Float,
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
@@ -146,19 +146,9 @@ impl Display for Value {
             ValueInner::EnumInstance(EnumInstance {
                 name,
                 variant,
-                value: content,
+                value,
             }) => {
-                write!(f, "{name}::{variant}(")?;
-
-                for (index, value) in content.into_iter().enumerate() {
-                    if index == content.len() - 1 {
-                        write!(f, "{value}")?;
-                    } else {
-                        write!(f, "{value} ")?;
-                    }
-                }
-
-                write!(f, ")")
+                write!(f, "{name}::{variant}({value})")
             }
             ValueInner::Float(float) => write!(f, "{float}"),
             ValueInner::Integer(integer) => write!(f, "{integer}"),
@@ -276,11 +266,11 @@ impl Ord for ValueInner {
 pub struct EnumInstance {
     name: Identifier,
     variant: Identifier,
-    value: Vec<Value>,
+    value: Value,
 }
 
 impl EnumInstance {
-    pub fn new(name: Identifier, variant: Identifier, value: Vec<Value>) -> Self {
+    pub fn new(name: Identifier, variant: Identifier, value: Value) -> Self {
         Self {
             name,
             variant,
