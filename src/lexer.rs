@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use chumsky::{prelude::*, text::whitespace};
+use chumsky::prelude::*;
 
 use crate::error::Error;
 
@@ -217,6 +217,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("bool").padded(),
         just("break").padded(),
         just("else").padded(),
+        just("enum").padded(),
         just("float").padded(),
         just("int").padded(),
         just("if").padded(),
@@ -228,11 +229,10 @@ pub fn lexer<'src>() -> impl Parser<
         just("loop").padded(),
         just("while").padded(),
     ))
-    .delimited_by(whitespace(), whitespace())
     .map(Token::Keyword);
 
     choice((
-        boolean, float, integer, string, identifier, keyword, control, operator,
+        boolean, float, integer, string, keyword, identifier, control, operator,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()
@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn keywords() {
-        assert_eq!(lex("int").unwrap()[0].0, Token::Keyword("int"))
+        assert_eq!(lex("int ").unwrap()[0].0, Token::Keyword("int"))
     }
 
     #[test]

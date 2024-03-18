@@ -1,5 +1,6 @@
 pub mod assignment;
 pub mod block;
+pub mod enum_definition;
 pub mod expression;
 pub mod function_call;
 pub mod identifier;
@@ -19,6 +20,7 @@ use chumsky::span::{SimpleSpan, Span};
 pub use self::{
     assignment::{Assignment, AssignmentOperator},
     block::Block,
+    enum_definition::EnumDefinition,
     expression::Expression,
     function_call::FunctionCall,
     identifier::Identifier,

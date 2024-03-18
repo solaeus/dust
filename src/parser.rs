@@ -424,7 +424,48 @@ pub fn parser<'src>() -> DustParser<'src> {
                     .with_position(state.span())
             });
 
+        let enum_variant = identifier.clone().then(
+            r#type
+                .clone()
+                .separated_by(just(Token::Control(Control::Comma)))
+                .allow_trailing()
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
+                ),
+        );
+
+        let enum_definition = just(Token::Keyword("enum"))
+            .ignore_then(identifier.clone())
+            .then(
+                identifier
+                    .clone()
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .allow_trailing()
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::ParenOpen)),
+                        just(Token::Control(Control::ParenClose)),
+                    ),
+            )
+            .then(
+                enum_variant
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .allow_trailing()
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::CurlyOpen)),
+                        just(Token::Control(Control::CurlyClose)),
+                    ),
+            )
+            .map_with(|((name, type_parameters), variants), state| {
+                Statement::EnumDefinition(EnumDefinition::new(name, type_parameters, variants))
+                    .with_position(state.span())
+            });
+
         choice((
+            enum_definition,
             if_else,
             assignment,
             expression_statement,
@@ -444,6 +485,37 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn enum_definition() {
+        assert_eq!(
+            parse(
+                &lex("
+                enum FooBar (F, B) {
+                    Foo(F),
+                    Bar(B),    
+                }
+                ")
+                .unwrap()
+            )
+            .unwrap()[0]
+                .node,
+            Statement::EnumDefinition(EnumDefinition::new(
+                Identifier::new("FooBar"),
+                vec![Identifier::new("F"), Identifier::new("B")],
+                vec![
+                    (
+                        Identifier::new("Foo"),
+                        vec![Type::Custom(Identifier::new("F")).with_position((0, 0))],
+                    ),
+                    (
+                        Identifier::new("Bar"),
+                        vec![Type::Custom(Identifier::new("B")).with_position((0, 0))]
+                    )
+                ]
+            ))
+        );
+    }
 
     #[test]
     fn map_index() {

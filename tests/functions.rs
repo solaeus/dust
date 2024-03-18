@@ -47,7 +47,7 @@ fn callback() {
 
 #[test]
 fn built_in_function_call() {
-    assert_eq!(interpret("output('Hiya')"), Ok(None));
+    assert_eq!(interpret("io.write_line('Hiya')"), Ok(None));
 }
 
 #[test]

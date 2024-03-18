@@ -3,7 +3,6 @@ use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
     io::stdin,
-    num::ParseIntError,
     ops::Range,
     sync::{Arc, OnceLock},
 };
@@ -18,7 +17,7 @@ use stanza::{
 use crate::{
     abstract_tree::{AbstractTree, Action, Block, Identifier, Type, WithPosition},
     context::Context,
-    error::{RuntimeError, ValidationError},
+    error::RuntimeError,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -354,18 +353,15 @@ impl BuiltInFunction {
                 let string = arguments.get(0).unwrap();
 
                 if let ValueInner::String(string) = string.inner().as_ref() {
-                    // let integer = string.parse();
+                    let integer = if let Ok(integer) = string.parse() {
+                        integer
+                    } else {
+                        todo!()
+                    };
 
-                    todo!()
-
-                    // Ok(Action::Return(Value::integer(integer)))
+                    Ok(Action::Return(Value::integer(integer)))
                 } else {
-                    Err(RuntimeError::ValidationFailure(
-                        ValidationError::WrongArguments {
-                            expected: vec![Type::String],
-                            actual: arguments.iter().map(|value| value.r#type()).collect(),
-                        },
-                    ))
+                    todo!()
                 }
             }
             BuiltInFunction::IntRandomRange => {
@@ -409,24 +405,24 @@ impl Display for BuiltInFunction {
 static INT: OnceLock<Value> = OnceLock::new();
 static IO: OnceLock<Value> = OnceLock::new();
 
-pub const BUILT_IN_MODULES: [BuiltInModule; 2] = [BuiltInModule::Integer, BuiltInModule::Io];
+pub const BUILT_IN_MODULES: [BuiltInModule; 2] = [BuiltInModule::Int, BuiltInModule::Io];
 
 pub enum BuiltInModule {
-    Integer,
+    Int,
     Io,
 }
 
 impl BuiltInModule {
     pub fn name(&self) -> &'static str {
         match self {
-            BuiltInModule::Integer => "int",
+            BuiltInModule::Int => "int",
             BuiltInModule::Io => "io",
         }
     }
 
     pub fn value(self) -> Value {
         match self {
-            BuiltInModule::Integer => {
+            BuiltInModule::Int => {
                 let mut properties = BTreeMap::new();
 
                 properties.insert(

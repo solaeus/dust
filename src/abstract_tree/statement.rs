@@ -3,13 +3,16 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, Type, While};
+use super::{
+    AbstractTree, Action, Assignment, Block, EnumDefinition, Expression, IfElse, Loop, Type, While,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Assignment(Assignment),
     Block(Block),
     Break,
+    EnumDefinition(EnumDefinition),
     Expression(Expression),
     IfElse(IfElse),
     Loop(Loop),
@@ -22,6 +25,7 @@ impl AbstractTree for Statement {
             Statement::Assignment(assignment) => assignment.expected_type(_context),
             Statement::Block(block) => block.expected_type(_context),
             Statement::Break => Ok(Type::None),
+            Statement::EnumDefinition(_) => todo!(),
             Statement::Expression(expression) => expression.expected_type(_context),
             Statement::IfElse(if_else) => if_else.expected_type(_context),
             Statement::Loop(r#loop) => r#loop.expected_type(_context),
@@ -34,6 +38,7 @@ impl AbstractTree for Statement {
             Statement::Assignment(assignment) => assignment.validate(_context),
             Statement::Block(block) => block.validate(_context),
             Statement::Break => Ok(()),
+            Statement::EnumDefinition(_) => todo!(),
             Statement::Expression(expression) => expression.validate(_context),
             Statement::IfElse(if_else) => if_else.validate(_context),
             Statement::Loop(r#loop) => r#loop.validate(_context),
@@ -46,6 +51,7 @@ impl AbstractTree for Statement {
             Statement::Assignment(assignment) => assignment.run(_context),
             Statement::Block(block) => block.run(_context),
             Statement::Break => Ok(Action::Break),
+            Statement::EnumDefinition(_) => todo!(),
             Statement::Expression(expression) => expression.run(_context),
             Statement::IfElse(if_else) => if_else.run(_context),
             Statement::Loop(r#loop) => r#loop.run(_context),
