@@ -43,13 +43,13 @@ impl AbstractTree for EnumDefinition {
         Ok(Type::None)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        context.set_enum_definition(self.name.clone(), self.clone())?;
+
         Ok(())
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        context.set_enum_definition(self.name.clone(), self)?;
-
+    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         Ok(Action::None)
     }
 }

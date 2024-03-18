@@ -522,7 +522,7 @@ mod tests {
             parse(
                 &lex("
                 enum FooBar {
-                    Foo,
+                    Foo(int),
                     Bar,    
                 }
                 ")
@@ -534,7 +534,10 @@ mod tests {
                 Identifier::new("FooBar"),
                 None,
                 vec![
-                    (Identifier::new("Foo"), None),
+                    (
+                        Identifier::new("Foo"),
+                        Some(Type::Integer.with_position((55, 58)))
+                    ),
                     (Identifier::new("Bar"), None)
                 ]
             ))

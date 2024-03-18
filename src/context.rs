@@ -88,26 +88,16 @@ impl Context {
                                     .map(|identifier| Type::Parameter(identifier.clone()))
                                     .collect()
                             });
-                    let variants = enum_definition
-                        .variants()
-                        .into_iter()
-                        .map(|(identifier, type_option)| {
-                            (
-                                identifier.clone(),
-                                type_option.clone().map(|r#type| r#type.node),
-                            )
-                        })
-                        .collect();
 
                     Type::Enum {
                         name: enum_definition.name().clone(),
                         type_arguments,
-                        variants,
+                        variants: enum_definition.variants().clone(),
                     }
                 }
             };
 
-            return Ok(Some(r#type.clone()));
+            return Ok(Some(r#type));
         }
 
         for module in BUILT_IN_MODULES {

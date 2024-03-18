@@ -42,12 +42,7 @@ impl AbstractTree for ValueNode {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
 
-            ValueNode::EnumInstance {
-                name,
-                variant: _,
-                type_arguments,
-                expression: _,
-            } => {
+            ValueNode::EnumInstance { name, .. } => {
                 if let Some(r#type) = context.get_type(name)? {
                     r#type
                 } else {
@@ -130,13 +125,34 @@ impl AbstractTree for ValueNode {
         }
 
         if let ValueNode::EnumInstance {
-            name,
-            variant,
-            type_arguments,
             expression,
+            variant,
+            ..
         } = self
         {
             let r#type = self.expected_type(context)?;
+
+            if let Type::Enum { variants, .. } = r#type {
+                let expected_type_option = variants.iter().find_map(|(identifier, type_option)| {
+                    if identifier == variant {
+                        type_option.clone()
+                    } else {
+                        None
+                    }
+                });
+
+                if let Some(expected_type) = expected_type_option {
+                    let actual_type = expression.node.expected_type(context)?;
+
+                    expected_type.node.check(&actual_type).map_err(|conflict| {
+                        ValidationError::TypeCheck {
+                            conflict,
+                            actual_position: expression.position,
+                            expected_position: expected_type.position,
+                        }
+                    })?
+                }
+            }
         }
 
         Ok(())

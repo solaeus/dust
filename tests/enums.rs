@@ -24,10 +24,10 @@ fn simple_enum_type_check() {
                     actual: Type::String,
                     expected: Type::Integer,
                 },
-                actual_position: (0, 0).into(),
-                expected_position: (0, 0).into()
+                actual_position: (123, 127).into(),
+                expected_position: (47, 50).into()
             },
-            position: (0, 0).into()
+            position: (105, 141).into()
         }])
     )
 }

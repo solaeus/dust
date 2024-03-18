@@ -6,7 +6,7 @@ use crate::{
     error::{RuntimeError, TypeConflict, ValidationError},
 };
 
-use super::{AbstractTree, Action};
+use super::{AbstractTree, Action, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
@@ -16,7 +16,7 @@ pub enum Type {
     Enum {
         name: Identifier,
         type_arguments: Option<Vec<Type>>,
-        variants: Vec<(Identifier, Option<Type>)>,
+        variants: Vec<(Identifier, Option<WithPosition<Type>>)>,
     },
     Float,
     Function {
