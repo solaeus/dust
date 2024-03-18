@@ -234,7 +234,7 @@ pub fn parser<'src>() -> DustParser<'src> {
                         just(Token::Control(Control::SquareClose)),
                     ),
                     |op, expression, span| {
-                        Expression::ListIndex(Box::new(ListIndex::new(expression, op)))
+                        Expression::ListIndex(Box::new(ListIndex::new(op, expression)))
                             .with_position(span)
                     },
                 ),
