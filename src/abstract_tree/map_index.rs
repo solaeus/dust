@@ -72,8 +72,9 @@ impl AbstractTree for MapIndex {
 
         Err(ValidationError::CannotIndexWith {
             collection_type: left_type,
+            collection_position: todo!(),
             index_type: self.right.node.expected_type(_context)?,
-            position: self.right.position,
+            index_position: self.right.position,
         })
     }
 
@@ -91,8 +92,9 @@ impl AbstractTree for MapIndex {
         } else {
             Err(ValidationError::CannotIndexWith {
                 collection_type: left_type,
+                collection_position: self.left.position,
                 index_type: self.right.node.expected_type(context)?,
-                position: self.right.position,
+                index_position: self.right.position,
             })
         }
     }
@@ -113,8 +115,9 @@ impl AbstractTree for MapIndex {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith {
                     collection_type: collection.r#type(),
+                    collection_position: todo!(),
                     index_type: self.right.node.expected_type(_context)?,
-                    position: self.right.position,
+                    index_position: self.right.position,
                 },
             ))
         }

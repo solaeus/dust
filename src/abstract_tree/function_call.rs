@@ -52,7 +52,14 @@ impl AbstractTree for FunctionCall {
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let value = self.function.node.run(context)?.as_return_value()?;
+        let action = self.function.node.run(context)?;
+        let value = if let Action::Return(value) = action {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::InterpreterExpectedReturn(self.function.position),
+            ));
+        };
         let function = if let ValueInner::Function(function) = value.inner().as_ref() {
             function
         } else {
@@ -66,7 +73,14 @@ impl AbstractTree for FunctionCall {
         let mut arguments = Vec::with_capacity(self.arguments.len());
 
         for expression in self.arguments {
-            let value = expression.node.run(context)?.as_return_value()?;
+            let action = expression.node.run(context)?;
+            let value = if let Action::Return(value) = action {
+                value
+            } else {
+                return Err(RuntimeError::ValidationFailure(
+                    ValidationError::InterpreterExpectedReturn(expression.position),
+                ));
+            };
 
             arguments.push(value);
         }

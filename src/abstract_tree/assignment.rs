@@ -7,7 +7,7 @@ use super::{AbstractTree, Action, Identifier, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
-    identifier: Identifier,
+    identifier: WithPosition<Identifier>,
     r#type: Option<WithPosition<Type>>,
     operator: AssignmentOperator,
     statement: Box<WithPosition<Statement>>,
@@ -22,7 +22,7 @@ pub enum AssignmentOperator {
 
 impl Assignment {
     pub fn new(
-        identifier: Identifier,
+        identifier: WithPosition<Identifier>,
         r#type: Option<WithPosition<Type>>,
         operator: AssignmentOperator,
         statement: WithPosition<Statement>,
@@ -57,12 +57,12 @@ impl AbstractTree for Assignment {
                 }
             })?;
 
-            context.set_type(self.identifier.clone(), expected_type.clone())?;
+            context.set_type(self.identifier.node.clone(), expected_type.clone())?;
         } else {
-            context.set_type(self.identifier.clone(), statement_type)?;
+            context.set_type(self.identifier.node.clone(), statement_type)?;
         }
 
-        self.identifier.validate(context)?;
+        self.identifier.node.validate(context)?;
         self.statement.node.validate(context)?;
 
         Ok(())
@@ -77,27 +77,33 @@ impl AbstractTree for Assignment {
 
         match self.operator {
             AssignmentOperator::Assign => {
-                context.set_value(self.identifier, value)?;
+                context.set_value(self.identifier.node, value)?;
             }
             AssignmentOperator::AddAssign => {
-                if let Some(previous_value) = context.get_value(&self.identifier)? {
+                if let Some(previous_value) = context.get_value(&self.identifier.node)? {
                     let new_value = previous_value.add(&value)?;
 
-                    context.set_value(self.identifier, new_value)?;
+                    context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::VariableNotFound(self.identifier),
+                        ValidationError::VariableNotFound {
+                            identifier: self.identifier.node,
+                            position: self.identifier.position,
+                        },
                     ));
                 }
             }
             AssignmentOperator::SubAssign => {
-                if let Some(previous_value) = context.get_value(&self.identifier)? {
+                if let Some(previous_value) = context.get_value(&self.identifier.node)? {
                     let new_value = previous_value.subtract(&value)?;
 
-                    context.set_value(self.identifier, new_value)?;
+                    context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::VariableNotFound(self.identifier),
+                        ValidationError::VariableNotFound {
+                            identifier: self.identifier.node,
+                            position: self.identifier.position,
+                        },
                     ));
                 }
             }
@@ -122,7 +128,7 @@ mod tests {
         let context = Context::new();
 
         Assignment::new(
-            Identifier::new("foobar"),
+            Identifier::new("foobar").with_position((0, 0)),
             None,
             AssignmentOperator::Assign,
             Statement::Expression(Expression::Value(ValueNode::Integer(42))).with_position((0, 0)),
@@ -145,7 +151,7 @@ mod tests {
             .unwrap();
 
         Assignment::new(
-            Identifier::new("foobar"),
+            Identifier::new("foobar").with_position((0, 0)),
             None,
             AssignmentOperator::AddAssign,
             Statement::Expression(Expression::Value(ValueNode::Integer(41))).with_position((0, 0)),
@@ -168,7 +174,7 @@ mod tests {
             .unwrap();
 
         Assignment::new(
-            Identifier::new("foobar"),
+            Identifier::new("foobar").with_position((0, 0)),
             None,
             AssignmentOperator::SubAssign,
             Statement::Expression(Expression::Value(ValueNode::Integer(1))).with_position((0, 0)),
@@ -185,7 +191,7 @@ mod tests {
     #[test]
     fn type_check() {
         let validation = Assignment::new(
-            Identifier::new("foobar"),
+            Identifier::new("foobar").with_position((0, 0)),
             Some(WithPosition {
                 node: Type::Boolean,
                 position: (0, 0).into(),

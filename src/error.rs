@@ -1,6 +1,6 @@
 use std::{io, ops::Range, sync::PoisonError};
 
-use ariadne::{Color, Fmt, Label, ReportBuilder};
+use ariadne::{Color, Fmt, Label, Report, ReportBuilder, ReportKind};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
@@ -29,61 +29,93 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn build_report(
-        self,
-        mut builder: ReportBuilder<'_, Range<usize>>,
-    ) -> ReportBuilder<'_, Range<usize>> {
-        let type_color = Color::Green;
-
-        match self {
+    pub fn build_report<'a>(self) -> ReportBuilder<'a, (&'a str, Range<usize>)> {
+        let (mut builder, validation_error) = match &self {
             Error::Parse { expected, span } => {
-                let message = match expected.as_str() {
-                    "" => "Invalid character.".to_string(),
-                    expected => format!("Expected {expected}."),
+                let message = if expected.is_empty() {
+                    "Invalid token.".to_string()
+                } else {
+                    format!("Expected {expected}.")
                 };
 
-                builder = builder.with_note("Parsing error.");
-
-                builder.add_label(Label::new(span.0..span.1).with_message(message));
+                (
+                    Report::build(
+                        ReportKind::Custom("Parsing Error", Color::White),
+                        "input",
+                        span.1,
+                    )
+                    .with_label(
+                        Label::new(("input", span.0..span.1))
+                            .with_message(message)
+                            .with_color(Color::Red),
+                    ),
+                    None,
+                )
             }
             Error::Lex { expected, span } => {
-                let message = match expected.as_str() {
-                    "" => "Invalid character.".to_string(),
-                    expected => format!("Expected {expected}."),
+                let message = if expected.is_empty() {
+                    "Invalid token.".to_string()
+                } else {
+                    format!("Expected {expected}.")
                 };
 
-                builder = builder.with_note("Lexing error.");
-
-                builder.add_label(Label::new(span.0..span.1).with_message(message));
+                (
+                    Report::build(
+                        ReportKind::Custom("Dust Error", Color::White),
+                        "input",
+                        span.1,
+                    )
+                    .with_label(
+                        Label::new(("input", span.0..span.1))
+                            .with_message(message)
+                            .with_color(Color::Red),
+                    ),
+                    None,
+                )
             }
-            Error::Runtime { error, position } => match error {
-                RuntimeError::RwLockPoison(_) => todo!(),
-                RuntimeError::ValidationFailure(validation_error) => {
-                    builder =
-                        Error::Validation {
-                            error: validation_error,
-                            position,
-                        }
-                        .build_report(builder.with_note(
-                            "The interpreter failed to catch this error during validation.",
-                        ));
-                }
-                RuntimeError::Io(_) => todo!(),
-            },
-            Error::Validation { error, position } => match error {
+            Error::Runtime { error, position } => (
+                Report::build(
+                    ReportKind::Custom("Dust Error", Color::White),
+                    "input",
+                    position.1,
+                ),
+                if let RuntimeError::ValidationFailure(validation_error) = error {
+                    Some(validation_error)
+                } else {
+                    None
+                },
+            ),
+            Error::Validation { error, position } => (
+                Report::build(
+                    ReportKind::Custom("Dust Error", Color::White),
+                    "input",
+                    position.1,
+                ),
+                Some(error),
+            ),
+        };
+
+        let type_color = Color::Green;
+
+        if let Some(validation_error) = validation_error {
+            match validation_error {
                 ValidationError::ExpectedBoolean { actual, position } => {
-                    builder.add_label(Label::new(position.0..position.1).with_message(format!(
-                        "Expected {} but got {}.",
-                        "boolean".fg(type_color),
-                        actual.fg(type_color)
-                    )));
+                    builder.add_label(Label::new(("input", position.0..position.1)).with_message(
+                        format!(
+                            "Expected {} but got {}.",
+                            "boolean".fg(type_color),
+                            actual.fg(type_color)
+                        ),
+                    ));
                 }
-                ValidationError::ExpectedIntegerOrFloat => {
-                    builder.add_label(Label::new(position.0..position.1).with_message(format!(
-                        "Expected {} or {}.",
-                        "integer".fg(type_color),
-                        "float".fg(type_color)
-                    )));
+                ValidationError::ExpectedIntegerOrFloat(position) => {
+                    builder.add_label(Label::new(("input", position.0..position.1)).with_message(
+                        format!(
+                            "Expected {} or {}.",
+                            "integer".fg(type_color),
+                            "float".fg(type_color)
+                        ),
+                    ));
                 }
                 ValidationError::RwLockPoison(_) => todo!(),
                 ValidationError::TypeCheck {
@@ -94,39 +126,54 @@ impl Error {
                     let TypeConflict { actual, expected } = conflict;
 
                     builder.add_labels([
-                        Label::new(expected_postion.0..expected_postion.1).with_message(format!(
-                            "Type {} established here.",
-                            expected.fg(type_color)
-                        )),
-                        Label::new(actual_position.0..actual_position.1)
+                        Label::new(("input", expected_postion.0..expected_postion.1)).with_message(
+                            format!("Type {} established here.", expected.fg(type_color)),
+                        ),
+                        Label::new(("input", actual_position.0..actual_position.1))
                             .with_message(format!("Got type {} here.", actual.fg(type_color))),
                     ]);
                 }
-                ValidationError::VariableNotFound(identifier) => {
+                ValidationError::VariableNotFound {
+                    identifier,
+                    position,
+                } => {
                     builder.add_label(
-                        Label::new(position.0..position.1)
+                        Label::new(("input", position.0..position.1))
                             .with_message(format!("The variable {identifier} does not exist."))
                             .with_priority(1),
                     );
                 }
                 ValidationError::CannotIndex { r#type, position } => builder.add_label(
-                    Label::new(position.0..position.1)
+                    Label::new(("input", position.0..position.1))
                         .with_message(format!("Cannot index into a {}.", r#type.fg(type_color))),
                 ),
                 ValidationError::CannotIndexWith {
                     collection_type,
+                    collection_position,
                     index_type,
-                    position,
-                } => builder.add_label(Label::new(position.0..position.1).with_message(format!(
-                    "Cannot index into a {} with a {}.",
-                    collection_type.fg(type_color),
-                    index_type.fg(type_color)
-                ))),
-                ValidationError::InterpreterExpectedReturn => todo!(),
+                    index_position,
+                } => {
+                    builder = builder.with_message(format!(
+                        "Cannot index into {} with {}.",
+                        collection_type.clone().fg(type_color),
+                        index_type.clone().fg(type_color)
+                    ));
+
+                    builder.add_labels([
+                        Label::new(("input", collection_position.0..collection_position.1))
+                            .with_message(format!(
+                                "This has type {}.",
+                                collection_type.fg(type_color),
+                            )),
+                        Label::new(("input", index_position.0..index_position.1))
+                            .with_message(format!("This has type {}.", index_type.fg(type_color),)),
+                    ])
+                }
+                ValidationError::InterpreterExpectedReturn(_) => todo!(),
                 ValidationError::ExpectedFunction { .. } => todo!(),
-                ValidationError::ExpectedValue => todo!(),
-                ValidationError::PropertyNotFound(_) => todo!(),
-            },
+                ValidationError::ExpectedValue(_) => todo!(),
+                ValidationError::PropertyNotFound { .. } => todo!(),
+            }
         }
 
         builder
@@ -197,8 +244,9 @@ pub enum ValidationError {
     },
     CannotIndexWith {
         collection_type: Type,
+        collection_position: SourcePosition,
         index_type: Type,
-        position: SourcePosition,
+        index_position: SourcePosition,
     },
     ExpectedBoolean {
         actual: Type,
@@ -208,9 +256,9 @@ pub enum ValidationError {
         actual: Type,
         position: SourcePosition,
     },
-    ExpectedIntegerOrFloat,
-    ExpectedValue,
-    InterpreterExpectedReturn,
+    ExpectedIntegerOrFloat(SourcePosition),
+    ExpectedValue(SourcePosition),
+    InterpreterExpectedReturn(SourcePosition),
     RwLockPoison(RwLockPoisonError),
     TypeCheck {
         /// The mismatch that caused the error.
@@ -222,8 +270,15 @@ pub enum ValidationError {
         /// The position of the item that gave the "expected" type.
         expected_position: SourcePosition,
     },
-    VariableNotFound(Identifier),
-    PropertyNotFound(Identifier),
+    VariableNotFound {
+        identifier: Identifier,
+        position: SourcePosition,
+    },
+
+    PropertyNotFound {
+        identifier: Identifier,
+        position: SourcePosition,
+    },
 }
 
 impl From<RwLockPoisonError> for ValidationError {

@@ -28,7 +28,10 @@ impl AbstractTree for Identifier {
         if let Some(r#type) = context.get_type(self)? {
             Ok(r#type)
         } else {
-            Err(ValidationError::VariableNotFound(self.clone()))
+            Err(ValidationError::VariableNotFound {
+                identifier: todo!(),
+                position: todo!(),
+            })
         }
     }
 
@@ -36,7 +39,10 @@ impl AbstractTree for Identifier {
         if context.contains(self)? {
             Ok(())
         } else {
-            Err(ValidationError::VariableNotFound(self.clone()))
+            Err(ValidationError::VariableNotFound {
+                identifier: todo!(),
+                position: todo!(),
+            })
         }
     }
 
@@ -47,7 +53,10 @@ impl AbstractTree for Identifier {
             Ok(action)
         } else {
             Err(RuntimeError::ValidationFailure(
-                ValidationError::VariableNotFound(self.clone()),
+                ValidationError::VariableNotFound {
+                    identifier: todo!(),
+                    position: todo!(),
+                },
             ))
         }
     }

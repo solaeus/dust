@@ -47,6 +47,10 @@ pub fn parser<'src>() -> DustParser<'src> {
         }
     };
 
+    let positioned_identifier = identifier
+        .clone()
+        .map_with(|identifier, state| identifier.with_position(state.span()));
+
     let basic_value = select! {
         Token::Boolean(boolean) => ValueNode::Boolean(boolean),
         Token::Float(float) => ValueNode::Float(float),
@@ -360,7 +364,7 @@ pub fn parser<'src>() -> DustParser<'src> {
         let r#break = just(Token::Keyword("break"))
             .map_with(|_, state| Statement::Break.with_position(state.span()));
 
-        let assignment = identifier
+        let assignment = positioned_identifier
             .clone()
             .then(type_specification.clone().or_not())
             .then(choice((

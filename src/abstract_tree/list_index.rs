@@ -54,9 +54,10 @@ impl AbstractTree for ListIndex {
                     Ok(())
                 } else {
                     Err(ValidationError::CannotIndexWith {
-                        collection_type: todo!(),
-                        index_type: todo!(),
-                        position: todo!(),
+                        collection_type: left_type,
+                        collection_position: self.left.position,
+                        index_type: right_type,
+                        index_position: self.right.position,
                     })
                 }
             }
@@ -82,9 +83,10 @@ impl AbstractTree for ListIndex {
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith {
-                    collection_type: todo!(),
-                    index_type: todo!(),
-                    position: todo!(),
+                    collection_type: left_value.r#type(),
+                    collection_position: self.left.position,
+                    index_type: right_value.r#type(),
+                    index_position: self.right.position,
                 },
             ))
         }

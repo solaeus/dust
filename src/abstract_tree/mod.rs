@@ -80,13 +80,3 @@ pub enum Action {
     Break,
     None,
 }
-
-impl Action {
-    pub fn as_return_value(self) -> Result<Value, ValidationError> {
-        if let Action::Return(value) = self {
-            Ok(value)
-        } else {
-            Err(ValidationError::InterpreterExpectedReturn)
-        }
-    }
-}
