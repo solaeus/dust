@@ -12,7 +12,6 @@ use super::{AbstractTree, Action};
 pub enum Type {
     Any,
     Boolean,
-    Custom(Identifier),
     Float,
     Function {
         parameter_types: Vec<Type>,
@@ -26,6 +25,10 @@ pub enum Type {
     None,
     Range,
     String,
+    Structure {
+        name: Identifier,
+        fields: Vec<(Identifier, Type)>,
+    },
 }
 
 impl Type {
@@ -45,16 +48,6 @@ impl Type {
             | (Type::None, Type::None)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => Ok(()),
-            (Type::Custom(left), Type::Custom(right)) => {
-                if left == right {
-                    Ok(())
-                } else {
-                    Err(TypeConflict {
-                        actual: other.clone(),
-                        expected: self.clone(),
-                    })
-                }
-            }
             (Type::ListOf(left), Type::ListOf(right)) => {
                 if let Ok(()) = left.check(right) {
                     Ok(())
@@ -113,7 +106,6 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "boolean"),
-            Type::Custom(name) => write!(f, "{name}"),
             Type::Float => write!(f, "float"),
             Type::Integer => write!(f, "integer"),
             Type::List => write!(f, "list"),
@@ -147,6 +139,7 @@ impl Display for Type {
 
                 write!(f, ") : {return_type}")
             }
+            Type::Structure { .. } => todo!(),
         }
     }
 }
@@ -159,10 +152,6 @@ mod tests {
     fn check_same_types() {
         assert_eq!(Type::Any.check(&Type::Any), Ok(()));
         assert_eq!(Type::Boolean.check(&Type::Boolean), Ok(()));
-        assert_eq!(
-            Type::Custom(Identifier::new("foo")).check(&Type::Custom(Identifier::new("foo"))),
-            Ok(())
-        );
         assert_eq!(Type::Float.check(&Type::Float), Ok(()));
         assert_eq!(Type::Integer.check(&Type::Integer), Ok(()));
         assert_eq!(Type::List.check(&Type::List), Ok(()));
@@ -183,8 +172,8 @@ mod tests {
 
     #[test]
     fn errors() {
-        let foo = Type::Custom(Identifier::new("foo"));
-        let bar = Type::Custom(Identifier::new("bar"));
+        let foo = Type::Integer;
+        let bar = Type::String;
 
         assert_eq!(
             foo.check(&bar),

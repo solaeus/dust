@@ -101,9 +101,6 @@ pub fn parser<'src>() -> impl Parser<
             just(Token::Keyword("range")).to(Type::Range),
             just(Token::Keyword("str")).to(Type::String),
             just(Token::Keyword("list")).to(Type::List),
-            identifier
-                .clone()
-                .map(|identifier| Type::Custom(identifier)),
         ))
     })
     .map_with(|r#type, state| r#type.with_position(state.span()));
