@@ -10,6 +10,7 @@ pub mod r#loop;
 pub mod map_index;
 pub mod math;
 pub mod statement;
+pub mod structure_definition;
 pub mod r#type;
 pub mod value_node;
 pub mod r#while;
@@ -31,6 +32,7 @@ pub use self::{
     r#type::Type,
     r#while::While,
     statement::Statement,
+    structure_definition::StructureDefinition,
     value_node::ValueNode,
 };
 

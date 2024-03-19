@@ -23,6 +23,10 @@ pub enum ValueNode {
     ),
     Range(Range<i64>),
     String(String),
+    Structure {
+        name: Identifier,
+        fields: Vec<(Identifier, Type)>,
+    },
     Function {
         parameters: Vec<(Identifier, WithPosition<Type>)>,
         return_type: WithPosition<Type>,
@@ -59,6 +63,7 @@ impl AbstractTree for ValueNode {
                     .collect(),
                 return_type: Box::new(return_type.node.clone()),
             },
+            ValueNode::Structure { name, fields } => todo!(),
         };
 
         Ok(r#type)
@@ -160,6 +165,7 @@ impl AbstractTree for ValueNode {
                 return_type,
                 body,
             } => Value::function(parameters, return_type, body),
+            ValueNode::Structure { name, fields } => todo!(),
         };
 
         Ok(Action::Return(value))
@@ -228,6 +234,25 @@ impl Ord for ValueNode {
                 }
             }
             (Function { .. }, _) => Ordering::Greater,
+            (
+                Structure {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                Structure {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => todo!(),
+            (
+                Structure { name, fields },
+                Function {
+                    parameters,
+                    return_type,
+                    body,
+                },
+            ) => todo!(),
+            (Structure { name, fields }, _) => todo!(),
         }
     }
 }

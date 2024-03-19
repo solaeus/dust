@@ -3,7 +3,10 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, Type, While};
+use super::{
+    AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, StructureDefinition, Type,
+    While,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
@@ -13,6 +16,7 @@ pub enum Statement {
     Expression(Expression),
     IfElse(IfElse),
     Loop(Loop),
+    StructureDefinition(StructureDefinition),
     While(While),
 }
 
@@ -26,6 +30,9 @@ impl AbstractTree for Statement {
             Statement::IfElse(if_else) => if_else.expected_type(_context),
             Statement::Loop(r#loop) => r#loop.expected_type(_context),
             Statement::While(r#while) => r#while.expected_type(_context),
+            Statement::StructureDefinition(structure_definition) => {
+                structure_definition.expected_type(_context)
+            }
         }
     }
 
@@ -38,6 +45,9 @@ impl AbstractTree for Statement {
             Statement::IfElse(if_else) => if_else.validate(_context),
             Statement::Loop(r#loop) => r#loop.validate(_context),
             Statement::While(r#while) => r#while.validate(_context),
+            Statement::StructureDefinition(structure_definition) => {
+                structure_definition.validate(_context)
+            }
         }
     }
 
@@ -50,6 +60,9 @@ impl AbstractTree for Statement {
             Statement::IfElse(if_else) => if_else.run(_context),
             Statement::Loop(r#loop) => r#loop.run(_context),
             Statement::While(r#while) => r#while.run(_context),
+            Statement::StructureDefinition(structure_definition) => {
+                structure_definition.run(_context)
+            }
         }
     }
 }

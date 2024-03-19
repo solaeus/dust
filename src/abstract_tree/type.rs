@@ -6,7 +6,7 @@ use crate::{
     error::{RuntimeError, TypeConflict, ValidationError},
 };
 
-use super::{AbstractTree, Action};
+use super::{AbstractTree, Action, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
@@ -27,7 +27,7 @@ pub enum Type {
     String,
     Structure {
         name: Identifier,
-        fields: Vec<(Identifier, Type)>,
+        fields: Vec<(Identifier, WithPosition<Type>)>,
     },
 }
 

@@ -417,7 +417,27 @@ pub fn parser<'src>() -> impl Parser<
                     .with_position(state.span())
             });
 
+        let structure_field = identifier.clone().then(type_specification.clone());
+
+        let structure_definition = just(Token::Keyword("struct"))
+            .ignore_then(identifier.clone())
+            .then(
+                structure_field
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .allow_trailing()
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::CurlyOpen)),
+                        just(Token::Control(Control::CurlyClose)),
+                    ),
+            )
+            .map_with(|(name, fields), state| {
+                Statement::StructureDefinition(StructureDefinition::new(name, fields))
+                    .with_position(state.span())
+            });
+
         choice((
+            structure_definition,
             if_else,
             assignment,
             expression_statement,
@@ -437,6 +457,36 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn structure_definition() {
+        assert_eq!(
+            parse(
+                &lex("
+                    struct Foo {
+                        bar : int,
+                        baz : str,
+                    }
+                ")
+                .unwrap()
+            )
+            .unwrap()[0]
+                .node,
+            Statement::StructureDefinition(StructureDefinition::new(
+                Identifier::new("Foo"),
+                vec![
+                    (
+                        Identifier::new("bar"),
+                        Type::Integer.with_position((64, 67))
+                    ),
+                    (
+                        Identifier::new("baz"),
+                        Type::String.with_position((99, 102))
+                    ),
+                ]
+            ))
+        )
+    }
 
     #[test]
     fn map_index() {

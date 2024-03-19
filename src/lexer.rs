@@ -224,6 +224,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("map").padded(),
         just("none").padded(),
         just("range").padded(),
+        just("struct").padded(),
         just("str").padded(),
         just("loop").padded(),
         just("while").padded(),
