@@ -22,6 +22,7 @@ pub enum Type {
     ListOf(Box<Type>),
     ListExact(Vec<Type>),
     Map,
+    Named(Identifier),
     None,
     Range,
     String,
@@ -140,6 +141,7 @@ impl Display for Type {
                 write!(f, ") : {return_type}")
             }
             Type::Structure { .. } => todo!(),
+            Type::Named(name) => write!(f, "{name}"),
         }
     }
 }

@@ -39,7 +39,7 @@ fn nested_structure() {
                 }
 
                 Foo {
-                    bar = Baz {
+                    bar = Bar {
                         baz = 42
                     }
                 }
@@ -47,10 +47,13 @@ fn nested_structure() {
         ),
         Ok(Some(Value::structure(
             Identifier::new("Foo"),
-            vec![
-                (Identifier::new("bar"), Value::integer(42)),
-                (Identifier::new("baz"), Value::string("hiya".to_string())),
-            ]
+            vec![(
+                Identifier::new("bar"),
+                Value::structure(
+                    Identifier::new("Bar"),
+                    vec![(Identifier::new("baz"), Value::integer(42))]
+                )
+            ),]
         )))
     )
 }
