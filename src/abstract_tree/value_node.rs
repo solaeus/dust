@@ -114,6 +114,14 @@ impl AbstractTree for ValueNode {
                 })?;
         }
 
+        if let ValueNode::Structure { name, fields } = self {
+            let r#type = if let Some(r#type) = context.get_type(name)? {
+                r#type
+            } else {
+                return Err(ValidationError::TypeNotFound(name.clone()));
+            };
+        }
+
         Ok(())
     }
 

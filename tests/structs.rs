@@ -1,4 +1,4 @@
-use dust_lang::{abstract_tree::Identifier, *};
+use dust_lang::{abstract_tree::Identifier, error::Error, *};
 
 #[test]
 fn simple_structure() {
@@ -55,5 +55,22 @@ fn nested_structure() {
                 )
             ),]
         )))
+    )
+}
+
+#[test]
+fn undefined_struct() {
+    assert_eq!(
+        interpret(
+            "
+                Foo {
+                    bar = 42
+                }
+            "
+        ),
+        Err(vec![Error::Validation {
+            error: error::ValidationError::TypeNotFound(Identifier::new("Foo")),
+            position: (17, 82).into()
+        }])
     )
 }

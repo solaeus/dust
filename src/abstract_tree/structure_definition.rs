@@ -22,7 +22,9 @@ impl AbstractTree for StructureDefinition {
         Ok(Type::None)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        context.set_type(self.name.clone(), Type::Named(self.name.clone()))?;
+
         Ok(())
     }
 
