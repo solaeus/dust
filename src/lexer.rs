@@ -232,7 +232,7 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Keyword);
 
     choice((
-        boolean, float, integer, string, identifier, keyword, control, operator,
+        boolean, float, integer, string, keyword, identifier, control, operator,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()
