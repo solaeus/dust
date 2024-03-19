@@ -8,14 +8,6 @@ use crate::{
     lexer::{Control, Operator, Token},
 };
 
-pub type DustParser<'src> = Boxed<
-    'src,
-    'src,
-    ParserInput<'src>,
-    Vec<WithPosition<Statement>>,
-    extra::Err<Rich<'src, Token<'src>, SimpleSpan>>,
->;
-
 pub type ParserInput<'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
 
@@ -28,7 +20,12 @@ pub fn parse<'src>(
         .map_err(|errors| errors.into_iter().map(|error| error.into()).collect())
 }
 
-pub fn parser<'src>() -> DustParser<'src> {
+pub fn parser<'src>() -> impl Parser<
+    'src,
+    ParserInput<'src>,
+    Vec<WithPosition<Statement>>,
+    extra::Err<Rich<'src, Token<'src>, SimpleSpan>>,
+> {
     let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
 
     let identifier = select! {
@@ -57,8 +54,7 @@ pub fn parser<'src>() -> DustParser<'src> {
         Token::Integer(integer) => ValueNode::Integer(integer),
         Token::String(string) => ValueNode::String(string.to_string()),
     }
-    .map_with(|value, state| Expression::Value(value).with_position(state.span()))
-    .boxed();
+    .map_with(|value, state| Expression::Value(value).with_position(state.span()));
 
     let r#type = recursive(|r#type| {
         let function_type = r#type
@@ -436,7 +432,7 @@ pub fn parser<'src>() -> DustParser<'src> {
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
 
-    positioned_statement.repeated().collect().boxed()
+    positioned_statement.repeated().collect()
 }
 
 #[cfg(test)]

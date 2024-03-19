@@ -9,7 +9,7 @@ use abstract_tree::{AbstractTree, Action, WithPosition};
 use context::Context;
 use error::Error;
 use lexer::lex;
-pub use parser::{parse, parser, DustParser};
+use parser::parse;
 pub use value::Value;
 
 pub fn interpret(source: &str) -> Result<Option<Value>, Vec<Error>> {
