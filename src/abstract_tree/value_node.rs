@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
+use chumsky::container::Container;
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -165,7 +167,27 @@ impl AbstractTree for ValueNode {
                 return_type,
                 body,
             } => Value::function(parameters, return_type, body),
-            ValueNode::Structure { name, fields } => todo!(),
+            ValueNode::Structure {
+                name,
+                fields: expressions,
+            } => {
+                let mut fields = Vec::with_capacity(expressions.len());
+
+                for (identifier, expression) in expressions {
+                    let action = expression.node.run(_context)?;
+                    let value = if let Action::Return(value) = action {
+                        value
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::InterpreterExpectedReturn(expression.position),
+                        ));
+                    };
+
+                    fields.push((identifier, value));
+                }
+
+                Value::structure(name, fields)
+            }
         };
 
         Ok(Action::Return(value))

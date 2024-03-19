@@ -70,6 +70,10 @@ impl Value {
         ))))
     }
 
+    pub fn structure(name: Identifier, fields: Vec<(Identifier, Value)>) -> Self {
+        Value(Arc::new(ValueInner::Structure { name, fields }))
+    }
+
     pub fn built_in_function(function: BuiltInFunction) -> Self {
         Value(Arc::new(ValueInner::Function(Function::BuiltIn(function))))
     }
@@ -108,13 +112,11 @@ impl Value {
             } => {
                 let mut fields = Vec::with_capacity(expressions.len());
 
-                for (identifier, expression) in expressions {
-                    let r#type = expression
-                        .node
-                        .expected_type(context)?
-                        .with_position(expression.position);
-
-                    fields.push((identifier.clone(), r#type));
+                for (identifier, value) in expressions {
+                    fields.push((
+                        identifier.clone(),
+                        value.r#type(context)?.with_position((0, 0)),
+                    ));
                 }
 
                 Type::Structure {
@@ -229,7 +231,7 @@ pub enum ValueInner {
     String(String),
     Structure {
         name: Identifier,
-        fields: Vec<(Identifier, WithPosition<Expression>)>,
+        fields: Vec<(Identifier, Value)>,
     },
 }
 
