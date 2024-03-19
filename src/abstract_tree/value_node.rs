@@ -1,7 +1,5 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
-use chumsky::container::Container;
-
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},

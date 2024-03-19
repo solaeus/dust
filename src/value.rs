@@ -15,7 +15,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractTree, Action, Block, Expression, Identifier, Type, WithPosition},
+    abstract_tree::{AbstractTree, Action, Block, Identifier, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
 };
@@ -106,22 +106,11 @@ impl Value {
                 },
                 Function::BuiltIn(built_in_function) => built_in_function.r#type(),
             },
-            ValueInner::Structure {
-                name,
-                fields: expressions,
-            } => {
-                let mut fields = Vec::with_capacity(expressions.len());
-
-                for (identifier, value) in expressions {
-                    fields.push((
-                        identifier.clone(),
-                        value.r#type(context)?.with_position((0, 0)),
-                    ));
-                }
-
-                Type::Structure {
-                    name: name.clone(),
-                    fields,
+            ValueInner::Structure { name, .. } => {
+                if let Some(r#type) = context.get_type(name)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::TypeNotFound(name.clone()));
                 }
             }
         };
@@ -200,7 +189,15 @@ impl Display for Value {
             ValueInner::Function(Function::BuiltIn(built_in_function)) => {
                 write!(f, "{built_in_function}")
             }
-            ValueInner::Structure { name, fields } => todo!(),
+            ValueInner::Structure { name, fields } => {
+                let mut table = create_table();
+
+                for (identifier, value) in fields {
+                    table = table.with_row([identifier.as_str(), &value.to_string()]);
+                }
+
+                write!(f, "{name}\n{}", Console::default().render(&table))
+            }
         }
     }
 }

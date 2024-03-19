@@ -177,6 +177,7 @@ impl Error {
                 ValidationError::ExpectedValue(_) => todo!(),
                 ValidationError::PropertyNotFound { .. } => todo!(),
                 ValidationError::WrongArguments { .. } => todo!(),
+                ValidationError::TypeNotFound(_) => todo!(),
             }
         }
 
@@ -279,6 +280,7 @@ pub enum ValidationError {
         actual: Vec<Type>,
     },
     VariableNotFound(Identifier),
+    TypeNotFound(Identifier),
     PropertyNotFound {
         identifier: Identifier,
         position: SourcePosition,
