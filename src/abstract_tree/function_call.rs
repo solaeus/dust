@@ -65,7 +65,7 @@ impl AbstractTree for FunctionCall {
         } else {
             return Err(RuntimeError::ValidationFailure(
                 ValidationError::ExpectedFunction {
-                    actual: value.r#type(),
+                    actual: value.r#type(context)?,
                     position: self.function.position,
                 },
             ));

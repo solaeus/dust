@@ -19,15 +19,15 @@ impl MapIndex {
 }
 
 impl AbstractTree for MapIndex {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        let left_type = self.left.node.expected_type(_context)?;
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
+        let left_type = self.left.node.expected_type(context)?;
 
         if let (
             Expression::Identifier(collection_identifier),
             Expression::Identifier(index_identifier),
         ) = (&self.left.node, &self.right.node)
         {
-            let collection = if let Some(collection) = _context.get_value(collection_identifier)? {
+            let collection = if let Some(collection) = context.get_value(collection_identifier)? {
                 collection
             } else {
                 return Err(ValidationError::VariableNotFound(
@@ -37,7 +37,7 @@ impl AbstractTree for MapIndex {
 
             if let ValueInner::Map(map) = collection.inner().as_ref() {
                 return if let Some(value) = map.get(index_identifier) {
-                    Ok(value.r#type())
+                    Ok(value.r#type(context)?)
                 } else {
                     Err(ValidationError::PropertyNotFound {
                         identifier: index_identifier.clone(),
@@ -56,9 +56,9 @@ impl AbstractTree for MapIndex {
                     .find_map(|(property, type_option, expression)| {
                         if property == identifier {
                             if let Some(r#type) = type_option {
-                                Some(r#type.node.expected_type(_context))
+                                Some(r#type.node.expected_type(context))
                             } else {
-                                Some(expression.node.expected_type(_context))
+                                Some(expression.node.expected_type(context))
                             }
                         } else {
                             None
@@ -74,7 +74,7 @@ impl AbstractTree for MapIndex {
         Err(ValidationError::CannotIndexWith {
             collection_type: left_type,
             collection_position: self.left.position,
-            index_type: self.right.node.expected_type(_context)?,
+            index_type: self.right.node.expected_type(context)?,
             index_position: self.right.position,
         })
     }
@@ -100,8 +100,8 @@ impl AbstractTree for MapIndex {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let action = self.left.node.run(_context)?;
+    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+        let action = self.left.node.run(context)?;
         let collection = if let Action::Return(value) = action {
             value
         } else {
@@ -122,9 +122,9 @@ impl AbstractTree for MapIndex {
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith {
-                    collection_type: collection.r#type(),
+                    collection_type: collection.r#type(context)?,
                     collection_position: self.left.position,
-                    index_type: self.right.node.expected_type(_context)?,
+                    index_type: self.right.node.expected_type(context)?,
                     index_position: self.right.position,
                 },
             ))

@@ -291,6 +291,12 @@ impl From<RwLockPoisonError> for ValidationError {
     }
 }
 
+impl<T> From<PoisonError<T>> for ValidationError {
+    fn from(_: PoisonError<T>) -> Self {
+        ValidationError::RwLockPoison(RwLockPoisonError)
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct RwLockPoisonError;
 

@@ -15,7 +15,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractTree, Action, Block, Identifier, Type, WithPosition},
+    abstract_tree::{AbstractTree, Action, Block, Expression, Identifier, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
 };
@@ -74,8 +74,8 @@ impl Value {
         Value(Arc::new(ValueInner::Function(Function::BuiltIn(function))))
     }
 
-    pub fn r#type(&self) -> Type {
-        match self.0.as_ref() {
+    pub fn r#type(&self, context: &Context) -> Result<Type, ValidationError> {
+        let r#type = match self.0.as_ref() {
             ValueInner::Boolean(_) => Type::Boolean,
             ValueInner::Float(_) => Type::Float,
             ValueInner::Integer(_) => Type::Integer,
@@ -83,7 +83,7 @@ impl Value {
                 let mut types = Vec::with_capacity(values.len());
 
                 for value in values {
-                    types.push(value.r#type());
+                    types.push(value.r#type(context)?);
                 }
 
                 Type::ListExact(types)
@@ -102,7 +102,29 @@ impl Value {
                 },
                 Function::BuiltIn(built_in_function) => built_in_function.r#type(),
             },
-        }
+            ValueInner::Structure {
+                name,
+                fields: expressions,
+            } => {
+                let mut fields = Vec::with_capacity(expressions.len());
+
+                for (identifier, expression) in expressions {
+                    let r#type = expression
+                        .node
+                        .expected_type(context)?
+                        .with_position(expression.position);
+
+                    fields.push((identifier.clone(), r#type));
+                }
+
+                Type::Structure {
+                    name: name.clone(),
+                    fields,
+                }
+            }
+        };
+
+        Ok(r#type)
     }
 
     pub fn as_boolean(&self) -> Option<bool> {
@@ -176,6 +198,7 @@ impl Display for Value {
             ValueInner::Function(Function::BuiltIn(built_in_function)) => {
                 write!(f, "{built_in_function}")
             }
+            ValueInner::Structure { name, fields } => todo!(),
         }
     }
 }
@@ -204,6 +227,10 @@ pub enum ValueInner {
     Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
+    Structure {
+        name: Identifier,
+        fields: Vec<(Identifier, WithPosition<Expression>)>,
+    },
 }
 
 impl Eq for ValueInner {}
@@ -243,6 +270,25 @@ impl Ord for ValueInner {
             (String(_), _) => Ordering::Greater,
             (Function(left), Function(right)) => left.cmp(right),
             (Function(_), _) => Ordering::Greater,
+            (
+                Structure {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                Structure {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp.is_eq() {
+                    left_fields.cmp(right_fields)
+                } else {
+                    name_cmp
+                }
+            }
+            (Structure { .. }, _) => Ordering::Greater,
         }
     }
 }
@@ -347,7 +393,7 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn call(&self, arguments: Vec<Value>, _context: &Context) -> Result<Action, RuntimeError> {
+    pub fn call(&self, arguments: Vec<Value>, context: &Context) -> Result<Action, RuntimeError> {
         match self {
             BuiltInFunction::IntParse => {
                 let string = arguments.get(0).unwrap();
@@ -359,10 +405,18 @@ impl BuiltInFunction {
 
                     // Ok(Action::Return(Value::integer(integer)))
                 } else {
+                    let mut actual = Vec::with_capacity(arguments.len());
+
+                    for value in arguments {
+                        let r#type = value.r#type(context)?;
+
+                        actual.push(r#type);
+                    }
+
                     Err(RuntimeError::ValidationFailure(
                         ValidationError::WrongArguments {
                             expected: vec![Type::String],
-                            actual: arguments.iter().map(|value| value.r#type()).collect(),
+                            actual,
                         },
                     ))
                 }

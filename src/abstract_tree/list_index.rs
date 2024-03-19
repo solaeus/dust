@@ -68,8 +68,8 @@ impl AbstractTree for ListIndex {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        let left_action = self.left.node.run(_context)?;
+    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+        let left_action = self.left.node.run(context)?;
         let left_value = if let Action::Return(value) = left_action {
             value
         } else {
@@ -77,7 +77,7 @@ impl AbstractTree for ListIndex {
                 ValidationError::InterpreterExpectedReturn(self.left.position),
             ));
         };
-        let right_action = self.right.node.run(_context)?;
+        let right_action = self.right.node.run(context)?;
         let right_value = if let Action::Return(value) = right_action {
             value
         } else {
@@ -97,9 +97,9 @@ impl AbstractTree for ListIndex {
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith {
-                    collection_type: left_value.r#type(),
+                    collection_type: left_value.r#type(context)?,
                     collection_position: self.left.position,
-                    index_type: right_value.r#type(),
+                    index_type: right_value.r#type(context)?,
                     index_position: self.right.position,
                 },
             ))

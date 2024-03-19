@@ -25,7 +25,7 @@ pub enum ValueNode {
     String(String),
     Structure {
         name: Identifier,
-        fields: Vec<(Identifier, Type)>,
+        fields: Vec<(Identifier, WithPosition<Expression>)>,
     },
     Function {
         parameters: Vec<(Identifier, WithPosition<Type>)>,
@@ -242,14 +242,6 @@ impl Ord for ValueNode {
                 Structure {
                     name: right_name,
                     fields: right_fields,
-                },
-            ) => todo!(),
-            (
-                Structure { name, fields },
-                Function {
-                    parameters,
-                    return_type,
-                    body,
                 },
             ) => todo!(),
             (Structure { name, fields }, _) => todo!(),

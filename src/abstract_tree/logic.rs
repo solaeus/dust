@@ -83,10 +83,10 @@ impl AbstractTree for Logic {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
         let run_and_expect_value =
             |expression: WithPosition<Expression>| -> Result<Value, RuntimeError> {
-                let action = expression.node.run(_context)?;
+                let action = expression.node.run(context)?;
                 let value = if let Action::Return(value) = action {
                     value
                 } else {
@@ -100,7 +100,7 @@ impl AbstractTree for Logic {
 
         let run_and_expect_boolean =
             |expression: WithPosition<Expression>| -> Result<bool, RuntimeError> {
-                let action = expression.node.run(_context)?;
+                let action = expression.node.run(context)?;
                 let value = if let Action::Return(value) = action {
                     value
                 } else {
@@ -114,7 +114,7 @@ impl AbstractTree for Logic {
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedBoolean {
-                            actual: value.r#type(),
+                            actual: value.r#type(context)?,
                             position: expression.position,
                         },
                     ));

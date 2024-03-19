@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     abstract_tree::{Identifier, Type},
-    error::RwLockPoisonError,
+    error::{RwLockPoisonError, ValidationError},
     value::{BUILT_IN_FUNCTIONS, BUILT_IN_MODULES},
     Value,
 };
@@ -72,11 +72,11 @@ impl Context {
         }
     }
 
-    pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, RwLockPoisonError> {
+    pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
         if let Some(value_data) = self.inner.read()?.get(identifier) {
             let r#type = match value_data {
                 ValueData::Type(r#type) => r#type.clone(),
-                ValueData::Value(value) => value.r#type(),
+                ValueData::Value(value) => value.r#type(self)?,
             };
 
             return Ok(Some(r#type.clone()));

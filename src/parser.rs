@@ -336,7 +336,30 @@ pub fn parser<'src>() -> impl Parser<
                 ),
             ));
 
+            let structure_field = identifier
+                .clone()
+                .then_ignore(just(Token::Operator(Operator::Assign)))
+                .then(positioned_expression.clone());
+
+            let structure_instance = identifier
+                .clone()
+                .then(
+                    structure_field
+                        .separated_by(just(Token::Control(Control::Comma)))
+                        .allow_trailing()
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::CurlyOpen)),
+                            just(Token::Control(Control::CurlyClose)),
+                        ),
+                )
+                .map_with(|(name, fields), state| {
+                    Expression::Value(ValueNode::Structure { name, fields })
+                        .with_position(state.span())
+                });
+
             choice((
+                structure_instance,
                 range,
                 logic_math_indexes_and_function_calls,
                 function,
@@ -417,12 +440,12 @@ pub fn parser<'src>() -> impl Parser<
                     .with_position(state.span())
             });
 
-        let structure_field = identifier.clone().then(type_specification.clone());
+        let structure_field_definition = identifier.clone().then(type_specification.clone());
 
         let structure_definition = just(Token::Keyword("struct"))
             .ignore_then(identifier.clone())
             .then(
-                structure_field
+                structure_field_definition
                     .separated_by(just(Token::Control(Control::Comma)))
                     .allow_trailing()
                     .collect()
@@ -457,6 +480,37 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn structure_instance() {
+        assert_eq!(
+            parse(
+                &lex("
+                    Foo {
+                        bar = 42,
+                        baz = 'hiya',
+                    }
+                ")
+                .unwrap()
+            )
+            .unwrap()[0]
+                .node,
+            Statement::Expression(Expression::Value(ValueNode::Structure {
+                name: Identifier::new("Foo"),
+                fields: vec![
+                    (
+                        Identifier::new("bar"),
+                        Expression::Value(ValueNode::Integer(42)).with_position((57, 59))
+                    ),
+                    (
+                        Identifier::new("baz"),
+                        Expression::Value(ValueNode::String("hiya".to_string()))
+                            .with_position((91, 97))
+                    ),
+                ]
+            }))
+        )
+    }
 
     #[test]
     fn structure_definition() {
