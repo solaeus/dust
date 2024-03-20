@@ -5,6 +5,8 @@ use std::{
     io::stdin,
     ops::Range,
     sync::{Arc, OnceLock},
+    thread,
+    time::Duration,
 };
 
 use rand::{thread_rng, Rng};
@@ -334,12 +336,14 @@ static INT_PARSE: OnceLock<Value> = OnceLock::new();
 static INT_RANDOM_RANGE: OnceLock<Value> = OnceLock::new();
 static READ_LINE: OnceLock<Value> = OnceLock::new();
 static WRITE_LINE: OnceLock<Value> = OnceLock::new();
+static SLEEP: OnceLock<Value> = OnceLock::new();
 
-pub const BUILT_IN_FUNCTIONS: [BuiltInFunction; 4] = [
+pub const BUILT_IN_FUNCTIONS: [BuiltInFunction; 5] = [
     BuiltInFunction::IntParse,
     BuiltInFunction::IntRandomRange,
     BuiltInFunction::ReadLine,
     BuiltInFunction::WriteLine,
+    BuiltInFunction::Sleep,
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -348,6 +352,7 @@ pub enum BuiltInFunction {
     IntRandomRange,
     ReadLine,
     WriteLine,
+    Sleep,
 }
 
 impl BuiltInFunction {
@@ -357,6 +362,7 @@ impl BuiltInFunction {
             BuiltInFunction::IntRandomRange => "random_range",
             BuiltInFunction::ReadLine => "read_line",
             BuiltInFunction::WriteLine => "write_line",
+            BuiltInFunction::Sleep => "sleep",
         }
     }
 
@@ -372,6 +378,9 @@ impl BuiltInFunction {
             }
             BuiltInFunction::WriteLine => {
                 WRITE_LINE.get_or_init(|| Value::built_in_function(BuiltInFunction::WriteLine))
+            }
+            BuiltInFunction::Sleep => {
+                SLEEP.get_or_init(|| Value::built_in_function(BuiltInFunction::Sleep))
             }
         }
         .clone()
@@ -393,6 +402,10 @@ impl BuiltInFunction {
             },
             BuiltInFunction::WriteLine => Type::Function {
                 parameter_types: vec![Type::Any],
+                return_type: Box::new(Type::None),
+            },
+            BuiltInFunction::Sleep => Type::Function {
+                parameter_types: vec![Type::Integer],
                 return_type: Box::new(Type::None),
             },
         }
@@ -449,6 +462,13 @@ impl BuiltInFunction {
 
                 Ok(Action::None)
             }
+            BuiltInFunction::Sleep => {
+                if let ValueInner::Integer(milliseconds) = arguments[0].inner().as_ref() {
+                    thread::sleep(Duration::from_millis(*milliseconds as u64));
+                }
+
+                Ok(Action::None)
+            }
         }
     }
 }
@@ -460,31 +480,36 @@ impl Display for BuiltInFunction {
             BuiltInFunction::IntRandomRange => write!(f, "(input: range) : int {{ *MAGIC* }}"),
             BuiltInFunction::ReadLine => write!(f, "() : str {{ *MAGIC* }}"),
             BuiltInFunction::WriteLine => write!(f, "(to_output : any) : none {{ *MAGIC* }}"),
+            BuiltInFunction::Sleep => write!(f, "(milliseconds : int) : none {{ *MAGIC* }}"),
         }
     }
 }
 
 static INT: OnceLock<Value> = OnceLock::new();
 static IO: OnceLock<Value> = OnceLock::new();
+static THREAD: OnceLock<Value> = OnceLock::new();
 
-pub const BUILT_IN_MODULES: [BuiltInModule; 2] = [BuiltInModule::Integer, BuiltInModule::Io];
+pub const BUILT_IN_MODULES: [BuiltInModule; 3] =
+    [BuiltInModule::Int, BuiltInModule::Io, BuiltInModule::Thread];
 
 pub enum BuiltInModule {
-    Integer,
+    Int,
     Io,
+    Thread,
 }
 
 impl BuiltInModule {
     pub fn name(&self) -> &'static str {
         match self {
-            BuiltInModule::Integer => "int",
+            BuiltInModule::Int => "int",
             BuiltInModule::Io => "io",
+            BuiltInModule::Thread => "thread",
         }
     }
 
     pub fn value(self) -> Value {
         match self {
-            BuiltInModule::Integer => {
+            BuiltInModule::Int => {
                 let mut properties = BTreeMap::new();
 
                 properties.insert(
@@ -511,6 +536,16 @@ impl BuiltInModule {
                 );
 
                 IO.get_or_init(|| Value::map(properties)).clone()
+            }
+            BuiltInModule::Thread => {
+                let mut properties = BTreeMap::new();
+
+                properties.insert(
+                    Identifier::new("sleep"),
+                    Value::built_in_function(BuiltInFunction::Sleep),
+                );
+
+                THREAD.get_or_init(|| Value::map(properties)).clone()
             }
         }
     }
