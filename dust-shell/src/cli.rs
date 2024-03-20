@@ -87,7 +87,7 @@ pub fn run_shell(context: Context) {
                     Ok(None) => {}
                     Err(errors) => {
                         for error in errors {
-                            let report = error.build_report(&buffer);
+                            let report = error.build_report(&buffer).unwrap();
 
                             stderr().write_all(&report).unwrap();
                         }

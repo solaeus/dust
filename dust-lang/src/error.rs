@@ -13,10 +13,12 @@ pub enum Error {
     Parse {
         expected: String,
         span: (usize, usize),
+        reason: String,
     },
     Lex {
         expected: String,
         span: (usize, usize),
+        reason: String,
     },
     Runtime {
         error: RuntimeError,
@@ -29,11 +31,15 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn build_report(self, source: &str) -> Vec<u8> {
+    pub fn build_report(self, source: &str) -> Result<Vec<u8>, io::Error> {
         let (mut builder, validation_error, error_position) = match self {
-            Error::Parse { expected, span } => {
-                let message = if expected.is_empty() {
-                    "Invalid character.".to_string()
+            Error::Parse {
+                expected,
+                span,
+                reason,
+            } => {
+                let description = if expected.is_empty() {
+                    "Invalid token.".to_string()
                 } else {
                     format!("Expected {expected}.")
                 };
@@ -44,31 +50,37 @@ impl Error {
                         "input",
                         span.1,
                     )
+                    .with_message(description)
                     .with_label(
                         Label::new(("input", span.0..span.1))
-                            .with_message(message)
+                            .with_message(reason)
                             .with_color(Color::Red),
                     ),
                     None,
                     span.into(),
                 )
             }
-            Error::Lex { expected, span } => {
-                let message = if expected.is_empty() {
-                    "Invalid token.".to_string()
+            Error::Lex {
+                expected,
+                span,
+                reason,
+            } => {
+                let description = if expected.is_empty() {
+                    "Invalid character.".to_string()
                 } else {
                     format!("Expected {expected}.")
                 };
 
                 (
                     Report::build(
-                        ReportKind::Custom("Dust Error", Color::White),
+                        ReportKind::Custom("Lexing Error", Color::White),
                         "input",
                         span.1,
                     )
+                    .with_message(description)
                     .with_label(
                         Label::new(("input", span.0..span.1))
-                            .with_message(message)
+                            .with_message(reason)
                             .with_color(Color::Red),
                     ),
                     None,
@@ -188,9 +200,9 @@ impl Error {
 
         builder
             .finish()
-            .write_for_stdout(sources([("input", source)]), &mut output);
+            .write_for_stdout(sources([("input", source)]), &mut output)?;
 
-        output
+        Ok(output)
     }
 }
 
@@ -199,6 +211,7 @@ impl From<Rich<'_, char>> for Error {
         Error::Lex {
             expected: error.expected().map(|error| error.to_string()).collect(),
             span: (error.span().start(), error.span().end()),
+            reason: error.reason().to_string(),
         }
     }
 }
@@ -208,6 +221,7 @@ impl<'src> From<Rich<'_, Token<'src>>> for Error {
         Error::Parse {
             expected: error.expected().map(|error| error.to_string()).collect(),
             span: (error.span().start(), error.span().end()),
+            reason: error.reason().to_string(),
         }
     }
 }

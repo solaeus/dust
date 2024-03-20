@@ -79,13 +79,7 @@ impl Context {
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
         if let Some(value_data) = self.inner.read()?.get(identifier) {
             let r#type = match value_data {
-                ValueData::Type(r#type) => {
-                    if let Type::Named(name) = r#type {
-                        return self.get_type(name);
-                    }
-
-                    r#type.clone()
-                }
+                ValueData::Type(r#type) => r#type.clone(),
                 ValueData::Value(value) => value.r#type(self)?,
             };
 

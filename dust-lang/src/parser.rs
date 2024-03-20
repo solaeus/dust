@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
@@ -32,6 +32,8 @@ pub fn parser<'src>() -> impl Parser<
     extra::Err<Rich<'src, Token<'src>, SimpleSpan>>,
 > {
     let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
+    let _custom_types: Rc<RefCell<HashMap<Identifier, Type>>> =
+        Rc::new(RefCell::new(HashMap::new()));
 
     let identifier = select! {
         Token::Identifier(text) => {
@@ -61,6 +63,7 @@ pub fn parser<'src>() -> impl Parser<
     }
     .map_with(|value, state| Expression::Value(value).with_position(state.span()));
 
+    let custom_types = _custom_types.clone();
     let r#type = recursive(|r#type| {
         let function_type = r#type
             .clone()
@@ -106,13 +109,22 @@ pub fn parser<'src>() -> impl Parser<
             just(Token::Keyword("range")).to(Type::Range),
             just(Token::Keyword("str")).to(Type::String),
             just(Token::Keyword("list")).to(Type::List),
-            identifier.clone().map(|identifier| Type::Named(identifier)),
+            identifier.clone().try_map(move |identifier, span| {
+                custom_types
+                    .borrow()
+                    .get(&identifier)
+                    .cloned()
+                    .ok_or_else(|| {
+                        Rich::custom(span, format!("There is no type named {identifier}."))
+                    })
+            }),
         ))
     })
     .map_with(|r#type, state| r#type.with_position(state.span()));
 
     let type_specification = just(Token::Control(Control::Colon)).ignore_then(r#type.clone());
 
+    let custom_types = _custom_types.clone();
     let positioned_statement = recursive(|positioned_statement| {
         let block = positioned_statement
             .clone()
@@ -454,15 +466,22 @@ pub fn parser<'src>() -> impl Parser<
                 structure_field_definition
                     .separated_by(just(Token::Control(Control::Comma)))
                     .allow_trailing()
-                    .collect()
+                    .collect::<Vec<(Identifier, WithPosition<Type>)>>()
                     .delimited_by(
                         just(Token::Control(Control::CurlyOpen)),
                         just(Token::Control(Control::CurlyClose)),
                     ),
             )
-            .map_with(|(name, fields), state| {
-                Statement::StructureDefinition(StructureDefinition::new(name, fields))
-                    .with_position(state.span())
+            .map_with(move |(name, fields), state| {
+                let definition = StructureDefinition::new(name.clone(), fields.clone());
+                let r#type = Type::Structure {
+                    name: name.clone(),
+                    fields,
+                };
+
+                custom_types.as_ref().borrow_mut().insert(name, r#type);
+
+                Statement::StructureDefinition(definition).with_position(state.span())
             });
 
         choice((

@@ -1,7 +1,5 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
-use chumsky::container::Container;
-
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -145,7 +143,7 @@ impl AbstractNode for ValueNode {
         {
             let types = if let Some(r#type) = context.get_type(name)? {
                 if let Type::Structure {
-                    name,
+                    name: _,
                     fields: types,
                 } = r#type
                 {
@@ -319,8 +317,16 @@ impl Ord for ValueNode {
                     name: right_name,
                     fields: right_fields,
                 },
-            ) => todo!(),
-            (Structure { name, fields }, _) => todo!(),
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp.is_eq() {
+                    left_fields.cmp(right_fields)
+                } else {
+                    name_cmp
+                }
+            }
+            (Structure { .. }, _) => Ordering::Greater,
         }
     }
 }

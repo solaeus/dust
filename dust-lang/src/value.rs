@@ -79,43 +79,7 @@ impl Value {
     }
 
     pub fn r#type(&self, context: &Context) -> Result<Type, ValidationError> {
-        let r#type = match self.0.as_ref() {
-            ValueInner::Boolean(_) => Type::Boolean,
-            ValueInner::Float(_) => Type::Float,
-            ValueInner::Integer(_) => Type::Integer,
-            ValueInner::List(values) => {
-                let mut types = Vec::with_capacity(values.len());
-
-                for value in values {
-                    types.push(value.r#type(context)?);
-                }
-
-                Type::ListExact(types)
-            }
-            ValueInner::Map(_) => Type::Map,
-            ValueInner::Range(_) => Type::Range,
-            ValueInner::String(_) => Type::String,
-            ValueInner::Function(function) => match function {
-                Function::Parsed(parsed_function) => Type::Function {
-                    parameter_types: parsed_function
-                        .parameters
-                        .iter()
-                        .map(|(_, r#type)| r#type.node.clone())
-                        .collect(),
-                    return_type: Box::new(parsed_function.return_type.node.clone()),
-                },
-                Function::BuiltIn(built_in_function) => built_in_function.r#type(),
-            },
-            ValueInner::Structure { name, .. } => {
-                if let Some(r#type) = context.get_type(name)? {
-                    r#type
-                } else {
-                    return Err(ValidationError::TypeNotFound(name.clone()));
-                }
-            }
-        };
-
-        Ok(r#type)
+        self.0.r#type(context)
     }
 
     pub fn as_boolean(&self) -> Option<bool> {
@@ -230,6 +194,48 @@ pub enum ValueInner {
         name: Identifier,
         fields: Vec<(Identifier, Value)>,
     },
+}
+
+impl ValueInner {
+    pub fn r#type(&self, context: &Context) -> Result<Type, ValidationError> {
+        let r#type = match self {
+            ValueInner::Boolean(_) => Type::Boolean,
+            ValueInner::Float(_) => Type::Float,
+            ValueInner::Integer(_) => Type::Integer,
+            ValueInner::List(values) => {
+                let mut types = Vec::with_capacity(values.len());
+
+                for value in values {
+                    types.push(value.r#type(context)?);
+                }
+
+                Type::ListExact(types)
+            }
+            ValueInner::Map(_) => Type::Map,
+            ValueInner::Range(_) => Type::Range,
+            ValueInner::String(_) => Type::String,
+            ValueInner::Function(function) => match function {
+                Function::Parsed(parsed_function) => Type::Function {
+                    parameter_types: parsed_function
+                        .parameters
+                        .iter()
+                        .map(|(_, r#type)| r#type.node.clone())
+                        .collect(),
+                    return_type: Box::new(parsed_function.return_type.node.clone()),
+                },
+                Function::BuiltIn(built_in_function) => built_in_function.r#type(),
+            },
+            ValueInner::Structure { name, .. } => {
+                if let Some(r#type) = context.get_type(name)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::TypeNotFound(name.clone()));
+                }
+            }
+        };
+
+        Ok(r#type)
+    }
 }
 
 impl Eq for ValueInner {}
@@ -397,7 +403,7 @@ impl BuiltInFunction {
             BuiltInFunction::IntParse => {
                 let string = arguments.get(0).unwrap();
 
-                if let ValueInner::String(string) = string.inner().as_ref() {
+                if let ValueInner::String(_string) = string.inner().as_ref() {
                     // let integer = string.parse();
 
                     todo!()

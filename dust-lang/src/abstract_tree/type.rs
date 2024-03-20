@@ -1,5 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
+use clap::error::Result;
+
 use crate::{
     abstract_tree::Identifier,
     context::Context,
@@ -22,7 +24,6 @@ pub enum Type {
     ListOf(Box<Type>),
     ListExact(Vec<Type>),
     Map,
-    Named(Identifier),
     None,
     Range,
     String,
@@ -76,6 +77,32 @@ impl Type {
                 return Ok(());
             }
             (
+                Type::Structure {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                Type::Structure {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => {
+                if left_name == right_name {
+                    for ((left_field_name, left_type), (right_field_name, right_type)) in
+                        left_fields.iter().zip(right_fields.iter())
+                    {
+                        if left_field_name != right_field_name || left_type.node != right_type.node
+                        {
+                            return Err(TypeConflict {
+                                actual: other.clone(),
+                                expected: self.clone(),
+                            });
+                        }
+                    }
+
+                    return Ok(());
+                }
+            }
+            (
                 Type::Function {
                     parameter_types: left_parameters,
                     return_type: left_return,
@@ -86,27 +113,6 @@ impl Type {
                 },
             ) => {
                 if left_return == right_return && left_parameters == right_parameters {
-                    return Ok(());
-                }
-            }
-            (Type::Named(left), Type::Named(right)) => {
-                if left == right {
-                    return Ok(());
-                }
-            }
-            (
-                Type::Named(named),
-                Type::Structure {
-                    name: struct_name, ..
-                },
-            )
-            | (
-                Type::Structure {
-                    name: struct_name, ..
-                },
-                Type::Named(named),
-            ) => {
-                if named == struct_name {
                     return Ok(());
                 }
             }
@@ -172,8 +178,7 @@ impl Display for Type {
 
                 write!(f, ") : {return_type}")
             }
-            Type::Structure { .. } => todo!(),
-            Type::Named(name) => write!(f, "{name}"),
+            Type::Structure { name, .. } => write!(f, "{name}"),
         }
     }
 }

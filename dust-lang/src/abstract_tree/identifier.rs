@@ -10,7 +10,7 @@ use crate::{
 
 use super::{AbstractNode, Action, Type};
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(Arc<String>);
 
 impl Identifier {

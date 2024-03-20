@@ -58,7 +58,7 @@ fn main() {
         }
         Err(errors) => {
             for error in errors {
-                let report = error.build_report(&source);
+                let report = error.build_report(&source).unwrap();
 
                 stderr().write_all(&report).unwrap();
             }
