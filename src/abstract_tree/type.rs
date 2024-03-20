@@ -48,15 +48,10 @@ impl Type {
             | (Type::Map, Type::Map)
             | (Type::None, Type::None)
             | (Type::Range, Type::Range)
-            | (Type::String, Type::String) => Ok(()),
+            | (Type::String, Type::String) => return Ok(()),
             (Type::ListOf(left), Type::ListOf(right)) => {
                 if let Ok(()) = left.check(right) {
-                    Ok(())
-                } else {
-                    Err(TypeConflict {
-                        actual: left.as_ref().clone(),
-                        expected: right.as_ref().clone(),
-                    })
+                    return Ok(());
                 }
             }
             (Type::ListOf(list_of), Type::ListExact(list_exact)) => {
@@ -64,27 +59,50 @@ impl Type {
                     list_of.check(r#type)?;
                 }
 
-                Ok(())
+                return Ok(());
             }
             (Type::ListExact(list_exact), Type::ListOf(list_of)) => {
                 for r#type in list_exact {
                     r#type.check(&list_of)?;
                 }
 
-                Ok(())
+                return Ok(());
             }
             (Type::ListExact(left), Type::ListExact(right)) => {
                 for (left, right) in left.iter().zip(right.iter()) {
                     left.check(right)?;
                 }
 
-                Ok(())
+                return Ok(());
             }
-            _ => Err(TypeConflict {
-                actual: other.clone(),
-                expected: self.clone(),
-            }),
+            (Type::Named(left), Type::Named(right)) => {
+                if left == right {
+                    return Ok(());
+                }
+            }
+            (
+                Type::Named(named),
+                Type::Structure {
+                    name: struct_name, ..
+                },
+            )
+            | (
+                Type::Structure {
+                    name: struct_name, ..
+                },
+                Type::Named(named),
+            ) => {
+                if named == struct_name {
+                    return Ok(());
+                }
+            }
+            _ => {}
         }
+
+        Err(TypeConflict {
+            actual: other.clone(),
+            expected: self.clone(),
+        })
     }
 }
 

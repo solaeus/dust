@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
+use chumsky::container::Container;
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -63,7 +65,29 @@ impl AbstractNode for ValueNode {
                     .collect(),
                 return_type: Box::new(return_type.node.clone()),
             },
-            ValueNode::Structure { name, fields } => todo!(),
+            ValueNode::Structure {
+                name,
+                fields: expressions,
+            } => {
+                let mut types = Vec::with_capacity(expressions.len());
+
+                for (identifier, expression) in expressions {
+                    let r#type = expression.node.expected_type(_context)?;
+
+                    types.push((
+                        identifier.clone(),
+                        WithPosition {
+                            node: r#type,
+                            position: expression.position,
+                        },
+                    ));
+                }
+
+                Type::Structure {
+                    name: name.clone(),
+                    fields: types,
+                }
+            }
         };
 
         Ok(r#type)
@@ -114,12 +138,36 @@ impl AbstractNode for ValueNode {
                 })?;
         }
 
-        if let ValueNode::Structure { name, fields } = self {
-            let r#type = if let Some(r#type) = context.get_type(name)? {
-                r#type
+        if let ValueNode::Structure {
+            name,
+            fields: expressions,
+        } = self
+        {
+            let types = if let Some(r#type) = context.get_type(name)? {
+                if let Type::Structure {
+                    name,
+                    fields: types,
+                } = r#type
+                {
+                    types
+                } else {
+                    todo!()
+                }
             } else {
                 return Err(ValidationError::TypeNotFound(name.clone()));
             };
+
+            for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
+                let actual_type = expression.node.expected_type(context)?;
+
+                expected_type.node.check(&actual_type).map_err(|conflict| {
+                    ValidationError::TypeCheck {
+                        conflict,
+                        actual_position: expression.position,
+                        expected_position: expected_type.position,
+                    }
+                })?
+            }
         }
 
         Ok(())

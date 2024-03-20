@@ -33,7 +33,7 @@ impl Error {
         let (mut builder, validation_error, error_position) = match self {
             Error::Parse { expected, span } => {
                 let message = if expected.is_empty() {
-                    "Invalid token.".to_string()
+                    "Invalid character.".to_string()
                 } else {
                     format!("Expected {expected}.")
                 };
@@ -77,7 +77,7 @@ impl Error {
             }
             Error::Runtime { error, position } => (
                 Report::build(
-                    ReportKind::Custom("Dust Error", Color::White),
+                    ReportKind::Custom("Runtime Error", Color::White),
                     "input",
                     position.1,
                 ),
@@ -90,10 +90,11 @@ impl Error {
             ),
             Error::Validation { error, position } => (
                 Report::build(
-                    ReportKind::Custom("Dust Error", Color::White),
+                    ReportKind::Custom("Validation Error", Color::White),
                     "input",
                     position.1,
-                ),
+                )
+                .with_note("This error was detected by the interpreter before running the code."),
                 Some(error),
                 position,
             ),
@@ -129,6 +130,8 @@ impl Error {
                     expected_position: expected_postion,
                 } => {
                     let TypeConflict { actual, expected } = conflict;
+
+                    builder = builder.with_message("A type conflict was found.");
 
                     builder.add_labels([
                         Label::new(("input", expected_postion.0..expected_postion.1)).with_message(
