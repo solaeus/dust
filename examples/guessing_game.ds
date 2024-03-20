@@ -1,0 +1,19 @@
+io.write_line("Guess the number.")
+
+secret_number = int.random_range(0..100)
+
+loop {
+	io.write_line("Input your guess.")
+
+	input = io.read_line() ? "Failed to read input."
+	guess = int.parse(input) ? "Failed to parse input."
+
+	if guess < secret_number {
+		io.write_line("Too low!")
+	} else if guess > secret_number {
+		io.write_line("Too high!")
+	} else {
+		io.write_line("You win!")
+		break
+	}
+}

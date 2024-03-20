@@ -46,7 +46,7 @@ impl Error {
 
                 (
                     Report::build(
-                        ReportKind::Custom("Parsing Error", Color::White),
+                        ReportKind::Custom("Parsing Error", Color::Yellow),
                         "input",
                         span.1,
                     )
@@ -73,7 +73,7 @@ impl Error {
 
                 (
                     Report::build(
-                        ReportKind::Custom("Lexing Error", Color::White),
+                        ReportKind::Custom("Lexing Error", Color::Yellow),
                         "input",
                         span.1,
                     )
@@ -89,9 +89,16 @@ impl Error {
             }
             Error::Runtime { error, position } => (
                 Report::build(
-                    ReportKind::Custom("Runtime Error", Color::White),
+                    ReportKind::Custom("Runtime Error", Color::Red),
                     "input",
                     position.1,
+                )
+                .with_message("An error occured that forced the program to exit.")
+                .with_note(
+                    "There may be unexpected side-effects because the program could not finish.",
+                )
+                .with_help(
+                    "This is the interpreter's fault. Please submit a bug with this error message.",
                 ),
                 if let RuntimeError::ValidationFailure(validation_error) = error {
                     Some(validation_error)
@@ -102,10 +109,11 @@ impl Error {
             ),
             Error::Validation { error, position } => (
                 Report::build(
-                    ReportKind::Custom("Validation Error", Color::White),
+                    ReportKind::Custom("Validation Error", Color::Magenta),
                     "input",
                     position.1,
                 )
+                .with_message("The syntax is valid but this code is not sound.")
                 .with_note("This error was detected by the interpreter before running the code."),
                 Some(error),
                 position,
