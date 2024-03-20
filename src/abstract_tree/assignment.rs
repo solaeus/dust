@@ -4,7 +4,7 @@ use crate::{
     Context, Value,
 };
 
-use super::{AbstractTree, Action, Identifier, Statement, Type, WithPosition};
+use super::{AbstractNode, Action, Identifier, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
@@ -37,7 +37,7 @@ impl Assignment {
     }
 }
 
-impl AbstractTree for Assignment {
+impl AbstractNode for Assignment {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }

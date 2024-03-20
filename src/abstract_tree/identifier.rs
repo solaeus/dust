@@ -8,7 +8,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Type};
+use super::{AbstractNode, Action, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(Arc<String>);
@@ -23,7 +23,7 @@ impl Identifier {
     }
 }
 
-impl AbstractTree for Identifier {
+impl AbstractNode for Identifier {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         if let Some(r#type) = context.get_type(self)? {
             Ok(r#type)

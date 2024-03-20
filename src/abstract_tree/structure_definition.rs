@@ -3,7 +3,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Identifier, Type, WithPosition};
+use super::{AbstractNode, Action, Identifier, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct StructureDefinition {
@@ -17,14 +17,12 @@ impl StructureDefinition {
     }
 }
 
-impl AbstractTree for StructureDefinition {
+impl AbstractNode for StructureDefinition {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        context.set_type(self.name.clone(), Type::Named(self.name.clone()))?;
-
+    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
         Ok(())
     }
 

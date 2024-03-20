@@ -5,7 +5,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Expression, SourcePosition, Type, WithPosition};
+use super::{AbstractNode, Action, Expression, SourcePosition, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Math {
@@ -16,7 +16,7 @@ pub enum Math {
     Modulo(WithPosition<Expression>, WithPosition<Expression>),
 }
 
-impl AbstractTree for Math {
+impl AbstractNode for Math {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Math::Add(left, _)

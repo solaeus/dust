@@ -4,7 +4,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractTree, Action, Expression, Type, WithPosition};
+use super::{AbstractNode, Action, Expression, Type, WithPosition};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
@@ -24,7 +24,7 @@ impl FunctionCall {
     }
 }
 
-impl AbstractTree for FunctionCall {
+impl AbstractNode for FunctionCall {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let function_node_type = self.function.node.expected_type(_context)?;
 

@@ -6,7 +6,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Block, Expression, Identifier, Type, WithPosition};
+use super::{AbstractNode, Action, Block, Expression, Identifier, Type, WithPosition};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
@@ -34,7 +34,7 @@ pub enum ValueNode {
     },
 }
 
-impl AbstractTree for ValueNode {
+impl AbstractNode for ValueNode {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,

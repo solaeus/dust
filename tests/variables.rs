@@ -1,5 +1,5 @@
 use dust_lang::{
-    abstract_tree::{AbstractTree, Block, Expression, Identifier, Statement, Type},
+    abstract_tree::{AbstractNode, Block, Expression, Identifier, Statement, Type},
     error::{Error, TypeConflict, ValidationError},
     *,
 };

@@ -11,13 +11,18 @@ use crate::{
 pub type ParserInput<'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
 
-pub fn parse<'src>(
-    tokens: &'src [(Token<'src>, SimpleSpan)],
-) -> Result<Vec<WithPosition<Statement>>, Vec<Error>> {
-    parser()
+pub fn parse<'src>(tokens: &'src [(Token<'src>, SimpleSpan)]) -> Result<AbstractTree, Vec<Error>> {
+    let statements = parser()
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
-        .map_err(|errors| errors.into_iter().map(|error| error.into()).collect())
+        .map_err(|errors| {
+            errors
+                .into_iter()
+                .map(|error| Error::from(error))
+                .collect::<Vec<Error>>()
+        })?;
+
+    Ok(AbstractTree::new(statements))
 }
 
 pub fn parser<'src>() -> impl Parser<

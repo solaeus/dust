@@ -15,6 +15,8 @@ pub mod r#type;
 pub mod value_node;
 pub mod r#while;
 
+use std::ops::Index;
+
 use chumsky::span::{SimpleSpan, Span};
 
 pub use self::{
@@ -38,7 +40,7 @@ pub use self::{
 
 use crate::{
     context::Context,
-    error::{RuntimeError, ValidationError},
+    error::{Error, RuntimeError, ValidationError},
     Value,
 };
 
@@ -63,7 +65,94 @@ impl From<(usize, usize)> for SourcePosition {
     }
 }
 
-pub trait AbstractTree: Sized {
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+pub enum Action {
+    Return(Value),
+    Break,
+    None,
+}
+
+pub struct AbstractTree(Vec<WithPosition<Statement>>);
+
+impl AbstractTree {
+    pub fn new(statements: Vec<WithPosition<Statement>>) -> Self {
+        AbstractTree(statements)
+    }
+
+    pub fn run(self, context: &Context) -> Result<Option<Value>, Vec<Error>> {
+        let mut valid_statements = Vec::with_capacity(self.0.len());
+        let mut errors = Vec::new();
+
+        for statement in self.0 {
+            let validation = statement.node.validate(context);
+
+            if let Statement::StructureDefinition(_) = statement.node {
+                match validation {
+                    Ok(_) => {
+                        let run_result = statement.node.run(context);
+
+                        match run_result {
+                            Ok(_) => {}
+                            Err(runtime_error) => {
+                                return Err(vec![Error::Runtime {
+                                    error: runtime_error,
+                                    position: statement.position,
+                                }]);
+                            }
+                        }
+                    }
+                    Err(validation_error) => errors.push(Error::Validation {
+                        error: validation_error,
+                        position: statement.position,
+                    }),
+                }
+            } else {
+                match validation {
+                    Ok(_) => valid_statements.push(statement),
+                    Err(validation_error) => errors.push(Error::Validation {
+                        error: validation_error,
+                        position: statement.position,
+                    }),
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
+        let mut previous = None;
+
+        for statement in valid_statements {
+            let run_result = statement.node.run(context);
+
+            match run_result {
+                Ok(action) => match action {
+                    Action::Return(value) => previous = Some(value),
+                    _ => {}
+                },
+                Err(runtime_error) => {
+                    return Err(vec![Error::Runtime {
+                        error: runtime_error,
+                        position: statement.position,
+                    }]);
+                }
+            }
+        }
+
+        Ok(previous)
+    }
+}
+
+impl Index<usize> for AbstractTree {
+    type Output = WithPosition<Statement>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+pub trait AbstractNode: Sized {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
     fn run(self, context: &Context) -> Result<Action, RuntimeError>;
@@ -74,11 +163,4 @@ pub trait AbstractTree: Sized {
             position: span.into(),
         }
     }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Action {
-    Return(Value),
-    Break,
-    None,
 }

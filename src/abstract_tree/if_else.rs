@@ -4,7 +4,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractTree, Action, Block, Expression, Type, WithPosition};
+use super::{AbstractNode, Action, Block, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
@@ -27,7 +27,7 @@ impl IfElse {
     }
 }
 
-impl AbstractTree for IfElse {
+impl AbstractNode for IfElse {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         self.if_block.expected_type(_context)
     }

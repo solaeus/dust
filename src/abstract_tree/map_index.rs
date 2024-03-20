@@ -4,7 +4,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractTree, Action, Expression, Type, ValueNode, WithPosition};
+use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MapIndex {
@@ -18,7 +18,7 @@ impl MapIndex {
     }
 }
 
-impl AbstractTree for MapIndex {
+impl AbstractNode for MapIndex {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         let left_type = self.left.node.expected_type(context)?;
 

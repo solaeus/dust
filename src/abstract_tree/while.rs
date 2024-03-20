@@ -5,7 +5,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Expression, Statement, Type, WithPosition};
+use super::{AbstractNode, Action, Expression, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct While {
@@ -25,7 +25,7 @@ impl While {
     }
 }
 
-impl AbstractTree for While {
+impl AbstractNode for While {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }

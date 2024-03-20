@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Statement, Type, WithPosition};
+use super::{AbstractNode, Action, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug)]
 pub struct Loop {
@@ -18,7 +18,7 @@ impl Loop {
     }
 }
 
-impl AbstractTree for Loop {
+impl AbstractNode for Loop {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }

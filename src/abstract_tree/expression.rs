@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    AbstractTree, Action, FunctionCall, Identifier, ListIndex, Logic, MapIndex, Math, Type,
+    AbstractNode, Action, FunctionCall, Identifier, ListIndex, Logic, MapIndex, Math, Type,
     ValueNode,
 };
 
@@ -19,7 +19,7 @@ pub enum Expression {
     Value(ValueNode),
 }
 
-impl AbstractTree for Expression {
+impl AbstractNode for Expression {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Expression::FunctionCall(function_call) => function_call.expected_type(_context),

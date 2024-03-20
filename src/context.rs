@@ -32,10 +32,8 @@ impl Context {
         let mut self_data = self.inner.write()?;
 
         for (identifier, value_data) in other.inner.read()?.iter() {
-            if let ValueData::Type(r#type) = value_data {
-                if let Type::Function { .. } = r#type {
-                    self_data.insert(identifier.clone(), value_data.clone());
-                }
+            if let ValueData::Type(Type::Function { .. }) = value_data {
+                self_data.insert(identifier.clone(), value_data.clone());
             }
         }
 

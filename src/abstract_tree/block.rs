@@ -3,7 +3,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Statement, Type, WithPosition};
+use super::{AbstractNode, Action, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Block {
@@ -20,7 +20,7 @@ impl Block {
     }
 }
 
-impl AbstractTree for Block {
+impl AbstractNode for Block {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         if let Some(statement) = self.statements.last() {
             statement.node.expected_type(_context)

@@ -3,7 +3,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractTree, Action, Expression, Type, ValueNode, WithPosition};
+use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ListIndex {
@@ -17,7 +17,7 @@ impl ListIndex {
     }
 }
 
-impl AbstractTree for ListIndex {
+impl AbstractNode for ListIndex {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         let left_type = self.left.node.expected_type(_context)?;
 

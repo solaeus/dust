@@ -4,7 +4,7 @@ use crate::{
 };
 
 use super::{
-    AbstractTree, Action, Assignment, Block, Expression, IfElse, Loop, StructureDefinition, Type,
+    AbstractNode, Action, Assignment, Block, Expression, IfElse, Loop, StructureDefinition, Type,
     While,
 };
 
@@ -20,7 +20,16 @@ pub enum Statement {
     While(While),
 }
 
-impl AbstractTree for Statement {
+impl Statement {
+    pub fn kind(&self) -> u8 {
+        match self {
+            Statement::StructureDefinition(_) => 0,
+            _ => 1,
+        }
+    }
+}
+
+impl AbstractNode for Statement {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.expected_type(_context),

@@ -15,7 +15,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractTree, Action, Block, Identifier, Type, WithPosition},
+    abstract_tree::{AbstractNode, Action, Block, Identifier, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
 };

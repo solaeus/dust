@@ -5,7 +5,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractTree, Action, Expression, Type, WithPosition};
+use super::{AbstractNode, Action, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Logic {
@@ -20,7 +20,7 @@ pub enum Logic {
     Not(WithPosition<Expression>),
 }
 
-impl AbstractTree for Logic {
+impl AbstractNode for Logic {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         Ok(Type::Boolean)
     }

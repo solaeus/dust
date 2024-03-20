@@ -6,7 +6,7 @@ use crate::{
     error::{RuntimeError, TypeConflict, ValidationError},
 };
 
-use super::{AbstractTree, Action, WithPosition};
+use super::{AbstractNode, Action, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
@@ -88,7 +88,7 @@ impl Type {
     }
 }
 
-impl AbstractTree for Type {
+impl AbstractNode for Type {
     fn expected_type(&self, _: &Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
