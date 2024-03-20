@@ -75,6 +75,20 @@ impl Type {
 
                 return Ok(());
             }
+            (
+                Type::Function {
+                    parameter_types: left_parameters,
+                    return_type: left_return,
+                },
+                Type::Function {
+                    parameter_types: right_parameters,
+                    return_type: right_return,
+                },
+            ) => {
+                if left_return == right_return && left_parameters == right_parameters {
+                    return Ok(());
+                }
+            }
             (Type::Named(left), Type::Named(right)) => {
                 if left == right {
                     return Ok(());
