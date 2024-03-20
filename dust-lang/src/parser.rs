@@ -34,6 +34,7 @@ pub fn parser<'src>() -> impl Parser<
     let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
     let _custom_types: Rc<RefCell<HashMap<Identifier, Type>>> =
         Rc::new(RefCell::new(HashMap::new()));
+    let custom_types = (_custom_types.clone(), _custom_types.clone());
 
     let identifier = select! {
         Token::Identifier(text) => {
@@ -63,7 +64,6 @@ pub fn parser<'src>() -> impl Parser<
     }
     .map_with(|value, state| Expression::Value(value).with_position(state.span()));
 
-    let custom_types = _custom_types.clone();
     let r#type = recursive(|r#type| {
         let function_type = r#type
             .clone()
@@ -111,6 +111,7 @@ pub fn parser<'src>() -> impl Parser<
             just(Token::Keyword("list")).to(Type::List),
             identifier.clone().try_map(move |identifier, span| {
                 custom_types
+                    .0
                     .borrow()
                     .get(&identifier)
                     .cloned()
@@ -124,7 +125,6 @@ pub fn parser<'src>() -> impl Parser<
 
     let type_specification = just(Token::Control(Control::Colon)).ignore_then(r#type.clone());
 
-    let custom_types = _custom_types.clone();
     let positioned_statement = recursive(|positioned_statement| {
         let block = positioned_statement
             .clone()
@@ -245,8 +245,8 @@ pub fn parser<'src>() -> impl Parser<
                             just(Token::Control(Control::ParenOpen)),
                             just(Token::Control(Control::ParenClose)),
                         ),
-                    |op, expression, span| {
-                        Expression::FunctionCall(FunctionCall::new(op, expression))
+                    |function_expression, arguments, span| {
+                        Expression::FunctionCall(FunctionCall::new(function_expression, arguments))
                             .with_position(span)
                     },
                 ),
@@ -479,7 +479,7 @@ pub fn parser<'src>() -> impl Parser<
                     fields,
                 };
 
-                custom_types.as_ref().borrow_mut().insert(name, r#type);
+                custom_types.1.borrow_mut().insert(name, r#type);
 
                 Statement::StructureDefinition(definition).with_position(state.span())
             });
