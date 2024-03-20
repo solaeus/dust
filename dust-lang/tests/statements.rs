@@ -1,6 +1,23 @@
 use dust_lang::*;
 
 #[test]
+fn async_block() {
+    assert_eq!(
+        interpret(
+            "
+                x = 41
+                async {
+                    x += 1
+                    5
+                }
+                x
+            "
+        ),
+        Ok(Some(Value::integer(42)))
+    )
+}
+
+#[test]
 fn loops_and_breaks() {
     assert_eq!(
         interpret(

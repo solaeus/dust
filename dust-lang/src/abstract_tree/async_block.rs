@@ -1,8 +1,10 @@
+use std::sync::RwLock;
+
 use rayon::prelude::*;
 
 use crate::{
     context::Context,
-    error::{RuntimeError, ValidationError},
+    error::{RuntimeError, RwLockPoisonError, ValidationError},
 };
 
 use super::{AbstractNode, Action, Statement, Type, WithPosition};
@@ -33,24 +35,32 @@ impl AbstractNode for AsyncBlock {
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let statement_count = self.statements.len();
+        let final_result = RwLock::new(Ok(Action::None));
 
         self.statements
             .into_par_iter()
             .enumerate()
-            .find_map_any(|(index, statement)| {
+            .find_map_first(|(index, statement)| {
                 let result = statement.node.run(_context);
 
-                match result {
-                    Ok(action) => {
-                        if index == statement_count - 1 {
-                            Some(Ok(action))
-                        } else {
+                if index == statement_count - 1 {
+                    let get_write_lock = final_result.write();
+
+                    match get_write_lock {
+                        Ok(mut final_result) => {
+                            *final_result = result;
                             None
                         }
+                        Err(_error) => Some(Err(RuntimeError::RwLockPoison(RwLockPoisonError))),
                     }
-                    Err(runtime_error) => Some(Err(runtime_error)),
+                } else {
+                    None
                 }
             })
-            .unwrap()
+            .unwrap_or(
+                final_result
+                    .into_inner()
+                    .map_err(|_| RuntimeError::RwLockPoison(RwLockPoisonError))?,
+            )
     }
 }
