@@ -4,13 +4,14 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Action, Assignment, Block, Expression, IfElse, Loop, StructureDefinition, Type,
-    While,
+    AbstractNode, Action, Assignment, AsyncBlock, Block, Expression, IfElse, Loop,
+    StructureDefinition, Type, While,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Statement {
     Assignment(Assignment),
+    AsyncBlock(AsyncBlock),
     Block(Block),
     Break,
     Expression(Expression),
@@ -33,6 +34,7 @@ impl AbstractNode for Statement {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.expected_type(_context),
+            Statement::AsyncBlock(async_block) => async_block.expected_type(_context),
             Statement::Block(block) => block.expected_type(_context),
             Statement::Break => Ok(Type::None),
             Statement::Expression(expression) => expression.expected_type(_context),
@@ -48,6 +50,7 @@ impl AbstractNode for Statement {
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.validate(_context),
+            Statement::AsyncBlock(async_block) => async_block.validate(_context),
             Statement::Block(block) => block.validate(_context),
             Statement::Break => Ok(()),
             Statement::Expression(expression) => expression.validate(_context),
@@ -63,6 +66,7 @@ impl AbstractNode for Statement {
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         match self {
             Statement::Assignment(assignment) => assignment.run(_context),
+            Statement::AsyncBlock(async_block) => async_block.run(_context),
             Statement::Block(block) => block.run(_context),
             Statement::Break => Ok(Action::Break),
             Statement::Expression(expression) => expression.run(_context),

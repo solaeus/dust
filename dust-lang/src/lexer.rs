@@ -19,6 +19,7 @@ pub enum Token<'src> {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Keyword {
     Any,
+    Async,
     Bool,
     Break,
     Else,
@@ -39,6 +40,7 @@ impl Display for Keyword {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Keyword::Any => write!(f, "any"),
+            Keyword::Async => write!(f, "async"),
             Keyword::Bool => write!(f, "bool"),
             Keyword::Break => write!(f, "break"),
             Keyword::Else => write!(f, "else"),
@@ -255,6 +257,7 @@ pub fn lexer<'src>() -> impl Parser<
 
     let keyword = choice((
         just("any").to(Keyword::Any),
+        just("async").to(Keyword::Async),
         just("bool").to(Keyword::Bool),
         just("break").to(Keyword::Break),
         just("else").to(Keyword::Else),

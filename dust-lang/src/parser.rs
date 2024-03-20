@@ -395,6 +395,21 @@ pub fn parser<'src>() -> impl Parser<
                     Statement::Expression(node).with_position(position)
                 });
 
+        let async_block = just(Token::Keyword(Keyword::Async))
+            .ignore_then(
+                positioned_statement
+                    .clone()
+                    .repeated()
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::CurlyOpen)),
+                        just(Token::Control(Control::CurlyClose)),
+                    ),
+            )
+            .map_with(|statements, state| {
+                Statement::AsyncBlock(AsyncBlock::new(statements)).with_position(state.span())
+            });
+
         let r#break = just(Token::Keyword(Keyword::Break))
             .map_with(|_, state| Statement::Break.with_position(state.span()));
 
@@ -485,6 +500,7 @@ pub fn parser<'src>() -> impl Parser<
             });
 
         choice((
+            async_block,
             structure_definition,
             if_else,
             assignment,
@@ -505,6 +521,32 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn async_block() {
+        assert_eq!(
+            parse(
+                &lex("
+                    async {
+                        1
+                        2
+                        3
+                    }
+                ")
+                .unwrap()
+            )
+            .unwrap()[0]
+                .node,
+            Statement::AsyncBlock(AsyncBlock::new(vec![
+                Statement::Expression(Expression::Value(ValueNode::Integer(1)))
+                    .with_position((53, 54)),
+                Statement::Expression(Expression::Value(ValueNode::Integer(2)))
+                    .with_position((79, 80)),
+                Statement::Expression(Expression::Value(ValueNode::Integer(3)))
+                    .with_position((105, 106)),
+            ]))
+        )
+    }
 
     #[test]
     fn structure_instance() {

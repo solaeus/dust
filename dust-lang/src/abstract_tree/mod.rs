@@ -1,4 +1,5 @@
 pub mod assignment;
+pub mod async_block;
 pub mod block;
 pub mod expression;
 pub mod function_call;
@@ -21,6 +22,7 @@ use chumsky::span::{SimpleSpan, Span};
 
 pub use self::{
     assignment::{Assignment, AssignmentOperator},
+    async_block::AsyncBlock,
     block::Block,
     expression::Expression,
     function_call::FunctionCall,

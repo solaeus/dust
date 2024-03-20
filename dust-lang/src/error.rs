@@ -247,6 +247,12 @@ impl From<RwLockPoisonError> for RuntimeError {
     }
 }
 
+impl<T> From<PoisonError<T>> for RuntimeError {
+    fn from(_: PoisonError<T>) -> Self {
+        RuntimeError::RwLockPoison(RwLockPoisonError)
+    }
+}
+
 impl From<ValidationError> for RuntimeError {
     fn from(error: ValidationError) -> Self {
         RuntimeError::ValidationFailure(error)
