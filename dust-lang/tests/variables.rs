@@ -31,7 +31,7 @@ fn set_variable_with_type_error() {
                     expected: Type::String
                 },
                 actual_position: (14, 18).into(),
-                expected_position: (8, 12).into()
+                expected_position: (8, 11).into()
             },
             position: (0, 18).into()
         }])
@@ -44,7 +44,7 @@ fn function_variable() {
         interpret("foobar = (x: int): int { x }; foobar"),
         Ok(Some(Value::function(
             vec![(Identifier::new("x"), Type::Integer.with_position((13, 16)))],
-            Type::Integer.with_position((19, 23)),
+            Type::Integer.with_position((19, 22)),
             Block::new(vec![Statement::Expression(Expression::Identifier(
                 Identifier::new("x")
             ))

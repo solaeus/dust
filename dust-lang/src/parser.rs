@@ -5,7 +5,7 @@ use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 use crate::{
     abstract_tree::*,
     error::Error,
-    lexer::{Control, Operator, Token},
+    lexer::{Control, Keyword, Operator, Token},
 };
 
 pub type ParserInput<'src> =
@@ -80,7 +80,7 @@ pub fn parser<'src>() -> impl Parser<
                 return_type: Box::new(return_type),
             });
 
-        let list_of = just(Token::Keyword("list"))
+        let list_of = just(Token::Keyword(Keyword::List))
             .ignore_then(r#type.clone().delimited_by(
                 just(Token::Control(Control::ParenOpen)),
                 just(Token::Control(Control::ParenClose)),
@@ -101,14 +101,14 @@ pub fn parser<'src>() -> impl Parser<
             function_type,
             list_of,
             list_exact,
-            just(Token::Keyword("any")).to(Type::Any),
-            just(Token::Keyword("bool")).to(Type::Boolean),
-            just(Token::Keyword("float")).to(Type::Float),
-            just(Token::Keyword("int")).to(Type::Integer),
-            just(Token::Keyword("none")).to(Type::None),
-            just(Token::Keyword("range")).to(Type::Range),
-            just(Token::Keyword("str")).to(Type::String),
-            just(Token::Keyword("list")).to(Type::List),
+            just(Token::Keyword(Keyword::Any)).to(Type::Any),
+            just(Token::Keyword(Keyword::Bool)).to(Type::Boolean),
+            just(Token::Keyword(Keyword::Float)).to(Type::Float),
+            just(Token::Keyword(Keyword::Int)).to(Type::Integer),
+            just(Token::Keyword(Keyword::None)).to(Type::None),
+            just(Token::Keyword(Keyword::Range)).to(Type::Range),
+            just(Token::Keyword(Keyword::Str)).to(Type::String),
+            just(Token::Keyword(Keyword::List)).to(Type::List),
             identifier.clone().try_map(move |identifier, span| {
                 custom_types
                     .0
@@ -395,7 +395,7 @@ pub fn parser<'src>() -> impl Parser<
                     Statement::Expression(node).with_position(position)
                 });
 
-        let r#break = just(Token::Keyword("break"))
+        let r#break = just(Token::Keyword(Keyword::Break))
             .map_with(|_, state| Statement::Break.with_position(state.span()));
 
         let assignment = positioned_identifier
@@ -422,14 +422,14 @@ pub fn parser<'src>() -> impl Parser<
             .at_least(1)
             .collect()
             .delimited_by(
-                just(Token::Keyword("loop")).then(just(Token::Control(Control::CurlyOpen))),
+                just(Token::Keyword(Keyword::Loop)).then(just(Token::Control(Control::CurlyOpen))),
                 just(Token::Control(Control::CurlyClose)),
             )
             .map_with(|statements, state| {
                 Statement::Loop(Loop::new(statements)).with_position(state.span())
             });
 
-        let r#while = just(Token::Keyword("while"))
+        let r#while = just(Token::Keyword(Keyword::While))
             .ignore_then(positioned_expression.clone())
             .then(
                 positioned_statement
@@ -445,11 +445,11 @@ pub fn parser<'src>() -> impl Parser<
                 Statement::While(While::new(expression, statements)).with_position(state.span())
             });
 
-        let if_else = just(Token::Keyword("if"))
+        let if_else = just(Token::Keyword(Keyword::If))
             .ignore_then(positioned_expression.clone())
             .then(block.clone())
             .then(
-                just(Token::Keyword("else"))
+                just(Token::Keyword(Keyword::Else))
                     .ignore_then(block.clone())
                     .or_not(),
             )
@@ -460,7 +460,7 @@ pub fn parser<'src>() -> impl Parser<
 
         let structure_field_definition = identifier.clone().then(type_specification.clone());
 
-        let structure_definition = just(Token::Keyword("struct"))
+        let structure_definition = just(Token::Keyword(Keyword::Struct))
             .ignore_then(identifier.clone())
             .then(
                 structure_field_definition
@@ -595,14 +595,14 @@ mod tests {
         assert_eq!(
             parse(&lex("while true { output('hi') }").unwrap()).unwrap()[0].node,
             Statement::While(While::new(
-                Expression::Value(ValueNode::Boolean(true)).with_position((6, 11)),
+                Expression::Value(ValueNode::Boolean(true)).with_position((6, 10)),
                 vec![
                     Statement::Expression(Expression::FunctionCall(FunctionCall::new(
                         Expression::Identifier(Identifier::new("output")).with_position((13, 19)),
                         vec![Expression::Value(ValueNode::String("hi".to_string()))
                             .with_position((20, 24))]
                     )))
-                    .with_position((13, 26))
+                    .with_position((13, 25))
                 ]
             ))
         )
@@ -614,7 +614,7 @@ mod tests {
             parse(&lex("foobar : bool = true").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(Type::Boolean.with_position((9, 14))),
+                Some(Type::Boolean.with_position((9, 13))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Boolean(true)))
                     .with_position((16, 20))
@@ -628,7 +628,7 @@ mod tests {
             parse(&lex("foobar: list = []").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(Type::List.with_position((8, 13))),
+                Some(Type::List.with_position((8, 12))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![])))
                     .with_position((15, 17))
@@ -642,7 +642,7 @@ mod tests {
             parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9, 20))),
+                Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9, 19))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
                     ValueNode::Boolean(true)
@@ -659,7 +659,7 @@ mod tests {
             parse(&lex("foobar : [bool, str] = [true, '42']").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(Type::ListExact(vec![Type::Boolean, Type::String]).with_position((9, 21))),
+                Some(Type::ListExact(vec![Type::Boolean, Type::String]).with_position((9, 20))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![
                     Expression::Value(ValueNode::Boolean(true)).with_position((24, 28)),
@@ -682,7 +682,7 @@ mod tests {
                         parameter_types: vec![],
                         return_type: Box::new(Type::Any)
                     }
-                    .with_position((9, 19))
+                    .with_position((9, 18))
                 ),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
@@ -716,7 +716,7 @@ mod tests {
             parse(&lex("(x: int) : int { x }").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::Function {
                 parameters: vec![(Identifier::new("x"), Type::Integer.with_position((4, 7)))],
-                return_type: Type::Integer.with_position((11, 15)),
+                return_type: Type::Integer.with_position((11, 14)),
                 body: Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x")
                 ),)
@@ -731,7 +731,7 @@ mod tests {
         assert_eq!(
             parse(&lex("if true { 'foo' }").unwrap()).unwrap()[0].node,
             Statement::IfElse(IfElse::new(
-                Expression::Value(ValueNode::Boolean(true)).with_position((3, 8)),
+                Expression::Value(ValueNode::Boolean(true)).with_position((3, 7)),
                 Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::String("foo".to_string())
                 ),)
@@ -746,7 +746,7 @@ mod tests {
         assert_eq!(
             parse(&lex("if true {'foo' } else { 'bar' }").unwrap()).unwrap()[0].node,
             Statement::IfElse(IfElse::new(
-                Expression::Value(ValueNode::Boolean(true)).with_position((3, 8)),
+                Expression::Value(ValueNode::Boolean(true)).with_position((3, 7)),
                 Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::String("foo".to_string())
                 ),)
@@ -829,7 +829,7 @@ mod tests {
                     Expression::Value(ValueNode::Integer(2)).with_position((14, 15))
                 )))
                 .with_position((10, 15)),
-                Block::new(vec![Statement::Break.with_position((18, 24))]),
+                Block::new(vec![Statement::Break.with_position((18, 23))]),
                 Some(Block::new(vec![Statement::Assignment(Assignment::new(
                     Identifier::new("i").with_position((33, 34)),
                     None,
@@ -839,7 +839,7 @@ mod tests {
                 ))
                 .with_position((33, 39))]))
             ),)
-            .with_position((7, 42))]))
+            .with_position((7, 41))]))
         );
     }
 
@@ -936,7 +936,7 @@ mod tests {
             parse(&lex("foobar: int = 1").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(Type::Integer.with_position((8, 12))),
+                Some(Type::Integer.with_position((8, 11))),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::Integer(1)))
                     .with_position((14, 15))
@@ -985,7 +985,7 @@ mod tests {
                     )))
                     .with_position((13, 19)),
                 )))
-                .with_position((0, 21)),
+                .with_position((0, 20)),
                 Expression::Value(ValueNode::Boolean(true)).with_position((24, 28))
             ))),)
         );

@@ -53,7 +53,7 @@ fn field_type_error() {
                 actual_position: (128, 134).into(),
                 expected_position: (56, 59).into()
             },
-            position: (96, 166).into()
+            position: (96, 153).into()
         }])
     )
 }
@@ -102,7 +102,7 @@ fn undefined_struct() {
         ),
         Err(vec![Error::Validation {
             error: error::ValidationError::TypeNotFound(Identifier::new("Foo")),
-            position: (17, 82).into()
+            position: (17, 69).into()
         }])
     )
 }

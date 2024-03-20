@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use chumsky::{prelude::*, text::whitespace};
+use chumsky::prelude::*;
 
 use crate::error::Error;
 
@@ -13,7 +13,48 @@ pub enum Token<'src> {
     Identifier(&'src str),
     Operator(Operator),
     Control(Control),
-    Keyword(&'src str),
+    Keyword(Keyword),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Keyword {
+    Any,
+    Bool,
+    Break,
+    Else,
+    Float,
+    Int,
+    If,
+    List,
+    Map,
+    None,
+    Range,
+    Struct,
+    Str,
+    Loop,
+    While,
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Keyword::Any => write!(f, "any"),
+            Keyword::Bool => write!(f, "bool"),
+            Keyword::Break => write!(f, "break"),
+            Keyword::Else => write!(f, "else"),
+            Keyword::Float => write!(f, "float"),
+            Keyword::Int => write!(f, "int"),
+            Keyword::If => write!(f, "if"),
+            Keyword::List => write!(f, "list"),
+            Keyword::Map => write!(f, "map"),
+            Keyword::None => write!(f, "none"),
+            Keyword::Range => write!(f, "range"),
+            Keyword::Struct => write!(f, "struct"),
+            Keyword::Str => write!(f, "str"),
+            Keyword::Loop => write!(f, "loop"),
+            Keyword::While => write!(f, "while"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -108,7 +149,7 @@ impl<'src> Display for Token<'src> {
             Token::Identifier(string) => write!(f, "{string}"),
             Token::Operator(operator) => write!(f, "{operator}"),
             Token::Control(control) => write!(f, "{control}"),
-            Token::Keyword(string) => write!(f, "{string}"),
+            Token::Keyword(keyword) => write!(f, "{keyword}"),
         }
     }
 }
@@ -127,8 +168,8 @@ pub fn lexer<'src>() -> impl Parser<
     extra::Err<Rich<'src, char, SimpleSpan<usize>>>,
 > {
     let boolean = choice((
-        just("true").padded().to(Token::Boolean(true)),
-        just("false").padded().to(Token::Boolean(false)),
+        just("true").to(Token::Boolean(true)),
+        just("false").to(Token::Boolean(false)),
     ));
 
     let float_numeric = just('-')
@@ -172,64 +213,63 @@ pub fn lexer<'src>() -> impl Parser<
 
     let operator = choice((
         // logic
-        just("&&").padded().to(Operator::And),
-        just("==").padded().to(Operator::Equal),
-        just("!=").padded().to(Operator::NotEqual),
-        just(">=").padded().to(Operator::GreaterOrEqual),
-        just("<=").padded().to(Operator::LessOrEqual),
-        just(">").padded().to(Operator::Greater),
-        just("<").padded().to(Operator::Less),
-        just("!").padded().to(Operator::Not),
-        just("!=").padded().to(Operator::NotEqual),
-        just("||").padded().to(Operator::Or),
+        just("&&").to(Operator::And),
+        just("==").to(Operator::Equal),
+        just("!=").to(Operator::NotEqual),
+        just(">=").to(Operator::GreaterOrEqual),
+        just("<=").to(Operator::LessOrEqual),
+        just(">").to(Operator::Greater),
+        just("<").to(Operator::Less),
+        just("!").to(Operator::Not),
+        just("!=").to(Operator::NotEqual),
+        just("||").to(Operator::Or),
         // assignment
-        just("=").padded().to(Operator::Assign),
-        just("+=").padded().to(Operator::AddAssign),
-        just("-=").padded().to(Operator::SubAssign),
+        just("=").to(Operator::Assign),
+        just("+=").to(Operator::AddAssign),
+        just("-=").to(Operator::SubAssign),
         // math
-        just("+").padded().to(Operator::Add),
-        just("-").padded().to(Operator::Subtract),
-        just("*").padded().to(Operator::Multiply),
-        just("/").padded().to(Operator::Divide),
-        just("%").padded().to(Operator::Modulo),
+        just("+").to(Operator::Add),
+        just("-").to(Operator::Subtract),
+        just("*").to(Operator::Multiply),
+        just("/").to(Operator::Divide),
+        just("%").to(Operator::Modulo),
     ))
     .map(Token::Operator);
 
     let control = choice((
-        just("->").padded().to(Control::Arrow),
-        just("{").padded().to(Control::CurlyOpen),
-        just("}").padded().to(Control::CurlyClose),
-        just("[").padded().to(Control::SquareOpen),
-        just("]").padded().to(Control::SquareClose),
-        just("(").padded().to(Control::ParenOpen),
-        just(")").padded().to(Control::ParenClose),
-        just(",").padded().to(Control::Comma),
-        just(";").padded().to(Control::Semicolon),
-        just("::").padded().to(Control::DoubleColon),
-        just(":").padded().to(Control::Colon),
-        just("..").padded().to(Control::DoubleDot),
-        just(".").padded().to(Control::Dot),
+        just("->").to(Control::Arrow),
+        just("{").to(Control::CurlyOpen),
+        just("}").to(Control::CurlyClose),
+        just("[").to(Control::SquareOpen),
+        just("]").to(Control::SquareClose),
+        just("(").to(Control::ParenOpen),
+        just(")").to(Control::ParenClose),
+        just(",").to(Control::Comma),
+        just(";").to(Control::Semicolon),
+        just("::").to(Control::DoubleColon),
+        just(":").to(Control::Colon),
+        just("..").to(Control::DoubleDot),
+        just(".").to(Control::Dot),
     ))
     .map(Token::Control);
 
     let keyword = choice((
-        just("any").padded(),
-        just("bool").padded(),
-        just("break").padded(),
-        just("else").padded(),
-        just("float").padded(),
-        just("int").padded(),
-        just("if").padded(),
-        just("list").padded(),
-        just("map").padded(),
-        just("none").padded(),
-        just("range").padded(),
-        just("struct").padded(),
-        just("str").padded(),
-        just("loop").padded(),
-        just("while").padded(),
+        just("any").to(Keyword::Any),
+        just("bool").to(Keyword::Bool),
+        just("break").to(Keyword::Break),
+        just("else").to(Keyword::Else),
+        just("float").to(Keyword::Float),
+        just("int").to(Keyword::Int),
+        just("if").to(Keyword::If),
+        just("list").to(Keyword::List),
+        just("map").to(Keyword::Map),
+        just("none").to(Keyword::None),
+        just("range").to(Keyword::Range),
+        just("struct").to(Keyword::Struct),
+        just("str").to(Keyword::Str),
+        just("loop").to(Keyword::Loop),
+        just("while").to(Keyword::While),
     ))
-    .delimited_by(whitespace(), whitespace())
     .map(Token::Keyword);
 
     choice((
@@ -263,7 +303,7 @@ mod tests {
             lex("1 + 1").unwrap(),
             vec![
                 (Token::Integer(1), (0..1).into()),
-                (Token::Operator(Operator::Add), (2..4).into()),
+                (Token::Operator(Operator::Add), (2..3).into()),
                 (Token::Integer(1), (4..5).into())
             ]
         )
@@ -271,7 +311,7 @@ mod tests {
 
     #[test]
     fn keywords() {
-        assert_eq!(lex("int").unwrap()[0].0, Token::Keyword("int"))
+        assert_eq!(lex("int").unwrap()[0].0, Token::Keyword(Keyword::Int))
     }
 
     #[test]
