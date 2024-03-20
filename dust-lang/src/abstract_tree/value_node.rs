@@ -258,7 +258,7 @@ impl PartialOrd for ValueNode {
 
 impl Ord for ValueNode {
     fn cmp(&self, other: &Self) -> Ordering {
-        use ValueNode::*;
+        use self::ValueNode::*;
 
         match (self, other) {
             (Boolean(left), Boolean(right)) => left.cmp(right),

@@ -1,6 +1,6 @@
-use std::{io, ops::Range, sync::PoisonError};
+use std::{io, sync::PoisonError};
 
-use ariadne::{Color, Fmt, Label, Report, ReportBuilder, ReportKind};
+use ariadne::{sources, Color, Fmt, Label, Report, ReportKind};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
@@ -29,7 +29,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn build_report<'a>(self) -> ReportBuilder<'a, (&'a str, Range<usize>)> {
+    pub fn build_report(self, source: &str) -> Vec<u8> {
         let (mut builder, validation_error, error_position) = match self {
             Error::Parse { expected, span } => {
                 let message = if expected.is_empty() {
@@ -184,7 +184,13 @@ impl Error {
             }
         }
 
+        let mut output = Vec::new();
+
         builder
+            .finish()
+            .write_for_stdout(sources([("input", source)]), &mut output);
+
+        output
     }
 }
 

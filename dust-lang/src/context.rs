@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeMap,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use crate::{
@@ -26,6 +26,12 @@ impl Context {
         Self {
             inner: Arc::new(RwLock::new(data)),
         }
+    }
+
+    pub fn inner(
+        &self,
+    ) -> Result<RwLockReadGuard<BTreeMap<Identifier, ValueData>>, RwLockPoisonError> {
+        Ok(self.inner.read()?)
     }
 
     pub fn inherit_types_from(&self, other: &Context) -> Result<(), RwLockPoisonError> {

@@ -1,0 +1,19 @@
+[package]
+name = "dust-lang"
+description = "Interpreter library for the Dust programming language"
+version = "0.5.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+
+[dependencies]
+ariadne = { version = "0.4.0", features = ["auto-color"] }
+chumsky = { version = "1.0.0-alpha.6", features = ["pratt", "label"] }
+clap = { version = "4.5.2", features = ["derive"] }
+colored = "2.1.0"
+env_logger = "0.11.3"
+log = "0.4.21"
+rand = "0.8.5"
+stanza = "0.5.1"

@@ -1,10 +1,14 @@
 //! Command line interface for the dust programming language.
+mod cli;
 
-use ariadne::sources;
 use clap::Parser;
+use cli::run_shell;
 use colored::Colorize;
 
-use std::{fs::read_to_string, io::Write};
+use std::{
+    fs::read_to_string,
+    io::{stderr, Write},
+};
 
 use dust_lang::{context::Context, Interpreter};
 
@@ -39,7 +43,7 @@ fn main() {
     } else if let Some(command) = args.command {
         command
     } else {
-        String::with_capacity(0)
+        return run_shell(context);
     };
 
     let mut interpreter = Interpreter::new(context);
@@ -54,11 +58,9 @@ fn main() {
         }
         Err(errors) => {
             for error in errors {
-                error
-                    .build_report()
-                    .finish()
-                    .eprint(sources([("input", &source)]))
-                    .unwrap()
+                let report = error.build_report(&source);
+
+                stderr().write_all(&report).unwrap();
             }
         }
     }

@@ -1,3 +1,5 @@
+extern crate chumsky;
+
 pub mod abstract_tree;
 pub mod context;
 pub mod error;
