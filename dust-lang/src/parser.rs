@@ -125,6 +125,32 @@ pub fn parser<'src>() -> impl Parser<
 
     let type_specification = just(Token::Control(Control::Colon)).ignore_then(r#type.clone());
 
+    let structure_field_definition = identifier.clone().then(type_specification.clone());
+
+    let structure_definition = just(Token::Keyword(Keyword::Struct))
+        .ignore_then(identifier.clone())
+        .then(
+            structure_field_definition
+                .separated_by(just(Token::Control(Control::Comma)))
+                .allow_trailing()
+                .collect::<Vec<(Identifier, WithPosition<Type>)>>()
+                .delimited_by(
+                    just(Token::Control(Control::CurlyOpen)),
+                    just(Token::Control(Control::CurlyClose)),
+                ),
+        )
+        .map_with(move |(name, fields), state| {
+            let definition = StructureDefinition::new(name.clone(), fields.clone());
+            let r#type = Type::Structure {
+                name: name.clone(),
+                fields,
+            };
+
+            custom_types.1.borrow_mut().insert(name, r#type);
+
+            Statement::StructureDefinition(definition).with_position(state.span())
+        });
+
     let positioned_statement = recursive(|positioned_statement| {
         let block = positioned_statement
             .clone()
@@ -471,32 +497,6 @@ pub fn parser<'src>() -> impl Parser<
             .map_with(|((if_expression, if_block), else_block), state| {
                 Statement::IfElse(IfElse::new(if_expression, if_block, else_block))
                     .with_position(state.span())
-            });
-
-        let structure_field_definition = identifier.clone().then(type_specification.clone());
-
-        let structure_definition = just(Token::Keyword(Keyword::Struct))
-            .ignore_then(identifier.clone())
-            .then(
-                structure_field_definition
-                    .separated_by(just(Token::Control(Control::Comma)))
-                    .allow_trailing()
-                    .collect::<Vec<(Identifier, WithPosition<Type>)>>()
-                    .delimited_by(
-                        just(Token::Control(Control::CurlyOpen)),
-                        just(Token::Control(Control::CurlyClose)),
-                    ),
-            )
-            .map_with(move |(name, fields), state| {
-                let definition = StructureDefinition::new(name.clone(), fields.clone());
-                let r#type = Type::Structure {
-                    name: name.clone(),
-                    fields,
-                };
-
-                custom_types.1.borrow_mut().insert(name, r#type);
-
-                Statement::StructureDefinition(definition).with_position(state.span())
             });
 
         choice((

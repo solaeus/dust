@@ -16,7 +16,7 @@ pub mod r#type;
 pub mod value_node;
 pub mod r#while;
 
-use std::ops::Index;
+use std::{cmp::Ordering, ops::Index};
 
 use chumsky::span::{SimpleSpan, Span};
 
@@ -77,44 +77,43 @@ pub enum Action {
 pub struct AbstractTree(Vec<WithPosition<Statement>>);
 
 impl AbstractTree {
-    pub fn new(statements: Vec<WithPosition<Statement>>) -> Self {
+    pub fn new(mut statements: Vec<WithPosition<Statement>>) -> Self {
+        statements.sort_by(|left, right| match (&left.node, &right.node) {
+            (Statement::StructureDefinition(_), _) => Ordering::Less,
+            (_, Statement::StructureDefinition(_)) => Ordering::Greater,
+            (_, _) => Ordering::Equal,
+        });
+
+        println!("{:?}", statements);
         AbstractTree(statements)
     }
 
     pub fn run(self, context: &Context) -> Result<Option<Value>, Vec<Error>> {
-        let mut valid_statements = Vec::with_capacity(self.0.len());
         let mut errors = Vec::new();
+        let mut valid_statements = Vec::new();
 
         for statement in self.0 {
             let validation = statement.node.validate(context);
 
-            if let Statement::StructureDefinition(_) = statement.node {
-                match validation {
-                    Ok(_) => {
-                        let run_result = statement.node.run(context);
+            if let Err(validation_error) = validation {
+                errors.push(Error::Validation {
+                    error: validation_error,
+                    position: statement.position,
+                })
+            } else if errors.is_empty() {
+                if let Statement::StructureDefinition(_) = statement.node {
+                    let run = statement.node.run(context);
 
-                        match run_result {
-                            Ok(_) => {}
-                            Err(runtime_error) => {
-                                return Err(vec![Error::Runtime {
-                                    error: runtime_error,
-                                    position: statement.position,
-                                }]);
-                            }
-                        }
+                    if let Err(runtime_error) = run {
+                        errors.push(Error::Runtime {
+                            error: runtime_error,
+                            position: statement.position,
+                        });
+
+                        return Err(errors);
                     }
-                    Err(validation_error) => errors.push(Error::Validation {
-                        error: validation_error,
-                        position: statement.position,
-                    }),
-                }
-            } else {
-                match validation {
-                    Ok(_) => valid_statements.push(statement),
-                    Err(validation_error) => errors.push(Error::Validation {
-                        error: validation_error,
-                        position: statement.position,
-                    }),
+                } else {
+                    valid_statements.push(statement)
                 }
             }
         }
@@ -123,26 +122,28 @@ impl AbstractTree {
             return Err(errors);
         }
 
-        let mut previous = None;
+        let mut previous_value = None;
 
         for statement in valid_statements {
-            let run_result = statement.node.run(context);
+            let run = statement.node.run(context);
 
-            match run_result {
+            match run {
                 Ok(action) => match action {
-                    Action::Return(value) => previous = Some(value),
+                    Action::Return(value) => previous_value = Some(value),
                     _ => {}
                 },
                 Err(runtime_error) => {
-                    return Err(vec![Error::Runtime {
+                    errors.push(Error::Runtime {
                         error: runtime_error,
                         position: statement.position,
-                    }]);
+                    });
+
+                    return Err(errors);
                 }
             }
         }
 
-        Ok(previous)
+        Ok(previous_value)
     }
 }
 
