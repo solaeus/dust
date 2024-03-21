@@ -89,6 +89,33 @@ impl AbstractTree {
     }
 
     pub fn run(self, context: &Context) -> Result<Option<Value>, Vec<Error>> {
+        let valid_statements = self.run_type_definitions(context)?;
+        let mut previous_value = None;
+
+        for statement in valid_statements {
+            let run = statement.node.run(context);
+
+            match run {
+                Ok(action) => match action {
+                    Action::Return(value) => previous_value = Some(value),
+                    _ => {}
+                },
+                Err(runtime_error) => {
+                    return Err(vec![Error::Runtime {
+                        error: runtime_error,
+                        position: statement.position,
+                    }]);
+                }
+            }
+        }
+
+        Ok(previous_value)
+    }
+
+    fn run_type_definitions(
+        self,
+        context: &Context,
+    ) -> Result<Vec<WithPosition<Statement>>, Vec<Error>> {
         let mut errors = Vec::new();
         let mut valid_statements = Vec::new();
 
@@ -118,32 +145,11 @@ impl AbstractTree {
             }
         }
 
-        if !errors.is_empty() {
-            return Err(errors);
+        if errors.is_empty() {
+            Ok(valid_statements)
+        } else {
+            Err(errors)
         }
-
-        let mut previous_value = None;
-
-        for statement in valid_statements {
-            let run = statement.node.run(context);
-
-            match run {
-                Ok(action) => match action {
-                    Action::Return(value) => previous_value = Some(value),
-                    _ => {}
-                },
-                Err(runtime_error) => {
-                    errors.push(Error::Runtime {
-                        error: runtime_error,
-                        position: statement.position,
-                    });
-
-                    return Err(errors);
-                }
-            }
-        }
-
-        Ok(previous_value)
     }
 }
 
