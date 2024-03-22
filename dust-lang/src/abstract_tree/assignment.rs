@@ -103,11 +103,6 @@ impl AbstractNode for Assignment {
 
                             Value::float(sum)
                         }
-                        (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
-                            return Err(RuntimeError::ValidationFailure(
-                                ValidationError::ExpectedIntegerOrFloat(self.statement.position),
-                            ))
-                        }
                         _ => {
                             return Err(RuntimeError::ValidationFailure(
                                 ValidationError::ExpectedIntegerOrFloat(self.identifier.position),
@@ -143,11 +138,6 @@ impl AbstractNode for Assignment {
                             let difference = *left as f64 - right;
 
                             Value::float(difference)
-                        }
-                        (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
-                            return Err(RuntimeError::ValidationFailure(
-                                ValidationError::ExpectedIntegerOrFloat(self.statement.position),
-                            ))
                         }
                         _ => {
                             return Err(RuntimeError::ValidationFailure(
