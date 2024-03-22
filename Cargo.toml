@@ -1,5 +1,6 @@
 [workspace]
 members = ["dust-lang", "dust-shell"]
+default-members = ["dust-lang"]
 resolver = "2"
 
 [workspace.package]
