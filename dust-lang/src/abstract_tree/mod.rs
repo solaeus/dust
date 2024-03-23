@@ -84,7 +84,6 @@ impl AbstractTree {
             (_, _) => Ordering::Equal,
         });
 
-        println!("{:?}", statements);
         AbstractTree(statements)
     }
 

@@ -10,7 +10,7 @@ use std::{
     io::{stderr, Write},
 };
 
-use dust_lang::{context::Context, Interpreter};
+use dust_lang::{context::Context, interpret};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -46,9 +46,7 @@ fn main() {
         return run_shell(context);
     };
 
-    let mut interpreter = Interpreter::new(context);
-
-    let eval_result = interpreter.run(&source);
+    let eval_result = interpret(&source);
 
     match eval_result {
         Ok(value) => {

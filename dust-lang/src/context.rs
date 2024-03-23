@@ -6,7 +6,6 @@ use std::{
 use crate::{
     abstract_tree::{Identifier, Type},
     error::{RwLockPoisonError, ValidationError},
-    value::{BUILT_IN_FUNCTIONS, BUILT_IN_MODULES},
     Value,
 };
 
@@ -60,18 +59,6 @@ impl Context {
         if self.inner.read()?.contains_key(identifier) {
             Ok(true)
         } else {
-            for module in BUILT_IN_MODULES {
-                if identifier.as_str() == module.name() {
-                    return Ok(true);
-                }
-            }
-
-            for function in BUILT_IN_FUNCTIONS {
-                if identifier.as_str() == function.name() {
-                    return Ok(true);
-                }
-            }
-
             Ok(false)
         }
     }
@@ -83,40 +70,16 @@ impl Context {
                 ValueData::Value(value) => value.r#type(self)?,
             };
 
-            return Ok(Some(r#type.clone()));
+            Ok(Some(r#type.clone()))
+        } else {
+            Ok(None)
         }
-
-        for module in BUILT_IN_MODULES {
-            if identifier.as_str() == module.name() {
-                return Ok(Some(module.r#type()));
-            }
-        }
-
-        for function in BUILT_IN_MODULES {
-            if identifier.as_str() == function.name() {
-                return Ok(Some(function.r#type()));
-            }
-        }
-
-        Ok(None)
     }
 
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
         if let Some(ValueData::Value(value)) = self.inner.read()?.get(identifier) {
             Ok(Some(value.clone()))
         } else {
-            for module in BUILT_IN_MODULES {
-                if identifier.as_str() == module.name() {
-                    return Ok(Some(module.value()));
-                }
-            }
-
-            for function in BUILT_IN_MODULES {
-                if identifier.as_str() == function.name() {
-                    return Ok(Some(function.value()));
-                }
-            }
-
             Ok(None)
         }
     }

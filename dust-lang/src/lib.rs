@@ -1,10 +1,13 @@
 pub mod abstract_tree;
+pub mod built_in_functions;
 pub mod context;
 pub mod error;
 pub mod lexer;
 pub mod parser;
 pub mod value;
 
+use abstract_tree::Identifier;
+use built_in_functions::BUILT_IN_FUNCTIONS;
 use context::Context;
 use error::Error;
 use lexer::lex;
@@ -13,8 +16,16 @@ pub use value::Value;
 
 pub fn interpret(source: &str) -> Result<Option<Value>, Vec<Error>> {
     let context = Context::new();
+
+    for function in BUILT_IN_FUNCTIONS {
+        context
+            .set_value(Identifier::new(function.name()), function.as_value())
+            .unwrap();
+    }
+
     let mut interpreter = Interpreter::new(context);
 
+    interpreter.run(include_str!("../../std/io.ds"))?;
     interpreter.run(source)
 }
 

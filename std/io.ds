@@ -1,0 +1,9 @@
+io = {
+	read_line = () : str {
+		read_line()
+	}
+
+	write_line = (output: str) : none {
+		write_line(output)
+	}
+}

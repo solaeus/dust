@@ -2,14 +2,10 @@ use std::{
     cmp::Ordering,
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
-    io::stdin,
     ops::Range,
-    sync::{Arc, OnceLock},
-    thread,
-    time::Duration,
+    sync::Arc,
 };
 
-use rand::{thread_rng, Rng};
 use stanza::{
     renderer::{console::Console, Renderer},
     style::{HAlign, MinWidth, Styles},
@@ -18,6 +14,7 @@ use stanza::{
 
 use crate::{
     abstract_tree::{AbstractNode, Action, Block, Identifier, Type, WithPosition},
+    built_in_functions::BuiltInFunction,
     context::Context,
     error::{RuntimeError, ValidationError},
 };
@@ -225,7 +222,9 @@ impl ValueInner {
                         .collect(),
                     return_type: Box::new(parsed_function.return_type.node.clone()),
                 },
-                Function::BuiltIn(built_in_function) => built_in_function.r#type(),
+                Function::BuiltIn(built_in_function) => {
+                    (*built_in_function).as_value().r#type(context)?
+                }
             },
             ValueInner::Structure { name, .. } => {
                 if let Some(r#type) = context.get_type(name)? {
@@ -330,227 +329,4 @@ pub struct ParsedFunction {
     parameters: Vec<(Identifier, WithPosition<Type>)>,
     return_type: WithPosition<Type>,
     body: WithPosition<Block>,
-}
-
-static INT_PARSE: OnceLock<Value> = OnceLock::new();
-static INT_RANDOM_RANGE: OnceLock<Value> = OnceLock::new();
-static READ_LINE: OnceLock<Value> = OnceLock::new();
-static WRITE_LINE: OnceLock<Value> = OnceLock::new();
-static SLEEP: OnceLock<Value> = OnceLock::new();
-
-pub const BUILT_IN_FUNCTIONS: [BuiltInFunction; 5] = [
-    BuiltInFunction::IntParse,
-    BuiltInFunction::IntRandomRange,
-    BuiltInFunction::ReadLine,
-    BuiltInFunction::WriteLine,
-    BuiltInFunction::Sleep,
-];
-
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum BuiltInFunction {
-    IntParse,
-    IntRandomRange,
-    ReadLine,
-    WriteLine,
-    Sleep,
-}
-
-impl BuiltInFunction {
-    pub fn name(&self) -> &'static str {
-        match self {
-            BuiltInFunction::IntParse => "parse",
-            BuiltInFunction::IntRandomRange => "random_range",
-            BuiltInFunction::ReadLine => "read_line",
-            BuiltInFunction::WriteLine => "write_line",
-            BuiltInFunction::Sleep => "sleep",
-        }
-    }
-
-    pub fn value(&self) -> Value {
-        match self {
-            BuiltInFunction::IntParse => {
-                INT_PARSE.get_or_init(|| Value::built_in_function(BuiltInFunction::IntParse))
-            }
-            BuiltInFunction::IntRandomRange => INT_RANDOM_RANGE
-                .get_or_init(|| Value::built_in_function(BuiltInFunction::IntRandomRange)),
-            BuiltInFunction::ReadLine => {
-                READ_LINE.get_or_init(|| Value::built_in_function(BuiltInFunction::ReadLine))
-            }
-            BuiltInFunction::WriteLine => {
-                WRITE_LINE.get_or_init(|| Value::built_in_function(BuiltInFunction::WriteLine))
-            }
-            BuiltInFunction::Sleep => {
-                SLEEP.get_or_init(|| Value::built_in_function(BuiltInFunction::Sleep))
-            }
-        }
-        .clone()
-    }
-
-    pub fn r#type(&self) -> Type {
-        match self {
-            BuiltInFunction::IntParse => Type::Function {
-                parameter_types: vec![Type::String],
-                return_type: Box::new(Type::Integer),
-            },
-            BuiltInFunction::IntRandomRange => Type::Function {
-                parameter_types: vec![Type::Range],
-                return_type: Box::new(Type::Integer),
-            },
-            BuiltInFunction::ReadLine => Type::Function {
-                parameter_types: Vec::with_capacity(0),
-                return_type: Box::new(Type::String),
-            },
-            BuiltInFunction::WriteLine => Type::Function {
-                parameter_types: vec![Type::Any],
-                return_type: Box::new(Type::None),
-            },
-            BuiltInFunction::Sleep => Type::Function {
-                parameter_types: vec![Type::Integer],
-                return_type: Box::new(Type::None),
-            },
-        }
-    }
-
-    pub fn call(&self, arguments: Vec<Value>, context: &Context) -> Result<Action, RuntimeError> {
-        match self {
-            BuiltInFunction::IntParse => {
-                let string = arguments.get(0).unwrap();
-
-                if let ValueInner::String(_string) = string.inner().as_ref() {
-                    // let integer = string.parse();
-
-                    todo!()
-
-                    // Ok(Action::Return(Value::integer(integer)))
-                } else {
-                    let mut actual = Vec::with_capacity(arguments.len());
-
-                    for value in arguments {
-                        let r#type = value.r#type(context)?;
-
-                        actual.push(r#type);
-                    }
-
-                    Err(RuntimeError::ValidationFailure(
-                        ValidationError::WrongArguments {
-                            expected: vec![Type::String],
-                            actual,
-                        },
-                    ))
-                }
-            }
-            BuiltInFunction::IntRandomRange => {
-                let range = arguments.get(0).unwrap();
-
-                if let ValueInner::Range(range) = range.inner().as_ref() {
-                    let random = thread_rng().gen_range(range.clone());
-
-                    Ok(Action::Return(Value::integer(random)))
-                } else {
-                    panic!("Built-in function cannot have a non-function type.")
-                }
-            }
-            BuiltInFunction::ReadLine => {
-                let mut input = String::new();
-
-                stdin().read_line(&mut input)?;
-
-                Ok(Action::Return(Value::string(input)))
-            }
-            BuiltInFunction::WriteLine => {
-                println!("{}", arguments[0]);
-
-                Ok(Action::None)
-            }
-            BuiltInFunction::Sleep => {
-                if let ValueInner::Integer(milliseconds) = arguments[0].inner().as_ref() {
-                    thread::sleep(Duration::from_millis(*milliseconds as u64));
-                }
-
-                Ok(Action::None)
-            }
-        }
-    }
-}
-
-impl Display for BuiltInFunction {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            BuiltInFunction::IntParse => write!(f, "(input : int) : str {{ *MAGIC* }}"),
-            BuiltInFunction::IntRandomRange => write!(f, "(input: range) : int {{ *MAGIC* }}"),
-            BuiltInFunction::ReadLine => write!(f, "() : str {{ *MAGIC* }}"),
-            BuiltInFunction::WriteLine => write!(f, "(to_output : any) : none {{ *MAGIC* }}"),
-            BuiltInFunction::Sleep => write!(f, "(milliseconds : int) : none {{ *MAGIC* }}"),
-        }
-    }
-}
-
-static INT: OnceLock<Value> = OnceLock::new();
-static IO: OnceLock<Value> = OnceLock::new();
-static THREAD: OnceLock<Value> = OnceLock::new();
-
-pub const BUILT_IN_MODULES: [BuiltInModule; 3] =
-    [BuiltInModule::Int, BuiltInModule::Io, BuiltInModule::Thread];
-
-pub enum BuiltInModule {
-    Int,
-    Io,
-    Thread,
-}
-
-impl BuiltInModule {
-    pub fn name(&self) -> &'static str {
-        match self {
-            BuiltInModule::Int => "int",
-            BuiltInModule::Io => "io",
-            BuiltInModule::Thread => "thread",
-        }
-    }
-
-    pub fn value(self) -> Value {
-        match self {
-            BuiltInModule::Int => {
-                let mut properties = BTreeMap::new();
-
-                properties.insert(
-                    Identifier::new("parse"),
-                    Value::built_in_function(BuiltInFunction::IntParse),
-                );
-                properties.insert(
-                    Identifier::new("random_range"),
-                    Value::built_in_function(BuiltInFunction::IntRandomRange),
-                );
-
-                INT.get_or_init(|| Value::map(properties)).clone()
-            }
-            BuiltInModule::Io => {
-                let mut properties = BTreeMap::new();
-
-                properties.insert(
-                    Identifier::new("read_line"),
-                    Value::built_in_function(BuiltInFunction::ReadLine),
-                );
-                properties.insert(
-                    Identifier::new("write_line"),
-                    Value::built_in_function(BuiltInFunction::WriteLine),
-                );
-
-                IO.get_or_init(|| Value::map(properties)).clone()
-            }
-            BuiltInModule::Thread => {
-                let mut properties = BTreeMap::new();
-
-                properties.insert(
-                    Identifier::new("sleep"),
-                    Value::built_in_function(BuiltInFunction::Sleep),
-                );
-
-                THREAD.get_or_init(|| Value::map(properties)).clone()
-            }
-        }
-    }
-
-    pub fn r#type(self) -> Type {
-        Type::Map
-    }
 }

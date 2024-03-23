@@ -20,8 +20,6 @@ impl MapIndex {
 
 impl AbstractNode for MapIndex {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
-        let left_type = self.left.node.expected_type(context)?;
-
         if let (
             Expression::Identifier(collection_identifier),
             Expression::Identifier(index_identifier),
@@ -72,7 +70,7 @@ impl AbstractNode for MapIndex {
         }
 
         Err(ValidationError::CannotIndexWith {
-            collection_type: left_type,
+            collection_type: self.left.node.expected_type(context)?,
             collection_position: self.left.position,
             index_type: self.right.node.expected_type(context)?,
             index_position: self.right.position,
