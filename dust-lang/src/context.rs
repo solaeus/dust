@@ -1,13 +1,38 @@
 use std::{
     collections::BTreeMap,
-    sync::{Arc, RwLock, RwLockReadGuard},
+    sync::{Arc, OnceLock, RwLock, RwLockReadGuard},
 };
 
 use crate::{
     abstract_tree::{Identifier, Type},
+    built_in_functions::BUILT_IN_FUNCTIONS,
     error::{RwLockPoisonError, ValidationError},
-    Value,
+    Interpreter, Value,
 };
+
+static STD_CONTEXT: OnceLock<Context> = OnceLock::new();
+
+pub fn std_context<'a>() -> &'a Context {
+    STD_CONTEXT.get_or_init(|| {
+        let mut data = BTreeMap::new();
+
+        for function in BUILT_IN_FUNCTIONS {
+            data.insert(
+                Identifier::new(function.name()),
+                ValueData::Value(function.as_value()),
+            );
+        }
+
+        let context = Context::with_data(data);
+        let mut interpreter = Interpreter::new(context.clone());
+
+        interpreter.run(include_str!("../../std/io.ds")).unwrap();
+
+        context.remove(&Identifier::new("write_line")).unwrap();
+
+        context
+    })
+}
 
 #[derive(Clone, Debug)]
 pub struct Context {
@@ -98,6 +123,12 @@ impl Context {
         inner.insert(identifier, ValueData::Value(value));
 
         Ok(())
+    }
+
+    pub fn remove(&self, identifier: &Identifier) -> Result<Option<ValueData>, RwLockPoisonError> {
+        let removed = self.inner.write()?.remove(identifier);
+
+        Ok(removed)
     }
 }
 

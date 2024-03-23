@@ -6,26 +6,15 @@ pub mod lexer;
 pub mod parser;
 pub mod value;
 
-use abstract_tree::Identifier;
-use built_in_functions::BUILT_IN_FUNCTIONS;
-use context::Context;
+use context::{std_context, Context};
 use error::Error;
 use lexer::lex;
 use parser::parse;
 pub use value::Value;
 
 pub fn interpret(source: &str) -> Result<Option<Value>, Vec<Error>> {
-    let context = Context::new();
+    let mut interpreter = Interpreter::new(std_context().clone());
 
-    for function in BUILT_IN_FUNCTIONS {
-        context
-            .set_value(Identifier::new(function.name()), function.as_value())
-            .unwrap();
-    }
-
-    let mut interpreter = Interpreter::new(context);
-
-    interpreter.run(include_str!("../../std/io.ds"))?;
     interpreter.run(source)
 }
 

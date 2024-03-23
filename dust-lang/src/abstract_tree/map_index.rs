@@ -111,6 +111,8 @@ impl AbstractNode for MapIndex {
         if let (ValueInner::Map(map), Expression::Identifier(identifier)) =
             (collection.inner().as_ref(), &self.right.node)
         {
+            println!("{map:?} {identifier}");
+
             let action = map
                 .get(identifier)
                 .map(|value| Action::Return(value.clone()))
