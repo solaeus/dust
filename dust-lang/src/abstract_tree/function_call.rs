@@ -39,6 +39,10 @@ impl AbstractNode for FunctionCall {
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+        for expression in &self.arguments {
+            expression.node.validate(_context)?;
+        }
+
         let function_node_type = self.function.node.expected_type(_context)?;
 
         if let Type::Function { .. } = function_node_type {

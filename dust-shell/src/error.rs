@@ -1,12 +1,23 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
-use dust_lang::error::{Error as DustError, RuntimeError, TypeConflict, ValidationError};
-use std::{fmt::Debug, io, ops::Range, path::Path, rc::Rc};
+use clap::error;
+use dust_lang::{
+    abstract_tree::Type,
+    error::{Error as DustError, RuntimeError, TypeConflict, ValidationError},
+};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    io,
+    ops::Range,
+    path::Path,
+    rc::Rc,
+};
 
 #[derive(Debug)]
 pub enum Error {
     Dust {
         errors: Vec<dust_lang::error::Error>,
     },
+    Io(io::Error),
 }
 
 impl Error {
@@ -203,6 +214,20 @@ impl Error {
                         ValidationError::ExpectedValue(_) => todo!(),
                         ValidationError::PropertyNotFound { .. } => todo!(),
                         ValidationError::WrongArguments { .. } => todo!(),
+                        ValidationError::ExpectedIntegerFloatOrString { actual, position } => {
+                            builder = builder.with_message(format!(
+                                "Expected an {}, {} or {}.",
+                                Type::Integer.fg(type_color),
+                                Type::Float.fg(type_color),
+                                Type::String.fg(type_color)
+                            ));
+
+                            builder.add_labels([Label::new((
+                                source_id.clone(),
+                                position.0..position.1,
+                            ))
+                            .with_message(format!("This has type {}.", actual.fg(type_color),))])
+                        }
                     }
                 }
                 let report = builder.finish();

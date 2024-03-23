@@ -3,6 +3,7 @@ use std::{
     io::{stderr, Write},
     path::PathBuf,
     process::Command,
+    rc::Rc,
 };
 
 use ariadne::sources;
@@ -16,6 +17,8 @@ use reedline::{
     KeyModifiers, MenuBuilder, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span,
     SqliteBackedHistory, Suggestion,
 };
+
+use crate::error::Error;
 
 pub fn run_shell(context: Context) {
     let mut interpreter = Interpreter::new(context.clone());
@@ -87,11 +90,14 @@ pub fn run_shell(context: Context) {
                     }
                     Ok(None) => {}
                     Err(errors) => {
-                        for error in errors {
-                            let report = error.build_report(&"input").unwrap();
+                        let source_id = Rc::new("input".to_string());
+                        let reports = Error::Dust { errors }
+                            .build_reports(source_id.clone(), &buffer)
+                            .unwrap();
 
+                        for report in reports {
                             report
-                                .write_for_stdout(sources([(&"input", buffer.clone())]), stderr())
+                                .write_for_stdout(sources([(source_id.clone(), &buffer)]), stderr())
                                 .unwrap();
                         }
                     }

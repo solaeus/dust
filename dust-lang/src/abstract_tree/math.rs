@@ -19,18 +19,50 @@ pub enum Math {
 impl AbstractNode for Math {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
-            Math::Add(left, _)
-            | Math::Subtract(left, _)
-            | Math::Multiply(left, _)
-            | Math::Divide(left, _)
-            | Math::Modulo(left, _) => left.node.expected_type(_context),
+            Math::Add(left, right)
+            | Math::Subtract(left, right)
+            | Math::Multiply(left, right)
+            | Math::Divide(left, right)
+            | Math::Modulo(left, right) => {
+                let left_type = left.node.expected_type(_context)?;
+                let right_type = right.node.expected_type(_context)?;
+
+                if let Type::Float = left_type {
+                    return Ok(Type::Float);
+                }
+
+                if let Type::Float = right_type {
+                    return Ok(Type::Float);
+                }
+
+                Ok(left_type)
+            }
         }
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
         match self {
-            Math::Add(left, right)
-            | Math::Subtract(left, right)
+            Math::Add(left, right) => {
+                let left_type = left.node.expected_type(context)?;
+                let right_type = right.node.expected_type(context)?;
+
+                if let Type::Integer | Type::Float | Type::String = left_type {
+                    if let Type::Integer | Type::Float | Type::String = right_type {
+                        Ok(())
+                    } else {
+                        Err(ValidationError::ExpectedIntegerFloatOrString {
+                            actual: right_type,
+                            position: right.position,
+                        })
+                    }
+                } else {
+                    Err(ValidationError::ExpectedIntegerFloatOrString {
+                        actual: left_type,
+                        position: left.position,
+                    })
+                }
+            }
+            Math::Subtract(left, right)
             | Math::Multiply(left, right)
             | Math::Divide(left, right)
             | Math::Modulo(left, right) => {
@@ -90,6 +122,13 @@ impl AbstractNode for Math {
                         let sum = *left as f64 + right;
 
                         Value::float(sum)
+                    }
+                    (ValueInner::String(left), ValueInner::String(right)) => {
+                        let mut concatenated = String::with_capacity(left.len() + right.len());
+
+                        concatenated.extend(left.chars().chain(right.chars()));
+
+                        Value::string(concatenated)
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(

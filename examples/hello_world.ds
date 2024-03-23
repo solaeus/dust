@@ -1,1 +1,6 @@
 io.write_line("Hello, world!")
+io.write_line("Enter your name...")
+
+message = io.read_line()
+
+io.write_line("Hello " + message + "!")
