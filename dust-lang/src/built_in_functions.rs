@@ -1,6 +1,5 @@
-use core::fmt;
 use std::{
-    fmt::{Display, Formatter},
+    fmt::{self, Display, Formatter},
     io::stdin,
     thread,
     time::Duration,
@@ -9,48 +8,46 @@ use std::{
 use rand::{thread_rng, Rng};
 
 use crate::{
-    abstract_tree::{Action, Type},
+    abstract_tree::{Action, Identifier, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
     value::ValueInner,
     Value,
 };
 
-pub const BUILT_IN_FUNCTIONS: [BuiltInFunction; 5] = [
-    BuiltInFunction::IntParse,
-    BuiltInFunction::IntRandomRange,
-    BuiltInFunction::ReadLine,
-    BuiltInFunction::WriteLine,
-    BuiltInFunction::Sleep,
-];
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum BuiltInFunction {
-    IntParse,
-    IntRandomRange,
-    ReadLine,
-    WriteLine,
-    Sleep,
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub struct BuiltInFunction {
+    name: WithPosition<Identifier>,
 }
 
 impl BuiltInFunction {
-    pub fn name(&self) -> &'static str {
-        match self {
-            BuiltInFunction::IntParse => "parse",
-            BuiltInFunction::IntRandomRange => "random_range",
-            BuiltInFunction::ReadLine => "read_line",
-            BuiltInFunction::WriteLine => "write_line",
-            BuiltInFunction::Sleep => "sleep",
-        }
+    pub fn new(name: WithPosition<Identifier>) -> Self {
+        Self { name }
+    }
+
+    pub fn name(&self) -> &Identifier {
+        &self.name.node
     }
 
     pub fn as_value(self) -> Value {
         Value::built_in_function(self)
     }
 
+    pub fn r#type(&self) -> Type {
+        match self.name.node.as_str() {
+            "WRITE_LINE" => Type::Function {
+                parameter_types: vec![Type::String],
+                return_type: Box::new(Type::None),
+            },
+            _ => {
+                todo!()
+            }
+        }
+    }
+
     pub fn call(&self, arguments: Vec<Value>, context: &Context) -> Result<Action, RuntimeError> {
-        match self {
-            BuiltInFunction::IntParse => {
+        match self.name.node.as_str() {
+            "INT_PARSE" => {
                 let string = arguments.get(0).unwrap();
 
                 if let ValueInner::String(_string) = string.inner().as_ref() {
@@ -76,7 +73,7 @@ impl BuiltInFunction {
                     ))
                 }
             }
-            BuiltInFunction::IntRandomRange => {
+            "INT_RANDOM_RANGE" => {
                 let range = arguments.get(0).unwrap();
 
                 if let ValueInner::Range(range) = range.inner().as_ref() {
@@ -87,24 +84,27 @@ impl BuiltInFunction {
                     panic!("Built-in function cannot have a non-function type.")
                 }
             }
-            BuiltInFunction::ReadLine => {
+            "READ_LINE" => {
                 let mut input = String::new();
 
                 stdin().read_line(&mut input)?;
 
                 Ok(Action::Return(Value::string(input)))
             }
-            BuiltInFunction::WriteLine => {
+            "WRITE_LINE" => {
                 println!("{}", arguments[0]);
 
                 Ok(Action::None)
             }
-            BuiltInFunction::Sleep => {
+            "SLEEP" => {
                 if let ValueInner::Integer(milliseconds) = arguments[0].inner().as_ref() {
                     thread::sleep(Duration::from_millis(*milliseconds as u64));
                 }
 
                 Ok(Action::None)
+            }
+            _ => {
+                todo!()
             }
         }
     }
@@ -112,12 +112,6 @@ impl BuiltInFunction {
 
 impl Display for BuiltInFunction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            BuiltInFunction::IntParse => write!(f, "(input : int) : str {{ *MAGIC* }}"),
-            BuiltInFunction::IntRandomRange => write!(f, "(input: range) : int {{ *MAGIC* }}"),
-            BuiltInFunction::ReadLine => write!(f, "() : str {{ *MAGIC* }}"),
-            BuiltInFunction::WriteLine => write!(f, "(to_output : any) : none {{ *MAGIC* }}"),
-            BuiltInFunction::Sleep => write!(f, "(milliseconds : int) : none {{ *MAGIC* }}"),
-        }
+        write!(f, "{}", self.name.node)
     }
 }

@@ -116,6 +116,7 @@ pub enum Control {
     Comma,
     DoubleColon,
     Colon,
+    Dollar,
     Dot,
     DoubleDot,
     Semicolon,
@@ -127,6 +128,7 @@ impl Display for Control {
             Control::Arrow => write!(f, "->"),
             Control::CurlyOpen => write!(f, "{{"),
             Control::CurlyClose => write!(f, "}}"),
+            Control::Dollar => write!(f, "$"),
             Control::SquareOpen => write!(f, "["),
             Control::SquareClose => write!(f, "]"),
             Control::ParenOpen => write!(f, "("),
@@ -252,6 +254,7 @@ pub fn lexer<'src>() -> impl Parser<
         just(":").to(Control::Colon),
         just("..").to(Control::DoubleDot),
         just(".").to(Control::Dot),
+        just("$").to(Control::Dollar),
     ))
     .map(Token::Control);
 

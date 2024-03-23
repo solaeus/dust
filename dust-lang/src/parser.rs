@@ -4,6 +4,7 @@ use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
 use crate::{
     abstract_tree::*,
+    built_in_functions::BuiltInFunction,
     error::Error,
     lexer::{Control, Keyword, Operator, Token},
 };
@@ -212,7 +213,7 @@ pub fn parser<'src>() -> impl Parser<
                         .with_position(state.span())
                 });
 
-            let function = identifier
+            let parsed_function = identifier
                 .clone()
                 .then(type_specification.clone())
                 .separated_by(just(Token::Control(Control::Comma)))
@@ -224,7 +225,7 @@ pub fn parser<'src>() -> impl Parser<
                 .then(type_specification.clone())
                 .then(block.clone())
                 .map_with(|((parameters, return_type), body), state| {
-                    Expression::Value(ValueNode::Function {
+                    Expression::Value(ValueNode::ParsedFunction {
                         parameters,
                         return_type,
                         body: body.with_position(state.span()),
@@ -232,8 +233,16 @@ pub fn parser<'src>() -> impl Parser<
                     .with_position(state.span())
                 });
 
+            let built_in_function = just(Token::Control(Control::Dollar))
+                .ignore_then(positioned_identifier.clone())
+                .map_with(|identifier, state| {
+                    Expression::Value(ValueNode::BuiltInFunction(BuiltInFunction::new(identifier)))
+                        .with_position(state.span())
+                });
+
             let atom = choice((
-                function.clone(),
+                built_in_function.clone(),
+                parsed_function.clone(),
                 identifier_expression.clone(),
                 basic_value.clone(),
                 list.clone(),
@@ -406,7 +415,8 @@ pub fn parser<'src>() -> impl Parser<
                 structure_instance,
                 range,
                 logic_math_indexes_and_function_calls,
-                function,
+                parsed_function,
+                built_in_function,
                 list,
                 map,
                 basic_value,
@@ -521,6 +531,18 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn built_in_function() {
+        assert_eq!(
+            parse(&lex("$READ_LINE").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::BuiltInFunction(
+                BuiltInFunction::new(
+                    Identifier::new("READ_LINE".to_string()).with_position((1, 10))
+                )
+            )))
+        )
+    }
 
     #[test]
     fn async_block() {
@@ -756,7 +778,7 @@ mod tests {
     fn function() {
         assert_eq!(
             parse(&lex("(x: int) : int { x }").unwrap()).unwrap()[0].node,
-            Statement::Expression(Expression::Value(ValueNode::Function {
+            Statement::Expression(Expression::Value(ValueNode::ParsedFunction {
                 parameters: vec![(Identifier::new("x"), Type::Integer.with_position((4, 7)))],
                 return_type: Type::Integer.with_position((11, 14)),
                 body: Block::new(vec![Statement::Expression(Expression::Identifier(

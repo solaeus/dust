@@ -223,7 +223,7 @@ impl ValueInner {
                     return_type: Box::new(parsed_function.return_type.node.clone()),
                 },
                 Function::BuiltIn(built_in_function) => {
-                    (*built_in_function).as_value().r#type(context)?
+                    built_in_function.clone().as_value().r#type(context)?
                 }
             },
             ValueInner::Structure { name, .. } => {

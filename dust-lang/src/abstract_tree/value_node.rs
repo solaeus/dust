@@ -1,6 +1,7 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
 use crate::{
+    built_in_functions::BuiltInFunction,
     context::Context,
     error::{RuntimeError, ValidationError},
     Value,
@@ -11,6 +12,7 @@ use super::{AbstractNode, Action, Block, Expression, Identifier, Type, WithPosit
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
     Boolean(bool),
+    BuiltInFunction(BuiltInFunction),
     Float(f64),
     Integer(i64),
     List(Vec<WithPosition<Expression>>),
@@ -27,7 +29,7 @@ pub enum ValueNode {
         name: Identifier,
         fields: Vec<(Identifier, WithPosition<Expression>)>,
     },
-    Function {
+    ParsedFunction {
         parameters: Vec<(Identifier, WithPosition<Type>)>,
         return_type: WithPosition<Type>,
         body: WithPosition<Block>,
@@ -35,7 +37,7 @@ pub enum ValueNode {
 }
 
 impl AbstractNode for ValueNode {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::Float(_) => Type::Float,
@@ -44,7 +46,7 @@ impl AbstractNode for ValueNode {
                 let mut item_types = Vec::with_capacity(items.len());
 
                 for expression in items {
-                    item_types.push(expression.node.expected_type(_context)?);
+                    item_types.push(expression.node.expected_type(context)?);
                 }
 
                 Type::ListExact(item_types)
@@ -52,7 +54,7 @@ impl AbstractNode for ValueNode {
             ValueNode::Map(_) => Type::Map,
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
-            ValueNode::Function {
+            ValueNode::ParsedFunction {
                 parameters,
                 return_type,
                 ..
@@ -70,7 +72,7 @@ impl AbstractNode for ValueNode {
                 let mut types = Vec::with_capacity(expressions.len());
 
                 for (identifier, expression) in expressions {
-                    let r#type = expression.node.expected_type(_context)?;
+                    let r#type = expression.node.expected_type(context)?;
 
                     types.push((
                         identifier.clone(),
@@ -86,6 +88,7 @@ impl AbstractNode for ValueNode {
                     fields: types,
                 }
             }
+            ValueNode::BuiltInFunction(built_in_function) => built_in_function.r#type(),
         };
 
         Ok(r#type)
@@ -108,7 +111,7 @@ impl AbstractNode for ValueNode {
             }
         }
 
-        if let ValueNode::Function {
+        if let ValueNode::ParsedFunction {
             parameters,
             return_type,
             body,
@@ -141,30 +144,22 @@ impl AbstractNode for ValueNode {
             fields: expressions,
         } = self
         {
-            let types = if let Some(r#type) = context.get_type(name)? {
-                if let Type::Structure {
-                    name: _,
-                    fields: types,
-                } = r#type
-                {
-                    types
-                } else {
-                    todo!()
+            if let Type::Structure {
+                name: _,
+                fields: types,
+            } = name.expected_type(context)?
+            {
+                for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
+                    let actual_type = expression.node.expected_type(context)?;
+
+                    expected_type.node.check(&actual_type).map_err(|conflict| {
+                        ValidationError::TypeCheck {
+                            conflict,
+                            actual_position: expression.position,
+                            expected_position: expected_type.position,
+                        }
+                    })?
                 }
-            } else {
-                return Err(ValidationError::TypeNotFound(name.clone()));
-            };
-
-            for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
-                let actual_type = expression.node.expected_type(context)?;
-
-                expected_type.node.check(&actual_type).map_err(|conflict| {
-                    ValidationError::TypeCheck {
-                        conflict,
-                        actual_position: expression.position,
-                        expected_position: expected_type.position,
-                    }
-                })?
             }
         }
 
@@ -214,7 +209,7 @@ impl AbstractNode for ValueNode {
             }
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
-            ValueNode::Function {
+            ValueNode::ParsedFunction {
                 parameters,
                 return_type,
                 body,
@@ -239,6 +234,9 @@ impl AbstractNode for ValueNode {
                 }
 
                 Value::structure(name, fields)
+            }
+            ValueNode::BuiltInFunction(built_in_function) => {
+                Value::built_in_function(built_in_function)
             }
         };
 
@@ -282,12 +280,12 @@ impl Ord for ValueNode {
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
             (
-                Function {
+                ParsedFunction {
                     parameters: left_parameters,
                     return_type: left_return,
                     body: left_body,
                 },
-                Function {
+                ParsedFunction {
                     parameters: right_parameters,
                     return_type: right_return,
                     body: right_body,
@@ -307,7 +305,7 @@ impl Ord for ValueNode {
                     parameter_cmp
                 }
             }
-            (Function { .. }, _) => Ordering::Greater,
+            (ParsedFunction { .. }, _) => Ordering::Greater,
             (
                 Structure {
                     name: left_name,
@@ -327,6 +325,8 @@ impl Ord for ValueNode {
                 }
             }
             (Structure { .. }, _) => Ordering::Greater,
+            (BuiltInFunction(_), BuiltInFunction(_)) => todo!(),
+            (BuiltInFunction(_), _) => todo!(),
         }
     }
 }
