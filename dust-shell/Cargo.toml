@@ -9,6 +9,7 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
+ariadne = "0.4.0"
 clap = { version = "4.5.3", features = ["derive"] }
 colored = "2.1.0"
 dust-lang = { path = "../dust-lang" }

@@ -1,6 +1,6 @@
-use std::{io, sync::PoisonError};
+use std::{fmt::Debug, hash::Hash, io, ops::Range, sync::PoisonError};
 
-use ariadne::{sources, Color, Fmt, Label, Report, ReportKind};
+use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
@@ -31,7 +31,10 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn build_report(self, source: &str) -> Result<Vec<u8>, io::Error> {
+    pub fn build_report<'id, Id: Debug + Hash + Eq + Clone>(
+        self,
+        source_id: Id,
+    ) -> Result<Report<'id, (Id, Range<usize>)>, io::Error> {
         let (mut builder, validation_error, error_position) = match self {
             Error::Parse {
                 expected,
@@ -47,12 +50,12 @@ impl Error {
                 (
                     Report::build(
                         ReportKind::Custom("Parsing Error", Color::Yellow),
-                        "input",
+                        source_id.clone(),
                         span.1,
                     )
                     .with_message(description)
                     .with_label(
-                        Label::new(("input", span.0..span.1))
+                        Label::new((source_id.clone(), span.0..span.1))
                             .with_message(reason)
                             .with_color(Color::Red),
                     ),
@@ -74,12 +77,12 @@ impl Error {
                 (
                     Report::build(
                         ReportKind::Custom("Lexing Error", Color::Yellow),
-                        "input",
+                        source_id.clone(),
                         span.1,
                     )
                     .with_message(description)
                     .with_label(
-                        Label::new(("input", span.0..span.1))
+                        Label::new((source_id.clone(), span.0..span.1))
                             .with_message(reason)
                             .with_color(Color::Red),
                     ),
@@ -90,7 +93,7 @@ impl Error {
             Error::Runtime { error, position } => (
                 Report::build(
                     ReportKind::Custom("Runtime Error", Color::Red),
-                    "input",
+                    source_id.clone(),
                     position.1,
                 )
                 .with_message("An error occured that forced the program to exit.")
@@ -110,7 +113,7 @@ impl Error {
             Error::Validation { error, position } => (
                 Report::build(
                     ReportKind::Custom("Validation Error", Color::Magenta),
-                    "input",
+                    source_id.clone(),
                     position.1,
                 )
                 .with_message("The syntax is valid but this code is not sound.")
@@ -126,22 +129,22 @@ impl Error {
         if let Some(validation_error) = validation_error {
             match validation_error {
                 ValidationError::ExpectedBoolean { actual, position } => {
-                    builder.add_label(Label::new(("input", position.0..position.1)).with_message(
-                        format!(
+                    builder.add_label(
+                        Label::new((source_id, position.0..position.1)).with_message(format!(
                             "Expected {} but got {}.",
                             "boolean".fg(type_color),
                             actual.fg(type_color)
-                        ),
-                    ));
+                        )),
+                    );
                 }
                 ValidationError::ExpectedIntegerOrFloat(position) => {
-                    builder.add_label(Label::new(("input", position.0..position.1)).with_message(
-                        format!(
+                    builder.add_label(
+                        Label::new((source_id, position.0..position.1)).with_message(format!(
                             "Expected {} or {}.",
                             "integer".fg(type_color),
                             "float".fg(type_color)
-                        ),
-                    ));
+                        )),
+                    );
                 }
                 ValidationError::RwLockPoison(_) => todo!(),
                 ValidationError::TypeCheck {
@@ -154,15 +157,17 @@ impl Error {
                     builder = builder.with_message("A type conflict was found.");
 
                     builder.add_labels([
-                        Label::new(("input", expected_postion.0..expected_postion.1)).with_message(
-                            format!("Type {} established here.", expected.fg(type_color)),
-                        ),
-                        Label::new(("input", actual_position.0..actual_position.1))
+                        Label::new((source_id.clone(), expected_postion.0..expected_postion.1))
+                            .with_message(format!(
+                                "Type {} established here.",
+                                expected.fg(type_color)
+                            )),
+                        Label::new((source_id, actual_position.0..actual_position.1))
                             .with_message(format!("Got type {} here.", actual.fg(type_color))),
                     ]);
                 }
                 ValidationError::VariableNotFound(identifier) => builder.add_label(
-                    Label::new(("input", error_position.0..error_position.1)).with_message(
+                    Label::new((source_id, error_position.0..error_position.1)).with_message(
                         format!(
                             "Variable {} does not exist in this context.",
                             identifier.fg(identifier_color)
@@ -170,7 +175,7 @@ impl Error {
                     ),
                 ),
                 ValidationError::CannotIndex { r#type, position } => builder.add_label(
-                    Label::new(("input", position.0..position.1))
+                    Label::new((source_id, position.0..position.1))
                         .with_message(format!("Cannot index into a {}.", r#type.fg(type_color))),
                 ),
                 ValidationError::CannotIndexWith {
@@ -186,12 +191,14 @@ impl Error {
                     ));
 
                     builder.add_labels([
-                        Label::new(("input", collection_position.0..collection_position.1))
-                            .with_message(format!(
-                                "This has type {}.",
-                                collection_type.fg(type_color),
-                            )),
-                        Label::new(("input", index_position.0..index_position.1))
+                        Label::new((
+                            source_id.clone(),
+                            collection_position.0..collection_position.1,
+                        ))
+                        .with_message(
+                            format!("This has type {}.", collection_type.fg(type_color),),
+                        ),
+                        Label::new((source_id, index_position.0..index_position.1))
                             .with_message(format!("This has type {}.", index_type.fg(type_color),)),
                     ])
                 }
@@ -203,13 +210,7 @@ impl Error {
             }
         }
 
-        let mut output = Vec::new();
-
-        builder
-            .finish()
-            .write_for_stdout(sources([("input", source)]), &mut output)?;
-
-        Ok(output)
+        Ok(builder.finish())
     }
 }
 

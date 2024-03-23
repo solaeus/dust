@@ -5,12 +5,10 @@ use std::{
     time::Duration,
 };
 
-use rand::{thread_rng, Rng};
-
 use crate::{
-    abstract_tree::{Action, Identifier, Type, WithPosition},
+    abstract_tree::{Action, Type},
     context::Context,
-    error::{RuntimeError, ValidationError},
+    error::RuntimeError,
     value::ValueInner,
     Value,
 };
@@ -18,6 +16,7 @@ use crate::{
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
     ReadLine,
+    Sleep,
     WriteLine,
 }
 
@@ -25,6 +24,7 @@ impl BuiltInFunction {
     pub fn name(&self) -> &'static str {
         match self {
             BuiltInFunction::ReadLine => todo!(),
+            BuiltInFunction::Sleep => todo!(),
             BuiltInFunction::WriteLine => todo!(),
         }
     }
@@ -47,32 +47,6 @@ impl BuiltInFunction {
 
     pub fn call(&self, arguments: Vec<Value>, context: &Context) -> Result<Action, RuntimeError> {
         match self {
-            BuiltInFunction::ReadLine => {
-                let string = arguments.get(0).unwrap();
-
-                if let ValueInner::String(_string) = string.inner().as_ref() {
-                    // let integer = string.parse();
-
-                    todo!()
-
-                    // Ok(Action::Return(Value::integer(integer)))
-                } else {
-                    let mut actual = Vec::with_capacity(arguments.len());
-
-                    for value in arguments {
-                        let r#type = value.r#type(context)?;
-
-                        actual.push(r#type);
-                    }
-
-                    Err(RuntimeError::ValidationFailure(
-                        ValidationError::WrongArguments {
-                            expected: vec![Type::String],
-                            actual,
-                        },
-                    ))
-                }
-            }
             // "INT_RANDOM_RANGE" => {
             //     let range = arguments.get(0).unwrap();
 
@@ -91,18 +65,18 @@ impl BuiltInFunction {
 
                 Ok(Action::Return(Value::string(input)))
             }
+            BuiltInFunction::Sleep => {
+                if let ValueInner::Integer(milliseconds) = arguments[0].inner().as_ref() {
+                    thread::sleep(Duration::from_millis(*milliseconds as u64));
+                }
+
+                Ok(Action::None)
+            }
             BuiltInFunction::WriteLine => {
                 println!("{}", arguments[0]);
 
                 Ok(Action::None)
             }
-            // "SLEEP" => {
-            //     if let ValueInner::Integer(milliseconds) = arguments[0].inner().as_ref() {
-            //         thread::sleep(Duration::from_millis(*milliseconds as u64));
-            //     }
-
-            //     Ok(Action::None)
-            // }
             _ => {
                 todo!()
             }

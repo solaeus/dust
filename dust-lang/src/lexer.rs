@@ -39,6 +39,7 @@ impl<'src> Display for Token<'src> {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BuiltInIdentifier {
     ReadLine,
+    Sleep,
     WriteLine,
 }
 
@@ -46,6 +47,7 @@ impl Display for BuiltInIdentifier {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             BuiltInIdentifier::ReadLine => write!(f, "__READ_LINE__"),
+            BuiltInIdentifier::Sleep => write!(f, "__SLEEP__"),
             BuiltInIdentifier::WriteLine => write!(f, "__WRITE_LINE__"),
         }
     }
@@ -302,6 +304,7 @@ pub fn lexer<'src>() -> impl Parser<
 
     let built_in_identifier = choice((
         just("__READ_LINE__").to(BuiltInIdentifier::ReadLine),
+        just("__SLEEP__").to(BuiltInIdentifier::Sleep),
         just("__WRITE_LINE__").to(BuiltInIdentifier::WriteLine),
     ))
     .map(Token::BuiltInIdentifier);

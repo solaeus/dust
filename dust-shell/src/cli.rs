@@ -5,6 +5,7 @@ use std::{
     process::Command,
 };
 
+use ariadne::sources;
 use dust_lang::{
     context::{Context, ValueData},
     *,
@@ -87,9 +88,11 @@ pub fn run_shell(context: Context) {
                     Ok(None) => {}
                     Err(errors) => {
                         for error in errors {
-                            let report = error.build_report(&buffer).unwrap();
+                            let report = error.build_report(&"input").unwrap();
 
-                            stderr().write_all(&report).unwrap();
+                            report
+                                .write_for_stdout(sources([(&"input", buffer.clone())]), stderr())
+                                .unwrap();
                         }
                     }
                 }

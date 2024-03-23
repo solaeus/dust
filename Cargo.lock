@@ -384,6 +384,7 @@ dependencies = [
 name = "dust-shell"
 version = "0.1.0"
 dependencies = [
+ "ariadne",
  "clap",
  "colored",
  "dust-lang",

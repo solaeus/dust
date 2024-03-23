@@ -144,11 +144,11 @@ impl Display for Type {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Type::Any => write!(f, "any"),
-            Type::Boolean => write!(f, "boolean"),
+            Type::Boolean => write!(f, "bool"),
             Type::Float => write!(f, "float"),
-            Type::Integer => write!(f, "integer"),
+            Type::Integer => write!(f, "int"),
             Type::List => write!(f, "list"),
-            Type::ListOf(item_type) => write!(f, "list of {item_type}"),
+            Type::ListOf(item_type) => write!(f, "list({item_type})"),
             Type::ListExact(item_types) => {
                 write!(f, "[")?;
 
@@ -165,7 +165,7 @@ impl Display for Type {
             Type::Map => write!(f, "map"),
             Type::None => write!(f, "none"),
             Type::Range => write!(f, "range"),
-            Type::String => write!(f, "string"),
+            Type::String => write!(f, "str"),
             Type::Function {
                 parameter_types,
                 return_type,

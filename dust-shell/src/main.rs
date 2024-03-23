@@ -1,13 +1,18 @@
 //! Command line interface for the dust programming language.
 mod cli;
+mod error;
 
+use ariadne::sources;
 use clap::Parser;
 use cli::run_shell;
 use colored::Colorize;
+use error::Error;
 
 use std::{
     fs::read_to_string,
     io::{stderr, Write},
+    path::Path,
+    rc::Rc,
 };
 
 use dust_lang::{context::Context, interpret};
@@ -37,11 +42,10 @@ fn main() {
 
     let args = Args::parse();
     let context = Context::new();
-
-    let source = if let Some(path) = &args.path {
-        read_to_string(path).unwrap()
+    let (source, source_id) = if let Some(path) = args.path {
+        (read_to_string(&path).unwrap(), Rc::new(path))
     } else if let Some(command) = args.command {
-        command
+        (command, Rc::new("input".to_string()))
     } else {
         return run_shell(context);
     };
@@ -55,10 +59,14 @@ fn main() {
             }
         }
         Err(errors) => {
-            for error in errors {
-                let report = error.build_report(&source).unwrap();
+            let reports = Error::Dust { errors }
+                .build_reports(source_id.clone(), &source)
+                .unwrap();
 
-                stderr().write_all(&report).unwrap();
+            for report in reports {
+                report
+                    .write_for_stdout(sources([(source_id.clone(), source.clone())]), stderr())
+                    .unwrap();
             }
         }
     }

@@ -236,10 +236,8 @@ pub fn parser<'src>() -> impl Parser<
             let built_in_function = {
                 select! {
                     Token::BuiltInIdentifier(built_in_identifier) => {
-                                    match built_in_identifier {
-                    BuiltInIdentifier::ReadLine => BuiltInFunction::ReadLine,
-                    BuiltInIdentifier::WriteLine => BuiltInFunction::WriteLine,
-                }
+                                    match built_in_identifier {BuiltInIdentifier::ReadLine=>BuiltInFunction::ReadLine,BuiltInIdentifier::WriteLine=>BuiltInFunction::WriteLine,
+    BuiltInIdentifier::Sleep => BuiltInFunction::Sleep, }
                                 }
                             }
             }
