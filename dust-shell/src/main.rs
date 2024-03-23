@@ -11,7 +11,6 @@ use error::Error;
 use std::{
     fs::read_to_string,
     io::{stderr, Write},
-    path::Path,
     rc::Rc,
 };
 
@@ -47,7 +46,12 @@ fn main() {
     } else if let Some(command) = args.command {
         (command, Rc::new("input".to_string()))
     } else {
-        return run_shell(context);
+        match run_shell(context) {
+            Ok(_) => {}
+            Err(error) => eprintln!("{error}"),
+        }
+
+        return;
     };
 
     let eval_result = interpret(&source);
@@ -60,12 +64,25 @@ fn main() {
         }
         Err(errors) => {
             let reports = Error::Dust { errors }
-                .build_reports(source_id.clone(), &source)
+                .build_reports(source_id.clone())
                 .unwrap();
 
             for report in reports {
                 report
-                    .write_for_stdout(sources([(source_id.clone(), source.clone())]), stderr())
+                    .write_for_stdout(
+                        sources([
+                            (source_id.clone(), source.as_str()),
+                            (
+                                Rc::new("std/io.ds".to_string()),
+                                include_str!("../../std/io.ds"),
+                            ),
+                            (
+                                Rc::new("std/thread.ds".to_string()),
+                                include_str!("../../std/thread.ds"),
+                            ),
+                        ]),
+                        stderr(),
+                    )
                     .unwrap();
             }
         }

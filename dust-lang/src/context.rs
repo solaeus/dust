@@ -14,6 +14,9 @@ pub fn std_context() -> Context {
     let mut interpreter = Interpreter::new(context.clone());
 
     interpreter.run(include_str!("../../std/io.ds")).unwrap();
+    interpreter
+        .run(include_str!("../../std/thread.ds"))
+        .unwrap();
 
     context
 }

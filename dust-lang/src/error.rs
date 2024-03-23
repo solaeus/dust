@@ -1,6 +1,5 @@
-use std::{fmt::Debug, hash::Hash, io, ops::Range, sync::PoisonError};
+use std::{io, sync::PoisonError};
 
-use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{

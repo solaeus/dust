@@ -1,14 +1,12 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
-use clap::error;
 use dust_lang::{
     abstract_tree::Type,
     error::{Error as DustError, RuntimeError, TypeConflict, ValidationError},
 };
 use std::{
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Display, Formatter},
     io,
     ops::Range,
-    path::Path,
     rc::Rc,
 };
 
@@ -20,11 +18,16 @@ pub enum Error {
     Io(io::Error),
 }
 
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        Error::Io(error)
+    }
+}
+
 impl Error {
     pub fn build_reports<'id>(
         self,
         source_id: Rc<String>,
-        source: &str,
     ) -> Result<Vec<Report<'id, (Rc<String>, Range<usize>)>>, io::Error> {
         if let Error::Dust { errors } = self {
             let mut reports = Vec::new();
@@ -239,5 +242,22 @@ impl Error {
         } else {
             return Ok(Vec::with_capacity(0));
         };
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Error::Dust { errors } => {
+                for error in errors {
+                    writeln!(f, "{error:?}")?;
+                }
+
+                Ok(())
+            }
+            Error::Io(io_error) => {
+                write!(f, "{io_error}")
+            }
+        }
     }
 }

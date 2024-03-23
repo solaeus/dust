@@ -45,7 +45,7 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn call(&self, arguments: Vec<Value>, context: &Context) -> Result<Action, RuntimeError> {
+    pub fn call(&self, arguments: Vec<Value>, _context: &Context) -> Result<Action, RuntimeError> {
         match self {
             // "INT_RANDOM_RANGE" => {
             //     let range = arguments.get(0).unwrap();
@@ -76,9 +76,6 @@ impl BuiltInFunction {
                 println!("{}", arguments[0]);
 
                 Ok(Action::None)
-            }
-            _ => {
-                todo!()
             }
         }
     }
