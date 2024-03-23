@@ -13,7 +13,7 @@ use parser::parse;
 pub use value::Value;
 
 pub fn interpret(source: &str) -> Result<Option<Value>, Vec<Error>> {
-    let mut interpreter = Interpreter::new(std_context().clone());
+    let mut interpreter = Interpreter::new(std_context());
 
     interpreter.run(source)
 }

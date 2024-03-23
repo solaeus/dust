@@ -6,7 +6,7 @@ use crate::{
     abstract_tree::*,
     built_in_functions::BuiltInFunction,
     error::Error,
-    lexer::{Control, Keyword, Operator, Token},
+    lexer::{BuiltInIdentifier, Control, Keyword, Operator, Token},
 };
 
 pub type ParserInput<'src> =
@@ -233,12 +233,20 @@ pub fn parser<'src>() -> impl Parser<
                     .with_position(state.span())
                 });
 
-            let built_in_function = just(Token::Control(Control::Dollar))
-                .ignore_then(positioned_identifier.clone())
-                .map_with(|identifier, state| {
-                    Expression::Value(ValueNode::BuiltInFunction(BuiltInFunction::new(identifier)))
-                        .with_position(state.span())
-                });
+            let built_in_function = {
+                select! {
+                    Token::BuiltInIdentifier(built_in_identifier) => {
+                                    match built_in_identifier {
+                    BuiltInIdentifier::ReadLine => BuiltInFunction::ReadLine,
+                    BuiltInIdentifier::WriteLine => BuiltInFunction::WriteLine,
+                }
+                                }
+                            }
+            }
+            .map_with(|built_in_function, state| {
+                Expression::Value(ValueNode::BuiltInFunction(built_in_function))
+                    .with_position(state.span())
+            });
 
             let atom = choice((
                 built_in_function.clone(),
@@ -535,11 +543,9 @@ mod tests {
     #[test]
     fn built_in_function() {
         assert_eq!(
-            parse(&lex("$READ_LINE").unwrap()).unwrap()[0].node,
+            parse(&lex("__READ_LINE__").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::BuiltInFunction(
-                BuiltInFunction::new(
-                    Identifier::new("READ_LINE".to_string()).with_position((1, 10))
-                )
+                BuiltInFunction::ReadLine
             )))
         )
     }

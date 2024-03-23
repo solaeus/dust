@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    f64::{INFINITY, NAN, NEG_INFINITY},
+    fmt::{self, Display, Formatter},
+};
 
 use chumsky::prelude::*;
 
@@ -7,6 +10,7 @@ use crate::error::Error;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token<'src> {
     Boolean(bool),
+    BuiltInIdentifier(BuiltInIdentifier),
     Integer(i64),
     Float(f64),
     String(&'src str),
@@ -14,6 +18,37 @@ pub enum Token<'src> {
     Operator(Operator),
     Control(Control),
     Keyword(Keyword),
+}
+
+impl<'src> Display for Token<'src> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Token::Boolean(boolean) => write!(f, "{boolean}"),
+            Token::BuiltInIdentifier(built_in_identifier) => write!(f, "{built_in_identifier}"),
+            Token::Integer(integer) => write!(f, "{integer}"),
+            Token::Float(float) => write!(f, "{float}"),
+            Token::String(string) => write!(f, "{string}"),
+            Token::Identifier(string) => write!(f, "{string}"),
+            Token::Operator(operator) => write!(f, "{operator}"),
+            Token::Control(control) => write!(f, "{control}"),
+            Token::Keyword(keyword) => write!(f, "{keyword}"),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum BuiltInIdentifier {
+    ReadLine,
+    WriteLine,
+}
+
+impl Display for BuiltInIdentifier {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            BuiltInIdentifier::ReadLine => write!(f, "__READ_LINE__"),
+            BuiltInIdentifier::WriteLine => write!(f, "__WRITE_LINE__"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -143,21 +178,6 @@ impl Display for Control {
     }
 }
 
-impl<'src> Display for Token<'src> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Token::Boolean(boolean) => write!(f, "{boolean}"),
-            Token::Integer(integer) => write!(f, "{integer}"),
-            Token::Float(float) => write!(f, "{float}"),
-            Token::String(string) => write!(f, "{string}"),
-            Token::Identifier(string) => write!(f, "{string}"),
-            Token::Operator(operator) => write!(f, "{operator}"),
-            Token::Control(control) => write!(f, "{control}"),
-            Token::Keyword(keyword) => write!(f, "{keyword}"),
-        }
-    }
-}
-
 pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token<'src>, SimpleSpan)>, Vec<Error>> {
     lexer()
         .parse(source)
@@ -184,17 +204,19 @@ pub fn lexer<'src>() -> impl Parser<
         .to_slice()
         .map(|text: &str| Token::Float(text.parse().unwrap()));
 
-    let float_other = choice((just("Infinity"), just("-Infinity"), just("NaN")))
-        .map(|text| Token::Float(text.parse().unwrap()));
-
-    let float = choice((float_numeric, float_other));
+    let float = choice((
+        float_numeric,
+        just("Infinity").to(Token::Float(INFINITY)),
+        just("-Infinity").to(Token::Float(NEG_INFINITY)),
+        just("NaN").to(Token::Float(NAN)),
+    ));
 
     let integer = just('-')
         .or_not()
         .then(text::int(10))
         .to_slice()
         .map(|text: &str| {
-            let integer = text.parse::<i64>().unwrap();
+            let integer = text.parse().unwrap();
 
             Token::Integer(integer)
         });
@@ -278,8 +300,22 @@ pub fn lexer<'src>() -> impl Parser<
     ))
     .map(Token::Keyword);
 
+    let built_in_identifier = choice((
+        just("__READ_LINE__").to(BuiltInIdentifier::ReadLine),
+        just("__WRITE_LINE__").to(BuiltInIdentifier::WriteLine),
+    ))
+    .map(Token::BuiltInIdentifier);
+
     choice((
-        boolean, float, integer, string, keyword, identifier, control, operator,
+        boolean,
+        float,
+        integer,
+        string,
+        keyword,
+        identifier,
+        control,
+        operator,
+        built_in_identifier,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()

@@ -1,9 +1,9 @@
 io = {
 	read_line = () : str {
-		$READ_LINE()
+		__READ_LINE__()
 	}
 
 	write_line = (output: str) : none {
-		$WRITE_LINE(output)
+		__WRITE_LINE__(output)
 	}
 }

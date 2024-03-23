@@ -3,7 +3,6 @@ use dust_lang::{
     error::{Error, TypeConflict, ValidationError},
     *,
 };
-
 #[test]
 fn simple_structure() {
     assert_eq!(
@@ -101,7 +100,7 @@ fn undefined_struct() {
             "
         ),
         Err(vec![Error::Validation {
-            error: error::ValidationError::TypeNotFound(Identifier::new("Foo")),
+            error: error::ValidationError::VariableNotFound(Identifier::new("Foo")),
             position: (17, 69).into()
         }])
     )

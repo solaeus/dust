@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeMap,
-    sync::{Arc, OnceLock, RwLock, RwLockReadGuard},
+    sync::{Arc, RwLock, RwLockReadGuard},
 };
 
 use crate::{
@@ -9,17 +9,13 @@ use crate::{
     Interpreter, Value,
 };
 
-static STD_CONTEXT: OnceLock<Context> = OnceLock::new();
+pub fn std_context() -> Context {
+    let context = Context::new();
+    let mut interpreter = Interpreter::new(context.clone());
 
-pub fn std_context<'a>() -> &'a Context {
-    STD_CONTEXT.get_or_init(|| {
-        let context = Context::new();
-        let mut interpreter = Interpreter::new(context.clone());
+    interpreter.run(include_str!("../../std/io.ds")).unwrap();
 
-        interpreter.run(include_str!("../../std/io.ds")).unwrap();
-
-        context
-    })
+    context
 }
 
 #[derive(Clone, Debug)]

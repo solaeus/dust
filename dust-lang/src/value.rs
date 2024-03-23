@@ -230,7 +230,7 @@ impl ValueInner {
                 if let Some(r#type) = context.get_type(name)? {
                     r#type
                 } else {
-                    return Err(ValidationError::TypeNotFound(name.clone()));
+                    return Err(ValidationError::VariableNotFound(name.clone()));
                 }
             }
         };
