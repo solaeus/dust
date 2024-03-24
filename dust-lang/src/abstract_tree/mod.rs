@@ -52,6 +52,17 @@ pub struct WithPosition<T> {
     pub position: SourcePosition,
 }
 
+pub trait WithPos: Sized {
+    fn with_position<T: Into<SourcePosition>>(self, span: T) -> WithPosition<Self> {
+        WithPosition {
+            node: self,
+            position: span.into(),
+        }
+    }
+}
+
+impl<T> WithPos for T {}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct SourcePosition(pub usize, pub usize);
 
@@ -164,11 +175,4 @@ pub trait AbstractNode: Sized {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
     fn run(self, context: &Context) -> Result<Action, RuntimeError>;
-
-    fn with_position<T: Into<SourcePosition>>(self, span: T) -> WithPosition<Self> {
-        WithPosition {
-            node: self,
-            position: span.into(),
-        }
-    }
 }

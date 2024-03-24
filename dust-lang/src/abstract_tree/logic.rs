@@ -187,7 +187,7 @@ impl AbstractNode for Logic {
 
 #[cfg(test)]
 mod tests {
-    use crate::abstract_tree::ValueNode;
+    use crate::abstract_tree::{ValueNode, WithPos};
 
     use super::*;
 

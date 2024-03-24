@@ -51,7 +51,7 @@ impl AbstractNode for Block {
 #[cfg(test)]
 mod tests {
     use crate::{
-        abstract_tree::{Expression, ValueNode},
+        abstract_tree::{Expression, ValueNode, WithPos},
         Value,
     };
 

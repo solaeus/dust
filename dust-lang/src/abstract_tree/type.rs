@@ -17,13 +17,13 @@ pub enum Type {
     Boolean,
     Float,
     Function {
-        parameter_types: Vec<Type>,
-        return_type: Box<Type>,
+        parameter_types: Vec<WithPosition<Type>>,
+        return_type: Box<WithPosition<Type>>,
     },
     Integer,
     List,
-    ListOf(Box<Type>),
-    ListExact(Vec<Type>),
+    ListOf(Box<WithPosition<Type>>),
+    ListExact(Vec<WithPosition<Type>>),
     Map,
     None,
     Range,
@@ -52,27 +52,27 @@ impl Type {
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
             (Type::ListOf(left), Type::ListOf(right)) => {
-                if let Ok(()) = left.check(right) {
+                if let Ok(()) = left.node.check(&right.node) {
                     return Ok(());
                 }
             }
             (Type::ListOf(list_of), Type::ListExact(list_exact)) => {
                 for r#type in list_exact {
-                    list_of.check(r#type)?;
+                    list_of.node.check(&r#type.node)?;
                 }
 
                 return Ok(());
             }
             (Type::ListExact(list_exact), Type::ListOf(list_of)) => {
                 for r#type in list_exact {
-                    r#type.check(&list_of)?;
+                    r#type.node.check(&list_of.node)?;
                 }
 
                 return Ok(());
             }
             (Type::ListExact(left), Type::ListExact(right)) => {
                 for (left, right) in left.iter().zip(right.iter()) {
-                    left.check(right)?;
+                    left.node.check(&right.node)?;
                 }
 
                 return Ok(());
@@ -149,15 +149,15 @@ impl Display for Type {
             Type::Float => write!(f, "float"),
             Type::Integer => write!(f, "int"),
             Type::List => write!(f, "list"),
-            Type::ListOf(item_type) => write!(f, "list({item_type})"),
+            Type::ListOf(item_type) => write!(f, "list({})", item_type.node),
             Type::ListExact(item_types) => {
                 write!(f, "[")?;
 
                 for (index, item_type) in item_types.into_iter().enumerate() {
                     if index == item_types.len() - 1 {
-                        write!(f, "{item_type}")?;
+                        write!(f, "{}", item_type.node)?;
                     } else {
-                        write!(f, "{item_type}, ")?;
+                        write!(f, "{}, ", item_type.node)?;
                     }
                 }
 
@@ -174,10 +174,10 @@ impl Display for Type {
                 write!(f, "(")?;
 
                 for r#type in parameter_types {
-                    write!(f, "{} ", r#type)?;
+                    write!(f, "{} ", r#type.node)?;
                 }
 
-                write!(f, ") : {return_type}")
+                write!(f, ") : {}", return_type.node)
             }
             Type::Structure { name, .. } => write!(f, "{name}"),
             Type::Argument(_) => todo!(),
@@ -187,6 +187,8 @@ impl Display for Type {
 
 #[cfg(test)]
 mod tests {
+    use crate::abstract_tree::WithPos;
+
     use super::*;
 
     #[test]
@@ -197,12 +199,14 @@ mod tests {
         assert_eq!(Type::Integer.check(&Type::Integer), Ok(()));
         assert_eq!(Type::List.check(&Type::List), Ok(()));
         assert_eq!(
-            Type::ListOf(Box::new(Type::Integer)).check(&Type::ListOf(Box::new(Type::Integer))),
+            Type::ListOf(Box::new(Type::Integer.with_position((0, 0))))
+                .check(&Type::ListOf(Box::new(Type::Integer.with_position((0, 0))))),
             Ok(())
         );
 
         assert_eq!(
-            Type::ListExact(vec![Type::Float]).check(&Type::ListExact(vec![Type::Float])),
+            Type::ListExact(vec![Type::Float.with_position((0, 0))])
+                .check(&Type::ListExact(vec![Type::Float.with_position((0, 0))])),
             Ok(())
         );
         assert_eq!(Type::Map.check(&Type::Map), Ok(()));
@@ -237,8 +241,8 @@ mod tests {
             Type::Float,
             Type::Integer,
             Type::List,
-            Type::ListOf(Box::new(Type::Boolean)),
-            Type::ListExact(vec![Type::Integer]),
+            Type::ListOf(Box::new(Type::Boolean.with_position((0, 0)))),
+            Type::ListExact(vec![Type::Integer.with_position((0, 0))]),
             Type::Map,
             Type::None,
             Type::Range,
@@ -263,8 +267,11 @@ mod tests {
     #[test]
     fn check_list_types() {
         let list = Type::List;
-        let list_exact = Type::ListExact(vec![Type::Integer, Type::Integer]);
-        let list_of = Type::ListOf(Box::new(Type::Integer));
+        let list_exact = Type::ListExact(vec![
+            Type::Integer.with_position((0, 0)),
+            Type::Integer.with_position((0, 0)),
+        ]);
+        let list_of = Type::ListOf(Box::new(Type::Integer.with_position((0, 0))));
 
         assert_eq!(list.check(&list_exact), Ok(()));
         assert_eq!(list.check(&list_of), Ok(()));

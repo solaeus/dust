@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, Block, Expression, Identifier, Type, WithPosition};
+use super::{AbstractNode, Action, Block, Expression, Identifier, Type, WithPos, WithPosition};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
@@ -47,7 +47,12 @@ impl AbstractNode for ValueNode {
                 let mut item_types = Vec::with_capacity(items.len());
 
                 for expression in items {
-                    item_types.push(expression.node.expected_type(context)?);
+                    item_types.push(
+                        expression
+                            .node
+                            .expected_type(context)?
+                            .with_position(expression.position),
+                    );
                 }
 
                 Type::ListExact(item_types)
@@ -61,10 +66,10 @@ impl AbstractNode for ValueNode {
                 ..
             } => Type::Function {
                 parameter_types: parameters
-                    .into_iter()
-                    .map(|(_, r#type)| r#type.node.clone())
+                    .iter()
+                    .map(|(_, r#type)| r#type.clone())
                     .collect(),
-                return_type: Box::new(return_type.node.clone()),
+                return_type: Box::new(return_type.clone()),
             },
             ValueNode::Structure {
                 name,
@@ -185,7 +190,10 @@ impl AbstractNode for ValueNode {
                 for expression in expression_list {
                     let action = expression.node.run(_context)?;
                     let value = if let Action::Return(value) = action {
-                        value
+                        WithPosition {
+                            node: value,
+                            position: expression.position,
+                        }
                     } else {
                         return Err(RuntimeError::ValidationFailure(
                             ValidationError::InterpreterExpectedReturn(expression.position),

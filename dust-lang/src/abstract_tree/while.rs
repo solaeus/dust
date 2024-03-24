@@ -74,7 +74,7 @@ impl AbstractNode for While {
 #[cfg(test)]
 mod tests {
     use crate::abstract_tree::{
-        Assignment, AssignmentOperator, Block, Identifier, Logic, ValueNode,
+        Assignment, AssignmentOperator, Block, Identifier, Logic, ValueNode, WithPos,
     };
 
     use super::*;

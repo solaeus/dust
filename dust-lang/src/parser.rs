@@ -121,8 +121,8 @@ pub fn parser<'src>() -> impl Parser<
                 }
             }),
         ))
-    })
-    .map_with(|r#type, state| r#type.with_position(state.span()));
+        .map_with(|r#type, state| r#type.with_position(state.span()))
+    });
 
     let type_argument = identifier
         .clone()
@@ -759,7 +759,10 @@ mod tests {
             parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(Type::ListOf(Box::new(Type::Boolean)).with_position((9, 19))),
+                Some(
+                    Type::ListOf(Box::new(Type::Boolean.with_position((14, 18))))
+                        .with_position((9, 19))
+                ),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![Expression::Value(
                     ValueNode::Boolean(true)
@@ -776,7 +779,13 @@ mod tests {
             parse(&lex("foobar : [bool, str] = [true, '42']").unwrap()).unwrap()[0],
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(Type::ListExact(vec![Type::Boolean, Type::String]).with_position((9, 20))),
+                Some(
+                    Type::ListExact(vec![
+                        Type::Boolean.with_position((10, 14)),
+                        Type::String.with_position((16, 19))
+                    ])
+                    .with_position((9, 20))
+                ),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(ValueNode::List(vec![
                     Expression::Value(ValueNode::Boolean(true)).with_position((24, 28)),
@@ -797,7 +806,7 @@ mod tests {
                 Some(
                     Type::Function {
                         parameter_types: vec![],
-                        return_type: Box::new(Type::Any)
+                        return_type: Box::new(Type::Any.with_position((17, 20)))
                     }
                     .with_position((9, 20))
                 ),

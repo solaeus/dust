@@ -161,7 +161,7 @@ impl AbstractNode for Assignment {
 #[cfg(test)]
 mod tests {
     use crate::{
-        abstract_tree::{Expression, ValueNode},
+        abstract_tree::{Expression, ValueNode, WithPos},
         error::TypeConflict,
     };
 

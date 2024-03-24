@@ -1,7 +1,7 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    value::ValueInner,
+    value::{Function, ParsedFunction, ValueInner},
 };
 
 use super::{AbstractNode, Action, Expression, Type, WithPosition};
@@ -32,7 +32,7 @@ impl AbstractNode for FunctionCall {
         let function_node_type = self.function.node.expected_type(_context)?;
 
         if let Type::Function { return_type, .. } = function_node_type {
-            Ok(*return_type)
+            Ok(return_type.node)
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_node_type,
@@ -41,14 +41,31 @@ impl AbstractNode for FunctionCall {
         }
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
         for expression in &self.arguments {
-            expression.node.validate(_context)?;
+            expression.node.validate(context)?;
         }
 
-        let function_node_type = self.function.node.expected_type(_context)?;
+        let function_node_type = self.function.node.expected_type(context)?;
 
-        if let Type::Function { .. } = function_node_type {
+        if let Type::Function {
+            parameter_types,
+            return_type: _,
+        } = function_node_type
+        {
+            for (type_parameter, type_argument) in
+                parameter_types.iter().zip(self.type_arguments.iter())
+            {
+                type_parameter
+                    .node
+                    .check(&type_argument.node)
+                    .map_err(|conflict| ValidationError::TypeCheck {
+                        conflict,
+                        actual_position: type_argument.position,
+                        expected_position: type_parameter.position,
+                    })?;
+            }
+
             Ok(())
         } else {
             Err(ValidationError::ExpectedFunction {
@@ -93,6 +110,21 @@ impl AbstractNode for FunctionCall {
         }
 
         let function_context = Context::new();
+
+        if let Function::Parsed(ParsedFunction {
+            type_parameters, ..
+        }) = function
+        {
+            for (type_parameter, type_argument) in type_parameters
+                .iter()
+                .map(|r#type| r#type.node.clone())
+                .zip(self.type_arguments.into_iter().map(|r#type| r#type.node))
+            {
+                if let Type::Argument(identifier) = type_parameter {
+                    function_context.set_type(identifier, type_argument)?;
+                }
+            }
+        };
 
         function_context.inherit_data_from(&context)?;
         function.clone().call(arguments, function_context)

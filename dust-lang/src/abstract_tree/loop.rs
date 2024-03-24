@@ -70,7 +70,8 @@ impl Ord for Loop {
 mod tests {
     use crate::{
         abstract_tree::{
-            Assignment, AssignmentOperator, Block, Expression, Identifier, IfElse, Logic, ValueNode,
+            Assignment, AssignmentOperator, Block, Expression, Identifier, IfElse, Logic,
+            ValueNode, WithPos,
         },
         Value,
     };
@@ -99,19 +100,19 @@ mod tests {
             .with_position((0, 0)),
             Statement::Loop(Loop::new(vec![Statement::IfElse(IfElse::new(
                 Expression::Logic(Box::new(Logic::Greater(
-                    Expression::Identifier(Identifier::new("i")).with_position((10, 11)),
-                    Expression::Value(ValueNode::Integer(2)).with_position((14, 15)),
+                    Expression::Identifier(Identifier::new("i")).with_position((0, 0)),
+                    Expression::Value(ValueNode::Integer(2)).with_position((0, 0)),
                 )))
-                .with_position((10, 15)),
-                Block::new(vec![Statement::Break.with_position((18, 24))]),
+                .with_position((0, 0)),
+                Block::new(vec![Statement::Break.with_position((0, 0))]),
                 Some(Block::new(vec![Statement::Assignment(Assignment::new(
                     Identifier::new("i").with_position((0, 0)),
                     None,
                     AssignmentOperator::AddAssign,
                     Statement::Expression(Expression::Value(ValueNode::Integer(1)))
-                        .with_position((38, 39)),
+                        .with_position((0, 0)),
                 ))
-                .with_position((33, 39))])),
+                .with_position((0, 0))])),
             ))
             .with_position((0, 0))]))
             .with_position((0, 0)),

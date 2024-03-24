@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, rc::Rc};
 
 use dust_lang::{
-    abstract_tree::{Identifier, Type},
+    abstract_tree::{Identifier, Type, WithPos},
     error::{Error, TypeConflict, ValidationError},
     *,
 };
@@ -100,9 +100,9 @@ fn list() {
     assert_eq!(
         interpret(Rc::new("test".to_string()), "[1, 2, 'foobar']"),
         Ok(Some(Value::list(vec![
-            Value::integer(1),
-            Value::integer(2),
-            Value::string("foobar".to_string()),
+            Value::integer(1).with_position((1, 2)),
+            Value::integer(2).with_position((4, 5)),
+            Value::string("foobar".to_string()).with_position((7, 15)),
         ])))
     );
 }

@@ -13,7 +13,7 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractNode, Action, Block, Identifier, Type, WithPosition},
+    abstract_tree::{AbstractNode, Action, Block, Identifier, Type, WithPos, WithPosition},
     built_in_functions::BuiltInFunction,
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -39,7 +39,7 @@ impl Value {
         Value(Arc::new(ValueInner::Integer(integer)))
     }
 
-    pub fn list(list: Vec<Value>) -> Self {
+    pub fn list(list: Vec<WithPosition<Value>>) -> Self {
         Value(Arc::new(ValueInner::List(list)))
     }
 
@@ -63,7 +63,7 @@ impl Value {
     ) -> Self {
         Value(Arc::new(ValueInner::Function(Function::Parsed(
             ParsedFunction {
-                type_arguments,
+                type_parameters: type_arguments,
                 parameters,
                 return_type,
                 body,
@@ -91,7 +91,7 @@ impl Value {
         }
     }
 
-    pub fn as_list(&self) -> Option<&Vec<Value>> {
+    pub fn as_list(&self) -> Option<&Vec<WithPosition<Value>>> {
         if let ValueInner::List(list) = self.inner().as_ref() {
             Some(list)
         } else {
@@ -122,7 +122,7 @@ impl Display for Value {
                 let mut table = create_table();
 
                 for value in list {
-                    table = table.with_row([value.to_string()]);
+                    table = table.with_row([value.node.to_string()]);
                 }
 
                 write!(f, "{}", Console::default().render(&table))
@@ -139,7 +139,7 @@ impl Display for Value {
             ValueInner::Range(_) => todo!(),
             ValueInner::String(string) => write!(f, "{string}"),
             ValueInner::Function(Function::Parsed(ParsedFunction {
-                type_arguments,
+                type_parameters: type_arguments,
                 parameters,
                 return_type,
                 body,
@@ -202,7 +202,7 @@ pub enum ValueInner {
     Float(f64),
     Function(Function),
     Integer(i64),
-    List(Vec<Value>),
+    List(Vec<WithPosition<Value>>),
     Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
@@ -222,7 +222,7 @@ impl ValueInner {
                 let mut types = Vec::with_capacity(values.len());
 
                 for value in values {
-                    types.push(value.r#type(context)?);
+                    types.push(value.node.r#type(context)?.with_position(value.position));
                 }
 
                 Type::ListExact(types)
@@ -235,9 +235,9 @@ impl ValueInner {
                     parameter_types: parsed_function
                         .parameters
                         .iter()
-                        .map(|(_, r#type)| r#type.node.clone())
+                        .map(|(_, r#type)| r#type.clone())
                         .collect(),
-                    return_type: Box::new(parsed_function.return_type.node.clone()),
+                    return_type: Box::new(parsed_function.return_type.clone()),
                 },
                 Function::BuiltIn(built_in_function) => {
                     built_in_function.clone().as_value().r#type(context)?
@@ -343,8 +343,8 @@ impl Function {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ParsedFunction {
-    type_arguments: Vec<WithPosition<Type>>,
-    parameters: Vec<(Identifier, WithPosition<Type>)>,
-    return_type: WithPosition<Type>,
-    body: WithPosition<Block>,
+    pub type_parameters: Vec<WithPosition<Type>>,
+    pub parameters: Vec<(Identifier, WithPosition<Type>)>,
+    pub return_type: WithPosition<Type>,
+    pub body: WithPosition<Block>,
 }

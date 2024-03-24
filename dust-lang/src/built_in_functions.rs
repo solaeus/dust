@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::{Action, Type},
+    abstract_tree::{Action, Type, WithPos},
     context::Context,
     error::RuntimeError,
     value::ValueInner,
@@ -36,8 +36,8 @@ impl BuiltInFunction {
     pub fn r#type(&self) -> Type {
         match self {
             BuiltInFunction::WriteLine => Type::Function {
-                parameter_types: vec![Type::String],
-                return_type: Box::new(Type::None),
+                parameter_types: vec![Type::String.with_position((0, 0))],
+                return_type: Box::new(Type::None.with_position((0, 0))),
             },
             _ => {
                 todo!()

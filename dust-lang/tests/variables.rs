@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use dust_lang::{
-    abstract_tree::{AbstractNode, Block, Expression, Identifier, Statement, Type},
+    abstract_tree::{Block, Expression, Identifier, Statement, Type, WithPos},
     error::{Error, TypeConflict, ValidationError},
     *,
 };

@@ -95,7 +95,7 @@ impl AbstractNode for IfElse {
 #[cfg(test)]
 mod tests {
     use crate::{
-        abstract_tree::{Statement, ValueNode},
+        abstract_tree::{Statement, ValueNode, WithPos},
         Value,
     };
 
