@@ -3,7 +3,7 @@ io = {
 		__READ_LINE__()
 	}
 
-	write_line = (T)(output: T) none {
+	write_line = (output: str) none {
 		__WRITE_LINE__(output)
 	}
 }

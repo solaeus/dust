@@ -49,9 +49,9 @@ fn main() {
     let (source_id, source) = if let Some(path) = args.path {
         let source = read_to_string(&path).unwrap();
 
-        (Rc::new(path.to_string()), source)
+        (Rc::from(path), source)
     } else if let Some(command) = args.command {
-        (Rc::new("input".to_string()), command)
+        (Rc::from("input"), command)
     } else {
         match run_shell(context) {
             Ok(_) => {}

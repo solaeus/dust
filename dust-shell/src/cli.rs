@@ -80,8 +80,7 @@ pub fn run_shell(context: Context) -> Result<(), io::Error> {
                     continue;
                 }
 
-                let run_result =
-                    interpreter.run(Rc::new("input".to_string()), Rc::from(buffer.as_str()));
+                let run_result = interpreter.run(Rc::from("input"), Rc::from(buffer.as_str()));
 
                 match run_result {
                     Ok(Some(value)) => {

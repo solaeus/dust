@@ -113,7 +113,18 @@ impl Type {
                     return_type: right_return,
                 },
             ) => {
-                if left_return == right_return && left_parameters == right_parameters {
+                if left_return.node == right_return.node {
+                    for (left_parameter, right_parameter) in
+                        left_parameters.iter().zip(right_parameters.iter())
+                    {
+                        if left_parameter.node != right_parameter.node {
+                            return Err(TypeConflict {
+                                actual: other.clone(),
+                                expected: self.clone(),
+                            });
+                        }
+                    }
+
                     return Ok(());
                 }
             }
