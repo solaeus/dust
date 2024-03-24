@@ -6,20 +6,8 @@ use std::{
 use crate::{
     abstract_tree::{Identifier, Type},
     error::{RwLockPoisonError, ValidationError},
-    Interpreter, Value,
+    Value,
 };
-
-pub fn std_context() -> Context {
-    let context = Context::new();
-    let mut interpreter = Interpreter::new(context.clone());
-
-    interpreter.run(include_str!("../../std/io.ds")).unwrap();
-    interpreter
-        .run(include_str!("../../std/thread.ds"))
-        .unwrap();
-
-    context
-}
 
 #[derive(Clone, Debug)]
 pub struct Context {

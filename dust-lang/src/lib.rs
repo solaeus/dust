@@ -6,15 +6,17 @@ pub mod lexer;
 pub mod parser;
 pub mod value;
 
-use context::{std_context, Context};
+use context::Context;
 use error::Error;
 use lexer::lex;
 use parser::parse;
 pub use value::Value;
 
 pub fn interpret(source: &str) -> Result<Option<Value>, Vec<Error>> {
-    let mut interpreter = Interpreter::new(std_context());
+    let mut interpreter = Interpreter::new(Context::new());
 
+    interpreter.run(include_str!("../../std/io.ds"))?;
+    interpreter.run(include_str!("../../std/thread.ds"))?;
     interpreter.run(source)
 }
 
