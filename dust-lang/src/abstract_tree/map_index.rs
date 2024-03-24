@@ -69,6 +69,24 @@ impl AbstractNode for MapIndex {
             };
         }
 
+        if let (
+            Expression::Value(ValueNode::Structure { fields, .. }),
+            Expression::Identifier(identifier),
+        ) = (&self.left.node, &self.right.node)
+        {
+            return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
+                if property == identifier {
+                    Some(expression.node.expected_type(context))
+                } else {
+                    None
+                }
+            }) {
+                type_result
+            } else {
+                Ok(Type::None)
+            };
+        }
+
         Err(ValidationError::CannotIndexWith {
             collection_type: self.left.node.expected_type(context)?,
             collection_position: self.left.position,

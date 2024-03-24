@@ -9,7 +9,7 @@ use colored::Colorize;
 use std::{
     fs::read_to_string,
     io::{stderr, Write},
-    rc::Rc,
+    sync::Arc,
 };
 
 use dust_lang::{context::Context, Interpreter};
@@ -46,12 +46,12 @@ fn main() {
 
     interpreter.load_std().unwrap();
 
-    let (source_id, source) = if let Some(path) = args.path {
+    let (source_id, source): (Arc<str>, Arc<str>) = if let Some(path) = args.path {
         let source = read_to_string(&path).unwrap();
 
-        (Rc::from(path), source)
+        (Arc::from(path), Arc::from(source.as_str()))
     } else if let Some(command) = args.command {
-        (Rc::from("input"), command)
+        (Arc::from("command"), Arc::from(command.as_str()))
     } else {
         match run_shell(context) {
             Ok(_) => {}
@@ -61,7 +61,7 @@ fn main() {
         return;
     };
 
-    let run_result = interpreter.run(source_id, Rc::from(source));
+    let run_result = interpreter.run(source_id.clone(), source.clone());
 
     match run_result {
         Ok(value) => {

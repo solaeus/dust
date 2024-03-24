@@ -3,7 +3,7 @@ use std::{
     io::{self, stderr},
     path::PathBuf,
     process::Command,
-    rc::Rc,
+    sync::Arc,
 };
 
 use ariadne::sources;
@@ -19,7 +19,7 @@ use reedline::{
 };
 
 pub fn run_shell(context: Context) -> Result<(), io::Error> {
-    let mut interpreter = Interpreter::new(context.clone());
+    let interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 
     keybindings.add_binding(
@@ -80,7 +80,7 @@ pub fn run_shell(context: Context) -> Result<(), io::Error> {
                     continue;
                 }
 
-                let run_result = interpreter.run(Rc::from("input"), Rc::from(buffer.as_str()));
+                let run_result = interpreter.run(Arc::from("input"), Arc::from(buffer.as_str()));
 
                 match run_result {
                     Ok(Some(value)) => {

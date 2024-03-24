@@ -6,7 +6,11 @@ pub mod lexer;
 pub mod parser;
 pub mod value;
 
-use std::{cell::RefCell, ops::Range, rc::Rc, vec};
+use std::{
+    ops::Range,
+    sync::{Arc, RwLock},
+    vec,
+};
 
 use abstract_tree::Type;
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
@@ -14,42 +18,48 @@ use context::Context;
 use error::{Error, RuntimeError, TypeConflict, ValidationError};
 use lexer::lex;
 use parser::parse;
+use rayon::prelude::*;
 pub use value::Value;
 
 pub fn interpret<'src>(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
     let mut interpreter = Interpreter::new(Context::new());
 
     interpreter.load_std()?;
-    interpreter.run(Rc::from(source_id), Rc::from(source))
+    interpreter.run(Arc::from(source_id), Arc::from(source))
 }
 
 pub fn interpret_without_std(
     source_id: &str,
     source: &str,
 ) -> Result<Option<Value>, InterpreterError> {
-    let mut interpreter = Interpreter::new(Context::new());
+    let interpreter = Interpreter::new(Context::new());
 
-    interpreter.run(Rc::from(source_id.to_string()), Rc::from(source))
+    interpreter.run(Arc::from(source_id.to_string()), Arc::from(source))
 }
 
 pub struct Interpreter {
     context: Context,
-    sources: Rc<RefCell<Vec<(Rc<str>, Rc<str>)>>>,
+    sources: Arc<RwLock<Vec<(Arc<str>, Arc<str>)>>>,
 }
 
 impl Interpreter {
     pub fn new(context: Context) -> Self {
         Interpreter {
             context,
-            sources: Rc::new(RefCell::new(Vec::new())),
+            sources: Arc::new(RwLock::new(Vec::new())),
         }
     }
 
     pub fn run(
-        &mut self,
-        source_id: Rc<str>,
-        source: Rc<str>,
+        &self,
+        source_id: Arc<str>,
+        source: Arc<str>,
     ) -> Result<Option<Value>, InterpreterError> {
+        self.sources
+            .write()
+            .unwrap()
+            .push((source_id.clone(), source.clone()));
+
         let tokens = lex(source.as_ref()).map_err(|errors| InterpreterError {
             source_id: source_id.clone(),
             errors,
@@ -60,50 +70,42 @@ impl Interpreter {
         })?;
         let value_option = abstract_tree
             .run(&self.context)
-            .map_err(|errors| InterpreterError {
-                source_id: source_id.clone(),
-                errors,
-            })?;
-
-        self.sources.borrow_mut().push((source_id, source.into()));
+            .map_err(|errors| InterpreterError { source_id, errors })?;
 
         Ok(value_option)
     }
 
-    pub fn run_all<T: IntoIterator<Item = (Rc<str>, Rc<str>)>>(
-        &mut self,
-        sources: T,
-    ) -> Result<Option<Value>, InterpreterError> {
-        let mut previous_value_option = None;
+    pub fn load_std(&mut self) -> Result<(), InterpreterError> {
+        let std_sources = [
+            (
+                Arc::from("std/io.ds"),
+                Arc::from(include_str!("../../std/io.ds")),
+            ),
+            (
+                Arc::from("std/thread.ds"),
+                Arc::from(include_str!("../../std/thread.ds")),
+            ),
+        ];
 
-        for (source_id, source) in sources {
-            previous_value_option = self.run(source_id.clone(), source)?;
+        let error = std_sources
+            .into_par_iter()
+            .find_map_any(|(source_id, source)| self.run(source_id, source).err());
+
+        if let Some(error) = error {
+            Err(error)
+        } else {
+            Ok(())
         }
-
-        Ok(previous_value_option)
     }
 
-    pub fn load_std(&mut self) -> Result<Option<Value>, InterpreterError> {
-        self.run_all([
-            (
-                Rc::from("std/io.ds"),
-                Rc::from(include_str!("../../std/io.ds")),
-            ),
-            (
-                Rc::from("std/thread.ds"),
-                Rc::from(include_str!("../../std/thread.ds")),
-            ),
-        ])
-    }
-
-    pub fn sources(&self) -> vec::IntoIter<(Rc<str>, Rc<str>)> {
-        self.sources.borrow().clone().into_iter()
+    pub fn sources(&self) -> vec::IntoIter<(Arc<str>, Arc<str>)> {
+        self.sources.read().unwrap().clone().into_iter()
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct InterpreterError {
-    source_id: Rc<str>,
+    source_id: Arc<str>,
     errors: Vec<Error>,
 }
 
@@ -114,7 +116,7 @@ impl InterpreterError {
 }
 
 impl InterpreterError {
-    pub fn build_reports<'a>(self) -> Vec<Report<'a, (Rc<str>, Range<usize>)>> {
+    pub fn build_reports<'a>(self) -> Vec<Report<'a, (Arc<str>, Range<usize>)>> {
         let mut reports = Vec::new();
 
         for error in self.errors {
@@ -173,6 +175,17 @@ impl InterpreterError {
                     span.into(),
                 )
             }
+            Error::Validation { error, position } => (
+                Report::build(
+                    ReportKind::Custom("Validation Error", Color::Magenta),
+                    self.source_id.clone(),
+                    position.1,
+                )
+                .with_message("The syntax is valid but this code would cause an error.")
+                .with_note("This error was detected by the interpreter before running the code."),
+                Some(error),
+                position,
+            ),
             Error::Runtime { error, position } => (
                 Report::build(
                     ReportKind::Custom("Runtime Error", Color::Red),
@@ -185,23 +198,15 @@ impl InterpreterError {
                 )
                 .with_help(
                     "This is the interpreter's fault. Please submit a bug with this error message.",
+                )
+                .with_label(
+                    Label::new((self.source_id.clone(), position.0..position.1)).with_message("Runtime error occured here.")
                 ),
                 if let RuntimeError::ValidationFailure(validation_error) = error {
                     Some(validation_error)
                 } else {
                     None
                 },
-                position,
-            ),
-            Error::Validation { error, position } => (
-                Report::build(
-                    ReportKind::Custom("Validation Error", Color::Magenta),
-                    self.source_id.clone(),
-                    position.1,
-                )
-                .with_message("The syntax is valid but this code is not sound.")
-                .with_note("This error was detected by the interpreter before running the code."),
-                Some(error),
                 position,
             ),
         };
@@ -235,14 +240,14 @@ impl InterpreterError {
                     ValidationError::TypeCheck {
                         conflict,
                         actual_position,
-                        expected_position: expected_postion,
+                        expected_position,
                     } => {
                         let TypeConflict { actual, expected } = conflict;
 
                         builder.add_labels([
                             Label::new((
                                 self.source_id.clone(),
-                                expected_postion.0..expected_postion.1,
+                                expected_position.0..expected_position.1,
                             ))
                             .with_message(format!(
                                 "Type {} established here.",
@@ -308,11 +313,10 @@ impl InterpreterError {
                             Type::String.fg(type_color)
                         ));
 
-                        builder.add_labels([Label::new((
-                            self.source_id.clone(),
-                            position.0..position.1,
-                        ))
-                        .with_message(format!("This has type {}.", actual.fg(type_color),))])
+                        builder.add_label(
+                            Label::new((self.source_id.clone(), position.0..position.1))
+                                .with_message(format!("This has type {}.", actual.fg(type_color),)),
+                        )
                     }
                 }
             }
