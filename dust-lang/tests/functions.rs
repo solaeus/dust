@@ -1,16 +1,16 @@
-use std::rc::Rc;
-
 use dust_lang::{
     abstract_tree::Identifier,
     error::{Error, ValidationError},
     *,
 };
 
+use dust_lang::interpret;
+
 #[test]
 fn function_call() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
             foobar = (message : str) str { message }
             foobar('Hiya')
@@ -24,7 +24,7 @@ fn function_call() {
 fn call_empty_function() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
             foobar = (message : str) none {}
             foobar('Hiya')
@@ -38,7 +38,7 @@ fn call_empty_function() {
 fn callback() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
             foobar = (cb: fn() -> str) str {
                 cb()
@@ -52,17 +52,14 @@ fn callback() {
 
 #[test]
 fn built_in_function_call() {
-    assert_eq!(
-        interpret(Rc::new("test".to_string()), "io.write_line('Hiya')"),
-        Ok(None)
-    );
+    assert_eq!(interpret("test", "io.write_line('Hiya')"), Ok(None));
 }
 
 #[test]
 fn function_context_does_not_capture_values() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
             x = 1
 
@@ -79,7 +76,7 @@ fn function_context_does_not_capture_values() {
 
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
             x = 1
             foo = (x: int) int { x }
@@ -94,7 +91,7 @@ fn function_context_does_not_capture_values() {
 fn function_context_captures_functions() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
             bar = () int { 2 }
             foo = () int { bar() }
@@ -109,7 +106,7 @@ fn function_context_captures_functions() {
 fn recursion() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
             fib = (i: int) int {
             	if i <= 1 {

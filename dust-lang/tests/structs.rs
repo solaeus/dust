@@ -1,15 +1,14 @@
-use std::rc::Rc;
-
 use dust_lang::{
     abstract_tree::{Identifier, Type},
     error::{Error, TypeConflict, ValidationError},
-    *,
+    interpret, Value,
 };
+
 #[test]
 fn simple_structure() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
                 struct Foo {
                     bar : int,
@@ -36,7 +35,7 @@ fn simple_structure() {
 fn field_type_error() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
                 struct Foo {
                     bar : int,
@@ -67,7 +66,7 @@ fn field_type_error() {
 fn nested_structure() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
                 struct Bar {
                     baz : int
@@ -100,7 +99,7 @@ fn nested_structure() {
 fn undefined_struct() {
     assert_eq!(
         interpret(
-            Rc::new("test".to_string()),
+            "test",
             "
                 Foo {
                     bar = 42
@@ -110,7 +109,7 @@ fn undefined_struct() {
         .unwrap_err()
         .errors(),
         &vec![Error::Validation {
-            error: error::ValidationError::VariableNotFound(Identifier::new("Foo")),
+            error: ValidationError::VariableNotFound(Identifier::new("Foo")),
             position: (17, 69).into()
         }]
     )

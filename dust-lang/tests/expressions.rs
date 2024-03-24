@@ -1,27 +1,22 @@
-use std::rc::Rc;
-
 use dust_lang::*;
 
 #[test]
 fn logic() {
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "1 == 1").unwrap(),
+        interpret("test", "1 == 1").unwrap(),
         Some(Value::boolean(true))
     );
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "('42' == '42') && (42 != 0)").unwrap(),
+        interpret("test", "('42' == '42') && (42 != 0)").unwrap(),
         Some(Value::boolean(true))
     );
 }
 
 #[test]
 fn math() {
+    assert_eq!(interpret("test", "1 + 1").unwrap(), Some(Value::integer(2)));
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "1 + 1").unwrap(),
-        Some(Value::integer(2))
-    );
-    assert_eq!(
-        interpret(Rc::new("test".to_string()), "2 * (21 + 19 + 1 * 2) / 2").unwrap(),
+        interpret("test", "2 * (21 + 19 + 1 * 2) / 2").unwrap(),
         Some(Value::integer(42))
     );
 }
@@ -29,7 +24,7 @@ fn math() {
 #[test]
 fn list_index() {
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "foo = [1, 2, 3]; foo[2]").unwrap(),
+        interpret("test", "foo = [1, 2, 3]; foo[2]").unwrap(),
         Some(Value::integer(3))
     );
 }
@@ -37,11 +32,11 @@ fn list_index() {
 #[test]
 fn map_index() {
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "{ x = 3 }.x").unwrap(),
+        interpret("test", "{ x = 3 }.x").unwrap(),
         Some(Value::integer(3))
     );
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "foo = { x = 3 }; foo.x").unwrap(),
+        interpret("test", "foo = { x = 3 }; foo.x").unwrap(),
         Some(Value::integer(3))
     );
 }

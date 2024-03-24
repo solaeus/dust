@@ -4,9 +4,8 @@ use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
 use crate::{
     abstract_tree::*,
-    built_in_functions::BuiltInFunction,
     error::Error,
-    lexer::{BuiltInIdentifier, Control, Keyword, Operator, Token},
+    lexer::{Control, Keyword, Operator, Token},
 };
 
 pub type ParserInput<'src> =
@@ -256,11 +255,8 @@ pub fn parser<'src>() -> impl Parser<
 
             let built_in_function = {
                 select! {
-                    Token::BuiltInIdentifier(built_in_identifier) => {
-                                    match built_in_identifier {BuiltInIdentifier::ReadLine=>BuiltInFunction::ReadLine,BuiltInIdentifier::WriteLine=>BuiltInFunction::WriteLine,
-    BuiltInIdentifier::Sleep => BuiltInFunction::Sleep, }
-                                }
-                            }
+                    Token::BuiltInFunction(built_in_function) => built_in_function,
+                }
             }
             .map_with(|built_in_function, state| {
                 Expression::Value(ValueNode::BuiltInFunction(built_in_function))
@@ -582,7 +578,7 @@ pub fn parser<'src>() -> impl Parser<
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::lex;
+    use crate::{built_in_functions::BuiltInFunction, lexer::lex};
 
     use super::*;
 

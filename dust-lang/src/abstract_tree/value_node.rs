@@ -115,6 +115,8 @@ impl AbstractNode for ValueNode {
                     })?;
                 }
             }
+
+            return Ok(());
         }
 
         if let ValueNode::ParsedFunction {
@@ -150,6 +152,8 @@ impl AbstractNode for ValueNode {
                     actual_position: body.position,
                     expected_position: return_type.position,
                 })?;
+
+            return Ok(());
         }
 
         if let ValueNode::Structure {

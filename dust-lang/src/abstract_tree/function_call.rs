@@ -66,6 +66,18 @@ impl AbstractNode for FunctionCall {
                     })?;
             }
 
+            for (type_parameter, expression) in parameter_types.iter().zip(self.arguments.iter()) {
+                let actual = expression.node.expected_type(context)?;
+
+                type_parameter.node.check(&actual).map_err(|conflict| {
+                    ValidationError::TypeCheck {
+                        conflict,
+                        actual_position: expression.position,
+                        expected_position: type_parameter.position,
+                    }
+                })?;
+            }
+
             Ok(())
         } else {
             Err(ValidationError::ExpectedFunction {

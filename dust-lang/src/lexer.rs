@@ -5,12 +5,12 @@ use std::{
 
 use chumsky::prelude::*;
 
-use crate::error::Error;
+use crate::{built_in_functions::BuiltInFunction, error::Error};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token<'src> {
     Boolean(bool),
-    BuiltInIdentifier(BuiltInIdentifier),
+    BuiltInFunction(BuiltInFunction),
     Integer(i64),
     Float(f64),
     String(&'src str),
@@ -24,7 +24,7 @@ impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::Boolean(boolean) => write!(f, "{boolean}"),
-            Token::BuiltInIdentifier(built_in_identifier) => write!(f, "{built_in_identifier}"),
+            Token::BuiltInFunction(built_in_identifier) => write!(f, "{built_in_identifier}"),
             Token::Integer(integer) => write!(f, "{integer}"),
             Token::Float(float) => write!(f, "{float}"),
             Token::String(string) => write!(f, "{string}"),
@@ -32,23 +32,6 @@ impl<'src> Display for Token<'src> {
             Token::Operator(operator) => write!(f, "{operator}"),
             Token::Control(control) => write!(f, "{control}"),
             Token::Keyword(keyword) => write!(f, "{keyword}"),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum BuiltInIdentifier {
-    ReadLine,
-    Sleep,
-    WriteLine,
-}
-
-impl Display for BuiltInIdentifier {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            BuiltInIdentifier::ReadLine => write!(f, "__READ_LINE__"),
-            BuiltInIdentifier::Sleep => write!(f, "__SLEEP__"),
-            BuiltInIdentifier::WriteLine => write!(f, "__WRITE_LINE__"),
         }
     }
 }
@@ -315,11 +298,11 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Keyword);
 
     let built_in_identifier = choice((
-        just("__READ_LINE__").to(BuiltInIdentifier::ReadLine),
-        just("__SLEEP__").to(BuiltInIdentifier::Sleep),
-        just("__WRITE_LINE__").to(BuiltInIdentifier::WriteLine),
+        just(BuiltInFunction::ReadLine.name()).to(BuiltInFunction::ReadLine),
+        just(BuiltInFunction::Sleep.name()).to(BuiltInFunction::Sleep),
+        just(BuiltInFunction::WriteLine.name()).to(BuiltInFunction::WriteLine),
     ))
-    .map(Token::BuiltInIdentifier);
+    .map(Token::BuiltInFunction);
 
     choice((
         boolean,

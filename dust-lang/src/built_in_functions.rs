@@ -13,7 +13,7 @@ use crate::{
     Value,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum BuiltInFunction {
     ReadLine,
     Sleep,
@@ -23,9 +23,9 @@ pub enum BuiltInFunction {
 impl BuiltInFunction {
     pub fn name(&self) -> &'static str {
         match self {
-            BuiltInFunction::ReadLine => todo!(),
-            BuiltInFunction::Sleep => todo!(),
-            BuiltInFunction::WriteLine => todo!(),
+            BuiltInFunction::ReadLine => "__READ_LINE__",
+            BuiltInFunction::Sleep => "__SLEEP__",
+            BuiltInFunction::WriteLine => "__WRITE_LINE__",
         }
     }
 

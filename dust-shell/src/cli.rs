@@ -80,7 +80,8 @@ pub fn run_shell(context: Context) -> Result<(), io::Error> {
                     continue;
                 }
 
-                let run_result = interpreter.run(Rc::new("input".to_string()), &buffer);
+                let run_result =
+                    interpreter.run(Rc::new("input".to_string()), Rc::from(buffer.as_str()));
 
                 match run_result {
                     Ok(Some(value)) => {
@@ -88,12 +89,11 @@ pub fn run_shell(context: Context) -> Result<(), io::Error> {
                     }
                     Ok(None) => {}
                     Err(error) => {
-                        let source_id = Rc::new("input".to_string());
                         let reports = error.build_reports();
 
                         for report in reports {
                             report
-                                .write_for_stdout(sources([(source_id.clone(), &buffer)]), stderr())
+                                .write_for_stdout(sources(interpreter.sources()), stderr())
                                 .unwrap();
                         }
                     }

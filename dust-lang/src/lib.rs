@@ -6,7 +6,7 @@ pub mod lexer;
 pub mod parser;
 pub mod value;
 
-use std::{ops::Range, rc::Rc};
+use std::{cell::RefCell, ops::Range, rc::Rc, vec};
 
 use abstract_tree::Type;
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
@@ -16,20 +16,88 @@ use lexer::lex;
 use parser::parse;
 pub use value::Value;
 
-pub fn interpret(source_id: Rc<String>, source: &str) -> Result<Option<Value>, InterpreterError> {
+pub fn interpret<'src>(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
     let mut interpreter = Interpreter::new(Context::new());
 
-    interpreter.load_std()?;
-    interpreter.run(source_id, source)
+    interpreter.run(Rc::new(source_id.to_string()), Rc::from(source))
 }
 
 pub fn interpret_without_std(
-    source_id: Rc<String>,
+    source_id: &str,
     source: &str,
 ) -> Result<Option<Value>, InterpreterError> {
     let mut interpreter = Interpreter::new(Context::new());
 
-    interpreter.run(source_id, source)
+    interpreter.run(Rc::new(source_id.to_string()), Rc::from(source))
+}
+
+pub struct Interpreter {
+    context: Context,
+    sources: Rc<RefCell<Vec<(Rc<String>, Rc<str>)>>>,
+}
+
+impl Interpreter {
+    pub fn new(context: Context) -> Self {
+        Interpreter {
+            context,
+            sources: Rc::new(RefCell::new(Vec::new())),
+        }
+    }
+
+    pub fn run(
+        &mut self,
+        source_id: Rc<String>,
+        source: Rc<str>,
+    ) -> Result<Option<Value>, InterpreterError> {
+        let tokens = lex(source.as_ref()).map_err(|errors| InterpreterError {
+            source_id: source_id.clone(),
+            errors,
+        })?;
+        let abstract_tree = parse(&tokens).map_err(|errors| InterpreterError {
+            source_id: source_id.clone(),
+            errors,
+        })?;
+        let value_option = abstract_tree
+            .run(&self.context)
+            .map_err(|errors| InterpreterError {
+                source_id: source_id.clone(),
+                errors,
+            })?;
+
+        self.sources.borrow_mut().push((source_id, source.into()));
+
+        Ok(value_option)
+    }
+
+    pub fn run_all<T: IntoIterator<Item = (Rc<String>, Rc<str>)>>(
+        &mut self,
+        sources: T,
+    ) -> Result<Option<Value>, InterpreterError> {
+        let mut previous_value_option = None;
+
+        for (source_id, source) in sources {
+            previous_value_option = self.run(source_id.clone(), source)?;
+        }
+
+        Ok(previous_value_option)
+    }
+
+    pub fn load_std(&mut self) -> Result<Option<Value>, InterpreterError> {
+        self.run_all([
+            (
+                Rc::new("std/io.ds".to_string()),
+                Rc::from(include_str!("../../std/io.ds")),
+            ),
+            (
+                Rc::new("std/thread.ds".to_string()),
+                Rc::from(include_str!("../../std/thread.ds")),
+            ),
+        ])
+    }
+
+    pub fn sources(&self) -> vec::IntoIter<(Rc<String>, Rc<str>)> {
+        self.sources.borrow().clone().into_iter()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,7 +113,7 @@ impl InterpreterError {
 }
 
 impl InterpreterError {
-    pub fn build_reports<'id>(self) -> Vec<Report<'id, (Rc<String>, Range<usize>)>> {
+    pub fn build_reports<'a>(self) -> Vec<Report<'a, (Rc<String>, Range<usize>)>> {
         let mut reports = Vec::new();
 
         for error in self.errors {
@@ -170,8 +238,6 @@ impl InterpreterError {
                     } => {
                         let TypeConflict { actual, expected } = conflict;
 
-                        builder = builder.with_message("A type conflict was found.");
-
                         builder.add_labels([
                             Label::new((
                                 self.source_id.clone(),
@@ -255,48 +321,5 @@ impl InterpreterError {
         }
 
         reports
-    }
-}
-
-pub struct Interpreter {
-    context: Context,
-}
-
-impl Interpreter {
-    pub fn new(context: Context) -> Self {
-        Interpreter { context }
-    }
-
-    pub fn run(
-        &mut self,
-        source_id: Rc<String>,
-        source: &str,
-    ) -> Result<Option<Value>, InterpreterError> {
-        let tokens = lex(source).map_err(|errors| InterpreterError {
-            source_id: source_id.clone(),
-            errors,
-        })?;
-        let abstract_tree = parse(&tokens).map_err(|errors| InterpreterError {
-            source_id: source_id.clone(),
-            errors,
-        })?;
-        let value_option = abstract_tree
-            .run(&self.context)
-            .map_err(|errors| InterpreterError { source_id, errors })?;
-
-        Ok(value_option)
-    }
-
-    pub fn load_std(&mut self) -> Result<(), InterpreterError> {
-        self.run(
-            Rc::new("std/io.ds".to_string()),
-            include_str!("../../std/io.ds"),
-        )?;
-        self.run(
-            Rc::new("std/io.ds".to_string()),
-            include_str!("../../std/thread.ds"),
-        )?;
-
-        Ok(())
     }
 }

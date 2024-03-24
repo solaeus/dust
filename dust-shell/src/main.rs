@@ -12,7 +12,7 @@ use std::{
     rc::Rc,
 };
 
-use dust_lang::{context::Context, interpret, interpret_without_std};
+use dust_lang::{context::Context, Interpreter};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -42,10 +42,16 @@ fn main() {
 
     let args = Args::parse();
     let context = Context::new();
-    let (source, source_id) = if let Some(path) = args.path {
-        (read_to_string(&path).unwrap(), Rc::new(path))
+    let mut interpreter = Interpreter::new(context.clone());
+
+    interpreter.load_std().unwrap();
+
+    let (source_id, source) = if let Some(path) = args.path {
+        let source = read_to_string(&path).unwrap();
+
+        (Rc::new(path.to_string()), source)
     } else if let Some(command) = args.command {
-        (command, Rc::new("input".to_string()))
+        (Rc::new("input".to_string()), command)
     } else {
         match run_shell(context) {
             Ok(_) => {}
@@ -55,13 +61,9 @@ fn main() {
         return;
     };
 
-    let eval_result = if args.no_std {
-        interpret_without_std(source_id.clone(), &source)
-    } else {
-        interpret(source_id.clone(), &source)
-    };
+    let run_result = interpreter.run(source_id, Rc::from(source));
 
-    match eval_result {
+    match run_result {
         Ok(value) => {
             if let Some(value) = value {
                 println!("{value}")
@@ -70,7 +72,7 @@ fn main() {
         Err(error) => {
             for report in error.build_reports() {
                 report
-                    .write_for_stdout(sources([(source_id.clone(), source.as_str())]), stderr())
+                    .write_for_stdout(sources(interpreter.sources()), stderr())
                     .unwrap();
             }
         }

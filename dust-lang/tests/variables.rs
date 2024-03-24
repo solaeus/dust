@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use dust_lang::{
     abstract_tree::{Block, Expression, Identifier, Statement, Type, WithPos},
     error::{Error, TypeConflict, ValidationError},
@@ -9,7 +7,7 @@ use dust_lang::{
 #[test]
 fn set_and_get_variable() {
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "foobar = true; foobar"),
+        interpret("test", "foobar = true; foobar"),
         Ok(Some(Value::boolean(true)))
     );
 }
@@ -17,7 +15,7 @@ fn set_and_get_variable() {
 #[test]
 fn set_variable_with_type() {
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "foobar: bool = true; foobar"),
+        interpret("test", "foobar: bool = true; foobar"),
         Ok(Some(Value::boolean(true)))
     );
 }
@@ -25,7 +23,7 @@ fn set_variable_with_type() {
 #[test]
 fn set_variable_with_type_error() {
     assert_eq!(
-        interpret(Rc::new("test".to_string()), "foobar: str = true")
+        interpret("test", "foobar: str = true")
             .unwrap_err()
             .errors(),
         &vec![Error::Validation {
@@ -45,10 +43,7 @@ fn set_variable_with_type_error() {
 #[test]
 fn function_variable() {
     assert_eq!(
-        interpret(
-            Rc::new("test".to_string()),
-            "foobar = (x: int) int { x }; foobar"
-        ),
+        interpret("test", "foobar = (x: int) int { x }; foobar"),
         Ok(Some(Value::function(
             Vec::with_capacity(0),
             vec![(Identifier::new("x"), Type::Integer.with_position((13, 16)))],

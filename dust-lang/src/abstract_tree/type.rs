@@ -180,7 +180,7 @@ impl Display for Type {
                 write!(f, ") : {}", return_type.node)
             }
             Type::Structure { name, .. } => write!(f, "{name}"),
-            Type::Argument(_) => todo!(),
+            Type::Argument(identifier) => write!(f, "{identifier}"),
         }
     }
 }
