@@ -30,6 +30,7 @@ pub enum ValueNode {
         fields: Vec<(Identifier, WithPosition<Expression>)>,
     },
     ParsedFunction {
+        type_arguments: Vec<WithPosition<Type>>,
         parameters: Vec<(Identifier, WithPosition<Type>)>,
         return_type: WithPosition<Type>,
         body: WithPosition<Block>,
@@ -112,6 +113,7 @@ impl AbstractNode for ValueNode {
         }
 
         if let ValueNode::ParsedFunction {
+            type_arguments,
             parameters,
             return_type,
             body,
@@ -120,6 +122,12 @@ impl AbstractNode for ValueNode {
             let function_context = Context::new();
 
             function_context.inherit_types_from(context)?;
+
+            for r#type in type_arguments {
+                if let Type::Argument(identifier) = &r#type.node {
+                    function_context.set_type(identifier.clone(), r#type.node.clone())?;
+                }
+            }
 
             for (identifier, r#type) in parameters {
                 function_context.set_type(identifier.clone(), r#type.node.clone())?;
@@ -210,10 +218,11 @@ impl AbstractNode for ValueNode {
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
             ValueNode::ParsedFunction {
+                type_arguments,
                 parameters,
                 return_type,
                 body,
-            } => Value::function(parameters, return_type, body),
+            } => Value::function(type_arguments, parameters, return_type, body),
             ValueNode::Structure {
                 name,
                 fields: expressions,
@@ -281,11 +290,13 @@ impl Ord for ValueNode {
             (String(_), _) => Ordering::Greater,
             (
                 ParsedFunction {
+                    type_arguments: left_type_arguments,
                     parameters: left_parameters,
                     return_type: left_return,
                     body: left_body,
                 },
                 ParsedFunction {
+                    type_arguments: right_type_arguments,
                     parameters: right_parameters,
                     return_type: right_return,
                     body: right_body,
@@ -297,7 +308,13 @@ impl Ord for ValueNode {
                     let return_cmp = left_return.cmp(right_return);
 
                     if return_cmp.is_eq() {
-                        left_body.cmp(right_body)
+                        let type_argument_cmp = left_type_arguments.cmp(right_type_arguments);
+
+                        if type_argument_cmp.is_eq() {
+                            left_body.cmp(right_body)
+                        } else {
+                            type_argument_cmp
+                        }
                     } else {
                         return_cmp
                     }

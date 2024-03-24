@@ -56,11 +56,7 @@ impl Context {
     }
 
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
-        if self.inner.read()?.contains_key(identifier) {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        Ok(self.inner.read()?.contains_key(identifier))
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
@@ -93,9 +89,9 @@ impl Context {
     }
 
     pub fn set_value(&self, identifier: Identifier, value: Value) -> Result<(), RwLockPoisonError> {
-        let mut inner = self.inner.write()?;
-
-        inner.insert(identifier, ValueData::Value(value));
+        self.inner
+            .write()?
+            .insert(identifier, ValueData::Value(value));
 
         Ok(())
     }

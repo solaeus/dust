@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, rc::Rc};
 
 use dust_lang::{
     abstract_tree::{Identifier, Type},
@@ -8,25 +8,37 @@ use dust_lang::{
 
 #[test]
 fn none() {
-    assert_eq!(interpret("x = 9"), Ok(None));
-    assert_eq!(interpret("x = 1 + 1"), Ok(None));
+    assert_eq!(interpret(Rc::new("test".to_string()), "x = 9"), Ok(None));
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "x = 1 + 1"),
+        Ok(None)
+    );
 }
 
 #[test]
 fn integer() {
-    assert_eq!(interpret("1"), Ok(Some(Value::integer(1))));
-    assert_eq!(interpret("123"), Ok(Some(Value::integer(123))));
-    assert_eq!(interpret("-666"), Ok(Some(Value::integer(-666))));
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "1"),
+        Ok(Some(Value::integer(1)))
+    );
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "123"),
+        Ok(Some(Value::integer(123)))
+    );
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "-666"),
+        Ok(Some(Value::integer(-666)))
+    );
 }
 
 #[test]
 fn integer_saturation() {
     assert_eq!(
-        interpret("9223372036854775807 + 1"),
+        interpret(Rc::new("test".to_string()), "9223372036854775807 + 1"),
         Ok(Some(Value::integer(i64::MAX)))
     );
     assert_eq!(
-        interpret("-9223372036854775808 - 1"),
+        interpret(Rc::new("test".to_string()), "-9223372036854775808 - 1"),
         Ok(Some(Value::integer(i64::MIN)))
     );
 }
@@ -34,11 +46,11 @@ fn integer_saturation() {
 #[test]
 fn float() {
     assert_eq!(
-        interpret("1.7976931348623157e308"),
+        interpret(Rc::new("test".to_string()), "1.7976931348623157e308"),
         Ok(Some(Value::float(f64::MAX)))
     );
     assert_eq!(
-        interpret("-1.7976931348623157e308"),
+        interpret(Rc::new("test".to_string()), "-1.7976931348623157e308"),
         Ok(Some(Value::float(f64::MIN)))
     );
 }
@@ -46,11 +58,11 @@ fn float() {
 #[test]
 fn float_saturation() {
     assert_eq!(
-        interpret("1.7976931348623157e308 + 1"),
+        interpret(Rc::new("test".to_string()), "1.7976931348623157e308 + 1"),
         Ok(Some(Value::float(f64::MAX)))
     );
     assert_eq!(
-        interpret("-1.7976931348623157e308 - 1"),
+        interpret(Rc::new("test".to_string()), "-1.7976931348623157e308 - 1"),
         Ok(Some(Value::float(f64::MIN)))
     );
 }
@@ -58,27 +70,27 @@ fn float_saturation() {
 #[test]
 fn string() {
     assert_eq!(
-        interpret("\"one\""),
+        interpret(Rc::new("test".to_string()), "\"one\""),
         Ok(Some(Value::string("one".to_string())))
     );
     assert_eq!(
-        interpret("'one'"),
+        interpret(Rc::new("test".to_string()), "'one'"),
         Ok(Some(Value::string("one".to_string())))
     );
     assert_eq!(
-        interpret("`one`"),
+        interpret(Rc::new("test".to_string()), "`one`"),
         Ok(Some(Value::string("one".to_string())))
     );
     assert_eq!(
-        interpret("`'one'`"),
+        interpret(Rc::new("test".to_string()), "`'one'`"),
         Ok(Some(Value::string("'one'".to_string())))
     );
     assert_eq!(
-        interpret("'`one`'"),
+        interpret(Rc::new("test".to_string()), "'`one`'"),
         Ok(Some(Value::string("`one`".to_string())))
     );
     assert_eq!(
-        interpret("\"'one'\""),
+        interpret(Rc::new("test".to_string()), "\"'one'\""),
         Ok(Some(Value::string("'one'".to_string())))
     );
 }
@@ -86,7 +98,7 @@ fn string() {
 #[test]
 fn list() {
     assert_eq!(
-        interpret("[1, 2, 'foobar']"),
+        interpret(Rc::new("test".to_string()), "[1, 2, 'foobar']"),
         Ok(Some(Value::list(vec![
             Value::integer(1),
             Value::integer(2),
@@ -97,7 +109,10 @@ fn list() {
 
 #[test]
 fn empty_list() {
-    assert_eq!(interpret("[]"), Ok(Some(Value::list(Vec::new()))));
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "[]"),
+        Ok(Some(Value::list(Vec::new())))
+    );
 }
 
 #[test]
@@ -108,14 +123,17 @@ fn map() {
     map.insert(Identifier::new("foo"), Value::string("bar".to_string()));
 
     assert_eq!(
-        interpret("{ x = 1, foo = 'bar' }"),
+        interpret(Rc::new("test".to_string()), "{ x = 1, foo = 'bar' }"),
         Ok(Some(Value::map(map)))
     );
 }
 
 #[test]
 fn empty_map() {
-    assert_eq!(interpret("{}"), Ok(Some(Value::map(BTreeMap::new()))));
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "{}"),
+        Ok(Some(Value::map(BTreeMap::new())))
+    );
 }
 
 #[test]
@@ -126,7 +144,10 @@ fn map_types() {
     map.insert(Identifier::new("foo"), Value::string("bar".to_string()));
 
     assert_eq!(
-        interpret("{ x : int = 1, foo : str = 'bar' }"),
+        interpret(
+            Rc::new("test".to_string()),
+            "{ x : int = 1, foo : str = 'bar' }"
+        ),
         Ok(Some(Value::map(map)))
     );
 }
@@ -134,8 +155,10 @@ fn map_types() {
 #[test]
 fn map_type_errors() {
     assert_eq!(
-        interpret("{ foo : bool = 'bar' }"),
-        Err(vec![Error::Validation {
+        interpret(Rc::new("test".to_string()), "{ foo : bool = 'bar' }")
+            .unwrap_err()
+            .errors(),
+        &vec![Error::Validation {
             error: ValidationError::TypeCheck {
                 conflict: TypeConflict {
                     actual: Type::String,
@@ -145,11 +168,14 @@ fn map_type_errors() {
                 expected_position: (8, 12).into(),
             },
             position: (0, 22).into()
-        }])
+        }]
     );
 }
 
 #[test]
 fn range() {
-    assert_eq!(interpret("0..100"), Ok(Some(Value::range(0..100))));
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "0..100"),
+        Ok(Some(Value::range(0..100)))
+    );
 }

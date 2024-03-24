@@ -1,12 +1,10 @@
 //! Command line interface for the dust programming language.
 mod cli;
-mod error;
 
 use ariadne::sources;
 use clap::Parser;
 use cli::run_shell;
 use colored::Colorize;
-use error::Error;
 
 use std::{
     fs::read_to_string,
@@ -14,7 +12,7 @@ use std::{
     rc::Rc,
 };
 
-use dust_lang::{context::Context, interpret};
+use dust_lang::{context::Context, interpret, interpret_without_std};
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -23,6 +21,9 @@ struct Args {
     /// Dust source code to evaluate.
     #[arg(short, long)]
     command: Option<String>,
+
+    #[arg(long)]
+    no_std: bool,
 
     /// Location of the file to run.
     path: Option<String>,
@@ -54,7 +55,11 @@ fn main() {
         return;
     };
 
-    let eval_result = interpret(&source);
+    let eval_result = if args.no_std {
+        interpret_without_std(source_id.clone(), &source)
+    } else {
+        interpret(source_id.clone(), &source)
+    };
 
     match eval_result {
         Ok(value) => {
@@ -62,27 +67,10 @@ fn main() {
                 println!("{value}")
             }
         }
-        Err(errors) => {
-            let reports = Error::Dust { errors }
-                .build_reports(source_id.clone())
-                .unwrap();
-
-            for report in reports {
+        Err(error) => {
+            for report in error.build_reports() {
                 report
-                    .write_for_stdout(
-                        sources([
-                            (source_id.clone(), source.as_str()),
-                            (
-                                Rc::new("std/io.ds".to_string()),
-                                include_str!("../../std/io.ds"),
-                            ),
-                            (
-                                Rc::new("std/thread.ds".to_string()),
-                                include_str!("../../std/thread.ds"),
-                            ),
-                        ]),
-                        stderr(),
-                    )
+                    .write_for_stdout(sources([(source_id.clone(), source.as_str())]), stderr())
                     .unwrap();
             }
         }

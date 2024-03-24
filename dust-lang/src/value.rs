@@ -56,12 +56,14 @@ impl Value {
     }
 
     pub fn function(
+        type_arguments: Vec<WithPosition<Type>>,
         parameters: Vec<(Identifier, WithPosition<Type>)>,
         return_type: WithPosition<Type>,
         body: WithPosition<Block>,
     ) -> Self {
         Value(Arc::new(ValueInner::Function(Function::Parsed(
             ParsedFunction {
+                type_arguments,
                 parameters,
                 return_type,
                 body,
@@ -137,10 +139,25 @@ impl Display for Value {
             ValueInner::Range(_) => todo!(),
             ValueInner::String(string) => write!(f, "{string}"),
             ValueInner::Function(Function::Parsed(ParsedFunction {
+                type_arguments,
                 parameters,
                 return_type,
                 body,
             })) => {
+                if !type_arguments.is_empty() {
+                    write!(f, "(")?;
+
+                    for (index, r#type) in type_arguments.into_iter().enumerate() {
+                        if index == type_arguments.len() - 1 {
+                            write!(f, "{}", r#type.node)?;
+                        } else {
+                            write!(f, "{} ", r#type.node)?;
+                        }
+                    }
+
+                    write!(f, ")")?;
+                }
+
                 write!(f, "(")?;
 
                 for (identifier, r#type) in parameters {
@@ -326,6 +343,7 @@ impl Function {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ParsedFunction {
+    type_arguments: Vec<WithPosition<Type>>,
     parameters: Vec<(Identifier, WithPosition<Type>)>,
     return_type: WithPosition<Type>,
     body: WithPosition<Block>,

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use dust_lang::{
     abstract_tree::Identifier,
     error::{Error, ValidationError},
@@ -8,8 +10,9 @@ use dust_lang::{
 fn function_call() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
-            foobar = (message : str) : str { message }
+            foobar = (message : str) str { message }
             foobar('Hiya')
             ",
         ),
@@ -21,8 +24,9 @@ fn function_call() {
 fn call_empty_function() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
-            foobar = (message : str) : none {}
+            foobar = (message : str) none {}
             foobar('Hiya')
             ",
         ),
@@ -34,11 +38,12 @@ fn call_empty_function() {
 fn callback() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
-            foobar = (cb : () -> str) : str {
+            foobar = (cb: fn() -> str) str {
                 cb()
             }
-            foobar(() : str { 'Hiya' })
+            foobar(() str { 'Hiya' })
             ",
         ),
         Ok(Some(Value::string("Hiya".to_string())))
@@ -47,30 +52,37 @@ fn callback() {
 
 #[test]
 fn built_in_function_call() {
-    assert_eq!(interpret("io.write_line('Hiya')"), Ok(None));
+    assert_eq!(
+        interpret(Rc::new("test".to_string()), "io.write_line('Hiya')"),
+        Ok(None)
+    );
 }
 
 #[test]
 fn function_context_does_not_capture_values() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
             x = 1
 
-            foo = () : any { x } 
+            foo = () any { x } 
             "
-        ),
-        Err(vec![Error::Validation {
+        )
+        .unwrap_err()
+        .errors(),
+        &vec![Error::Validation {
             error: ValidationError::VariableNotFound(Identifier::new("x")),
-            position: (32, 52).into()
-        }])
+            position: (32, 50).into()
+        }]
     );
 
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
             x = 1
-            foo = (x : int) : int { x }
+            foo = (x: int) int { x }
             foo(2)
             "
         ),
@@ -82,9 +94,10 @@ fn function_context_does_not_capture_values() {
 fn function_context_captures_functions() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
-            bar = () : int { 2 }
-            foo = () : int { bar() }
+            bar = () int { 2 }
+            foo = () int { bar() }
             foo()
             "
         ),
@@ -96,8 +109,9 @@ fn function_context_captures_functions() {
 fn recursion() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
-            fib = (i : int) : int {
+            fib = (i: int) int {
             	if i <= 1 {
             		1
             	} else {

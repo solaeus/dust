@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use dust_lang::{
     abstract_tree::{AbstractNode, Block, Expression, Identifier, Statement, Type},
     error::{Error, TypeConflict, ValidationError},
@@ -7,7 +9,7 @@ use dust_lang::{
 #[test]
 fn set_and_get_variable() {
     assert_eq!(
-        interpret("foobar = true; foobar"),
+        interpret(Rc::new("test".to_string()), "foobar = true; foobar"),
         Ok(Some(Value::boolean(true)))
     );
 }
@@ -15,7 +17,7 @@ fn set_and_get_variable() {
 #[test]
 fn set_variable_with_type() {
     assert_eq!(
-        interpret("foobar: bool = true; foobar"),
+        interpret(Rc::new("test".to_string()), "foobar: bool = true; foobar"),
         Ok(Some(Value::boolean(true)))
     );
 }
@@ -23,8 +25,10 @@ fn set_variable_with_type() {
 #[test]
 fn set_variable_with_type_error() {
     assert_eq!(
-        interpret("foobar: str = true"),
-        Err(vec![Error::Validation {
+        interpret(Rc::new("test".to_string()), "foobar: str = true")
+            .unwrap_err()
+            .errors(),
+        &vec![Error::Validation {
             error: ValidationError::TypeCheck {
                 conflict: TypeConflict {
                     actual: Type::Boolean,
@@ -34,22 +38,26 @@ fn set_variable_with_type_error() {
                 expected_position: (8, 11).into()
             },
             position: (0, 18).into()
-        }])
+        }]
     );
 }
 
 #[test]
 fn function_variable() {
     assert_eq!(
-        interpret("foobar = (x: int): int { x }; foobar"),
+        interpret(
+            Rc::new("test".to_string()),
+            "foobar = (x: int) int { x }; foobar"
+        ),
         Ok(Some(Value::function(
+            Vec::with_capacity(0),
             vec![(Identifier::new("x"), Type::Integer.with_position((13, 16)))],
-            Type::Integer.with_position((19, 22)),
+            Type::Integer.with_position((18, 21)),
             Block::new(vec![Statement::Expression(Expression::Identifier(
                 Identifier::new("x")
             ))
-            .with_position((25, 26))])
-            .with_position((9, 28))
+            .with_position((24, 25))])
+            .with_position((9, 27))
         )))
     );
 }

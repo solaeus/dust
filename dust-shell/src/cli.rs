@@ -1,4 +1,10 @@
-use std::{borrow::Cow, io::stderr, path::PathBuf, process::Command, rc::Rc};
+use std::{
+    borrow::Cow,
+    io::{self, stderr},
+    path::PathBuf,
+    process::Command,
+    rc::Rc,
+};
 
 use ariadne::sources;
 use dust_lang::{
@@ -12,9 +18,7 @@ use reedline::{
     SqliteBackedHistory, Suggestion,
 };
 
-use crate::error::Error;
-
-pub fn run_shell(context: Context) -> Result<(), Error> {
+pub fn run_shell(context: Context) -> Result<(), io::Error> {
     let mut interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 
@@ -76,18 +80,16 @@ pub fn run_shell(context: Context) -> Result<(), Error> {
                     continue;
                 }
 
-                let run_result = interpreter.run(&buffer);
+                let run_result = interpreter.run(Rc::new("input".to_string()), &buffer);
 
                 match run_result {
                     Ok(Some(value)) => {
                         println!("{value}")
                     }
                     Ok(None) => {}
-                    Err(errors) => {
+                    Err(error) => {
                         let source_id = Rc::new("input".to_string());
-                        let reports = Error::Dust { errors }
-                            .build_reports(source_id.clone())
-                            .unwrap();
+                        let reports = error.build_reports();
 
                         for report in reports {
                             report

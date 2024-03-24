@@ -61,6 +61,7 @@ pub enum Keyword {
     Break,
     Else,
     Float,
+    Fn,
     Int,
     If,
     List,
@@ -69,6 +70,7 @@ pub enum Keyword {
     Range,
     Struct,
     Str,
+    Type,
     Loop,
     While,
 }
@@ -82,6 +84,7 @@ impl Display for Keyword {
             Keyword::Break => write!(f, "break"),
             Keyword::Else => write!(f, "else"),
             Keyword::Float => write!(f, "float"),
+            Keyword::Fn => write!(f, "fn"),
             Keyword::Int => write!(f, "int"),
             Keyword::If => write!(f, "if"),
             Keyword::List => write!(f, "list"),
@@ -92,6 +95,7 @@ impl Display for Keyword {
             Keyword::Str => write!(f, "str"),
             Keyword::Loop => write!(f, "loop"),
             Keyword::While => write!(f, "while"),
+            Keyword::Type => write!(f, "type"),
         }
     }
 }
@@ -143,13 +147,13 @@ impl Display for Operator {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Control {
-    Arrow,
     CurlyOpen,
     CurlyClose,
     SquareOpen,
     SquareClose,
     ParenOpen,
     ParenClose,
+    Pipe,
     Comma,
     DoubleColon,
     Colon,
@@ -157,12 +161,13 @@ pub enum Control {
     Dot,
     DoubleDot,
     Semicolon,
+    SkinnyArrow,
+    FatArrow,
 }
 
 impl Display for Control {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Control::Arrow => write!(f, "->"),
             Control::CurlyOpen => write!(f, "{{"),
             Control::CurlyClose => write!(f, "}}"),
             Control::Dollar => write!(f, "$"),
@@ -170,12 +175,15 @@ impl Display for Control {
             Control::SquareClose => write!(f, "]"),
             Control::ParenOpen => write!(f, "("),
             Control::ParenClose => write!(f, ")"),
+            Control::Pipe => write!(f, "|"),
             Control::Comma => write!(f, ","),
             Control::DoubleColon => write!(f, "::"),
             Control::Colon => write!(f, ":"),
             Control::Dot => write!(f, "."),
             Control::Semicolon => write!(f, ";"),
             Control::DoubleDot => write!(f, ".."),
+            Control::SkinnyArrow => write!(f, "->"),
+            Control::FatArrow => write!(f, "=>"),
         }
     }
 }
@@ -265,13 +273,15 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Operator);
 
     let control = choice((
-        just("->").to(Control::Arrow),
+        just("->").to(Control::SkinnyArrow),
+        just("=>").to(Control::FatArrow),
         just("{").to(Control::CurlyOpen),
         just("}").to(Control::CurlyClose),
         just("[").to(Control::SquareOpen),
         just("]").to(Control::SquareClose),
         just("(").to(Control::ParenOpen),
         just(")").to(Control::ParenClose),
+        just("|").to(Control::Pipe),
         just(",").to(Control::Comma),
         just(";").to(Control::Semicolon),
         just("::").to(Control::DoubleColon),
@@ -289,6 +299,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("break").to(Keyword::Break),
         just("else").to(Keyword::Else),
         just("float").to(Keyword::Float),
+        just("fn").to(Keyword::Fn),
         just("int").to(Keyword::Int),
         just("if").to(Keyword::If),
         just("list").to(Keyword::List),
@@ -297,6 +308,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("range").to(Keyword::Range),
         just("struct").to(Keyword::Struct),
         just("str").to(Keyword::Str),
+        just("type").to(Keyword::Type),
         just("loop").to(Keyword::Loop),
         just("while").to(Keyword::While),
     ))

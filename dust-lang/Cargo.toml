@@ -9,7 +9,7 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
-ariadne = { version = "0.4.0", features = ["auto-color"] }
+ariadne = "0.4.0"
 chumsky = { version = "1.0.0-alpha.6", features = ["pratt", "label"] }
 clap = { version = "4.5.2", features = ["derive"] }
 colored = "2.1.0"

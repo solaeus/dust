@@ -1,9 +1,12 @@
+use std::rc::Rc;
+
 use dust_lang::*;
 
 #[test]
 fn async_block() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
                 x = 41
                 async {
@@ -21,6 +24,7 @@ fn async_block() {
 fn loops_and_breaks() {
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
             i = 0
             loop {
@@ -37,6 +41,7 @@ fn loops_and_breaks() {
     );
     assert_eq!(
         interpret(
+            Rc::new("test".to_string()),
             "
             foobar = {
                 while true {
@@ -55,7 +60,7 @@ fn loops_and_breaks() {
 #[test]
 fn r#if() {
     assert_eq!(
-        interpret("if true { 'foobar' }"),
+        interpret(Rc::new("test".to_string()), "if true { 'foobar'  }"),
         Ok(Some(Value::string("foobar".to_string())))
     )
 }
@@ -63,7 +68,10 @@ fn r#if() {
 #[test]
 fn if_else() {
     assert_eq!(
-        interpret("if false { 'foo' } else { 'bar' }"),
+        interpret(
+            Rc::new("test".to_string()),
+            "if false { 'foo' } else { 'bar' }"
+        ),
         Ok(Some(Value::string("bar".to_string())))
     )
 }

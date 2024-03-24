@@ -66,15 +66,18 @@ pub fn parser<'src>() -> impl Parser<
     .map_with(|value, state| Expression::Value(value).with_position(state.span()));
 
     let r#type = recursive(|r#type| {
-        let function_type = r#type
-            .clone()
-            .separated_by(just(Token::Control(Control::Comma)))
-            .collect()
-            .delimited_by(
-                just(Token::Control(Control::ParenOpen)),
-                just(Token::Control(Control::ParenClose)),
+        let function_type = just(Token::Keyword(Keyword::Fn))
+            .ignore_then(
+                r#type
+                    .clone()
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::ParenOpen)),
+                        just(Token::Control(Control::ParenClose)),
+                    ),
             )
-            .then_ignore(just(Token::Control(Control::Arrow)))
+            .then_ignore(just(Token::Control(Control::SkinnyArrow)))
             .then(r#type.clone())
             .map(|(parameter_types, return_type)| Type::Function {
                 parameter_types,
@@ -110,19 +113,20 @@ pub fn parser<'src>() -> impl Parser<
             just(Token::Keyword(Keyword::Range)).to(Type::Range),
             just(Token::Keyword(Keyword::Str)).to(Type::String),
             just(Token::Keyword(Keyword::List)).to(Type::List),
-            identifier.clone().try_map(move |identifier, span| {
-                custom_types
-                    .0
-                    .borrow()
-                    .get(&identifier)
-                    .cloned()
-                    .ok_or_else(|| {
-                        Rich::custom(span, format!("There is no type named {identifier}."))
-                    })
+            identifier.clone().map(move |identifier| {
+                if let Some(r#type) = custom_types.0.borrow().get(&identifier) {
+                    r#type.clone()
+                } else {
+                    Type::Argument(identifier)
+                }
             }),
         ))
     })
     .map_with(|r#type, state| r#type.with_position(state.span()));
+
+    let type_argument = identifier
+        .clone()
+        .map_with(|identifier, state| Type::Argument(identifier).with_position(state.span()));
 
     let type_specification = just(Token::Control(Control::Colon)).ignore_then(r#type.clone());
 
@@ -213,25 +217,42 @@ pub fn parser<'src>() -> impl Parser<
                         .with_position(state.span())
                 });
 
-            let parsed_function = identifier
+            let type_arguments = type_argument
                 .clone()
-                .then(type_specification.clone())
                 .separated_by(just(Token::Control(Control::Comma)))
+                .at_least(1)
                 .collect()
                 .delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
+                );
+
+            let parsed_function = type_arguments
+                .or_not()
+                .then(
+                    identifier
+                        .clone()
+                        .then(type_specification.clone())
+                        .separated_by(just(Token::Control(Control::Comma)))
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::ParenOpen)),
+                            just(Token::Control(Control::ParenClose)),
+                        )
+                        .then(r#type.clone())
+                        .then(block.clone()),
                 )
-                .then(type_specification.clone())
-                .then(block.clone())
-                .map_with(|((parameters, return_type), body), state| {
-                    Expression::Value(ValueNode::ParsedFunction {
-                        parameters,
-                        return_type,
-                        body: body.with_position(state.span()),
-                    })
-                    .with_position(state.span())
-                });
+                .map_with(
+                    |(type_arguments, ((parameters, return_type), body)), state| {
+                        Expression::Value(ValueNode::ParsedFunction {
+                            type_arguments: type_arguments.unwrap_or_else(|| Vec::with_capacity(0)),
+                            parameters,
+                            return_type,
+                            body: body.with_position(state.span()),
+                        })
+                        .with_position(state.span())
+                    },
+                );
 
             let built_in_function = {
                 select! {
@@ -246,20 +267,44 @@ pub fn parser<'src>() -> impl Parser<
                     .with_position(state.span())
             });
 
+            use Operator::*;
+
+            let structure_field = identifier
+                .clone()
+                .then_ignore(just(Token::Operator(Operator::Assign)))
+                .then(positioned_expression.clone());
+
+            let structure_instance = identifier
+                .clone()
+                .then(
+                    structure_field
+                        .separated_by(just(Token::Control(Control::Comma)))
+                        .allow_trailing()
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::CurlyOpen)),
+                            just(Token::Control(Control::CurlyClose)),
+                        ),
+                )
+                .map_with(|(name, fields), state| {
+                    Expression::Value(ValueNode::Structure { name, fields })
+                        .with_position(state.span())
+                });
+
             let atom = choice((
-                built_in_function.clone(),
+                range.clone(),
+                structure_instance.clone(),
                 parsed_function.clone(),
-                identifier_expression.clone(),
-                basic_value.clone(),
+                built_in_function.clone(),
                 list.clone(),
                 map.clone(),
+                basic_value.clone(),
+                identifier_expression.clone(),
                 positioned_expression.clone().delimited_by(
                     just(Token::Control(Control::ParenOpen)),
                     just(Token::Control(Control::ParenClose)),
                 ),
             ));
-
-            use Operator::*;
 
             let logic_math_indexes_and_function_calls = atom.pratt((
                 prefix(2, just(Token::Operator(Not)), |_, expression, span| {
@@ -395,32 +440,10 @@ pub fn parser<'src>() -> impl Parser<
                 ),
             ));
 
-            let structure_field = identifier
-                .clone()
-                .then_ignore(just(Token::Operator(Operator::Assign)))
-                .then(positioned_expression.clone());
-
-            let structure_instance = identifier
-                .clone()
-                .then(
-                    structure_field
-                        .separated_by(just(Token::Control(Control::Comma)))
-                        .allow_trailing()
-                        .collect()
-                        .delimited_by(
-                            just(Token::Control(Control::CurlyOpen)),
-                            just(Token::Control(Control::CurlyClose)),
-                        ),
-                )
-                .map_with(|(name, fields), state| {
-                    Expression::Value(ValueNode::Structure { name, fields })
-                        .with_position(state.span())
-                });
-
             choice((
-                structure_instance,
-                range,
                 logic_math_indexes_and_function_calls,
+                range,
+                structure_instance,
                 parsed_function,
                 built_in_function,
                 list,
@@ -742,7 +765,7 @@ mod tests {
     #[test]
     fn function_type() {
         assert_eq!(
-            parse(&lex("foobar : () -> any = some_function").unwrap()).unwrap()[0].node,
+            parse(&lex("foobar : fn() -> any = some_function").unwrap()).unwrap()[0].node,
             Statement::Assignment(Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
                 Some(
@@ -750,11 +773,11 @@ mod tests {
                         parameter_types: vec![],
                         return_type: Box::new(Type::Any)
                     }
-                    .with_position((9, 18))
+                    .with_position((9, 20))
                 ),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Identifier(Identifier::new("some_function")))
-                    .with_position((21, 34))
+                    .with_position((23, 36))
             ),)
         );
     }
@@ -762,9 +785,13 @@ mod tests {
     #[test]
     fn function_call() {
         assert_eq!(
-            parse(&lex("output()").unwrap()).unwrap()[0].node,
+            parse(&lex("io.write_line()").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::FunctionCall(FunctionCall::new(
-                Expression::Identifier(Identifier::new("output")).with_position((0, 6)),
+                Expression::MapIndex(Box::new(MapIndex::new(
+                    Expression::Identifier(Identifier::new("io")).with_position((0, 2)),
+                    Expression::Identifier(Identifier::new("write_line")).with_position((3, 13))
+                )))
+                .with_position((0, 13)),
                 Vec::with_capacity(0),
             )))
         )
@@ -781,15 +808,45 @@ mod tests {
     #[test]
     fn function() {
         assert_eq!(
-            parse(&lex("(x: int) : int { x }").unwrap()).unwrap()[0].node,
+            parse(&lex("(x: int) int { x }").unwrap()).unwrap()[0].node,
             Statement::Expression(Expression::Value(ValueNode::ParsedFunction {
+                type_arguments: Vec::with_capacity(0),
                 parameters: vec![(Identifier::new("x"), Type::Integer.with_position((4, 7)))],
-                return_type: Type::Integer.with_position((11, 14)),
+                return_type: Type::Integer.with_position((9, 12)),
                 body: Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x")
                 ),)
-                .with_position((17, 18))])
-                .with_position((0, 20))
+                .with_position((15, 16))])
+                .with_position((0, 18)),
+            }),)
+        )
+    }
+
+    #[test]
+    fn function_with_type_arguments() {
+        assert_eq!(
+            parse(&lex("(T, U)(x: T, y: U) T { x }").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::Value(ValueNode::ParsedFunction {
+                type_arguments: vec![
+                    Type::Argument(Identifier::new("T")).with_position((1, 2)),
+                    Type::Argument(Identifier::new("U")).with_position((4, 5)),
+                ],
+                parameters: vec![
+                    (
+                        Identifier::new("x"),
+                        Type::Argument(Identifier::new("T")).with_position((10, 11))
+                    ),
+                    (
+                        Identifier::new("y"),
+                        Type::Argument(Identifier::new("U")).with_position((16, 17))
+                    )
+                ],
+                return_type: Type::Argument(Identifier::new("T")).with_position((19, 20)),
+                body: Block::new(vec![Statement::Expression(Expression::Identifier(
+                    Identifier::new("x")
+                ),)
+                .with_position((23, 24))])
+                .with_position((0, 26)),
             }),)
         )
     }
