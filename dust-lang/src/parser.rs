@@ -291,6 +291,20 @@ pub fn parser<'src>() -> impl Parser<
                         .with_position(state.span())
                 });
 
+            let turbofish = r#type
+                .clone()
+                .separated_by(just(Token::Control(Control::Comma)))
+                .at_least(1)
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
+                )
+                .delimited_by(
+                    just(Token::Control(Control::DoubleColon)),
+                    just(Token::Control(Control::DoubleColon)),
+                );
+
             let atom = choice((
                 range.clone(),
                 structure_instance.clone(),
@@ -323,17 +337,28 @@ pub fn parser<'src>() -> impl Parser<
                 ),
                 postfix(
                     3,
-                    positioned_expression
-                        .clone()
-                        .separated_by(just(Token::Control(Control::Comma)))
-                        .collect()
-                        .delimited_by(
-                            just(Token::Control(Control::ParenOpen)),
-                            just(Token::Control(Control::ParenClose)),
-                        ),
-                    |function_expression, arguments, span| {
-                        Expression::FunctionCall(FunctionCall::new(function_expression, arguments))
-                            .with_position(span)
+                    turbofish.clone().or_not().then(
+                        positioned_expression
+                            .clone()
+                            .separated_by(just(Token::Control(Control::Comma)))
+                            .collect()
+                            .delimited_by(
+                                just(Token::Control(Control::ParenOpen)),
+                                just(Token::Control(Control::ParenClose)),
+                            ),
+                    ),
+                    |function_expression,
+                     (type_arguments, arguments): (
+                        Option<Vec<WithPosition<Type>>>,
+                        Vec<WithPosition<Expression>>,
+                    ),
+                     span| {
+                        Expression::FunctionCall(FunctionCall::new(
+                            function_expression,
+                            type_arguments.unwrap_or_else(|| Vec::with_capacity(0)),
+                            arguments,
+                        ))
+                        .with_position(span)
                     },
                 ),
                 infix(
@@ -690,6 +715,7 @@ mod tests {
                 vec![
                     Statement::Expression(Expression::FunctionCall(FunctionCall::new(
                         Expression::Identifier(Identifier::new("output")).with_position((13, 19)),
+                        Vec::with_capacity(0),
                         vec![Expression::Value(ValueNode::String("hi".to_string()))
                             .with_position((20, 24))]
                     )))
@@ -793,6 +819,19 @@ mod tests {
                 )))
                 .with_position((0, 13)),
                 Vec::with_capacity(0),
+                Vec::with_capacity(0),
+            )))
+        )
+    }
+
+    #[test]
+    fn function_call_with_type_arguments() {
+        assert_eq!(
+            parse(&lex("foobar::(str)::('hi')").unwrap()).unwrap()[0].node,
+            Statement::Expression(Expression::FunctionCall(FunctionCall::new(
+                Expression::Identifier(Identifier::new("foobar")).with_position((0, 6)),
+                vec![Type::String.with_position((9, 12))],
+                vec![Expression::Value(ValueNode::String("hi".to_string())).with_position((16, 20))],
             )))
         )
     }

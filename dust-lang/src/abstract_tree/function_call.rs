@@ -9,16 +9,19 @@ use super::{AbstractNode, Action, Expression, Type, WithPosition};
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
     function: Box<WithPosition<Expression>>,
+    type_arguments: Vec<WithPosition<Type>>,
     arguments: Vec<WithPosition<Expression>>,
 }
 
 impl FunctionCall {
     pub fn new(
         function: WithPosition<Expression>,
+        type_arguments: Vec<WithPosition<Type>>,
         arguments: Vec<WithPosition<Expression>>,
     ) -> Self {
         FunctionCall {
             function: Box::new(function),
+            type_arguments,
             arguments,
         }
     }

@@ -51,8 +51,8 @@ impl Value {
         Value(Arc::new(ValueInner::Range(range)))
     }
 
-    pub fn string(string: String) -> Self {
-        Value(Arc::new(ValueInner::String(string)))
+    pub fn string<T: ToString>(to_string: T) -> Self {
+        Value(Arc::new(ValueInner::String(to_string.to_string())))
     }
 
     pub fn function(
