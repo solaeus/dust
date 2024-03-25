@@ -111,19 +111,23 @@ mod tests {
                             ))
                             .with_position((0, 0)),
                         ),
-                        Block::new(vec![Statement::Break(().with_position((0, 0)))]),
-                        None,
-                        Some(Block::new(vec![Statement::Assignment(
-                            Assignment::new(
-                                Identifier::new("i").with_position((0, 0)),
-                                None,
-                                AssignmentOperator::AddAssign,
-                                Statement::Expression(Expression::Value(
-                                    ValueNode::Integer(1).with_position((0, 0)),
-                                )),
-                            )
+                        Block::new(vec![Statement::Break(().with_position((0, 0)))])
                             .with_position((0, 0)),
-                        )])),
+                        Vec::with_capacity(0),
+                        Some(
+                            Block::new(vec![Statement::Assignment(
+                                Assignment::new(
+                                    Identifier::new("i").with_position((0, 0)),
+                                    None,
+                                    AssignmentOperator::AddAssign,
+                                    Statement::Expression(Expression::Value(
+                                        ValueNode::Integer(1).with_position((0, 0)),
+                                    )),
+                                )
+                                .with_position((0, 0)),
+                            )])
+                            .with_position((0, 0)),
+                        ),
                     )
                     .with_position((0, 0)),
                 )])

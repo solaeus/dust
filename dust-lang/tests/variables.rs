@@ -50,9 +50,9 @@ fn function_variable() {
             vec![(Identifier::new("x"), Type::Integer.with_position((13, 16)))],
             Type::Integer.with_position((18, 21)),
             Block::new(vec![Statement::Expression(Expression::Identifier(
-                Identifier::new("x").with_position((0, 0))
+                Identifier::new("x").with_position((24, 25))
             ))])
-            .with_position((9, 27))
+            .with_position((22, 27))
         )))
     );
 }

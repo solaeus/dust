@@ -155,6 +155,13 @@ impl AbstractNode for ValueNode {
             fields: expressions,
         } = self
         {
+            if !context.contains(&name.node)? {
+                return Err(ValidationError::VariableNotFound {
+                    identifier: name.node.clone(),
+                    position: name.position,
+                });
+            }
+
             if let Some(Type::Structure {
                 name: _,
                 fields: types,

@@ -23,7 +23,7 @@ fn simple_structure() {
             "
         ),
         Ok(Some(Value::structure(
-            Identifier::new("Foo").with_position((0, 0)),
+            Identifier::new("Foo").with_position((127, 130)),
             vec![
                 (Identifier::new("bar"), Value::integer(42)),
                 (Identifier::new("baz"), Value::string("hiya".to_string())),
@@ -84,11 +84,11 @@ fn nested_structure() {
             "
         ),
         Ok(Some(Value::structure(
-            Identifier::new("Foo").with_position((0, 0)),
+            Identifier::new("Foo").with_position((172, 175)),
             vec![(
                 Identifier::new("bar"),
                 Value::structure(
-                    Identifier::new("Bar").with_position((0, 0)),
+                    Identifier::new("Bar").with_position((204, 207)),
                     vec![(Identifier::new("baz"), Value::integer(42))]
                 )
             ),]
@@ -112,7 +112,7 @@ fn undefined_struct() {
         &vec![Error::Validation {
             error: ValidationError::VariableNotFound {
                 identifier: Identifier::new("Foo"),
-                position: (0, 0).into()
+                position: (17, 20).into()
             },
             position: (17, 69).into()
         }]
