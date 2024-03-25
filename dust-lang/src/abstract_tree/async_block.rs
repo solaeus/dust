@@ -7,27 +7,27 @@ use crate::{
     error::{RuntimeError, RwLockPoisonError, ValidationError},
 };
 
-use super::{AbstractNode, Action, Statement, Type, WithPosition};
+use super::{AbstractNode, Action, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct AsyncBlock {
-    statements: Vec<WithPosition<Statement>>,
+    statements: Vec<Statement>,
 }
 
 impl AsyncBlock {
-    pub fn new(statements: Vec<WithPosition<Statement>>) -> Self {
+    pub fn new(statements: Vec<Statement>) -> Self {
         Self { statements }
     }
 }
 
 impl AbstractNode for AsyncBlock {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        self.statements.last().unwrap().node.expected_type(_context)
+        self.statements.last().unwrap().expected_type(_context)
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.node.validate(_context)?;
+            statement.validate(_context)?;
         }
 
         Ok(())
@@ -41,7 +41,7 @@ impl AbstractNode for AsyncBlock {
             .into_par_iter()
             .enumerate()
             .find_map_first(|(index, statement)| {
-                let result = statement.node.run(_context);
+                let result = statement.run(_context);
 
                 if index == statement_count - 1 {
                     let get_write_lock = final_result.write();

@@ -1,17 +1,18 @@
 use crate::{
     error::{RuntimeError, ValidationError},
+    identifier::Identifier,
     value::ValueInner,
     Context, Value,
 };
 
-use super::{AbstractNode, Action, Identifier, Statement, Type, WithPosition};
+use super::{AbstractNode, Action, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Assignment {
     identifier: WithPosition<Identifier>,
     r#type: Option<WithPosition<Type>>,
     operator: AssignmentOperator,
-    statement: Box<WithPosition<Statement>>,
+    statement: Box<Statement>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -26,7 +27,7 @@ impl Assignment {
         identifier: WithPosition<Identifier>,
         r#type: Option<WithPosition<Type>>,
         operator: AssignmentOperator,
-        statement: WithPosition<Statement>,
+        statement: Statement,
     ) -> Self {
         Self {
             identifier,
@@ -43,7 +44,7 @@ impl AbstractNode for Assignment {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        let statement_type = self.statement.node.expected_type(context)?;
+        let statement_type = self.statement.expected_type(context)?;
 
         if let Some(WithPosition {
             node: expected_type,
@@ -53,7 +54,7 @@ impl AbstractNode for Assignment {
             expected_type.check(&statement_type).map_err(|conflict| {
                 ValidationError::TypeCheck {
                     conflict,
-                    actual_position: self.statement.position,
+                    actual_position: self.statement.position(),
                     expected_position: expected_position.clone(),
                 }
             })?;
@@ -63,14 +64,13 @@ impl AbstractNode for Assignment {
             context.set_type(self.identifier.node.clone(), statement_type)?;
         }
 
-        self.identifier.node.validate(context)?;
-        self.statement.node.validate(context)?;
+        self.statement.validate(context)?;
 
         Ok(())
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let action = self.statement.node.run(context)?;
+        let action = self.statement.run(context)?;
         let right = match action {
             Action::Return(value) => value,
             r#break => return Ok(r#break),
@@ -112,7 +112,10 @@ impl AbstractNode for Assignment {
                     context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::VariableNotFound(self.identifier.node),
+                        ValidationError::VariableNotFound {
+                            identifier: self.identifier.node,
+                            position: self.identifier.position,
+                        },
                     ));
                 }
             }
@@ -148,7 +151,10 @@ impl AbstractNode for Assignment {
                     context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::VariableNotFound(self.identifier.node),
+                        ValidationError::VariableNotFound {
+                            identifier: self.identifier.node,
+                            position: self.identifier.position,
+                        },
                     ));
                 }
             }
@@ -175,7 +181,9 @@ mod tests {
             Identifier::new("foobar").with_position((0, 0)),
             None,
             AssignmentOperator::Assign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(42))).with_position((0, 0)),
+            Statement::Expression(Expression::Value(
+                ValueNode::Integer(42).with_position((0, 0)),
+            )),
         )
         .run(&context)
         .unwrap();
@@ -198,7 +206,9 @@ mod tests {
             Identifier::new("foobar").with_position((0, 0)),
             None,
             AssignmentOperator::AddAssign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(41))).with_position((0, 0)),
+            Statement::Expression(Expression::Value(
+                ValueNode::Integer(41).with_position((0, 0)),
+            )),
         )
         .run(&context)
         .unwrap();
@@ -221,7 +231,9 @@ mod tests {
             Identifier::new("foobar").with_position((0, 0)),
             None,
             AssignmentOperator::SubAssign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(1))).with_position((0, 0)),
+            Statement::Expression(Expression::Value(
+                ValueNode::Integer(1).with_position((0, 0)),
+            )),
         )
         .run(&context)
         .unwrap();
@@ -241,7 +253,9 @@ mod tests {
                 position: (0, 0).into(),
             }),
             AssignmentOperator::Assign,
-            Statement::Expression(Expression::Value(ValueNode::Integer(42))).with_position((0, 0)),
+            Statement::Expression(Expression::Value(
+                ValueNode::Integer(42).with_position((0, 0)),
+            )),
         )
         .validate(&Context::new());
 

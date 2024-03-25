@@ -3,9 +3,9 @@ use std::fmt::{self, Display, Formatter};
 use clap::error::Result;
 
 use crate::{
-    abstract_tree::Identifier,
     context::Context,
     error::{RuntimeError, TypeConflict, ValidationError},
+    identifier::Identifier,
 };
 
 use super::{AbstractNode, Action, WithPosition};

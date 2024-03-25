@@ -4,8 +4,9 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::{Identifier, Type},
+    abstract_tree::Type,
     error::{RwLockPoisonError, ValidationError},
+    identifier::Identifier,
     Value,
 };
 

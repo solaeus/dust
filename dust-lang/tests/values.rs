@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use dust_lang::{
-    abstract_tree::{Identifier, Type, WithPos},
+    abstract_tree::{Type, WithPos},
     error::{Error, TypeConflict, ValidationError},
+    identifier::Identifier,
     *,
 };
 

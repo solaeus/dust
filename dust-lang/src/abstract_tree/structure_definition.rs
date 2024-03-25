@@ -1,9 +1,10 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
+    identifier::Identifier,
 };
 
-use super::{AbstractNode, Action, Identifier, Type, WithPosition};
+use super::{AbstractNode, Action, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct StructureDefinition {

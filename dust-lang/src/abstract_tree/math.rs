@@ -5,15 +5,15 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, Expression, SourcePosition, Type, WithPosition};
+use super::{AbstractNode, Action, Expression, SourcePosition, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Math {
-    Add(WithPosition<Expression>, WithPosition<Expression>),
-    Subtract(WithPosition<Expression>, WithPosition<Expression>),
-    Multiply(WithPosition<Expression>, WithPosition<Expression>),
-    Divide(WithPosition<Expression>, WithPosition<Expression>),
-    Modulo(WithPosition<Expression>, WithPosition<Expression>),
+    Add(Expression, Expression),
+    Subtract(Expression, Expression),
+    Multiply(Expression, Expression),
+    Divide(Expression, Expression),
+    Modulo(Expression, Expression),
 }
 
 impl AbstractNode for Math {
@@ -24,8 +24,8 @@ impl AbstractNode for Math {
             | Math::Multiply(left, right)
             | Math::Divide(left, right)
             | Math::Modulo(left, right) => {
-                let left_type = left.node.expected_type(_context)?;
-                let right_type = right.node.expected_type(_context)?;
+                let left_type = left.expected_type(_context)?;
+                let right_type = right.expected_type(_context)?;
 
                 if let Type::Float = left_type {
                     return Ok(Type::Float);
@@ -43,22 +43,25 @@ impl AbstractNode for Math {
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
-                let left_type = left.node.expected_type(context)?;
-                let right_type = right.node.expected_type(context)?;
+                let left_position = left.position();
+                let left_type = left.expected_type(context)?;
 
                 if let Type::Integer | Type::Float | Type::String = left_type {
+                    let right_position = right.position();
+                    let right_type = right.expected_type(context)?;
+
                     if let Type::Integer | Type::Float | Type::String = right_type {
                         Ok(())
                     } else {
                         Err(ValidationError::ExpectedIntegerFloatOrString {
                             actual: right_type,
-                            position: right.position,
+                            position: right_position,
                         })
                     }
                 } else {
                     Err(ValidationError::ExpectedIntegerFloatOrString {
                         actual: left_type,
-                        position: left.position,
+                        position: left_position,
                     })
                 }
             }
@@ -66,17 +69,20 @@ impl AbstractNode for Math {
             | Math::Multiply(left, right)
             | Math::Divide(left, right)
             | Math::Modulo(left, right) => {
-                let left_type = left.node.expected_type(context)?;
-                let right_type = right.node.expected_type(context)?;
+                let left_position = left.position();
+                let left_type = left.expected_type(context)?;
 
                 if let Type::Integer | Type::Float = left_type {
+                    let right_position = right.position();
+                    let right_type = right.expected_type(context)?;
+
                     if let Type::Integer | Type::Float = right_type {
                         Ok(())
                     } else {
-                        Err(ValidationError::ExpectedIntegerOrFloat(right.position))
+                        Err(ValidationError::ExpectedIntegerOrFloat(right_position))
                     }
                 } else {
-                    Err(ValidationError::ExpectedIntegerOrFloat(left.position))
+                    Err(ValidationError::ExpectedIntegerOrFloat(left_position))
                 }
             }
         }
@@ -84,7 +90,7 @@ impl AbstractNode for Math {
 
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let run_and_expect_value =
-            |expression: Expression, position: SourcePosition| -> Result<Value, RuntimeError> {
+            |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
                 let action = expression.run(_context)?;
                 let value = if let Action::Return(value) = action {
                     value
@@ -99,8 +105,10 @@ impl AbstractNode for Math {
 
         let value = match self {
             Math::Add(left, right) => {
-                let left_value = run_and_expect_value(left.node, left.position)?;
-                let right_value = run_and_expect_value(right.node, right.position)?;
+                let left_position = left.position();
+                let left_value = run_and_expect_value(left_position, left)?;
+                let right_position = right.position();
+                let right_value = run_and_expect_value(right_position, right)?;
 
                 match (left_value.inner().as_ref(), right_value.inner().as_ref()) {
                     (ValueInner::Integer(left), ValueInner::Integer(right)) => {
@@ -132,19 +140,21 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right.position),
+                            ValidationError::ExpectedIntegerOrFloat(right_position),
                         ))
                     }
                     _ => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(left.position),
+                            ValidationError::ExpectedIntegerOrFloat(left_position),
                         ))
                     }
                 }
             }
             Math::Subtract(left, right) => {
-                let left_value = run_and_expect_value(left.node, left.position)?;
-                let right_value = run_and_expect_value(right.node, right.position)?;
+                let left_position = left.position();
+                let left_value = run_and_expect_value(left_position, left)?;
+                let right_position = right.position();
+                let right_value = run_and_expect_value(right_position, right)?;
 
                 match (left_value.inner().as_ref(), right_value.inner().as_ref()) {
                     (ValueInner::Integer(left), ValueInner::Integer(right)) => {
@@ -169,19 +179,21 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right.position),
+                            ValidationError::ExpectedIntegerOrFloat(right_position),
                         ))
                     }
                     _ => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(left.position),
+                            ValidationError::ExpectedIntegerOrFloat(left_position),
                         ))
                     }
                 }
             }
             Math::Multiply(left, right) => {
-                let left_value = run_and_expect_value(left.node, left.position)?;
-                let right_value = run_and_expect_value(right.node, right.position)?;
+                let left_position = left.position();
+                let left_value = run_and_expect_value(left_position, left)?;
+                let right_position = right.position();
+                let right_value = run_and_expect_value(right_position, right)?;
 
                 match (left_value.inner().as_ref(), right_value.inner().as_ref()) {
                     (ValueInner::Integer(left), ValueInner::Integer(right)) => {
@@ -206,19 +218,21 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right.position).into(),
+                            ValidationError::ExpectedIntegerOrFloat(right_position).into(),
                         ))
                     }
                     _ => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(left.position),
+                            ValidationError::ExpectedIntegerOrFloat(left_position),
                         ))
                     }
                 }
             }
             Math::Divide(left, right) => {
-                let left_value = run_and_expect_value(left.node, left.position)?;
-                let right_value = run_and_expect_value(right.node, right.position)?;
+                let left_position = left.position();
+                let left_value = run_and_expect_value(left_position, left)?;
+                let right_position = right.position();
+                let right_value = run_and_expect_value(right_position, right)?;
 
                 match (left_value.inner().as_ref(), right_value.inner().as_ref()) {
                     (ValueInner::Integer(left), ValueInner::Integer(right)) => {
@@ -243,19 +257,21 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right.position).into(),
+                            ValidationError::ExpectedIntegerOrFloat(right_position).into(),
                         ))
                     }
                     _ => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(left.position),
+                            ValidationError::ExpectedIntegerOrFloat(left_position),
                         ))
                     }
                 }
             }
             Math::Modulo(left, right) => {
-                let left_value = run_and_expect_value(left.node, left.position)?;
-                let right_value = run_and_expect_value(right.node, right.position)?;
+                let left_position = left.position();
+                let left_value = run_and_expect_value(left_position, left)?;
+                let right_position = right.position();
+                let right_value = run_and_expect_value(right_position, right)?;
 
                 match (left_value.inner().as_ref(), right_value.inner().as_ref()) {
                     (ValueInner::Integer(left), ValueInner::Integer(right)) => {
@@ -280,12 +296,12 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right.position).into(),
+                            ValidationError::ExpectedIntegerOrFloat(right_position).into(),
                         ))
                     }
                     _ => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(left.position),
+                            ValidationError::ExpectedIntegerOrFloat(left_position),
                         ))
                     }
                 }

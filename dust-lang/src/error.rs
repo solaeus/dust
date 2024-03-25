@@ -3,7 +3,8 @@ use std::{io, sync::PoisonError};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
-    abstract_tree::{Identifier, SourcePosition, Type},
+    abstract_tree::{SourcePosition, Type},
+    identifier::Identifier,
     lexer::Token,
 };
 
@@ -135,7 +136,10 @@ pub enum ValidationError {
         expected: Vec<Type>,
         actual: Vec<Type>,
     },
-    VariableNotFound(Identifier),
+    VariableNotFound {
+        identifier: Identifier,
+        position: SourcePosition,
+    },
     PropertyNotFound {
         identifier: Identifier,
         position: SourcePosition,

@@ -1,6 +1,6 @@
 use dust_lang::{
-    abstract_tree::Identifier,
     error::{Error, ValidationError},
+    identifier::Identifier,
     *,
 };
 
@@ -69,7 +69,10 @@ fn function_context_does_not_capture_values() {
         .unwrap_err()
         .errors(),
         &vec![Error::Validation {
-            error: ValidationError::VariableNotFound(Identifier::new("x")),
+            error: ValidationError::VariableNotFound {
+                identifier: Identifier::new("x"),
+                position: (0, 0).into()
+            },
             position: (32, 50).into()
         }]
     );

@@ -13,10 +13,11 @@ use stanza::{
 };
 
 use crate::{
-    abstract_tree::{AbstractNode, Action, Block, Identifier, Type, WithPos, WithPosition},
+    abstract_tree::{AbstractNode, Action, Block, Type, WithPos, WithPosition},
     built_in_functions::BuiltInFunction,
     context::Context,
     error::{RuntimeError, ValidationError},
+    identifier::Identifier,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -71,7 +72,7 @@ impl Value {
         ))))
     }
 
-    pub fn structure(name: Identifier, fields: Vec<(Identifier, Value)>) -> Self {
+    pub fn structure(name: WithPosition<Identifier>, fields: Vec<(Identifier, Value)>) -> Self {
         Value(Arc::new(ValueInner::Structure { name, fields }))
     }
 
@@ -176,7 +177,7 @@ impl Display for Value {
                     table = table.with_row([identifier.as_str(), &value.to_string()]);
                 }
 
-                write!(f, "{name}\n{}", Console::default().render(&table))
+                write!(f, "{}\n{}", name.node, Console::default().render(&table))
             }
         }
     }
@@ -207,7 +208,7 @@ pub enum ValueInner {
     Range(Range<i64>),
     String(String),
     Structure {
-        name: Identifier,
+        name: WithPosition<Identifier>,
         fields: Vec<(Identifier, Value)>,
     },
 }
@@ -244,10 +245,13 @@ impl ValueInner {
                 }
             },
             ValueInner::Structure { name, .. } => {
-                if let Some(r#type) = context.get_type(name)? {
+                if let Some(r#type) = context.get_type(&name.node)? {
                     r#type
                 } else {
-                    return Err(ValidationError::VariableNotFound(name.clone()));
+                    return Err(ValidationError::VariableNotFound {
+                        identifier: name.node.clone(),
+                        position: name.position,
+                    });
                 }
             }
         };

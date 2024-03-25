@@ -2,6 +2,7 @@ pub mod abstract_tree;
 pub mod built_in_functions;
 pub mod context;
 pub mod error;
+pub mod identifier;
 pub mod lexer;
 pub mod parser;
 pub mod value;
@@ -120,7 +121,7 @@ impl InterpreterError {
         let mut reports = Vec::new();
 
         for error in self.errors {
-            let (mut builder, validation_error, error_position) = match error {
+            let (mut builder, validation_error) = match error {
             Error::Lex {
                 expected,
                 span,
@@ -145,7 +146,6 @@ impl InterpreterError {
                             .with_color(Color::Red),
                     ),
                     None,
-                    span.into(),
                 )
             }
             Error::Parse {
@@ -172,7 +172,6 @@ impl InterpreterError {
                             .with_color(Color::Red),
                     ),
                     None,
-                    span.into(),
                 )
             }
             Error::Validation { error, position } => (
@@ -184,7 +183,6 @@ impl InterpreterError {
                 .with_message("The syntax is valid but this code would cause an error.")
                 .with_note("This error was detected by the interpreter before running the code."),
                 Some(error),
-                position,
             ),
             Error::Runtime { error, position } => (
                 Report::build(
@@ -207,7 +205,6 @@ impl InterpreterError {
                 } else {
                     None
                 },
-                position,
             ),
         };
 
@@ -260,12 +257,16 @@ impl InterpreterError {
                             .with_message(format!("Got type {} here.", actual.fg(type_color))),
                         ]);
                     }
-                    ValidationError::VariableNotFound(identifier) => builder.add_label(
-                        Label::new((self.source_id.clone(), error_position.0..error_position.1))
-                            .with_message(format!(
+                    ValidationError::VariableNotFound {
+                        identifier,
+                        position,
+                    } => builder.add_label(
+                        Label::new((self.source_id.clone(), position.0..position.1)).with_message(
+                            format!(
                                 "Variable {} does not exist in this context.",
                                 identifier.fg(identifier_color)
-                            )),
+                            ),
+                        ),
                     ),
                     ValidationError::CannotIndex { r#type, position } => builder.add_label(
                         Label::new((self.source_id.clone(), position.0..position.1)).with_message(

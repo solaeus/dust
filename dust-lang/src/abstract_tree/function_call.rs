@@ -8,16 +8,16 @@ use super::{AbstractNode, Action, Expression, Type, WithPosition};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct FunctionCall {
-    function: Box<WithPosition<Expression>>,
+    function: Box<Expression>,
     type_arguments: Vec<WithPosition<Type>>,
-    arguments: Vec<WithPosition<Expression>>,
+    arguments: Vec<Expression>,
 }
 
 impl FunctionCall {
     pub fn new(
-        function: WithPosition<Expression>,
+        function: Expression,
         type_arguments: Vec<WithPosition<Type>>,
-        arguments: Vec<WithPosition<Expression>>,
+        arguments: Vec<Expression>,
     ) -> Self {
         FunctionCall {
             function: Box::new(function),
@@ -29,24 +29,24 @@ impl FunctionCall {
 
 impl AbstractNode for FunctionCall {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        let function_node_type = self.function.node.expected_type(_context)?;
+        let function_node_type = self.function.expected_type(_context)?;
 
         if let Type::Function { return_type, .. } = function_node_type {
             Ok(return_type.node)
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_node_type,
-                position: self.function.position,
+                position: self.function.position(),
             })
         }
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
         for expression in &self.arguments {
-            expression.node.validate(context)?;
+            expression.validate(context)?;
         }
 
-        let function_node_type = self.function.node.expected_type(context)?;
+        let function_node_type = self.function.expected_type(context)?;
 
         if let Type::Function {
             parameter_types,
@@ -67,12 +67,12 @@ impl AbstractNode for FunctionCall {
             }
 
             for (type_parameter, expression) in parameter_types.iter().zip(self.arguments.iter()) {
-                let actual = expression.node.expected_type(context)?;
+                let actual = expression.expected_type(context)?;
 
                 type_parameter.node.check(&actual).map_err(|conflict| {
                     ValidationError::TypeCheck {
                         conflict,
-                        actual_position: expression.position,
+                        actual_position: expression.position(),
                         expected_position: type_parameter.position,
                     }
                 })?;
@@ -82,18 +82,19 @@ impl AbstractNode for FunctionCall {
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_node_type,
-                position: self.function.position,
+                position: self.function.position(),
             })
         }
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let action = self.function.node.run(context)?;
+        let function_position = self.function.position();
+        let action = self.function.run(context)?;
         let value = if let Action::Return(value) = action {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(self.function.position),
+                ValidationError::InterpreterExpectedReturn(function_position),
             ));
         };
         let function = if let ValueInner::Function(function) = value.inner().as_ref() {
@@ -102,19 +103,20 @@ impl AbstractNode for FunctionCall {
             return Err(RuntimeError::ValidationFailure(
                 ValidationError::ExpectedFunction {
                     actual: value.r#type(context)?,
-                    position: self.function.position,
+                    position: function_position,
                 },
             ));
         };
         let mut arguments = Vec::with_capacity(self.arguments.len());
 
         for expression in self.arguments {
-            let action = expression.node.run(context)?;
+            let expression_position = expression.position();
+            let action = expression.run(context)?;
             let value = if let Action::Return(value) = action {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
-                    ValidationError::InterpreterExpectedReturn(expression.position),
+                    ValidationError::InterpreterExpectedReturn(expression_position),
                 ));
             };
 

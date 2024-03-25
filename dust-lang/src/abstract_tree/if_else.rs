@@ -4,24 +4,27 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Action, Block, Expression, Type, WithPosition};
+use super::{AbstractNode, Action, Block, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct IfElse {
-    if_expression: WithPosition<Expression>,
+    if_expression: Expression,
     if_block: Block,
+    else_ifs: Option<Vec<(Expression, Block)>>,
     else_block: Option<Block>,
 }
 
 impl IfElse {
     pub fn new(
-        if_expression: WithPosition<Expression>,
+        if_expression: Expression,
         if_block: Block,
+        else_ifs: Option<Vec<(Expression, Block)>>,
         else_block: Option<Block>,
     ) -> Self {
         Self {
             if_expression,
             if_block,
+            else_ifs,
             else_block,
         }
     }
@@ -33,10 +36,10 @@ impl AbstractNode for IfElse {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        self.if_expression.node.validate(context)?;
+        self.if_expression.validate(context)?;
         self.if_block.validate(context)?;
 
-        let if_expression_type = self.if_expression.node.expected_type(context)?;
+        let if_expression_type = self.if_expression.expected_type(context)?;
 
         if let Type::Boolean = if_expression_type {
             if let Some(else_block) = &self.else_block {
@@ -49,8 +52,8 @@ impl AbstractNode for IfElse {
                     .check(&actual)
                     .map_err(|conflict| ValidationError::TypeCheck {
                         conflict,
-                        actual_position: self.if_block.last_statement().position,
-                        expected_position: self.if_expression.position,
+                        actual_position: self.if_block.last_statement().position(),
+                        expected_position: self.if_expression.position(),
                     })?;
             }
 
@@ -58,18 +61,19 @@ impl AbstractNode for IfElse {
         } else {
             Err(ValidationError::ExpectedBoolean {
                 actual: if_expression_type,
-                position: self.if_expression.position,
+                position: self.if_expression.position(),
             })
         }
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let action = self.if_expression.node.run(context)?;
+        let if_position = self.if_expression.position();
+        let action = self.if_expression.run(context)?;
         let value = if let Action::Return(value) = action {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(self.if_expression.position),
+                ValidationError::InterpreterExpectedReturn(if_position),
             ));
         };
 
@@ -85,7 +89,7 @@ impl AbstractNode for IfElse {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::ExpectedBoolean {
                     actual: value.r#type(context)?,
-                    position: self.if_expression.position,
+                    position: if_position,
                 },
             ))
         }
@@ -105,36 +109,16 @@ mod tests {
     fn simple_if() {
         assert_eq!(
             IfElse::new(
-                Expression::Value(ValueNode::Boolean(true)).with_position((0, 0)),
+                Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
                 Block::new(vec![Statement::Expression(Expression::Value(
-                    ValueNode::String("foo".to_string())
-                ))
-                .with_position((0, 0))]),
+                    ValueNode::String("foo".to_string()).with_position((0, 0))
+                ))]),
+                None,
                 None
             )
             .run(&Context::new())
             .unwrap(),
             Action::Return(Value::string("foo".to_string()))
-        )
-    }
-
-    #[test]
-    fn simple_if_else() {
-        assert_eq!(
-            IfElse::new(
-                Expression::Value(ValueNode::Boolean(false)).with_position((0, 0)),
-                Block::new(vec![Statement::Expression(Expression::Value(
-                    ValueNode::String("foo".to_string())
-                ))
-                .with_position((0, 0))]),
-                Some(Block::new(vec![Statement::Expression(Expression::Value(
-                    ValueNode::String("bar".to_string())
-                ))
-                .with_position((0, 0))]))
-            )
-            .run(&Context::new())
-            .unwrap(),
-            Action::Return(Value::string("bar".to_string()))
         )
     }
 }

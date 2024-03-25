@@ -4,10 +4,11 @@ use crate::{
     built_in_functions::BuiltInFunction,
     context::Context,
     error::{RuntimeError, ValidationError},
+    identifier::Identifier,
     Value,
 };
 
-use super::{AbstractNode, Action, Block, Expression, Identifier, Type, WithPos, WithPosition};
+use super::{AbstractNode, Action, Block, Expression, Type, WithPos, WithPosition};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
@@ -15,19 +16,13 @@ pub enum ValueNode {
     BuiltInFunction(BuiltInFunction),
     Float(f64),
     Integer(i64),
-    List(Vec<WithPosition<Expression>>),
-    Map(
-        Vec<(
-            Identifier,
-            Option<WithPosition<Type>>,
-            WithPosition<Expression>,
-        )>,
-    ),
+    List(Vec<Expression>),
+    Map(Vec<(Identifier, Option<WithPosition<Type>>, Expression)>),
     Range(Range<i64>),
     String(String),
     Structure {
-        name: Identifier,
-        fields: Vec<(Identifier, WithPosition<Expression>)>,
+        name: WithPosition<Identifier>,
+        fields: Vec<(Identifier, Expression)>,
     },
     ParsedFunction {
         type_arguments: Vec<WithPosition<Type>>,
@@ -49,9 +44,8 @@ impl AbstractNode for ValueNode {
                 for expression in items {
                     item_types.push(
                         expression
-                            .node
                             .expected_type(context)?
-                            .with_position(expression.position),
+                            .with_position(expression.position()),
                     );
                 }
 
@@ -78,19 +72,19 @@ impl AbstractNode for ValueNode {
                 let mut types = Vec::with_capacity(expressions.len());
 
                 for (identifier, expression) in expressions {
-                    let r#type = expression.node.expected_type(context)?;
+                    let r#type = expression.expected_type(context)?;
 
                     types.push((
                         identifier.clone(),
                         WithPosition {
                             node: r#type,
-                            position: expression.position,
+                            position: expression.position(),
                         },
                     ));
                 }
 
                 Type::Structure {
-                    name: name.clone(),
+                    name: name.node.clone(),
                     fields: types,
                 }
             }
@@ -104,12 +98,12 @@ impl AbstractNode for ValueNode {
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, r#type, expression) in map_assignments {
                 if let Some(expected_type) = r#type {
-                    let actual_type = expression.node.expected_type(context)?;
+                    let actual_type = expression.expected_type(context)?;
 
                     expected_type.node.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
-                            actual_position: expression.position,
+                            actual_position: expression.position(),
                             expected_position: expected_type.position,
                         }
                     })?;
@@ -161,18 +155,18 @@ impl AbstractNode for ValueNode {
             fields: expressions,
         } = self
         {
-            if let Type::Structure {
+            if let Some(Type::Structure {
                 name: _,
                 fields: types,
-            } = name.expected_type(context)?
+            }) = context.get_type(&name.node)?
             {
                 for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
-                    let actual_type = expression.node.expected_type(context)?;
+                    let actual_type = expression.expected_type(context)?;
 
                     expected_type.node.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
-                            actual_position: expression.position,
+                            actual_position: expression.position(),
                             expected_position: expected_type.position,
                         }
                     })?
@@ -192,15 +186,16 @@ impl AbstractNode for ValueNode {
                 let mut value_list = Vec::with_capacity(expression_list.len());
 
                 for expression in expression_list {
-                    let action = expression.node.run(_context)?;
+                    let expression_position = expression.position();
+                    let action = expression.run(_context)?;
                     let value = if let Action::Return(value) = action {
                         WithPosition {
                             node: value,
-                            position: expression.position,
+                            position: expression_position,
                         }
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::InterpreterExpectedReturn(expression.position),
+                            ValidationError::InterpreterExpectedReturn(expression_position),
                         ));
                     };
 
@@ -213,12 +208,13 @@ impl AbstractNode for ValueNode {
                 let mut property_map = BTreeMap::new();
 
                 for (identifier, _type, expression) in property_list {
-                    let action = expression.node.run(_context)?;
+                    let expression_position = expression.position();
+                    let action = expression.run(_context)?;
                     let value = if let Action::Return(value) = action {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::InterpreterExpectedReturn(expression.position),
+                            ValidationError::InterpreterExpectedReturn(expression_position),
                         ));
                     };
 
@@ -242,12 +238,13 @@ impl AbstractNode for ValueNode {
                 let mut fields = Vec::with_capacity(expressions.len());
 
                 for (identifier, expression) in expressions {
-                    let action = expression.node.run(_context)?;
+                    let expression_position = expression.position();
+                    let action = expression.run(_context)?;
                     let value = if let Action::Return(value) = action {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::InterpreterExpectedReturn(expression.position),
+                            ValidationError::InterpreterExpectedReturn(expression_position),
                         ));
                     };
 

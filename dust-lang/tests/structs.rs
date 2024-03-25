@@ -1,6 +1,7 @@
 use dust_lang::{
-    abstract_tree::{Identifier, Type},
+    abstract_tree::{Type, WithPos},
     error::{Error, TypeConflict, ValidationError},
+    identifier::Identifier,
     interpret, Value,
 };
 
@@ -22,7 +23,7 @@ fn simple_structure() {
             "
         ),
         Ok(Some(Value::structure(
-            Identifier::new("Foo"),
+            Identifier::new("Foo").with_position((0, 0)),
             vec![
                 (Identifier::new("bar"), Value::integer(42)),
                 (Identifier::new("baz"), Value::string("hiya".to_string())),
@@ -83,11 +84,11 @@ fn nested_structure() {
             "
         ),
         Ok(Some(Value::structure(
-            Identifier::new("Foo"),
+            Identifier::new("Foo").with_position((0, 0)),
             vec![(
                 Identifier::new("bar"),
                 Value::structure(
-                    Identifier::new("Bar"),
+                    Identifier::new("Bar").with_position((0, 0)),
                     vec![(Identifier::new("baz"), Value::integer(42))]
                 )
             ),]
@@ -109,7 +110,10 @@ fn undefined_struct() {
         .unwrap_err()
         .errors(),
         &vec![Error::Validation {
-            error: ValidationError::VariableNotFound(Identifier::new("Foo")),
+            error: ValidationError::VariableNotFound {
+                identifier: Identifier::new("Foo"),
+                position: (0, 0).into()
+            },
             position: (17, 69).into()
         }]
     )

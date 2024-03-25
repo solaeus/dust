@@ -8,12 +8,12 @@ use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MapIndex {
-    left: WithPosition<Expression>,
-    right: WithPosition<Expression>,
+    left: Expression,
+    right: Expression,
 }
 
 impl MapIndex {
-    pub fn new(left: WithPosition<Expression>, right: WithPosition<Expression>) -> Self {
+    pub fn new(left: Expression, right: Expression) -> Self {
         Self { left, right }
     }
 }
@@ -23,40 +23,47 @@ impl AbstractNode for MapIndex {
         if let (
             Expression::Identifier(collection_identifier),
             Expression::Identifier(index_identifier),
-        ) = (&self.left.node, &self.right.node)
+        ) = (&self.left, &self.right)
         {
-            let collection = if let Some(collection) = context.get_value(collection_identifier)? {
-                collection
-            } else {
-                return Err(ValidationError::VariableNotFound(
-                    collection_identifier.clone(),
-                ));
-            };
+            let collection =
+                if let Some(collection) = context.get_value(&collection_identifier.node)? {
+                    collection
+                } else {
+                    return Err(ValidationError::VariableNotFound {
+                        identifier: collection_identifier.node.clone(),
+                        position: collection_identifier.position,
+                    });
+                };
 
             if let ValueInner::Map(map) = collection.inner().as_ref() {
-                return if let Some(value) = map.get(index_identifier) {
+                return if let Some(value) = map.get(&index_identifier.node) {
                     Ok(value.r#type(context)?)
                 } else {
                     Err(ValidationError::PropertyNotFound {
-                        identifier: index_identifier.clone(),
-                        position: self.right.position,
+                        identifier: index_identifier.node.clone(),
+                        position: self.right.position(),
                     })
                 };
             };
         }
 
-        if let (Expression::Value(ValueNode::Map(properties)), Expression::Identifier(identifier)) =
-            (&self.left.node, &self.right.node)
+        if let (
+            Expression::Value(WithPosition {
+                node: ValueNode::Map(properties),
+                ..
+            }),
+            Expression::Identifier(identifier),
+        ) = (&self.left, &self.right)
         {
             return if let Some(type_result) =
                 properties
                     .iter()
                     .find_map(|(property, type_option, expression)| {
-                        if property == identifier {
+                        if property == &identifier.node {
                             if let Some(r#type) = type_option {
                                 Some(r#type.node.expected_type(context))
                             } else {
-                                Some(expression.node.expected_type(context))
+                                Some(expression.expected_type(context))
                             }
                         } else {
                             None
@@ -70,13 +77,16 @@ impl AbstractNode for MapIndex {
         }
 
         if let (
-            Expression::Value(ValueNode::Structure { fields, .. }),
+            Expression::Value(WithPosition {
+                node: ValueNode::Structure { fields, .. },
+                ..
+            }),
             Expression::Identifier(identifier),
-        ) = (&self.left.node, &self.right.node)
+        ) = (&self.left, &self.right)
         {
             return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
-                if property == identifier {
-                    Some(expression.node.expected_type(context))
+                if property == &identifier.node {
+                    Some(expression.expected_type(context))
                 } else {
                     None
                 }
@@ -88,49 +98,55 @@ impl AbstractNode for MapIndex {
         }
 
         Err(ValidationError::CannotIndexWith {
-            collection_type: self.left.node.expected_type(context)?,
-            collection_position: self.left.position,
-            index_type: self.right.node.expected_type(context)?,
-            index_position: self.right.position,
+            collection_type: self.left.expected_type(context)?,
+            collection_position: self.left.position(),
+            index_type: self.right.expected_type(context)?,
+            index_position: self.right.position(),
         })
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        let left_type = self.left.node.expected_type(context)?;
+        let left_type = self.left.expected_type(context)?;
 
-        if let (Expression::Value(ValueNode::Map(_)), Expression::Identifier(_)) =
-            (&self.left.node, &self.right.node)
+        if let (
+            Expression::Value(WithPosition {
+                node: ValueNode::Map(_),
+                ..
+            }),
+            Expression::Identifier(_),
+        ) = (&self.left, &self.right)
         {
             Ok(())
         } else if let (Expression::Identifier(_), Expression::Identifier(_)) =
-            (&self.left.node, &self.right.node)
+            (&self.left, &self.right)
         {
             Ok(())
         } else {
             Err(ValidationError::CannotIndexWith {
                 collection_type: left_type,
-                collection_position: self.left.position,
-                index_type: self.right.node.expected_type(context)?,
-                index_position: self.right.position,
+                collection_position: self.left.position(),
+                index_type: self.right.expected_type(context)?,
+                index_position: self.right.position(),
             })
         }
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let action = self.left.node.run(context)?;
+        let collection_position = self.left.position();
+        let action = self.left.run(context)?;
         let collection = if let Action::Return(value) = action {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(self.left.position),
+                ValidationError::InterpreterExpectedReturn(collection_position),
             ));
         };
 
         if let (ValueInner::Map(map), Expression::Identifier(identifier)) =
-            (collection.inner().as_ref(), &self.right.node)
+            (collection.inner().as_ref(), &self.right)
         {
             let action = map
-                .get(identifier)
+                .get(&identifier.node)
                 .map(|value| Action::Return(value.clone()))
                 .unwrap_or(Action::None);
 
@@ -139,9 +155,9 @@ impl AbstractNode for MapIndex {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndexWith {
                     collection_type: collection.r#type(context)?,
-                    collection_position: self.left.position,
-                    index_type: self.right.node.expected_type(context)?,
-                    index_position: self.right.position,
+                    collection_position,
+                    index_type: self.right.expected_type(context)?,
+                    index_position: self.right.position(),
                 },
             ))
         }

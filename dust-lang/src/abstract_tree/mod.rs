@@ -3,7 +3,6 @@ pub mod async_block;
 pub mod block;
 pub mod expression;
 pub mod function_call;
-pub mod identifier;
 pub mod if_else;
 pub mod list_index;
 pub mod logic;
@@ -26,7 +25,6 @@ pub use self::{
     block::Block,
     expression::Expression,
     function_call::FunctionCall,
-    identifier::Identifier,
     if_else::IfElse,
     list_index::ListIndex,
     logic::Logic,
@@ -85,11 +83,11 @@ pub enum Action {
     None,
 }
 
-pub struct AbstractTree(Vec<WithPosition<Statement>>);
+pub struct AbstractTree(Vec<Statement>);
 
 impl AbstractTree {
-    pub fn new(mut statements: Vec<WithPosition<Statement>>) -> Self {
-        statements.sort_by(|left, right| match (&left.node, &right.node) {
+    pub fn new(mut statements: Vec<Statement>) -> Self {
+        statements.sort_by(|left, right| match (&left, &right) {
             (Statement::StructureDefinition(_), _) => Ordering::Less,
             (_, Statement::StructureDefinition(_)) => Ordering::Greater,
             (_, _) => Ordering::Equal,
@@ -103,7 +101,8 @@ impl AbstractTree {
         let mut previous_value = None;
 
         for statement in valid_statements {
-            let run = statement.node.run(context);
+            let position = statement.position();
+            let run = statement.run(context);
 
             match run {
                 Ok(action) => match action {
@@ -113,7 +112,7 @@ impl AbstractTree {
                 Err(runtime_error) => {
                     return Err(vec![Error::Runtime {
                         error: runtime_error,
-                        position: statement.position,
+                        position,
                     }]);
                 }
             }
@@ -122,29 +121,27 @@ impl AbstractTree {
         Ok(previous_value)
     }
 
-    fn run_type_definitions(
-        self,
-        context: &Context,
-    ) -> Result<Vec<WithPosition<Statement>>, Vec<Error>> {
+    fn run_type_definitions(self, context: &Context) -> Result<Vec<Statement>, Vec<Error>> {
         let mut errors = Vec::new();
         let mut valid_statements = Vec::new();
 
         for statement in self.0 {
-            let validation = statement.node.validate(context);
+            let validation = statement.validate(context);
 
             if let Err(validation_error) = validation {
                 errors.push(Error::Validation {
                     error: validation_error,
-                    position: statement.position,
+                    position: statement.position(),
                 })
             } else if errors.is_empty() {
-                if let Statement::StructureDefinition(_) = statement.node {
-                    let run = statement.node.run(context);
+                if let Statement::StructureDefinition(_) = statement {
+                    let position = statement.position();
+                    let run = statement.run(context);
 
                     if let Err(runtime_error) = run {
                         errors.push(Error::Runtime {
                             error: runtime_error,
-                            position: statement.position,
+                            position,
                         });
 
                         return Err(errors);
@@ -164,7 +161,7 @@ impl AbstractTree {
 }
 
 impl Index<usize> for AbstractTree {
-    type Output = WithPosition<Statement>;
+    type Output = Statement;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
