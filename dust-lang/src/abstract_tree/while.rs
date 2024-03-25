@@ -40,7 +40,7 @@ impl AbstractNode for While {
     fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
             let expression_position = self.expression.position();
-            let action = self.expression.run(_context)?;
+            let action = self.expression.clone().run(_context)?;
 
             if let Action::Return(value) = action {
                 Ok(value)
@@ -51,16 +51,14 @@ impl AbstractNode for While {
             }
         };
 
-        if let ValueInner::Boolean(boolean) = get_boolean()?.inner().as_ref() {
-            while *boolean {
-                for statement in &self.statements {
-                    let action = statement.clone().run(_context)?;
+        while let ValueInner::Boolean(true) = get_boolean()?.inner().as_ref() {
+            for statement in &self.statements {
+                let action = statement.clone().run(_context)?;
 
-                    match action {
-                        Action::Return(_) => {}
-                        Action::None => {}
-                        Action::Break => return Ok(Action::Break),
-                    }
+                match action {
+                    Action::Return(_) => {}
+                    Action::None => {}
+                    Action::Break => return Ok(Action::Break),
                 }
             }
         }

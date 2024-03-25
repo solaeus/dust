@@ -5,13 +5,13 @@ while count <= 15 {
 	divides_by_5 = count % 5 == 0
 
 	if divides_by_3 && divides_by_5 { 
-		output('fizzbuzz')
+		io.write_line('fizzbuzz')
 	} else if divides_by_3 { 
-		output('fizz')
+		io.write_line('fizz')
 	} else if divides_by_5 {
-		output('buzz')
+		io.write_line('buzz')
 	} else { 
-		output(count)
+		io.write_line(count)
 	}
 	
 	count += 1

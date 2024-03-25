@@ -39,16 +39,16 @@ impl AbstractNode for IfElse {
         self.if_expression.validate(context)?;
         self.if_block.node.validate(context)?;
 
+        let expected_type = self.if_block.node.expected_type(context)?;
         let if_expression_type = self.if_expression.expected_type(context)?;
 
         if let Type::Boolean = if_expression_type {
             if let Some(else_block) = &self.else_block {
                 else_block.node.validate(context)?;
 
-                let expected = self.if_block.node.expected_type(context)?;
                 let actual = else_block.node.expected_type(context)?;
 
-                expected
+                expected_type
                     .check(&actual)
                     .map_err(|conflict| ValidationError::TypeCheck {
                         conflict,
@@ -56,14 +56,37 @@ impl AbstractNode for IfElse {
                         expected_position: self.if_expression.position(),
                     })?;
             }
-
-            Ok(())
         } else {
-            Err(ValidationError::ExpectedBoolean {
+            return Err(ValidationError::ExpectedBoolean {
                 actual: if_expression_type,
                 position: self.if_expression.position(),
-            })
+            });
         }
+
+        for (expression, block) in &self.else_ifs {
+            let expression_type = expression.expected_type(context)?;
+
+            if let Type::Boolean = expression_type {
+                block.node.validate(context)?;
+
+                let actual = block.node.expected_type(context)?;
+
+                expected_type
+                    .check(&actual)
+                    .map_err(|conflict| ValidationError::TypeCheck {
+                        conflict,
+                        actual_position: self.if_block.node.last_statement().position(),
+                        expected_position: self.if_expression.position(),
+                    })?;
+            } else {
+                return Err(ValidationError::ExpectedBoolean {
+                    actual: if_expression_type,
+                    position: self.if_expression.position(),
+                });
+            }
+        }
+
+        Ok(())
     }
 
     fn run(self, context: &Context) -> Result<Action, RuntimeError> {
@@ -80,10 +103,37 @@ impl AbstractNode for IfElse {
         if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
             if *if_boolean {
                 self.if_block.node.run(context)
-            } else if let Some(else_statement) = self.else_block {
-                else_statement.node.run(context)
             } else {
-                Ok(Action::None)
+                for (expression, block) in self.else_ifs {
+                    let expression_position = expression.position();
+                    let action = expression.run(context)?;
+                    let value = if let Action::Return(value) = action {
+                        value
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::InterpreterExpectedReturn(expression_position),
+                        ));
+                    };
+
+                    if let ValueInner::Boolean(else_if_boolean) = value.inner().as_ref() {
+                        if *else_if_boolean {
+                            return block.node.run(context);
+                        }
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::ExpectedBoolean {
+                                actual: value.r#type(context)?,
+                                position: expression_position,
+                            },
+                        ));
+                    }
+                }
+
+                if let Some(else_statement) = self.else_block {
+                    else_statement.node.run(context)
+                } else {
+                    Ok(Action::None)
+                }
             }
         } else {
             Err(RuntimeError::ValidationFailure(
