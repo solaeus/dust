@@ -709,11 +709,11 @@ mod tests {
                             None,
                             Expression::Value(ValueNode::Integer(42).with_position((6, 8)))
                         )])
-                        .with_position((0, 9))
+                        .with_position((0, 10))
                     ),
-                    Expression::Identifier(Identifier::new("x").with_position((10, 11)))
+                    Expression::Identifier(Identifier::new("x").with_position((11, 12)))
                 ))
-                .with_position((0, 11))
+                .with_position((0, 12))
             ))
         );
         assert_eq!(
@@ -877,15 +877,15 @@ mod tests {
                         Box::new(MapIndex::new(
                             Expression::Identifier(Identifier::new("io").with_position((0, 2))),
                             Expression::Identifier(
-                                Identifier::new("read_line").with_position((3, 13))
+                                Identifier::new("read_line").with_position((3, 12))
                             )
                         ))
-                        .with_position((0, 13))
+                        .with_position((0, 12))
                     ),
                     Vec::with_capacity(0),
                     Vec::with_capacity(0),
                 )
-                .with_position((0, 15))
+                .with_position((0, 14))
             ))
         )
     }
