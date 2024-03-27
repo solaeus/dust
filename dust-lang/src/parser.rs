@@ -700,7 +700,7 @@ mod tests {
     #[test]
     fn map_index() {
         assert_eq!(
-            parse(&lex("{ x = 42}.x").unwrap()).unwrap()[0],
+            parse(&lex("{ x = 42 }.x").unwrap()).unwrap()[0],
             Statement::Expression(Expression::MapIndex(
                 Box::new(MapIndex::new(
                     Expression::Value(
@@ -870,14 +870,14 @@ mod tests {
     #[test]
     fn function_call() {
         assert_eq!(
-            parse(&lex("io.write_line()").unwrap()).unwrap()[0],
+            parse(&lex("io.read_line()").unwrap()).unwrap()[0],
             Statement::Expression(Expression::FunctionCall(
                 FunctionCall::new(
                     Expression::MapIndex(
                         Box::new(MapIndex::new(
                             Expression::Identifier(Identifier::new("io").with_position((0, 2))),
                             Expression::Identifier(
-                                Identifier::new("write_line").with_position((3, 13))
+                                Identifier::new("read_line").with_position((3, 13))
                             )
                         ))
                         .with_position((0, 13))
