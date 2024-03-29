@@ -266,8 +266,6 @@ pub fn parser<'src>(
                 )
             });
 
-            use Operator::*;
-
             let structure_field = identifier
                 .clone()
                 .then_ignore(just(Token::Operator(Operator::Assign)))
@@ -321,9 +319,13 @@ pub fn parser<'src>(
             ));
 
             let logic_math_indexes_and_function_calls = atom.pratt((
-                prefix(2, just(Token::Operator(Not)), |_, expression, span| {
-                    Expression::Logic(Box::new(Logic::Not(expression)).with_position(span))
-                }),
+                prefix(
+                    2,
+                    just(Token::Operator(Operator::Not)),
+                    |_, expression, span| {
+                        Expression::Logic(Box::new(Logic::Not(expression)).with_position(span))
+                    },
+                ),
                 postfix(
                     2,
                     expression.clone().delimited_by(
@@ -375,14 +377,14 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Equal)),
+                    just(Token::Operator(Operator::Equal)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Equal(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(NotEqual)),
+                    just(Token::Operator(Operator::NotEqual)),
                     |left, _, right, span| {
                         Expression::Logic(
                             Box::new(Logic::NotEqual(left, right)).with_position(span),
@@ -391,21 +393,21 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Greater)),
+                    just(Token::Operator(Operator::Greater)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Greater(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Less)),
+                    just(Token::Operator(Operator::Less)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Less(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(GreaterOrEqual)),
+                    just(Token::Operator(Operator::GreaterOrEqual)),
                     |left, _, right, span| {
                         Expression::Logic(
                             Box::new(Logic::GreaterOrEqual(left, right)).with_position(span),
@@ -414,7 +416,7 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(LessOrEqual)),
+                    just(Token::Operator(Operator::LessOrEqual)),
                     |left, _, right, span| {
                         Expression::Logic(
                             Box::new(Logic::LessOrEqual(left, right)).with_position(span),
@@ -423,49 +425,49 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(And)),
+                    just(Token::Operator(Operator::And)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::And(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Or)),
+                    just(Token::Operator(Operator::Or)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Or(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Add)),
+                    just(Token::Operator(Operator::Add)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Add(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Subtract)),
+                    just(Token::Operator(Operator::Subtract)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Subtract(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(2),
-                    just(Token::Operator(Multiply)),
+                    just(Token::Operator(Operator::Multiply)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Multiply(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(2),
-                    just(Token::Operator(Divide)),
+                    just(Token::Operator(Operator::Divide)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Divide(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Modulo)),
+                    just(Token::Operator(Operator::Modulo)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Modulo(left, right)).with_position(span))
                     },

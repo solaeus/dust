@@ -24,7 +24,7 @@ impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::Boolean(boolean) => write!(f, "{boolean}"),
-            Token::BuiltInFunction(built_in_identifier) => write!(f, "{built_in_identifier}"),
+            Token::BuiltInFunction(built_in_function) => write!(f, "{built_in_function}"),
             Token::Integer(integer) => write!(f, "{integer}"),
             Token::Float(float) => write!(f, "{float}"),
             Token::String(string) => write!(f, "{string}"),
@@ -297,7 +297,7 @@ pub fn lexer<'src>() -> impl Parser<
     ))
     .map(Token::Keyword);
 
-    let built_in_identifier = choice((
+    let built_in_function = choice((
         just(BuiltInFunction::ReadLine.name()).to(BuiltInFunction::ReadLine),
         just(BuiltInFunction::Sleep.name()).to(BuiltInFunction::Sleep),
         just(BuiltInFunction::WriteLine.name()).to(BuiltInFunction::WriteLine),
@@ -313,7 +313,7 @@ pub fn lexer<'src>() -> impl Parser<
         identifier,
         control,
         operator,
-        built_in_identifier,
+        built_in_function,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()
