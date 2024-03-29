@@ -13,7 +13,7 @@ use super::{AbstractNode, Action, WithPosition};
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
     Any,
-    Argument(Identifier),
+    Argument(Identifier, Box<Type>),
     Boolean,
     Float,
     Function {
@@ -191,7 +191,7 @@ impl Display for Type {
                 write!(f, ") : {}", return_type.node)
             }
             Type::Structure { name, .. } => write!(f, "{name}"),
-            Type::Argument(identifier) => write!(f, "{identifier}"),
+            Type::Argument(identifier, _type) => write!(f, "{identifier}"),
         }
     }
 }

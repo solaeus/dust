@@ -4,7 +4,19 @@ use dust_lang::{
     *,
 };
 
-use dust_lang::interpret;
+#[test]
+fn function_call_with_type_argument() {
+    assert_eq!(
+        interpret(
+            "test",
+            "
+            foobar = (T)(x : T) T { x }
+            foobar::(int)::(42)
+            ",
+        ),
+        Ok(Some(Value::integer(42)))
+    );
+}
 
 #[test]
 fn function_call() {
