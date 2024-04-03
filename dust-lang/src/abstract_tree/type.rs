@@ -13,7 +13,7 @@ use super::{AbstractNode, Action, WithPosition};
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Type {
     Any,
-    Argument(Identifier, Box<Type>),
+    Argument(Identifier),
     Boolean,
     Float,
     Function {
@@ -51,6 +51,11 @@ impl Type {
             | (Type::None, Type::None)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
+            (Type::Argument(left), Type::Argument(right)) => {
+                if left == right {
+                    return Ok(());
+                }
+            }
             (Type::ListOf(left), Type::ListOf(right)) => {
                 if let Ok(()) = left.node.check(&right.node) {
                     return Ok(());
@@ -191,7 +196,7 @@ impl Display for Type {
                 write!(f, ") : {}", return_type.node)
             }
             Type::Structure { name, .. } => write!(f, "{name}"),
-            Type::Argument(identifier, _type) => write!(f, "{identifier}"),
+            Type::Argument(identifier) => write!(f, "{identifier}"),
         }
     }
 }

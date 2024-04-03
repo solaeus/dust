@@ -134,8 +134,8 @@ impl AbstractNode for FunctionCall {
                 .map(|r#type| r#type.node.clone())
                 .zip(self.type_arguments.into_iter().map(|r#type| r#type.node))
             {
-                if let Type::Argument(identifier, r#type) = type_parameter {
-                    function_context.set_type(identifier, *r#type)?;
+                if let Type::Argument(identifier) = type_parameter {
+                    function_context.set_type(identifier, type_argument)?;
                 }
             }
         };
