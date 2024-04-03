@@ -56,6 +56,10 @@ impl AbstractNode for FunctionCall {
             for (type_parameter, type_argument) in
                 parameter_types.iter().zip(self.type_arguments.iter())
             {
+                if let Type::Argument(_) = type_parameter.node {
+                    continue;
+                }
+
                 type_parameter
                     .node
                     .check(&type_argument.node)
@@ -67,6 +71,10 @@ impl AbstractNode for FunctionCall {
             }
 
             for (type_parameter, expression) in parameter_types.iter().zip(self.arguments.iter()) {
+                if let Type::Argument(_) = type_parameter.node {
+                    continue;
+                }
+
                 let actual = expression.expected_type(context)?;
 
                 type_parameter.node.check(&actual).map_err(|conflict| {
