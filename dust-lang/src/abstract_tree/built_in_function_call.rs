@@ -40,8 +40,8 @@ impl AbstractNode for BuiltInFunctionCall {
                 Ok(Action::Return(Value::string(buffer)))
             }
             BuiltInFunctionCall::Sleep(expression) => {
-                let expression_run = expression.clone().run(context)?;
-                let expression_value = if let Action::Return(value) = expression_run {
+                let action = expression.clone().run(context)?;
+                let value = if let Action::Return(value) = action {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
@@ -49,15 +49,28 @@ impl AbstractNode for BuiltInFunctionCall {
                     ));
                 };
 
-                if let ValueInner::Integer(milliseconds) = expression_value.inner().as_ref() {
+                if let ValueInner::Integer(milliseconds) = value.inner().as_ref() {
                     thread::sleep(Duration::from_millis(*milliseconds as u64));
-
-                    Ok(Action::None)
-                } else {
-                    panic!("Expected an integer.");
                 }
+
+                Ok(Action::None)
             }
-            BuiltInFunctionCall::WriteLine(_) => todo!(),
+            BuiltInFunctionCall::WriteLine(expression) => {
+                let action = expression.clone().run(context)?;
+                let value = if let Action::Return(value) = action {
+                    value
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::InterpreterExpectedReturn(expression.position()),
+                    ));
+                };
+
+                if let ValueInner::String(output) = value.inner().as_ref() {
+                    println!("{output}");
+                }
+
+                Ok(Action::None)
+            }
         }
     }
 }

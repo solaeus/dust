@@ -160,9 +160,6 @@ impl Display for Value {
 
                 write!(f, "): {} {:?}", return_type.node, body.node)
             }
-            ValueInner::Function(function) => {
-                write!(f, "{function}")
-            }
             ValueInner::Structure { name, fields } => {
                 let mut table = create_table();
 
@@ -327,11 +324,5 @@ impl Function {
         }
 
         self.body.node.run(&context)
-    }
-}
-
-impl Display for Function {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        todo!()
     }
 }

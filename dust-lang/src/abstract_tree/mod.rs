@@ -109,6 +109,7 @@ impl AbstractTree {
             match run {
                 Ok(action) => match action {
                     Action::Return(value) => previous_value = Some(value),
+                    Action::None => previous_value = None,
                     _ => {}
                 },
                 Err(runtime_error) => {
