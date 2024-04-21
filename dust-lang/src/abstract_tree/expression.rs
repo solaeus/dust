@@ -55,7 +55,9 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.expected_type(_context),
             Expression::Math(math) => math.node.expected_type(_context),
             Expression::Value(value_node) => value_node.node.expected_type(_context),
-            Expression::BuiltInFunctionCall(_) => todo!(),
+            Expression::BuiltInFunctionCall(built_in_function_call) => {
+                built_in_function_call.node.expected_type(_context)
+            }
         }
     }
 
@@ -77,7 +79,9 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.validate(context),
             Expression::Math(math) => math.node.validate(context),
             Expression::Value(value_node) => value_node.node.validate(context),
-            Expression::BuiltInFunctionCall(_) => todo!(),
+            Expression::BuiltInFunctionCall(built_in_function_call) => {
+                built_in_function_call.node.validate(context)
+            }
         }
     }
 
@@ -101,7 +105,9 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.run(_context),
             Expression::Math(math) => math.node.run(_context),
             Expression::Value(value_node) => value_node.node.run(_context),
-            Expression::BuiltInFunctionCall(_) => todo!(),
+            Expression::BuiltInFunctionCall(built_in_function_call) => {
+                built_in_function_call.node.run(_context)
+            }
         }
     }
 }

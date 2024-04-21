@@ -255,22 +255,25 @@ pub fn parser<'src>(
                     },
                 );
 
-            let built_in_function_call = just(Token::Control(Control::DoubleUnderscore))
-                .ignore_then(choice((
-                    just(Token::Keyword(Keyword::ReadLine)).to(BuiltInFunctionCall::ReadLine),
-                    just(Token::Keyword(Keyword::Sleep))
-                        .ignore_then(expression.clone())
-                        .map(|expression| BuiltInFunctionCall::Sleep(expression)),
-                    just(Token::Keyword(Keyword::WriteLine))
-                        .ignore_then(expression.clone())
-                        .map(|expression| BuiltInFunctionCall::WriteLine(expression)),
-                )))
-                .then_ignore(just(Token::Control(Control::DoubleUnderscore)))
-                .map_with(|built_in_function_call, state| {
-                    Expression::BuiltInFunctionCall(
-                        Box::new(built_in_function_call).with_position(state.span()),
-                    )
-                });
+            let built_in_function_call = choice((
+                just(Token::Keyword(Keyword::ReadLine))
+                    .ignore_then(just(Token::Control(Control::ParenOpen)))
+                    .to(BuiltInFunctionCall::ReadLine),
+                just(Token::Keyword(Keyword::Sleep))
+                    .ignore_then(just(Token::Control(Control::ParenOpen)))
+                    .ignore_then(expression.clone())
+                    .map(|expression| BuiltInFunctionCall::Sleep(expression)),
+                just(Token::Keyword(Keyword::WriteLine))
+                    .ignore_then(just(Token::Control(Control::ParenOpen)))
+                    .ignore_then(expression.clone())
+                    .map(|expression| BuiltInFunctionCall::WriteLine(expression)),
+            ))
+            .then_ignore(just(Token::Control(Control::ParenClose)))
+            .map_with(|built_in_function_call, state| {
+                Expression::BuiltInFunctionCall(
+                    Box::new(built_in_function_call).with_position(state.span()),
+                )
+            });
 
             let structure_field = identifier
                 .clone()
@@ -600,19 +603,19 @@ mod tests {
     #[test]
     fn built_in_function() {
         assert_eq!(
-            parse(&lex("__READ_LINE__").unwrap()).unwrap()[0],
+            parse(&lex("READ_LINE()").unwrap()).unwrap()[0],
             Statement::Expression(Expression::BuiltInFunctionCall(
-                Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 13))
+                Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 11))
             ))
         );
 
         assert_eq!(
-            parse(&lex("__WRITE_LINE 'hiya'__").unwrap()).unwrap()[0],
+            parse(&lex("WRITE_LINE('hiya')").unwrap()).unwrap()[0],
             Statement::Expression(Expression::BuiltInFunctionCall(
                 Box::new(BuiltInFunctionCall::WriteLine(Expression::Value(
-                    ValueNode::String("hiya".to_string()).with_position((13, 19))
+                    ValueNode::String("hiya".to_string()).with_position((11, 17))
                 )))
-                .with_position((0, 21))
+                .with_position((0, 18))
             ))
         );
     }

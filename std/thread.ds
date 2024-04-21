@@ -1,5 +1,5 @@
 thread = {
 	sleep = (milliseconds: int) none {
-		__SLEEP__(milliseconds)
+		SLEEP(milliseconds)
 	}
 }

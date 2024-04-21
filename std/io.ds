@@ -1,9 +1,9 @@
 io = {
 	read_line = () str {
-		__READ_LINE__()
+		READ_LINE()
 	}
 
 	write_line = (output: any) none {
-		__WRITE_LINE__(output)
+		WRITE_LINE(output)
 	}
 }
