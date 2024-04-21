@@ -255,16 +255,22 @@ pub fn parser<'src>(
                     },
                 );
 
-            let built_in_function = {
-                select! {
-                    Token::BuiltInFunction(built_in_function) => built_in_function,
-                }
-            }
-            .map_with(|built_in_function, state| {
-                Expression::Value(
-                    ValueNode::BuiltInFunction(built_in_function).with_position(state.span()),
-                )
-            });
+            let built_in_function_call = just(Token::Control(Control::DoubleUnderscore))
+                .ignore_then(choice((
+                    just(Token::Keyword(Keyword::ReadLine)).to(BuiltInFunctionCall::ReadLine),
+                    just(Token::Keyword(Keyword::Sleep))
+                        .ignore_then(expression.clone())
+                        .map(|expression| BuiltInFunctionCall::Sleep(expression)),
+                    just(Token::Keyword(Keyword::WriteLine))
+                        .ignore_then(expression.clone())
+                        .map(|expression| BuiltInFunctionCall::WriteLine(expression)),
+                )))
+                .then_ignore(just(Token::Control(Control::DoubleUnderscore)))
+                .map_with(|built_in_function_call, state| {
+                    Expression::BuiltInFunctionCall(
+                        Box::new(built_in_function_call).with_position(state.span()),
+                    )
+                });
 
             let structure_field = identifier
                 .clone()
@@ -307,7 +313,6 @@ pub fn parser<'src>(
                 range.clone(),
                 structure_instance.clone(),
                 parsed_function.clone(),
-                built_in_function.clone(),
                 list.clone(),
                 map.clone(),
                 basic_value.clone(),
@@ -475,11 +480,11 @@ pub fn parser<'src>(
             ));
 
             choice((
+                built_in_function_call,
                 logic_math_indexes_and_function_calls,
                 range,
                 structure_instance,
                 parsed_function,
-                built_in_function,
                 list,
                 map,
                 basic_value,
@@ -588,7 +593,7 @@ pub fn parser<'src>(
 
 #[cfg(test)]
 mod tests {
-    use crate::{built_in_functions::BuiltInFunction, lexer::lex};
+    use crate::lexer::lex;
 
     use super::*;
 
@@ -596,10 +601,20 @@ mod tests {
     fn built_in_function() {
         assert_eq!(
             parse(&lex("__READ_LINE__").unwrap()).unwrap()[0],
-            Statement::Expression(Expression::Value(
-                ValueNode::BuiltInFunction(BuiltInFunction::ReadLine).with_position((0, 13))
+            Statement::Expression(Expression::BuiltInFunctionCall(
+                Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 13))
             ))
-        )
+        );
+
+        assert_eq!(
+            parse(&lex("__WRITE_LINE 'hiya'__").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::BuiltInFunctionCall(
+                Box::new(BuiltInFunctionCall::WriteLine(Expression::Value(
+                    ValueNode::String("hiya".to_string()).with_position((13, 19))
+                )))
+                .with_position((0, 21))
+            ))
+        );
     }
 
     #[test]

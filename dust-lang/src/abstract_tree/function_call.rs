@@ -1,7 +1,7 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    value::{Function, ParsedFunction, ValueInner},
+    value::ValueInner,
 };
 
 use super::{AbstractNode, Action, Expression, Type, WithPosition};
@@ -133,20 +133,16 @@ impl AbstractNode for FunctionCall {
 
         let function_context = Context::new();
 
-        if let Function::Parsed(ParsedFunction {
-            type_parameters, ..
-        }) = function
+        for (type_parameter, type_argument) in function
+            .type_parameters()
+            .iter()
+            .map(|r#type| r#type.node.clone())
+            .zip(self.type_arguments.into_iter().map(|r#type| r#type.node))
         {
-            for (type_parameter, type_argument) in type_parameters
-                .iter()
-                .map(|r#type| r#type.node.clone())
-                .zip(self.type_arguments.into_iter().map(|r#type| r#type.node))
-            {
-                if let Type::Argument(identifier) = type_parameter {
-                    function_context.set_type(identifier, type_argument)?;
-                }
+            if let Type::Argument(identifier) = type_parameter {
+                function_context.set_type(identifier, type_argument)?;
             }
-        };
+        }
 
         function_context.inherit_data_from(&context)?;
         function.clone().call(arguments, function_context)

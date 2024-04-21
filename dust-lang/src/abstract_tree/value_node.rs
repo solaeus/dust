@@ -1,7 +1,6 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
 use crate::{
-    built_in_functions::BuiltInFunction,
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
@@ -13,7 +12,6 @@ use super::{AbstractNode, Action, Block, Expression, Type, WithPos, WithPosition
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueNode {
     Boolean(bool),
-    BuiltInFunction(BuiltInFunction),
     Float(f64),
     Integer(i64),
     List(Vec<Expression>),
@@ -88,7 +86,6 @@ impl AbstractNode for ValueNode {
                     fields: types,
                 }
             }
-            ValueNode::BuiltInFunction(built_in_function) => built_in_function.r#type(),
         };
 
         Ok(r#type)
@@ -260,9 +257,6 @@ impl AbstractNode for ValueNode {
 
                 Value::structure(name, fields)
             }
-            ValueNode::BuiltInFunction(built_in_function) => {
-                Value::built_in_function(built_in_function)
-            }
         };
 
         Ok(Action::Return(value))
@@ -358,8 +352,6 @@ impl Ord for ValueNode {
                 }
             }
             (Structure { .. }, _) => Ordering::Greater,
-            (BuiltInFunction(_), BuiltInFunction(_)) => todo!(),
-            (BuiltInFunction(_), _) => todo!(),
         }
     }
 }

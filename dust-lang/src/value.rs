@@ -14,7 +14,6 @@ use stanza::{
 
 use crate::{
     abstract_tree::{AbstractNode, Action, Block, Type, WithPos, WithPosition},
-    built_in_functions::BuiltInFunction,
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
@@ -62,22 +61,16 @@ impl Value {
         return_type: WithPosition<Type>,
         body: WithPosition<Block>,
     ) -> Self {
-        Value(Arc::new(ValueInner::Function(Function::Parsed(
-            ParsedFunction {
-                type_parameters: type_arguments,
-                parameters,
-                return_type,
-                body,
-            },
-        ))))
+        Value(Arc::new(ValueInner::Function(Function {
+            type_parameters: type_arguments,
+            parameters,
+            return_type,
+            body,
+        })))
     }
 
     pub fn structure(name: WithPosition<Identifier>, fields: Vec<(Identifier, Value)>) -> Self {
         Value(Arc::new(ValueInner::Structure { name, fields }))
-    }
-
-    pub fn built_in_function(function: BuiltInFunction) -> Self {
-        Value(Arc::new(ValueInner::Function(Function::BuiltIn(function))))
     }
 
     pub fn r#type(&self, context: &Context) -> Result<Type, ValidationError> {
@@ -139,12 +132,12 @@ impl Display for Value {
             }
             ValueInner::Range(_) => todo!(),
             ValueInner::String(string) => write!(f, "{string}"),
-            ValueInner::Function(Function::Parsed(ParsedFunction {
+            ValueInner::Function(Function {
                 type_parameters: type_arguments,
                 parameters,
                 return_type,
                 body,
-            })) => {
+            }) => {
                 if !type_arguments.is_empty() {
                     write!(f, "(")?;
 
@@ -167,8 +160,8 @@ impl Display for Value {
 
                 write!(f, "): {} {:?}", return_type.node, body.node)
             }
-            ValueInner::Function(Function::BuiltIn(built_in_function)) => {
-                write!(f, "{built_in_function}")
+            ValueInner::Function(function) => {
+                write!(f, "{function}")
             }
             ValueInner::Structure { name, fields } => {
                 let mut table = create_table();
@@ -231,18 +224,13 @@ impl ValueInner {
             ValueInner::Map(_) => Type::Map,
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
-            ValueInner::Function(function) => match function {
-                Function::Parsed(parsed_function) => Type::Function {
-                    parameter_types: parsed_function
-                        .parameters
-                        .iter()
-                        .map(|(_, r#type)| r#type.clone())
-                        .collect(),
-                    return_type: Box::new(parsed_function.return_type.clone()),
-                },
-                Function::BuiltIn(built_in_function) => {
-                    built_in_function.clone().as_value().r#type(context)?
-                }
+            ValueInner::Function(function) => Type::Function {
+                parameter_types: function
+                    .parameters
+                    .iter()
+                    .map(|(_, r#type)| r#type.clone())
+                    .collect(),
+                return_type: Box::new(function.return_type.clone()),
             },
             ValueInner::Structure { name, .. } => {
                 if let Some(r#type) = context.get_type(&name.node)? {
@@ -321,34 +309,29 @@ impl Ord for ValueInner {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Function {
-    Parsed(ParsedFunction),
-    BuiltIn(BuiltInFunction),
+pub struct Function {
+    type_parameters: Vec<WithPosition<Type>>,
+    parameters: Vec<(Identifier, WithPosition<Type>)>,
+    return_type: WithPosition<Type>,
+    body: WithPosition<Block>,
 }
 
 impl Function {
+    pub fn type_parameters(&self) -> &Vec<WithPosition<Type>> {
+        &self.type_parameters
+    }
+
     pub fn call(self, arguments: Vec<Value>, context: Context) -> Result<Action, RuntimeError> {
-        let action = match self {
-            Function::Parsed(ParsedFunction {
-                parameters, body, ..
-            }) => {
-                for ((identifier, _), value) in parameters.into_iter().zip(arguments.into_iter()) {
-                    context.set_value(identifier.clone(), value)?;
-                }
+        for ((identifier, _), value) in self.parameters.into_iter().zip(arguments.into_iter()) {
+            context.set_value(identifier.clone(), value)?;
+        }
 
-                body.node.run(&context)?
-            }
-            Function::BuiltIn(built_in_function) => built_in_function.call(arguments, &context)?,
-        };
-
-        Ok(action)
+        self.body.node.run(&context)
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ParsedFunction {
-    pub type_parameters: Vec<WithPosition<Type>>,
-    pub parameters: Vec<(Identifier, WithPosition<Type>)>,
-    pub return_type: WithPosition<Type>,
-    pub body: WithPosition<Block>,
+impl Display for Function {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        todo!()
+    }
 }

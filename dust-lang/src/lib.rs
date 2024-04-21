@@ -1,5 +1,4 @@
 pub mod abstract_tree;
-pub mod built_in_functions;
 pub mod context;
 pub mod error;
 pub mod identifier;

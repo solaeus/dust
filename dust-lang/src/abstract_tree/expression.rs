@@ -5,12 +5,13 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Action, FunctionCall, ListIndex, Logic, MapIndex, Math, SourcePosition, Type,
-    ValueNode, WithPosition,
+    AbstractNode, Action, BuiltInFunctionCall, FunctionCall, ListIndex, Logic, MapIndex, Math,
+    SourcePosition, Type, ValueNode, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression {
+    BuiltInFunctionCall(WithPosition<Box<BuiltInFunctionCall>>),
     FunctionCall(WithPosition<FunctionCall>),
     Identifier(WithPosition<Identifier>),
     MapIndex(WithPosition<Box<MapIndex>>),
@@ -30,6 +31,7 @@ impl Expression {
             Expression::Logic(inner) => inner.position,
             Expression::Math(inner) => inner.position,
             Expression::Value(inner) => inner.position,
+            Expression::BuiltInFunctionCall(inner) => inner.position,
         }
     }
 }
@@ -53,6 +55,7 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.expected_type(_context),
             Expression::Math(math) => math.node.expected_type(_context),
             Expression::Value(value_node) => value_node.node.expected_type(_context),
+            Expression::BuiltInFunctionCall(_) => todo!(),
         }
     }
 
@@ -74,6 +77,7 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.validate(context),
             Expression::Math(math) => math.node.validate(context),
             Expression::Value(value_node) => value_node.node.validate(context),
+            Expression::BuiltInFunctionCall(_) => todo!(),
         }
     }
 
@@ -97,6 +101,7 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.run(_context),
             Expression::Math(math) => math.node.run(_context),
             Expression::Value(value_node) => value_node.node.run(_context),
+            Expression::BuiltInFunctionCall(_) => todo!(),
         }
     }
 }

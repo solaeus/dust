@@ -5,12 +5,11 @@ use std::{
 
 use chumsky::prelude::*;
 
-use crate::{built_in_functions::BuiltInFunction, error::Error};
+use crate::error::Error;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token<'src> {
     Boolean(bool),
-    BuiltInFunction(BuiltInFunction),
     Integer(i64),
     Float(f64),
     String(&'src str),
@@ -24,7 +23,6 @@ impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::Boolean(boolean) => write!(f, "{boolean}"),
-            Token::BuiltInFunction(built_in_function) => write!(f, "{built_in_function}"),
             Token::Integer(integer) => write!(f, "{integer}"),
             Token::Float(float) => write!(f, "{float}"),
             Token::String(string) => write!(f, "{string}"),
@@ -51,11 +49,14 @@ pub enum Keyword {
     Map,
     None,
     Range,
+    ReadLine,
+    Sleep,
     Struct,
     Str,
     Type,
     Loop,
     While,
+    WriteLine,
 }
 
 impl Display for Keyword {
@@ -79,6 +80,9 @@ impl Display for Keyword {
             Keyword::Loop => write!(f, "loop"),
             Keyword::While => write!(f, "while"),
             Keyword::Type => write!(f, "type"),
+            Keyword::ReadLine => write!(f, "READ_LINE"),
+            Keyword::Sleep => write!(f, "SLEEP"),
+            Keyword::WriteLine => write!(f, "WRITE_LINE"),
         }
     }
 }
@@ -146,6 +150,7 @@ pub enum Control {
     Semicolon,
     SkinnyArrow,
     FatArrow,
+    DoubleUnderscore,
 }
 
 impl Display for Control {
@@ -167,6 +172,7 @@ impl Display for Control {
             Control::DoubleDot => write!(f, ".."),
             Control::SkinnyArrow => write!(f, "->"),
             Control::FatArrow => write!(f, "=>"),
+            Control::DoubleUnderscore => write!(f, "__"),
         }
     }
 }
@@ -272,6 +278,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("..").to(Control::DoubleDot),
         just(".").to(Control::Dot),
         just("$").to(Control::Dollar),
+        just("__").to(Control::DoubleUnderscore),
     ))
     .map(Token::Control);
 
@@ -294,26 +301,14 @@ pub fn lexer<'src>() -> impl Parser<
         just("type").to(Keyword::Type),
         just("loop").to(Keyword::Loop),
         just("while").to(Keyword::While),
+        just("READ_LINE").to(Keyword::ReadLine),
+        just("SLEEP").to(Keyword::Sleep),
+        just("WRITE_LINE").to(Keyword::WriteLine),
     ))
     .map(Token::Keyword);
 
-    let built_in_function = choice((
-        just(BuiltInFunction::ReadLine.name()).to(BuiltInFunction::ReadLine),
-        just(BuiltInFunction::Sleep.name()).to(BuiltInFunction::Sleep),
-        just(BuiltInFunction::WriteLine.name()).to(BuiltInFunction::WriteLine),
-    ))
-    .map(Token::BuiltInFunction);
-
     choice((
-        boolean,
-        float,
-        integer,
-        string,
-        keyword,
-        identifier,
-        control,
-        operator,
-        built_in_function,
+        boolean, float, integer, string, keyword, identifier, control, operator,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()
