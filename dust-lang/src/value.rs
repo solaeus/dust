@@ -107,9 +107,9 @@ impl Display for Value {
 
                 for (index, value) in list.into_iter().enumerate() {
                     if index == list.len() - 1 {
-                        write!(f, "{}", value.node)?;
+                        write!(f, "{}", value.item)?;
                     } else {
-                        write!(f, "{}, ", value.node)?;
+                        write!(f, "{}, ", value.item)?;
                     }
                 }
 
@@ -137,9 +137,9 @@ impl Display for Value {
 
                     for (index, r#type) in type_arguments.into_iter().enumerate() {
                         if index == type_arguments.len() - 1 {
-                            write!(f, "{}", r#type.node)?;
+                            write!(f, "{}", r#type.item)?;
                         } else {
-                            write!(f, "{} ", r#type.node)?;
+                            write!(f, "{} ", r#type.item)?;
                         }
                     }
 
@@ -149,13 +149,13 @@ impl Display for Value {
                 write!(f, "(")?;
 
                 for (identifier, r#type) in parameters {
-                    write!(f, "{identifier}: {}", r#type.node)?;
+                    write!(f, "{identifier}: {}", r#type.item)?;
                 }
 
-                write!(f, "): {} {:?}", return_type.node, body.node)
+                write!(f, "): {} {:?}", return_type.item, body.item)
             }
             ValueInner::Structure { name, fields } => {
-                write!(f, "{}\n{{", name.node)?;
+                write!(f, "{}\n{{", name.item)?;
 
                 for (key, value) in fields {
                     writeln!(f, "{key} = {value},")?;
@@ -207,7 +207,7 @@ impl ValueInner {
                 let mut types = Vec::with_capacity(values.len());
 
                 for value in values {
-                    types.push(value.node.r#type(context)?.with_position(value.position));
+                    types.push(value.item.r#type(context)?.with_position(value.position));
                 }
 
                 Type::ListExact(types)
@@ -224,11 +224,11 @@ impl ValueInner {
                 return_type: Box::new(function.return_type.clone()),
             },
             ValueInner::Structure { name, .. } => {
-                if let Some(r#type) = context.get_type(&name.node)? {
+                if let Some(r#type) = context.get_type(&name.item)? {
                     r#type
                 } else {
                     return Err(ValidationError::VariableNotFound {
-                        identifier: name.node.clone(),
+                        identifier: name.item.clone(),
                         position: name.position,
                     });
                 }
@@ -316,11 +316,12 @@ impl Function {
         self,
         arguments: Vec<Value>,
         context: &mut Context,
+        clear_variables: bool,
     ) -> Result<Action, RuntimeError> {
         for ((identifier, _), value) in self.parameters.into_iter().zip(arguments.into_iter()) {
             context.set_value(identifier.clone(), value)?;
         }
 
-        self.body.node.run(context, true)
+        self.body.item.run(context, clear_variables)
     }
 }

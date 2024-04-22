@@ -47,7 +47,7 @@ impl AbstractNode for Assignment {
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(WithPosition {
-            node: expected_type,
+            item: expected_type,
             position: expected_position,
         }) = &self.r#type
         {
@@ -59,9 +59,9 @@ impl AbstractNode for Assignment {
                 }
             })?;
 
-            context.set_type(self.identifier.node.clone(), expected_type.clone())?;
+            context.set_type(self.identifier.item.clone(), expected_type.clone())?;
         } else {
-            context.set_type(self.identifier.node.clone(), statement_type)?;
+            context.set_type(self.identifier.item.clone(), statement_type)?;
         }
 
         self.statement.validate(context)?;
@@ -78,10 +78,10 @@ impl AbstractNode for Assignment {
 
         match self.operator {
             AssignmentOperator::Assign => {
-                context.set_value(self.identifier.node, right)?;
+                context.set_value(self.identifier.item, right)?;
             }
             AssignmentOperator::AddAssign => {
-                if let Some(left) = context.use_value(&self.identifier.node)? {
+                if let Some(left) = context.use_value(&self.identifier.item)? {
                     let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
                         (ValueInner::Integer(left), ValueInner::Integer(right)) => {
                             let sum = left.saturating_add(*right);
@@ -109,18 +109,18 @@ impl AbstractNode for Assignment {
                             ))
                         }
                     };
-                    context.set_value(self.identifier.node, new_value)?;
+                    context.set_value(self.identifier.item, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
-                            identifier: self.identifier.node,
+                            identifier: self.identifier.item,
                             position: self.identifier.position,
                         },
                     ));
                 }
             }
             AssignmentOperator::SubAssign => {
-                if let Some(left) = context.use_value(&self.identifier.node)? {
+                if let Some(left) = context.use_value(&self.identifier.item)? {
                     let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
                         (ValueInner::Integer(left), ValueInner::Integer(right)) => {
                             let difference = left.saturating_sub(*right);
@@ -148,11 +148,11 @@ impl AbstractNode for Assignment {
                             ))
                         }
                     };
-                    context.set_value(self.identifier.node, new_value)?;
+                    context.set_value(self.identifier.item, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
-                            identifier: self.identifier.node,
+                            identifier: self.identifier.item,
                             position: self.identifier.position,
                         },
                     ));
@@ -249,7 +249,7 @@ mod tests {
         let validation = Assignment::new(
             Identifier::new("foobar").with_position((0, 0)),
             Some(WithPosition {
-                node: Type::Boolean,
+                item: Type::Boolean,
                 position: (0, 0).into(),
             }),
             AssignmentOperator::Assign,

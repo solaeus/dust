@@ -3,8 +3,6 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-
 use crate::{
     abstract_tree::Type,
     error::{RwLockPoisonError, ValidationError},
@@ -14,19 +12,19 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    inner: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageData)>>>,
+    variables: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageData)>>>,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(RwLock::new(BTreeMap::new())),
+            variables: Arc::new(RwLock::new(BTreeMap::new())),
         }
     }
 
     pub fn with_data(data: BTreeMap<Identifier, (ValueData, UsageData)>) -> Self {
         Self {
-            inner: Arc::new(RwLock::new(data)),
+            variables: Arc::new(RwLock::new(data)),
         }
     }
 
@@ -34,14 +32,16 @@ impl Context {
         &self,
     ) -> Result<RwLockReadGuard<BTreeMap<Identifier, (ValueData, UsageData)>>, RwLockPoisonError>
     {
-        Ok(self.inner.read()?)
+        Ok(self.variables.read()?)
     }
 
     pub fn inherit_types_from(&self, other: &Context) -> Result<(), RwLockPoisonError> {
-        let mut self_data = self.inner.write()?;
+        let mut self_data = self.variables.write()?;
 
-        for (identifier, (value_data, usage_data)) in other.inner.read()?.iter() {
+        for (identifier, (value_data, usage_data)) in other.variables.read()?.iter() {
             if let ValueData::Type(Type::Function { .. }) = value_data {
+                log::trace!("Inheriting type of variable {identifier}.");
+
                 self_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
             }
         }
@@ -50,9 +50,11 @@ impl Context {
     }
 
     pub fn inherit_data_from(&self, other: &Context) -> Result<(), RwLockPoisonError> {
-        let mut self_data = self.inner.write()?;
+        let mut self_data = self.variables.write()?;
 
-        for (identifier, (value_data, usage_data)) in other.inner.read()?.iter() {
+        for (identifier, (value_data, usage_data)) in other.variables.read()?.iter() {
+            log::trace!("Inheriting variable {identifier}.");
+
             self_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
         }
 
@@ -60,11 +62,13 @@ impl Context {
     }
 
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
-        Ok(self.inner.read()?.contains_key(identifier))
+        log::trace!("Checking that {identifier} exists.");
+
+        Ok(self.variables.read()?.contains_key(identifier))
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
-        if let Some((value_data, _)) = self.inner.read()?.get(identifier) {
+        if let Some((value_data, _)) = self.variables.read()?.get(identifier) {
             log::trace!("Using {identifier}'s type.");
 
             let r#type = match value_data {
@@ -79,7 +83,8 @@ impl Context {
     }
 
     pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
-        if let Some((ValueData::Value(value), usage_data)) = self.inner.write()?.get_mut(identifier)
+        if let Some((ValueData::Value(value), usage_data)) =
+            self.variables.write()?.get_mut(identifier)
         {
             log::trace!("Using {identifier}'s value.");
 
@@ -92,9 +97,9 @@ impl Context {
     }
 
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), RwLockPoisonError> {
-        log::info!("Setting {identifier} to type {}.", r#type);
+        log::debug!("Setting {identifier} to type {}.", r#type);
 
-        self.inner
+        self.variables
             .write()?
             .insert(identifier, (ValueData::Type(r#type), UsageData::new()));
 
@@ -102,15 +107,17 @@ impl Context {
     }
 
     pub fn set_value(&self, identifier: Identifier, value: Value) -> Result<(), RwLockPoisonError> {
-        log::info!("Setting {identifier} to value {value}.");
+        log::debug!("Setting {identifier} to value {value}.");
 
-        let mut inner = self.inner.write()?;
-        let old_usage_data = inner.remove(&identifier).map(|(_, usage_data)| usage_data);
+        let mut variables = self.variables.write()?;
+        let old_usage_data = variables
+            .remove(&identifier)
+            .map(|(_, usage_data)| usage_data);
 
         if let Some(usage_data) = old_usage_data {
-            inner.insert(identifier, (ValueData::Value(value), usage_data));
+            variables.insert(identifier, (ValueData::Value(value), usage_data));
         } else {
-            inner.insert(identifier, (ValueData::Value(value), UsageData::new()));
+            variables.insert(identifier, (ValueData::Value(value), UsageData::new()));
         }
 
         Ok(())
@@ -118,7 +125,7 @@ impl Context {
 
     pub fn remove(&self, identifier: &Identifier) -> Result<Option<ValueData>, RwLockPoisonError> {
         let removed = self
-            .inner
+            .variables
             .write()?
             .remove(identifier)
             .map(|(value_data, _)| value_data);
@@ -127,31 +134,25 @@ impl Context {
     }
 
     pub fn clean(&mut self) -> Result<(), RwLockPoisonError> {
-        let clean_variables = self
-            .inner
+        self.variables
             .write()?
-            .clone()
-            .into_par_iter()
-            .filter(|(identifier, (_, usage_data))| {
+            .retain(|identifier, (_, usage_data)| {
                 if usage_data.actual < usage_data.expected {
                     true
                 } else {
-                    log::debug!("Removing variable {identifier}.");
+                    log::trace!("Removing variable {identifier}.");
 
                     false
                 }
-            })
-            .collect();
-
-        self.inner = Arc::new(RwLock::new(clean_variables));
+            });
 
         Ok(())
     }
 
     pub fn add_expected_use(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
-        let mut inner = self.inner.write()?;
+        let mut variables = self.variables.write()?;
 
-        if let Some((_, usage_data)) = inner.get_mut(identifier) {
+        if let Some((_, usage_data)) = variables.get_mut(identifier) {
             log::trace!("Adding expected use for variable {identifier}.");
 
             usage_data.expected += 1;

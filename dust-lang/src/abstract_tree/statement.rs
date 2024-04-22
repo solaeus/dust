@@ -40,48 +40,48 @@ impl Statement {
 impl AbstractNode for Statement {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
-            Statement::Assignment(assignment) => assignment.node.expected_type(_context),
-            Statement::AsyncBlock(async_block) => async_block.node.expected_type(_context),
-            Statement::Block(block) => block.node.expected_type(_context),
+            Statement::Assignment(assignment) => assignment.item.expected_type(_context),
+            Statement::AsyncBlock(async_block) => async_block.item.expected_type(_context),
+            Statement::Block(block) => block.item.expected_type(_context),
             Statement::Break(_) => Ok(Type::None),
             Statement::Expression(expression) => expression.expected_type(_context),
-            Statement::IfElse(if_else) => if_else.node.expected_type(_context),
-            Statement::Loop(r#loop) => r#loop.node.expected_type(_context),
-            Statement::While(r#while) => r#while.node.expected_type(_context),
+            Statement::IfElse(if_else) => if_else.item.expected_type(_context),
+            Statement::Loop(r#loop) => r#loop.item.expected_type(_context),
+            Statement::While(r#while) => r#while.item.expected_type(_context),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.expected_type(_context)
+                structure_definition.item.expected_type(_context)
             }
         }
     }
 
     fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
         match self {
-            Statement::Assignment(assignment) => assignment.node.validate(_context),
-            Statement::AsyncBlock(async_block) => async_block.node.validate(_context),
-            Statement::Block(block) => block.node.validate(_context),
+            Statement::Assignment(assignment) => assignment.item.validate(_context),
+            Statement::AsyncBlock(async_block) => async_block.item.validate(_context),
+            Statement::Block(block) => block.item.validate(_context),
             Statement::Break(_) => Ok(()),
             Statement::Expression(expression) => expression.validate(_context),
-            Statement::IfElse(if_else) => if_else.node.validate(_context),
-            Statement::Loop(r#loop) => r#loop.node.validate(_context),
-            Statement::While(r#while) => r#while.node.validate(_context),
+            Statement::IfElse(if_else) => if_else.item.validate(_context),
+            Statement::Loop(r#loop) => r#loop.item.validate(_context),
+            Statement::While(r#while) => r#while.item.validate(_context),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.validate(_context)
+                structure_definition.item.validate(_context)
             }
         }
     }
 
     fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
         let result = match self {
-            Statement::Assignment(assignment) => assignment.node.run(context, clear_variables),
-            Statement::AsyncBlock(async_block) => async_block.node.run(context, clear_variables),
-            Statement::Block(block) => block.node.run(context, clear_variables),
+            Statement::Assignment(assignment) => assignment.item.run(context, clear_variables),
+            Statement::AsyncBlock(async_block) => async_block.item.run(context, clear_variables),
+            Statement::Block(block) => block.item.run(context, clear_variables),
             Statement::Break(_) => Ok(Action::Break),
             Statement::Expression(expression) => expression.run(context, clear_variables),
-            Statement::IfElse(if_else) => if_else.node.run(context, clear_variables),
-            Statement::Loop(r#loop) => r#loop.node.run(context, clear_variables),
-            Statement::While(r#while) => r#while.node.run(context, clear_variables),
+            Statement::IfElse(if_else) => if_else.item.run(context, clear_variables),
+            Statement::Loop(r#loop) => r#loop.item.run(context, clear_variables),
+            Statement::While(r#while) => r#while.item.run(context, clear_variables),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.run(context, clear_variables)
+                structure_definition.item.run(context, clear_variables)
             }
         };
 

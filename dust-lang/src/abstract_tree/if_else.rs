@@ -32,27 +32,27 @@ impl IfElse {
 
 impl AbstractNode for IfElse {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
-        self.if_block.node.expected_type(_context)
+        self.if_block.item.expected_type(_context)
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
         self.if_expression.validate(context)?;
-        self.if_block.node.validate(context)?;
+        self.if_block.item.validate(context)?;
 
-        let expected_type = self.if_block.node.expected_type(context)?;
+        let expected_type = self.if_block.item.expected_type(context)?;
         let if_expression_type = self.if_expression.expected_type(context)?;
 
         if let Type::Boolean = if_expression_type {
             if let Some(else_block) = &self.else_block {
-                else_block.node.validate(context)?;
+                else_block.item.validate(context)?;
 
-                let actual = else_block.node.expected_type(context)?;
+                let actual = else_block.item.expected_type(context)?;
 
                 expected_type
                     .check(&actual)
                     .map_err(|conflict| ValidationError::TypeCheck {
                         conflict,
-                        actual_position: self.if_block.node.last_statement().position(),
+                        actual_position: self.if_block.item.last_statement().position(),
                         expected_position: self.if_expression.position(),
                     })?;
             }
@@ -67,15 +67,15 @@ impl AbstractNode for IfElse {
             let expression_type = expression.expected_type(context)?;
 
             if let Type::Boolean = expression_type {
-                block.node.validate(context)?;
+                block.item.validate(context)?;
 
-                let actual = block.node.expected_type(context)?;
+                let actual = block.item.expected_type(context)?;
 
                 expected_type
                     .check(&actual)
                     .map_err(|conflict| ValidationError::TypeCheck {
                         conflict,
-                        actual_position: self.if_block.node.last_statement().position(),
+                        actual_position: self.if_block.item.last_statement().position(),
                         expected_position: self.if_expression.position(),
                     })?;
             } else {
@@ -102,7 +102,7 @@ impl AbstractNode for IfElse {
 
         if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
             if *if_boolean {
-                self.if_block.node.run(context, _clear_variables)
+                self.if_block.item.run(context, _clear_variables)
             } else {
                 for (expression, block) in self.else_ifs {
                     let expression_position = expression.position();
@@ -117,7 +117,7 @@ impl AbstractNode for IfElse {
 
                     if let ValueInner::Boolean(else_if_boolean) = value.inner().as_ref() {
                         if *else_if_boolean {
-                            return block.node.run(context, _clear_variables);
+                            return block.item.run(context, _clear_variables);
                         }
                     } else {
                         return Err(RuntimeError::ValidationFailure(
@@ -130,7 +130,7 @@ impl AbstractNode for IfElse {
                 }
 
                 if let Some(else_statement) = self.else_block {
-                    else_statement.node.run(context, _clear_variables)
+                    else_statement.item.run(context, _clear_variables)
                 } else {
                     Ok(Action::None)
                 }

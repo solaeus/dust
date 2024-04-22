@@ -39,50 +39,50 @@ impl Expression {
 impl AbstractNode for Expression {
     fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
         match self {
-            Expression::FunctionCall(function_call) => function_call.node.expected_type(_context),
+            Expression::FunctionCall(function_call) => function_call.item.expected_type(_context),
             Expression::Identifier(identifier) => {
-                if let Some(r#type) = _context.get_type(&identifier.node)? {
+                if let Some(r#type) = _context.get_type(&identifier.item)? {
                     Ok(r#type)
                 } else {
                     Err(ValidationError::VariableNotFound {
-                        identifier: identifier.node.clone(),
+                        identifier: identifier.item.clone(),
                         position: identifier.position,
                     })
                 }
             }
-            Expression::MapIndex(map_index) => map_index.node.expected_type(_context),
-            Expression::ListIndex(list_index) => list_index.node.expected_type(_context),
-            Expression::Logic(logic) => logic.node.expected_type(_context),
-            Expression::Math(math) => math.node.expected_type(_context),
-            Expression::Value(value_node) => value_node.node.expected_type(_context),
+            Expression::MapIndex(map_index) => map_index.item.expected_type(_context),
+            Expression::ListIndex(list_index) => list_index.item.expected_type(_context),
+            Expression::Logic(logic) => logic.item.expected_type(_context),
+            Expression::Math(math) => math.item.expected_type(_context),
+            Expression::Value(value_node) => value_node.item.expected_type(_context),
             Expression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.node.expected_type(_context)
+                built_in_function_call.item.expected_type(_context)
             }
         }
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
         match self {
-            Expression::FunctionCall(function_call) => function_call.node.validate(context),
+            Expression::FunctionCall(function_call) => function_call.item.validate(context),
             Expression::Identifier(identifier) => {
-                let found = context.add_expected_use(&identifier.node)?;
+                let found = context.add_expected_use(&identifier.item)?;
 
                 if found {
                     Ok(())
                 } else {
                     Err(ValidationError::VariableNotFound {
-                        identifier: identifier.node.clone(),
+                        identifier: identifier.item.clone(),
                         position: identifier.position,
                     })
                 }
             }
-            Expression::MapIndex(map_index) => map_index.node.validate(context),
-            Expression::ListIndex(list_index) => list_index.node.validate(context),
-            Expression::Logic(logic) => logic.node.validate(context),
-            Expression::Math(math) => math.node.validate(context),
-            Expression::Value(value_node) => value_node.node.validate(context),
+            Expression::MapIndex(map_index) => map_index.item.validate(context),
+            Expression::ListIndex(list_index) => list_index.item.validate(context),
+            Expression::Logic(logic) => logic.item.validate(context),
+            Expression::Math(math) => math.item.validate(context),
+            Expression::Value(value_node) => value_node.item.validate(context),
             Expression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.node.validate(context)
+                built_in_function_call.item.validate(context)
             }
         }
     }
@@ -90,27 +90,27 @@ impl AbstractNode for Expression {
     fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         match self {
             Expression::FunctionCall(function_call) => {
-                function_call.node.run(context, _clear_variables)
+                function_call.item.run(context, _clear_variables)
             }
             Expression::Identifier(identifier) => {
-                if let Some(value) = context.use_value(&identifier.node)? {
+                if let Some(value) = context.use_value(&identifier.item)? {
                     Ok(Action::Return(value))
                 } else {
                     Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
-                            identifier: identifier.node.clone(),
+                            identifier: identifier.item.clone(),
                             position: identifier.position,
                         },
                     ))
                 }
             }
-            Expression::MapIndex(map_index) => map_index.node.run(context, _clear_variables),
-            Expression::ListIndex(list_index) => list_index.node.run(context, _clear_variables),
-            Expression::Logic(logic) => logic.node.run(context, _clear_variables),
-            Expression::Math(math) => math.node.run(context, _clear_variables),
-            Expression::Value(value_node) => value_node.node.run(context, _clear_variables),
+            Expression::MapIndex(map_index) => map_index.item.run(context, _clear_variables),
+            Expression::ListIndex(list_index) => list_index.item.run(context, _clear_variables),
+            Expression::Logic(logic) => logic.item.run(context, _clear_variables),
+            Expression::Math(math) => math.item.run(context, _clear_variables),
+            Expression::Value(value_node) => value_node.item.run(context, _clear_variables),
             Expression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.node.run(context, _clear_variables)
+                built_in_function_call.item.run(context, _clear_variables)
             }
         }
     }

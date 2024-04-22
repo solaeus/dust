@@ -32,7 +32,7 @@ impl AbstractNode for FunctionCall {
         let function_node_type = self.function.expected_type(_context)?;
 
         if let Type::Function { return_type, .. } = function_node_type {
-            Ok(return_type.node)
+            Ok(return_type.item)
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_node_type,
@@ -58,13 +58,13 @@ impl AbstractNode for FunctionCall {
             for (type_parameter, type_argument) in
                 parameter_types.iter().zip(self.type_arguments.iter())
             {
-                if let Type::Argument(_) = type_parameter.node {
+                if let Type::Argument(_) = type_parameter.item {
                     continue;
                 }
 
                 type_parameter
-                    .node
-                    .check(&type_argument.node)
+                    .item
+                    .check(&type_argument.item)
                     .map_err(|conflict| ValidationError::TypeCheck {
                         conflict,
                         actual_position: type_argument.position,
@@ -73,13 +73,13 @@ impl AbstractNode for FunctionCall {
             }
 
             for (type_parameter, expression) in parameter_types.iter().zip(self.arguments.iter()) {
-                if let Type::Argument(_) = type_parameter.node {
+                if let Type::Argument(_) = type_parameter.item {
                     continue;
                 }
 
                 let actual = expression.expected_type(context)?;
 
-                type_parameter.node.check(&actual).map_err(|conflict| {
+                type_parameter.item.check(&actual).map_err(|conflict| {
                     ValidationError::TypeCheck {
                         conflict,
                         actual_position: expression.position(),
@@ -97,9 +97,9 @@ impl AbstractNode for FunctionCall {
         }
     }
 
-    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
         let function_position = self.function.position();
-        let action = self.function.run(context, _clear_variables)?;
+        let action = self.function.run(context, clear_variables)?;
         let value = if let Action::Return(value) = action {
             value
         } else {
@@ -121,7 +121,7 @@ impl AbstractNode for FunctionCall {
 
         for expression in self.arguments {
             let expression_position = expression.position();
-            let action = expression.run(context, _clear_variables)?;
+            let action = expression.run(context, clear_variables)?;
             let value = if let Action::Return(value) = action {
                 value
             } else {
@@ -138,8 +138,8 @@ impl AbstractNode for FunctionCall {
         for (type_parameter, type_argument) in function
             .type_parameters()
             .iter()
-            .map(|r#type| r#type.node.clone())
-            .zip(self.type_arguments.into_iter().map(|r#type| r#type.node))
+            .map(|r#type| r#type.item.clone())
+            .zip(self.type_arguments.into_iter().map(|r#type| r#type.item))
         {
             if let Type::Argument(identifier) = type_parameter {
                 function_context.set_type(identifier, type_argument)?;
@@ -147,6 +147,8 @@ impl AbstractNode for FunctionCall {
         }
 
         function_context.inherit_data_from(&context)?;
-        function.clone().call(arguments, &mut function_context)
+        function
+            .clone()
+            .call(arguments, &mut function_context, clear_variables)
     }
 }

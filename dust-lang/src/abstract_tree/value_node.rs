@@ -75,14 +75,14 @@ impl AbstractNode for ValueNode {
                     types.push((
                         identifier.clone(),
                         WithPosition {
-                            node: r#type,
+                            item: r#type,
                             position: expression.position(),
                         },
                     ));
                 }
 
                 Type::Structure {
-                    name: name.node.clone(),
+                    name: name.item.clone(),
                     fields: types,
                 }
             }
@@ -97,7 +97,7 @@ impl AbstractNode for ValueNode {
                 if let Some(expected_type) = r#type {
                     let actual_type = expression.expected_type(context)?;
 
-                    expected_type.node.check(&actual_type).map_err(|conflict| {
+                    expected_type.item.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
@@ -122,21 +122,21 @@ impl AbstractNode for ValueNode {
             function_context.inherit_types_from(context)?;
 
             for r#type in type_arguments {
-                if let Type::Argument(identifier) = &r#type.node {
-                    function_context.set_type(identifier.clone(), r#type.node.clone())?;
+                if let Type::Argument(identifier) = &r#type.item {
+                    function_context.set_type(identifier.clone(), r#type.item.clone())?;
                 }
             }
 
             for (identifier, r#type) in parameters {
-                function_context.set_type(identifier.clone(), r#type.node.clone())?;
+                function_context.set_type(identifier.clone(), r#type.item.clone())?;
             }
 
-            body.node.validate(&function_context)?;
+            body.item.validate(&function_context)?;
 
-            let actual_return_type = body.node.expected_type(&function_context)?;
+            let actual_return_type = body.item.expected_type(&function_context)?;
 
             return_type
-                .node
+                .item
                 .check(&actual_return_type)
                 .map_err(|conflict| ValidationError::TypeCheck {
                     conflict,
@@ -152,9 +152,9 @@ impl AbstractNode for ValueNode {
             fields: expressions,
         } = self
         {
-            if !context.contains(&name.node)? {
+            if !context.contains(&name.item)? {
                 return Err(ValidationError::VariableNotFound {
-                    identifier: name.node.clone(),
+                    identifier: name.item.clone(),
                     position: name.position,
                 });
             }
@@ -162,12 +162,12 @@ impl AbstractNode for ValueNode {
             if let Some(Type::Structure {
                 name: _,
                 fields: types,
-            }) = context.get_type(&name.node)?
+            }) = context.get_type(&name.item)?
             {
                 for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
                     let actual_type = expression.expected_type(context)?;
 
-                    expected_type.node.check(&actual_type).map_err(|conflict| {
+                    expected_type.item.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
@@ -194,7 +194,7 @@ impl AbstractNode for ValueNode {
                     let action = expression.run(_context, _clear_variables)?;
                     let value = if let Action::Return(value) = action {
                         WithPosition {
-                            node: value,
+                            item: value,
                             position: expression_position,
                         }
                     } else {

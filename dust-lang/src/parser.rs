@@ -1520,7 +1520,7 @@ mod tests {
         );
 
         if let Statement::Expression(Expression::Value(WithPosition {
-            node: ValueNode::Float(float),
+            item: ValueNode::Float(float),
             ..
         })) = &parse(&lex("NaN").unwrap()).unwrap()[0]
         {

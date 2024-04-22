@@ -23,11 +23,11 @@ impl AbstractNode for ListIndex {
 
         if let (
             Expression::Value(WithPosition {
-                node: ValueNode::List(expression_list),
+                item: ValueNode::List(expression_list),
                 ..
             }),
             Expression::Value(WithPosition {
-                node: ValueNode::Integer(index),
+                item: ValueNode::Integer(index),
                 ..
             }),
         ) = (&self.left, &self.right)
@@ -98,7 +98,7 @@ impl AbstractNode for ListIndex {
             let found_item = list.get(index as usize);
 
             if let Some(item) = found_item {
-                Ok(Action::Return(item.node.clone()))
+                Ok(Action::Return(item.item.clone()))
             } else {
                 Ok(Action::None)
             }

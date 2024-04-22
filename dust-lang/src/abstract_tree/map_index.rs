@@ -28,21 +28,21 @@ impl AbstractNode for MapIndex {
             (&self.collection, &self.index)
         {
             let collection =
-                if let Some(collection) = context.use_value(&collection_identifier.node)? {
+                if let Some(collection) = context.use_value(&collection_identifier.item)? {
                     collection
                 } else {
                     return Err(ValidationError::VariableNotFound {
-                        identifier: collection_identifier.node.clone(),
+                        identifier: collection_identifier.item.clone(),
                         position: collection_identifier.position,
                     });
                 };
 
             if let ValueInner::Map(map) = collection.inner().as_ref() {
-                return if let Some(value) = map.get(&index.node) {
+                return if let Some(value) = map.get(&index.item) {
                     Ok(value.r#type(context)?)
                 } else {
                     Err(ValidationError::PropertyNotFound {
-                        identifier: index.node.clone(),
+                        identifier: index.item.clone(),
                         position: index.position,
                     })
                 };
@@ -51,7 +51,7 @@ impl AbstractNode for MapIndex {
 
         if let (
             Expression::Value(WithPosition {
-                node: ValueNode::Map(properties),
+                item: ValueNode::Map(properties),
                 ..
             }),
             index,
@@ -61,9 +61,9 @@ impl AbstractNode for MapIndex {
                 properties
                     .iter()
                     .find_map(|(property, type_option, expression)| {
-                        if property == &index.node {
+                        if property == &index.item {
                             if let Some(r#type) = type_option {
-                                Some(r#type.node.expected_type(context))
+                                Some(r#type.item.expected_type(context))
                             } else {
                                 Some(expression.expected_type(context))
                             }
@@ -80,14 +80,14 @@ impl AbstractNode for MapIndex {
 
         if let (
             Expression::Value(WithPosition {
-                node: ValueNode::Structure { fields, .. },
+                item: ValueNode::Structure { fields, .. },
                 ..
             }),
             index,
         ) = (&self.collection, &self.index)
         {
             return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
-                if property == &index.node {
+                if property == &index.item {
                     Some(expression.expected_type(context))
                 } else {
                     None
@@ -122,7 +122,7 @@ impl AbstractNode for MapIndex {
 
         if let ValueInner::Map(map) = collection.inner().as_ref() {
             let action = map
-                .get(&self.index.node)
+                .get(&self.index.item)
                 .map(|value| Action::Return(value.clone()))
                 .unwrap_or(Action::None);
 

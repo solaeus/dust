@@ -48,14 +48,14 @@ use crate::{
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct WithPosition<T> {
-    pub node: T,
+    pub item: T,
     pub position: SourcePosition,
 }
 
 pub trait WithPos: Sized {
     fn with_position<T: Into<SourcePosition>>(self, span: T) -> WithPosition<Self> {
         WithPosition {
-            node: self,
+            item: self,
             position: span.into(),
         }
     }
