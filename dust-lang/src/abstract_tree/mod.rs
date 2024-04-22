@@ -99,7 +99,7 @@ impl AbstractTree {
     }
 
     pub fn run(self, context: &Context) -> Result<Option<Value>, Vec<Error>> {
-        let valid_statements = self.run_type_definitions(context)?;
+        let valid_statements = self.validate(context)?;
         let mut previous_value = None;
 
         for statement in valid_statements {
@@ -124,7 +124,7 @@ impl AbstractTree {
         Ok(previous_value)
     }
 
-    fn run_type_definitions(self, context: &Context) -> Result<Vec<Statement>, Vec<Error>> {
+    fn validate(self, context: &Context) -> Result<Vec<Statement>, Vec<Error>> {
         let mut errors = Vec::new();
         let mut valid_statements = Vec::new();
 
@@ -152,6 +152,8 @@ impl AbstractTree {
                 } else {
                     valid_statements.push(statement)
                 }
+            } else {
+                continue;
             }
         }
 

@@ -13,7 +13,7 @@ pub type ParserInput<'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
 
 pub fn parse<'src>(tokens: &'src [(Token<'src>, SimpleSpan)]) -> Result<AbstractTree, Vec<Error>> {
-    let statements = parser()
+    let statements = parser(false)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
         .map_err(|errors| {
@@ -27,6 +27,7 @@ pub fn parse<'src>(tokens: &'src [(Token<'src>, SimpleSpan)]) -> Result<Abstract
 }
 
 pub fn parser<'src>(
+    allow_built_ins: bool,
 ) -> impl Parser<'src, ParserInput<'src>, Vec<Statement>, extra::Err<Rich<'src, Token<'src>, SimpleSpan>>>
 {
     let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
@@ -154,6 +155,7 @@ pub fn parser<'src>(
         });
 
     let statement = recursive(|statement| {
+        let allow_built_ins = allow_built_ins.clone();
         let block = statement
             .clone()
             .repeated()
@@ -165,6 +167,7 @@ pub fn parser<'src>(
             .map_with(|statements, state| Block::new(statements).with_position(state.span()));
 
         let expression = recursive(|expression| {
+            let allow_built_ins = allow_built_ins.clone();
             let identifier_expression = identifier.clone().map_with(|identifier, state| {
                 Expression::Identifier(identifier.with_position(state.span()))
             });
@@ -269,10 +272,17 @@ pub fn parser<'src>(
                     .map(|expression| BuiltInFunctionCall::WriteLine(expression)),
             ))
             .then_ignore(just(Token::Control(Control::ParenClose)))
-            .map_with(|built_in_function_call, state| {
-                Expression::BuiltInFunctionCall(
-                    Box::new(built_in_function_call).with_position(state.span()),
-                )
+            .try_map_with(move |built_in_function_call, state| {
+                if allow_built_ins {
+                    Ok(Expression::BuiltInFunctionCall(
+                        Box::new(built_in_function_call).with_position(state.span()),
+                    ))
+                } else {
+                    Err(Rich::custom(
+                        state.span(),
+                        "Built-in function calls can only be used by the standard library.",
+                    ))
+                }
             });
 
             let structure_field = identifier
@@ -602,15 +612,39 @@ mod tests {
 
     #[test]
     fn built_in_function() {
+        let tokens = lex("READ_LINE()").unwrap();
+        let statements = parser(true)
+            .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
+            .into_result()
+            .map_err(|errors| {
+                errors
+                    .into_iter()
+                    .map(|error| Error::from(error))
+                    .collect::<Vec<Error>>()
+            })
+            .unwrap();
+
         assert_eq!(
-            parse(&lex("READ_LINE()").unwrap()).unwrap()[0],
+            statements[0],
             Statement::Expression(Expression::BuiltInFunctionCall(
                 Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 11))
             ))
         );
 
+        let tokens = lex("WRITE_LINE('hiya')").unwrap();
+        let statements = parser(true)
+            .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
+            .into_result()
+            .map_err(|errors| {
+                errors
+                    .into_iter()
+                    .map(|error| Error::from(error))
+                    .collect::<Vec<Error>>()
+            })
+            .unwrap();
+
         assert_eq!(
-            parse(&lex("WRITE_LINE('hiya')").unwrap()).unwrap()[0],
+            statements[0],
             Statement::Expression(Expression::BuiltInFunctionCall(
                 Box::new(BuiltInFunctionCall::WriteLine(Expression::Value(
                     ValueNode::String("hiya".to_string()).with_position((11, 17))

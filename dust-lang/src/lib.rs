@@ -12,12 +12,13 @@ use std::{
     vec,
 };
 
-use abstract_tree::Type;
+use abstract_tree::{AbstractTree, Type};
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
+use chumsky::prelude::*;
 use context::Context;
 use error::{Error, RuntimeError, TypeConflict, ValidationError};
 use lexer::lex;
-use parser::parse;
+use parser::{parse, parser};
 use rayon::prelude::*;
 pub use value::Value;
 
@@ -76,7 +77,7 @@ impl Interpreter {
     }
 
     pub fn load_std(&mut self) -> Result<(), InterpreterError> {
-        let std_sources = [
+        let std_sources: [(Arc<str>, Arc<str>); 2] = [
             (
                 Arc::from("std/io.ds"),
                 Arc::from(include_str!("../../std/io.ds")),
@@ -89,7 +90,54 @@ impl Interpreter {
 
         let error = std_sources
             .into_par_iter()
-            .find_map_any(|(source_id, source)| self.run(source_id, source).err());
+            .find_map_any(|(source_id, source)| {
+                self.sources
+                    .write()
+                    .unwrap()
+                    .push((source_id.clone(), source.clone()));
+
+                let lex_result = lex(source.as_ref()).map_err(|errors| InterpreterError {
+                    source_id: source_id.clone(),
+                    errors,
+                });
+                let tokens = match lex_result {
+                    Ok(tokens) => tokens,
+                    Err(error) => return Some(error),
+                };
+
+                let parse_result = parser(true)
+                    .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
+                    .into_result()
+                    .map_err(|errors| InterpreterError {
+                        source_id: source_id.clone(),
+                        errors: errors
+                            .into_iter()
+                            .map(|error| {
+                                let expected = error
+                                    .expected()
+                                    .into_iter()
+                                    .map(|pattern| pattern.to_string())
+                                    .collect();
+                                let span = error.span();
+
+                                Error::Parse {
+                                    expected,
+                                    span: (span.start(), span.end()),
+                                    reason: error.reason().to_string(),
+                                }
+                            })
+                            .collect(),
+                    });
+                let abstract_tree = match parse_result {
+                    Ok(statements) => AbstractTree::new(statements),
+                    Err(error) => return Some(error),
+                };
+
+                abstract_tree
+                    .run(&self.context)
+                    .map_err(|errors| InterpreterError { source_id, errors })
+                    .err()
+            });
 
         if let Some(error) = error {
             Err(error)
