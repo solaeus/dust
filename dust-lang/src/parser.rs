@@ -322,20 +322,18 @@ pub fn parser<'src>(
                     just(Token::Control(Control::DoubleColon)),
                 );
 
-            let map_atom = choice((
+            let map_index = choice((
                 map.clone(),
                 structure_instance.clone(),
                 identifier_expression.clone(),
-            ));
-
-            let map_index = map_atom
-                .then_ignore(just(Token::Control(Control::Dot)))
-                .then(positioned_identifier.clone())
-                .map_with(|(expression, identifier), state| {
-                    Expression::MapIndex(
-                        Box::new(MapIndex::new(expression, identifier)).with_position(state.span()),
-                    )
-                });
+            ))
+            .then_ignore(just(Token::Control(Control::Dot)))
+            .then(positioned_identifier.clone())
+            .map_with(|(expression, identifier), state| {
+                Expression::MapIndex(
+                    Box::new(MapIndex::new(expression, identifier)).with_position(state.span()),
+                )
+            });
 
             let atom = choice((
                 map_index.clone(),
