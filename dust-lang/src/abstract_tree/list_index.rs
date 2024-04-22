@@ -48,6 +48,9 @@ impl AbstractNode for ListIndex {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        self.left.validate(context)?;
+        self.right.validate(context)?;
+
         let left_type = self.left.expected_type(context)?;
 
         match left_type {

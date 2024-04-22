@@ -72,22 +72,48 @@ impl AbstractNode for Statement {
 
     fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
         let result = match self {
-            Statement::Assignment(assignment) => assignment.item.run(context, clear_variables),
+            Statement::Assignment(assignment) => {
+                let run_result = assignment.item.run(context, clear_variables);
+
+                if clear_variables {
+                    context.clean()?;
+                }
+
+                run_result
+            }
             Statement::AsyncBlock(async_block) => async_block.item.run(context, clear_variables),
             Statement::Block(block) => block.item.run(context, clear_variables),
             Statement::Break(_) => Ok(Action::Break),
-            Statement::Expression(expression) => expression.run(context, clear_variables),
-            Statement::IfElse(if_else) => if_else.item.run(context, clear_variables),
+            Statement::Expression(expression) => {
+                let run_result = expression.run(context, clear_variables);
+
+                if clear_variables {
+                    context.clean()?;
+                }
+
+                run_result
+            }
+            Statement::IfElse(if_else) => {
+                let run_result = if_else.item.run(context, clear_variables);
+
+                if clear_variables {
+                    context.clean()?;
+                }
+
+                run_result
+            }
             Statement::Loop(r#loop) => r#loop.item.run(context, clear_variables),
             Statement::While(r#while) => r#while.item.run(context, clear_variables),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.item.run(context, clear_variables)
+                let run_result = structure_definition.item.run(context, clear_variables);
+
+                if clear_variables {
+                    context.clean()?;
+                }
+
+                run_result
             }
         };
-
-        if clear_variables {
-            context.clean()?;
-        }
 
         result
     }

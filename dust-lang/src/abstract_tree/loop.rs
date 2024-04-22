@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -7,7 +5,7 @@ use crate::{
 
 use super::{AbstractNode, Action, Statement, Type};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Loop {
     statements: Vec<Statement>,
 }
@@ -34,7 +32,7 @@ impl AbstractNode for Loop {
     fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         loop {
             for statement in &self.statements {
-                let action = statement.clone().run(_context, _clear_variables)?;
+                let action = statement.clone().run(_context, false)?;
 
                 match action {
                     Action::Return(_) => {}
@@ -43,25 +41,5 @@ impl AbstractNode for Loop {
                 }
             }
         }
-    }
-}
-
-impl Eq for Loop {}
-
-impl PartialEq for Loop {
-    fn eq(&self, other: &Self) -> bool {
-        self.statements.eq(&other.statements)
-    }
-}
-
-impl PartialOrd for Loop {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Loop {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.statements.cmp(&other.statements)
     }
 }

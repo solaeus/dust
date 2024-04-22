@@ -83,12 +83,11 @@ impl Context {
     }
 
     pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
-        if let Some((ValueData::Value(value), usage_data)) =
-            self.variables.write()?.get_mut(identifier)
+        if let Some((ValueData::Value(value), usage_data)) = self.variables.read()?.get(identifier)
         {
             log::trace!("Using {identifier}'s value.");
 
-            usage_data.actual += 1;
+            usage_data.inner().write()?.actual += 1;
 
             Ok(Some(value.clone()))
         } else {
@@ -123,21 +122,13 @@ impl Context {
         Ok(())
     }
 
-    pub fn remove(&self, identifier: &Identifier) -> Result<Option<ValueData>, RwLockPoisonError> {
-        let removed = self
-            .variables
-            .write()?
-            .remove(identifier)
-            .map(|(value_data, _)| value_data);
-
-        Ok(removed)
-    }
-
     pub fn clean(&mut self) -> Result<(), RwLockPoisonError> {
         self.variables
             .write()?
             .retain(|identifier, (_, usage_data)| {
-                if usage_data.actual < usage_data.expected {
+                let usage = usage_data.inner().read().unwrap();
+
+                if usage.actual < usage.expected {
                     true
                 } else {
                     log::trace!("Removing variable {identifier}.");
@@ -150,12 +141,10 @@ impl Context {
     }
 
     pub fn add_expected_use(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
-        let mut variables = self.variables.write()?;
-
-        if let Some((_, usage_data)) = variables.get_mut(identifier) {
+        if let Some((_, usage_data)) = self.variables.read()?.get(identifier) {
             log::trace!("Adding expected use for variable {identifier}.");
 
-            usage_data.expected += 1;
+            usage_data.inner().write()?.expected += 1;
 
             Ok(true)
         } else {
@@ -171,16 +160,25 @@ pub enum ValueData {
 }
 
 #[derive(Clone, Debug)]
-pub struct UsageData {
+pub struct UsageData(Arc<RwLock<UsageDataInner>>);
+
+impl UsageData {
+    pub fn inner(&self) -> &Arc<RwLock<UsageDataInner>> {
+        &self.0
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct UsageDataInner {
     pub actual: u32,
     pub expected: u32,
 }
 
 impl UsageData {
     pub fn new() -> Self {
-        Self {
+        UsageData(Arc::new(RwLock::new(UsageDataInner {
             actual: 0,
             expected: 0,
-        }
+        })))
     }
 }
