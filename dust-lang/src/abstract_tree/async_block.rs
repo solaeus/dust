@@ -25,15 +25,15 @@ impl AbstractNode for AsyncBlock {
         self.statements.last().unwrap().expected_type(_context)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.validate(_context)?;
+            statement.validate(_context, manage_memory)?;
         }
 
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
         let statement_count = self.statements.len();
         let final_result = RwLock::new(Ok(Action::None));
 
@@ -41,7 +41,7 @@ impl AbstractNode for AsyncBlock {
             .into_par_iter()
             .enumerate()
             .find_map_first(|(index, statement)| {
-                let result = statement.run(&mut _context.clone(), _clear_variables);
+                let result = statement.run(&mut _context.clone(), manage_memory);
 
                 if index == statement_count - 1 {
                     let get_write_lock = final_result.write();

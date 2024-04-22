@@ -27,23 +27,23 @@ impl AbstractNode for While {
         Ok(Type::None)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
-        self.expression.validate(_context)?;
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        self.expression.validate(_context, _manage_memory)?;
 
         for statement in &self.statements {
-            statement.validate(_context)?;
+            statement.validate(_context, _manage_memory)?;
         }
 
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
             let expression_position = self.expression.position();
             let action = self
                 .expression
                 .clone()
-                .run(&mut _context.clone(), _clear_variables)?;
+                .run(&mut _context.clone(), _manage_memory)?;
 
             if let Action::Return(value) = action {
                 Ok(value)
@@ -58,7 +58,7 @@ impl AbstractNode for While {
             for statement in &self.statements {
                 let action = statement
                     .clone()
-                    .run(&mut _context.clone(), _clear_variables)?;
+                    .run(&mut _context.clone(), _manage_memory)?;
 
                 match action {
                     Action::Return(_) => {}

@@ -35,16 +35,16 @@ impl AbstractNode for IfElse {
         self.if_block.item.expected_type(_context)
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        self.if_expression.validate(context)?;
-        self.if_block.item.validate(context)?;
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+        self.if_expression.validate(context, manage_memory)?;
+        self.if_block.item.validate(context, manage_memory)?;
 
         let expected_type = self.if_block.item.expected_type(context)?;
         let if_expression_type = self.if_expression.expected_type(context)?;
 
         if let Type::Boolean = if_expression_type {
             if let Some(else_block) = &self.else_block {
-                else_block.item.validate(context)?;
+                else_block.item.validate(context, manage_memory)?;
 
                 let actual = else_block.item.expected_type(context)?;
 
@@ -67,7 +67,7 @@ impl AbstractNode for IfElse {
             let expression_type = expression.expected_type(context)?;
 
             if let Type::Boolean = expression_type {
-                block.item.validate(context)?;
+                block.item.validate(context, manage_memory)?;
 
                 let actual = block.item.expected_type(context)?;
 

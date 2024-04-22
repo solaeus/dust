@@ -41,11 +41,11 @@ impl AbstractNode for FunctionCall {
         }
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        self.function.validate(context)?;
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+        self.function.validate(context, manage_memory)?;
 
         for expression in &self.arguments {
-            expression.validate(context)?;
+            expression.validate(context, manage_memory)?;
         }
 
         let function_node_type = self.function.expected_type(context)?;

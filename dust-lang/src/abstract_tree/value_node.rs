@@ -91,7 +91,7 @@ impl AbstractNode for ValueNode {
         Ok(r#type)
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, r#type, expression) in map_assignments {
                 if let Some(expected_type) = r#type {
@@ -131,7 +131,7 @@ impl AbstractNode for ValueNode {
                 function_context.set_type(identifier.clone(), r#type.item.clone())?;
             }
 
-            body.item.validate(&function_context)?;
+            body.item.validate(&function_context, _manage_memory)?;
 
             let actual_return_type = body.item.expected_type(&function_context)?;
 
@@ -181,7 +181,7 @@ impl AbstractNode for ValueNode {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
             ValueNode::Float(float) => Value::float(float),
@@ -191,7 +191,7 @@ impl AbstractNode for ValueNode {
 
                 for expression in expression_list {
                     let expression_position = expression.position();
-                    let action = expression.run(_context, _clear_variables)?;
+                    let action = expression.run(_context, _manage_memory)?;
                     let value = if let Action::Return(value) = action {
                         WithPosition {
                             item: value,
@@ -213,7 +213,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, _type, expression) in property_list {
                     let expression_position = expression.position();
-                    let action = expression.run(_context, _clear_variables)?;
+                    let action = expression.run(_context, _manage_memory)?;
                     let value = if let Action::Return(value) = action {
                         value
                     } else {
@@ -243,7 +243,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, expression) in expressions {
                     let expression_position = expression.position();
-                    let action = expression.run(_context, _clear_variables)?;
+                    let action = expression.run(_context, _manage_memory)?;
                     let value = if let Action::Return(value) = action {
                         value
                     } else {

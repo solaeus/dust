@@ -43,7 +43,7 @@ impl AbstractNode for Assignment {
         Ok(Type::None)
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(WithPosition {
@@ -64,13 +64,13 @@ impl AbstractNode for Assignment {
             context.set_type(self.identifier.item.clone(), statement_type)?;
         }
 
-        self.statement.validate(context)?;
+        self.statement.validate(context, manage_memory)?;
 
         Ok(())
     }
 
-    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
-        let action = self.statement.run(context, clear_variables)?;
+    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
+        let action = self.statement.run(context, manage_memory)?;
         let right = match action {
             Action::Return(value) => value,
             r#break => return Ok(r#break),
@@ -81,7 +81,13 @@ impl AbstractNode for Assignment {
                 context.set_value(self.identifier.item, right)?;
             }
             AssignmentOperator::AddAssign => {
-                if let Some(left) = context.use_value(&self.identifier.item)? {
+                let left_option = if manage_memory {
+                    context.use_value(&self.identifier.item)?
+                } else {
+                    context.get_value(&self.identifier.item)?
+                };
+
+                if let Some(left) = left_option {
                     let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
                         (ValueInner::Integer(left), ValueInner::Integer(right)) => {
                             let sum = left.saturating_add(*right);
@@ -120,7 +126,13 @@ impl AbstractNode for Assignment {
                 }
             }
             AssignmentOperator::SubAssign => {
-                if let Some(left) = context.use_value(&self.identifier.item)? {
+                let left_option = if manage_memory {
+                    context.use_value(&self.identifier.item)?
+                } else {
+                    context.get_value(&self.identifier.item)?
+                };
+
+                if let Some(left) = left_option {
                     let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
                         (ValueInner::Integer(left), ValueInner::Integer(right)) => {
                             let difference = left.saturating_sub(*right);

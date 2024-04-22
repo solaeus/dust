@@ -25,7 +25,7 @@ impl AbstractNode for Logic {
         Ok(Type::Boolean)
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Logic::Equal(left, right)
             | Logic::NotEqual(left, right)
@@ -33,6 +33,9 @@ impl AbstractNode for Logic {
             | Logic::Less(left, right)
             | Logic::GreaterOrEqual(left, right)
             | Logic::LessOrEqual(left, right) => {
+                left.validate(context, _manage_memory)?;
+                right.validate(context, _manage_memory)?;
+
                 let left_type = left.expected_type(context)?;
                 let right_type = right.expected_type(context)?;
 
@@ -47,6 +50,9 @@ impl AbstractNode for Logic {
                 Ok(())
             }
             Logic::And(left, right) | Logic::Or(left, right) => {
+                left.validate(context, _manage_memory)?;
+                right.validate(context, _manage_memory)?;
+
                 let left_type = left.expected_type(context)?;
                 let right_type = right.expected_type(context)?;
 
@@ -69,6 +75,8 @@ impl AbstractNode for Logic {
                 Ok(())
             }
             Logic::Not(expression) => {
+                expression.validate(context, _manage_memory)?;
+
                 let expression_type = expression.expected_type(context)?;
 
                 if let Type::Boolean = expression_type {
@@ -83,10 +91,10 @@ impl AbstractNode for Logic {
         }
     }
 
-    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.run(&mut context.clone(), _clear_variables)?;
+            let action = expression.run(&mut context.clone(), _manage_memory)?;
             let value = if let Action::Return(value) = action {
                 value
             } else {
@@ -100,7 +108,7 @@ impl AbstractNode for Logic {
 
         let run_and_expect_boolean = |expression: Expression| -> Result<bool, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.run(&mut context.clone(), _clear_variables)?;
+            let action = expression.run(&mut context.clone(), _manage_memory)?;
             let value = if let Action::Return(value) = action {
                 value
             } else {

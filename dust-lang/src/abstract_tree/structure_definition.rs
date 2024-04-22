@@ -23,11 +23,11 @@ impl AbstractNode for StructureDefinition {
         Ok(Type::None)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 
-    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         let struct_type = Type::Structure {
             name: self.name.clone(),
             fields: self.fields,

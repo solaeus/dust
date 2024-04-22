@@ -26,15 +26,17 @@ impl AbstractNode for BuiltInFunctionCall {
         }
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             BuiltInFunctionCall::ReadLine => Ok(()),
-            BuiltInFunctionCall::Sleep(expression) => expression.validate(_context),
-            BuiltInFunctionCall::WriteLine(expression) => expression.validate(_context),
+            BuiltInFunctionCall::Sleep(expression) => expression.validate(_context, _manage_memory),
+            BuiltInFunctionCall::WriteLine(expression) => {
+                expression.validate(_context, _manage_memory)
+            }
         }
     }
 
-    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         match self {
             BuiltInFunctionCall::ReadLine => {
                 let mut buffer = String::new();
@@ -44,7 +46,7 @@ impl AbstractNode for BuiltInFunctionCall {
                 Ok(Action::Return(Value::string(buffer)))
             }
             BuiltInFunctionCall::Sleep(expression) => {
-                let action = expression.clone().run(context, _clear_variables)?;
+                let action = expression.clone().run(context, _manage_memory)?;
                 let value = if let Action::Return(value) = action {
                     value
                 } else {
@@ -60,7 +62,7 @@ impl AbstractNode for BuiltInFunctionCall {
                 Ok(Action::None)
             }
             BuiltInFunctionCall::WriteLine(expression) => {
-                let action = expression.clone().run(context, _clear_variables)?;
+                let action = expression.clone().run(context, _manage_memory)?;
                 let value = if let Action::Return(value) = action {
                     value
                 } else {

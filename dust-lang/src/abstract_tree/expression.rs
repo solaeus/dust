@@ -61,11 +61,17 @@ impl AbstractNode for Expression {
         }
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
-            Expression::FunctionCall(function_call) => function_call.item.validate(context),
+            Expression::FunctionCall(function_call) => {
+                function_call.item.validate(context, manage_memory)
+            }
             Expression::Identifier(identifier) => {
-                let found = context.add_expected_use(&identifier.item)?;
+                let found = if manage_memory {
+                    context.add_expected_use(&identifier.item)?
+                } else {
+                    context.contains(&identifier.item)?
+                };
 
                 if found {
                     Ok(())
@@ -76,24 +82,30 @@ impl AbstractNode for Expression {
                     })
                 }
             }
-            Expression::MapIndex(map_index) => map_index.item.validate(context),
-            Expression::ListIndex(list_index) => list_index.item.validate(context),
-            Expression::Logic(logic) => logic.item.validate(context),
-            Expression::Math(math) => math.item.validate(context),
-            Expression::Value(value_node) => value_node.item.validate(context),
+            Expression::MapIndex(map_index) => map_index.item.validate(context, manage_memory),
+            Expression::ListIndex(list_index) => list_index.item.validate(context, manage_memory),
+            Expression::Logic(logic) => logic.item.validate(context, manage_memory),
+            Expression::Math(math) => math.item.validate(context, manage_memory),
+            Expression::Value(value_node) => value_node.item.validate(context, manage_memory),
             Expression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.item.validate(context)
+                built_in_function_call.item.validate(context, manage_memory)
             }
         }
     }
 
-    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
         match self {
             Expression::FunctionCall(function_call) => {
-                function_call.item.run(context, _clear_variables)
+                function_call.item.run(context, manage_memory)
             }
             Expression::Identifier(identifier) => {
-                if let Some(value) = context.use_value(&identifier.item)? {
+                let value_option = if manage_memory {
+                    context.use_value(&identifier.item)?
+                } else {
+                    context.get_value(&identifier.item)?
+                };
+
+                if let Some(value) = value_option {
                     Ok(Action::Return(value))
                 } else {
                     Err(RuntimeError::ValidationFailure(
@@ -104,13 +116,13 @@ impl AbstractNode for Expression {
                     ))
                 }
             }
-            Expression::MapIndex(map_index) => map_index.item.run(context, _clear_variables),
-            Expression::ListIndex(list_index) => list_index.item.run(context, _clear_variables),
-            Expression::Logic(logic) => logic.item.run(context, _clear_variables),
-            Expression::Math(math) => math.item.run(context, _clear_variables),
-            Expression::Value(value_node) => value_node.item.run(context, _clear_variables),
+            Expression::MapIndex(map_index) => map_index.item.run(context, manage_memory),
+            Expression::ListIndex(list_index) => list_index.item.run(context, manage_memory),
+            Expression::Logic(logic) => logic.item.run(context, manage_memory),
+            Expression::Math(math) => math.item.run(context, manage_memory),
+            Expression::Value(value_node) => value_node.item.run(context, manage_memory),
             Expression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.item.run(context, _clear_variables)
+                built_in_function_call.item.run(context, manage_memory)
             }
         }
     }

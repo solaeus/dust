@@ -105,13 +105,13 @@ impl AbstractNode for MapIndex {
         })
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        self.collection.validate(context)
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        self.collection.validate(_context, _manage_memory)
     }
 
-    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         let collection_position = self.collection.position();
-        let action = self.collection.run(context, _clear_variables)?;
+        let action = self.collection.run(context, _manage_memory)?;
         let collection = if let Action::Return(value) = action {
             value
         } else {

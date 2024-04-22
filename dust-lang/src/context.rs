@@ -13,18 +13,14 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Context {
     variables: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageData)>>>,
+    is_clean: bool,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
             variables: Arc::new(RwLock::new(BTreeMap::new())),
-        }
-    }
-
-    pub fn with_data(data: BTreeMap<Identifier, (ValueData, UsageData)>) -> Self {
-        Self {
-            variables: Arc::new(RwLock::new(data)),
+            is_clean: true,
         }
     }
 
@@ -95,6 +91,16 @@ impl Context {
         }
     }
 
+    pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
+        if let Some((ValueData::Value(value), _)) = self.variables.read()?.get(identifier) {
+            log::trace!("Getting {identifier}'s value.");
+
+            Ok(Some(value.clone()))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), RwLockPoisonError> {
         log::debug!("Setting {identifier} to type {}.", r#type);
 
@@ -123,19 +129,29 @@ impl Context {
     }
 
     pub fn clean(&mut self) -> Result<(), RwLockPoisonError> {
+        if self.is_clean {
+            return Ok(());
+        }
+
         self.variables
             .write()?
-            .retain(|identifier, (_, usage_data)| {
-                let usage = usage_data.inner().read().unwrap();
+            .retain(|identifier, (value_data, usage_data)| {
+                if let ValueData::Value(_) = value_data {
+                    let usage = usage_data.inner().read().unwrap();
 
-                if usage.actual < usage.expected {
-                    true
+                    if usage.actual < usage.expected {
+                        true
+                    } else {
+                        log::trace!("Removing variable {identifier}.");
+
+                        false
+                    }
                 } else {
-                    log::trace!("Removing variable {identifier}.");
-
                     false
                 }
             });
+
+        self.is_clean = true;
 
         Ok(())
     }

@@ -40,7 +40,7 @@ impl AbstractNode for Math {
         }
     }
 
-    fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
                 let left_position = left.position();

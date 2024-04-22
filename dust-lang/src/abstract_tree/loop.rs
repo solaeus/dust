@@ -21,15 +21,15 @@ impl AbstractNode for Loop {
         Ok(Type::None)
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.validate(_context)?;
+            statement.validate(_context, false)?;
         }
 
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         loop {
             for statement in &self.statements {
                 let action = statement.clone().run(_context, false)?;

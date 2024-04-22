@@ -101,14 +101,14 @@ impl AbstractTree {
     pub fn run(
         self,
         context: &mut Context,
-        clear_variables: bool,
+        manage_memory: bool,
     ) -> Result<Option<Value>, Vec<Error>> {
-        let valid_statements = self.validate(context)?;
+        let valid_statements = self.validate(context, manage_memory)?;
         let mut previous_value = None;
 
         for statement in valid_statements {
             let position = statement.position();
-            let run = statement.run(context, clear_variables);
+            let run = statement.run(context, manage_memory);
 
             match run {
                 Ok(action) => match action {
@@ -128,12 +128,16 @@ impl AbstractTree {
         Ok(previous_value)
     }
 
-    fn validate(self, context: &mut Context) -> Result<Vec<Statement>, Vec<Error>> {
+    fn validate(
+        self,
+        context: &mut Context,
+        add_variable_uses: bool,
+    ) -> Result<Vec<Statement>, Vec<Error>> {
         let mut errors = Vec::new();
         let mut valid_statements = Vec::new();
 
         for statement in self.0 {
-            let validation = statement.validate(context);
+            let validation = statement.validate(context, add_variable_uses);
 
             if let Err(validation_error) = validation {
                 errors.push(Error::Validation {
@@ -179,6 +183,6 @@ impl Index<usize> for AbstractTree {
 
 pub trait AbstractNode: Sized {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
-    fn validate(&self, context: &Context) -> Result<(), ValidationError>;
-    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError>;
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError>;
+    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError>;
 }

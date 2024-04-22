@@ -29,19 +29,19 @@ impl AbstractNode for Block {
         }
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.validate(_context)?;
+            statement.validate(_context, _manage_memory)?;
         }
 
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         let mut previous = Action::None;
 
         for statement in self.statements {
-            previous = statement.run(_context, _clear_variables)?;
+            previous = statement.run(_context, _manage_memory)?;
         }
 
         Ok(previous)

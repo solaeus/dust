@@ -54,66 +54,42 @@ impl AbstractNode for Statement {
         }
     }
 
-    fn validate(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
-            Statement::Assignment(assignment) => assignment.item.validate(_context),
-            Statement::AsyncBlock(async_block) => async_block.item.validate(_context),
-            Statement::Block(block) => block.item.validate(_context),
+            Statement::Assignment(assignment) => assignment.item.validate(_context, _manage_memory),
+            Statement::AsyncBlock(async_block) => {
+                async_block.item.validate(_context, _manage_memory)
+            }
+            Statement::Block(block) => block.item.validate(_context, _manage_memory),
             Statement::Break(_) => Ok(()),
-            Statement::Expression(expression) => expression.validate(_context),
-            Statement::IfElse(if_else) => if_else.item.validate(_context),
-            Statement::Loop(r#loop) => r#loop.item.validate(_context),
-            Statement::While(r#while) => r#while.item.validate(_context),
+            Statement::Expression(expression) => expression.validate(_context, _manage_memory),
+            Statement::IfElse(if_else) => if_else.item.validate(_context, _manage_memory),
+            Statement::Loop(r#loop) => r#loop.item.validate(_context, _manage_memory),
+            Statement::While(r#while) => r#while.item.validate(_context, _manage_memory),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.item.validate(_context)
+                structure_definition.item.validate(_context, _manage_memory)
             }
         }
     }
 
-    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
         let result = match self {
-            Statement::Assignment(assignment) => {
-                let run_result = assignment.item.run(context, clear_variables);
-
-                if clear_variables {
-                    context.clean()?;
-                }
-
-                run_result
-            }
-            Statement::AsyncBlock(async_block) => async_block.item.run(context, clear_variables),
-            Statement::Block(block) => block.item.run(context, clear_variables),
+            Statement::Assignment(assignment) => assignment.item.run(context, manage_memory),
+            Statement::AsyncBlock(async_block) => async_block.item.run(context, manage_memory),
+            Statement::Block(block) => block.item.run(context, manage_memory),
             Statement::Break(_) => Ok(Action::Break),
-            Statement::Expression(expression) => {
-                let run_result = expression.run(context, clear_variables);
-
-                if clear_variables {
-                    context.clean()?;
-                }
-
-                run_result
-            }
-            Statement::IfElse(if_else) => {
-                let run_result = if_else.item.run(context, clear_variables);
-
-                if clear_variables {
-                    context.clean()?;
-                }
-
-                run_result
-            }
-            Statement::Loop(r#loop) => r#loop.item.run(context, clear_variables),
-            Statement::While(r#while) => r#while.item.run(context, clear_variables),
+            Statement::Expression(expression) => expression.run(context, manage_memory),
+            Statement::IfElse(if_else) => if_else.item.run(context, manage_memory),
+            Statement::Loop(r#loop) => r#loop.item.run(context, manage_memory),
+            Statement::While(r#while) => r#while.item.run(context, manage_memory),
             Statement::StructureDefinition(structure_definition) => {
-                let run_result = structure_definition.item.run(context, clear_variables);
-
-                if clear_variables {
-                    context.clean()?;
-                }
-
-                run_result
+                structure_definition.item.run(context, manage_memory)
             }
         };
+
+        if manage_memory {
+            context.clean()?;
+        }
 
         result
     }

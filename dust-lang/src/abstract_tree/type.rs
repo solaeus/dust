@@ -148,11 +148,11 @@ impl AbstractNode for Type {
         Ok(Type::None)
     }
 
-    fn validate(&self, _: &Context) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         Ok(Action::None)
     }
 }
