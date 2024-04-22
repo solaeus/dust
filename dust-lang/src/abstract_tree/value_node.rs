@@ -31,7 +31,7 @@ pub enum ValueNode {
 }
 
 impl AbstractNode for ValueNode {
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::Float(_) => Type::Float,
@@ -91,7 +91,7 @@ impl AbstractNode for ValueNode {
         Ok(r#type)
     }
 
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, r#type, expression) in map_assignments {
                 if let Some(expected_type) = r#type {
@@ -117,7 +117,7 @@ impl AbstractNode for ValueNode {
             body,
         } = self
         {
-            let function_context = Context::new();
+            let mut function_context = Context::new();
 
             function_context.inherit_types_from(context)?;
 
@@ -131,9 +131,9 @@ impl AbstractNode for ValueNode {
                 function_context.set_type(identifier.clone(), r#type.item.clone())?;
             }
 
-            body.item.validate(&function_context, _manage_memory)?;
+            body.item.validate(&mut function_context, _manage_memory)?;
 
-            let actual_return_type = body.item.expected_type(&function_context)?;
+            let actual_return_type = body.item.expected_type(&mut function_context)?;
 
             return_type
                 .item

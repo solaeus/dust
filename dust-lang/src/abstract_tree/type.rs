@@ -144,11 +144,15 @@ impl Type {
 }
 
 impl AbstractNode for Type {
-    fn expected_type(&self, _: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _: &mut Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(
+        &self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         Ok(())
     }
 

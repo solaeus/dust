@@ -21,7 +21,7 @@ impl Block {
 }
 
 impl AbstractNode for Block {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         if let Some(statement) = self.statements.last() {
             statement.expected_type(_context)
         } else {
@@ -29,7 +29,11 @@ impl AbstractNode for Block {
         }
     }
 
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(
+        &self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         for statement in &self.statements {
             statement.validate(_context, _manage_memory)?;
         }
@@ -88,6 +92,6 @@ mod tests {
             )),
         ]);
 
-        assert_eq!(block.expected_type(&Context::new()), Ok(Type::Integer))
+        assert_eq!(block.expected_type(&mut Context::new()), Ok(Type::Integer))
     }
 }

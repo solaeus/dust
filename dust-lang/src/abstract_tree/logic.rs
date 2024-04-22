@@ -21,11 +21,11 @@ pub enum Logic {
 }
 
 impl AbstractNode for Logic {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         Ok(Type::Boolean)
     }
 
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Logic::Equal(left, right)
             | Logic::NotEqual(left, right)

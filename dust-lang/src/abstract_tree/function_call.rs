@@ -28,7 +28,7 @@ impl FunctionCall {
 }
 
 impl AbstractNode for FunctionCall {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         let function_node_type = self.function.expected_type(_context)?;
 
         if let Type::Function { return_type, .. } = function_node_type {
@@ -41,7 +41,7 @@ impl AbstractNode for FunctionCall {
         }
     }
 
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.function.validate(context, manage_memory)?;
 
         for expression in &self.arguments {

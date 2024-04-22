@@ -78,12 +78,16 @@ impl Context {
         }
     }
 
-    pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
+    pub fn use_value(
+        &mut self,
+        identifier: &Identifier,
+    ) -> Result<Option<Value>, RwLockPoisonError> {
         if let Some((ValueData::Value(value), usage_data)) = self.variables.read()?.get(identifier)
         {
             log::trace!("Using {identifier}'s value.");
 
             usage_data.inner().write()?.actual += 1;
+            self.is_clean = false;
 
             Ok(Some(value.clone()))
         } else {
@@ -111,7 +115,11 @@ impl Context {
         Ok(())
     }
 
-    pub fn set_value(&self, identifier: Identifier, value: Value) -> Result<(), RwLockPoisonError> {
+    pub fn set_value(
+        &mut self,
+        identifier: Identifier,
+        value: Value,
+    ) -> Result<(), RwLockPoisonError> {
         log::debug!("Setting {identifier} to value {value}.");
 
         let mut variables = self.variables.write()?;
@@ -154,6 +162,22 @@ impl Context {
         self.is_clean = true;
 
         Ok(())
+    }
+
+    pub fn is_clean(&mut self) -> Result<bool, RwLockPoisonError> {
+        if self.is_clean {
+            Ok(true)
+        } else {
+            for (_, (_, usage_data)) in self.variables.read()?.iter() {
+                let usage_data = usage_data.inner().read().unwrap();
+
+                if usage_data.actual > usage_data.expected {
+                    return Ok(false);
+                }
+            }
+
+            Ok(true)
+        }
     }
 
     pub fn add_expected_use(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {

@@ -182,7 +182,7 @@ impl Index<usize> for AbstractTree {
 }
 
 pub trait AbstractNode: Sized {
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError>;
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError>;
+    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError>;
     fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError>;
 }

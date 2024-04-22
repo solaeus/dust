@@ -18,7 +18,7 @@ impl ListIndex {
 }
 
 impl AbstractNode for ListIndex {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         let left_type = self.left.expected_type(_context)?;
 
         if let (
@@ -47,7 +47,7 @@ impl AbstractNode for ListIndex {
         }
     }
 
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         self.left.validate(context, _manage_memory)?;
         self.right.validate(context, _manage_memory)?;
 

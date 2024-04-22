@@ -39,11 +39,11 @@ impl Assignment {
 }
 
 impl AbstractNode for Assignment {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(WithPosition {

@@ -38,7 +38,7 @@ impl Statement {
 }
 
 impl AbstractNode for Statement {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.item.expected_type(_context),
             Statement::AsyncBlock(async_block) => async_block.item.expected_type(_context),
@@ -54,7 +54,11 @@ impl AbstractNode for Statement {
         }
     }
 
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(
+        &self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         match self {
             Statement::Assignment(assignment) => assignment.item.validate(_context, _manage_memory),
             Statement::AsyncBlock(async_block) => {

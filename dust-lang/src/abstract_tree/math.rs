@@ -17,7 +17,7 @@ pub enum Math {
 }
 
 impl AbstractNode for Math {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         match self {
             Math::Add(left, right)
             | Math::Subtract(left, right)
@@ -40,7 +40,7 @@ impl AbstractNode for Math {
         }
     }
 
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
                 let left_position = left.position();

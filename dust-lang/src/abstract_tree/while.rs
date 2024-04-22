@@ -23,11 +23,15 @@ impl While {
 }
 
 impl AbstractNode for While {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         Ok(Type::None)
     }
 
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(
+        &self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         self.expression.validate(_context, _manage_memory)?;
 
         for statement in &self.statements {

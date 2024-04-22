@@ -23,7 +23,7 @@ impl MapIndex {
 }
 
 impl AbstractNode for MapIndex {
-    fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
         if let (Expression::Identifier(collection_identifier), index) =
             (&self.collection, &self.index)
         {
@@ -105,7 +105,11 @@ impl AbstractNode for MapIndex {
         })
     }
 
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(
+        &self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         self.collection.validate(_context, _manage_memory)
     }
 

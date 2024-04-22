@@ -31,11 +31,11 @@ impl IfElse {
 }
 
 impl AbstractNode for IfElse {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         self.if_block.item.expected_type(_context)
     }
 
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.if_expression.validate(context, manage_memory)?;
         self.if_block.item.validate(context, manage_memory)?;
 

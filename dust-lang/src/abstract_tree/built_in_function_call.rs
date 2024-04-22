@@ -18,7 +18,7 @@ pub enum BuiltInFunctionCall {
 }
 
 impl AbstractNode for BuiltInFunctionCall {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         match self {
             BuiltInFunctionCall::ReadLine => Ok(Type::String),
             BuiltInFunctionCall::Sleep(_) => Ok(Type::None),
@@ -26,7 +26,11 @@ impl AbstractNode for BuiltInFunctionCall {
         }
     }
 
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(
+        &self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         match self {
             BuiltInFunctionCall::ReadLine => Ok(()),
             BuiltInFunctionCall::Sleep(expression) => expression.validate(_context, _manage_memory),

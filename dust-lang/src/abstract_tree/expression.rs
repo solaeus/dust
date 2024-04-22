@@ -37,7 +37,7 @@ impl Expression {
 }
 
 impl AbstractNode for Expression {
-    fn expected_type(&self, _context: &Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         match self {
             Expression::FunctionCall(function_call) => function_call.item.expected_type(_context),
             Expression::Identifier(identifier) => {
@@ -61,7 +61,7 @@ impl AbstractNode for Expression {
         }
     }
 
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Expression::FunctionCall(function_call) => {
                 function_call.item.validate(context, manage_memory)
