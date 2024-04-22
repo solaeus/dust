@@ -69,8 +69,8 @@ impl AbstractNode for Assignment {
         Ok(())
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let action = self.statement.run(context)?;
+    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
+        let action = self.statement.run(context, clear_variables)?;
         let right = match action {
             Action::Return(value) => value,
             r#break => return Ok(r#break),
@@ -81,7 +81,7 @@ impl AbstractNode for Assignment {
                 context.set_value(self.identifier.node, right)?;
             }
             AssignmentOperator::AddAssign => {
-                if let Some(left) = context.get_value(&self.identifier.node)? {
+                if let Some(left) = context.use_value(&self.identifier.node)? {
                     let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
                         (ValueInner::Integer(left), ValueInner::Integer(right)) => {
                             let sum = left.saturating_add(*right);
@@ -120,7 +120,7 @@ impl AbstractNode for Assignment {
                 }
             }
             AssignmentOperator::SubAssign => {
-                if let Some(left) = context.get_value(&self.identifier.node)? {
+                if let Some(left) = context.use_value(&self.identifier.node)? {
                     let new_value = match (left.inner().as_ref(), right.inner().as_ref()) {
                         (ValueInner::Integer(left), ValueInner::Integer(right)) => {
                             let difference = left.saturating_sub(*right);
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn assign_value() {
-        let context = Context::new();
+        let mut context = Context::new();
 
         Assignment::new(
             Identifier::new("foobar").with_position((0, 0)),
@@ -185,18 +185,18 @@ mod tests {
                 ValueNode::Integer(42).with_position((0, 0)),
             )),
         )
-        .run(&context)
+        .run(&mut context, true)
         .unwrap();
 
         assert_eq!(
-            context.get_value(&Identifier::new("foobar")),
+            context.use_value(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
         )
     }
 
     #[test]
     fn add_assign_value() {
-        let context = Context::new();
+        let mut context = Context::new();
 
         context
             .set_value(Identifier::new("foobar"), Value::integer(1))
@@ -210,18 +210,18 @@ mod tests {
                 ValueNode::Integer(41).with_position((0, 0)),
             )),
         )
-        .run(&context)
+        .run(&mut context, true)
         .unwrap();
 
         assert_eq!(
-            context.get_value(&Identifier::new("foobar")),
+            context.use_value(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
         )
     }
 
     #[test]
     fn subtract_assign_value() {
-        let context = Context::new();
+        let mut context = Context::new();
 
         context
             .set_value(Identifier::new("foobar"), Value::integer(43))
@@ -235,11 +235,11 @@ mod tests {
                 ValueNode::Integer(1).with_position((0, 0)),
             )),
         )
-        .run(&context)
+        .run(&mut context, true)
         .unwrap();
 
         assert_eq!(
-            context.get_value(&Identifier::new("foobar")),
+            context.use_value(&Identifier::new("foobar")),
             Ok(Some(Value::integer(42)))
         )
     }

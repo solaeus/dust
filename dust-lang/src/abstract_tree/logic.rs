@@ -83,10 +83,10 @@ impl AbstractNode for Logic {
         }
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.run(context)?;
+            let action = expression.run(&mut context.clone(), _clear_variables)?;
             let value = if let Action::Return(value) = action {
                 value
             } else {
@@ -100,7 +100,7 @@ impl AbstractNode for Logic {
 
         let run_and_expect_boolean = |expression: Expression| -> Result<bool, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.run(context)?;
+            let action = expression.run(&mut context.clone(), _clear_variables)?;
             let value = if let Action::Return(value) = action {
                 value
             } else {
@@ -198,7 +198,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         )
     }
@@ -210,7 +210,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         )
     }
@@ -222,7 +222,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         )
     }
@@ -234,7 +234,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         )
     }
@@ -246,7 +246,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(41).with_position((0, 0)))
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         );
 
@@ -255,7 +255,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         );
     }
@@ -267,7 +267,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(41).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         );
 
@@ -276,7 +276,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         );
     }
@@ -288,7 +288,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         )
     }
@@ -300,7 +300,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
                 Expression::Value(ValueNode::Boolean(false).with_position((0, 0))),
             )
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         )
     }
@@ -311,7 +311,7 @@ mod tests {
             Logic::Not(Expression::Value(
                 ValueNode::Boolean(false).with_position((0, 0))
             ))
-            .run(&Context::new()),
+            .run(&mut Context::new(), true),
             Ok(Action::Return(Value::boolean(true)))
         )
     }

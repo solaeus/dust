@@ -33,7 +33,7 @@ impl AbstractNode for AsyncBlock {
         Ok(())
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let statement_count = self.statements.len();
         let final_result = RwLock::new(Ok(Action::None));
 
@@ -41,7 +41,7 @@ impl AbstractNode for AsyncBlock {
             .into_par_iter()
             .enumerate()
             .find_map_first(|(index, statement)| {
-                let result = statement.run(_context);
+                let result = statement.run(&mut _context.clone(), _clear_variables);
 
                 if index == statement_count - 1 {
                     let get_write_lock = final_result.write();

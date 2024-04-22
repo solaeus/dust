@@ -70,19 +70,25 @@ impl AbstractNode for Statement {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
-        match self {
-            Statement::Assignment(assignment) => assignment.node.run(_context),
-            Statement::AsyncBlock(async_block) => async_block.node.run(_context),
-            Statement::Block(block) => block.node.run(_context),
+    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
+        let result = match self {
+            Statement::Assignment(assignment) => assignment.node.run(context, clear_variables),
+            Statement::AsyncBlock(async_block) => async_block.node.run(context, clear_variables),
+            Statement::Block(block) => block.node.run(context, clear_variables),
             Statement::Break(_) => Ok(Action::Break),
-            Statement::Expression(expression) => expression.run(_context),
-            Statement::IfElse(if_else) => if_else.node.run(_context),
-            Statement::Loop(r#loop) => r#loop.node.run(_context),
-            Statement::While(r#while) => r#while.node.run(_context),
+            Statement::Expression(expression) => expression.run(context, clear_variables),
+            Statement::IfElse(if_else) => if_else.node.run(context, clear_variables),
+            Statement::Loop(r#loop) => r#loop.node.run(context, clear_variables),
+            Statement::While(r#while) => r#while.node.run(context, clear_variables),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.run(_context)
+                structure_definition.node.run(context, clear_variables)
             }
+        };
+
+        if clear_variables {
+            context.clean()?;
         }
+
+        result
     }
 }

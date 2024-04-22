@@ -27,7 +27,7 @@ impl AbstractNode for StructureDefinition {
         Ok(())
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let struct_type = Type::Structure {
             name: self.name.clone(),
             fields: self.fields,

@@ -1,6 +1,7 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
+    identifier::Identifier,
     value::ValueInner,
 };
 
@@ -8,25 +9,26 @@ use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MapIndex {
-    left: Expression,
-    right: Expression,
+    collection: Expression,
+    index: WithPosition<Identifier>,
 }
 
 impl MapIndex {
-    pub fn new(left: Expression, right: Expression) -> Self {
-        Self { left, right }
+    pub fn new(left: Expression, right: WithPosition<Identifier>) -> Self {
+        Self {
+            collection: left,
+            index: right,
+        }
     }
 }
 
 impl AbstractNode for MapIndex {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError> {
-        if let (
-            Expression::Identifier(collection_identifier),
-            Expression::Identifier(index_identifier),
-        ) = (&self.left, &self.right)
+        if let (Expression::Identifier(collection_identifier), index) =
+            (&self.collection, &self.index)
         {
             let collection =
-                if let Some(collection) = context.get_value(&collection_identifier.node)? {
+                if let Some(collection) = context.use_value(&collection_identifier.node)? {
                     collection
                 } else {
                     return Err(ValidationError::VariableNotFound {
@@ -36,12 +38,12 @@ impl AbstractNode for MapIndex {
                 };
 
             if let ValueInner::Map(map) = collection.inner().as_ref() {
-                return if let Some(value) = map.get(&index_identifier.node) {
+                return if let Some(value) = map.get(&index.node) {
                     Ok(value.r#type(context)?)
                 } else {
                     Err(ValidationError::PropertyNotFound {
-                        identifier: index_identifier.node.clone(),
-                        position: self.right.position(),
+                        identifier: index.node.clone(),
+                        position: index.position,
                     })
                 };
             };
@@ -52,14 +54,14 @@ impl AbstractNode for MapIndex {
                 node: ValueNode::Map(properties),
                 ..
             }),
-            Expression::Identifier(identifier),
-        ) = (&self.left, &self.right)
+            index,
+        ) = (&self.collection, &self.index)
         {
             return if let Some(type_result) =
                 properties
                     .iter()
                     .find_map(|(property, type_option, expression)| {
-                        if property == &identifier.node {
+                        if property == &index.node {
                             if let Some(r#type) = type_option {
                                 Some(r#type.node.expected_type(context))
                             } else {
@@ -81,11 +83,11 @@ impl AbstractNode for MapIndex {
                 node: ValueNode::Structure { fields, .. },
                 ..
             }),
-            Expression::Identifier(identifier),
-        ) = (&self.left, &self.right)
+            index,
+        ) = (&self.collection, &self.index)
         {
             return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
-                if property == &identifier.node {
+                if property == &index.node {
                     Some(expression.expected_type(context))
                 } else {
                     None
@@ -97,43 +99,19 @@ impl AbstractNode for MapIndex {
             };
         }
 
-        Err(ValidationError::CannotIndexWith {
-            collection_type: self.left.expected_type(context)?,
-            collection_position: self.left.position(),
-            index_type: self.right.expected_type(context)?,
-            index_position: self.right.position(),
+        Err(ValidationError::CannotIndex {
+            r#type: self.collection.expected_type(context)?,
+            position: self.collection.position(),
         })
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
-        let left_type = self.left.expected_type(context)?;
-
-        if let (
-            Expression::Value(WithPosition {
-                node: ValueNode::Map(_),
-                ..
-            }),
-            Expression::Identifier(_),
-        ) = (&self.left, &self.right)
-        {
-            Ok(())
-        } else if let (Expression::Identifier(_), Expression::Identifier(_)) =
-            (&self.left, &self.right)
-        {
-            Ok(())
-        } else {
-            Err(ValidationError::CannotIndexWith {
-                collection_type: left_type,
-                collection_position: self.left.position(),
-                index_type: self.right.expected_type(context)?,
-                index_position: self.right.position(),
-            })
-        }
+        self.collection.validate(context)
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
-        let collection_position = self.left.position();
-        let action = self.left.run(context)?;
+    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
+        let collection_position = self.collection.position();
+        let action = self.collection.run(context, _clear_variables)?;
         let collection = if let Action::Return(value) = action {
             value
         } else {
@@ -142,22 +120,18 @@ impl AbstractNode for MapIndex {
             ));
         };
 
-        if let (ValueInner::Map(map), Expression::Identifier(identifier)) =
-            (collection.inner().as_ref(), &self.right)
-        {
+        if let ValueInner::Map(map) = collection.inner().as_ref() {
             let action = map
-                .get(&identifier.node)
+                .get(&self.index.node)
                 .map(|value| Action::Return(value.clone()))
                 .unwrap_or(Action::None);
 
             Ok(action)
         } else {
             Err(RuntimeError::ValidationFailure(
-                ValidationError::CannotIndexWith {
-                    collection_type: collection.r#type(context)?,
-                    collection_position,
-                    index_type: self.right.expected_type(context)?,
-                    index_position: self.right.position(),
+                ValidationError::CannotIndex {
+                    r#type: collection.r#type(context)?,
+                    position: collection_position,
                 },
             ))
         }

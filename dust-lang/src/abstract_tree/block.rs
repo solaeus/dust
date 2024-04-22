@@ -37,11 +37,11 @@ impl AbstractNode for Block {
         Ok(())
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let mut previous = Action::None;
 
         for statement in self.statements {
-            previous = statement.run(_context)?;
+            previous = statement.run(_context, _clear_variables)?;
         }
 
         Ok(previous)
@@ -72,7 +72,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.run(&Context::new()).unwrap(),
+            block.run(&mut Context::new(), true).unwrap(),
             Action::Return(Value::integer(42))
         )
     }

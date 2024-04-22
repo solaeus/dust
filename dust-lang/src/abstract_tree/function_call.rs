@@ -42,6 +42,8 @@ impl AbstractNode for FunctionCall {
     }
 
     fn validate(&self, context: &Context) -> Result<(), ValidationError> {
+        self.function.validate(context)?;
+
         for expression in &self.arguments {
             expression.validate(context)?;
         }
@@ -95,9 +97,9 @@ impl AbstractNode for FunctionCall {
         }
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let function_position = self.function.position();
-        let action = self.function.run(context)?;
+        let action = self.function.run(context, _clear_variables)?;
         let value = if let Action::Return(value) = action {
             value
         } else {
@@ -119,7 +121,7 @@ impl AbstractNode for FunctionCall {
 
         for expression in self.arguments {
             let expression_position = expression.position();
-            let action = expression.run(context)?;
+            let action = expression.run(context, _clear_variables)?;
             let value = if let Action::Return(value) = action {
                 value
             } else {
@@ -131,7 +133,7 @@ impl AbstractNode for FunctionCall {
             arguments.push(value);
         }
 
-        let function_context = Context::new();
+        let mut function_context = Context::new();
 
         for (type_parameter, type_argument) in function
             .type_parameters()
@@ -145,6 +147,6 @@ impl AbstractNode for FunctionCall {
         }
 
         function_context.inherit_data_from(&context)?;
-        function.clone().call(arguments, function_context)
+        function.clone().call(arguments, &mut function_context)
     }
 }

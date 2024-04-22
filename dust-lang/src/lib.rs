@@ -33,7 +33,7 @@ pub fn interpret_without_std(
     source_id: &str,
     source: &str,
 ) -> Result<Option<Value>, InterpreterError> {
-    let interpreter = Interpreter::new(Context::new());
+    let mut interpreter = Interpreter::new(Context::new());
 
     interpreter.run(Arc::from(source_id.to_string()), Arc::from(source))
 }
@@ -52,7 +52,7 @@ impl Interpreter {
     }
 
     pub fn run(
-        &self,
+        &mut self,
         source_id: Arc<str>,
         source: Arc<str>,
     ) -> Result<Option<Value>, InterpreterError> {
@@ -70,7 +70,7 @@ impl Interpreter {
             errors,
         })?;
         let value_option = abstract_tree
-            .run(&self.context)
+            .run(&mut self.context, true)
             .map_err(|errors| InterpreterError { source_id, errors })?;
 
         Ok(value_option)
@@ -134,7 +134,7 @@ impl Interpreter {
                 };
 
                 abstract_tree
-                    .run(&self.context)
+                    .run(&mut self.context.clone(), false)
                     .map_err(|errors| InterpreterError { source_id, errors })
                     .err()
             });

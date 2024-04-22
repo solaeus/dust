@@ -181,7 +181,7 @@ impl AbstractNode for ValueNode {
         Ok(())
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
             ValueNode::Float(float) => Value::float(float),
@@ -191,7 +191,7 @@ impl AbstractNode for ValueNode {
 
                 for expression in expression_list {
                     let expression_position = expression.position();
-                    let action = expression.run(_context)?;
+                    let action = expression.run(_context, _clear_variables)?;
                     let value = if let Action::Return(value) = action {
                         WithPosition {
                             node: value,
@@ -213,7 +213,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, _type, expression) in property_list {
                     let expression_position = expression.position();
-                    let action = expression.run(_context)?;
+                    let action = expression.run(_context, _clear_variables)?;
                     let value = if let Action::Return(value) = action {
                         value
                     } else {
@@ -243,7 +243,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, expression) in expressions {
                     let expression_position = expression.position();
-                    let action = expression.run(_context)?;
+                    let action = expression.run(_context, _clear_variables)?;
                     let value = if let Action::Return(value) = action {
                         value
                     } else {

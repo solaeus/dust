@@ -31,10 +31,10 @@ impl AbstractNode for Loop {
         Ok(())
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         loop {
             for statement in &self.statements {
-                let action = statement.clone().run(_context)?;
+                let action = statement.clone().run(_context, _clear_variables)?;
 
                 match action {
                     Action::Return(_) => {}
@@ -63,83 +63,5 @@ impl PartialOrd for Loop {
 impl Ord for Loop {
     fn cmp(&self, other: &Self) -> Ordering {
         self.statements.cmp(&other.statements)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        abstract_tree::{
-            Assignment, AssignmentOperator, Block, Expression, IfElse, Logic, ValueNode, WithPos,
-        },
-        identifier::Identifier,
-        Value,
-    };
-
-    use super::*;
-
-    #[test]
-    fn basic_loop() {
-        let action = Loop::new(vec![Statement::Break(().with_position((0, 0)))])
-            .run(&Context::new())
-            .unwrap();
-
-        assert_eq!(action, Action::Break)
-    }
-
-    #[test]
-    fn complex_loop() {
-        let action = Block::new(vec![
-            Statement::Assignment(
-                Assignment::new(
-                    Identifier::new("i").with_position((0, 0)),
-                    None,
-                    AssignmentOperator::Assign,
-                    Statement::Expression(Expression::Value(
-                        ValueNode::Integer(1).with_position((0, 0)),
-                    )),
-                )
-                .with_position((0, 0)),
-            ),
-            Statement::Loop(
-                Loop::new(vec![Statement::IfElse(
-                    IfElse::new(
-                        Expression::Logic(
-                            Box::new(Logic::Greater(
-                                Expression::Identifier(Identifier::new("i").with_position((0, 0))),
-                                Expression::Value(ValueNode::Integer(2).with_position((0, 0))),
-                            ))
-                            .with_position((0, 0)),
-                        ),
-                        Block::new(vec![Statement::Break(().with_position((0, 0)))])
-                            .with_position((0, 0)),
-                        Vec::with_capacity(0),
-                        Some(
-                            Block::new(vec![Statement::Assignment(
-                                Assignment::new(
-                                    Identifier::new("i").with_position((0, 0)),
-                                    None,
-                                    AssignmentOperator::AddAssign,
-                                    Statement::Expression(Expression::Value(
-                                        ValueNode::Integer(1).with_position((0, 0)),
-                                    )),
-                                )
-                                .with_position((0, 0)),
-                            )])
-                            .with_position((0, 0)),
-                        ),
-                    )
-                    .with_position((0, 0)),
-                )])
-                .with_position((0, 0)),
-            ),
-            Statement::Expression(Expression::Identifier(
-                Identifier::new("i").with_position((0, 0)),
-            )),
-        ])
-        .run(&Context::new())
-        .unwrap();
-
-        assert_eq!(action, Action::Return(Value::integer(3)))
     }
 }

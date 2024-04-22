@@ -19,7 +19,7 @@ use reedline::{
 };
 
 pub fn run_shell(context: Context) -> Result<(), io::Error> {
-    let interpreter = Interpreter::new(context.clone());
+    let mut interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 
     keybindings.add_binding(
@@ -222,7 +222,7 @@ impl Completer for DustCompleter {
             }
         }
 
-        for (key, value_data) in self.context.inner().unwrap().iter() {
+        for (key, (value_data, _)) in self.context.inner().unwrap().iter() {
             let description = match value_data {
                 ValueData::Value(value) => value.to_string(),
                 ValueData::Type(r#type) => r#type.to_string(),

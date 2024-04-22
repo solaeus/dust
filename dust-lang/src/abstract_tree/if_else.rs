@@ -89,9 +89,9 @@ impl AbstractNode for IfElse {
         Ok(())
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let if_position = self.if_expression.position();
-        let action = self.if_expression.run(context)?;
+        let action = self.if_expression.run(context, _clear_variables)?;
         let value = if let Action::Return(value) = action {
             value
         } else {
@@ -102,11 +102,11 @@ impl AbstractNode for IfElse {
 
         if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
             if *if_boolean {
-                self.if_block.node.run(context)
+                self.if_block.node.run(context, _clear_variables)
             } else {
                 for (expression, block) in self.else_ifs {
                     let expression_position = expression.position();
-                    let action = expression.run(context)?;
+                    let action = expression.run(context, _clear_variables)?;
                     let value = if let Action::Return(value) = action {
                         value
                     } else {
@@ -117,7 +117,7 @@ impl AbstractNode for IfElse {
 
                     if let ValueInner::Boolean(else_if_boolean) = value.inner().as_ref() {
                         if *else_if_boolean {
-                            return block.node.run(context);
+                            return block.node.run(context, _clear_variables);
                         }
                     } else {
                         return Err(RuntimeError::ValidationFailure(
@@ -130,7 +130,7 @@ impl AbstractNode for IfElse {
                 }
 
                 if let Some(else_statement) = self.else_block {
-                    else_statement.node.run(context)
+                    else_statement.node.run(context, _clear_variables)
                 } else {
                     Ok(Action::None)
                 }
@@ -167,7 +167,7 @@ mod tests {
                 Vec::with_capacity(0),
                 None
             )
-            .run(&Context::new())
+            .run(&mut Context::new(), true)
             .unwrap(),
             Action::Return(Value::string("foo".to_string()))
         )

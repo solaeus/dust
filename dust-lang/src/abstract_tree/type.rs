@@ -152,7 +152,7 @@ impl AbstractNode for Type {
         Ok(())
     }
 
-    fn run(self, _: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         Ok(Action::None)
     }
 }

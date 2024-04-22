@@ -88,10 +88,10 @@ impl AbstractNode for Math {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let run_and_expect_value =
             |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
-                let action = expression.run(_context)?;
+                let action = expression.run(&mut _context.clone(), _clear_variables)?;
                 let value = if let Action::Return(value) = action {
                     value
                 } else {

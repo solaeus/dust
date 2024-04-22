@@ -65,7 +65,9 @@ impl AbstractNode for Expression {
         match self {
             Expression::FunctionCall(function_call) => function_call.node.validate(context),
             Expression::Identifier(identifier) => {
-                if context.contains(&identifier.node)? {
+                let found = context.add_expected_use(&identifier.node)?;
+
+                if found {
                     Ok(())
                 } else {
                     Err(ValidationError::VariableNotFound {
@@ -85,11 +87,13 @@ impl AbstractNode for Expression {
         }
     }
 
-    fn run(self, _context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         match self {
-            Expression::FunctionCall(function_call) => function_call.node.run(_context),
+            Expression::FunctionCall(function_call) => {
+                function_call.node.run(context, _clear_variables)
+            }
             Expression::Identifier(identifier) => {
-                if let Some(value) = _context.get_value(&identifier.node)? {
+                if let Some(value) = context.use_value(&identifier.node)? {
                     Ok(Action::Return(value))
                 } else {
                     Err(RuntimeError::ValidationFailure(
@@ -100,13 +104,13 @@ impl AbstractNode for Expression {
                     ))
                 }
             }
-            Expression::MapIndex(map_index) => map_index.node.run(_context),
-            Expression::ListIndex(list_index) => list_index.node.run(_context),
-            Expression::Logic(logic) => logic.node.run(_context),
-            Expression::Math(math) => math.node.run(_context),
-            Expression::Value(value_node) => value_node.node.run(_context),
+            Expression::MapIndex(map_index) => map_index.node.run(context, _clear_variables),
+            Expression::ListIndex(list_index) => list_index.node.run(context, _clear_variables),
+            Expression::Logic(logic) => logic.node.run(context, _clear_variables),
+            Expression::Math(math) => math.node.run(context, _clear_variables),
+            Expression::Value(value_node) => value_node.node.run(context, _clear_variables),
             Expression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.node.run(_context)
+                built_in_function_call.node.run(context, _clear_variables)
             }
         }
     }

@@ -322,13 +322,29 @@ pub fn parser<'src>(
                     just(Token::Control(Control::DoubleColon)),
                 );
 
-            let atom = choice((
-                range.clone(),
+            let map_atom = choice((
+                map.clone(),
                 structure_instance.clone(),
+                identifier_expression.clone(),
+            ));
+
+            let map_index = map_atom
+                .then_ignore(just(Token::Control(Control::Dot)))
+                .then(positioned_identifier.clone())
+                .map_with(|(expression, identifier), state| {
+                    Expression::MapIndex(
+                        Box::new(MapIndex::new(expression, identifier)).with_position(state.span()),
+                    )
+                });
+
+            let atom = choice((
+                map_index.clone(),
+                range.clone(),
                 parsed_function.clone(),
                 list.clone(),
-                map.clone(),
                 basic_value.clone(),
+                map.clone(),
+                structure_instance.clone(),
                 identifier_expression.clone(),
                 expression.clone().delimited_by(
                     just(Token::Control(Control::ParenOpen)),
@@ -381,15 +397,6 @@ pub fn parser<'src>(
                                 arguments,
                             )
                             .with_position(span),
-                        )
-                    },
-                ),
-                infix(
-                    left(4),
-                    just(Token::Control(Control::Dot)),
-                    |left, _, right, span| {
-                        Expression::MapIndex(
-                            Box::new(MapIndex::new(left, right)).with_position(span),
                         )
                     },
                 ),
@@ -493,8 +500,9 @@ pub fn parser<'src>(
             ));
 
             choice((
-                built_in_function_call,
                 logic_math_indexes_and_function_calls,
+                map_index,
+                built_in_function_call,
                 range,
                 structure_instance,
                 parsed_function,
@@ -765,7 +773,7 @@ mod tests {
                         )])
                         .with_position((0, 10))
                     ),
-                    Expression::Identifier(Identifier::new("x").with_position((11, 12)))
+                    Identifier::new("x").with_position((11, 12))
                 ))
                 .with_position((0, 12))
             ))
@@ -775,7 +783,7 @@ mod tests {
             Statement::Expression(Expression::MapIndex(
                 Box::new(MapIndex::new(
                     Expression::Identifier(Identifier::new("foo").with_position((0, 3))),
-                    Expression::Identifier(Identifier::new("x").with_position((4, 5)))
+                    Identifier::new("x").with_position((4, 5))
                 ))
                 .with_position((0, 5))
             ))
@@ -924,22 +932,14 @@ mod tests {
     #[test]
     fn function_call() {
         assert_eq!(
-            parse(&lex("io.read_line()").unwrap()).unwrap()[0],
+            parse(&lex("foobar()").unwrap()).unwrap()[0],
             Statement::Expression(Expression::FunctionCall(
                 FunctionCall::new(
-                    Expression::MapIndex(
-                        Box::new(MapIndex::new(
-                            Expression::Identifier(Identifier::new("io").with_position((0, 2))),
-                            Expression::Identifier(
-                                Identifier::new("read_line").with_position((3, 12))
-                            )
-                        ))
-                        .with_position((0, 12))
-                    ),
+                    Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
                     Vec::with_capacity(0),
                     Vec::with_capacity(0),
                 )
-                .with_position((0, 14))
+                .with_position((0, 8))
             ))
         )
     }

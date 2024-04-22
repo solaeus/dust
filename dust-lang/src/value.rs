@@ -6,12 +6,6 @@ use std::{
     sync::Arc,
 };
 
-use stanza::{
-    renderer::{console::Console, Renderer},
-    style::{HAlign, MinWidth, Styles},
-    table::Table,
-};
-
 use crate::{
     abstract_tree::{AbstractNode, Action, Block, Type, WithPos, WithPosition},
     context::Context,
@@ -104,31 +98,31 @@ impl Value {
 
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        fn create_table() -> Table {
-            Table::with_styles(Styles::default().with(HAlign::Centred).with(MinWidth(3)))
-        }
-
         match self.inner().as_ref() {
             ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
             ValueInner::Float(float) => write!(f, "{float}"),
             ValueInner::Integer(integer) => write!(f, "{integer}"),
             ValueInner::List(list) => {
-                let mut table = create_table();
+                write!(f, "[")?;
 
-                for value in list {
-                    table = table.with_row([value.node.to_string()]);
+                for (index, value) in list.into_iter().enumerate() {
+                    if index == list.len() - 1 {
+                        write!(f, "{}", value.node)?;
+                    } else {
+                        write!(f, "{}, ", value.node)?;
+                    }
                 }
 
-                write!(f, "{}", Console::default().render(&table))
+                write!(f, "]")
             }
             ValueInner::Map(map) => {
-                let mut table = create_table();
+                write!(f, "[")?;
 
-                for (identifier, value) in map {
-                    table = table.with_row([identifier.as_str(), &value.to_string()]);
+                for (key, value) in map {
+                    writeln!(f, "{key} = {value},")?;
                 }
 
-                write!(f, "{}", Console::default().render(&table))
+                write!(f, "]")
             }
             ValueInner::Range(_) => todo!(),
             ValueInner::String(string) => write!(f, "{string}"),
@@ -161,13 +155,13 @@ impl Display for Value {
                 write!(f, "): {} {:?}", return_type.node, body.node)
             }
             ValueInner::Structure { name, fields } => {
-                let mut table = create_table();
+                write!(f, "{}\n{{", name.node)?;
 
-                for (identifier, value) in fields {
-                    table = table.with_row([identifier.as_str(), &value.to_string()]);
+                for (key, value) in fields {
+                    writeln!(f, "{key} = {value},")?;
                 }
 
-                write!(f, "{}\n{}", name.node, Console::default().render(&table))
+                write!(f, "}}")
             }
         }
     }
@@ -318,11 +312,15 @@ impl Function {
         &self.type_parameters
     }
 
-    pub fn call(self, arguments: Vec<Value>, context: Context) -> Result<Action, RuntimeError> {
+    pub fn call(
+        self,
+        arguments: Vec<Value>,
+        context: &mut Context,
+    ) -> Result<Action, RuntimeError> {
         for ((identifier, _), value) in self.parameters.into_iter().zip(arguments.into_iter()) {
             context.set_value(identifier.clone(), value)?;
         }
 
-        self.body.node.run(&context)
+        self.body.node.run(context, true)
     }
 }

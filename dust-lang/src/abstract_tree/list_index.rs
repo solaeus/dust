@@ -74,9 +74,9 @@ impl AbstractNode for ListIndex {
         }
     }
 
-    fn run(self, context: &Context) -> Result<Action, RuntimeError> {
+    fn run(self, context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
         let left_position = self.left.position();
-        let left_action = self.left.run(context)?;
+        let left_action = self.left.run(context, _clear_variables)?;
         let left_value = if let Action::Return(value) = left_action {
             value
         } else {
@@ -85,7 +85,7 @@ impl AbstractNode for ListIndex {
             ));
         };
         let right_position = self.right.position();
-        let right_action = self.right.run(context)?;
+        let right_action = self.right.run(context, _clear_variables)?;
         let right_value = if let Action::Return(value) = right_action {
             value
         } else {

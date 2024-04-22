@@ -98,13 +98,17 @@ impl AbstractTree {
         AbstractTree(statements)
     }
 
-    pub fn run(self, context: &Context) -> Result<Option<Value>, Vec<Error>> {
+    pub fn run(
+        self,
+        context: &mut Context,
+        clear_variables: bool,
+    ) -> Result<Option<Value>, Vec<Error>> {
         let valid_statements = self.validate(context)?;
         let mut previous_value = None;
 
         for statement in valid_statements {
             let position = statement.position();
-            let run = statement.run(context);
+            let run = statement.run(context, clear_variables);
 
             match run {
                 Ok(action) => match action {
@@ -124,7 +128,7 @@ impl AbstractTree {
         Ok(previous_value)
     }
 
-    fn validate(self, context: &Context) -> Result<Vec<Statement>, Vec<Error>> {
+    fn validate(self, context: &mut Context) -> Result<Vec<Statement>, Vec<Error>> {
         let mut errors = Vec::new();
         let mut valid_statements = Vec::new();
 
@@ -139,7 +143,7 @@ impl AbstractTree {
             } else if errors.is_empty() {
                 if let Statement::StructureDefinition(_) = statement {
                     let position = statement.position();
-                    let run = statement.run(context);
+                    let run = statement.run(context, true);
 
                     if let Err(runtime_error) = run {
                         errors.push(Error::Runtime {
@@ -176,5 +180,5 @@ impl Index<usize> for AbstractTree {
 pub trait AbstractNode: Sized {
     fn expected_type(&self, context: &Context) -> Result<Type, ValidationError>;
     fn validate(&self, context: &Context) -> Result<(), ValidationError>;
-    fn run(self, context: &Context) -> Result<Action, RuntimeError>;
+    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError>;
 }
