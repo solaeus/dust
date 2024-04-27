@@ -36,7 +36,7 @@ impl Context {
 
         for (identifier, (value_data, usage_data)) in other.variables.read()?.iter() {
             if let ValueData::Type(Type::Function { .. }) = value_data {
-                log::trace!("Inheriting type of variable {identifier}.");
+                log::trace!("Context inheriting type of {identifier}.");
 
                 self_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
             }
@@ -49,7 +49,7 @@ impl Context {
         let mut self_data = self.variables.write()?;
 
         for (identifier, (value_data, usage_data)) in other.variables.read()?.iter() {
-            log::trace!("Inheriting variable {identifier}.");
+            log::trace!("Context inheriting variable {identifier}.");
 
             self_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
         }
@@ -65,7 +65,7 @@ impl Context {
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
         if let Some((value_data, _)) = self.variables.read()?.get(identifier) {
-            log::trace!("Using {identifier}'s type.");
+            log::trace!("Getting {identifier}'s type.");
 
             let r#type = match value_data {
                 ValueData::Type(r#type) => r#type.clone(),
@@ -100,6 +100,19 @@ impl Context {
             log::trace!("Getting {identifier}'s value.");
 
             Ok(Some(value.clone()))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn get_data(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<(ValueData, UsageData)>, RwLockPoisonError> {
+        if let Some(full_data) = self.variables.read()?.get(identifier) {
+            log::trace!("Getting {identifier}'s value.");
+
+            Ok(Some(full_data.clone()))
         } else {
             Ok(None)
         }

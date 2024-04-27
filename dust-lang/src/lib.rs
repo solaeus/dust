@@ -88,6 +88,8 @@ impl Interpreter {
             ),
         ];
 
+        log::info!("Start loading standard library...");
+
         let error = std_sources
             .into_par_iter()
             .find_map_any(|(source_id, source)| {
@@ -138,6 +140,8 @@ impl Interpreter {
                     .map_err(|errors| InterpreterError { source_id, errors })
                     .err()
             });
+
+        log::info!("Finish loading standard library.");
 
         if let Some(error) = error {
             Err(error)

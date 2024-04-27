@@ -367,6 +367,7 @@ dependencies = [
  "colored",
  "dust-lang",
  "env_logger",
+ "log",
  "nu-ansi-term",
  "reedline",
 ]

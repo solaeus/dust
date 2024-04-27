@@ -5,6 +5,7 @@ use ariadne::sources;
 use clap::Parser;
 use cli::run_shell;
 use colored::Colorize;
+use log::Level;
 
 use std::{
     fs::read_to_string,
@@ -33,10 +34,16 @@ fn main() {
     env_logger::Builder::from_env("DUST_LOG")
         .format(|buffer, record| {
             let args = record.args();
-            let log_level = record.level().to_string().bold();
+            let log_level = match record.level() {
+                Level::Trace => "TRACE".cyan().bold(),
+                Level::Warn => "WARN".yellow().bold(),
+                Level::Debug => "DEBUG".green().bold(),
+                Level::Error => "ERROR".red().bold(),
+                Level::Info => "INFO".white().bold(),
+            };
             let timestamp = buffer.timestamp_seconds().to_string().dimmed();
 
-            writeln!(buffer, "[{log_level} {timestamp}] {args}")
+            writeln!(buffer, "[{} {}] {}", log_level, timestamp, args)
         })
         .init();
 

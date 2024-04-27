@@ -12,6 +12,10 @@ use crate::{
 pub type ParserInput<'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
 
+pub type ParserExtra<'src> = extra::Err<Rich<'src, Token<'src>, SimpleSpan>>;
+
+pub type Comment = String;
+
 pub fn parse<'src>(tokens: &'src [(Token<'src>, SimpleSpan)]) -> Result<AbstractTree, Vec<Error>> {
     let statements = parser(false)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
@@ -28,8 +32,7 @@ pub fn parse<'src>(tokens: &'src [(Token<'src>, SimpleSpan)]) -> Result<Abstract
 
 pub fn parser<'src>(
     allow_built_ins: bool,
-) -> impl Parser<'src, ParserInput<'src>, Vec<Statement>, extra::Err<Rich<'src, Token<'src>, SimpleSpan>>>
-{
+) -> impl Parser<'src, ParserInput<'src>, Vec<Statement>, ParserExtra<'src>> {
     let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
     let _custom_types: Rc<RefCell<HashMap<Identifier, Type>>> =
         Rc::new(RefCell::new(HashMap::new()));
@@ -335,8 +338,20 @@ pub fn parser<'src>(
                 )
             });
 
+            let list_index = choice((list.clone(), identifier_expression.clone()))
+                .then(expression.clone().delimited_by(
+                    just(Token::Control(Control::SquareOpen)),
+                    just(Token::Control(Control::SquareClose)),
+                ))
+                .map_with(|(left, right), state| {
+                    Expression::ListIndex(
+                        Box::new(ListIndex::new(left, right)).with_position(state.span()),
+                    )
+                });
+
             let atom = choice((
                 map_index.clone(),
+                list_index.clone(),
                 range.clone(),
                 parsed_function.clone(),
                 list.clone(),
@@ -356,18 +371,6 @@ pub fn parser<'src>(
                     just(Token::Operator(Operator::Not)),
                     |_, expression, span| {
                         Expression::Logic(Box::new(Logic::Not(expression)).with_position(span))
-                    },
-                ),
-                postfix(
-                    2,
-                    expression.clone().delimited_by(
-                        just(Token::Control(Control::SquareOpen)),
-                        just(Token::Control(Control::SquareClose)),
-                    ),
-                    |left, right, span| {
-                        Expression::ListIndex(
-                            Box::new(ListIndex::new(left, right)).with_position(span),
-                        )
                     },
                 ),
                 postfix(
@@ -499,6 +502,7 @@ pub fn parser<'src>(
 
             choice((
                 logic_math_indexes_and_function_calls,
+                list_index,
                 map_index,
                 built_in_function_call,
                 range,
