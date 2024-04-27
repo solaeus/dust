@@ -10,6 +10,7 @@ use crate::error::Error;
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token<'src> {
     Boolean(bool),
+    Comment(&'src str),
     Integer(i64),
     Float(f64),
     String(&'src str),
@@ -23,6 +24,7 @@ impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::Boolean(boolean) => write!(f, "{boolean}"),
+            Token::Comment(comment) => write!(f, "# {comment}"),
             Token::Integer(integer) => write!(f, "{integer}"),
             Token::Float(float) => write!(f, "{float}"),
             Token::String(string) => write!(f, "{string}"),
@@ -190,6 +192,24 @@ pub fn lexer<'src>() -> impl Parser<
     Vec<(Token<'src>, SimpleSpan<usize>)>,
     extra::Err<Rich<'src, char, SimpleSpan<usize>>>,
 > {
+    let line_comment = just("//")
+        .ignore_then(
+            none_of('\n')
+                .repeated()
+                .to_slice()
+                .map(|text: &str| Token::Comment(text.trim())),
+        )
+        .then_ignore(just('\n').or_not());
+
+    let multi_line_comment = just("/*")
+        .ignore_then(
+            none_of('*')
+                .repeated()
+                .to_slice()
+                .map(|text: &str| Token::Comment(text.trim())),
+        )
+        .then_ignore(just("*/"));
+
     let boolean = choice((
         just("true").to(Token::Boolean(true)),
         just("false").to(Token::Boolean(false)),
@@ -308,7 +328,16 @@ pub fn lexer<'src>() -> impl Parser<
     .map(Token::Keyword);
 
     choice((
-        boolean, float, integer, string, keyword, identifier, control, operator,
+        line_comment,
+        multi_line_comment,
+        boolean,
+        float,
+        integer,
+        string,
+        keyword,
+        identifier,
+        control,
+        operator,
     ))
     .map_with(|token, state| (token, state.span()))
     .padded()
@@ -319,6 +348,66 @@ pub fn lexer<'src>() -> impl Parser<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn line_comment() {
+        assert_eq!(
+            lex("// 42").unwrap(),
+            vec![(Token::Comment("42"), (0..5).into())]
+        );
+
+        assert_eq!(
+            lex("1// 42//2").unwrap(),
+            vec![
+                (Token::Integer(1), (0..1).into()),
+                (Token::Comment("42//2"), (1..9).into()),
+            ]
+        );
+        assert_eq!(
+            lex("
+                1
+                // 42
+                2
+                ")
+            .unwrap(),
+            vec![
+                (Token::Integer(1), (17..18).into()),
+                (Token::Comment("42"), (35..41).into()),
+                (Token::Integer(2), (57..58).into()),
+            ]
+        );
+    }
+
+    #[test]
+    fn multi_line_comment() {
+        assert_eq!(
+            lex("/* 42 */").unwrap(),
+            vec![(Token::Comment("42"), (0..8).into())]
+        );
+
+        assert_eq!(
+            lex("1/* 42//2 */").unwrap(),
+            vec![
+                (Token::Integer(1), (0..1).into()),
+                (Token::Comment("42//2"), (1..12).into()),
+            ]
+        );
+        assert_eq!(
+            lex("
+                1
+                /*
+                    42
+                */
+                2
+                ")
+            .unwrap(),
+            vec![
+                (Token::Integer(1), (17..18).into()),
+                (Token::Comment("42"), (35..79).into()),
+                (Token::Integer(2), (96..97).into()),
+            ]
+        );
+    }
 
     #[test]
     fn range() {
