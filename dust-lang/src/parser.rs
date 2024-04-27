@@ -62,7 +62,7 @@ pub fn parser<'src>(
         Token::Boolean(boolean) => ValueNode::Boolean(boolean),
         Token::Float(float) => ValueNode::Float(float),
         Token::Integer(integer) => ValueNode::Integer(integer),
-        Token::String(string) => ValueNode::String(string.to_string()),
+        Token::String(text) => ValueNode::String(text.to_string()),
     }
     .map_with(|value, state| Expression::Value(value.with_position(state.span())));
 

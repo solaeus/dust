@@ -1,4 +1,8 @@
-use std::{io::stdin, thread, time::Duration};
+use std::{
+    io::{stdin, stdout, Write},
+    thread,
+    time::Duration,
+};
 
 use crate::{
     abstract_tree::{Action, Type},
@@ -47,7 +51,9 @@ impl AbstractNode for BuiltInFunctionCall {
 
                 stdin().read_line(&mut buffer)?;
 
-                Ok(Action::Return(Value::string(buffer)))
+                Ok(Action::Return(Value::string(
+                    buffer.strip_suffix('\n').unwrap_or(&buffer),
+                )))
             }
             BuiltInFunctionCall::Sleep(expression) => {
                 let action = expression.clone().run(context, _manage_memory)?;
@@ -76,7 +82,11 @@ impl AbstractNode for BuiltInFunctionCall {
                 };
 
                 if let ValueInner::String(output) = value.inner().as_ref() {
-                    println!("{output}");
+                    let mut stdout = stdout();
+
+                    stdout.write_all(output.as_bytes())?;
+                    stdout.write(b"\n")?;
+                    stdout.flush()?;
                 }
 
                 Ok(Action::None)

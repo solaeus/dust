@@ -28,7 +28,7 @@ impl AbstractNode for MapIndex {
             (&self.collection, &self.index)
         {
             let collection =
-                if let Some(collection) = context.use_value(&collection_identifier.item)? {
+                if let Some(collection) = context.get_value(&collection_identifier.item)? {
                     collection
                 } else {
                     return Err(ValidationError::VariableNotFound {
