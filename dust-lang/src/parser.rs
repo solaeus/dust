@@ -158,7 +158,6 @@ pub fn parser<'src>(
         });
 
     let statement = recursive(|statement| {
-        let allow_built_ins = allow_built_ins.clone();
         let block = statement
             .clone()
             .repeated()
@@ -170,7 +169,6 @@ pub fn parser<'src>(
             .map_with(|statements, state| Block::new(statements).with_position(state.span()));
 
         let expression = recursive(|expression| {
-            let allow_built_ins = allow_built_ins.clone();
             let identifier_expression = identifier.clone().map_with(|identifier, state| {
                 Expression::Identifier(identifier.with_position(state.span()))
             });
