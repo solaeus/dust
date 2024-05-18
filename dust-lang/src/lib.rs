@@ -14,7 +14,7 @@ use std::{
 
 use abstract_tree::{AbstractTree, Type};
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
-use chumsky::{container::Container, prelude::*};
+use chumsky::prelude::*;
 use context::Context;
 use error::{Error, RuntimeError, TypeConflict, ValidationError};
 use lexer::lex;

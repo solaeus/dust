@@ -231,20 +231,21 @@ pub fn parser<'src>(
                     just(Token::Control(Control::ParenClose)),
                 );
 
-            let parsed_function = type_arguments
-                .or_not()
-                .then(
-                    identifier
-                        .clone()
-                        .then(type_specification.clone())
-                        .separated_by(just(Token::Control(Control::Comma)))
-                        .collect()
-                        .delimited_by(
-                            just(Token::Control(Control::ParenOpen)),
-                            just(Token::Control(Control::ParenClose)),
-                        )
-                        .then(r#type.clone())
-                        .then(block.clone()),
+            let parsed_function = just(Token::Keyword(Keyword::Fn))
+                .ignore_then(
+                    type_arguments.or_not().then(
+                        identifier
+                            .clone()
+                            .then(type_specification.clone())
+                            .separated_by(just(Token::Control(Control::Comma)))
+                            .collect()
+                            .delimited_by(
+                                just(Token::Control(Control::ParenOpen)),
+                                just(Token::Control(Control::ParenClose)),
+                            )
+                            .then(r#type.clone())
+                            .then(block.clone()),
+                    ),
                 )
                 .map_with(
                     |(type_arguments, ((parameters, return_type), body)), state| {
@@ -325,33 +326,7 @@ pub fn parser<'src>(
                     just(Token::Control(Control::DoubleColon)),
                 );
 
-            let map_index = choice((
-                map.clone(),
-                structure_instance.clone(),
-                identifier_expression.clone(),
-            ))
-            .then_ignore(just(Token::Control(Control::Dot)))
-            .then(positioned_identifier.clone())
-            .map_with(|(expression, identifier), state| {
-                Expression::MapIndex(
-                    Box::new(MapIndex::new(expression, identifier)).with_position(state.span()),
-                )
-            });
-
-            let list_index = choice((list.clone(), identifier_expression.clone()))
-                .then(expression.clone().delimited_by(
-                    just(Token::Control(Control::SquareOpen)),
-                    just(Token::Control(Control::SquareClose)),
-                ))
-                .map_with(|(left, right), state| {
-                    Expression::ListIndex(
-                        Box::new(ListIndex::new(left, right)).with_position(state.span()),
-                    )
-                });
-
             let atom = choice((
-                map_index.clone(),
-                list_index.clone(),
                 range.clone(),
                 parsed_function.clone(),
                 list.clone(),
@@ -365,12 +340,33 @@ pub fn parser<'src>(
                 ),
             ));
 
-            let logic_math_and_function_calls = atom.pratt((
+            let logic_math_indexes_and_function_calls = atom.pratt((
                 prefix(
                     2,
                     just(Token::Operator(Operator::Not)),
                     |_, expression, span| {
                         Expression::Logic(Box::new(Logic::Not(expression)).with_position(span))
+                    },
+                ),
+                postfix(
+                    3,
+                    expression.clone().delimited_by(
+                        just(Token::Control(Control::SquareOpen)),
+                        just(Token::Control(Control::SquareClose)),
+                    ),
+                    |left, right, span| {
+                        Expression::ListIndex(
+                            Box::new(ListIndex::new(left, right)).with_position(span),
+                        )
+                    },
+                ),
+                infix(
+                    left(4),
+                    just(Token::Control(Control::Dot)),
+                    |left: Expression, _: Token, right: Expression, span| {
+                        Expression::MapIndex(
+                            Box::new(MapIndex::new(left, right)).with_position(span),
+                        )
                     },
                 ),
                 postfix(
@@ -499,11 +495,8 @@ pub fn parser<'src>(
                     },
                 ),
             ));
-
             choice((
-                logic_math_and_function_calls,
-                list_index,
-                map_index,
+                logic_math_indexes_and_function_calls,
                 built_in_function_call,
                 range,
                 structure_instance,
@@ -775,7 +768,7 @@ mod tests {
                         )])
                         .with_position((0, 10))
                     ),
-                    Identifier::new("x").with_position((11, 12))
+                    Expression::Identifier(Identifier::new("x").with_position((11, 12)))
                 ))
                 .with_position((0, 12))
             ))
@@ -785,7 +778,7 @@ mod tests {
             Statement::Expression(Expression::MapIndex(
                 Box::new(MapIndex::new(
                     Expression::Identifier(Identifier::new("foo").with_position((0, 3))),
-                    Identifier::new("x").with_position((4, 5))
+                    Expression::Identifier(Identifier::new("x").with_position((4, 5)))
                 ))
                 .with_position((0, 5))
             ))
@@ -976,18 +969,18 @@ mod tests {
     #[test]
     fn function() {
         assert_eq!(
-            parse(&lex("(x: int) int { x }").unwrap()).unwrap()[0],
+            parse(&lex("fn (x: int) int { x }").unwrap()).unwrap()[0],
             Statement::Expression(Expression::Value(
                 ValueNode::ParsedFunction {
                     type_arguments: Vec::with_capacity(0),
-                    parameters: vec![(Identifier::new("x"), Type::Integer.with_position((4, 7)))],
-                    return_type: Type::Integer.with_position((9, 12)),
+                    parameters: vec![(Identifier::new("x"), Type::Integer.with_position((7, 10)))],
+                    return_type: Type::Integer.with_position((12, 15)),
                     body: Block::new(vec![Statement::Expression(Expression::Identifier(
-                        Identifier::new("x").with_position((15, 16))
+                        Identifier::new("x").with_position((18, 19))
                     ))])
-                    .with_position((13, 18)),
+                    .with_position((16, 21)),
                 }
-                .with_position((0, 18))
+                .with_position((0, 21))
             ),)
         )
     }
@@ -995,30 +988,30 @@ mod tests {
     #[test]
     fn function_with_type_arguments() {
         assert_eq!(
-            parse(&lex("(T, U)(x: T, y: U) T { x }").unwrap()).unwrap()[0],
+            parse(&lex("fn (T, U)(x: T, y: U) T { x }").unwrap()).unwrap()[0],
             Statement::Expression(Expression::Value(
                 ValueNode::ParsedFunction {
                     type_arguments: vec![
-                        Type::Argument(Identifier::new("T")).with_position((1, 2)),
-                        Type::Argument(Identifier::new("U")).with_position((4, 5)),
+                        Type::Argument(Identifier::new("T")).with_position((4, 5)),
+                        Type::Argument(Identifier::new("U")).with_position((7, 8)),
                     ],
                     parameters: vec![
                         (
                             Identifier::new("x"),
-                            Type::Argument(Identifier::new("T")).with_position((10, 11))
+                            Type::Argument(Identifier::new("T")).with_position((13, 14))
                         ),
                         (
                             Identifier::new("y"),
-                            Type::Argument(Identifier::new("U")).with_position((16, 17))
+                            Type::Argument(Identifier::new("U")).with_position((19, 20))
                         )
                     ],
-                    return_type: Type::Argument(Identifier::new("T")).with_position((19, 20)),
+                    return_type: Type::Argument(Identifier::new("T")).with_position((22, 23)),
                     body: Block::new(vec![Statement::Expression(Expression::Identifier(
-                        Identifier::new("x").with_position((23, 24))
+                        Identifier::new("x").with_position((26, 27))
                     ))])
-                    .with_position((21, 26)),
+                    .with_position((24, 29)),
                 }
-                .with_position((0, 26))
+                .with_position((0, 29))
             ))
         )
     }

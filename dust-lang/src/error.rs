@@ -1,6 +1,6 @@
 use std::{io, sync::PoisonError};
 
-use chumsky::{container::Container, prelude::Rich, span::Span};
+use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
     abstract_tree::{SourcePosition, Type},

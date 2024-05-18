@@ -1,7 +1,6 @@
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    identifier::Identifier,
     value::ValueInner,
 };
 
@@ -10,11 +9,11 @@ use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MapIndex {
     collection: Expression,
-    index: WithPosition<Identifier>,
+    index: Expression,
 }
 
 impl MapIndex {
-    pub fn new(left: Expression, right: WithPosition<Identifier>) -> Self {
+    pub fn new(left: Expression, right: Expression) -> Self {
         Self {
             collection: left,
             index: right,
@@ -24,18 +23,17 @@ impl MapIndex {
 
 impl AbstractNode for MapIndex {
     fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
-        if let (Expression::Identifier(collection_identifier), index) =
+        if let (Expression::Identifier(collection), Expression::Identifier(index)) =
             (&self.collection, &self.index)
         {
-            let collection =
-                if let Some(collection) = context.get_value(&collection_identifier.item)? {
-                    collection
-                } else {
-                    return Err(ValidationError::VariableNotFound {
-                        identifier: collection_identifier.item.clone(),
-                        position: collection_identifier.position,
-                    });
-                };
+            let collection = if let Some(collection) = context.get_value(&collection.item)? {
+                collection
+            } else {
+                return Err(ValidationError::VariableNotFound {
+                    identifier: collection.item.clone(),
+                    position: collection.position,
+                });
+            };
 
             if let ValueInner::Map(map) = collection.inner().as_ref() {
                 return if let Some(value) = map.get(&index.item) {
@@ -54,7 +52,7 @@ impl AbstractNode for MapIndex {
                 item: ValueNode::Map(properties),
                 ..
             }),
-            index,
+            Expression::Identifier(index),
         ) = (&self.collection, &self.index)
         {
             return if let Some(type_result) =
@@ -83,7 +81,7 @@ impl AbstractNode for MapIndex {
                 item: ValueNode::Structure { fields, .. },
                 ..
             }),
-            index,
+            Expression::Identifier(index),
         ) = (&self.collection, &self.index)
         {
             return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
@@ -124,9 +122,11 @@ impl AbstractNode for MapIndex {
             ));
         };
 
-        if let ValueInner::Map(map) = collection.inner().as_ref() {
+        if let (ValueInner::Map(map), Expression::Identifier(index)) =
+            (collection.inner().as_ref(), self.index)
+        {
             let action = map
-                .get(&self.index.item)
+                .get(&index.item)
                 .map(|value| Action::Return(value.clone()))
                 .unwrap_or(Action::None);
 

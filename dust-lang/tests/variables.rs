@@ -44,15 +44,15 @@ fn set_variable_with_type_error() {
 #[test]
 fn function_variable() {
     assert_eq!(
-        interpret("test", "foobar = (x: int) int { x }; foobar"),
+        interpret("test", "foobar = fn (x: int) int { x }; foobar"),
         Ok(Some(Value::function(
             Vec::with_capacity(0),
-            vec![(Identifier::new("x"), Type::Integer.with_position((13, 16)))],
-            Type::Integer.with_position((18, 21)),
+            vec![(Identifier::new("x"), Type::Integer.with_position((16, 19)))],
+            Type::Integer.with_position((21, 24)),
             Block::new(vec![Statement::Expression(Expression::Identifier(
-                Identifier::new("x").with_position((24, 25))
+                Identifier::new("x").with_position((27, 28))
             ))])
-            .with_position((22, 27))
+            .with_position((25, 30))
         )))
     );
 }

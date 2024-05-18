@@ -10,7 +10,7 @@ fn function_call_with_type_argument() {
         interpret(
             "test",
             "
-            foobar = (T)(x : T) T { x }
+            foobar = fn (T)(x : T) T { x }
             foobar::(int)::(42)
             ",
         ),
@@ -24,7 +24,7 @@ fn function_call() {
         interpret(
             "test",
             "
-            foobar = (message : str) str { message }
+            foobar = fn (message : str) str { message }
             foobar('Hiya')
             ",
         ),
@@ -38,7 +38,7 @@ fn call_empty_function() {
         interpret(
             "test",
             "
-            foobar = (message : str) none {}
+            foobar = fn (message : str) none {}
             foobar('Hiya')
             ",
         ),
@@ -52,10 +52,10 @@ fn callback() {
         interpret(
             "test",
             "
-            foobar = (cb: fn() -> str) str {
+            foobar = fn (cb: fn() -> str) str {
                 cb()
             }
-            foobar(() str { 'Hiya' })
+            foobar(fn () str { 'Hiya' })
             ",
         ),
         Ok(Some(Value::string("Hiya".to_string())))
@@ -75,7 +75,7 @@ fn function_context_does_not_capture_values() {
             "
             x = 1
 
-            foo = () any { x } 
+            foo = fn () any { x } 
             "
         )
         .unwrap_err()
@@ -83,9 +83,9 @@ fn function_context_does_not_capture_values() {
         &vec![Error::Validation {
             error: ValidationError::VariableNotFound {
                 identifier: Identifier::new("x"),
-                position: (47, 48).into()
+                position: (50, 51).into()
             },
-            position: (32, 50).into()
+            position: (32, 53).into()
         }]
     );
 
@@ -94,7 +94,7 @@ fn function_context_does_not_capture_values() {
             "test",
             "
             x = 1
-            foo = (x: int) int { x }
+            foo = fn (x: int) int { x }
             foo(2)
             "
         ),
@@ -108,8 +108,8 @@ fn function_context_captures_functions() {
         interpret(
             "test",
             "
-            bar = () int { 2 }
-            foo = () int { bar() }
+            bar = fn () int { 2 }
+            foo = fn () int { bar() }
             foo()
             "
         ),
@@ -123,7 +123,7 @@ fn recursion() {
         interpret(
             "test",
             "
-            fib = (i: int) int {
+            fib = fn (i: int) int {
             	if i <= 1 {
             		1
             	} else {
