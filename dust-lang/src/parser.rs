@@ -365,7 +365,7 @@ pub fn parser<'src>(
                 ),
             ));
 
-            let logic_math_indexes_and_function_calls = atom.pratt((
+            let logic_math_and_function_calls = atom.pratt((
                 prefix(
                     2,
                     just(Token::Operator(Operator::Not)),
@@ -501,7 +501,7 @@ pub fn parser<'src>(
             ));
 
             choice((
-                logic_math_indexes_and_function_calls,
+                logic_math_and_function_calls,
                 list_index,
                 map_index,
                 built_in_function_call,
