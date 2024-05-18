@@ -261,30 +261,40 @@ pub fn parser<'src>(
                 );
 
             let built_in_function_call = choice((
-                just(Token::Keyword(Keyword::ReadLine))
-                    .ignore_then(just(Token::Control(Control::ParenOpen)))
-                    .to(BuiltInFunctionCall::ReadLine),
-                just(Token::Keyword(Keyword::Sleep))
-                    .ignore_then(just(Token::Control(Control::ParenOpen)))
-                    .ignore_then(expression.clone())
-                    .map(|expression| BuiltInFunctionCall::Sleep(expression)),
-                just(Token::Keyword(Keyword::WriteLine))
-                    .ignore_then(just(Token::Control(Control::ParenOpen)))
-                    .ignore_then(expression.clone())
-                    .map(|expression| BuiltInFunctionCall::WriteLine(expression)),
+                just(Token::Keyword(Keyword::ReadLine)).to(Keyword::ReadLine),
+                just(Token::Keyword(Keyword::Sleep)).to(Keyword::Sleep),
+                just(Token::Keyword(Keyword::WriteLine)).to(Keyword::WriteLine),
             ))
-            .then_ignore(just(Token::Control(Control::ParenClose)))
-            .try_map_with(move |built_in_function_call, state| {
-                if allow_built_ins {
-                    Ok(Expression::BuiltInFunctionCall(
-                        Box::new(built_in_function_call).with_position(state.span()),
-                    ))
-                } else {
-                    Err(Rich::custom(
+            .then(
+                expression
+                    .clone()
+                    .delimited_by(
+                        just(Token::Control(Control::ParenOpen)),
+                        just(Token::Control(Control::ParenClose)),
+                    )
+                    .separated_by(Token::Control(Control::Comma)),
+            )
+            .map_with(|(keyword, arguments), state| {
+                if !allow_built_ins {
+                    return Err(Rich::custom(
                         state.span(),
                         "Built-in function calls can only be used by the standard library.",
-                    ))
+                    ));
                 }
+
+                let call = match keyword {
+                    Keyword::ReadLine => Expression::BuiltInFunctionCall(
+                        Box::new(BuiltInFunctionCall::ReadLine).with_position(state.span()),
+                    ),
+                    _ => {
+                        return Err(Rich::custom(
+                            state.span(),
+                            "Could not parse this built-in function call.",
+                        ))
+                    }
+                };
+
+                Ok(call)
             });
 
             let structure_field = identifier
