@@ -1,6 +1,6 @@
 use std::{io, sync::PoisonError};
 
-use chumsky::{prelude::Rich, span::Span};
+use chumsky::{container::Container, prelude::Rich, span::Span};
 
 use crate::{
     abstract_tree::{SourcePosition, Type},
@@ -13,7 +13,7 @@ pub enum Error {
     Parse {
         expected: String,
         span: (usize, usize),
-        reason: String,
+        found: Option<String>,
     },
     Lex {
         expected: String,
@@ -45,7 +45,7 @@ impl<'src> From<Rich<'_, Token<'src>>> for Error {
         Error::Parse {
             expected: error.expected().map(|error| error.to_string()).collect(),
             span: (error.span().start(), error.span().end()),
-            reason: error.reason().to_string(),
+            found: error.found().map(|token| token.to_string()),
         }
     }
 }

@@ -14,7 +14,7 @@ use std::{
 
 use abstract_tree::{AbstractTree, Type};
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
-use chumsky::prelude::*;
+use chumsky::{container::Container, prelude::*};
 use context::Context;
 use error::{Error, RuntimeError, TypeConflict, ValidationError};
 use lexer::lex;
@@ -112,23 +112,7 @@ impl Interpreter {
                     .into_result()
                     .map_err(|errors| InterpreterError {
                         source_id: source_id.clone(),
-                        errors: errors
-                            .into_iter()
-                            .map(|error| {
-                                let expected = error
-                                    .expected()
-                                    .into_iter()
-                                    .map(|pattern| pattern.to_string())
-                                    .collect();
-                                let span = error.span();
-
-                                Error::Parse {
-                                    expected,
-                                    span: (span.start(), span.end()),
-                                    reason: error.reason().to_string(),
-                                }
-                            })
-                            .collect(),
+                        errors: errors.into_iter().map(Error::from).collect(),
                     });
                 let abstract_tree = match parse_result {
                     Ok(statements) => AbstractTree::new(statements),
@@ -202,13 +186,18 @@ impl InterpreterError {
             Error::Parse {
                 expected,
                 span,
-                reason,
+                found,
             } => {
                 let description = if expected.is_empty() {
                     "Invalid token.".to_string()
                 } else {
                     format!("Expected {expected}.")
                 };
+
+                let label_message = format!(
+                    "{} is not valid in this position.",
+                    found.unwrap_or_else(|| String::with_capacity(0))
+                );
 
                 (
                     Report::build(
@@ -219,7 +208,7 @@ impl InterpreterError {
                     .with_message(description)
                     .with_label(
                         Label::new((self.source_id.clone(), span.0..span.1))
-                            .with_message(reason)
+                            .with_message(label_message)
                             .with_color(Color::Red),
                     ),
                     None,
