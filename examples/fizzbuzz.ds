@@ -4,15 +4,17 @@ while count <= 15 {
 	divides_by_3 = count % 3 == 0
 	divides_by_5 = count % 5 == 0
 
-	if divides_by_3 && divides_by_5 { 
-		io.write_line('fizzbuzz')
+	output = if divides_by_3 && divides_by_5 { 
+		'fizzbuzz'
 	} else if divides_by_3 { 
-		io.write_line('fizz')
+		'fizz'
 	} else if divides_by_5 {
-		io.write_line('buzz')
-	} else { 
-		io.write_line(count)
+		'buzz'
+	} else {
+		string.new(count)
 	}
+
+	io.write_line(output)
 	
 	count += 1
 }

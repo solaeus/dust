@@ -254,7 +254,30 @@ pub fn lexer<'src>() -> impl Parser<
         delimited_string('`'),
     ));
 
-    let identifier = text::ident().map(|text: &str| Token::Identifier(text));
+    let identifier_and_keyword = text::ident().map(|text: &str| match text {
+        "any" => Token::Keyword(Keyword::Any),
+        "async" => Token::Keyword(Keyword::Async),
+        "bool" => Token::Keyword(Keyword::Bool),
+        "break" => Token::Keyword(Keyword::Break),
+        "else" => Token::Keyword(Keyword::Else),
+        "float" => Token::Keyword(Keyword::Float),
+        "fn" => Token::Keyword(Keyword::Fn),
+        "int" => Token::Keyword(Keyword::Int),
+        "if" => Token::Keyword(Keyword::If),
+        "list" => Token::Keyword(Keyword::List),
+        "map" => Token::Keyword(Keyword::Map),
+        "none" => Token::Keyword(Keyword::None),
+        "range" => Token::Keyword(Keyword::Range),
+        "struct" => Token::Keyword(Keyword::Struct),
+        "str" => Token::Keyword(Keyword::Str),
+        "type" => Token::Keyword(Keyword::Type),
+        "loop" => Token::Keyword(Keyword::Loop),
+        "while" => Token::Keyword(Keyword::While),
+        "READ_LINE" => Token::Keyword(Keyword::ReadLine),
+        "SLEEP" => Token::Keyword(Keyword::Sleep),
+        "WRITE_LINE" => Token::Keyword(Keyword::WriteLine),
+        _ => Token::Identifier(text),
+    });
 
     let operator = choice((
         // logic
@@ -302,31 +325,6 @@ pub fn lexer<'src>() -> impl Parser<
     ))
     .map(Token::Control);
 
-    let keyword = choice((
-        just("any").to(Keyword::Any),
-        just("async").to(Keyword::Async),
-        just("bool").to(Keyword::Bool),
-        just("break").to(Keyword::Break),
-        just("else").to(Keyword::Else),
-        just("float").to(Keyword::Float),
-        just("fn").to(Keyword::Fn),
-        just("int").to(Keyword::Int),
-        just("if").to(Keyword::If),
-        just("list").to(Keyword::List),
-        just("map").to(Keyword::Map),
-        just("none").to(Keyword::None),
-        just("range").to(Keyword::Range),
-        just("struct").to(Keyword::Struct),
-        just("str").to(Keyword::Str),
-        just("type").to(Keyword::Type),
-        just("loop").to(Keyword::Loop),
-        just("while").to(Keyword::While),
-        just("READ_LINE").to(Keyword::ReadLine),
-        just("SLEEP").to(Keyword::Sleep),
-        just("WRITE_LINE").to(Keyword::WriteLine),
-    ))
-    .map(Token::Keyword);
-
     choice((
         line_comment,
         multi_line_comment,
@@ -334,8 +332,7 @@ pub fn lexer<'src>() -> impl Parser<
         float,
         integer,
         string,
-        keyword,
-        identifier,
+        identifier_and_keyword,
         control,
         operator,
     ))

@@ -15,6 +15,10 @@ impl Block {
         Self { statements }
     }
 
+    pub fn first_statement(&self) -> &Statement {
+        self.statements.first().unwrap()
+    }
+
     pub fn last_statement(&self) -> &Statement {
         self.statements.last().unwrap()
     }

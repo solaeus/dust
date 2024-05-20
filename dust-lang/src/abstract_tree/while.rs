@@ -32,10 +32,10 @@ impl AbstractNode for While {
         _context: &mut Context,
         _manage_memory: bool,
     ) -> Result<(), ValidationError> {
-        self.expression.validate(_context, _manage_memory)?;
+        self.expression.validate(_context, false)?;
 
         for statement in &self.statements {
-            statement.validate(_context, _manage_memory)?;
+            statement.validate(_context, false)?;
         }
 
         Ok(())
@@ -44,10 +44,7 @@ impl AbstractNode for While {
     fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
             let expression_position = self.expression.position();
-            let action = self
-                .expression
-                .clone()
-                .run(&mut _context.clone(), _manage_memory)?;
+            let action = self.expression.clone().run(&mut _context.clone(), false)?;
 
             if let Action::Return(value) = action {
                 Ok(value)
@@ -60,9 +57,7 @@ impl AbstractNode for While {
 
         while let ValueInner::Boolean(true) = get_boolean()?.inner().as_ref() {
             for statement in &self.statements {
-                let action = statement
-                    .clone()
-                    .run(&mut _context.clone(), _manage_memory)?;
+                let action = statement.clone().run(&mut _context.clone(), false)?;
 
                 match action {
                     Action::Return(_) => {}
