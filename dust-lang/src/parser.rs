@@ -158,6 +158,8 @@ pub fn parser<'src>(
         });
 
     let statement = recursive(|statement| {
+        let allow_built_ins = allow_built_ins.clone();
+
         let block = statement
             .clone()
             .repeated()
@@ -169,6 +171,8 @@ pub fn parser<'src>(
             .map_with(|statements, state| Block::new(statements).with_position(state.span()));
 
         let expression = recursive(|expression| {
+            let allow_built_ins = allow_built_ins.clone();
+
             let identifier_expression = identifier.clone().map_with(|identifier, state| {
                 Expression::Identifier(identifier.with_position(state.span()))
             });
@@ -261,40 +265,37 @@ pub fn parser<'src>(
                 );
 
             let built_in_function_call = choice((
-                just(Token::Keyword(Keyword::ReadLine)).to(Keyword::ReadLine),
-                just(Token::Keyword(Keyword::Sleep)).to(Keyword::Sleep),
-                just(Token::Keyword(Keyword::WriteLine)).to(Keyword::WriteLine),
-            ))
-            .then(
-                expression
-                    .clone()
-                    .delimited_by(
-                        just(Token::Control(Control::ParenOpen)),
-                        just(Token::Control(Control::ParenClose)),
+                just(Token::Keyword(Keyword::ReadLine)).map_with(|_, state| {
+                    Expression::BuiltInFunctionCall(
+                        Box::new(BuiltInFunctionCall::ReadLine).with_position(state.span()),
                     )
-                    .separated_by(Token::Control(Control::Comma)),
-            )
-            .map_with(|(keyword, arguments), state| {
-                if !allow_built_ins {
-                    return Err(Rich::custom(
+                }),
+                just(Token::Keyword(Keyword::Sleep))
+                    .ignore_then(expression.clone())
+                    .map_with(|argument, state| {
+                        Expression::BuiltInFunctionCall(
+                            Box::new(BuiltInFunctionCall::Sleep(argument))
+                                .with_position(state.span()),
+                        )
+                    }),
+                just(Token::Keyword(Keyword::WriteLine))
+                    .ignore_then(expression.clone())
+                    .map_with(|argument, state| {
+                        Expression::BuiltInFunctionCall(
+                            Box::new(BuiltInFunctionCall::WriteLine(argument))
+                                .with_position(state.span()),
+                        )
+                    }),
+            ))
+            .try_map_with(move |expression, state| {
+                if allow_built_ins {
+                    Ok(expression)
+                } else {
+                    Err(Rich::custom(
                         state.span(),
                         "Built-in function calls can only be used by the standard library.",
-                    ));
+                    ))
                 }
-
-                let call = match keyword {
-                    Keyword::ReadLine => Expression::BuiltInFunctionCall(
-                        Box::new(BuiltInFunctionCall::ReadLine).with_position(state.span()),
-                    ),
-                    _ => {
-                        return Err(Rich::custom(
-                            state.span(),
-                            "Could not parse this built-in function call.",
-                        ))
-                    }
-                };
-
-                Ok(call)
             });
 
             let structure_field = identifier
@@ -503,6 +504,7 @@ pub fn parser<'src>(
                     },
                 ),
             ));
+
             choice((
                 logic_math_indexes_and_function_calls,
                 built_in_function_call,
@@ -623,7 +625,7 @@ mod tests {
 
     #[test]
     fn built_in_function() {
-        let tokens = lex("READ_LINE()").unwrap();
+        let tokens = lex("READ_LINE").unwrap();
         let statements = parser(true)
             .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
             .into_result()
@@ -638,11 +640,11 @@ mod tests {
         assert_eq!(
             statements[0],
             Statement::Expression(Expression::BuiltInFunctionCall(
-                Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 11))
+                Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 9))
             ))
         );
 
-        let tokens = lex("WRITE_LINE('hiya')").unwrap();
+        let tokens = lex("WRITE_LINE 'hiya'").unwrap();
         let statements = parser(true)
             .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
             .into_result()
@@ -660,7 +662,7 @@ mod tests {
                 Box::new(BuiltInFunctionCall::WriteLine(Expression::Value(
                     ValueNode::String("hiya".to_string()).with_position((11, 17))
                 )))
-                .with_position((0, 18))
+                .with_position((0, 17))
             ))
         );
     }
