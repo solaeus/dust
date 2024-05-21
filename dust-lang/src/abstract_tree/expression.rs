@@ -41,6 +41,7 @@ impl Expression {
 impl AbstractNode for Expression {
     fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         match self {
+            Expression::As(r#as) => r#as.item.expected_type(_context),
             Expression::FunctionCall(function_call) => function_call.item.expected_type(_context),
             Expression::Identifier(identifier) => {
                 if let Some(r#type) = _context.get_type(&identifier.item)? {
@@ -60,12 +61,12 @@ impl AbstractNode for Expression {
             Expression::BuiltInFunctionCall(built_in_function_call) => {
                 built_in_function_call.item.expected_type(_context)
             }
-            Expression::As(_) => todo!(),
         }
     }
 
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
+            Expression::As(r#as) => r#as.item.validate(context, manage_memory),
             Expression::FunctionCall(function_call) => {
                 function_call.item.validate(context, manage_memory)
             }
@@ -98,6 +99,7 @@ impl AbstractNode for Expression {
 
     fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
         match self {
+            Expression::As(r#as) => r#as.item.run(context, manage_memory),
             Expression::FunctionCall(function_call) => {
                 function_call.item.run(context, manage_memory)
             }

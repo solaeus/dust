@@ -258,8 +258,8 @@ pub fn lexer<'src>() -> impl Parser<
 
     let identifier_and_keyword = text::ident().map(|text: &str| match text {
         "any" => Token::Keyword(Keyword::Any),
-        "as" => Token::Keyword(Keyword::As),
         "async" => Token::Keyword(Keyword::Async),
+        "as" => Token::Keyword(Keyword::As),
         "bool" => Token::Keyword(Keyword::Bool),
         "break" => Token::Keyword(Keyword::Break),
         "else" => Token::Keyword(Keyword::Else),

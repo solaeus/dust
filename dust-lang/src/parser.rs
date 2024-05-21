@@ -335,12 +335,6 @@ pub fn parser<'src>(
                     just(Token::Control(Control::DoubleColon)),
                 );
 
-            let r#as = expression
-                .clone()
-                .then_ignore(just(Token::Keyword(Keyword::As)))
-                .then(r#type.clone())
-                .map_with(|(expression, r#type), state| todo!());
-
             let atom = choice((
                 range.clone(),
                 parsed_function.clone(),
@@ -511,9 +505,20 @@ pub fn parser<'src>(
                 ),
             ));
 
+            let r#as = choice((
+                basic_value.clone(),
+                identifier_expression.clone(),
+                logic_math_indexes_and_function_calls.clone(),
+            ))
+            .then_ignore(just(Token::Keyword(Keyword::As)))
+            .then(r#type.clone())
+            .map_with(|(expression, r#type), state| {
+                Expression::As(Box::new(As::new(expression, r#type)).with_position(state.span()))
+            });
+
             choice((
-                logic_math_indexes_and_function_calls,
                 r#as,
+                logic_math_indexes_and_function_calls,
                 built_in_function_call,
                 range,
                 structure_instance,
@@ -629,6 +634,20 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn r#as() {
+        assert_eq!(
+            parse(&lex("1 as str").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::As(
+                Box::new(As::new(
+                    Expression::Value(ValueNode::Integer(1).with_position((0, 1))),
+                    Type::String.with_position((5, 8))
+                ))
+                .with_position((0, 8))
+            ))
+        )
+    }
 
     #[test]
     fn built_in_function() {
