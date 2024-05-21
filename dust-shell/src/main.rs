@@ -48,7 +48,7 @@ fn main() {
         .init();
 
     let args = Args::parse();
-    let context = Context::new();
+    let context = Context::new(None);
     let mut interpreter = Interpreter::new(context.clone());
 
     interpreter.load_std().unwrap();

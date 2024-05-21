@@ -7,18 +7,15 @@ use std::{
 };
 
 use ariadne::sources;
-use dust_lang::{
-    context::{Context, ValueData},
-    *,
-};
+use dust_lang::{context::Context, *};
 use nu_ansi_term::{Color, Style};
 use reedline::{
-    default_emacs_keybindings, ColumnarMenu, Completer, DefaultHinter, EditCommand, Emacs, KeyCode,
-    KeyModifiers, MenuBuilder, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span,
-    SqliteBackedHistory, Suggestion,
+    default_emacs_keybindings, ColumnarMenu, DefaultHinter, EditCommand, Emacs, KeyCode,
+    KeyModifiers, MenuBuilder, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal,
+    SqliteBackedHistory,
 };
 
-pub fn run_shell(context: Context) -> Result<(), io::Error> {
+pub fn run_shell<'a>(context: Context<'a>) -> Result<(), io::Error> {
     let mut interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 
@@ -52,14 +49,12 @@ pub fn run_shell(context: Context) -> Result<(), io::Error> {
             .expect("Error loading history."),
     );
     let hinter = Box::new(DefaultHinter::default().with_style(Style::new().dimmed()));
-    let completer = DustCompleter::new(context.clone());
 
     let mut line_editor = Reedline::create()
         .with_edit_mode(edit_mode)
         .with_history(history)
         .with_hinter(hinter)
         .use_kitty_keyboard_enhancement(true)
-        .with_completer(Box::new(completer))
         .with_menu(ReedlineMenu::EngineCompleter(Box::new(
             ColumnarMenu::default()
                 .with_name("context menu")
@@ -169,77 +164,5 @@ impl Prompt for StarshipPrompt {
         _history_search: reedline::PromptHistorySearch,
     ) -> Cow<str> {
         Cow::Borrowed("")
-    }
-}
-
-pub struct DustCompleter {
-    context: Context,
-}
-
-impl DustCompleter {
-    fn new(context: Context) -> Self {
-        DustCompleter { context }
-    }
-}
-
-impl Completer for DustCompleter {
-    fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let mut suggestions = Vec::new();
-        let last_word = if let Some(word) = line.rsplit([' ', ':']).next() {
-            word
-        } else {
-            line
-        };
-
-        if let Ok(path) = PathBuf::try_from(last_word) {
-            if let Ok(read_dir) = path.read_dir() {
-                for entry in read_dir {
-                    if let Ok(entry) = entry {
-                        let description = if let Ok(file_type) = entry.file_type() {
-                            if file_type.is_dir() {
-                                "directory"
-                            } else if file_type.is_file() {
-                                "file"
-                            } else if file_type.is_symlink() {
-                                "symlink"
-                            } else {
-                                "unknown"
-                            }
-                        } else {
-                            "unknown"
-                        };
-
-                        suggestions.push(Suggestion {
-                            value: entry.path().to_string_lossy().to_string(),
-                            description: Some(description.to_string()),
-                            extra: None,
-                            span: Span::new(pos - last_word.len(), pos),
-                            append_whitespace: false,
-                            style: None,
-                        });
-                    }
-                }
-            }
-        }
-
-        for (key, (value_data, _)) in self.context.inner().unwrap().iter() {
-            let description = match value_data {
-                ValueData::Value(value) => value.to_string(),
-                ValueData::Type(r#type) => r#type.to_string(),
-            };
-
-            if key.as_str().contains(last_word) {
-                suggestions.push(Suggestion {
-                    value: key.to_string(),
-                    description: Some(description),
-                    extra: None,
-                    span: Span::new(pos - last_word.len(), pos),
-                    append_whitespace: false,
-                    style: None,
-                });
-            }
-        }
-
-        suggestions
     }
 }
