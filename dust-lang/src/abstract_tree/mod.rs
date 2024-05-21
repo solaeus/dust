@@ -1,3 +1,4 @@
+pub mod r#as;
 pub mod assignment;
 pub mod async_block;
 pub mod block;
@@ -32,6 +33,7 @@ pub use self::{
     logic::Logic,
     map_index::MapIndex,
     math::Math,
+    r#as::As,
     r#loop::Loop,
     r#type::Type,
     r#while::While,

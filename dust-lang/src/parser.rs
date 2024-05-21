@@ -335,6 +335,12 @@ pub fn parser<'src>(
                     just(Token::Control(Control::DoubleColon)),
                 );
 
+            let r#as = expression
+                .clone()
+                .then_ignore(just(Token::Keyword(Keyword::As)))
+                .then(r#type.clone())
+                .map_with(|(expression, r#type), state| todo!());
+
             let atom = choice((
                 range.clone(),
                 parsed_function.clone(),
@@ -507,6 +513,7 @@ pub fn parser<'src>(
 
             choice((
                 logic_math_indexes_and_function_calls,
+                r#as,
                 built_in_function_call,
                 range,
                 structure_instance,

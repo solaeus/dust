@@ -5,12 +5,13 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Action, BuiltInFunctionCall, FunctionCall, ListIndex, Logic, MapIndex, Math,
+    AbstractNode, Action, As, BuiltInFunctionCall, FunctionCall, ListIndex, Logic, MapIndex, Math,
     SourcePosition, Type, ValueNode, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Expression {
+    As(WithPosition<Box<As>>),
     BuiltInFunctionCall(WithPosition<Box<BuiltInFunctionCall>>),
     FunctionCall(WithPosition<FunctionCall>),
     Identifier(WithPosition<Identifier>),
@@ -24,6 +25,7 @@ pub enum Expression {
 impl Expression {
     pub fn position(&self) -> SourcePosition {
         match self {
+            Expression::As(inner) => inner.position,
             Expression::FunctionCall(inner) => inner.position,
             Expression::Identifier(inner) => inner.position,
             Expression::MapIndex(inner) => inner.position,
@@ -58,6 +60,7 @@ impl AbstractNode for Expression {
             Expression::BuiltInFunctionCall(built_in_function_call) => {
                 built_in_function_call.item.expected_type(_context)
             }
+            Expression::As(_) => todo!(),
         }
     }
 
