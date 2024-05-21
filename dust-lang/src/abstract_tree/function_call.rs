@@ -133,7 +133,7 @@ impl AbstractNode for FunctionCall {
             arguments.push(value);
         }
 
-        let mut function_context = Context::new();
+        let mut function_context = Context::new(Some(&context));
 
         for (type_parameter, type_argument) in function
             .type_parameters()
@@ -146,7 +146,6 @@ impl AbstractNode for FunctionCall {
             }
         }
 
-        function_context.inherit_data_from(&context)?;
         function
             .clone()
             .call(arguments, &mut function_context, clear_variables)

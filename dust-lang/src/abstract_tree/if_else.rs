@@ -167,7 +167,7 @@ mod tests {
                 Vec::with_capacity(0),
                 None
             )
-            .run(&mut Context::new(), true)
+            .run(&mut Context::new(None), true)
             .unwrap(),
             Action::Return(Value::string("foo".to_string()))
         )

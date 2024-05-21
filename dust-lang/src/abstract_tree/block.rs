@@ -80,7 +80,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.run(&mut Context::new(), true).unwrap(),
+            block.run(&mut Context::new(None), true).unwrap(),
             Action::Return(Value::integer(42))
         )
     }
@@ -96,6 +96,9 @@ mod tests {
             )),
         ]);
 
-        assert_eq!(block.expected_type(&mut Context::new()), Ok(Type::Integer))
+        assert_eq!(
+            block.expected_type(&mut Context::new(None)),
+            Ok(Type::Integer)
+        )
     }
 }

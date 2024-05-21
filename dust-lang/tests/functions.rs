@@ -1,8 +1,4 @@
-use dust_lang::{
-    error::{Error, ValidationError},
-    identifier::Identifier,
-    *,
-};
+use dust_lang::*;
 
 #[test]
 fn function_call_with_type_argument() {
@@ -68,42 +64,7 @@ fn built_in_function_call() {
 }
 
 #[test]
-fn function_context_does_not_capture_values() {
-    assert_eq!(
-        interpret(
-            "test",
-            "
-            x = 1
-
-            foo = fn () any { x } 
-            "
-        )
-        .unwrap_err()
-        .errors(),
-        &vec![Error::Validation {
-            error: ValidationError::VariableNotFound {
-                identifier: Identifier::new("x"),
-                position: (50, 51).into()
-            },
-            position: (32, 53).into()
-        }]
-    );
-
-    assert_eq!(
-        interpret(
-            "test",
-            "
-            x = 1
-            foo = fn (x: int) int { x }
-            foo(2)
-            "
-        ),
-        Ok(Some(Value::integer(2)))
-    );
-}
-
-#[test]
-fn function_context_captures_functions() {
+fn function_context_captures_values() {
     assert_eq!(
         interpret(
             "test",

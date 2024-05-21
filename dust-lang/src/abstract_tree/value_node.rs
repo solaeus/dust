@@ -117,9 +117,7 @@ impl AbstractNode for ValueNode {
             body,
         } = self
         {
-            let mut function_context = Context::new();
-
-            function_context.inherit_types_from(context)?;
+            let mut function_context = Context::new(Some(&context));
 
             for r#type in type_arguments {
                 if let Type::Argument(identifier) = &r#type.item {

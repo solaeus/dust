@@ -11,16 +11,18 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub struct Context {
+pub struct Context<'a> {
     variables: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageData)>>>,
-    is_clean: bool,
+    parent: Option<&'a Context<'a>>,
+    is_clean: Arc<RwLock<bool>>,
 }
 
-impl Context {
-    pub fn new() -> Self {
+impl<'a> Context<'a> {
+    pub fn new(parent: Option<&'a Context>) -> Self {
         Self {
             variables: Arc::new(RwLock::new(BTreeMap::new())),
-            is_clean: true,
+            parent,
+            is_clean: Arc::new(RwLock::new(true)),
         }
     }
 
@@ -31,36 +33,16 @@ impl Context {
         Ok(self.variables.read()?)
     }
 
-    pub fn inherit_types_from(&self, other: &Context) -> Result<(), RwLockPoisonError> {
-        let mut self_data = self.variables.write()?;
-
-        for (identifier, (value_data, usage_data)) in other.variables.read()?.iter() {
-            if let ValueData::Type(Type::Function { .. }) = value_data {
-                log::trace!("Context inheriting type of {identifier}.");
-
-                self_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn inherit_data_from(&self, other: &Context) -> Result<(), RwLockPoisonError> {
-        let mut self_data = self.variables.write()?;
-
-        for (identifier, (value_data, usage_data)) in other.variables.read()?.iter() {
-            log::trace!("Context inheriting variable {identifier}.");
-
-            self_data.insert(identifier.clone(), (value_data.clone(), usage_data.clone()));
-        }
-
-        Ok(())
-    }
-
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
         log::trace!("Checking that {identifier} exists.");
 
-        Ok(self.variables.read()?.contains_key(identifier))
+        if self.variables.read()?.contains_key(identifier) {
+            Ok(true)
+        } else if let Some(parent) = self.parent {
+            parent.contains(identifier)
+        } else {
+            Ok(false)
+        }
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
@@ -73,23 +55,24 @@ impl Context {
             };
 
             Ok(Some(r#type.clone()))
+        } else if let Some(parent) = self.parent {
+            parent.get_type(identifier)
         } else {
             Ok(None)
         }
     }
 
-    pub fn use_value(
-        &mut self,
-        identifier: &Identifier,
-    ) -> Result<Option<Value>, RwLockPoisonError> {
+    pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
         if let Some((ValueData::Value(value), usage_data)) = self.variables.read()?.get(identifier)
         {
             log::trace!("Using {identifier}'s value.");
 
             usage_data.inner().write()?.actual += 1;
-            self.is_clean = false;
+            *self.is_clean.write()? = false;
 
             Ok(Some(value.clone()))
+        } else if let Some(parent) = self.parent {
+            parent.use_value(identifier)
         } else {
             Ok(None)
         }
@@ -100,6 +83,8 @@ impl Context {
             log::trace!("Getting {identifier}'s value.");
 
             Ok(Some(value.clone()))
+        } else if let Some(parent) = self.parent {
+            parent.get_value(identifier)
         } else {
             Ok(None)
         }
@@ -113,6 +98,8 @@ impl Context {
             log::trace!("Getting {identifier}'s value.");
 
             Ok(Some(full_data.clone()))
+        } else if let Some(parent) = self.parent {
+            parent.get_data(identifier)
         } else {
             Ok(None)
         }
@@ -150,7 +137,7 @@ impl Context {
     }
 
     pub fn clean(&mut self) -> Result<(), RwLockPoisonError> {
-        if self.is_clean {
+        if *self.is_clean.read()? {
             return Ok(());
         }
 
@@ -172,13 +159,13 @@ impl Context {
                 }
             });
 
-        self.is_clean = true;
+        *self.is_clean.write()? = true;
 
         Ok(())
     }
 
     pub fn is_clean(&mut self) -> Result<bool, RwLockPoisonError> {
-        if self.is_clean {
+        if *self.is_clean.read()? {
             Ok(true)
         } else {
             for (_, (_, usage_data)) in self.variables.read()?.iter() {
@@ -200,6 +187,8 @@ impl Context {
             usage_data.inner().write()?.expected += 1;
 
             Ok(true)
+        } else if let Some(parent) = self.parent {
+            parent.add_expected_use(identifier)
         } else {
             Ok(false)
         }

@@ -23,7 +23,7 @@ use rayon::prelude::*;
 pub use value::Value;
 
 pub fn interpret<'src>(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
-    let mut interpreter = Interpreter::new(Context::new());
+    let mut interpreter = Interpreter::new(Context::new(None));
 
     interpreter.load_std()?;
     interpreter.run(Arc::from(source_id), Arc::from(source))
@@ -33,18 +33,18 @@ pub fn interpret_without_std(
     source_id: &str,
     source: &str,
 ) -> Result<Option<Value>, InterpreterError> {
-    let mut interpreter = Interpreter::new(Context::new());
+    let mut interpreter = Interpreter::new(Context::new(None));
 
     interpreter.run(Arc::from(source_id.to_string()), Arc::from(source))
 }
 
-pub struct Interpreter {
-    context: Context,
+pub struct Interpreter<'a> {
+    context: Context<'a>,
     sources: Arc<RwLock<Vec<(Arc<str>, Arc<str>)>>>,
 }
 
-impl Interpreter {
-    pub fn new(context: Context) -> Self {
+impl<'a> Interpreter<'a> {
+    pub fn new(context: Context<'a>) -> Self {
         Interpreter {
             context,
             sources: Arc::new(RwLock::new(Vec::new())),
