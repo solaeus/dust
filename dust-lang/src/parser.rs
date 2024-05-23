@@ -14,8 +14,6 @@ pub type ParserInput<'src> =
 
 pub type ParserExtra<'src> = extra::Err<Rich<'src, Token<'src>, SimpleSpan>>;
 
-pub type Comment = String;
-
 pub fn parse<'src>(tokens: &'src [(Token<'src>, SimpleSpan)]) -> Result<AbstractTree, Vec<Error>> {
     let statements = parser(false)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
@@ -621,7 +619,13 @@ pub fn parser<'src>(
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
 
-    statement.clone().repeated().collect()
+    select_ref! {
+        Token::Comment(_) => {}
+    }
+    .or_not()
+    .ignore_then(statement)
+    .repeated()
+    .collect()
 }
 
 #[cfg(test)]
