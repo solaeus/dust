@@ -349,7 +349,7 @@ pub fn parser<'src>(
                 ),
             ));
 
-            let logic_math_indexes_and_function_calls = atom.pratt((
+            let logic_math_indexes_as_and_function_calls = atom.pratt((
                 prefix(
                     2,
                     just(Token::Operator(Operator::Not)),
@@ -503,22 +503,17 @@ pub fn parser<'src>(
                         Expression::Math(Box::new(Math::Modulo(left, right)).with_position(span))
                     },
                 ),
+                postfix(
+                    2,
+                    just(Token::Keyword(Keyword::As)).ignore_then(r#type.clone()),
+                    |expression, r#type, span| {
+                        Expression::As(Box::new(As::new(expression, r#type)).with_position(span))
+                    },
+                ),
             ));
 
-            let r#as = choice((
-                basic_value.clone(),
-                identifier_expression.clone(),
-                logic_math_indexes_and_function_calls.clone(),
-            ))
-            .then_ignore(just(Token::Keyword(Keyword::As)))
-            .then(r#type.clone())
-            .map_with(|(expression, r#type), state| {
-                Expression::As(Box::new(As::new(expression, r#type)).with_position(state.span()))
-            });
-
             choice((
-                r#as,
-                logic_math_indexes_and_function_calls,
+                logic_math_indexes_as_and_function_calls,
                 built_in_function_call,
                 range,
                 structure_instance,
