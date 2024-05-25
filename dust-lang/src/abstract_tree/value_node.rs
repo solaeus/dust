@@ -94,6 +94,8 @@ impl AbstractNode for ValueNode {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, r#type, expression) in map_assignments {
+                expression.validate(context, _manage_memory)?;
+
                 if let Some(expected_type) = r#type {
                     let actual_type = expression.expected_type(context)?;
 

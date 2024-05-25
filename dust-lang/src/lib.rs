@@ -77,7 +77,11 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn load_std(&mut self) -> Result<(), InterpreterError> {
-        let std_sources: [(Arc<str>, Arc<str>); 2] = [
+        let std_sources: [(Arc<str>, Arc<str>); 3] = [
+            (
+                Arc::from("std/fs.ds"),
+                Arc::from(include_str!("../../std/fs.ds")),
+            ),
             (
                 Arc::from("std/io.ds"),
                 Arc::from(include_str!("../../std/io.ds")),
@@ -367,5 +371,15 @@ impl InterpreterError {
         }
 
         reports
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_standard_library() {
+        Interpreter::new(Context::new(None)).load_std().unwrap();
     }
 }

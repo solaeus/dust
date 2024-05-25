@@ -263,6 +263,14 @@ pub fn parser<'src>(
                 );
 
             let built_in_function_call = choice((
+                just(Token::Keyword(Keyword::ReadFile))
+                    .ignore_then(expression.clone())
+                    .map_with(|argument, state| {
+                        Expression::BuiltInFunctionCall(
+                            Box::new(BuiltInFunctionCall::ReadFile(argument))
+                                .with_position(state.span()),
+                        )
+                    }),
                 just(Token::Keyword(Keyword::ReadLine)).map_with(|_, state| {
                     Expression::BuiltInFunctionCall(
                         Box::new(BuiltInFunctionCall::ReadLine).with_position(state.span()),
