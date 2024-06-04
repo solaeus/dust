@@ -6,4 +6,4 @@
 input = fs.read_file('examples/assets/data.json')
 data = json.parse(input)
 
-list.length(data)
+length(data)

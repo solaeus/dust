@@ -55,6 +55,7 @@ pub enum RuntimeError {
     Io(io::Error),
     RwLockPoison(RwLockPoisonError),
     ValidationFailure(ValidationError),
+    SerdeJson(serde_json::Error),
 }
 
 impl From<RwLockPoisonError> for RuntimeError {
@@ -78,6 +79,12 @@ impl From<ValidationError> for RuntimeError {
 impl From<io::Error> for RuntimeError {
     fn from(error: io::Error) -> Self {
         RuntimeError::Io(error)
+    }
+}
+
+impl From<serde_json::Error> for RuntimeError {
+    fn from(error: serde_json::Error) -> Self {
+        RuntimeError::SerdeJson(error)
     }
 }
 
@@ -105,6 +112,10 @@ pub enum ValidationError {
         collection_position: SourcePosition,
         index_type: Type,
         index_position: SourcePosition,
+    },
+    ExpectedString {
+        actual: Type,
+        position: SourcePosition,
     },
     ExpectedBoolean {
         actual: Type,

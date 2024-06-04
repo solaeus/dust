@@ -23,6 +23,14 @@ struct Args {
     #[arg(short, long)]
     command: Option<String>,
 
+    // Display lexer tokens of the input source.
+    #[arg(short, long)]
+    lex: bool,
+
+    // Display abstract tree of the input source.
+    #[arg(short, long)]
+    parse: bool,
+
     #[arg(long)]
     no_std: bool,
 
@@ -67,6 +75,36 @@ fn main() {
 
         return;
     };
+
+    if args.lex {
+        match interpreter.lex(source_id, source.as_ref()) {
+            Ok(tokens) => println!("{tokens:?}"),
+            Err(error) => {
+                for report in error.build_reports() {
+                    report
+                        .write_for_stdout(sources(interpreter.sources()), stderr())
+                        .unwrap();
+                }
+            }
+        }
+
+        return;
+    }
+
+    if args.parse {
+        match interpreter.parse(source_id, source.as_ref()) {
+            Ok(abstract_tree) => println!("{abstract_tree:?}"),
+            Err(error) => {
+                for report in error.build_reports() {
+                    report
+                        .write_for_stdout(sources(interpreter.sources()), stderr())
+                        .unwrap();
+                }
+            }
+        }
+
+        return;
+    }
 
     let run_result = interpreter.run(source_id.clone(), source.clone());
 

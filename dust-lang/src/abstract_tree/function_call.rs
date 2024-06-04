@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -6,7 +8,7 @@ use crate::{
 
 use super::{AbstractNode, Action, Expression, Type, WithPosition};
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionCall {
     function: Box<Expression>,
     type_arguments: Vec<WithPosition<Type>>,

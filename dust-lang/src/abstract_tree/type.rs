@@ -1,6 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use clap::error::Result;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     context::Context,
@@ -10,7 +11,7 @@ use crate::{
 
 use super::{AbstractNode, Action, WithPosition};
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Type {
     Any,
     Argument(Identifier),

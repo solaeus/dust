@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -6,7 +8,7 @@ use crate::{
 
 use super::{AbstractNode, Action, Block, Expression, Type, WithPosition};
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IfElse {
     if_expression: Expression,
     if_block: WithPosition<Block>,

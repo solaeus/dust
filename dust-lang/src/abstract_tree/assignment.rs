@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
@@ -7,7 +9,7 @@ use crate::{
 
 use super::{AbstractNode, Action, Statement, Type, WithPosition};
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Assignment {
     identifier: WithPosition<Identifier>,
     r#type: Option<WithPosition<Type>>,
@@ -15,7 +17,7 @@ pub struct Assignment {
     statement: Box<Statement>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum AssignmentOperator {
     Assign,
     AddAssign,

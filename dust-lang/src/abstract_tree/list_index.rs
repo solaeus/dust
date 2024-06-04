@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -5,7 +7,7 @@ use crate::{
 
 use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListIndex {
     left: Expression,
     right: Expression,

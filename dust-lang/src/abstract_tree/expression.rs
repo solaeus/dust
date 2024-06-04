@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -9,7 +11,7 @@ use super::{
     SourcePosition, Type, ValueNode, WithPosition,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
     As(WithPosition<Box<As>>),
     BuiltInFunctionCall(WithPosition<Box<BuiltInFunctionCall>>),

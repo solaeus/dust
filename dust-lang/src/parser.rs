@@ -263,6 +263,14 @@ pub fn parser<'src>(
                 );
 
             let built_in_function_call = choice((
+                just(Token::Keyword(Keyword::Length))
+                    .ignore_then(expression.clone())
+                    .map_with(|argument, state| {
+                        Expression::BuiltInFunctionCall(
+                            Box::new(BuiltInFunctionCall::Length(argument))
+                                .with_position(state.span()),
+                        )
+                    }),
                 just(Token::Keyword(Keyword::ReadFile))
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
@@ -289,6 +297,15 @@ pub fn parser<'src>(
                     .map_with(|argument, state| {
                         Expression::BuiltInFunctionCall(
                             Box::new(BuiltInFunctionCall::WriteLine(argument))
+                                .with_position(state.span()),
+                        )
+                    }),
+                just(Token::Keyword(Keyword::JsonParse))
+                    .ignore_then(r#type.clone())
+                    .then(expression.clone())
+                    .map_with(|(r#type, argument), state| {
+                        Expression::BuiltInFunctionCall(
+                            Box::new(BuiltInFunctionCall::JsonParse(r#type, argument))
                                 .with_position(state.span()),
                         )
                     }),

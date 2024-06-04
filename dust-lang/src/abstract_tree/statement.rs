@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -8,7 +10,7 @@ use super::{
     StructureDefinition, Type, While, WithPosition,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
     Assignment(WithPosition<Assignment>),
     AsyncBlock(WithPosition<AsyncBlock>),

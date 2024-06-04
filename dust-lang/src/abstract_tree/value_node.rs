@@ -1,5 +1,7 @@
 use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -9,7 +11,7 @@ use crate::{
 
 use super::{AbstractNode, Action, Block, Expression, Type, WithPos, WithPosition};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueNode {
     Boolean(bool),
     Float(f64),

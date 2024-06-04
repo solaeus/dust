@@ -20,6 +20,7 @@ pub mod r#while;
 use std::{cmp::Ordering, ops::Index};
 
 use chumsky::span::{SimpleSpan, Span};
+use serde::{Deserialize, Serialize};
 
 pub use self::{
     assignment::{Assignment, AssignmentOperator},
@@ -48,7 +49,7 @@ use crate::{
     Value,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct WithPosition<T> {
     pub item: T,
     pub position: SourcePosition,
@@ -65,7 +66,7 @@ pub trait WithPos: Sized {
 
 impl<T> WithPos for T {}
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourcePosition(pub usize, pub usize);
 
 impl From<SimpleSpan> for SourcePosition {
@@ -87,6 +88,7 @@ pub enum Action {
     None,
 }
 
+#[derive(Debug, Clone)]
 pub struct AbstractTree(Vec<Statement>);
 
 impl AbstractTree {

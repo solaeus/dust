@@ -17,7 +17,7 @@ use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use chumsky::prelude::*;
 use context::Context;
 use error::{Error, RuntimeError, TypeConflict, ValidationError};
-use lexer::lex;
+use lexer::{lex, Token};
 use parser::{parse, parser};
 use rayon::prelude::*;
 pub use value::Value;
@@ -51,15 +51,47 @@ impl<'a> Interpreter<'a> {
         }
     }
 
+    pub fn lex<'source>(
+        &mut self,
+        source_id: Arc<str>,
+        source: &'source str,
+    ) -> Result<Vec<Token<'source>>, InterpreterError> {
+        let mut sources = self.sources.write().unwrap();
+
+        sources.clear();
+        sources.push((source_id.clone(), Arc::from(source)));
+
+        lex(source.as_ref())
+            .map(|tokens| tokens.into_iter().map(|(token, _)| token).collect())
+            .map_err(|errors| InterpreterError { source_id, errors })
+    }
+
+    pub fn parse<'source>(
+        &mut self,
+        source_id: Arc<str>,
+        source: &'source str,
+    ) -> Result<AbstractTree, InterpreterError> {
+        let mut sources = self.sources.write().unwrap();
+
+        sources.clear();
+        sources.push((source_id.clone(), Arc::from(source)));
+
+        parse(&lex(source).map_err(|errors| InterpreterError {
+            source_id: source_id.clone(),
+            errors,
+        })?)
+        .map_err(|errors| InterpreterError { source_id, errors })
+    }
+
     pub fn run(
         &mut self,
         source_id: Arc<str>,
         source: Arc<str>,
     ) -> Result<Option<Value>, InterpreterError> {
-        self.sources
-            .write()
-            .unwrap()
-            .push((source_id.clone(), source.clone()));
+        let mut sources = self.sources.write().unwrap();
+
+        sources.clear();
+        sources.push((source_id.clone(), source.clone()));
 
         let tokens = lex(source.as_ref()).map_err(|errors| InterpreterError {
             source_id: source_id.clone(),
@@ -77,7 +109,11 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn load_std(&mut self) -> Result<(), InterpreterError> {
-        let std_sources: [(Arc<str>, Arc<str>); 3] = [
+        let std_sources: [(Arc<str>, Arc<str>); 4] = [
+            (
+                Arc::from("std/core.ds"),
+                Arc::from(include_str!("../../std/core.ds")),
+            ),
             (
                 Arc::from("std/fs.ds"),
                 Arc::from(include_str!("../../std/fs.ds")),
@@ -363,6 +399,7 @@ impl InterpreterError {
                                 .with_message(format!("This has type {}.", actual.fg(type_color),)),
                         )
                     }
+                    ValidationError::ExpectedString { actual, position } => todo!(),
                 }
             }
             let report = builder.finish();

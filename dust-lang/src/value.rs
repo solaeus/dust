@@ -6,6 +6,8 @@ use std::{
     sync::Arc,
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     abstract_tree::{AbstractNode, Action, Block, Type, WithPos, WithPosition},
     context::Context,
@@ -181,7 +183,25 @@ impl Ord for Value {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        todo!()
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        todo!()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueInner {
     Boolean(bool),
     Float(f64),
@@ -299,7 +319,7 @@ impl Ord for ValueInner {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Function {
     type_parameters: Vec<WithPosition<Type>>,
     parameters: Vec<(Identifier, WithPosition<Type>)>,
