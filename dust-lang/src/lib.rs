@@ -109,7 +109,7 @@ impl<'a> Interpreter<'a> {
     }
 
     pub fn load_std(&mut self) -> Result<(), InterpreterError> {
-        let std_sources: [(Arc<str>, Arc<str>); 4] = [
+        let std_sources: [(Arc<str>, Arc<str>); 5] = [
             (
                 Arc::from("std/core.ds"),
                 Arc::from(include_str!("../../std/core.ds")),
@@ -121,6 +121,10 @@ impl<'a> Interpreter<'a> {
             (
                 Arc::from("std/io.ds"),
                 Arc::from(include_str!("../../std/io.ds")),
+            ),
+            (
+                Arc::from("std/json.ds"),
+                Arc::from(include_str!("../../std/json.ds")),
             ),
             (
                 Arc::from("std/thread.ds"),
