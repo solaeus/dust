@@ -14,6 +14,7 @@ pub mod math;
 pub mod statement;
 pub mod structure_definition;
 pub mod r#type;
+pub mod type_alias;
 pub mod value_node;
 pub mod r#while;
 
@@ -40,6 +41,7 @@ pub use self::{
     r#while::While,
     statement::Statement,
     structure_definition::StructureDefinition,
+    type_alias::TypeAlias,
     value_node::ValueNode,
 };
 

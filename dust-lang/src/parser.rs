@@ -630,6 +630,14 @@ pub fn parser<'src>(
                 },
             );
 
+        let type_alias = just(Token::Keyword(Keyword::Type))
+            .ignore_then(positioned_identifier.clone())
+            .then_ignore(just(Token::Operator(Operator::Assign)))
+            .then(r#type.clone())
+            .map_with(|(identifier, r#type), state| {
+                Statement::TypeAlias(TypeAlias::new(identifier, r#type).with_position(state.span()))
+            });
+
         choice((
             async_block,
             structure_definition,
@@ -640,6 +648,7 @@ pub fn parser<'src>(
             block_statement,
             r#loop,
             r#while,
+            type_alias,
         ))
         .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
@@ -658,6 +667,20 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn type_alias() {
+        assert_eq!(
+            parse(&lex("type MyType = str").unwrap()).unwrap()[0],
+            Statement::TypeAlias(
+                TypeAlias::new(
+                    Identifier::new("MyType").with_position((5, 11)),
+                    Type::String.with_position((14, 17))
+                )
+                .with_position((0, 17))
+            )
+        )
+    }
 
     #[test]
     fn r#as() {

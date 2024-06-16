@@ -7,7 +7,7 @@ use crate::{
 
 use super::{
     AbstractNode, Action, Assignment, AsyncBlock, Block, Expression, IfElse, Loop, SourcePosition,
-    StructureDefinition, Type, While, WithPosition,
+    StructureDefinition, Type, TypeAlias, While, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -20,6 +20,7 @@ pub enum Statement {
     IfElse(WithPosition<IfElse>),
     Loop(WithPosition<Loop>),
     StructureDefinition(WithPosition<StructureDefinition>),
+    TypeAlias(WithPosition<TypeAlias>),
     While(WithPosition<While>),
 }
 
@@ -34,6 +35,7 @@ impl Statement {
             Statement::IfElse(inner) => inner.position,
             Statement::Loop(inner) => inner.position,
             Statement::StructureDefinition(inner) => inner.position,
+            Statement::TypeAlias(inner) => inner.position,
             Statement::While(inner) => inner.position,
         }
     }
@@ -50,6 +52,7 @@ impl AbstractNode for Statement {
             Statement::IfElse(if_else) => if_else.item.expected_type(_context),
             Statement::Loop(r#loop) => r#loop.item.expected_type(_context),
             Statement::While(r#while) => r#while.item.expected_type(_context),
+            Statement::TypeAlias(type_alias) => type_alias.item.expected_type(_context),
             Statement::StructureDefinition(structure_definition) => {
                 structure_definition.item.expected_type(_context)
             }
@@ -71,10 +74,11 @@ impl AbstractNode for Statement {
             Statement::Expression(expression) => expression.validate(_context, _manage_memory),
             Statement::IfElse(if_else) => if_else.item.validate(_context, _manage_memory),
             Statement::Loop(r#loop) => r#loop.item.validate(_context, _manage_memory),
-            Statement::While(r#while) => r#while.item.validate(_context, _manage_memory),
             Statement::StructureDefinition(structure_definition) => {
                 structure_definition.item.validate(_context, _manage_memory)
             }
+            Statement::TypeAlias(type_alias) => type_alias.item.validate(_context, _manage_memory),
+            Statement::While(r#while) => r#while.item.validate(_context, _manage_memory),
         }
     }
 
@@ -87,10 +91,11 @@ impl AbstractNode for Statement {
             Statement::Expression(expression) => expression.run(context, manage_memory),
             Statement::IfElse(if_else) => if_else.item.run(context, manage_memory),
             Statement::Loop(r#loop) => r#loop.item.run(context, manage_memory),
-            Statement::While(r#while) => r#while.item.run(context, manage_memory),
             Statement::StructureDefinition(structure_definition) => {
                 structure_definition.item.run(context, manage_memory)
             }
+            Statement::TypeAlias(type_alias) => type_alias.item.run(context, manage_memory),
+            Statement::While(r#while) => r#while.item.run(context, manage_memory),
         };
 
         if manage_memory {
