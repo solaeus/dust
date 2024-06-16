@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Action, Statement, Type};
+use super::{AbstractNode, Action, ExpectedType, Statement};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Block {
@@ -27,14 +27,6 @@ impl Block {
 }
 
 impl AbstractNode for Block {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        if let Some(statement) = self.statements.last() {
-            statement.expected_type(_context)
-        } else {
-            Ok(Type::None)
-        }
-    }
-
     fn validate(
         &self,
         _context: &mut Context,
@@ -58,10 +50,16 @@ impl AbstractNode for Block {
     }
 }
 
+impl ExpectedType for Block {
+    fn expected_type(&self, _context: &mut Context) -> Result<super::Type, ValidationError> {
+        self.last_statement().expected_type(_context)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        abstract_tree::{Expression, ValueNode, WithPos},
+        abstract_tree::{Type, ValueExpression, ValueNode, WithPos},
         Value,
     };
 
@@ -70,13 +68,13 @@ mod tests {
     #[test]
     fn run_returns_value_of_final_statement() {
         let block = Block::new(vec![
-            Statement::Expression(Expression::Value(
+            Statement::ValueExpression(ValueExpression::Value(
                 ValueNode::Integer(1).with_position((0, 0)),
             )),
-            Statement::Expression(Expression::Value(
+            Statement::ValueExpression(ValueExpression::Value(
                 ValueNode::Integer(2).with_position((0, 0)),
             )),
-            Statement::Expression(Expression::Value(
+            Statement::ValueExpression(ValueExpression::Value(
                 ValueNode::Integer(42).with_position((0, 0)),
             )),
         ]);
@@ -90,10 +88,10 @@ mod tests {
     #[test]
     fn expected_type_returns_type_of_final_statement() {
         let block = Block::new(vec![
-            Statement::Expression(Expression::Value(
+            Statement::ValueExpression(ValueExpression::Value(
                 ValueNode::String("42".to_string()).with_position((0, 0)),
             )),
-            Statement::Expression(Expression::Value(
+            Statement::ValueExpression(ValueExpression::Value(
                 ValueNode::Integer(42).with_position((0, 0)),
             )),
         ]);

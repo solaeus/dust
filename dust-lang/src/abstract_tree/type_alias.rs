@@ -9,22 +9,18 @@ use crate::{
 use super::{AbstractNode, Action, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct TypeAlias {
+pub struct TypeAssignment {
     identifier: WithPosition<Identifier>,
     r#type: WithPosition<Type>,
 }
 
-impl TypeAlias {
+impl TypeAssignment {
     pub fn new(identifier: WithPosition<Identifier>, r#type: WithPosition<Type>) -> Self {
         Self { identifier, r#type }
     }
 }
 
-impl AbstractNode for TypeAlias {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        Ok(Type::None)
-    }
-
+impl AbstractNode for TypeAssignment {
     fn validate(
         &self,
         _context: &mut Context,
@@ -34,7 +30,7 @@ impl AbstractNode for TypeAlias {
     }
 
     fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
-        context.set_type(self.identifier.item, self.r#type.item)?;
+        context.set_type(self.identifier.node, self.r#type.node)?;
 
         Ok(Action::None)
     }

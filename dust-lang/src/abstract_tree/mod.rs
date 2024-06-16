@@ -3,7 +3,6 @@ pub mod assignment;
 pub mod async_block;
 pub mod block;
 pub mod built_in_function_call;
-pub mod expression;
 pub mod function_call;
 pub mod if_else;
 pub mod list_index;
@@ -15,6 +14,7 @@ pub mod statement;
 pub mod structure_definition;
 pub mod r#type;
 pub mod type_alias;
+pub mod value_expression;
 pub mod value_node;
 pub mod r#while;
 
@@ -28,7 +28,6 @@ pub use self::{
     async_block::AsyncBlock,
     block::Block,
     built_in_function_call::BuiltInFunctionCall,
-    expression::Expression,
     function_call::FunctionCall,
     if_else::IfElse,
     list_index::ListIndex,
@@ -41,7 +40,8 @@ pub use self::{
     r#while::While,
     statement::Statement,
     structure_definition::StructureDefinition,
-    type_alias::TypeAlias,
+    type_alias::TypeAssignment,
+    value_expression::ValueExpression,
     value_node::ValueNode,
 };
 
@@ -53,14 +53,14 @@ use crate::{
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct WithPosition<T> {
-    pub item: T,
+    pub node: T,
     pub position: SourcePosition,
 }
 
 pub trait WithPos: Sized {
     fn with_position<T: Into<SourcePosition>>(self, span: T) -> WithPosition<Self> {
         WithPosition {
-            item: self,
+            node: self,
             position: span.into(),
         }
     }
@@ -188,7 +188,10 @@ impl Index<usize> for AbstractTree {
 }
 
 pub trait AbstractNode: Sized {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError>;
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError>;
     fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError>;
+}
+
+pub trait ExpectedType {
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError>;
 }

@@ -403,7 +403,7 @@ impl InterpreterError {
                                 .with_message(format!("This has type {}.", actual.fg(type_color),)),
                         )
                     }
-                    ValidationError::ExpectedString { actual, position } => todo!(),
+                    ValidationError::ExpectedString { .. } => todo!(),
                 }
             }
             let report = builder.finish();

@@ -21,10 +21,6 @@ impl StructureDefinition {
 }
 
 impl AbstractNode for StructureDefinition {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        Ok(Type::None)
-    }
-
     fn validate(
         &self,
         _context: &mut Context,

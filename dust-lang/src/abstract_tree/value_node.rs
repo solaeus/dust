@@ -9,20 +9,22 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, Block, Expression, Type, WithPos, WithPosition};
+use super::{
+    AbstractNode, Action, Block, ExpectedType, Type, ValueExpression, WithPos, WithPosition,
+};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueNode {
     Boolean(bool),
     Float(f64),
     Integer(i64),
-    List(Vec<Expression>),
-    Map(Vec<(Identifier, Option<WithPosition<Type>>, Expression)>),
+    List(Vec<ValueExpression>),
+    Map(Vec<(Identifier, Option<WithPosition<Type>>, ValueExpression)>),
     Range(Range<i64>),
     String(String),
     Structure {
         name: WithPosition<Identifier>,
-        fields: Vec<(Identifier, Expression)>,
+        fields: Vec<(Identifier, ValueExpression)>,
     },
     ParsedFunction {
         type_arguments: Vec<WithPosition<Type>>,
@@ -33,66 +35,6 @@ pub enum ValueNode {
 }
 
 impl AbstractNode for ValueNode {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
-        let r#type = match self {
-            ValueNode::Boolean(_) => Type::Boolean,
-            ValueNode::Float(_) => Type::Float,
-            ValueNode::Integer(_) => Type::Integer,
-            ValueNode::List(items) => {
-                let mut item_types = Vec::with_capacity(items.len());
-
-                for expression in items {
-                    item_types.push(
-                        expression
-                            .expected_type(context)?
-                            .with_position(expression.position()),
-                    );
-                }
-
-                Type::ListExact(item_types)
-            }
-            ValueNode::Map(_) => Type::Map,
-            ValueNode::Range(_) => Type::Range,
-            ValueNode::String(_) => Type::String,
-            ValueNode::ParsedFunction {
-                parameters,
-                return_type,
-                ..
-            } => Type::Function {
-                parameter_types: parameters
-                    .iter()
-                    .map(|(_, r#type)| r#type.clone())
-                    .collect(),
-                return_type: Box::new(return_type.clone()),
-            },
-            ValueNode::Structure {
-                name,
-                fields: expressions,
-            } => {
-                let mut types = Vec::with_capacity(expressions.len());
-
-                for (identifier, expression) in expressions {
-                    let r#type = expression.expected_type(context)?;
-
-                    types.push((
-                        identifier.clone(),
-                        WithPosition {
-                            item: r#type,
-                            position: expression.position(),
-                        },
-                    ));
-                }
-
-                Type::Structure {
-                    name: name.item.clone(),
-                    fields: types,
-                }
-            }
-        };
-
-        Ok(r#type)
-    }
-
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, r#type, expression) in map_assignments {
@@ -101,7 +43,7 @@ impl AbstractNode for ValueNode {
                 if let Some(expected_type) = r#type {
                     let actual_type = expression.expected_type(context)?;
 
-                    expected_type.item.check(&actual_type).map_err(|conflict| {
+                    expected_type.node.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
@@ -124,21 +66,21 @@ impl AbstractNode for ValueNode {
             let mut function_context = Context::new(Some(&context));
 
             for r#type in type_arguments {
-                if let Type::Argument(identifier) = &r#type.item {
-                    function_context.set_type(identifier.clone(), r#type.item.clone())?;
+                if let Type::Argument(identifier) = &r#type.node {
+                    function_context.set_type(identifier.clone(), r#type.node.clone())?;
                 }
             }
 
             for (identifier, r#type) in parameters {
-                function_context.set_type(identifier.clone(), r#type.item.clone())?;
+                function_context.set_type(identifier.clone(), r#type.node.clone())?;
             }
 
-            body.item.validate(&mut function_context, _manage_memory)?;
+            body.node.validate(&mut function_context, _manage_memory)?;
 
-            let actual_return_type = body.item.expected_type(&mut function_context)?;
+            let actual_return_type = body.node.expected_type(&mut function_context)?;
 
             return_type
-                .item
+                .node
                 .check(&actual_return_type)
                 .map_err(|conflict| ValidationError::TypeCheck {
                     conflict,
@@ -154,9 +96,9 @@ impl AbstractNode for ValueNode {
             fields: expressions,
         } = self
         {
-            if !context.contains(&name.item)? {
+            if !context.contains(&name.node)? {
                 return Err(ValidationError::VariableNotFound {
-                    identifier: name.item.clone(),
+                    identifier: name.node.clone(),
                     position: name.position,
                 });
             }
@@ -164,12 +106,12 @@ impl AbstractNode for ValueNode {
             if let Some(Type::Structure {
                 name: _,
                 fields: types,
-            }) = context.get_type(&name.item)?
+            }) = context.get_type(&name.node)?
             {
                 for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
                     let actual_type = expression.expected_type(context)?;
 
-                    expected_type.item.check(&actual_type).map_err(|conflict| {
+                    expected_type.node.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
@@ -196,7 +138,7 @@ impl AbstractNode for ValueNode {
                     let action = expression.run(_context, _manage_memory)?;
                     let value = if let Action::Return(value) = action {
                         WithPosition {
-                            item: value,
+                            node: value,
                             position: expression_position,
                         }
                     } else {
@@ -355,5 +297,67 @@ impl Ord for ValueNode {
             }
             (Structure { .. }, _) => Ordering::Greater,
         }
+    }
+}
+
+impl ExpectedType for ValueNode {
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
+        let r#type = match self {
+            ValueNode::Boolean(_) => Type::Boolean,
+            ValueNode::Float(_) => Type::Float,
+            ValueNode::Integer(_) => Type::Integer,
+            ValueNode::List(items) => {
+                let mut item_types = Vec::with_capacity(items.len());
+
+                for expression in items {
+                    item_types.push(
+                        expression
+                            .expected_type(context)?
+                            .with_position(expression.position()),
+                    );
+                }
+
+                Type::ListExact(item_types)
+            }
+            ValueNode::Map(_) => Type::Map,
+            ValueNode::Range(_) => Type::Range,
+            ValueNode::String(_) => Type::String,
+            ValueNode::ParsedFunction {
+                parameters,
+                return_type,
+                ..
+            } => Type::Function {
+                parameter_types: parameters
+                    .iter()
+                    .map(|(_, r#type)| r#type.clone())
+                    .collect(),
+                return_type: Box::new(return_type.clone()),
+            },
+            ValueNode::Structure {
+                name,
+                fields: expressions,
+            } => {
+                let mut types = Vec::with_capacity(expressions.len());
+
+                for (identifier, expression) in expressions {
+                    let r#type = expression.expected_type(context)?;
+
+                    types.push((
+                        identifier.clone(),
+                        WithPosition {
+                            node: r#type,
+                            position: expression.position(),
+                        },
+                    ));
+                }
+
+                Type::Structure {
+                    name: name.node.clone(),
+                    fields: types,
+                }
+            }
+        };
+
+        Ok(r#type)
     }
 }

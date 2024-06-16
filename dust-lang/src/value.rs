@@ -109,9 +109,9 @@ impl Display for Value {
 
                 for (index, value) in list.into_iter().enumerate() {
                     if index == list.len() - 1 {
-                        write!(f, "{}", value.item)?;
+                        write!(f, "{}", value.node)?;
                     } else {
-                        write!(f, "{}, ", value.item)?;
+                        write!(f, "{}, ", value.node)?;
                     }
                 }
 
@@ -139,9 +139,9 @@ impl Display for Value {
 
                     for (index, r#type) in type_arguments.into_iter().enumerate() {
                         if index == type_arguments.len() - 1 {
-                            write!(f, "{}", r#type.item)?;
+                            write!(f, "{}", r#type.node)?;
                         } else {
-                            write!(f, "{} ", r#type.item)?;
+                            write!(f, "{} ", r#type.node)?;
                         }
                     }
 
@@ -151,13 +151,13 @@ impl Display for Value {
                 write!(f, "(")?;
 
                 for (identifier, r#type) in parameters {
-                    write!(f, "{identifier}: {}", r#type.item)?;
+                    write!(f, "{identifier}: {}", r#type.node)?;
                 }
 
-                write!(f, "): {} {:?}", return_type.item, body.item)
+                write!(f, "): {} {:?}", return_type.node, body.node)
             }
             ValueInner::Structure { name, fields } => {
-                write!(f, "{}\n{{", name.item)?;
+                write!(f, "{}\n{{", name.node)?;
 
                 for (key, value) in fields {
                     writeln!(f, "{key} = {value},")?;
@@ -184,7 +184,7 @@ impl Ord for Value {
 }
 
 impl Serialize for Value {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
@@ -193,7 +193,7 @@ impl Serialize for Value {
 }
 
 impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -227,7 +227,7 @@ impl ValueInner {
                 let mut types = Vec::with_capacity(values.len());
 
                 for value in values {
-                    types.push(value.item.r#type(context)?.with_position(value.position));
+                    types.push(value.node.r#type(context)?.with_position(value.position));
                 }
 
                 Type::ListExact(types)
@@ -244,11 +244,11 @@ impl ValueInner {
                 return_type: Box::new(function.return_type.clone()),
             },
             ValueInner::Structure { name, .. } => {
-                if let Some(r#type) = context.get_type(&name.item)? {
+                if let Some(r#type) = context.get_type(&name.node)? {
                     r#type
                 } else {
                     return Err(ValidationError::VariableNotFound {
-                        identifier: name.item.clone(),
+                        identifier: name.node.clone(),
                         position: name.position,
                     });
                 }
@@ -342,6 +342,6 @@ impl Function {
             context.set_value(identifier.clone(), value)?;
         }
 
-        self.body.item.run(context, clear_variables)
+        self.body.node.run(context, clear_variables)
     }
 }

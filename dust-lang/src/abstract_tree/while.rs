@@ -7,16 +7,16 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, Expression, Statement, Type};
+use super::{AbstractNode, Action, Statement, ValueExpression};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct While {
-    expression: Expression,
+    expression: ValueExpression,
     statements: Vec<Statement>,
 }
 
 impl While {
-    pub fn new(expression: Expression, statements: Vec<Statement>) -> Self {
+    pub fn new(expression: ValueExpression, statements: Vec<Statement>) -> Self {
         Self {
             expression,
             statements,
@@ -25,10 +25,6 @@ impl While {
 }
 
 impl AbstractNode for While {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        Ok(Type::None)
-    }
-
     fn validate(
         &self,
         _context: &mut Context,

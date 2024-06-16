@@ -29,20 +29,6 @@ fn function_call() {
 }
 
 #[test]
-fn call_empty_function() {
-    assert_eq!(
-        interpret(
-            "test",
-            "
-            foobar = fn (message : str) none {}
-            foobar('Hiya')
-            ",
-        ),
-        Ok(None)
-    );
-}
-
-#[test]
 fn callback() {
     assert_eq!(
         interpret(

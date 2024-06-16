@@ -58,27 +58,27 @@ impl Type {
                 }
             }
             (Type::ListOf(left), Type::ListOf(right)) => {
-                if let Ok(()) = left.item.check(&right.item) {
+                if let Ok(()) = left.node.check(&right.node) {
                     return Ok(());
                 }
             }
             (Type::ListOf(list_of), Type::ListExact(list_exact)) => {
                 for r#type in list_exact {
-                    list_of.item.check(&r#type.item)?;
+                    list_of.node.check(&r#type.node)?;
                 }
 
                 return Ok(());
             }
             (Type::ListExact(list_exact), Type::ListOf(list_of)) => {
                 for r#type in list_exact {
-                    r#type.item.check(&list_of.item)?;
+                    r#type.node.check(&list_of.node)?;
                 }
 
                 return Ok(());
             }
             (Type::ListExact(left), Type::ListExact(right)) => {
                 for (left, right) in left.iter().zip(right.iter()) {
-                    left.item.check(&right.item)?;
+                    left.node.check(&right.node)?;
                 }
 
                 return Ok(());
@@ -97,7 +97,7 @@ impl Type {
                     for ((left_field_name, left_type), (right_field_name, right_type)) in
                         left_fields.iter().zip(right_fields.iter())
                     {
-                        if left_field_name != right_field_name || left_type.item != right_type.item
+                        if left_field_name != right_field_name || left_type.node != right_type.node
                         {
                             return Err(TypeConflict {
                                 actual: other.clone(),
@@ -119,11 +119,11 @@ impl Type {
                     return_type: right_return,
                 },
             ) => {
-                if left_return.item == right_return.item {
+                if left_return.node == right_return.node {
                     for (left_parameter, right_parameter) in
                         left_parameters.iter().zip(right_parameters.iter())
                     {
-                        if left_parameter.item != right_parameter.item {
+                        if left_parameter.node != right_parameter.node {
                             return Err(TypeConflict {
                                 actual: other.clone(),
                                 expected: self.clone(),
@@ -145,10 +145,6 @@ impl Type {
 }
 
 impl AbstractNode for Type {
-    fn expected_type(&self, _: &mut Context) -> Result<Type, ValidationError> {
-        Ok(Type::None)
-    }
-
     fn validate(
         &self,
         _context: &mut Context,
@@ -170,15 +166,15 @@ impl Display for Type {
             Type::Float => write!(f, "float"),
             Type::Integer => write!(f, "int"),
             Type::List => write!(f, "list"),
-            Type::ListOf(item_type) => write!(f, "list({})", item_type.item),
+            Type::ListOf(item_type) => write!(f, "list({})", item_type.node),
             Type::ListExact(item_types) => {
                 write!(f, "[")?;
 
                 for (index, item_type) in item_types.into_iter().enumerate() {
                     if index == item_types.len() - 1 {
-                        write!(f, "{}", item_type.item)?;
+                        write!(f, "{}", item_type.node)?;
                     } else {
-                        write!(f, "{}, ", item_type.item)?;
+                        write!(f, "{}, ", item_type.node)?;
                     }
                 }
 
@@ -195,10 +191,10 @@ impl Display for Type {
                 write!(f, "(")?;
 
                 for r#type in parameter_types {
-                    write!(f, "{} ", r#type.item)?;
+                    write!(f, "{} ", r#type.node)?;
                 }
 
-                write!(f, ") : {}", return_type.item)
+                write!(f, ") : {}", return_type.node)
             }
             Type::Structure { name, .. } => write!(f, "{name}"),
             Type::Argument(identifier) => write!(f, "{identifier}"),

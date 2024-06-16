@@ -8,7 +8,7 @@ use crate::{
     error::{RuntimeError, RwLockPoisonError, ValidationError},
 };
 
-use super::{AbstractNode, Action, Statement, Type};
+use super::{AbstractNode, Action, ExpectedType, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AsyncBlock {
@@ -22,10 +22,6 @@ impl AsyncBlock {
 }
 
 impl AbstractNode for AsyncBlock {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        self.statements.last().unwrap().expected_type(_context)
-    }
-
     fn validate(&self, _context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
             statement.validate(_context, manage_memory)?;
@@ -63,5 +59,11 @@ impl AbstractNode for AsyncBlock {
                     .into_inner()
                     .map_err(|_| RuntimeError::RwLockPoison(RwLockPoisonError))?,
             )
+    }
+}
+
+impl ExpectedType for AsyncBlock {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+        self.statements.first().unwrap().expected_type(_context)
     }
 }

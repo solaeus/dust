@@ -9,31 +9,27 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, Expression, Type, WithPosition};
+use super::{AbstractNode, Action, ExpectedType, Type, ValueExpression, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct As {
-    expression: Expression,
+    expression: ValueExpression,
     r#type: WithPosition<Type>,
 }
 
 impl As {
-    pub fn new(expression: Expression, r#type: WithPosition<Type>) -> Self {
+    pub fn new(expression: ValueExpression, r#type: WithPosition<Type>) -> Self {
         Self { expression, r#type }
     }
 }
 
 impl AbstractNode for As {
-    fn expected_type(&self, _: &mut Context) -> Result<Type, ValidationError> {
-        Ok(self.r#type.item.clone())
-    }
-
     fn validate(
         &self,
         _context: &mut Context,
         _manage_memory: bool,
     ) -> Result<(), ValidationError> {
-        match self.r#type.item {
+        match self.r#type.node {
             Type::Boolean | Type::Float | Type::Integer | Type::String => {}
             _ => todo!("Create an error for this occurence."),
         };
@@ -54,7 +50,7 @@ impl AbstractNode for As {
                 ValidationError::InterpreterExpectedReturn(expression_position),
             ));
         };
-        let (from_value, to_type): (&ValueInner, Type) = (value.inner().borrow(), self.r#type.item);
+        let (from_value, to_type): (&ValueInner, Type) = (value.inner().borrow(), self.r#type.node);
 
         let converted = match (from_value, to_type) {
             (ValueInner::Boolean(boolean), Type::String) => Value::string(boolean.to_string()),
@@ -63,5 +59,11 @@ impl AbstractNode for As {
         };
 
         Ok(Action::Return(converted))
+    }
+}
+
+impl ExpectedType for As {
+    fn expected_type(&self, _: &mut Context) -> Result<Type, ValidationError> {
+        Ok(self.r#type.node.clone())
     }
 }

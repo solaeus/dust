@@ -7,7 +7,7 @@ use crate::{
     Context, Value,
 };
 
-use super::{AbstractNode, Action, Statement, Type, WithPosition};
+use super::{AbstractNode, Action, ExpectedType, Statement, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Assignment {
@@ -41,15 +41,11 @@ impl Assignment {
 }
 
 impl AbstractNode for Assignment {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        Ok(Type::None)
-    }
-
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(WithPosition {
-            item: expected_type,
+            node: expected_type,
             position: expected_position,
         }) = &self.r#type
         {
@@ -61,9 +57,9 @@ impl AbstractNode for Assignment {
                 }
             })?;
 
-            context.set_type(self.identifier.item.clone(), expected_type.clone())?;
+            context.set_type(self.identifier.node.clone(), expected_type.clone())?;
         } else {
-            context.set_type(self.identifier.item.clone(), statement_type)?;
+            context.set_type(self.identifier.node.clone(), statement_type)?;
         }
 
         self.statement.validate(context, manage_memory)?;
@@ -80,13 +76,13 @@ impl AbstractNode for Assignment {
 
         match self.operator {
             AssignmentOperator::Assign => {
-                context.set_value(self.identifier.item, right)?;
+                context.set_value(self.identifier.node, right)?;
             }
             AssignmentOperator::AddAssign => {
                 let left_option = if manage_memory {
-                    context.use_value(&self.identifier.item)?
+                    context.use_value(&self.identifier.node)?
                 } else {
-                    context.get_value(&self.identifier.item)?
+                    context.get_value(&self.identifier.node)?
                 };
 
                 if let Some(left) = left_option {
@@ -117,11 +113,11 @@ impl AbstractNode for Assignment {
                             ))
                         }
                     };
-                    context.set_value(self.identifier.item, new_value)?;
+                    context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
-                            identifier: self.identifier.item,
+                            identifier: self.identifier.node,
                             position: self.identifier.position,
                         },
                     ));
@@ -129,9 +125,9 @@ impl AbstractNode for Assignment {
             }
             AssignmentOperator::SubAssign => {
                 let left_option = if manage_memory {
-                    context.use_value(&self.identifier.item)?
+                    context.use_value(&self.identifier.node)?
                 } else {
-                    context.get_value(&self.identifier.item)?
+                    context.get_value(&self.identifier.node)?
                 };
 
                 if let Some(left) = left_option {
@@ -162,11 +158,11 @@ impl AbstractNode for Assignment {
                             ))
                         }
                     };
-                    context.set_value(self.identifier.item, new_value)?;
+                    context.set_value(self.identifier.node, new_value)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
-                            identifier: self.identifier.item,
+                            identifier: self.identifier.node,
                             position: self.identifier.position,
                         },
                     ));

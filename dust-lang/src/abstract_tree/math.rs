@@ -7,41 +7,18 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, Expression, SourcePosition, Type};
+use super::{AbstractNode, Action, ExpectedType, SourcePosition, Type, ValueExpression};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Math {
-    Add(Expression, Expression),
-    Subtract(Expression, Expression),
-    Multiply(Expression, Expression),
-    Divide(Expression, Expression),
-    Modulo(Expression, Expression),
+    Add(ValueExpression, ValueExpression),
+    Subtract(ValueExpression, ValueExpression),
+    Multiply(ValueExpression, ValueExpression),
+    Divide(ValueExpression, ValueExpression),
+    Modulo(ValueExpression, ValueExpression),
 }
 
 impl AbstractNode for Math {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        match self {
-            Math::Add(left, right)
-            | Math::Subtract(left, right)
-            | Math::Multiply(left, right)
-            | Math::Divide(left, right)
-            | Math::Modulo(left, right) => {
-                let left_type = left.expected_type(_context)?;
-                let right_type = right.expected_type(_context)?;
-
-                if let Type::Float = left_type {
-                    return Ok(Type::Float);
-                }
-
-                if let Type::Float = right_type {
-                    return Ok(Type::Float);
-                }
-
-                Ok(left_type)
-            }
-        }
-    }
-
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
@@ -91,19 +68,20 @@ impl AbstractNode for Math {
     }
 
     fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
-        let run_and_expect_value =
-            |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
-                let action = expression.run(&mut _context.clone(), _clear_variables)?;
-                let value = if let Action::Return(value) = action {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::InterpreterExpectedReturn(position),
-                    ));
-                };
-
-                Ok(value)
+        let run_and_expect_value = |position: SourcePosition,
+                                    expression: ValueExpression|
+         -> Result<Value, RuntimeError> {
+            let action = expression.run(&mut _context.clone(), _clear_variables)?;
+            let value = if let Action::Return(value) = action {
+                value
+            } else {
+                return Err(RuntimeError::ValidationFailure(
+                    ValidationError::InterpreterExpectedReturn(position),
+                ));
             };
+
+            Ok(value)
+        };
 
         let value = match self {
             Math::Add(left, right) => {
@@ -311,5 +289,30 @@ impl AbstractNode for Math {
         };
 
         Ok(Action::Return(value))
+    }
+}
+
+impl ExpectedType for Math {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+        match self {
+            Math::Add(left, right)
+            | Math::Subtract(left, right)
+            | Math::Multiply(left, right)
+            | Math::Divide(left, right)
+            | Math::Modulo(left, right) => {
+                let left_type = left.expected_type(_context)?;
+                let right_type = right.expected_type(_context)?;
+
+                if let Type::Float = left_type {
+                    return Ok(Type::Float);
+                }
+
+                if let Type::Float = right_type {
+                    return Ok(Type::Float);
+                }
+
+                Ok(left_type)
+            }
+        }
     }
 }

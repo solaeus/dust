@@ -1,5 +1,5 @@
 use dust_lang::{
-    abstract_tree::{Block, Expression, Statement, Type, WithPos},
+    abstract_tree::{Block, Statement, Type, ValueExpression, WithPos},
     error::{Error, TypeConflict, ValidationError},
     identifier::Identifier,
     *,
@@ -49,9 +49,9 @@ fn function_variable() {
             Vec::with_capacity(0),
             vec![(Identifier::new("x"), Type::Integer.with_position((16, 19)))],
             Type::Integer.with_position((21, 24)),
-            Block::new(vec![Statement::Expression(Expression::Identifier(
-                Identifier::new("x").with_position((27, 28))
-            ))])
+            Block::new(vec![Statement::ValueExpression(
+                ValueExpression::Identifier(Identifier::new("x").with_position((27, 28)))
+            )])
             .with_position((25, 30))
         )))
     );

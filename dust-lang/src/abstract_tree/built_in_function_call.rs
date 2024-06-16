@@ -15,30 +15,19 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Expression, WithPosition};
+use super::{AbstractNode, ExpectedType, ValueExpression, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunctionCall {
-    JsonParse(WithPosition<Type>, Expression),
-    Length(Expression),
-    ReadFile(Expression),
+    JsonParse(WithPosition<Type>, ValueExpression),
+    Length(ValueExpression),
+    ReadFile(ValueExpression),
     ReadLine,
-    Sleep(Expression),
-    WriteLine(Expression),
+    Sleep(ValueExpression),
+    WriteLine(ValueExpression),
 }
 
 impl AbstractNode for BuiltInFunctionCall {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        match self {
-            BuiltInFunctionCall::JsonParse(r#type, _) => Ok(r#type.item.clone()),
-            BuiltInFunctionCall::Length(_) => Ok(Type::Integer),
-            BuiltInFunctionCall::ReadFile(_) => Ok(Type::String),
-            BuiltInFunctionCall::ReadLine => Ok(Type::String),
-            BuiltInFunctionCall::Sleep(_) => Ok(Type::None),
-            BuiltInFunctionCall::WriteLine(_) => Ok(Type::None),
-        }
-    }
-
     fn validate(
         &self,
         _context: &mut Context,
@@ -64,7 +53,7 @@ impl AbstractNode for BuiltInFunctionCall {
 
     fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
         match self {
-            BuiltInFunctionCall::JsonParse(r#type, expression) => {
+            BuiltInFunctionCall::JsonParse(_type, expression) => {
                 let action = expression.clone().run(context, _manage_memory)?;
                 let value = if let Action::Return(value) = action {
                     value
@@ -166,6 +155,19 @@ impl AbstractNode for BuiltInFunctionCall {
 
                 Ok(Action::None)
             }
+        }
+    }
+}
+
+impl ExpectedType for BuiltInFunctionCall {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+        match self {
+            BuiltInFunctionCall::JsonParse(r#type, _) => Ok(r#type.node.clone()),
+            BuiltInFunctionCall::Length(_) => Ok(Type::Integer),
+            BuiltInFunctionCall::ReadFile(_) => Ok(Type::String),
+            BuiltInFunctionCall::ReadLine => Ok(Type::String),
+            BuiltInFunctionCall::Sleep(_) => Ok(Type::None),
+            BuiltInFunctionCall::WriteLine(_) => Ok(Type::None),
         }
     }
 }

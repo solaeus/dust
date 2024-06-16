@@ -6,20 +6,20 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Action, Expression, Type, WithPosition};
+use super::{AbstractNode, Action, ExpectedType, Type, ValueExpression, WithPosition};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionCall {
-    function: Box<Expression>,
+    function: Box<ValueExpression>,
     type_arguments: Vec<WithPosition<Type>>,
-    arguments: Vec<Expression>,
+    arguments: Vec<ValueExpression>,
 }
 
 impl FunctionCall {
     pub fn new(
-        function: Expression,
+        function: ValueExpression,
         type_arguments: Vec<WithPosition<Type>>,
-        arguments: Vec<Expression>,
+        arguments: Vec<ValueExpression>,
     ) -> Self {
         FunctionCall {
             function: Box::new(function),
@@ -30,19 +30,6 @@ impl FunctionCall {
 }
 
 impl AbstractNode for FunctionCall {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        let function_node_type = self.function.expected_type(_context)?;
-
-        if let Type::Function { return_type, .. } = function_node_type {
-            Ok(return_type.item)
-        } else {
-            Err(ValidationError::ExpectedFunction {
-                actual: function_node_type,
-                position: self.function.position(),
-            })
-        }
-    }
-
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.function.validate(context, manage_memory)?;
 
@@ -60,13 +47,13 @@ impl AbstractNode for FunctionCall {
             for (type_parameter, type_argument) in
                 parameter_types.iter().zip(self.type_arguments.iter())
             {
-                if let Type::Argument(_) = type_parameter.item {
+                if let Type::Argument(_) = type_parameter.node {
                     continue;
                 }
 
                 type_parameter
-                    .item
-                    .check(&type_argument.item)
+                    .node
+                    .check(&type_argument.node)
                     .map_err(|conflict| ValidationError::TypeCheck {
                         conflict,
                         actual_position: type_argument.position,
@@ -75,13 +62,13 @@ impl AbstractNode for FunctionCall {
             }
 
             for (type_parameter, expression) in parameter_types.iter().zip(self.arguments.iter()) {
-                if let Type::Argument(_) = type_parameter.item {
+                if let Type::Argument(_) = type_parameter.node {
                     continue;
                 }
 
                 let actual = expression.expected_type(context)?;
 
-                type_parameter.item.check(&actual).map_err(|conflict| {
+                type_parameter.node.check(&actual).map_err(|conflict| {
                     ValidationError::TypeCheck {
                         conflict,
                         actual_position: expression.position(),
@@ -140,8 +127,8 @@ impl AbstractNode for FunctionCall {
         for (type_parameter, type_argument) in function
             .type_parameters()
             .iter()
-            .map(|r#type| r#type.item.clone())
-            .zip(self.type_arguments.into_iter().map(|r#type| r#type.item))
+            .map(|r#type| r#type.node.clone())
+            .zip(self.type_arguments.into_iter().map(|r#type| r#type.node))
         {
             if let Type::Argument(identifier) = type_parameter {
                 function_context.set_type(identifier, type_argument)?;
@@ -151,5 +138,20 @@ impl AbstractNode for FunctionCall {
         function
             .clone()
             .call(arguments, &mut function_context, clear_variables)
+    }
+}
+
+impl ExpectedType for FunctionCall {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+        let function_node_type = self.function.expected_type(_context)?;
+
+        if let Type::Function { return_type, .. } = function_node_type {
+            Ok(return_type.node)
+        } else {
+            Err(ValidationError::ExpectedFunction {
+                actual: function_node_type,
+                position: self.function.position(),
+            })
+        }
     }
 }

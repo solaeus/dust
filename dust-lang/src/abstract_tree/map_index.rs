@@ -6,16 +6,16 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
+use super::{AbstractNode, Action, ExpectedType, Type, ValueExpression, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MapIndex {
-    collection: Expression,
-    index: Expression,
+    collection: ValueExpression,
+    index: ValueExpression,
 }
 
 impl MapIndex {
-    pub fn new(left: Expression, right: Expression) -> Self {
+    pub fn new(left: ValueExpression, right: ValueExpression) -> Self {
         Self {
             collection: left,
             index: right,
@@ -24,87 +24,6 @@ impl MapIndex {
 }
 
 impl AbstractNode for MapIndex {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
-        if let (Expression::Identifier(collection), Expression::Identifier(index)) =
-            (&self.collection, &self.index)
-        {
-            let collection = if let Some(collection) = context.get_value(&collection.item)? {
-                collection
-            } else {
-                return Err(ValidationError::VariableNotFound {
-                    identifier: collection.item.clone(),
-                    position: collection.position,
-                });
-            };
-
-            if let ValueInner::Map(map) = collection.inner().as_ref() {
-                return if let Some(value) = map.get(&index.item) {
-                    Ok(value.r#type(context)?)
-                } else {
-                    Err(ValidationError::PropertyNotFound {
-                        identifier: index.item.clone(),
-                        position: index.position,
-                    })
-                };
-            };
-        }
-
-        if let (
-            Expression::Value(WithPosition {
-                item: ValueNode::Map(properties),
-                ..
-            }),
-            Expression::Identifier(index),
-        ) = (&self.collection, &self.index)
-        {
-            return if let Some(type_result) =
-                properties
-                    .iter()
-                    .find_map(|(property, type_option, expression)| {
-                        if property == &index.item {
-                            if let Some(r#type) = type_option {
-                                Some(r#type.item.expected_type(context))
-                            } else {
-                                Some(expression.expected_type(context))
-                            }
-                        } else {
-                            None
-                        }
-                    })
-            {
-                type_result
-            } else {
-                Ok(Type::None)
-            };
-        }
-
-        if let (
-            Expression::Value(WithPosition {
-                item: ValueNode::Structure { fields, .. },
-                ..
-            }),
-            Expression::Identifier(index),
-        ) = (&self.collection, &self.index)
-        {
-            return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
-                if property == &index.item {
-                    Some(expression.expected_type(context))
-                } else {
-                    None
-                }
-            }) {
-                type_result
-            } else {
-                Ok(Type::None)
-            };
-        }
-
-        Err(ValidationError::CannotIndex {
-            r#type: self.collection.expected_type(context)?,
-            position: self.collection.position(),
-        })
-    }
-
     fn validate(
         &self,
         _context: &mut Context,
@@ -124,11 +43,11 @@ impl AbstractNode for MapIndex {
             ));
         };
 
-        if let (ValueInner::Map(map), Expression::Identifier(index)) =
+        if let (ValueInner::Map(map), ValueExpression::Identifier(index)) =
             (collection.inner().as_ref(), self.index)
         {
             let action = map
-                .get(&index.item)
+                .get(&index.node)
                 .map(|value| Action::Return(value.clone()))
                 .unwrap_or(Action::None);
 
@@ -141,5 +60,80 @@ impl AbstractNode for MapIndex {
                 },
             ))
         }
+    }
+}
+
+impl ExpectedType for MapIndex {
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
+        if let (ValueExpression::Identifier(collection), ValueExpression::Identifier(index)) =
+            (&self.collection, &self.index)
+        {
+            let collection = if let Some(collection) = context.get_value(&collection.node)? {
+                collection
+            } else {
+                return Err(ValidationError::VariableNotFound {
+                    identifier: collection.node.clone(),
+                    position: collection.position,
+                });
+            };
+
+            if let ValueInner::Map(map) = collection.inner().as_ref() {
+                return if let Some(value) = map.get(&index.node) {
+                    Ok(value.r#type(context)?)
+                } else {
+                    Err(ValidationError::PropertyNotFound {
+                        identifier: index.node.clone(),
+                        position: index.position,
+                    })
+                };
+            };
+        }
+
+        if let (
+            ValueExpression::Value(WithPosition {
+                node: ValueNode::Map(properties),
+                ..
+            }),
+            ValueExpression::Identifier(index),
+        ) = (&self.collection, &self.index)
+        {
+            for (property, type_option, expression) in properties {
+                if property == &index.node {
+                    return if let Some(r#type) = type_option {
+                        Ok(r#type.node.clone())
+                    } else {
+                        Ok(expression.expected_type(context)?)
+                    };
+                }
+            }
+
+            return Ok(Type::None);
+        }
+
+        if let (
+            ValueExpression::Value(WithPosition {
+                node: ValueNode::Structure { fields, .. },
+                ..
+            }),
+            ValueExpression::Identifier(index),
+        ) = (&self.collection, &self.index)
+        {
+            return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
+                if property == &index.node {
+                    Some(expression.expected_type(context))
+                } else {
+                    None
+                }
+            }) {
+                type_result
+            } else {
+                Ok(Type::None)
+            };
+        }
+
+        Err(ValidationError::CannotIndex {
+            r#type: self.collection.expected_type(context)?,
+            position: self.collection.position(),
+        })
     }
 }

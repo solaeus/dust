@@ -5,50 +5,21 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Action, Expression, Type, ValueNode, WithPosition};
+use super::{AbstractNode, Action, ExpectedType, Type, ValueExpression, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListIndex {
-    left: Expression,
-    right: Expression,
+    left: ValueExpression,
+    right: ValueExpression,
 }
 
 impl ListIndex {
-    pub fn new(left: Expression, right: Expression) -> Self {
+    pub fn new(left: ValueExpression, right: ValueExpression) -> Self {
         Self { left, right }
     }
 }
 
 impl AbstractNode for ListIndex {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        let left_type = self.left.expected_type(_context)?;
-
-        if let (
-            Expression::Value(WithPosition {
-                item: ValueNode::List(expression_list),
-                ..
-            }),
-            Expression::Value(WithPosition {
-                item: ValueNode::Integer(index),
-                ..
-            }),
-        ) = (&self.left, &self.right)
-        {
-            let expression = if let Some(expression) = expression_list.get(*index as usize) {
-                expression
-            } else {
-                return Ok(Type::None);
-            };
-
-            expression.expected_type(_context)
-        } else {
-            Err(ValidationError::CannotIndex {
-                r#type: left_type,
-                position: self.left.position(),
-            })
-        }
-    }
-
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         self.left.validate(context, _manage_memory)?;
         self.right.validate(context, _manage_memory)?;
@@ -103,7 +74,7 @@ impl AbstractNode for ListIndex {
             let found_item = list.get(index as usize);
 
             if let Some(item) = found_item {
-                Ok(Action::Return(item.item.clone()))
+                Ok(Action::Return(item.node.clone()))
             } else {
                 Ok(Action::None)
             }
@@ -116,6 +87,37 @@ impl AbstractNode for ListIndex {
                     index_position: right_position,
                 },
             ))
+        }
+    }
+}
+
+impl ExpectedType for ListIndex {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+        let left_type = self.left.expected_type(_context)?;
+
+        if let (
+            ValueExpression::Value(WithPosition {
+                node: ValueNode::List(expression_list),
+                ..
+            }),
+            ValueExpression::Value(WithPosition {
+                node: ValueNode::Integer(index),
+                ..
+            }),
+        ) = (&self.left, &self.right)
+        {
+            let expression = if let Some(expression) = expression_list.get(*index as usize) {
+                expression
+            } else {
+                return Ok(Type::None);
+            };
+
+            expression.expected_type(_context)
+        } else {
+            Err(ValidationError::CannotIndex {
+                r#type: left_type,
+                position: self.left.position(),
+            })
         }
     }
 }
