@@ -64,7 +64,7 @@ impl AbstractNode for ValueNode {
             body,
         } = self
         {
-            let mut function_context = Context::new(Some(&context));
+            let mut function_context = context.create_child();
 
             if let Some(type_parameters) = type_parameters {
                 for identifier in type_parameters {

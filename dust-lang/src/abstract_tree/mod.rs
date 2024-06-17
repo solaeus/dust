@@ -139,13 +139,13 @@ impl AbstractTree {
     fn validate(
         self,
         context: &mut Context,
-        add_variable_uses: bool,
+        manage_memory: bool,
     ) -> Result<Vec<Statement>, Vec<Error>> {
         let mut errors = Vec::new();
         let mut valid_statements = Vec::new();
 
         for statement in self.0 {
-            let validation = statement.validate(context, add_variable_uses);
+            let validation = statement.validate(context, manage_memory);
 
             if let Err(validation_error) = validation {
                 errors.push(Error::Validation {

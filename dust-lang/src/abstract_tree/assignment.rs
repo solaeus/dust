@@ -7,7 +7,9 @@ use crate::{
     Context, Value,
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Statement, TypeConstructor, WithPosition};
+use super::{
+    AbstractNode, Evaluation, ExpectedType, Statement, Type, TypeConstructor, WithPosition,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Assignment {
@@ -43,6 +45,12 @@ impl Assignment {
 impl AbstractNode for Assignment {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         let statement_type = self.statement.expected_type(context)?;
+
+        if let Type::None = statement_type {
+            return Err(ValidationError::CannotAssignToNone(
+                self.statement.position(),
+            ));
+        }
 
         if let Some(constructor) = &self.constructor {
             let r#type = constructor.clone().construct(&context)?;

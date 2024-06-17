@@ -103,6 +103,7 @@ impl PartialEq for RuntimeError {
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
+    CannotAssignToNone(SourcePosition),
     CannotIndex {
         r#type: Type,
         position: SourcePosition,

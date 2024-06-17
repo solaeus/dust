@@ -150,7 +150,6 @@ impl<'a> Interpreter<'a> {
                     Ok(tokens) => tokens,
                     Err(error) => return Some(error),
                 };
-
                 let parse_result = parser(true)
                     .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
                     .into_result()
@@ -293,6 +292,15 @@ impl InterpreterError {
 
             if let Some(validation_error) = validation_error {
                 match validation_error {
+
+                    ValidationError::CannotAssignToNone(postion) => {
+                        builder.add_label(
+                            Label::new((self.source_id.clone(), postion.0..postion.1))
+                                .with_message(format!(
+                                    "This statement does not yield a value, you cannot assign a variable to it."
+                                )),
+                        );
+                    }
                     ValidationError::ExpectedBoolean { actual, position } => {
                         builder.add_label(
                             Label::new((self.source_id.clone(), position.0..position.1))
