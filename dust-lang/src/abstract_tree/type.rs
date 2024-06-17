@@ -80,6 +80,48 @@ impl Type {
                 }
             }
             (
+                Type::List {
+                    length: left_length,
+                    item_type: left_type,
+                },
+                Type::List {
+                    length: right_length,
+                    item_type: right_type,
+                },
+            ) => {
+                if left_length != right_length || left_type != right_type {
+                    return Err(TypeConflict {
+                        actual: other.clone(),
+                        expected: self.clone(),
+                    });
+                }
+
+                return Ok(());
+            }
+            (
+                Type::ListOf(left_type),
+                Type::List {
+                    item_type: right_type,
+                    ..
+                },
+            )
+            | (
+                Type::List {
+                    item_type: right_type,
+                    ..
+                },
+                Type::ListOf(left_type),
+            ) => {
+                if right_type.check(&left_type).is_err() {
+                    return Err(TypeConflict {
+                        actual: other.clone(),
+                        expected: self.clone(),
+                    });
+                } else {
+                    return Ok(());
+                }
+            }
+            (
                 Type::Function {
                     type_parameters: left_type_parameters,
                     value_parameters: left_value_parameters,
@@ -103,6 +145,7 @@ impl Type {
                             });
                         }
                     }
+
                     for (left_parameter, right_parameter) in left_value_parameters
                         .iter()
                         .zip(right_value_parameters.iter())
