@@ -21,6 +21,7 @@ pub enum Type {
         value_parameters: Vec<(Identifier, Type)>,
         return_type: Box<Type>,
     },
+    Generic(Option<Box<Type>>),
     Integer,
     List {
         length: usize,
@@ -49,8 +50,19 @@ impl Type {
             | (Type::None, Type::None)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
+            (Type::Generic(left), Type::Generic(right)) => match (left, right) {
+                (Some(left), Some(right)) => {
+                    if left.check(&right).is_ok() {
+                        return Ok(());
+                    }
+                }
+                (None, None) => {
+                    return Ok(());
+                }
+                _ => {}
+            },
             (Type::ListOf(left), Type::ListOf(right)) => {
-                if let Ok(()) = left.check(&right) {
+                if left.check(&right).is_ok() {
                     return Ok(());
                 }
             }
@@ -195,6 +207,13 @@ impl Display for Type {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
             Type::Float => write!(f, "float"),
+            Type::Generic(type_option) => {
+                if let Some(concrete_type) = type_option {
+                    write!(f, "implied to be {concrete_type}")
+                } else {
+                    todo!()
+                }
+            }
             Type::Integer => write!(f, "int"),
             Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
             Type::ListOf(item_type) => write!(f, "list({})", item_type),

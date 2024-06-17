@@ -3,6 +3,7 @@ pub mod assignment;
 pub mod async_block;
 pub mod block;
 pub mod built_in_function_call;
+pub mod expression;
 pub mod function_call;
 pub mod if_else;
 pub mod list_index;
@@ -15,7 +16,6 @@ pub mod structure_definition;
 pub mod r#type;
 pub mod type_alias;
 pub mod type_constructor;
-pub mod value_expression;
 pub mod value_node;
 pub mod r#while;
 
@@ -29,6 +29,7 @@ pub use self::{
     async_block::AsyncBlock,
     block::Block,
     built_in_function_call::BuiltInFunctionCall,
+    expression::Expression,
     function_call::FunctionCall,
     if_else::IfElse,
     list_index::ListIndex,
@@ -43,7 +44,6 @@ pub use self::{
     structure_definition::StructureDefinition,
     type_alias::TypeAssignment,
     type_constructor::{FunctionTypeConstructor, ListTypeConstructor, TypeConstructor},
-    value_expression::Expression,
     value_node::ValueNode,
 };
 

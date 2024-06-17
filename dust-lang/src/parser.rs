@@ -246,7 +246,7 @@ pub fn parser<'src>(
                 .map_with(
                     |(((type_parameters, value_parameters), return_type), body), state| {
                         Expression::Value(
-                            ValueNode::Parsed {
+                            ValueNode::Function {
                                 type_parameters,
                                 value_parameters,
                                 return_type,
@@ -640,6 +640,73 @@ mod tests {
 
     use super::*;
 
+    // Reuse these tests when structures are reimplemented
+    // #[test]
+    // fn structure_instance() {
+    //     assert_eq!(
+    //         parse(
+    //             &lex("
+    //                 Foo {
+    //                     bar = 42,
+    //                     baz = 'hiya',
+    //                 }
+    //             ")
+    //             .unwrap()
+    //         )
+    //         .unwrap()[0],
+    //         Statement::Expression(Expression::Value(
+    //             ValueNode::Structure {
+    //                 name: Identifier::new("Foo").with_position((21, 24)),
+    //                 fields: vec![
+    //                     (
+    //                         Identifier::new("bar").with_position((0, 0)),
+    //                         Expression::Value(ValueNode::Integer(42).with_position((57, 59)))
+    //                     ),
+    //                     (
+    //                         Identifier::new("baz").with_position((0, 0)),
+    //                         Expression::Value(
+    //                             ValueNode::String("hiya".to_string()).with_position((91, 97))
+    //                         )
+    //                     ),
+    //                 ]
+    //             }
+    //             .with_position((21, 120))
+    //         ))
+    //     )
+    // }
+
+    // #[test]
+    // fn structure_definition() {
+    //     assert_eq!(
+    //         parse(
+    //             &lex("
+    //                 struct Foo {
+    //                     bar : int,
+    //                     baz : str,
+    //                 }
+    //             ")
+    //             .unwrap()
+    //         )
+    //         .unwrap()[0],
+    //         Statement::StructureDefinition(
+    //             StructureDefinition::new(
+    //                 Identifier::new("Foo"),
+    //                 vec![
+    //                     (
+    //                         Identifier::new("bar"),
+    //                         TypeConstructor::Type(Type::Integer.with_position((64, 67)))
+    //                     ),
+    //                     (
+    //                         Identifier::new("baz"),
+    //                         TypeConstructor::Type(Type::String.with_position((99, 102)))
+    //                     ),
+    //                 ]
+    //             )
+    //             .with_position((21, 125))
+    //         )
+    //     )
+    // }
+
     #[test]
     fn type_alias() {
         assert_eq!(
@@ -739,72 +806,6 @@ mod tests {
                     )),
                 ])
                 .with_position((21, 128))
-            )
-        )
-    }
-
-    #[test]
-    fn structure_instance() {
-        assert_eq!(
-            parse(
-                &lex("
-                    Foo {
-                        bar = 42,
-                        baz = 'hiya',
-                    }
-                ")
-                .unwrap()
-            )
-            .unwrap()[0],
-            Statement::Expression(Expression::Value(
-                ValueNode::Structure {
-                    name: Identifier::new("Foo").with_position((21, 24)),
-                    fields: vec![
-                        (
-                            Identifier::new("bar").with_position((0, 0)),
-                            Expression::Value(ValueNode::Integer(42).with_position((57, 59)))
-                        ),
-                        (
-                            Identifier::new("baz").with_position((0, 0)),
-                            Expression::Value(
-                                ValueNode::String("hiya".to_string()).with_position((91, 97))
-                            )
-                        ),
-                    ]
-                }
-                .with_position((21, 120))
-            ))
-        )
-    }
-
-    #[test]
-    fn structure_definition() {
-        assert_eq!(
-            parse(
-                &lex("
-                    struct Foo {
-                        bar : int,
-                        baz : str,
-                    }
-                ")
-                .unwrap()
-            )
-            .unwrap()[0],
-            Statement::StructureDefinition(
-                StructureDefinition::new(
-                    Identifier::new("Foo"),
-                    vec![
-                        (
-                            Identifier::new("bar"),
-                            TypeConstructor::Type(Type::Integer.with_position((64, 67)))
-                        ),
-                        (
-                            Identifier::new("baz"),
-                            TypeConstructor::Type(Type::String.with_position((99, 102)))
-                        ),
-                    ]
-                )
-                .with_position((21, 125))
             )
         )
     }
@@ -912,23 +913,23 @@ mod tests {
     #[test]
     fn list_of_type() {
         assert_eq!(
-            parse(&lex("foobar : list(bool) = [true]").unwrap()).unwrap()[0],
+            parse(&lex("foobar : [bool] = [true]").unwrap()).unwrap()[0],
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
                     Some(TypeConstructor::ListOf(
-                        Box::new(TypeConstructor::Type(Type::Boolean.with_position((9, 19))))
-                            .with_position((0, 0))
+                        Box::new(TypeConstructor::Type(Type::Boolean.with_position((10, 14))))
+                            .with_position((9, 15))
                     )),
                     AssignmentOperator::Assign,
                     Statement::Expression(Expression::Value(
                         ValueNode::List(vec![Expression::Value(
-                            ValueNode::Boolean(true).with_position((23, 27))
+                            ValueNode::Boolean(true).with_position((19, 23))
                         )])
-                        .with_position((22, 28))
+                        .with_position((18, 24))
                     ))
                 )
-                .with_position((0, 28))
+                .with_position((0, 24))
             )
         );
     }
@@ -1009,7 +1010,7 @@ mod tests {
         assert_eq!(
             parse(&lex("fn () -> int { 0 }").unwrap()).unwrap()[0],
             Statement::Expression(Expression::Value(
-                ValueNode::Parsed {
+                ValueNode::Function {
                     type_parameters: None,
                     value_parameters: vec![],
                     return_type: TypeConstructor::Type(Type::Integer.with_position((9, 12))),
@@ -1025,7 +1026,7 @@ mod tests {
         assert_eq!(
             parse(&lex("fn (x: int) -> int { x }").unwrap()).unwrap()[0],
             Statement::Expression(Expression::Value(
-                ValueNode::Parsed {
+                ValueNode::Function {
                     type_parameters: None,
                     value_parameters: vec![(
                         Identifier::new("x"),
@@ -1047,7 +1048,7 @@ mod tests {
         assert_eq!(
             parse(&lex("fn T, U (x: T, y: U) -> T { x }").unwrap()).unwrap()[0],
             Statement::Expression(Expression::Value(
-                ValueNode::Parsed {
+                ValueNode::Function {
                     type_parameters: Some(vec![Identifier::new("T"), Identifier::new("U"),]),
                     value_parameters: vec![
                         (

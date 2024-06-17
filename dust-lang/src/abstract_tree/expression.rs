@@ -44,6 +44,9 @@ impl AbstractNode for Expression {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Expression::As(r#as) => r#as.node.validate(context, manage_memory),
+            Expression::BuiltInFunctionCall(built_in_function_call) => {
+                built_in_function_call.node.validate(context, manage_memory)
+            }
             Expression::FunctionCall(function_call) => {
                 function_call.node.validate(context, manage_memory)
             }
@@ -68,9 +71,6 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.validate(context, manage_memory),
             Expression::Math(math) => math.node.validate(context, manage_memory),
             Expression::Value(value_node) => value_node.node.validate(context, manage_memory),
-            Expression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.node.validate(context, manage_memory)
-            }
         }
     }
 

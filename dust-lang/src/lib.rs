@@ -234,14 +234,10 @@ impl InterpreterError {
             } => {
                 let description = if expected.is_empty() {
                     "Invalid token.".to_string()
-                } else {
+                } else {                   
                     format!("Expected {expected}.")
                 };
-
-                let label_message = format!(
-                    "{} is not valid in this position.",
-                    found.unwrap_or_else(|| String::with_capacity(0))
-                );
+                let found = found.unwrap_or_else(|| "End of input".to_string());
 
                 (
                     Report::build(
@@ -252,7 +248,7 @@ impl InterpreterError {
                     .with_message(description)
                     .with_label(
                         Label::new((self.source_id.clone(), span.0..span.1))
-                            .with_message(label_message)
+                            .with_message(format!("{found} is not valid in this position."))
                             .with_color(Color::Red),
                     ),
                     None,

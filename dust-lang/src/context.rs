@@ -26,6 +26,10 @@ impl<'a> Context<'a> {
         }
     }
 
+    pub fn create_child<'b>(&'b self) -> Context<'b> {
+        Context::new(Some(self))
+    }
+
     pub fn inner(
         &self,
     ) -> Result<RwLockReadGuard<BTreeMap<Identifier, (VariableData, UsageData)>>, RwLockPoisonError>

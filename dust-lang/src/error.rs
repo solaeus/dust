@@ -10,15 +10,15 @@ use crate::{
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
-    Parse {
-        expected: String,
-        span: (usize, usize),
-        found: Option<String>,
-    },
     Lex {
         expected: String,
         span: (usize, usize),
         reason: String,
+    },
+    Parse {
+        expected: String,
+        span: (usize, usize),
+        found: Option<String>,
     },
     Runtime {
         error: RuntimeError,

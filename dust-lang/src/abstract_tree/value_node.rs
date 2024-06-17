@@ -26,7 +26,7 @@ pub enum ValueNode {
         name: WithPosition<Identifier>,
         fields: Vec<(WithPosition<Identifier>, Expression)>,
     },
-    Parsed {
+    Function {
         type_parameters: Option<Vec<Identifier>>,
         value_parameters: Vec<(Identifier, TypeConstructor)>,
         return_type: TypeConstructor,
@@ -57,14 +57,20 @@ impl AbstractNode for ValueNode {
             return Ok(());
         }
 
-        if let ValueNode::Parsed {
-            type_parameters: _,
+        if let ValueNode::Function {
+            type_parameters,
             value_parameters,
             return_type,
             body,
         } = self
         {
             let mut function_context = Context::new(Some(&context));
+
+            if let Some(type_parameters) = type_parameters {
+                for identifier in type_parameters {
+                    function_context.set_type(identifier.clone(), Type::Generic(None))?;
+                }
+            }
 
             for (identifier, type_constructor) in value_parameters {
                 let r#type = type_constructor.clone().construct(&function_context)?;
@@ -175,18 +181,14 @@ impl AbstractNode for ValueNode {
             }
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
-            ValueNode::Parsed {
+            ValueNode::Function {
                 type_parameters,
                 value_parameters: constructors,
                 return_type,
                 body,
             } => {
-                let type_parameters = type_parameters.map(|parameter_list| {
-                    parameter_list
-                        .into_iter()
-                        .map(|parameter| parameter)
-                        .collect()
-                });
+                let type_parameters =
+                    type_parameters.map(|parameter_list| parameter_list.into_iter().collect());
                 let mut value_parameters = Vec::with_capacity(constructors.len());
 
                 for (identifier, constructor) in constructors {
@@ -263,13 +265,13 @@ impl Ord for ValueNode {
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
             (
-                Parsed {
+                Function {
                     type_parameters: left_type_arguments,
                     value_parameters: left_parameters,
                     return_type: left_return,
                     body: left_body,
                 },
-                Parsed {
+                Function {
                     type_parameters: right_type_arguments,
                     value_parameters: right_parameters,
                     return_type: right_return,
@@ -296,7 +298,7 @@ impl Ord for ValueNode {
                     parameter_cmp
                 }
             }
-            (Parsed { .. }, _) => Ordering::Greater,
+            (Function { .. }, _) => Ordering::Greater,
             (
                 Structure {
                     name: left_name,
@@ -337,7 +339,7 @@ impl ExpectedType for ValueNode {
             ValueNode::Map(_) => Type::Map,
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
-            ValueNode::Parsed {
+            ValueNode::Function {
                 type_parameters,
                 value_parameters,
                 return_type,
