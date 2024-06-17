@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::HashMap,
     sync::{Arc, RwLock, RwLockReadGuard},
 };
 
@@ -12,7 +12,7 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct Context<'a> {
-    variables: Arc<RwLock<BTreeMap<Identifier, (VariableData, UsageData)>>>,
+    variables: Arc<RwLock<HashMap<Identifier, (VariableData, UsageData)>>>,
     parent: Option<&'a Context<'a>>,
     is_clean: Arc<RwLock<bool>>,
 }
@@ -20,7 +20,7 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     pub fn new(parent: Option<&'a Context>) -> Self {
         Self {
-            variables: Arc::new(RwLock::new(BTreeMap::new())),
+            variables: Arc::new(RwLock::new(HashMap::new())),
             parent,
             is_clean: Arc::new(RwLock::new(true)),
         }
@@ -32,7 +32,7 @@ impl<'a> Context<'a> {
 
     pub fn inner(
         &self,
-    ) -> Result<RwLockReadGuard<BTreeMap<Identifier, (VariableData, UsageData)>>, RwLockPoisonError>
+    ) -> Result<RwLockReadGuard<HashMap<Identifier, (VariableData, UsageData)>>, RwLockPoisonError>
     {
         Ok(self.variables.read()?)
     }
