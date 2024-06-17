@@ -26,8 +26,8 @@ pub enum ValueNode {
         name: WithPosition<Identifier>,
         fields: Vec<(WithPosition<Identifier>, Expression)>,
     },
-    ParsedFunction {
-        type_parameters: Option<Vec<WithPosition<Identifier>>>,
+    Parsed {
+        type_parameters: Option<Vec<Identifier>>,
         value_parameters: Vec<(Identifier, TypeConstructor)>,
         return_type: TypeConstructor,
         body: WithPosition<Block>,
@@ -57,7 +57,7 @@ impl AbstractNode for ValueNode {
             return Ok(());
         }
 
-        if let ValueNode::ParsedFunction {
+        if let ValueNode::Parsed {
             type_parameters: _,
             value_parameters,
             return_type,
@@ -175,7 +175,7 @@ impl AbstractNode for ValueNode {
             }
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
-            ValueNode::ParsedFunction {
+            ValueNode::Parsed {
                 type_parameters,
                 value_parameters: constructors,
                 return_type,
@@ -184,7 +184,7 @@ impl AbstractNode for ValueNode {
                 let type_parameters = type_parameters.map(|parameter_list| {
                     parameter_list
                         .into_iter()
-                        .map(|parameter| parameter.node)
+                        .map(|parameter| parameter)
                         .collect()
                 });
                 let mut value_parameters = Vec::with_capacity(constructors.len());
@@ -263,13 +263,13 @@ impl Ord for ValueNode {
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
             (
-                ParsedFunction {
+                Parsed {
                     type_parameters: left_type_arguments,
                     value_parameters: left_parameters,
                     return_type: left_return,
                     body: left_body,
                 },
-                ParsedFunction {
+                Parsed {
                     type_parameters: right_type_arguments,
                     value_parameters: right_parameters,
                     return_type: right_return,
@@ -296,7 +296,7 @@ impl Ord for ValueNode {
                     parameter_cmp
                 }
             }
-            (ParsedFunction { .. }, _) => Ordering::Greater,
+            (Parsed { .. }, _) => Ordering::Greater,
             (
                 Structure {
                     name: left_name,
@@ -337,7 +337,7 @@ impl ExpectedType for ValueNode {
             ValueNode::Map(_) => Type::Map,
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
-            ValueNode::ParsedFunction {
+            ValueNode::Parsed {
                 type_parameters,
                 value_parameters,
                 return_type,
@@ -354,7 +354,7 @@ impl ExpectedType for ValueNode {
                 let type_parameters = type_parameters.clone().map(|parameters| {
                     parameters
                         .iter()
-                        .map(|identifier| identifier.node.clone())
+                        .map(|identifier| identifier.clone())
                         .collect()
                 });
                 let return_type = return_type.clone().construct(&context)?;

@@ -59,7 +59,9 @@ fn main() {
     let context = Context::new(None);
     let mut interpreter = Interpreter::new(context.clone());
 
-    interpreter.load_std().unwrap();
+    if !args.no_std {
+        interpreter.load_std().unwrap();
+    }
 
     let (source_id, source): (Arc<str>, Arc<str>) = if let Some(path) = args.path {
         let source = read_to_string(&path).unwrap();

@@ -20,7 +20,7 @@ pub enum Statement {
     Loop(WithPosition<Loop>),
     StructureDefinition(WithPosition<StructureDefinition>),
     TypeAssignment(WithPosition<TypeAssignment>),
-    ValueExpression(Expression),
+    Expression(Expression),
     While(WithPosition<While>),
 }
 
@@ -31,7 +31,7 @@ impl Statement {
             Statement::AsyncBlock(inner) => inner.position,
             Statement::Block(inner) => inner.position,
             Statement::Break(inner) => inner.position,
-            Statement::ValueExpression(expression) => expression.position(),
+            Statement::Expression(expression) => expression.position(),
             Statement::IfElse(inner) => inner.position,
             Statement::Loop(inner) => inner.position,
             Statement::StructureDefinition(inner) => inner.position,
@@ -54,7 +54,7 @@ impl AbstractNode for Statement {
             }
             Statement::Block(block) => block.node.validate(_context, _manage_memory),
             Statement::Break(_) => Ok(()),
-            Statement::ValueExpression(expression) => expression.validate(_context, _manage_memory),
+            Statement::Expression(expression) => expression.validate(_context, _manage_memory),
             Statement::IfElse(if_else) => if_else.node.validate(_context, _manage_memory),
             Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
             Statement::StructureDefinition(structure_definition) => {
@@ -77,7 +77,7 @@ impl AbstractNode for Statement {
             Statement::AsyncBlock(async_block) => async_block.node.evaluate(context, manage_memory),
             Statement::Block(block) => block.node.evaluate(context, manage_memory),
             Statement::Break(_) => Ok(Evaluation::Break),
-            Statement::ValueExpression(expression) => expression.evaluate(context, manage_memory),
+            Statement::Expression(expression) => expression.evaluate(context, manage_memory),
             Statement::IfElse(if_else) => if_else.node.evaluate(context, manage_memory),
             Statement::Loop(r#loop) => r#loop.node.evaluate(context, manage_memory),
             Statement::StructureDefinition(structure_definition) => {
@@ -100,7 +100,7 @@ impl AbstractNode for Statement {
 impl ExpectedType for Statement {
     fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         match self {
-            Statement::ValueExpression(expression) => expression.expected_type(_context),
+            Statement::Expression(expression) => expression.expected_type(_context),
             Statement::IfElse(if_else) => if_else.node.expected_type(_context),
             Statement::Block(block) => block.node.expected_type(_context),
             Statement::AsyncBlock(async_block) => async_block.node.expected_type(_context),

@@ -81,22 +81,13 @@ pub fn parser<'src>(
                 positioned_identifier
                     .clone()
                     .separated_by(just(Token::Control(Control::Comma)))
-                    .collect()
-                    .delimited_by(
-                        just(Token::Control(Control::ParenOpen)),
-                        just(Token::Control(Control::ParenClose)),
-                    )
-                    .or_not(),
+                    .at_least(1)
+                    .collect(),
             )
+            .or_not()
             .then(
-                positioned_identifier
+                type_constructor
                     .clone()
-                    .then_ignore(just(Token::Control(Control::Colon)))
-                    .then(
-                        type_constructor
-                            .clone()
-                            .map(|constructor| Box::new(constructor)),
-                    )
                     .separated_by(just(Token::Control(Control::Comma)))
                     .collect()
                     .delimited_by(
@@ -119,8 +110,7 @@ pub fn parser<'src>(
                 },
             );
 
-        let list = type_constructor
-            .clone()
+        let list_type = type_constructor
             .clone()
             .then_ignore(just(Token::Control(Control::Semicolon)))
             .then(raw_integer.clone())
@@ -138,16 +128,27 @@ pub fn parser<'src>(
                 )
             });
 
-        let list_of = just(Token::Keyword(Keyword::List))
-            .ignore_then(type_constructor.clone().delimited_by(
-                just(Token::Control(Control::ParenOpen)),
-                just(Token::Control(Control::ParenClose)),
-            ))
+        let list_of_type = type_constructor
+            .clone()
+            .delimited_by(
+                just(Token::Control(Control::SquareOpen)),
+                just(Token::Control(Control::SquareClose)),
+            )
             .map_with(|item_type, state| {
                 TypeConstructor::ListOf(Box::new(item_type).with_position(state.span()))
             });
 
-        choice((function_type, list, list_of, primitive_type))
+        let identifier_type = positioned_identifier
+            .clone()
+            .map(|identifier| TypeConstructor::Identifier(identifier));
+
+        choice((
+            function_type,
+            list_type,
+            list_of_type,
+            primitive_type,
+            identifier_type,
+        ))
     });
 
     let type_specification =
@@ -195,23 +196,44 @@ pub fn parser<'src>(
                     Expression::Value(ValueNode::List(list).with_position(state.span()))
                 });
 
-            let parsed_function = just(Token::Keyword(Keyword::Fn))
+            let map_fields = identifier
+                .clone()
+                .then(type_specification.clone().or_not())
+                .then_ignore(just(Token::Operator(Operator::Assign)))
+                .then(expression.clone())
+                .map(|((identifier, r#type), expression)| (identifier, r#type, expression));
+
+            let map = map_fields
+                .separated_by(just(Token::Control(Control::Comma)).or_not())
+                .allow_trailing()
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::CurlyOpen)),
+                    just(Token::Control(Control::CurlyClose)),
+                )
+                .map_with(|map_assigment_list, state| {
+                    Expression::Value(
+                        ValueNode::Map(map_assigment_list).with_position(state.span()),
+                    )
+                });
+
+            let function = just(Token::Keyword(Keyword::Fn))
                 .ignore_then(
-                    positioned_identifier
+                    identifier
                         .clone()
                         .separated_by(just(Token::Control(Control::Comma)))
+                        .at_least(1)
+                        .allow_trailing()
                         .collect()
-                        .delimited_by(
-                            just(Token::Control(Control::ParenOpen)),
-                            just(Token::Control(Control::ParenClose)),
-                        )
                         .or_not(),
                 )
                 .then(
                     identifier
+                        .clone()
                         .then_ignore(just(Token::Control(Control::Colon)))
                         .then(type_constructor.clone())
                         .separated_by(just(Token::Control(Control::Comma)))
+                        .allow_trailing()
                         .collect()
                         .delimited_by(
                             just(Token::Control(Control::ParenOpen)),
@@ -224,7 +246,7 @@ pub fn parser<'src>(
                 .map_with(
                     |(((type_parameters, value_parameters), return_type), body), state| {
                         Expression::Value(
-                            ValueNode::ParsedFunction {
+                            ValueNode::Parsed {
                                 type_parameters,
                                 value_parameters,
                                 return_type,
@@ -310,8 +332,9 @@ pub fn parser<'src>(
 
             let atom = choice((
                 range.clone(),
-                parsed_function.clone(),
+                function.clone(),
                 list.clone(),
+                map.clone(),
                 basic_value.clone(),
                 identifier_expression.clone(),
                 expression.clone().delimited_by(
@@ -321,6 +344,7 @@ pub fn parser<'src>(
             ));
 
             let logic_math_indexes_as_and_function_calls = atom.pratt((
+                // Logic
                 prefix(
                     2,
                     just(Token::Operator(Operator::Not)),
@@ -337,15 +361,6 @@ pub fn parser<'src>(
                     |left, right, span| {
                         Expression::ListIndex(
                             Box::new(ListIndex::new(left, right)).with_position(span),
-                        )
-                    },
-                ),
-                infix(
-                    left(4),
-                    just(Token::Control(Control::Dot)),
-                    |left: Expression, _: Token, right: Expression, span| {
-                        Expression::MapIndex(
-                            Box::new(MapIndex::new(left, right)).with_position(span),
                         )
                     },
                 ),
@@ -434,6 +449,7 @@ pub fn parser<'src>(
                         Expression::Logic(Box::new(Logic::Or(left, right)).with_position(span))
                     },
                 ),
+                // Math
                 infix(
                     left(1),
                     just(Token::Operator(Operator::Add)),
@@ -469,6 +485,17 @@ pub fn parser<'src>(
                         Expression::Math(Box::new(Math::Modulo(left, right)).with_position(span))
                     },
                 ),
+                // Indexes
+                infix(
+                    left(4),
+                    just(Token::Control(Control::Dot)),
+                    |left, _, right, span| {
+                        Expression::MapIndex(
+                            Box::new(MapIndex::new(left, right)).with_position(span),
+                        )
+                    },
+                ),
+                // As
                 postfix(
                     2,
                     just(Token::Keyword(Keyword::As)).ignore_then(type_constructor.clone()),
@@ -484,8 +511,9 @@ pub fn parser<'src>(
                 logic_math_indexes_as_and_function_calls,
                 built_in_function_call,
                 range,
-                parsed_function,
+                function,
                 list,
+                map,
                 basic_value,
                 identifier_expression,
             ))
@@ -493,7 +521,7 @@ pub fn parser<'src>(
 
         let expression_statement = expression
             .clone()
-            .map(|expression| Statement::ValueExpression(expression));
+            .map(|expression| Statement::Expression(expression));
 
         let async_block = just(Token::Keyword(Keyword::Async))
             .ignore_then(statement.clone().repeated().collect().delimited_by(
@@ -630,7 +658,7 @@ mod tests {
     fn r#as() {
         assert_eq!(
             parse(&lex("1 as str").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::As(
+            Statement::Expression(Expression::As(
                 Box::new(As::new(
                     Expression::Value(ValueNode::Integer(1).with_position((0, 1))),
                     TypeConstructor::Type(Type::String.with_position((5, 8)))
@@ -656,7 +684,7 @@ mod tests {
 
         assert_eq!(
             statements[0],
-            Statement::ValueExpression(Expression::BuiltInFunctionCall(
+            Statement::Expression(Expression::BuiltInFunctionCall(
                 Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 9))
             ))
         );
@@ -675,7 +703,7 @@ mod tests {
 
         assert_eq!(
             statements[0],
-            Statement::ValueExpression(Expression::BuiltInFunctionCall(
+            Statement::Expression(Expression::BuiltInFunctionCall(
                 Box::new(BuiltInFunctionCall::WriteLine(Expression::Value(
                     ValueNode::String("hiya".to_string()).with_position((11, 17))
                 )))
@@ -700,13 +728,13 @@ mod tests {
             .unwrap()[0],
             Statement::AsyncBlock(
                 AsyncBlock::new(vec![
-                    Statement::ValueExpression(Expression::Value(
+                    Statement::Expression(Expression::Value(
                         ValueNode::Integer(1).with_position((53, 54))
                     )),
-                    Statement::ValueExpression(Expression::Value(
+                    Statement::Expression(Expression::Value(
                         ValueNode::Integer(2).with_position((79, 80))
                     )),
-                    Statement::ValueExpression(Expression::Value(
+                    Statement::Expression(Expression::Value(
                         ValueNode::Integer(3).with_position((105, 106))
                     )),
                 ])
@@ -728,7 +756,7 @@ mod tests {
                 .unwrap()
             )
             .unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Structure {
                     name: Identifier::new("Foo").with_position((21, 24)),
                     fields: vec![
@@ -785,7 +813,7 @@ mod tests {
     fn map_index() {
         assert_eq!(
             parse(&lex("{ x = 42 }.x").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::MapIndex(
+            Statement::Expression(Expression::MapIndex(
                 Box::new(MapIndex::new(
                     Expression::Value(
                         ValueNode::Map(vec![(
@@ -802,7 +830,7 @@ mod tests {
         );
         assert_eq!(
             parse(&lex("foo.x").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::MapIndex(
+            Statement::Expression(Expression::MapIndex(
                 Box::new(MapIndex::new(
                     Expression::Identifier(Identifier::new("foo").with_position((0, 3))),
                     Expression::Identifier(Identifier::new("x").with_position((4, 5)))
@@ -819,12 +847,12 @@ mod tests {
             Statement::While(
                 While::new(
                     Expression::Value(ValueNode::Boolean(true).with_position((6, 10))),
-                    vec![Statement::ValueExpression(Expression::FunctionCall(
+                    vec![Statement::Expression(Expression::FunctionCall(
                         FunctionCall::new(
                             Expression::Identifier(
                                 Identifier::new("output").with_position((13, 19))
                             ),
-                            Some(Vec::with_capacity(0)),
+                            None,
                             vec![Expression::Value(
                                 ValueNode::String("hi".to_string()).with_position((20, 24))
                             )]
@@ -844,9 +872,9 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(TypeConstructor::Type(Type::Boolean.with_position((0, 0)))),
+                    Some(TypeConstructor::Type(Type::Boolean.with_position((9, 13)))),
                     AssignmentOperator::Assign,
-                    Statement::ValueExpression(Expression::Value(
+                    Statement::Expression(Expression::Value(
                         ValueNode::Boolean(true).with_position((16, 20))
                     ))
                 )
@@ -866,17 +894,17 @@ mod tests {
                         ListTypeConstructor {
                             length: 2,
                             item_type: Box::new(TypeConstructor::Type(
-                                Type::Integer.with_position((0, 0))
+                                Type::Integer.with_position((9, 12))
                             ))
                         }
-                        .with_position((8, 12))
+                        .with_position((8, 16))
                     )),
                     AssignmentOperator::Assign,
-                    Statement::ValueExpression(Expression::Value(
-                        ValueNode::List(vec![]).with_position((15, 17))
+                    Statement::Expression(Expression::Value(
+                        ValueNode::List(vec![]).with_position((19, 21))
                     ))
                 )
-                .with_position((0, 17))
+                .with_position((0, 21))
             )
         );
     }
@@ -893,7 +921,7 @@ mod tests {
                             .with_position((0, 0))
                     )),
                     AssignmentOperator::Assign,
-                    Statement::ValueExpression(Expression::Value(
+                    Statement::Expression(Expression::Value(
                         ValueNode::List(vec![Expression::Value(
                             ValueNode::Boolean(true).with_position((23, 27))
                         )])
@@ -908,26 +936,26 @@ mod tests {
     #[test]
     fn function_type() {
         assert_eq!(
-            parse(&lex("foobar : fn() -> any = some_function").unwrap()).unwrap()[0],
-            Statement::Assignment(
-                Assignment::new(
-                    Identifier::new("foobar").with_position((0, 6)),
-                    Some(TypeConstructor::Function(
+            parse(&lex("type Foo = fn T (int) -> T").unwrap()).unwrap()[0],
+            Statement::TypeAssignment(
+                TypeAssignment::new(
+                    Identifier::new("Foo").with_position((5, 8)),
+                    TypeConstructor::Function(
                         FunctionTypeConstructor {
-                            type_parameters: None,
-                            value_parameters: vec![],
-                            return_type: Box::new(TypeConstructor::Type(
-                                Type::Any.with_position((0, 0))
+                            type_parameters: Some(vec![
+                                Identifier::new("T").with_position((14, 15))
+                            ]),
+                            value_parameters: vec![TypeConstructor::Type(
+                                Type::Integer.with_position((17, 20))
+                            )],
+                            return_type: Box::new(TypeConstructor::Identifier(
+                                Identifier::new("T").with_position((25, 26))
                             )),
                         }
-                        .with_position((9, 20))
-                    )),
-                    AssignmentOperator::Assign,
-                    Statement::ValueExpression(Expression::Identifier(
-                        Identifier::new("some_function").with_position((23, 36))
-                    ))
+                        .with_position((11, 26))
+                    )
                 )
-                .with_position((0, 36))
+                .with_position((0, 26))
             )
         );
     }
@@ -936,10 +964,10 @@ mod tests {
     fn function_call() {
         assert_eq!(
             parse(&lex("foobar()").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::FunctionCall(
+            Statement::Expression(Expression::FunctionCall(
                 FunctionCall::new(
                     Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
-                    Some(Vec::with_capacity(0)),
+                    None,
                     Vec::with_capacity(0),
                 )
                 .with_position((0, 8))
@@ -951,7 +979,7 @@ mod tests {
     fn function_call_with_type_arguments() {
         assert_eq!(
             parse(&lex("foobar::(str)::('hi')").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::FunctionCall(
+            Statement::Expression(Expression::FunctionCall(
                 FunctionCall::new(
                     Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
                     Some(vec![TypeConstructor::Type(
@@ -970,7 +998,7 @@ mod tests {
     fn range() {
         assert_eq!(
             parse(&lex("1..10").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Range(1..10).with_position((0, 5))
             ))
         )
@@ -979,58 +1007,71 @@ mod tests {
     #[test]
     fn function() {
         assert_eq!(
-            parse(&lex("fn (x: int) int { x }").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
-                ValueNode::ParsedFunction {
+            parse(&lex("fn () -> int { 0 }").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::Value(
+                ValueNode::Parsed {
+                    type_parameters: None,
+                    value_parameters: vec![],
+                    return_type: TypeConstructor::Type(Type::Integer.with_position((9, 12))),
+                    body: Block::new(vec![Statement::Expression(Expression::Value(
+                        ValueNode::Integer(0).with_position((15, 16))
+                    ))])
+                    .with_position((13, 18))
+                }
+                .with_position((0, 18))
+            ),)
+        );
+
+        assert_eq!(
+            parse(&lex("fn (x: int) -> int { x }").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::Value(
+                ValueNode::Parsed {
                     type_parameters: None,
                     value_parameters: vec![(
                         Identifier::new("x"),
                         TypeConstructor::Type(Type::Integer.with_position((7, 10)))
                     )],
-                    return_type: TypeConstructor::Type(Type::Integer.with_position((12, 15))),
-                    body: Block::new(vec![Statement::ValueExpression(Expression::Identifier(
-                        Identifier::new("x").with_position((18, 19))
+                    return_type: TypeConstructor::Type(Type::Integer.with_position((15, 18))),
+                    body: Block::new(vec![Statement::Expression(Expression::Identifier(
+                        Identifier::new("x").with_position((21, 22))
                     ))])
-                    .with_position((16, 21)),
+                    .with_position((19, 24)),
                 }
-                .with_position((0, 21))
+                .with_position((0, 24))
             ),)
-        )
+        );
     }
 
     #[test]
     fn function_with_type_arguments() {
         assert_eq!(
-            parse(&lex("fn (T, U)(x: T, y: U) T { x }").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
-                ValueNode::ParsedFunction {
-                    type_parameters: Some(vec![
-                        Identifier::new("T").with_position((4, 5)),
-                        Identifier::new("U").with_position((7, 8)),
-                    ]),
+            parse(&lex("fn T, U (x: T, y: U) -> T { x }").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::Value(
+                ValueNode::Parsed {
+                    type_parameters: Some(vec![Identifier::new("T"), Identifier::new("U"),]),
                     value_parameters: vec![
                         (
                             Identifier::new("x"),
                             TypeConstructor::Identifier(
-                                Identifier::new("T").with_position((13, 14))
+                                Identifier::new("T").with_position((12, 13))
                             )
                         ),
                         (
                             Identifier::new("y"),
                             TypeConstructor::Identifier(
-                                Identifier::new("U").with_position((19, 20))
+                                Identifier::new("U").with_position((18, 19))
                             )
                         )
                     ],
                     return_type: TypeConstructor::Identifier(
-                        Identifier::new("T").with_position((22, 23))
+                        Identifier::new("T").with_position((24, 25))
                     ),
-                    body: Block::new(vec![Statement::ValueExpression(Expression::Identifier(
-                        Identifier::new("x").with_position((26, 27))
+                    body: Block::new(vec![Statement::Expression(Expression::Identifier(
+                        Identifier::new("x").with_position((28, 29))
                     ))])
-                    .with_position((24, 29)),
+                    .with_position((26, 31)),
                 }
-                .with_position((0, 29))
+                .with_position((0, 31))
             ))
         )
     }
@@ -1042,7 +1083,7 @@ mod tests {
             Statement::IfElse(
                 IfElse::new(
                     Expression::Value(ValueNode::Boolean(true).with_position((3, 7))),
-                    Block::new(vec![Statement::ValueExpression(Expression::Value(
+                    Block::new(vec![Statement::Expression(Expression::Value(
                         ValueNode::String("foo".to_string()).with_position((10, 15))
                     ))])
                     .with_position((8, 17)),
@@ -1061,13 +1102,13 @@ mod tests {
             Statement::IfElse(
                 IfElse::new(
                     Expression::Value(ValueNode::Boolean(true).with_position((3, 7))),
-                    Block::new(vec![Statement::ValueExpression(Expression::Value(
+                    Block::new(vec![Statement::Expression(Expression::Value(
                         ValueNode::String("foo".to_string()).with_position((9, 14))
                     ))])
                     .with_position((8, 16)),
                     Vec::with_capacity(0),
                     Some(
-                        Block::new(vec![Statement::ValueExpression(Expression::Value(
+                        Block::new(vec![Statement::Expression(Expression::Value(
                             ValueNode::String("bar".to_string()).with_position((24, 29))
                         ))])
                         .with_position((22, 31))
@@ -1082,7 +1123,7 @@ mod tests {
     fn map() {
         assert_eq!(
             parse(&lex("{ foo = 'bar' }").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Map(vec![(
                     Identifier::new("foo"),
                     None,
@@ -1093,7 +1134,7 @@ mod tests {
         );
         assert_eq!(
             parse(&lex("{ x = 1, y = 2, }").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Map(vec![
                     (
                         Identifier::new("x"),
@@ -1111,7 +1152,7 @@ mod tests {
         );
         assert_eq!(
             parse(&lex("{ x = 1 y = 2 }").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Map(vec![
                     (
                         Identifier::new("x"),
@@ -1133,7 +1174,7 @@ mod tests {
     fn math() {
         assert_eq!(
             parse(&lex("1 + 1").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Math(
+            Statement::Expression(Expression::Math(
                 Box::new(Math::Add(
                     Expression::Value(ValueNode::Integer(1).with_position((0, 1))),
                     Expression::Value(ValueNode::Integer(1).with_position((4, 5)))
@@ -1148,7 +1189,7 @@ mod tests {
         assert_eq!(
             parse(&lex("loop { 42 }").unwrap()).unwrap()[0],
             Statement::Loop(
-                Loop::new(vec![Statement::ValueExpression(Expression::Value(
+                Loop::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::Integer(42).with_position((7, 9))
                 ))])
                 .with_position((0, 11))
@@ -1177,7 +1218,7 @@ mod tests {
                                     Identifier::new("i").with_position((33, 34)),
                                     None,
                                     AssignmentOperator::AddAssign,
-                                    Statement::ValueExpression(Expression::Value(
+                                    Statement::Expression(Expression::Value(
                                         ValueNode::Integer(1).with_position((38, 39))
                                     ))
                                 )
@@ -1198,7 +1239,7 @@ mod tests {
         assert_eq!(
             parse(&lex("{ x }").unwrap()).unwrap()[0],
             Statement::Block(
-                Block::new(vec![Statement::ValueExpression(Expression::Identifier(
+                Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x").with_position((2, 3))
                 ),)])
                 .with_position((0, 5))
@@ -1219,13 +1260,13 @@ mod tests {
             .unwrap()[0],
             Statement::Block(
                 Block::new(vec![
-                    Statement::ValueExpression(Expression::Identifier(
+                    Statement::Expression(Expression::Identifier(
                         Identifier::new("x").with_position((39, 40))
                     )),
-                    Statement::ValueExpression(Expression::Identifier(
+                    Statement::Expression(Expression::Identifier(
                         Identifier::new("y").with_position((62, 63))
                     )),
-                    Statement::ValueExpression(Expression::Identifier(
+                    Statement::Expression(Expression::Identifier(
                         Identifier::new("z").with_position((85, 86))
                     )),
                 ])
@@ -1246,14 +1287,14 @@ mod tests {
             .unwrap()[0],
             Statement::Block(
                 Block::new(vec![
-                    Statement::ValueExpression(Expression::Logic(
+                    Statement::Expression(Expression::Logic(
                         Box::new(Logic::Equal(
                             Expression::Value(ValueNode::Integer(1).with_position((39, 40))),
                             Expression::Value(ValueNode::Integer(1).with_position((44, 45)))
                         ))
                         .with_position((39, 45))
                     )),
-                    Statement::ValueExpression(Expression::Identifier(
+                    Statement::Expression(Expression::Identifier(
                         Identifier::new("z").with_position((66, 67))
                     )),
                 ])
@@ -1266,19 +1307,19 @@ mod tests {
     fn identifier() {
         assert_eq!(
             parse(&lex("x").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Identifier(
+            Statement::Expression(Expression::Identifier(
                 Identifier::new("x").with_position((0, 1))
             ))
         );
         assert_eq!(
             parse(&lex("foobar").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Identifier(
+            Statement::Expression(Expression::Identifier(
                 Identifier::new("foobar").with_position((0, 6))
             ))
         );
         assert_eq!(
             parse(&lex("HELLO").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Identifier(
+            Statement::Expression(Expression::Identifier(
                 Identifier::new("HELLO").with_position((0, 5))
             ))
         );
@@ -1293,7 +1334,7 @@ mod tests {
                     Identifier::new("foobar").with_position((0, 6)),
                     None,
                     AssignmentOperator::Assign,
-                    Statement::ValueExpression(Expression::Value(
+                    Statement::Expression(Expression::Value(
                         ValueNode::Integer(1).with_position((9, 10))
                     ))
                 )
@@ -1311,7 +1352,7 @@ mod tests {
                     Identifier::new("foobar").with_position((0, 6)),
                     Some(TypeConstructor::Type(Type::Integer.with_position((8, 11)))),
                     AssignmentOperator::Assign,
-                    Statement::ValueExpression(Expression::Value(
+                    Statement::Expression(Expression::Value(
                         ValueNode::Integer(1).with_position((14, 15))
                     ))
                 )
@@ -1324,7 +1365,7 @@ mod tests {
     fn logic() {
         assert_eq!(
             parse(&lex("x == 1").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Logic(
+            Statement::Expression(Expression::Logic(
                 Box::new(Logic::Equal(
                     Expression::Identifier(Identifier::new("x").with_position((0, 1))),
                     Expression::Value(ValueNode::Integer(1).with_position((5, 6))),
@@ -1335,7 +1376,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex("(x == 1) && (y == 2)").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Logic(
+            Statement::Expression(Expression::Logic(
                 Box::new(Logic::And(
                     Expression::Logic(
                         Box::new(Logic::Equal(
@@ -1358,7 +1399,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex("(x == 1) && (y == 2) && true").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Logic(
+            Statement::Expression(Expression::Logic(
                 Box::new(Logic::And(
                     Expression::Logic(
                         Box::new(Logic::And(
@@ -1396,13 +1437,13 @@ mod tests {
     fn list() {
         assert_eq!(
             parse(&lex("[]").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::List(Vec::with_capacity(0)).with_position((0, 2))
             ),)
         );
         assert_eq!(
             parse(&lex("[42]").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::List(vec![Expression::Value(
                     ValueNode::Integer(42).with_position((1, 3))
                 )])
@@ -1411,7 +1452,7 @@ mod tests {
         );
         assert_eq!(
             parse(&lex("[42, 'foo', 'bar', [1, 2, 3,]]").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::List(vec![
                     Expression::Value(ValueNode::Integer(42).with_position((1, 3))),
                     Expression::Value(ValueNode::String("foo".to_string()).with_position((5, 10))),
@@ -1434,7 +1475,7 @@ mod tests {
     fn r#true() {
         assert_eq!(
             parse(&lex("true").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Boolean(true).with_position((0, 4))
             ))
         );
@@ -1444,7 +1485,7 @@ mod tests {
     fn r#false() {
         assert_eq!(
             parse(&lex("false").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Boolean(false).with_position((0, 5))
             ))
         );
@@ -1454,13 +1495,13 @@ mod tests {
     fn positive_float() {
         assert_eq!(
             parse(&lex("0.0").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(0.0).with_position((0, 3))
             ))
         );
         assert_eq!(
             parse(&lex("42.0").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(42.0).with_position((0, 4))
             ))
         );
@@ -1469,7 +1510,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex(&max_float).unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(f64::MAX).with_position((0, 311))
             ))
         );
@@ -1478,7 +1519,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex(&min_positive_float).unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(f64::MIN_POSITIVE).with_position((0, 326))
             ),)
         );
@@ -1488,13 +1529,13 @@ mod tests {
     fn negative_float() {
         assert_eq!(
             parse(&lex("-0.0").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(-0.0).with_position((0, 4))
             ))
         );
         assert_eq!(
             parse(&lex("-42.0").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(-42.0).with_position((0, 5))
             ))
         );
@@ -1503,7 +1544,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex(&min_float).unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(f64::MIN).with_position((0, 312))
             ))
         );
@@ -1512,7 +1553,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex(&max_negative_float).unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(-f64::MIN_POSITIVE).with_position((0, 327))
             ),)
         );
@@ -1522,18 +1563,18 @@ mod tests {
     fn other_float() {
         assert_eq!(
             parse(&lex("Infinity").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(f64::INFINITY).with_position((0, 8))
             ))
         );
         assert_eq!(
             parse(&lex("-Infinity").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Float(f64::NEG_INFINITY).with_position((0, 9))
             ))
         );
 
-        if let Statement::ValueExpression(Expression::Value(WithPosition {
+        if let Statement::Expression(Expression::Value(WithPosition {
             node: ValueNode::Float(float),
             ..
         })) = &parse(&lex("NaN").unwrap()).unwrap()[0]
@@ -1553,7 +1594,7 @@ mod tests {
 
             assert_eq!(
                 statements[0],
-                Statement::ValueExpression(Expression::Value(
+                Statement::Expression(Expression::Value(
                     ValueNode::Integer(i).with_position((0, 1))
                 ))
             )
@@ -1561,7 +1602,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex("42").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Integer(42).with_position((0, 2))
             ))
         );
@@ -1570,7 +1611,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex(&maximum_integer).unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Integer(i64::MAX).with_position((0, 19))
             ))
         );
@@ -1585,7 +1626,7 @@ mod tests {
 
             assert_eq!(
                 statements[0],
-                Statement::ValueExpression(Expression::Value(
+                Statement::Expression(Expression::Value(
                     ValueNode::Integer(i).with_position((0, 2))
                 ))
             )
@@ -1593,7 +1634,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex("-42").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Integer(-42).with_position((0, 3))
             ))
         );
@@ -1602,7 +1643,7 @@ mod tests {
 
         assert_eq!(
             parse(&lex(&minimum_integer).unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::Integer(i64::MIN).with_position((0, 20))
             ))
         );
@@ -1612,19 +1653,19 @@ mod tests {
     fn double_quoted_string() {
         assert_eq!(
             parse(&lex("\"\"").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("".to_string()).with_position((0, 2))
             ))
         );
         assert_eq!(
             parse(&lex("\"42\"").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("42".to_string()).with_position((0, 4))
             ),)
         );
         assert_eq!(
             parse(&lex("\"foobar\"").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("foobar".to_string()).with_position((0, 8))
             ),)
         );
@@ -1634,19 +1675,19 @@ mod tests {
     fn single_quoted_string() {
         assert_eq!(
             parse(&lex("''").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("".to_string()).with_position((0, 2))
             ))
         );
         assert_eq!(
             parse(&lex("'42'").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("42".to_string()).with_position((0, 4))
             ),)
         );
         assert_eq!(
             parse(&lex("'foobar'").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("foobar".to_string()).with_position((0, 8))
             ),)
         );
@@ -1656,19 +1697,19 @@ mod tests {
     fn grave_quoted_string() {
         assert_eq!(
             parse(&lex("``").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("".to_string()).with_position((0, 2))
             ))
         );
         assert_eq!(
             parse(&lex("`42`").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("42".to_string()).with_position((0, 4))
             ),)
         );
         assert_eq!(
             parse(&lex("`foobar`").unwrap()).unwrap()[0],
-            Statement::ValueExpression(Expression::Value(
+            Statement::Expression(Expression::Value(
                 ValueNode::String("foobar".to_string()).with_position((0, 8))
             ),)
         );

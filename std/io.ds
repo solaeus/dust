@@ -1,9 +1,9 @@
 io = {
-	read_line = fn () str {
+	read_line = fn () -> str {
 		READ_LINE
 	}
 
-	write_line = fn (output: any) none {
+	write_line = fn (output: any) -> none {
 		WRITE_LINE output
 	}
 }

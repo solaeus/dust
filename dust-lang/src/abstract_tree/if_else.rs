@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(
             IfElse::new(
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
-                Block::new(vec![Statement::ValueExpression(Expression::Value(
+                Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::String("foo".to_string()).with_position((0, 0))
                 ))])
                 .with_position((0, 0)),

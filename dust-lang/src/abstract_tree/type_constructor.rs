@@ -18,7 +18,7 @@ pub enum TypeConstructor {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionTypeConstructor {
     pub type_parameters: Option<Vec<WithPosition<Identifier>>>,
-    pub value_parameters: Vec<(WithPosition<Identifier>, Box<TypeConstructor>)>,
+    pub value_parameters: Vec<TypeConstructor>,
     pub return_type: Box<TypeConstructor>,
 }
 
@@ -72,8 +72,12 @@ impl TypeConstructor {
                     item_type: Box::new(constructed_type),
                 })
             }
+            TypeConstructor::ListOf(item_type) => {
+                let item_type = item_type.node.construct(&context)?;
+
+                Ok(Type::ListOf(Box::new(item_type)))
+            }
             TypeConstructor::Type(r#type) => Ok(r#type.node),
-            TypeConstructor::ListOf(_) => todo!(),
         }
     }
 }

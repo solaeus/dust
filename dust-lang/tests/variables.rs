@@ -49,7 +49,7 @@ fn function_variable() {
             Some(Vec::with_capacity(0)),
             vec![(Identifier::new("x"), Type::Integer)],
             Type::Integer,
-            Block::new(vec![Statement::ValueExpression(Expression::Identifier(
+            Block::new(vec![Statement::Expression(Expression::Identifier(
                 Identifier::new("x").with_position((27, 28))
             ))])
         )))
