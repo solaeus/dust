@@ -7,16 +7,16 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, Statement, ValueExpression};
+use super::{AbstractNode, Evaluation, Expression, Statement};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct While {
-    expression: ValueExpression,
+    expression: Expression,
     statements: Vec<Statement>,
 }
 
 impl While {
-    pub fn new(expression: ValueExpression, statements: Vec<Statement>) -> Self {
+    pub fn new(expression: Expression, statements: Vec<Statement>) -> Self {
         Self {
             expression,
             statements,
@@ -39,12 +39,19 @@ impl AbstractNode for While {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
             let expression_position = self.expression.position();
-            let action = self.expression.clone().run(&mut _context.clone(), false)?;
+            let action = self
+                .expression
+                .clone()
+                .evaluate(&mut _context.clone(), false)?;
 
-            if let Action::Return(value) = action {
+            if let Evaluation::Return(value) = action {
                 Ok(value)
             } else {
                 Err(RuntimeError::ValidationFailure(
@@ -55,16 +62,16 @@ impl AbstractNode for While {
 
         while let ValueInner::Boolean(true) = get_boolean()?.inner().as_ref() {
             for statement in &self.statements {
-                let action = statement.clone().run(&mut _context.clone(), false)?;
+                let action = statement.clone().evaluate(&mut _context.clone(), false)?;
 
                 match action {
-                    Action::Return(_) => {}
-                    Action::None => {}
-                    Action::Break => return Ok(Action::Break),
+                    Evaluation::Return(_) => {}
+                    Evaluation::None => {}
+                    Evaluation::Break => return Ok(Evaluation::Break),
                 }
             }
         }
 
-        Ok(Action::None)
+        Ok(Evaluation::None)
     }
 }

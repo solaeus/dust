@@ -7,19 +7,19 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, ExpectedType, Type, ValueExpression};
+use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Logic {
-    Equal(ValueExpression, ValueExpression),
-    NotEqual(ValueExpression, ValueExpression),
-    Greater(ValueExpression, ValueExpression),
-    Less(ValueExpression, ValueExpression),
-    GreaterOrEqual(ValueExpression, ValueExpression),
-    LessOrEqual(ValueExpression, ValueExpression),
-    And(ValueExpression, ValueExpression),
-    Or(ValueExpression, ValueExpression),
-    Not(ValueExpression),
+    Equal(Expression, Expression),
+    NotEqual(Expression, Expression),
+    Greater(Expression, Expression),
+    Less(Expression, Expression),
+    GreaterOrEqual(Expression, Expression),
+    LessOrEqual(Expression, Expression),
+    And(Expression, Expression),
+    Or(Expression, Expression),
+    Not(Expression),
 }
 
 impl AbstractNode for Logic {
@@ -42,7 +42,7 @@ impl AbstractNode for Logic {
                     .map_err(|conflict| ValidationError::TypeCheck {
                         conflict,
                         actual_position: left.position(),
-                        expected_position: right.position(),
+                        expected_position: Some(right.position()),
                     })?;
 
                 Ok(())
@@ -89,11 +89,15 @@ impl AbstractNode for Logic {
         }
     }
 
-    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
-        let run_and_expect_value = |expression: ValueExpression| -> Result<Value, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.run(&mut context.clone(), _manage_memory)?;
-            let value = if let Action::Return(value) = action {
+            let action = expression.evaluate(&mut context.clone(), _manage_memory)?;
+            let value = if let Evaluation::Return(value) = action {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
@@ -104,10 +108,10 @@ impl AbstractNode for Logic {
             Ok(value)
         };
 
-        let run_and_expect_boolean = |expression: ValueExpression| -> Result<bool, RuntimeError> {
+        let run_and_expect_boolean = |expression: Expression| -> Result<bool, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.run(&mut context.clone(), _manage_memory)?;
-            let value = if let Action::Return(value) = action {
+            let action = expression.evaluate(&mut context.clone(), _manage_memory)?;
+            let value = if let Evaluation::Return(value) = action {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
@@ -187,7 +191,7 @@ impl AbstractNode for Logic {
             }
         };
 
-        Ok(Action::Return(Value::boolean(boolean)))
+        Ok(Evaluation::Return(Value::boolean(boolean)))
     }
 }
 
@@ -207,11 +211,11 @@ mod tests {
     fn equal() {
         assert_eq!(
             Logic::Equal(
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0)))
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         )
     }
 
@@ -219,11 +223,11 @@ mod tests {
     fn not_equal() {
         assert_eq!(
             Logic::NotEqual(
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(43).with_position((0, 0)))
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         )
     }
 
@@ -231,11 +235,11 @@ mod tests {
     fn greater() {
         assert_eq!(
             Logic::Greater(
-                ValueExpression::Value(ValueNode::Integer(43).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0)))
+                Expression::Value(ValueNode::Integer(43).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         )
     }
 
@@ -243,11 +247,11 @@ mod tests {
     fn less() {
         assert_eq!(
             Logic::Less(
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(43).with_position((0, 0)))
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         )
     }
 
@@ -255,20 +259,20 @@ mod tests {
     fn greater_or_equal() {
         assert_eq!(
             Logic::GreaterOrEqual(
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(41).with_position((0, 0)))
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(41).with_position((0, 0)))
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         );
 
         assert_eq!(
             Logic::GreaterOrEqual(
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         );
     }
 
@@ -276,20 +280,20 @@ mod tests {
     fn less_or_equal() {
         assert_eq!(
             Logic::LessOrEqual(
-                ValueExpression::Value(ValueNode::Integer(41).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(41).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         );
 
         assert_eq!(
             Logic::LessOrEqual(
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
+                Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         );
     }
 
@@ -297,11 +301,11 @@ mod tests {
     fn and() {
         assert_eq!(
             Logic::And(
-                ValueExpression::Value(ValueNode::Boolean(true).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Boolean(true).with_position((0, 0))),
+                Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
+                Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         )
     }
 
@@ -309,22 +313,22 @@ mod tests {
     fn or() {
         assert_eq!(
             Logic::Or(
-                ValueExpression::Value(ValueNode::Boolean(true).with_position((0, 0))),
-                ValueExpression::Value(ValueNode::Boolean(false).with_position((0, 0))),
+                Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
+                Expression::Value(ValueNode::Boolean(false).with_position((0, 0))),
             )
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         )
     }
 
     #[test]
     fn not() {
         assert_eq!(
-            Logic::Not(ValueExpression::Value(
+            Logic::Not(Expression::Value(
                 ValueNode::Boolean(false).with_position((0, 0))
             ))
-            .run(&mut Context::new(None), true),
-            Ok(Action::Return(Value::boolean(true)))
+            .evaluate(&mut Context::new(None), true),
+            Ok(Evaluation::Return(Value::boolean(true)))
         )
     }
 }

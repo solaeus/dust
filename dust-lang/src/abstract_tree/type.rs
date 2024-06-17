@@ -9,29 +9,31 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Action, WithPosition};
+use super::{AbstractNode, Evaluation};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Type {
     Any,
-    Argument(Identifier),
     Boolean,
     Float,
     Function {
-        parameter_types: Vec<WithPosition<Type>>,
-        return_type: Box<WithPosition<Type>>,
+        type_parameters: Option<Vec<Identifier>>,
+        value_parameters: Vec<(Identifier, Type)>,
+        return_type: Box<Type>,
     },
     Integer,
-    List,
-    ListOf(Box<WithPosition<Type>>),
-    ListExact(Vec<WithPosition<Type>>),
+    List {
+        length: usize,
+        item_type: Box<Type>,
+    },
+    ListOf(Box<Type>),
     Map,
     None,
     Range,
     String,
     Structure {
         name: Identifier,
-        fields: Vec<(Identifier, WithPosition<Type>)>,
+        fields: Vec<(Identifier, Type)>,
     },
 }
 
@@ -43,45 +45,14 @@ impl Type {
             | (Type::Boolean, Type::Boolean)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::List, Type::List)
-            | (Type::List, Type::ListOf(_))
-            | (Type::List, Type::ListExact(_))
-            | (Type::ListOf(_), Type::List)
-            | (Type::ListExact(_), Type::List)
             | (Type::Map, Type::Map)
             | (Type::None, Type::None)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
-            (Type::Argument(left), Type::Argument(right)) => {
-                if left == right {
-                    return Ok(());
-                }
-            }
             (Type::ListOf(left), Type::ListOf(right)) => {
-                if let Ok(()) = left.node.check(&right.node) {
+                if let Ok(()) = left.check(&right) {
                     return Ok(());
                 }
-            }
-            (Type::ListOf(list_of), Type::ListExact(list_exact)) => {
-                for r#type in list_exact {
-                    list_of.node.check(&r#type.node)?;
-                }
-
-                return Ok(());
-            }
-            (Type::ListExact(list_exact), Type::ListOf(list_of)) => {
-                for r#type in list_exact {
-                    r#type.node.check(&list_of.node)?;
-                }
-
-                return Ok(());
-            }
-            (Type::ListExact(left), Type::ListExact(right)) => {
-                for (left, right) in left.iter().zip(right.iter()) {
-                    left.node.check(&right.node)?;
-                }
-
-                return Ok(());
             }
             (
                 Type::Structure {
@@ -97,8 +68,7 @@ impl Type {
                     for ((left_field_name, left_type), (right_field_name, right_type)) in
                         left_fields.iter().zip(right_fields.iter())
                     {
-                        if left_field_name != right_field_name || left_type.node != right_type.node
-                        {
+                        if left_field_name != right_field_name || left_type != right_type {
                             return Err(TypeConflict {
                                 actual: other.clone(),
                                 expected: self.clone(),
@@ -111,19 +81,33 @@ impl Type {
             }
             (
                 Type::Function {
-                    parameter_types: left_parameters,
+                    type_parameters: left_type_parameters,
+                    value_parameters: left_value_parameters,
                     return_type: left_return,
                 },
                 Type::Function {
-                    parameter_types: right_parameters,
+                    type_parameters: right_type_parameters,
+                    value_parameters: right_value_parameters,
                     return_type: right_return,
                 },
             ) => {
-                if left_return.node == right_return.node {
-                    for (left_parameter, right_parameter) in
-                        left_parameters.iter().zip(right_parameters.iter())
+                if left_return == right_return {
+                    for (left_parameter, right_parameter) in left_type_parameters
+                        .iter()
+                        .zip(right_type_parameters.iter())
                     {
-                        if left_parameter.node != right_parameter.node {
+                        if left_parameter != right_parameter {
+                            return Err(TypeConflict {
+                                actual: other.clone(),
+                                expected: self.clone(),
+                            });
+                        }
+                    }
+                    for (left_parameter, right_parameter) in left_value_parameters
+                        .iter()
+                        .zip(right_value_parameters.iter())
+                    {
+                        if left_parameter != right_parameter {
                             return Err(TypeConflict {
                                 actual: other.clone(),
                                 expected: self.clone(),
@@ -153,8 +137,12 @@ impl AbstractNode for Type {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
-        Ok(Action::None)
+    fn evaluate(
+        self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        Ok(Evaluation::None)
     }
 }
 
@@ -165,47 +153,40 @@ impl Display for Type {
             Type::Boolean => write!(f, "bool"),
             Type::Float => write!(f, "float"),
             Type::Integer => write!(f, "int"),
-            Type::List => write!(f, "list"),
-            Type::ListOf(item_type) => write!(f, "list({})", item_type.node),
-            Type::ListExact(item_types) => {
-                write!(f, "[")?;
-
-                for (index, item_type) in item_types.into_iter().enumerate() {
-                    if index == item_types.len() - 1 {
-                        write!(f, "{}", item_type.node)?;
-                    } else {
-                        write!(f, "{}, ", item_type.node)?;
-                    }
-                }
-
-                write!(f, "]")
-            }
+            Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
+            Type::ListOf(item_type) => write!(f, "list({})", item_type),
             Type::Map => write!(f, "map"),
             Type::None => write!(f, "none"),
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),
             Type::Function {
-                parameter_types,
+                type_parameters,
+                value_parameters,
                 return_type,
             } => {
                 write!(f, "(")?;
 
-                for r#type in parameter_types {
-                    write!(f, "{} ", r#type.node)?;
+                if let Some(type_parameters) = type_parameters {
+                    for identifier in type_parameters {
+                        write!(f, "{} ", identifier)?;
+                    }
+
+                    write!(f, ")(")?;
                 }
 
-                write!(f, ") : {}", return_type.node)
+                for (identifier, r#type) in value_parameters {
+                    write!(f, "{identifier}: {type}")?;
+                }
+
+                write!(f, ") : {}", return_type)
             }
             Type::Structure { name, .. } => write!(f, "{name}"),
-            Type::Argument(identifier) => write!(f, "{identifier}"),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::abstract_tree::WithPos;
-
     use super::*;
 
     #[test]
@@ -214,18 +195,22 @@ mod tests {
         assert_eq!(Type::Boolean.check(&Type::Boolean), Ok(()));
         assert_eq!(Type::Float.check(&Type::Float), Ok(()));
         assert_eq!(Type::Integer.check(&Type::Integer), Ok(()));
-        assert_eq!(Type::List.check(&Type::List), Ok(()));
         assert_eq!(
-            Type::ListOf(Box::new(Type::Integer.with_position((0, 0))))
-                .check(&Type::ListOf(Box::new(Type::Integer.with_position((0, 0))))),
+            Type::List {
+                length: 4,
+                item_type: Box::new(Type::Boolean),
+            }
+            .check(&Type::List {
+                length: 4,
+                item_type: Box::new(Type::Boolean),
+            }),
+            Ok(())
+        );
+        assert_eq!(
+            Type::ListOf(Box::new(Type::Integer)).check(&Type::ListOf(Box::new(Type::Integer))),
             Ok(())
         );
 
-        assert_eq!(
-            Type::ListExact(vec![Type::Float.with_position((0, 0))])
-                .check(&Type::ListExact(vec![Type::Float.with_position((0, 0))])),
-            Ok(())
-        );
         assert_eq!(Type::Map.check(&Type::Map), Ok(()));
         assert_eq!(Type::None.check(&Type::None), Ok(()));
         assert_eq!(Type::Range.check(&Type::Range), Ok(()));
@@ -257,9 +242,11 @@ mod tests {
             Type::Boolean,
             Type::Float,
             Type::Integer,
-            Type::List,
-            Type::ListOf(Box::new(Type::Boolean.with_position((0, 0)))),
-            Type::ListExact(vec![Type::Integer.with_position((0, 0))]),
+            Type::List {
+                length: 10,
+                item_type: Box::new(Type::Integer),
+            },
+            Type::ListOf(Box::new(Type::Boolean)),
             Type::Map,
             Type::None,
             Type::Range,
@@ -283,18 +270,13 @@ mod tests {
 
     #[test]
     fn check_list_types() {
-        let list = Type::List;
-        let list_exact = Type::ListExact(vec![
-            Type::Integer.with_position((0, 0)),
-            Type::Integer.with_position((0, 0)),
-        ]);
-        let list_of = Type::ListOf(Box::new(Type::Integer.with_position((0, 0))));
+        let list = Type::List {
+            length: 42,
+            item_type: Box::new(Type::Integer),
+        };
+        let list_of = Type::ListOf(Box::new(Type::Integer));
 
-        assert_eq!(list.check(&list_exact), Ok(()));
         assert_eq!(list.check(&list_of), Ok(()));
-        assert_eq!(list_exact.check(&list), Ok(()));
-        assert_eq!(list_exact.check(&list_of), Ok(()));
         assert_eq!(list_of.check(&list), Ok(()));
-        assert_eq!(list_of.check(&list_exact), Ok(()));
     }
 }

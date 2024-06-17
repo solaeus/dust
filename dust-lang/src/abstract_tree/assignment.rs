@@ -7,12 +7,12 @@ use crate::{
     Context, Value,
 };
 
-use super::{AbstractNode, Action, ExpectedType, Statement, Type, WithPosition};
+use super::{AbstractNode, Evaluation, ExpectedType, Statement, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Assignment {
     identifier: WithPosition<Identifier>,
-    r#type: Option<WithPosition<Type>>,
+    constructor: Option<WithPosition<TypeConstructor>>,
     operator: AssignmentOperator,
     statement: Box<Statement>,
 }
@@ -27,13 +27,13 @@ pub enum AssignmentOperator {
 impl Assignment {
     pub fn new(
         identifier: WithPosition<Identifier>,
-        r#type: Option<WithPosition<Type>>,
+        constructor: Option<WithPosition<TypeConstructor>>,
         operator: AssignmentOperator,
         statement: Statement,
     ) -> Self {
         Self {
             identifier,
-            r#type,
+            constructor,
             operator,
             statement: Box::new(statement),
         }
@@ -45,19 +45,21 @@ impl AbstractNode for Assignment {
         let statement_type = self.statement.expected_type(context)?;
 
         if let Some(WithPosition {
-            node: expected_type,
+            node: constructor,
             position: expected_position,
-        }) = &self.r#type
+        }) = &self.constructor
         {
-            expected_type.check(&statement_type).map_err(|conflict| {
-                ValidationError::TypeCheck {
+            let r#type = constructor.clone().construct(&context)?;
+
+            r#type
+                .check(&statement_type)
+                .map_err(|conflict| ValidationError::TypeCheck {
                     conflict,
                     actual_position: self.statement.position(),
-                    expected_position: expected_position.clone(),
-                }
-            })?;
+                    expected_position: Some(expected_position.clone()),
+                })?;
 
-            context.set_type(self.identifier.node.clone(), expected_type.clone())?;
+            context.set_type(self.identifier.node.clone(), r#type.clone())?;
         } else {
             context.set_type(self.identifier.node.clone(), statement_type)?;
         }
@@ -67,10 +69,14 @@ impl AbstractNode for Assignment {
         Ok(())
     }
 
-    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
-        let action = self.statement.run(context, manage_memory)?;
+    fn evaluate(
+        self,
+        context: &mut Context,
+        manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        let action = self.statement.evaluate(context, manage_memory)?;
         let right = match action {
-            Action::Return(value) => value,
+            Evaluation::Return(value) => value,
             r#break => return Ok(r#break),
         };
 
@@ -170,6 +176,6 @@ impl AbstractNode for Assignment {
             }
         }
 
-        Ok(Action::None)
+        Ok(Evaluation::None)
     }
 }

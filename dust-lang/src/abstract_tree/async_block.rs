@@ -8,7 +8,7 @@ use crate::{
     error::{RuntimeError, RwLockPoisonError, ValidationError},
 };
 
-use super::{AbstractNode, Action, ExpectedType, Statement, Type};
+use super::{AbstractNode, Evaluation, ExpectedType, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AsyncBlock {
@@ -30,15 +30,19 @@ impl AbstractNode for AsyncBlock {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         let statement_count = self.statements.len();
-        let final_result = RwLock::new(Ok(Action::None));
+        let final_result = RwLock::new(Ok(Evaluation::None));
 
         self.statements
             .into_par_iter()
             .enumerate()
             .find_map_first(|(index, statement)| {
-                let result = statement.run(&mut _context.clone(), false);
+                let result = statement.evaluate(&mut _context.clone(), false);
 
                 if index == statement_count - 1 {
                     let get_write_lock = final_result.write();

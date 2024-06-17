@@ -9,7 +9,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstract_tree::{AbstractNode, Action, Block, Type, WithPos, WithPosition},
+    abstract_tree::{AbstractNode, Block, Evaluation, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
@@ -52,14 +52,14 @@ impl Value {
     }
 
     pub fn function(
-        type_arguments: Vec<WithPosition<Type>>,
-        parameters: Vec<(Identifier, WithPosition<Type>)>,
-        return_type: WithPosition<Type>,
-        body: WithPosition<Block>,
+        type_parameters: Option<Vec<Identifier>>,
+        value_parameters: Vec<(Identifier, Type)>,
+        return_type: Type,
+        body: Block,
     ) -> Self {
         Value(Arc::new(ValueInner::Function(Function {
-            type_parameters: type_arguments,
-            parameters,
+            type_parameters,
+            value_parameters,
             return_type,
             body,
         })))
@@ -129,19 +129,19 @@ impl Display for Value {
             ValueInner::Range(_) => todo!(),
             ValueInner::String(string) => write!(f, "{string}"),
             ValueInner::Function(Function {
-                type_parameters: type_arguments,
-                parameters,
+                type_parameters,
+                value_parameters: parameters,
                 return_type,
                 body,
             }) => {
-                if !type_arguments.is_empty() {
+                if let Some(type_parameters) = type_parameters {
                     write!(f, "(")?;
 
-                    for (index, r#type) in type_arguments.into_iter().enumerate() {
-                        if index == type_arguments.len() - 1 {
-                            write!(f, "{}", r#type.node)?;
+                    for (index, r#type) in type_parameters.into_iter().enumerate() {
+                        if index == type_parameters.len() - 1 {
+                            write!(f, "{}", r#type)?;
                         } else {
-                            write!(f, "{} ", r#type.node)?;
+                            write!(f, "{} ", r#type)?;
                         }
                     }
 
@@ -151,10 +151,10 @@ impl Display for Value {
                 write!(f, "(")?;
 
                 for (identifier, r#type) in parameters {
-                    write!(f, "{identifier}: {}", r#type.node)?;
+                    write!(f, "{identifier}: {}", r#type)?;
                 }
 
-                write!(f, "): {} {:?}", return_type.node, body.node)
+                write!(f, "): {} {:?}", return_type, body)
             }
             ValueInner::Structure { name, fields } => {
                 write!(f, "{}\n{{", name.node)?;
@@ -224,23 +224,19 @@ impl ValueInner {
             ValueInner::Float(_) => Type::Float,
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
-                let mut types = Vec::with_capacity(values.len());
+                let item_type = values.first().unwrap().node.r#type(context)?;
 
-                for value in values {
-                    types.push(value.node.r#type(context)?.with_position(value.position));
+                Type::List {
+                    length: values.len(),
+                    item_type: Box::new(item_type),
                 }
-
-                Type::ListExact(types)
             }
             ValueInner::Map(_) => Type::Map,
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
             ValueInner::Function(function) => Type::Function {
-                parameter_types: function
-                    .parameters
-                    .iter()
-                    .map(|(_, r#type)| r#type.clone())
-                    .collect(),
+                type_parameters: None,
+                value_parameters: function.value_parameters.clone(),
                 return_type: Box::new(function.return_type.clone()),
             },
             ValueInner::Structure { name, .. } => {
@@ -321,14 +317,14 @@ impl Ord for ValueInner {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Function {
-    type_parameters: Vec<WithPosition<Type>>,
-    parameters: Vec<(Identifier, WithPosition<Type>)>,
-    return_type: WithPosition<Type>,
-    body: WithPosition<Block>,
+    type_parameters: Option<Vec<Identifier>>,
+    value_parameters: Vec<(Identifier, Type)>,
+    return_type: Type,
+    body: Block,
 }
 
 impl Function {
-    pub fn type_parameters(&self) -> &Vec<WithPosition<Type>> {
+    pub fn type_parameters(&self) -> &Option<Vec<Identifier>> {
         &self.type_parameters
     }
 
@@ -337,11 +333,12 @@ impl Function {
         arguments: Vec<Value>,
         context: &mut Context,
         clear_variables: bool,
-    ) -> Result<Action, RuntimeError> {
-        for ((identifier, _), value) in self.parameters.into_iter().zip(arguments.into_iter()) {
+    ) -> Result<Evaluation, RuntimeError> {
+        for ((identifier, _), value) in self.value_parameters.into_iter().zip(arguments.into_iter())
+        {
             context.set_value(identifier.clone(), value)?;
         }
 
-        self.body.node.run(context, clear_variables)
+        self.body.evaluate(context, clear_variables)
     }
 }

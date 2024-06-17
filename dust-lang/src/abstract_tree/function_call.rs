@@ -6,25 +6,27 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Action, ExpectedType, Type, ValueExpression, WithPosition};
+use super::{
+    AbstractNode, Evaluation, ExpectedType, Expression, Type, TypeConstructor, WithPosition,
+};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionCall {
-    function: Box<ValueExpression>,
-    type_arguments: Vec<WithPosition<Type>>,
-    arguments: Vec<ValueExpression>,
+    function: Box<Expression>,
+    type_arguments: Option<Vec<WithPosition<TypeConstructor>>>,
+    value_arguments: Vec<Expression>,
 }
 
 impl FunctionCall {
     pub fn new(
-        function: ValueExpression,
-        type_arguments: Vec<WithPosition<Type>>,
-        arguments: Vec<ValueExpression>,
+        function: Expression,
+        type_arguments: Option<Vec<WithPosition<TypeConstructor>>>,
+        value_arguments: Vec<Expression>,
     ) -> Self {
         FunctionCall {
             function: Box::new(function),
             type_arguments,
-            arguments,
+            value_arguments,
         }
     }
 }
@@ -33,48 +35,28 @@ impl AbstractNode for FunctionCall {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.function.validate(context, manage_memory)?;
 
-        for expression in &self.arguments {
+        for expression in &self.value_arguments {
             expression.validate(context, manage_memory)?;
         }
 
         let function_node_type = self.function.expected_type(context)?;
 
         if let Type::Function {
-            parameter_types,
+            type_parameters,
+            value_parameters: _,
             return_type: _,
         } = function_node_type
         {
-            for (type_parameter, type_argument) in
-                parameter_types.iter().zip(self.type_arguments.iter())
-            {
-                if let Type::Argument(_) = type_parameter.node {
-                    continue;
-                }
-
-                type_parameter
-                    .node
-                    .check(&type_argument.node)
-                    .map_err(|conflict| ValidationError::TypeCheck {
-                        conflict,
-                        actual_position: type_argument.position,
-                        expected_position: type_parameter.position,
-                    })?;
-            }
-
-            for (type_parameter, expression) in parameter_types.iter().zip(self.arguments.iter()) {
-                if let Type::Argument(_) = type_parameter.node {
-                    continue;
-                }
-
-                let actual = expression.expected_type(context)?;
-
-                type_parameter.node.check(&actual).map_err(|conflict| {
-                    ValidationError::TypeCheck {
-                        conflict,
-                        actual_position: expression.position(),
-                        expected_position: type_parameter.position,
+            match (type_parameters, &self.type_arguments) {
+                (Some(type_parameters), Some(type_arguments)) => {
+                    if type_parameters.len() != type_arguments.len() {
+                        return Err(ValidationError::WrongTypeArgumentCount {
+                            actual: type_parameters.len(),
+                            expected: type_arguments.len(),
+                        });
                     }
-                })?;
+                }
+                _ => {}
             }
 
             Ok(())
@@ -86,10 +68,14 @@ impl AbstractNode for FunctionCall {
         }
     }
 
-    fn run(self, context: &mut Context, clear_variables: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        clear_variables: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         let function_position = self.function.position();
-        let action = self.function.run(context, clear_variables)?;
-        let value = if let Action::Return(value) = action {
+        let action = self.function.evaluate(context, clear_variables)?;
+        let value = if let Evaluation::Return(value) = action {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -97,7 +83,7 @@ impl AbstractNode for FunctionCall {
             ));
         };
         let function = if let ValueInner::Function(function) = value.inner().as_ref() {
-            function
+            function.clone()
         } else {
             return Err(RuntimeError::ValidationFailure(
                 ValidationError::ExpectedFunction {
@@ -106,12 +92,12 @@ impl AbstractNode for FunctionCall {
                 },
             ));
         };
-        let mut arguments = Vec::with_capacity(self.arguments.len());
+        let mut arguments = Vec::with_capacity(self.value_arguments.len());
 
-        for expression in self.arguments {
+        for expression in self.value_arguments {
             let expression_position = expression.position();
-            let action = expression.run(context, clear_variables)?;
-            let value = if let Action::Return(value) = action {
+            let action = expression.evaluate(context, clear_variables)?;
+            let value = if let Evaluation::Return(value) = action {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
@@ -124,15 +110,17 @@ impl AbstractNode for FunctionCall {
 
         let mut function_context = Context::new(Some(&context));
 
-        for (type_parameter, type_argument) in function
-            .type_parameters()
-            .iter()
-            .map(|r#type| r#type.node.clone())
-            .zip(self.type_arguments.into_iter().map(|r#type| r#type.node))
-        {
-            if let Type::Argument(identifier) = type_parameter {
-                function_context.set_type(identifier, type_argument)?;
+        match (function.type_parameters(), self.type_arguments) {
+            (Some(type_parameters), Some(type_arguments)) => {
+                for (parameter, constructor) in
+                    type_parameters.into_iter().zip(type_arguments.into_iter())
+                {
+                    let r#type = constructor.node.construct(context)?;
+
+                    function_context.set_type(parameter.clone(), r#type)?;
+                }
             }
+            _ => {}
         }
 
         function
@@ -146,7 +134,7 @@ impl ExpectedType for FunctionCall {
         let function_node_type = self.function.expected_type(_context)?;
 
         if let Type::Function { return_type, .. } = function_node_type {
-            Ok(return_type.node)
+            Ok(*return_type)
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_node_type,

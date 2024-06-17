@@ -7,15 +7,15 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Action, ExpectedType, SourcePosition, Type, ValueExpression};
+use super::{AbstractNode, Evaluation, ExpectedType, Expression, SourcePosition, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Math {
-    Add(ValueExpression, ValueExpression),
-    Subtract(ValueExpression, ValueExpression),
-    Multiply(ValueExpression, ValueExpression),
-    Divide(ValueExpression, ValueExpression),
-    Modulo(ValueExpression, ValueExpression),
+    Add(Expression, Expression),
+    Subtract(Expression, Expression),
+    Multiply(Expression, Expression),
+    Divide(Expression, Expression),
+    Modulo(Expression, Expression),
 }
 
 impl AbstractNode for Math {
@@ -67,21 +67,24 @@ impl AbstractNode for Math {
         }
     }
 
-    fn run(self, _context: &mut Context, _clear_variables: bool) -> Result<Action, RuntimeError> {
-        let run_and_expect_value = |position: SourcePosition,
-                                    expression: ValueExpression|
-         -> Result<Value, RuntimeError> {
-            let action = expression.run(&mut _context.clone(), _clear_variables)?;
-            let value = if let Action::Return(value) = action {
-                value
-            } else {
-                return Err(RuntimeError::ValidationFailure(
-                    ValidationError::InterpreterExpectedReturn(position),
-                ));
-            };
+    fn evaluate(
+        self,
+        _context: &mut Context,
+        _clear_variables: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        let run_and_expect_value =
+            |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
+                let action = expression.evaluate(&mut _context.clone(), _clear_variables)?;
+                let value = if let Evaluation::Return(value) = action {
+                    value
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::InterpreterExpectedReturn(position),
+                    ));
+                };
 
-            Ok(value)
-        };
+                Ok(value)
+            };
 
         let value = match self {
             Math::Add(left, right) => {
@@ -288,7 +291,7 @@ impl AbstractNode for Math {
             }
         };
 
-        Ok(Action::Return(value))
+        Ok(Evaluation::Return(value))
     }
 }
 

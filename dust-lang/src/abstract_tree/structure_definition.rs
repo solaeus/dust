@@ -6,16 +6,16 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Action, Type, WithPosition};
+use super::{AbstractNode, Evaluation, Type, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructureDefinition {
     name: Identifier,
-    fields: Vec<(Identifier, WithPosition<Type>)>,
+    fields: Vec<(Identifier, WithPosition<TypeConstructor>)>,
 }
 
 impl StructureDefinition {
-    pub fn new(name: Identifier, fields: Vec<(Identifier, WithPosition<Type>)>) -> Self {
+    pub fn new(name: Identifier, fields: Vec<(Identifier, WithPosition<TypeConstructor>)>) -> Self {
         Self { name, fields }
     }
 }
@@ -29,14 +29,26 @@ impl AbstractNode for StructureDefinition {
         Ok(())
     }
 
-    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        let mut fields = Vec::with_capacity(self.fields.len());
+
+        for (identifier, constructor) in self.fields {
+            let r#type = constructor.node.construct(&context)?;
+
+            fields.push((identifier, r#type));
+        }
+
         let struct_type = Type::Structure {
             name: self.name.clone(),
-            fields: self.fields,
+            fields,
         };
 
         context.set_type(self.name, struct_type)?;
 
-        Ok(Action::None)
+        Ok(Evaluation::None)
     }
 }

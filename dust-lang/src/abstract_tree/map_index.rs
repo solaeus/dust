@@ -6,16 +6,16 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Action, ExpectedType, Type, ValueExpression, ValueNode, WithPosition};
+use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MapIndex {
-    collection: ValueExpression,
-    index: ValueExpression,
+    collection: Expression,
+    index: Expression,
 }
 
 impl MapIndex {
-    pub fn new(left: ValueExpression, right: ValueExpression) -> Self {
+    pub fn new(left: Expression, right: Expression) -> Self {
         Self {
             collection: left,
             index: right,
@@ -32,10 +32,14 @@ impl AbstractNode for MapIndex {
         self.collection.validate(_context, _manage_memory)
     }
 
-    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         let collection_position = self.collection.position();
-        let action = self.collection.run(context, _manage_memory)?;
-        let collection = if let Action::Return(value) = action {
+        let action = self.collection.evaluate(context, _manage_memory)?;
+        let collection = if let Evaluation::Return(value) = action {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -43,13 +47,13 @@ impl AbstractNode for MapIndex {
             ));
         };
 
-        if let (ValueInner::Map(map), ValueExpression::Identifier(index)) =
+        if let (ValueInner::Map(map), Expression::Identifier(index)) =
             (collection.inner().as_ref(), self.index)
         {
             let action = map
                 .get(&index.node)
-                .map(|value| Action::Return(value.clone()))
-                .unwrap_or(Action::None);
+                .map(|value| Evaluation::Return(value.clone()))
+                .unwrap_or(Evaluation::None);
 
             Ok(action)
         } else {
@@ -65,7 +69,7 @@ impl AbstractNode for MapIndex {
 
 impl ExpectedType for MapIndex {
     fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
-        if let (ValueExpression::Identifier(collection), ValueExpression::Identifier(index)) =
+        if let (Expression::Identifier(collection), Expression::Identifier(index)) =
             (&self.collection, &self.index)
         {
             let collection = if let Some(collection) = context.get_value(&collection.node)? {
@@ -90,17 +94,19 @@ impl ExpectedType for MapIndex {
         }
 
         if let (
-            ValueExpression::Value(WithPosition {
+            Expression::Value(WithPosition {
                 node: ValueNode::Map(properties),
                 ..
             }),
-            ValueExpression::Identifier(index),
+            Expression::Identifier(index),
         ) = (&self.collection, &self.index)
         {
-            for (property, type_option, expression) in properties {
+            for (property, constructor_option, expression) in properties {
                 if property == &index.node {
-                    return if let Some(r#type) = type_option {
-                        Ok(r#type.node.clone())
+                    return if let Some(constructor) = constructor_option {
+                        let r#type = constructor.node.clone().construct(&context)?;
+
+                        Ok(r#type)
                     } else {
                         Ok(expression.expected_type(context)?)
                     };
@@ -111,15 +117,15 @@ impl ExpectedType for MapIndex {
         }
 
         if let (
-            ValueExpression::Value(WithPosition {
+            Expression::Value(WithPosition {
                 node: ValueNode::Structure { fields, .. },
                 ..
             }),
-            ValueExpression::Identifier(index),
+            Expression::Identifier(index),
         ) = (&self.collection, &self.index)
         {
             return if let Some(type_result) = fields.iter().find_map(|(property, expression)| {
-                if property == &index.node {
+                if property.node == index.node {
                     Some(expression.expected_type(context))
                 } else {
                     None

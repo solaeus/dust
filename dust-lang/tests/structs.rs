@@ -56,7 +56,7 @@ fn field_type_error() {
                     expected: Type::Integer
                 },
                 actual_position: (128, 134).into(),
-                expected_position: (56, 59).into()
+                expected_position: Some((56, 59).into()),
             },
             position: (96, 153).into()
         }]

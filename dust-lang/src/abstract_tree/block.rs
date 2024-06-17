@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Action, ExpectedType, Statement};
+use super::{AbstractNode, Evaluation, ExpectedType, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Block {
@@ -39,11 +39,15 @@ impl AbstractNode for Block {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
-        let mut previous = Action::None;
+    fn evaluate(
+        self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        let mut previous = Evaluation::None;
 
         for statement in self.statements {
-            previous = statement.run(_context, _manage_memory)?;
+            previous = statement.evaluate(_context, _manage_memory)?;
         }
 
         Ok(previous)
@@ -51,7 +55,7 @@ impl AbstractNode for Block {
 }
 
 impl ExpectedType for Block {
-    fn expected_type(&self, _context: &mut Context) -> Result<super::Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         self.last_statement().expected_type(_context)
     }
 }
@@ -59,7 +63,7 @@ impl ExpectedType for Block {
 #[cfg(test)]
 mod tests {
     use crate::{
-        abstract_tree::{Type, ValueExpression, ValueNode, WithPos},
+        abstract_tree::{Expression, ValueNode, WithPos},
         Value,
     };
 
@@ -68,30 +72,30 @@ mod tests {
     #[test]
     fn run_returns_value_of_final_statement() {
         let block = Block::new(vec![
-            Statement::ValueExpression(ValueExpression::Value(
+            Statement::ValueExpression(Expression::Value(
                 ValueNode::Integer(1).with_position((0, 0)),
             )),
-            Statement::ValueExpression(ValueExpression::Value(
+            Statement::ValueExpression(Expression::Value(
                 ValueNode::Integer(2).with_position((0, 0)),
             )),
-            Statement::ValueExpression(ValueExpression::Value(
+            Statement::ValueExpression(Expression::Value(
                 ValueNode::Integer(42).with_position((0, 0)),
             )),
         ]);
 
         assert_eq!(
-            block.run(&mut Context::new(None), true).unwrap(),
-            Action::Return(Value::integer(42))
+            block.evaluate(&mut Context::new(None), true).unwrap(),
+            Evaluation::Return(Value::integer(42))
         )
     }
 
     #[test]
     fn expected_type_returns_type_of_final_statement() {
         let block = Block::new(vec![
-            Statement::ValueExpression(ValueExpression::Value(
+            Statement::ValueExpression(Expression::Value(
                 ValueNode::String("42".to_string()).with_position((0, 0)),
             )),
-            Statement::ValueExpression(ValueExpression::Value(
+            Statement::ValueExpression(Expression::Value(
                 ValueNode::Integer(42).with_position((0, 0)),
             )),
         ]);

@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Action, Block, ExpectedType, Type, ValueExpression, WithPos, WithPosition,
+    AbstractNode, Block, Evaluation, ExpectedType, Expression, Type, TypeConstructor, WithPosition,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -18,18 +18,24 @@ pub enum ValueNode {
     Boolean(bool),
     Float(f64),
     Integer(i64),
-    List(Vec<ValueExpression>),
-    Map(Vec<(Identifier, Option<WithPosition<Type>>, ValueExpression)>),
+    List(Vec<Expression>),
+    Map(
+        Vec<(
+            Identifier,
+            Option<WithPosition<TypeConstructor>>,
+            Expression,
+        )>,
+    ),
     Range(Range<i64>),
     String(String),
     Structure {
         name: WithPosition<Identifier>,
-        fields: Vec<(Identifier, ValueExpression)>,
+        fields: Vec<(WithPosition<Identifier>, Expression)>,
     },
     ParsedFunction {
-        type_arguments: Vec<WithPosition<Type>>,
-        parameters: Vec<(Identifier, WithPosition<Type>)>,
-        return_type: WithPosition<Type>,
+        type_parameters: Option<Vec<WithPosition<Identifier>>>,
+        value_parameters: Vec<(Identifier, WithPosition<TypeConstructor>)>,
+        return_type: WithPosition<TypeConstructor>,
         body: WithPosition<Block>,
     },
 }
@@ -37,17 +43,18 @@ pub enum ValueNode {
 impl AbstractNode for ValueNode {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::Map(map_assignments) = self {
-            for (_identifier, r#type, expression) in map_assignments {
+            for (_identifier, constructor_option, expression) in map_assignments {
                 expression.validate(context, _manage_memory)?;
 
-                if let Some(expected_type) = r#type {
+                if let Some(constructor) = constructor_option {
                     let actual_type = expression.expected_type(context)?;
+                    let exprected_type = constructor.node.clone().construct(&context)?;
 
-                    expected_type.node.check(&actual_type).map_err(|conflict| {
+                    exprected_type.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
-                            expected_position: expected_type.position,
+                            expected_position: Some(constructor.position),
                         }
                     })?;
                 }
@@ -57,22 +64,18 @@ impl AbstractNode for ValueNode {
         }
 
         if let ValueNode::ParsedFunction {
-            type_arguments,
-            parameters,
+            type_parameters: _,
+            value_parameters,
             return_type,
             body,
         } = self
         {
             let mut function_context = Context::new(Some(&context));
 
-            for r#type in type_arguments {
-                if let Type::Argument(identifier) = &r#type.node {
-                    function_context.set_type(identifier.clone(), r#type.node.clone())?;
-                }
-            }
+            for (identifier, type_constructor) in value_parameters {
+                let r#type = type_constructor.node.clone().construct(&function_context)?;
 
-            for (identifier, r#type) in parameters {
-                function_context.set_type(identifier.clone(), r#type.node.clone())?;
+                function_context.set_type(identifier.clone(), r#type)?;
             }
 
             body.node.validate(&mut function_context, _manage_memory)?;
@@ -81,11 +84,13 @@ impl AbstractNode for ValueNode {
 
             return_type
                 .node
+                .clone()
+                .construct(&function_context)?
                 .check(&actual_return_type)
                 .map_err(|conflict| ValidationError::TypeCheck {
                     conflict,
                     actual_position: body.position,
-                    expected_position: return_type.position,
+                    expected_position: Some(return_type.position),
                 })?;
 
             return Ok(());
@@ -111,11 +116,11 @@ impl AbstractNode for ValueNode {
                 for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
                     let actual_type = expression.expected_type(context)?;
 
-                    expected_type.node.check(&actual_type).map_err(|conflict| {
+                    expected_type.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
-                            expected_position: expected_type.position,
+                            expected_position: None,
                         }
                     })?
                 }
@@ -125,7 +130,11 @@ impl AbstractNode for ValueNode {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
             ValueNode::Float(float) => Value::float(float),
@@ -135,8 +144,8 @@ impl AbstractNode for ValueNode {
 
                 for expression in expression_list {
                     let expression_position = expression.position();
-                    let action = expression.run(_context, _manage_memory)?;
-                    let value = if let Action::Return(value) = action {
+                    let action = expression.evaluate(context, _manage_memory)?;
+                    let value = if let Evaluation::Return(value) = action {
                         WithPosition {
                             node: value,
                             position: expression_position,
@@ -157,8 +166,8 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, _type, expression) in property_list {
                     let expression_position = expression.position();
-                    let action = expression.run(_context, _manage_memory)?;
-                    let value = if let Action::Return(value) = action {
+                    let action = expression.evaluate(context, _manage_memory)?;
+                    let value = if let Evaluation::Return(value) = action {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
@@ -174,11 +183,29 @@ impl AbstractNode for ValueNode {
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
             ValueNode::ParsedFunction {
-                type_arguments,
-                parameters,
+                type_parameters,
+                value_parameters: constructors,
                 return_type,
                 body,
-            } => Value::function(type_arguments, parameters, return_type, body),
+            } => {
+                let type_parameters = type_parameters.map(|parameter_list| {
+                    parameter_list
+                        .into_iter()
+                        .map(|parameter| parameter.node)
+                        .collect()
+                });
+                let mut value_parameters = Vec::with_capacity(constructors.len());
+
+                for (identifier, constructor) in constructors {
+                    let r#type = constructor.node.construct(&context)?;
+
+                    value_parameters.push((identifier, r#type));
+                }
+
+                let return_type = return_type.node.construct(&context)?;
+
+                Value::function(type_parameters, value_parameters, return_type, body.node)
+            }
             ValueNode::Structure {
                 name,
                 fields: expressions,
@@ -187,8 +214,8 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, expression) in expressions {
                     let expression_position = expression.position();
-                    let action = expression.run(_context, _manage_memory)?;
-                    let value = if let Action::Return(value) = action {
+                    let action = expression.evaluate(context, _manage_memory)?;
+                    let value = if let Evaluation::Return(value) = action {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
@@ -196,14 +223,14 @@ impl AbstractNode for ValueNode {
                         ));
                     };
 
-                    fields.push((identifier, value));
+                    fields.push((identifier.node, value));
                 }
 
                 Value::structure(name, fields)
             }
         };
 
-        Ok(Action::Return(value))
+        Ok(Evaluation::Return(value))
     }
 }
 
@@ -244,14 +271,14 @@ impl Ord for ValueNode {
             (String(_), _) => Ordering::Greater,
             (
                 ParsedFunction {
-                    type_arguments: left_type_arguments,
-                    parameters: left_parameters,
+                    type_parameters: left_type_arguments,
+                    value_parameters: left_parameters,
                     return_type: left_return,
                     body: left_body,
                 },
                 ParsedFunction {
-                    type_arguments: right_type_arguments,
-                    parameters: right_parameters,
+                    type_parameters: right_type_arguments,
+                    value_parameters: right_parameters,
                     return_type: right_return,
                     body: right_body,
                 },
@@ -307,32 +334,44 @@ impl ExpectedType for ValueNode {
             ValueNode::Float(_) => Type::Float,
             ValueNode::Integer(_) => Type::Integer,
             ValueNode::List(items) => {
-                let mut item_types = Vec::with_capacity(items.len());
+                let item_type = items.first().unwrap().expected_type(context)?;
 
-                for expression in items {
-                    item_types.push(
-                        expression
-                            .expected_type(context)?
-                            .with_position(expression.position()),
-                    );
+                Type::List {
+                    length: items.len(),
+                    item_type: Box::new(item_type),
                 }
-
-                Type::ListExact(item_types)
             }
             ValueNode::Map(_) => Type::Map,
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
             ValueNode::ParsedFunction {
-                parameters,
+                type_parameters,
+                value_parameters,
                 return_type,
                 ..
-            } => Type::Function {
-                parameter_types: parameters
-                    .iter()
-                    .map(|(_, r#type)| r#type.clone())
-                    .collect(),
-                return_type: Box::new(return_type.clone()),
-            },
+            } => {
+                let mut value_parameter_types = Vec::with_capacity(value_parameters.len());
+
+                for (identifier, type_constructor) in value_parameters {
+                    let r#type = type_constructor.node.clone().construct(&context)?;
+
+                    value_parameter_types.push((identifier.clone(), r#type));
+                }
+
+                let type_parameters = type_parameters.clone().map(|parameters| {
+                    parameters
+                        .iter()
+                        .map(|identifier| identifier.node.clone())
+                        .collect()
+                });
+                let return_type = return_type.node.clone().construct(&context)?;
+
+                Type::Function {
+                    type_parameters,
+                    value_parameters: value_parameter_types,
+                    return_type: Box::new(return_type),
+                }
+            }
             ValueNode::Structure {
                 name,
                 fields: expressions,
@@ -353,7 +392,10 @@ impl ExpectedType for ValueNode {
 
                 Type::Structure {
                     name: name.node.clone(),
-                    fields: types,
+                    fields: types
+                        .into_iter()
+                        .map(|(identifier, r#type)| (identifier.node, r#type.node))
+                        .collect(),
                 }
             }
         };

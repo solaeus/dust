@@ -325,21 +325,23 @@ impl InterpreterError {
                     } => {
                         let TypeConflict { actual, expected } = conflict;
 
-                        builder.add_labels([
-                            Label::new((
-                                self.source_id.clone(),
-                                expected_position.0..expected_position.1,
-                            ))
-                            .with_message(format!(
-                                "Type {} established here.",
-                                expected.fg(type_color)
-                            )),
+                        if let Some(position) = expected_position {
+                            builder.add_label(
+                                Label::new((self.source_id.clone(), position.0..position.1))
+                                    .with_message(format!(
+                                        "Type {} established here.",
+                                        expected.fg(type_color)
+                                    )),
+                            )
+                        }
+
+                        builder.add_label(
                             Label::new((
                                 self.source_id.clone(),
                                 actual_position.0..actual_position.1,
                             ))
                             .with_message(format!("Got type {} here.", actual.fg(type_color))),
-                        ]);
+                        );
                     }
                     ValidationError::VariableNotFound {
                         identifier,
@@ -390,6 +392,7 @@ impl InterpreterError {
                     ValidationError::ExpectedValue(_) => todo!(),
                     ValidationError::PropertyNotFound { .. } => todo!(),
                     ValidationError::WrongArguments { .. } => todo!(),
+                    ValidationError::WrongTypeArgumentCount { .. } => todo!(),
                     ValidationError::ExpectedIntegerFloatOrString { actual, position } => {
                         builder = builder.with_message(format!(
                             "Expected an {}, {} or {}.",

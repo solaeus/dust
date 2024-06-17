@@ -8,23 +8,22 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    abstract_tree::{Action, Type},
     context::Context,
     error::{RuntimeError, ValidationError},
     value::ValueInner,
     Value,
 };
 
-use super::{AbstractNode, ExpectedType, ValueExpression, WithPosition};
+use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunctionCall {
-    JsonParse(WithPosition<Type>, ValueExpression),
-    Length(ValueExpression),
-    ReadFile(ValueExpression),
+    JsonParse(TypeConstructor, Expression),
+    Length(Expression),
+    ReadFile(Expression),
     ReadLine,
-    Sleep(ValueExpression),
-    WriteLine(ValueExpression),
+    Sleep(Expression),
+    WriteLine(Expression),
 }
 
 impl AbstractNode for BuiltInFunctionCall {
@@ -51,11 +50,15 @@ impl AbstractNode for BuiltInFunctionCall {
         }
     }
 
-    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         match self {
             BuiltInFunctionCall::JsonParse(_type, expression) => {
-                let action = expression.clone().run(context, _manage_memory)?;
-                let value = if let Action::Return(value) = action {
+                let action = expression.clone().evaluate(context, _manage_memory)?;
+                let value = if let Evaluation::Return(value) = action {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
@@ -66,7 +69,7 @@ impl AbstractNode for BuiltInFunctionCall {
                 if let ValueInner::String(string) = value.inner().as_ref() {
                     let deserialized = serde_json::from_str(string)?;
 
-                    Ok(Action::Return(deserialized))
+                    Ok(Evaluation::Return(deserialized))
                 } else {
                     Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedString {
@@ -77,8 +80,8 @@ impl AbstractNode for BuiltInFunctionCall {
                 }
             }
             BuiltInFunctionCall::Length(expression) => {
-                let action = expression.clone().run(context, _manage_memory)?;
-                let value = if let Action::Return(value) = action {
+                let action = expression.clone().evaluate(context, _manage_memory)?;
+                let value = if let Evaluation::Return(value) = action {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
@@ -91,11 +94,11 @@ impl AbstractNode for BuiltInFunctionCall {
                     0
                 };
 
-                Ok(Action::Return(Value::integer(length)))
+                Ok(Evaluation::Return(Value::integer(length)))
             }
             BuiltInFunctionCall::ReadFile(expression) => {
-                let action = expression.clone().run(context, _manage_memory)?;
-                let value = if let Action::Return(value) = action {
+                let action = expression.clone().evaluate(context, _manage_memory)?;
+                let value = if let Evaluation::Return(value) = action {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
@@ -108,20 +111,20 @@ impl AbstractNode for BuiltInFunctionCall {
                     String::with_capacity(0)
                 };
 
-                Ok(Action::Return(Value::string(file_contents)))
+                Ok(Evaluation::Return(Value::string(file_contents)))
             }
             BuiltInFunctionCall::ReadLine => {
                 let mut buffer = String::new();
 
                 stdin().read_line(&mut buffer)?;
 
-                Ok(Action::Return(Value::string(
+                Ok(Evaluation::Return(Value::string(
                     buffer.strip_suffix('\n').unwrap_or(&buffer),
                 )))
             }
             BuiltInFunctionCall::Sleep(expression) => {
-                let action = expression.clone().run(context, _manage_memory)?;
-                let value = if let Action::Return(value) = action {
+                let action = expression.clone().evaluate(context, _manage_memory)?;
+                let value = if let Evaluation::Return(value) = action {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
@@ -133,11 +136,11 @@ impl AbstractNode for BuiltInFunctionCall {
                     thread::sleep(Duration::from_millis(*milliseconds as u64));
                 }
 
-                Ok(Action::None)
+                Ok(Evaluation::None)
             }
             BuiltInFunctionCall::WriteLine(expression) => {
-                let action = expression.clone().run(context, _manage_memory)?;
-                let value = if let Action::Return(value) = action {
+                let action = expression.clone().evaluate(context, _manage_memory)?;
+                let value = if let Evaluation::Return(value) = action {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
@@ -153,16 +156,16 @@ impl AbstractNode for BuiltInFunctionCall {
                     stdout.flush()?;
                 }
 
-                Ok(Action::None)
+                Ok(Evaluation::None)
             }
         }
     }
 }
 
 impl ExpectedType for BuiltInFunctionCall {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
         match self {
-            BuiltInFunctionCall::JsonParse(r#type, _) => Ok(r#type.node.clone()),
+            BuiltInFunctionCall::JsonParse(r#type, _) => Ok(r#type.clone().construct(&context)?),
             BuiltInFunctionCall::Length(_) => Ok(Type::Integer),
             BuiltInFunctionCall::ReadFile(_) => Ok(Type::String),
             BuiltInFunctionCall::ReadLine => Ok(Type::String),

@@ -148,7 +148,7 @@ fn map_type_errors() {
                     expected: Type::Boolean
                 },
                 actual_position: (15, 20).into(),
-                expected_position: (8, 12).into(),
+                expected_position: Some((8, 12).into()),
             },
             position: (0, 22).into()
         }]

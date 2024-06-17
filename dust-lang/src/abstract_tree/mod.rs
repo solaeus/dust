@@ -14,6 +14,7 @@ pub mod statement;
 pub mod structure_definition;
 pub mod r#type;
 pub mod type_alias;
+pub mod type_constructor;
 pub mod value_expression;
 pub mod value_node;
 pub mod r#while;
@@ -41,7 +42,8 @@ pub use self::{
     statement::Statement,
     structure_definition::StructureDefinition,
     type_alias::TypeAssignment,
-    value_expression::ValueExpression,
+    type_constructor::TypeConstructor,
+    value_expression::Expression,
     value_node::ValueNode,
 };
 
@@ -84,7 +86,7 @@ impl From<(usize, usize)> for SourcePosition {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
-pub enum Action {
+pub enum Evaluation {
     Return(Value),
     Break,
     None,
@@ -114,12 +116,12 @@ impl AbstractTree {
 
         for statement in valid_statements {
             let position = statement.position();
-            let run = statement.run(context, manage_memory);
+            let run = statement.evaluate(context, manage_memory);
 
             match run {
                 Ok(action) => match action {
-                    Action::Return(value) => previous_value = Some(value),
-                    Action::None => previous_value = None,
+                    Evaluation::Return(value) => previous_value = Some(value),
+                    Evaluation::None => previous_value = None,
                     _ => {}
                 },
                 Err(runtime_error) => {
@@ -153,7 +155,7 @@ impl AbstractTree {
             } else if errors.is_empty() {
                 if let Statement::StructureDefinition(_) = statement {
                     let position = statement.position();
-                    let run = statement.run(context, true);
+                    let run = statement.evaluate(context, true);
 
                     if let Err(runtime_error) = run {
                         errors.push(Error::Runtime {
@@ -189,7 +191,11 @@ impl Index<usize> for AbstractTree {
 
 pub trait AbstractNode: Sized {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError>;
-    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError>;
+    fn evaluate(
+        self,
+        context: &mut Context,
+        manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError>;
 }
 
 pub trait ExpectedType {

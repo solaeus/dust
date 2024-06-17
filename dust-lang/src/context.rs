@@ -12,7 +12,7 @@ use crate::{
 
 #[derive(Clone, Debug)]
 pub struct Context<'a> {
-    variables: Arc<RwLock<BTreeMap<Identifier, (ValueData, UsageData)>>>,
+    variables: Arc<RwLock<BTreeMap<Identifier, (VariableData, UsageData)>>>,
     parent: Option<&'a Context<'a>>,
     is_clean: Arc<RwLock<bool>>,
 }
@@ -28,7 +28,7 @@ impl<'a> Context<'a> {
 
     pub fn inner(
         &self,
-    ) -> Result<RwLockReadGuard<BTreeMap<Identifier, (ValueData, UsageData)>>, RwLockPoisonError>
+    ) -> Result<RwLockReadGuard<BTreeMap<Identifier, (VariableData, UsageData)>>, RwLockPoisonError>
     {
         Ok(self.variables.read()?)
     }
@@ -50,8 +50,8 @@ impl<'a> Context<'a> {
             log::trace!("Getting {identifier}'s type.");
 
             let r#type = match value_data {
-                ValueData::Type(r#type) => r#type.clone(),
-                ValueData::Value(value) => value.r#type(self)?,
+                VariableData::Type(r#type) => r#type.clone(),
+                VariableData::Value(value) => value.r#type(self)?,
             };
 
             Ok(Some(r#type.clone()))
@@ -63,7 +63,8 @@ impl<'a> Context<'a> {
     }
 
     pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
-        if let Some((ValueData::Value(value), usage_data)) = self.variables.read()?.get(identifier)
+        if let Some((VariableData::Value(value), usage_data)) =
+            self.variables.read()?.get(identifier)
         {
             log::trace!("Using {identifier}'s value.");
 
@@ -79,7 +80,7 @@ impl<'a> Context<'a> {
     }
 
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
-        if let Some((ValueData::Value(value), _)) = self.variables.read()?.get(identifier) {
+        if let Some((VariableData::Value(value), _)) = self.variables.read()?.get(identifier) {
             log::trace!("Getting {identifier}'s value.");
 
             Ok(Some(value.clone()))
@@ -93,7 +94,7 @@ impl<'a> Context<'a> {
     pub fn get_data(
         &self,
         identifier: &Identifier,
-    ) -> Result<Option<(ValueData, UsageData)>, RwLockPoisonError> {
+    ) -> Result<Option<(VariableData, UsageData)>, RwLockPoisonError> {
         if let Some(full_data) = self.variables.read()?.get(identifier) {
             log::trace!("Getting {identifier}'s value.");
 
@@ -110,7 +111,7 @@ impl<'a> Context<'a> {
 
         self.variables
             .write()?
-            .insert(identifier, (ValueData::Type(r#type), UsageData::new()));
+            .insert(identifier, (VariableData::Type(r#type), UsageData::new()));
 
         Ok(())
     }
@@ -128,9 +129,9 @@ impl<'a> Context<'a> {
             .map(|(_, usage_data)| usage_data);
 
         if let Some(usage_data) = old_usage_data {
-            variables.insert(identifier, (ValueData::Value(value), usage_data));
+            variables.insert(identifier, (VariableData::Value(value), usage_data));
         } else {
-            variables.insert(identifier, (ValueData::Value(value), UsageData::new()));
+            variables.insert(identifier, (VariableData::Value(value), UsageData::new()));
         }
 
         Ok(())
@@ -144,7 +145,7 @@ impl<'a> Context<'a> {
         self.variables
             .write()?
             .retain(|identifier, (value_data, usage_data)| {
-                if let ValueData::Value(_) = value_data {
+                if let VariableData::Value(_) = value_data {
                     let usage = usage_data.inner().read().unwrap();
 
                     if usage.actual < usage.expected {
@@ -196,7 +197,7 @@ impl<'a> Context<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ValueData {
+pub enum VariableData {
     Type(Type),
     Value(Value),
 }

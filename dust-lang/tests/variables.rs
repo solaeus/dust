@@ -1,5 +1,5 @@
 use dust_lang::{
-    abstract_tree::{Block, Statement, Type, ValueExpression, WithPos},
+    abstract_tree::{Block, Expression, Statement, Type, WithPos},
     error::{Error, TypeConflict, ValidationError},
     identifier::Identifier,
     *,
@@ -34,7 +34,7 @@ fn set_variable_with_type_error() {
                     expected: Type::String
                 },
                 actual_position: (14, 18).into(),
-                expected_position: (8, 11).into()
+                expected_position: Some((8, 11).into())
             },
             position: (0, 18).into()
         }]
@@ -46,13 +46,12 @@ fn function_variable() {
     assert_eq!(
         interpret("test", "foobar = fn (x: int) int { x }; foobar"),
         Ok(Some(Value::function(
-            Vec::with_capacity(0),
-            vec![(Identifier::new("x"), Type::Integer.with_position((16, 19)))],
-            Type::Integer.with_position((21, 24)),
-            Block::new(vec![Statement::ValueExpression(
-                ValueExpression::Identifier(Identifier::new("x").with_position((27, 28)))
-            )])
-            .with_position((25, 30))
+            Some(Vec::with_capacity(0)),
+            vec![(Identifier::new("x"), Type::Integer)],
+            Type::Integer,
+            Block::new(vec![Statement::ValueExpression(Expression::Identifier(
+                Identifier::new("x").with_position((27, 28))
+            ))])
         )))
     );
 }

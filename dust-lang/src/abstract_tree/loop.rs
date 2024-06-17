@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Action, Statement};
+use super::{AbstractNode, Evaluation, Statement};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Loop {
@@ -31,15 +31,19 @@ impl AbstractNode for Loop {
         Ok(())
     }
 
-    fn run(self, _context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        _context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         loop {
             for statement in &self.statements {
-                let action = statement.clone().run(_context, false)?;
+                let action = statement.clone().evaluate(_context, false)?;
 
                 match action {
-                    Action::Return(_) => {}
-                    Action::None => {}
-                    Action::Break => return Ok(Action::Break),
+                    Evaluation::Return(_) => {}
+                    Evaluation::None => {}
+                    Evaluation::Break => return Ok(Evaluation::Break),
                 }
             }
         }

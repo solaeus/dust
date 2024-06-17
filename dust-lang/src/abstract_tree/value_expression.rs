@@ -7,12 +7,12 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Action, As, BuiltInFunctionCall, ExpectedType, FunctionCall, ListIndex, Logic,
-    MapIndex, Math, SourcePosition, Type, ValueNode, WithPosition,
+    AbstractNode, As, BuiltInFunctionCall, Evaluation, ExpectedType, FunctionCall, ListIndex,
+    Logic, MapIndex, Math, SourcePosition, Type, ValueNode, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum ValueExpression {
+pub enum Expression {
     As(WithPosition<Box<As>>),
     BuiltInFunctionCall(WithPosition<Box<BuiltInFunctionCall>>),
     FunctionCall(WithPosition<FunctionCall>),
@@ -24,30 +24,30 @@ pub enum ValueExpression {
     Value(WithPosition<ValueNode>),
 }
 
-impl ValueExpression {
+impl Expression {
     pub fn position(&self) -> SourcePosition {
         match self {
-            ValueExpression::As(inner) => inner.position,
-            ValueExpression::FunctionCall(inner) => inner.position,
-            ValueExpression::Identifier(inner) => inner.position,
-            ValueExpression::MapIndex(inner) => inner.position,
-            ValueExpression::ListIndex(inner) => inner.position,
-            ValueExpression::Logic(inner) => inner.position,
-            ValueExpression::Math(inner) => inner.position,
-            ValueExpression::Value(inner) => inner.position,
-            ValueExpression::BuiltInFunctionCall(inner) => inner.position,
+            Expression::As(inner) => inner.position,
+            Expression::FunctionCall(inner) => inner.position,
+            Expression::Identifier(inner) => inner.position,
+            Expression::MapIndex(inner) => inner.position,
+            Expression::ListIndex(inner) => inner.position,
+            Expression::Logic(inner) => inner.position,
+            Expression::Math(inner) => inner.position,
+            Expression::Value(inner) => inner.position,
+            Expression::BuiltInFunctionCall(inner) => inner.position,
         }
     }
 }
 
-impl AbstractNode for ValueExpression {
+impl AbstractNode for Expression {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
-            ValueExpression::As(r#as) => r#as.node.validate(context, manage_memory),
-            ValueExpression::FunctionCall(function_call) => {
+            Expression::As(r#as) => r#as.node.validate(context, manage_memory),
+            Expression::FunctionCall(function_call) => {
                 function_call.node.validate(context, manage_memory)
             }
-            ValueExpression::Identifier(identifier) => {
+            Expression::Identifier(identifier) => {
                 let found = if manage_memory {
                     context.add_expected_use(&identifier.node)?
                 } else {
@@ -63,26 +63,28 @@ impl AbstractNode for ValueExpression {
                     })
                 }
             }
-            ValueExpression::MapIndex(map_index) => map_index.node.validate(context, manage_memory),
-            ValueExpression::ListIndex(list_index) => {
-                list_index.node.validate(context, manage_memory)
-            }
-            ValueExpression::Logic(logic) => logic.node.validate(context, manage_memory),
-            ValueExpression::Math(math) => math.node.validate(context, manage_memory),
-            ValueExpression::Value(value_node) => value_node.node.validate(context, manage_memory),
-            ValueExpression::BuiltInFunctionCall(built_in_function_call) => {
+            Expression::MapIndex(map_index) => map_index.node.validate(context, manage_memory),
+            Expression::ListIndex(list_index) => list_index.node.validate(context, manage_memory),
+            Expression::Logic(logic) => logic.node.validate(context, manage_memory),
+            Expression::Math(math) => math.node.validate(context, manage_memory),
+            Expression::Value(value_node) => value_node.node.validate(context, manage_memory),
+            Expression::BuiltInFunctionCall(built_in_function_call) => {
                 built_in_function_call.node.validate(context, manage_memory)
             }
         }
     }
 
-    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         match self {
-            ValueExpression::As(r#as) => r#as.node.run(context, manage_memory),
-            ValueExpression::FunctionCall(function_call) => {
-                function_call.node.run(context, manage_memory)
+            Expression::As(r#as) => r#as.node.evaluate(context, manage_memory),
+            Expression::FunctionCall(function_call) => {
+                function_call.node.evaluate(context, manage_memory)
             }
-            ValueExpression::Identifier(identifier) => {
+            Expression::Identifier(identifier) => {
                 let value_option = if manage_memory {
                     context.use_value(&identifier.node)?
                 } else {
@@ -90,7 +92,7 @@ impl AbstractNode for ValueExpression {
                 };
 
                 if let Some(value) = value_option {
-                    Ok(Action::Return(value))
+                    Ok(Evaluation::Return(value))
                 } else {
                     Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
@@ -100,26 +102,24 @@ impl AbstractNode for ValueExpression {
                     ))
                 }
             }
-            ValueExpression::MapIndex(map_index) => map_index.node.run(context, manage_memory),
-            ValueExpression::ListIndex(list_index) => list_index.node.run(context, manage_memory),
-            ValueExpression::Logic(logic) => logic.node.run(context, manage_memory),
-            ValueExpression::Math(math) => math.node.run(context, manage_memory),
-            ValueExpression::Value(value_node) => value_node.node.run(context, manage_memory),
-            ValueExpression::BuiltInFunctionCall(built_in_function_call) => {
-                built_in_function_call.node.run(context, manage_memory)
+            Expression::MapIndex(map_index) => map_index.node.evaluate(context, manage_memory),
+            Expression::ListIndex(list_index) => list_index.node.evaluate(context, manage_memory),
+            Expression::Logic(logic) => logic.node.evaluate(context, manage_memory),
+            Expression::Math(math) => math.node.evaluate(context, manage_memory),
+            Expression::Value(value_node) => value_node.node.evaluate(context, manage_memory),
+            Expression::BuiltInFunctionCall(built_in_function_call) => {
+                built_in_function_call.node.evaluate(context, manage_memory)
             }
         }
     }
 }
 
-impl ExpectedType for ValueExpression {
+impl ExpectedType for Expression {
     fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
         match self {
-            ValueExpression::As(r#as) => r#as.node.expected_type(_context),
-            ValueExpression::FunctionCall(function_call) => {
-                function_call.node.expected_type(_context)
-            }
-            ValueExpression::Identifier(identifier) => {
+            Expression::As(r#as) => r#as.node.expected_type(_context),
+            Expression::FunctionCall(function_call) => function_call.node.expected_type(_context),
+            Expression::Identifier(identifier) => {
                 if let Some(r#type) = _context.get_type(&identifier.node)? {
                     Ok(r#type)
                 } else {
@@ -129,12 +129,12 @@ impl ExpectedType for ValueExpression {
                     })
                 }
             }
-            ValueExpression::MapIndex(map_index) => map_index.node.expected_type(_context),
-            ValueExpression::ListIndex(list_index) => list_index.node.expected_type(_context),
-            ValueExpression::Logic(logic) => logic.node.expected_type(_context),
-            ValueExpression::Math(math) => math.node.expected_type(_context),
-            ValueExpression::Value(value_node) => value_node.node.expected_type(_context),
-            ValueExpression::BuiltInFunctionCall(built_in_function_call) => {
+            Expression::MapIndex(map_index) => map_index.node.expected_type(_context),
+            Expression::ListIndex(list_index) => list_index.node.expected_type(_context),
+            Expression::Logic(logic) => logic.node.expected_type(_context),
+            Expression::Math(math) => math.node.expected_type(_context),
+            Expression::Value(value_node) => value_node.node.expected_type(_context),
+            Expression::BuiltInFunctionCall(built_in_function_call) => {
                 built_in_function_call.node.expected_type(_context)
             }
         }

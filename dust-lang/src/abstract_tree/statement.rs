@@ -6,9 +6,8 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Action, Assignment, AsyncBlock, Block, ExpectedType, IfElse, Loop,
-    SourcePosition, StructureDefinition, Type, TypeAssignment, ValueExpression, While,
-    WithPosition,
+    AbstractNode, Assignment, AsyncBlock, Block, Evaluation, ExpectedType, Expression, IfElse,
+    Loop, SourcePosition, StructureDefinition, Type, TypeAssignment, While, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -21,7 +20,7 @@ pub enum Statement {
     Loop(WithPosition<Loop>),
     StructureDefinition(WithPosition<StructureDefinition>),
     TypeAssignment(WithPosition<TypeAssignment>),
-    ValueExpression(ValueExpression),
+    ValueExpression(Expression),
     While(WithPosition<While>),
 }
 
@@ -68,20 +67,26 @@ impl AbstractNode for Statement {
         }
     }
 
-    fn run(self, context: &mut Context, manage_memory: bool) -> Result<Action, RuntimeError> {
+    fn evaluate(
+        self,
+        context: &mut Context,
+        manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
         let result = match self {
-            Statement::Assignment(assignment) => assignment.node.run(context, manage_memory),
-            Statement::AsyncBlock(async_block) => async_block.node.run(context, manage_memory),
-            Statement::Block(block) => block.node.run(context, manage_memory),
-            Statement::Break(_) => Ok(Action::Break),
-            Statement::ValueExpression(expression) => expression.run(context, manage_memory),
-            Statement::IfElse(if_else) => if_else.node.run(context, manage_memory),
-            Statement::Loop(r#loop) => r#loop.node.run(context, manage_memory),
+            Statement::Assignment(assignment) => assignment.node.evaluate(context, manage_memory),
+            Statement::AsyncBlock(async_block) => async_block.node.evaluate(context, manage_memory),
+            Statement::Block(block) => block.node.evaluate(context, manage_memory),
+            Statement::Break(_) => Ok(Evaluation::Break),
+            Statement::ValueExpression(expression) => expression.evaluate(context, manage_memory),
+            Statement::IfElse(if_else) => if_else.node.evaluate(context, manage_memory),
+            Statement::Loop(r#loop) => r#loop.node.evaluate(context, manage_memory),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.run(context, manage_memory)
+                structure_definition.node.evaluate(context, manage_memory)
             }
-            Statement::TypeAssignment(type_alias) => type_alias.node.run(context, manage_memory),
-            Statement::While(r#while) => r#while.node.run(context, manage_memory),
+            Statement::TypeAssignment(type_alias) => {
+                type_alias.node.evaluate(context, manage_memory)
+            }
+            Statement::While(r#while) => r#while.node.evaluate(context, manage_memory),
         };
 
         if manage_memory {

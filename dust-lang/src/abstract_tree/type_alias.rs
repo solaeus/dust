@@ -6,17 +6,23 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Action, Type, WithPosition};
+use super::{AbstractNode, Evaluation, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TypeAssignment {
     identifier: WithPosition<Identifier>,
-    r#type: WithPosition<Type>,
+    constructor: WithPosition<TypeConstructor>,
 }
 
 impl TypeAssignment {
-    pub fn new(identifier: WithPosition<Identifier>, r#type: WithPosition<Type>) -> Self {
-        Self { identifier, r#type }
+    pub fn new(
+        identifier: WithPosition<Identifier>,
+        constructor: WithPosition<TypeConstructor>,
+    ) -> Self {
+        Self {
+            identifier,
+            constructor,
+        }
     }
 }
 
@@ -29,9 +35,15 @@ impl AbstractNode for TypeAssignment {
         Ok(())
     }
 
-    fn run(self, context: &mut Context, _manage_memory: bool) -> Result<Action, RuntimeError> {
-        context.set_type(self.identifier.node, self.r#type.node)?;
+    fn evaluate(
+        self,
+        context: &mut Context,
+        _manage_memory: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        let r#type = self.constructor.node.construct(&context)?;
 
-        Ok(Action::None)
+        context.set_type(self.identifier.node, r#type)?;
+
+        Ok(Evaluation::None)
     }
 }
