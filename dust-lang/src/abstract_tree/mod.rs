@@ -42,7 +42,7 @@ pub use self::{
     statement::Statement,
     structure_definition::StructureDefinition,
     type_alias::TypeAssignment,
-    type_constructor::TypeConstructor,
+    type_constructor::{FunctionTypeConstructor, ListTypeConstructor, TypeConstructor},
     value_expression::Expression,
     value_node::ValueNode,
 };

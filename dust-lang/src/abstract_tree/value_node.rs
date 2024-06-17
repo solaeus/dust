@@ -19,13 +19,7 @@ pub enum ValueNode {
     Float(f64),
     Integer(i64),
     List(Vec<Expression>),
-    Map(
-        Vec<(
-            Identifier,
-            Option<WithPosition<TypeConstructor>>,
-            Expression,
-        )>,
-    ),
+    Map(Vec<(Identifier, Option<TypeConstructor>, Expression)>),
     Range(Range<i64>),
     String(String),
     Structure {
@@ -34,8 +28,8 @@ pub enum ValueNode {
     },
     ParsedFunction {
         type_parameters: Option<Vec<WithPosition<Identifier>>>,
-        value_parameters: Vec<(Identifier, WithPosition<TypeConstructor>)>,
-        return_type: WithPosition<TypeConstructor>,
+        value_parameters: Vec<(Identifier, TypeConstructor)>,
+        return_type: TypeConstructor,
         body: WithPosition<Block>,
     },
 }
@@ -48,13 +42,13 @@ impl AbstractNode for ValueNode {
 
                 if let Some(constructor) = constructor_option {
                     let actual_type = expression.expected_type(context)?;
-                    let exprected_type = constructor.node.clone().construct(&context)?;
+                    let exprected_type = constructor.clone().construct(&context)?;
 
                     exprected_type.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
-                            expected_position: Some(constructor.position),
+                            expected_position: Some(constructor.position()),
                         }
                     })?;
                 }
@@ -73,7 +67,7 @@ impl AbstractNode for ValueNode {
             let mut function_context = Context::new(Some(&context));
 
             for (identifier, type_constructor) in value_parameters {
-                let r#type = type_constructor.node.clone().construct(&function_context)?;
+                let r#type = type_constructor.clone().construct(&function_context)?;
 
                 function_context.set_type(identifier.clone(), r#type)?;
             }
@@ -83,14 +77,13 @@ impl AbstractNode for ValueNode {
             let actual_return_type = body.node.expected_type(&mut function_context)?;
 
             return_type
-                .node
                 .clone()
                 .construct(&function_context)?
                 .check(&actual_return_type)
                 .map_err(|conflict| ValidationError::TypeCheck {
                     conflict,
                     actual_position: body.position,
-                    expected_position: Some(return_type.position),
+                    expected_position: Some(return_type.position()),
                 })?;
 
             return Ok(());
@@ -197,12 +190,12 @@ impl AbstractNode for ValueNode {
                 let mut value_parameters = Vec::with_capacity(constructors.len());
 
                 for (identifier, constructor) in constructors {
-                    let r#type = constructor.node.construct(&context)?;
+                    let r#type = constructor.construct(&context)?;
 
                     value_parameters.push((identifier, r#type));
                 }
 
-                let return_type = return_type.node.construct(&context)?;
+                let return_type = return_type.construct(&context)?;
 
                 Value::function(type_parameters, value_parameters, return_type, body.node)
             }
@@ -353,7 +346,7 @@ impl ExpectedType for ValueNode {
                 let mut value_parameter_types = Vec::with_capacity(value_parameters.len());
 
                 for (identifier, type_constructor) in value_parameters {
-                    let r#type = type_constructor.node.clone().construct(&context)?;
+                    let r#type = type_constructor.clone().construct(&context)?;
 
                     value_parameter_types.push((identifier.clone(), r#type));
                 }
@@ -364,7 +357,7 @@ impl ExpectedType for ValueNode {
                         .map(|identifier| identifier.node.clone())
                         .collect()
                 });
-                let return_type = return_type.node.clone().construct(&context)?;
+                let return_type = return_type.clone().construct(&context)?;
 
                 Type::Function {
                     type_parameters,

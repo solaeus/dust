@@ -6,21 +6,19 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{
-    AbstractNode, Evaluation, ExpectedType, Expression, Type, TypeConstructor, WithPosition,
-};
+use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionCall {
     function: Box<Expression>,
-    type_arguments: Option<Vec<WithPosition<TypeConstructor>>>,
+    type_arguments: Option<Vec<TypeConstructor>>,
     value_arguments: Vec<Expression>,
 }
 
 impl FunctionCall {
     pub fn new(
         function: Expression,
-        type_arguments: Option<Vec<WithPosition<TypeConstructor>>>,
+        type_arguments: Option<Vec<TypeConstructor>>,
         value_arguments: Vec<Expression>,
     ) -> Self {
         FunctionCall {
@@ -115,7 +113,7 @@ impl AbstractNode for FunctionCall {
                 for (parameter, constructor) in
                     type_parameters.into_iter().zip(type_arguments.into_iter())
                 {
-                    let r#type = constructor.node.construct(context)?;
+                    let r#type = constructor.construct(context)?;
 
                     function_context.set_type(parameter.clone(), r#type)?;
                 }

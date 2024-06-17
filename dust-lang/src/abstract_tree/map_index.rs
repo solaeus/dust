@@ -104,7 +104,7 @@ impl ExpectedType for MapIndex {
             for (property, constructor_option, expression) in properties {
                 if property == &index.node {
                     return if let Some(constructor) = constructor_option {
-                        let r#type = constructor.node.clone().construct(&context)?;
+                        let r#type = constructor.clone().construct(&context)?;
 
                         Ok(r#type)
                     } else {

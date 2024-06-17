@@ -6,16 +6,16 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Evaluation, Type, TypeConstructor, WithPosition};
+use super::{AbstractNode, Evaluation, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructureDefinition {
     name: Identifier,
-    fields: Vec<(Identifier, WithPosition<TypeConstructor>)>,
+    fields: Vec<(Identifier, TypeConstructor)>,
 }
 
 impl StructureDefinition {
-    pub fn new(name: Identifier, fields: Vec<(Identifier, WithPosition<TypeConstructor>)>) -> Self {
+    pub fn new(name: Identifier, fields: Vec<(Identifier, TypeConstructor)>) -> Self {
         Self { name, fields }
     }
 }
@@ -37,7 +37,7 @@ impl AbstractNode for StructureDefinition {
         let mut fields = Vec::with_capacity(self.fields.len());
 
         for (identifier, constructor) in self.fields {
-            let r#type = constructor.node.construct(&context)?;
+            let r#type = constructor.construct(&context)?;
 
             fields.push((identifier, r#type));
         }

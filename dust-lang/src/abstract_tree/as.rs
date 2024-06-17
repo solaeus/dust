@@ -9,18 +9,16 @@ use crate::{
     Value,
 };
 
-use super::{
-    AbstractNode, Evaluation, ExpectedType, Expression, Type, TypeConstructor, WithPosition,
-};
+use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct As {
     expression: Expression,
-    constructor: WithPosition<TypeConstructor>,
+    constructor: TypeConstructor,
 }
 
 impl As {
-    pub fn new(expression: Expression, constructor: WithPosition<TypeConstructor>) -> Self {
+    pub fn new(expression: Expression, constructor: TypeConstructor) -> Self {
         Self {
             expression,
             constructor,
@@ -34,7 +32,7 @@ impl AbstractNode for As {
         _context: &mut Context,
         _manage_memory: bool,
     ) -> Result<(), ValidationError> {
-        match self.constructor.node {
+        match self.constructor {
             TypeConstructor::Type(_) => {}
             _ => todo!("Create an error for this occurence."),
         };
@@ -61,7 +59,7 @@ impl AbstractNode for As {
                 ValidationError::InterpreterExpectedReturn(expression_position),
             ));
         };
-        let r#type = self.constructor.node.construct(&context)?;
+        let r#type = self.constructor.construct(&context)?;
         let (from_value, to_type): (&ValueInner, Type) = (value.inner().borrow(), r#type);
 
         let converted = match (from_value, to_type) {
@@ -76,6 +74,6 @@ impl AbstractNode for As {
 
 impl ExpectedType for As {
     fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
-        self.constructor.node.clone().construct(&context)
+        self.constructor.clone().construct(&context)
     }
 }

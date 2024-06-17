@@ -11,14 +11,11 @@ use super::{AbstractNode, Evaluation, TypeConstructor, WithPosition};
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TypeAssignment {
     identifier: WithPosition<Identifier>,
-    constructor: WithPosition<TypeConstructor>,
+    constructor: TypeConstructor,
 }
 
 impl TypeAssignment {
-    pub fn new(
-        identifier: WithPosition<Identifier>,
-        constructor: WithPosition<TypeConstructor>,
-    ) -> Self {
+    pub fn new(identifier: WithPosition<Identifier>, constructor: TypeConstructor) -> Self {
         Self {
             identifier,
             constructor,
@@ -40,7 +37,7 @@ impl AbstractNode for TypeAssignment {
         context: &mut Context,
         _manage_memory: bool,
     ) -> Result<Evaluation, RuntimeError> {
-        let r#type = self.constructor.node.construct(&context)?;
+        let r#type = self.constructor.construct(&context)?;
 
         context.set_type(self.identifier.node, r#type)?;
 

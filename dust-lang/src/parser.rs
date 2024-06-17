@@ -65,13 +65,6 @@ pub fn parser<'src>(
     };
 
     let type_constructor = recursive(|type_constructor| {
-        let positioned_type_constructor =
-            type_constructor
-                .clone()
-                .map_with(|constructor: TypeConstructor, state| {
-                    constructor.with_position(state.span())
-                });
-
         let primitive_type = choice((
             just(Token::Keyword(Keyword::Any)).to(Type::Any),
             just(Token::Keyword(Keyword::Bool)).to(Type::Boolean),
@@ -81,7 +74,7 @@ pub fn parser<'src>(
             just(Token::Keyword(Keyword::Range)).to(Type::Range),
             just(Token::Keyword(Keyword::Str)).to(Type::String),
         ))
-        .map(|r#type| TypeConstructor::Type(r#type));
+        .map_with(|r#type, state| TypeConstructor::Type(r#type.with_position(state.span())));
 
         let function_type = just(Token::Keyword(Keyword::Fn))
             .ignore_then(
@@ -99,9 +92,11 @@ pub fn parser<'src>(
                 positioned_identifier
                     .clone()
                     .then_ignore(just(Token::Control(Control::Colon)))
-                    .then(type_constructor.clone().map_with(|constructor, state| {
-                        Box::new(constructor.with_position(state.span()))
-                    }))
+                    .then(
+                        type_constructor
+                            .clone()
+                            .map(|constructor| Box::new(constructor)),
+                    )
                     .separated_by(just(Token::Control(Control::Comma)))
                     .collect()
                     .delimited_by(
@@ -110,16 +105,21 @@ pub fn parser<'src>(
                     ),
             )
             .then_ignore(just(Token::Control(Control::SkinnyArrow)))
-            .then(positioned_type_constructor.clone())
-            .map(
-                |((type_parameters, value_parameters), return_type)| TypeConstructor::Function {
-                    type_parameters,
-                    value_parameters,
-                    return_type: Box::new(return_type),
+            .then(type_constructor.clone())
+            .map_with(
+                |((type_parameters, value_parameters), return_type), state| {
+                    TypeConstructor::Function(
+                        FunctionTypeConstructor {
+                            type_parameters,
+                            value_parameters,
+                            return_type: Box::new(return_type),
+                        }
+                        .with_position(state.span()),
+                    )
                 },
             );
 
-        let list = positioned_type_constructor
+        let list = type_constructor
             .clone()
             .clone()
             .then_ignore(just(Token::Control(Control::Semicolon)))
@@ -128,9 +128,14 @@ pub fn parser<'src>(
                 just(Token::Control(Control::SquareOpen)),
                 just(Token::Control(Control::SquareClose)),
             )
-            .map(|(item_type, length)| TypeConstructor::List {
-                length: length as usize,
-                item_type: Box::new(item_type),
+            .map_with(|(item_type, length), state| {
+                TypeConstructor::List(
+                    ListTypeConstructor {
+                        length: length as usize,
+                        item_type: Box::new(item_type),
+                    }
+                    .with_position(state.span()),
+                )
             });
 
         let list_of = just(Token::Keyword(Keyword::List))
@@ -145,12 +150,8 @@ pub fn parser<'src>(
         choice((function_type, list, list_of, primitive_type))
     });
 
-    let positioned_type_constructor = type_constructor
-        .clone()
-        .map_with(|constructor: TypeConstructor, state| constructor.with_position(state.span()));
-
     let type_specification =
-        just(Token::Control(Control::Colon)).ignore_then(positioned_type_constructor.clone());
+        just(Token::Control(Control::Colon)).ignore_then(type_constructor.clone());
 
     let statement = recursive(|statement| {
         let allow_built_ins = allow_built_ins.clone();
@@ -209,7 +210,7 @@ pub fn parser<'src>(
                 .then(
                     identifier
                         .then_ignore(just(Token::Control(Control::Colon)))
-                        .then(positioned_type_constructor.clone())
+                        .then(type_constructor.clone())
                         .separated_by(just(Token::Control(Control::Comma)))
                         .collect()
                         .delimited_by(
@@ -218,7 +219,7 @@ pub fn parser<'src>(
                         ),
                 )
                 .then_ignore(just(Token::Control(Control::SkinnyArrow)))
-                .then(positioned_type_constructor.clone())
+                .then(type_constructor.clone())
                 .then(block.clone())
                 .map_with(
                     |(((type_parameters, value_parameters), return_type), body), state| {
@@ -293,7 +294,7 @@ pub fn parser<'src>(
                 }
             });
 
-            let turbofish = positioned_type_constructor
+            let turbofish = type_constructor
                 .clone()
                 .separated_by(just(Token::Control(Control::Comma)))
                 .at_least(1)
@@ -470,8 +471,7 @@ pub fn parser<'src>(
                 ),
                 postfix(
                     2,
-                    just(Token::Keyword(Keyword::As))
-                        .ignore_then(positioned_type_constructor.clone()),
+                    just(Token::Keyword(Keyword::As)).ignore_then(type_constructor.clone()),
                     |expression, constructor, span| {
                         Expression::As(
                             Box::new(As::new(expression, constructor)).with_position(span),
@@ -576,7 +576,7 @@ pub fn parser<'src>(
         let type_assignment = just(Token::Keyword(Keyword::Type))
             .ignore_then(positioned_identifier.clone())
             .then_ignore(just(Token::Operator(Operator::Assign)))
-            .then(positioned_type_constructor.clone())
+            .then(type_constructor.clone())
             .map_with(|(identifier, constructor), state| {
                 Statement::TypeAssignment(
                     TypeAssignment::new(identifier, constructor).with_position(state.span()),
@@ -619,7 +619,7 @@ mod tests {
             Statement::TypeAssignment(
                 TypeAssignment::new(
                     Identifier::new("MyType").with_position((5, 11)),
-                    TypeConstructor::Type(Type::String).with_position((14, 17))
+                    TypeConstructor::Type(Type::String.with_position((14, 17)))
                 )
                 .with_position((0, 17))
             )
@@ -633,7 +633,7 @@ mod tests {
             Statement::ValueExpression(Expression::As(
                 Box::new(As::new(
                     Expression::Value(ValueNode::Integer(1).with_position((0, 1))),
-                    TypeConstructor::Type(Type::String).with_position((5, 8))
+                    TypeConstructor::Type(Type::String.with_position((5, 8)))
                 ))
                 .with_position((0, 8))
             ))
@@ -768,11 +768,11 @@ mod tests {
                     vec![
                         (
                             Identifier::new("bar"),
-                            TypeConstructor::Type(Type::Integer).with_position((64, 67))
+                            TypeConstructor::Type(Type::Integer.with_position((64, 67)))
                         ),
                         (
                             Identifier::new("baz"),
-                            TypeConstructor::Type(Type::String).with_position((99, 102))
+                            TypeConstructor::Type(Type::String.with_position((99, 102)))
                         ),
                     ]
                 )
@@ -844,7 +844,7 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(TypeConstructor::Type(Type::Boolean).with_position((0, 0))),
+                    Some(TypeConstructor::Type(Type::Boolean.with_position((0, 0)))),
                     AssignmentOperator::Assign,
                     Statement::ValueExpression(Expression::Value(
                         ValueNode::Boolean(true).with_position((16, 20))
@@ -862,15 +862,15 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(
-                        TypeConstructor::List {
+                    Some(TypeConstructor::List(
+                        ListTypeConstructor {
                             length: 2,
-                            item_type: Box::new(
-                                TypeConstructor::Type(Type::Integer).with_position((0, 0))
-                            )
+                            item_type: Box::new(TypeConstructor::Type(
+                                Type::Integer.with_position((0, 0))
+                            ))
                         }
                         .with_position((8, 12))
-                    ),
+                    )),
                     AssignmentOperator::Assign,
                     Statement::ValueExpression(Expression::Value(
                         ValueNode::List(vec![]).with_position((15, 17))
@@ -888,7 +888,10 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(TypeConstructor::ListOf(Box::new(Type::Boolean)).with_position((9, 19))),
+                    Some(TypeConstructor::ListOf(
+                        Box::new(TypeConstructor::Type(Type::Boolean.with_position((9, 19))))
+                            .with_position((0, 0))
+                    )),
                     AssignmentOperator::Assign,
                     Statement::ValueExpression(Expression::Value(
                         ValueNode::List(vec![Expression::Value(
@@ -909,14 +912,16 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(
-                        TypeConstructor::Function {
+                    Some(TypeConstructor::Function(
+                        FunctionTypeConstructor {
                             type_parameters: None,
                             value_parameters: vec![],
-                            return_type: Box::new(Type::Any),
+                            return_type: Box::new(TypeConstructor::Type(
+                                Type::Any.with_position((0, 0))
+                            )),
                         }
                         .with_position((9, 20))
-                    ),
+                    )),
                     AssignmentOperator::Assign,
                     Statement::ValueExpression(Expression::Identifier(
                         Identifier::new("some_function").with_position((23, 36))
@@ -949,9 +954,9 @@ mod tests {
             Statement::ValueExpression(Expression::FunctionCall(
                 FunctionCall::new(
                     Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
-                    Some(vec![
-                        TypeConstructor::Type(Type::String).with_position((9, 12))
-                    ]),
+                    Some(vec![TypeConstructor::Type(
+                        Type::String.with_position((9, 12))
+                    )]),
                     vec![Expression::Value(
                         ValueNode::String("hi".to_string()).with_position((16, 20))
                     )],
@@ -980,9 +985,9 @@ mod tests {
                     type_parameters: None,
                     value_parameters: vec![(
                         Identifier::new("x"),
-                        TypeConstructor::Integer.with_position((7, 10))
+                        TypeConstructor::Type(Type::Integer.with_position((7, 10)))
                     )],
-                    return_type: TypeConstructor::Integer.with_position((12, 15)),
+                    return_type: TypeConstructor::Type(Type::Integer.with_position((12, 15))),
                     body: Block::new(vec![Statement::ValueExpression(Expression::Identifier(
                         Identifier::new("x").with_position((18, 19))
                     ))])
@@ -1000,21 +1005,26 @@ mod tests {
             Statement::ValueExpression(Expression::Value(
                 ValueNode::ParsedFunction {
                     type_parameters: Some(vec![
-                        TypeConstructor::Argument(Identifier::new("T")).with_position((4, 5)),
-                        TypeConstructor::Argument(Identifier::new("U")).with_position((7, 8)),
+                        Identifier::new("T").with_position((4, 5)),
+                        Identifier::new("U").with_position((7, 8)),
                     ]),
                     value_parameters: vec![
                         (
                             Identifier::new("x"),
-                            TypeConstructor::Argument(Identifier::new("T")).with_position((13, 14))
+                            TypeConstructor::Identifier(
+                                Identifier::new("T").with_position((13, 14))
+                            )
                         ),
                         (
                             Identifier::new("y"),
-                            TypeConstructor::Argument(Identifier::new("U")).with_position((19, 20))
+                            TypeConstructor::Identifier(
+                                Identifier::new("U").with_position((19, 20))
+                            )
                         )
                     ],
-                    return_type: TypeConstructor::Argument(Identifier::new("T"))
-                        .with_position((22, 23)),
+                    return_type: TypeConstructor::Identifier(
+                        Identifier::new("T").with_position((22, 23))
+                    ),
                     body: Block::new(vec![Statement::ValueExpression(Expression::Identifier(
                         Identifier::new("x").with_position((26, 27))
                     ))])
@@ -1299,7 +1309,7 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(TypeConstructor::Integer.with_position((8, 11))),
+                    Some(TypeConstructor::Type(Type::Integer.with_position((8, 11)))),
                     AssignmentOperator::Assign,
                     Statement::ValueExpression(Expression::Value(
                         ValueNode::Integer(1).with_position((14, 15))

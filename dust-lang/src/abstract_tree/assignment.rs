@@ -12,7 +12,7 @@ use super::{AbstractNode, Evaluation, ExpectedType, Statement, TypeConstructor, 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Assignment {
     identifier: WithPosition<Identifier>,
-    constructor: Option<WithPosition<TypeConstructor>>,
+    constructor: Option<TypeConstructor>,
     operator: AssignmentOperator,
     statement: Box<Statement>,
 }
@@ -27,7 +27,7 @@ pub enum AssignmentOperator {
 impl Assignment {
     pub fn new(
         identifier: WithPosition<Identifier>,
-        constructor: Option<WithPosition<TypeConstructor>>,
+        constructor: Option<TypeConstructor>,
         operator: AssignmentOperator,
         statement: Statement,
     ) -> Self {
@@ -44,11 +44,7 @@ impl AbstractNode for Assignment {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         let statement_type = self.statement.expected_type(context)?;
 
-        if let Some(WithPosition {
-            node: constructor,
-            position: expected_position,
-        }) = &self.constructor
-        {
+        if let Some(constructor) = &self.constructor {
             let r#type = constructor.clone().construct(&context)?;
 
             r#type
@@ -56,7 +52,7 @@ impl AbstractNode for Assignment {
                 .map_err(|conflict| ValidationError::TypeCheck {
                     conflict,
                     actual_position: self.statement.position(),
-                    expected_position: Some(expected_position.clone()),
+                    expected_position: Some(constructor.position()),
                 })?;
 
             context.set_type(self.identifier.node.clone(), r#type.clone())?;
