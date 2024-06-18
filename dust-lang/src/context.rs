@@ -50,10 +50,10 @@ impl<'a> Context<'a> {
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
-        if let Some((value_data, _)) = self.variables.read()?.get(identifier) {
+        if let Some((data, _)) = self.variables.read()?.get(identifier) {
             log::trace!("Getting {identifier}'s type.");
 
-            let r#type = match value_data {
+            let r#type = match data {
                 VariableData::Type(r#type) => r#type.clone(),
                 VariableData::Value(value) => value.r#type(self)?,
             };
