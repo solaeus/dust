@@ -48,37 +48,35 @@ impl TypeConstructor {
     }
 
     pub fn construct(self, context: &Context) -> Result<Type, ValidationError> {
-        match self {
+        let r#type = match self {
             TypeConstructor::Function(_) => todo!(),
             TypeConstructor::Identifier(WithPosition {
-                node: identifier,
-                position,
+                node: identifier, ..
             }) => {
                 if let Some(r#type) = context.get_type(&identifier)? {
-                    Ok(r#type)
+                    Type::Generic(Some(Box::new(r#type)))
                 } else {
-                    Err(ValidationError::VariableNotFound {
-                        identifier,
-                        position,
-                    })
+                    Type::Generic(None)
                 }
             }
             TypeConstructor::List(positioned_constructor) => {
                 let ListTypeConstructor { length, item_type } = positioned_constructor.node;
                 let constructed_type = item_type.construct(context)?;
 
-                Ok(Type::List {
+                Type::List {
                     length,
                     item_type: Box::new(constructed_type),
-                })
+                }
             }
             TypeConstructor::ListOf(item_type) => {
                 let item_type = item_type.node.construct(&context)?;
 
-                Ok(Type::ListOf(Box::new(item_type)))
+                Type::ListOf(Box::new(item_type))
             }
-            TypeConstructor::Type(r#type) => Ok(r#type.node),
-        }
+            TypeConstructor::Type(r#type) => r#type.node,
+        };
+
+        Ok(r#type)
     }
 }
 
