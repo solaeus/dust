@@ -1,6 +1,6 @@
 use dust_lang::{
     abstract_tree::{Block, Expression, Statement, Type, WithPos},
-    error::{Error, TypeConflict, ValidationError},
+    error::{DustError, TypeConflict, ValidationError},
     identifier::Identifier,
     *,
 };
@@ -27,7 +27,7 @@ fn set_variable_with_type_error() {
         interpret("test", "foobar: str = true")
             .unwrap_err()
             .errors(),
-        &vec![Error::Validation {
+        &vec![DustError::Validation {
             error: ValidationError::TypeCheck {
                 conflict: TypeConflict {
                     actual: Type::Boolean,

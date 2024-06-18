@@ -4,7 +4,7 @@ use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
 use crate::{
     abstract_tree::*,
-    error::Error,
+    error::DustError,
     identifier::Identifier,
     lexer::{Control, Keyword, Operator, Token},
 };
@@ -14,15 +14,17 @@ pub type ParserInput<'src> =
 
 pub type ParserExtra<'src> = extra::Err<Rich<'src, Token<'src>, SimpleSpan>>;
 
-pub fn parse<'src>(tokens: &'src [(Token<'src>, SimpleSpan)]) -> Result<AbstractTree, Vec<Error>> {
+pub fn parse<'src>(
+    tokens: &'src [(Token<'src>, SimpleSpan)],
+) -> Result<AbstractTree, Vec<DustError>> {
     let statements = parser(false)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
         .map_err(|errors| {
             errors
                 .into_iter()
-                .map(|error| Error::from(error))
-                .collect::<Vec<Error>>()
+                .map(|error| DustError::from(error))
+                .collect::<Vec<DustError>>()
         })?;
 
     Ok(AbstractTree::new(statements))
@@ -224,9 +226,9 @@ pub fn parser<'src>(
                         .separated_by(just(Token::Control(Control::Comma)))
                         .at_least(1)
                         .allow_trailing()
-                        .collect()
-                        .or_not(),
+                        .collect(),
                 )
+                .or_not()
                 .then(
                     identifier
                         .clone()
@@ -744,8 +746,8 @@ mod tests {
             .map_err(|errors| {
                 errors
                     .into_iter()
-                    .map(|error| Error::from(error))
-                    .collect::<Vec<Error>>()
+                    .map(|error| DustError::from(error))
+                    .collect::<Vec<DustError>>()
             })
             .unwrap();
 
@@ -763,8 +765,8 @@ mod tests {
             .map_err(|errors| {
                 errors
                     .into_iter()
-                    .map(|error| Error::from(error))
-                    .collect::<Vec<Error>>()
+                    .map(|error| DustError::from(error))
+                    .collect::<Vec<DustError>>()
             })
             .unwrap();
 

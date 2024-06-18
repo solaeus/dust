@@ -49,7 +49,7 @@ pub use self::{
 
 use crate::{
     context::Context,
-    error::{Error, RuntimeError, ValidationError},
+    error::{DustError, RuntimeError, ValidationError},
     Value,
 };
 
@@ -110,7 +110,7 @@ impl AbstractTree {
         self,
         context: &mut Context,
         manage_memory: bool,
-    ) -> Result<Option<Value>, Vec<Error>> {
+    ) -> Result<Option<Value>, Vec<DustError>> {
         let valid_statements = self.validate(context, manage_memory)?;
         let mut previous_value = None;
 
@@ -125,7 +125,7 @@ impl AbstractTree {
                     _ => {}
                 },
                 Err(runtime_error) => {
-                    return Err(vec![Error::Runtime {
+                    return Err(vec![DustError::Runtime {
                         error: runtime_error,
                         position,
                     }]);
@@ -140,7 +140,7 @@ impl AbstractTree {
         self,
         context: &mut Context,
         manage_memory: bool,
-    ) -> Result<Vec<Statement>, Vec<Error>> {
+    ) -> Result<Vec<Statement>, Vec<DustError>> {
         let mut errors = Vec::new();
         let mut valid_statements = Vec::new();
 
@@ -148,7 +148,7 @@ impl AbstractTree {
             let validation = statement.validate(context, manage_memory);
 
             if let Err(validation_error) = validation {
-                errors.push(Error::Validation {
+                errors.push(DustError::Validation {
                     error: validation_error,
                     position: statement.position(),
                 })
@@ -158,7 +158,7 @@ impl AbstractTree {
                     let run = statement.evaluate(context, true);
 
                     if let Err(runtime_error) = run {
-                        errors.push(Error::Runtime {
+                        errors.push(DustError::Runtime {
                             error: runtime_error,
                             position,
                         });

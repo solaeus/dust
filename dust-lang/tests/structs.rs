@@ -1,6 +1,6 @@
 use dust_lang::{
     abstract_tree::{Type, WithPos},
-    error::{Error, TypeConflict, ValidationError},
+    error::{DustError, TypeConflict, ValidationError},
     identifier::Identifier,
     interpret, Value,
 };
@@ -49,7 +49,7 @@ fn field_type_error() {
         )
         .unwrap_err()
         .errors(),
-        &vec![Error::Validation {
+        &vec![DustError::Validation {
             error: ValidationError::TypeCheck {
                 conflict: TypeConflict {
                     actual: Type::String,
@@ -109,7 +109,7 @@ fn undefined_struct() {
         )
         .unwrap_err()
         .errors(),
-        &vec![Error::Validation {
+        &vec![DustError::Validation {
             error: ValidationError::VariableNotFound {
                 identifier: Identifier::new("Foo"),
                 position: (17, 20).into()

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use dust_lang::{
     abstract_tree::{Type, WithPos},
-    error::{Error, TypeConflict, ValidationError},
+    error::{DustError, TypeConflict, ValidationError},
     identifier::Identifier,
     *,
 };
@@ -141,7 +141,7 @@ fn map_type_errors() {
         interpret("test", "{ foo : bool = 'bar' }")
             .unwrap_err()
             .errors(),
-        &vec![Error::Validation {
+        &vec![DustError::Validation {
             error: ValidationError::TypeCheck {
                 conflict: TypeConflict {
                     actual: Type::String,

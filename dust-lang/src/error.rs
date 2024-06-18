@@ -9,7 +9,7 @@ use crate::{
 };
 
 #[derive(Debug, PartialEq)]
-pub enum Error {
+pub enum DustError {
     Lex {
         expected: String,
         span: (usize, usize),
@@ -30,9 +30,9 @@ pub enum Error {
     },
 }
 
-impl From<Rich<'_, char>> for Error {
+impl From<Rich<'_, char>> for DustError {
     fn from(error: Rich<'_, char>) -> Self {
-        Error::Lex {
+        DustError::Lex {
             expected: error.expected().map(|error| error.to_string()).collect(),
             span: (error.span().start(), error.span().end()),
             reason: error.reason().to_string(),
@@ -40,9 +40,9 @@ impl From<Rich<'_, char>> for Error {
     }
 }
 
-impl<'src> From<Rich<'_, Token<'src>>> for Error {
+impl<'src> From<Rich<'_, Token<'src>>> for DustError {
     fn from(error: Rich<'_, Token<'src>>) -> Self {
-        Error::Parse {
+        DustError::Parse {
             expected: error.expected().map(|error| error.to_string()).collect(),
             span: (error.span().start(), error.span().end()),
             found: error.found().map(|token| token.to_string()),

@@ -16,7 +16,7 @@ use abstract_tree::{AbstractTree, Type};
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use chumsky::prelude::*;
 use context::Context;
-use error::{Error, RuntimeError, TypeConflict, ValidationError};
+use error::{DustError, RuntimeError, TypeConflict, ValidationError};
 use lexer::{lex, Token};
 use parser::{parse, parser};
 use rayon::prelude::*;
@@ -155,7 +155,7 @@ impl<'a> Interpreter<'a> {
                     .into_result()
                     .map_err(|errors| InterpreterError {
                         source_id: source_id.clone(),
-                        errors: errors.into_iter().map(Error::from).collect(),
+                        errors: errors.into_iter().map(DustError::from).collect(),
                     });
                 let abstract_tree = match parse_result {
                     Ok(statements) => AbstractTree::new(statements),
@@ -185,22 +185,26 @@ impl<'a> Interpreter<'a> {
 #[derive(Debug, PartialEq)]
 pub struct InterpreterError {
     source_id: Arc<str>,
-    errors: Vec<Error>,
+    errors: Vec<DustError>,
 }
 
 impl InterpreterError {
-    pub fn errors(&self) -> &Vec<Error> {
+    pub fn errors(&self) -> &Vec<DustError> {
         &self.errors
     }
 }
 
 impl InterpreterError {
     pub fn build_reports<'a>(self) -> Vec<Report<'a, (Arc<str>, Range<usize>)>> {
+        let token_color = Color::Yellow;
+        let type_color = Color::Green;
+        let identifier_color = Color::Blue;
+
         let mut reports = Vec::new();
 
         for error in self.errors {
             let (mut builder, validation_error) = match error {
-            Error::Lex {
+            DustError::Lex {
                 expected,
                 span,
                 reason,
@@ -226,7 +230,7 @@ impl InterpreterError {
                     None,
                 )
             }
-            Error::Parse {
+            DustError::Parse {
                 expected,
                 span,
                 found,
@@ -236,7 +240,7 @@ impl InterpreterError {
                 } else {                   
                     format!("Expected {expected}.")
                 };
-                let found = found.unwrap_or_else(|| "End of input".to_string());
+                let found = found.unwrap_or_else(|| "End of input".to_string()).fg(token_color);
 
                 (
                     Report::build(
@@ -253,7 +257,7 @@ impl InterpreterError {
                     None,
                 )
             }
-            Error::Validation { error, position } => (
+            DustError::Validation { error, position } => (
                 Report::build(
                     ReportKind::Custom("Validation Error", Color::Magenta),
                     self.source_id.clone(),
@@ -263,7 +267,7 @@ impl InterpreterError {
                 .with_note("This error was detected by the interpreter before running the code."),
                 Some(error),
             ),
-            Error::Runtime { error, position } => (
+            DustError::Runtime { error, position } => (
                 Report::build(
                     ReportKind::Custom("Runtime Error", Color::Red),
                     self.source_id.clone(),
@@ -286,9 +290,6 @@ impl InterpreterError {
                 },
             ),
         };
-
-            let type_color = Color::Green;
-            let identifier_color = Color::Blue;
 
             if let Some(validation_error) = validation_error {
                 match validation_error {

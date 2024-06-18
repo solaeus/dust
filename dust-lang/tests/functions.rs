@@ -6,7 +6,7 @@ fn function_call_with_type_argument() {
         interpret(
             "test",
             "
-            foobar = fn (T)(x : T) T { x }
+            foobar = fn T (x: T) -> T { x }
             foobar::(int)::(42)
             ",
         ),
@@ -20,7 +20,7 @@ fn function_call() {
         interpret(
             "test",
             "
-            foobar = fn (message : str) str { message }
+            foobar = fn (message:  str) -> str { message }
             foobar('Hiya')
             ",
         ),
@@ -34,10 +34,10 @@ fn callback() {
         interpret(
             "test",
             "
-            foobar = fn (cb: fn() -> str) str {
+            foobar = fn (cb: fn () -> str) -> str {
                 cb()
             }
-            foobar(fn () str { 'Hiya' })
+            foobar(fn () -> str { 'Hiya' })
             ",
         ),
         Ok(Some(Value::string("Hiya".to_string())))
@@ -55,8 +55,8 @@ fn function_context_captures_values() {
         interpret(
             "test",
             "
-            bar = fn () int { 2 }
-            foo = fn () int { bar() }
+            bar = fn () -> int { 2 }
+            foo = fn () -> int { bar() }
             foo()
             "
         ),
@@ -70,7 +70,7 @@ fn recursion() {
         interpret(
             "test",
             "
-            fib = fn (i: int) int {
+            fib = fn (i: int) -> int {
             	if i <= 1 {
             		1
             	} else {

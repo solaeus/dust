@@ -5,7 +5,7 @@ use std::{
 
 use chumsky::prelude::*;
 
-use crate::error::Error;
+use crate::error::DustError;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token<'src> {
@@ -187,7 +187,7 @@ impl Display for Control {
     }
 }
 
-pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token<'src>, SimpleSpan)>, Vec<Error>> {
+pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token<'src>, SimpleSpan)>, Vec<DustError>> {
     lexer()
         .parse(source)
         .into_result()

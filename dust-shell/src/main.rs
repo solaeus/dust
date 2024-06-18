@@ -60,7 +60,19 @@ fn main() {
     let mut interpreter = Interpreter::new(context.clone());
 
     if !args.no_std {
-        interpreter.load_std().unwrap();
+        let load_std_result = interpreter.load_std();
+
+        if let Err(error) = load_std_result {
+            eprintln!("Failed to load standard library");
+
+            for report in error.build_reports() {
+                report
+                    .write_for_stdout(sources(interpreter.sources()), stderr())
+                    .unwrap();
+            }
+
+            return;
+        }
     }
 
     let (source_id, source): (Arc<str>, Arc<str>) = if let Some(path) = args.path {
