@@ -316,6 +316,32 @@ pub fn parser<'src>(
                     },
                 );
 
+            let enum_instance = positioned_identifier
+                .clone()
+                .then_ignore(just(Token::Control(Control::DoubleColon)))
+                .then(positioned_identifier.clone())
+                .then(
+                    expression
+                        .clone()
+                        .separated_by(just(Token::Control(Control::Comma)))
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::ParenOpen)),
+                            just(Token::Control(Control::ParenClose)),
+                        )
+                        .or_not(),
+                )
+                .map_with(|((type_name, variant), content), state| {
+                    Expression::Value(
+                        ValueNode::EnumInstance {
+                            type_name,
+                            variant,
+                            content,
+                        }
+                        .with_position(state.span()),
+                    )
+                });
+
             let built_in_function_call = choice((
                 just(Token::Keyword(Keyword::Length))
                     .ignore_then(expression.clone())
@@ -390,6 +416,7 @@ pub fn parser<'src>(
                 );
 
             let atom = choice((
+                enum_instance.clone(),
                 range.clone(),
                 function.clone(),
                 list.clone(),
@@ -409,41 +436,6 @@ pub fn parser<'src>(
                     just(Token::Operator(Operator::Not)),
                     |_, expression, span| {
                         Expression::Logic(Box::new(Logic::Not(expression)).with_position(span))
-                    },
-                ),
-                postfix(
-                    3,
-                    expression.clone().delimited_by(
-                        just(Token::Control(Control::SquareOpen)),
-                        just(Token::Control(Control::SquareClose)),
-                    ),
-                    |left, right, span| {
-                        Expression::ListIndex(
-                            Box::new(ListIndex::new(left, right)).with_position(span),
-                        )
-                    },
-                ),
-                postfix(
-                    3,
-                    turbofish.clone().or_not().then(
-                        expression
-                            .clone()
-                            .separated_by(just(Token::Control(Control::Comma)))
-                            .collect()
-                            .delimited_by(
-                                just(Token::Control(Control::ParenOpen)),
-                                just(Token::Control(Control::ParenClose)),
-                            ),
-                    ),
-                    |function_expression, (type_parameters, value_parameters), span| {
-                        Expression::FunctionCall(
-                            FunctionCall::new(
-                                function_expression,
-                                type_parameters,
-                                value_parameters,
-                            )
-                            .with_position(span),
-                        )
                     },
                 ),
                 infix(
@@ -554,6 +546,42 @@ pub fn parser<'src>(
                         )
                     },
                 ),
+                postfix(
+                    3,
+                    expression.clone().delimited_by(
+                        just(Token::Control(Control::SquareOpen)),
+                        just(Token::Control(Control::SquareClose)),
+                    ),
+                    |left, right, span| {
+                        Expression::ListIndex(
+                            Box::new(ListIndex::new(left, right)).with_position(span),
+                        )
+                    },
+                ),
+                // Function call
+                postfix(
+                    3,
+                    turbofish.clone().or_not().then(
+                        expression
+                            .clone()
+                            .separated_by(just(Token::Control(Control::Comma)))
+                            .collect()
+                            .delimited_by(
+                                just(Token::Control(Control::ParenOpen)),
+                                just(Token::Control(Control::ParenClose)),
+                            ),
+                    ),
+                    |function_expression, (type_parameters, value_parameters), span| {
+                        Expression::FunctionCall(
+                            FunctionCall::new(
+                                function_expression,
+                                type_parameters,
+                                value_parameters,
+                            )
+                            .with_position(span),
+                        )
+                    },
+                ),
                 // As
                 postfix(
                     2,
@@ -568,6 +596,7 @@ pub fn parser<'src>(
 
             choice((
                 logic_math_indexes_as_and_function_calls,
+                enum_instance,
                 built_in_function_call,
                 range,
                 function,
@@ -576,7 +605,6 @@ pub fn parser<'src>(
                 basic_value,
                 identifier_expression,
             ))
-            // .delimited_by(comment.clone().or_not(), comment.or_not())
         });
 
         let expression_statement = expression

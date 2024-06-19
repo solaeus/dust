@@ -425,8 +425,10 @@ impl InterpreterError {
                         )
                     }
                     ValidationError::ExpectedString { .. } => todo!(),
+                    ValidationError::EnumDefinitionNotFound(_) => todo!(),
                 }
             }
+
             let report = builder.finish();
 
             reports.push(report);

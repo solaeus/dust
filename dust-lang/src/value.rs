@@ -32,6 +32,18 @@ impl Value {
         Value(Arc::new(ValueInner::Boolean(boolean)))
     }
 
+    pub fn enum_instance(
+        type_name: Identifier,
+        variant: Identifier,
+        content: Option<Vec<Value>>,
+    ) -> Self {
+        Value(Arc::new(ValueInner::EnumInstance {
+            type_name,
+            variant,
+            content,
+        }))
+    }
+
     pub fn float(float: f64) -> Self {
         Value(Arc::new(ValueInner::Float(float)))
     }
@@ -107,6 +119,23 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.inner().as_ref() {
             ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
+            ValueInner::EnumInstance {
+                type_name,
+                variant,
+                content,
+            } => {
+                if let Some(values) = content {
+                    write!(f, "{type_name}::{variant}(")?;
+
+                    for value in values {
+                        write!(f, "{value}")?;
+                    }
+
+                    write!(f, ")")
+                } else {
+                    write!(f, "{type_name}::{variant}")
+                }
+            }
             ValueInner::Float(float) => write!(f, "{float}"),
             ValueInner::Integer(integer) => write!(f, "{integer}"),
             ValueInner::List(list) => {
@@ -195,6 +224,19 @@ impl Serialize for Value {
     {
         match self.0.as_ref() {
             ValueInner::Boolean(boolean) => serializer.serialize_bool(*boolean),
+            ValueInner::EnumInstance {
+                type_name,
+                variant,
+                content,
+            } => {
+                let mut struct_ser = serializer.serialize_struct("EnumInstance", 3)?;
+
+                struct_ser.serialize_field("type_name", type_name)?;
+                struct_ser.serialize_field("variant", variant)?;
+                struct_ser.serialize_field("content", content)?;
+
+                struct_ser.end()
+            }
             ValueInner::Float(float) => serializer.serialize_f64(*float),
             ValueInner::Function(Function {
                 type_parameters,
@@ -496,6 +538,11 @@ impl<'de> Deserialize<'de> for Value {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueInner {
     Boolean(bool),
+    EnumInstance {
+        type_name: Identifier,
+        variant: Identifier,
+        content: Option<Vec<Value>>,
+    },
     Float(f64),
     Function(Function),
     Integer(i64),
@@ -513,6 +560,13 @@ impl ValueInner {
     pub fn r#type(&self, context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueInner::Boolean(_) => Type::Boolean,
+            ValueInner::EnumInstance { type_name, .. } => {
+                if let Some(r#type) = context.get_type(type_name)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::EnumDefinitionNotFound(type_name.clone()));
+                }
+            }
             ValueInner::Float(_) => Type::Float,
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
@@ -591,6 +645,33 @@ impl Ord for ValueInner {
             (Range(_), _) => Ordering::Greater,
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
+            (
+                EnumInstance {
+                    type_name: left_name,
+                    variant: left_variant,
+                    content: left_content,
+                },
+                EnumInstance {
+                    type_name: right_name,
+                    variant: right_variant,
+                    content: right_content,
+                },
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp.is_eq() {
+                    let variant_cmp = left_variant.cmp(right_variant);
+
+                    if variant_cmp.is_eq() {
+                        left_content.cmp(right_content)
+                    } else {
+                        variant_cmp
+                    }
+                } else {
+                    name_cmp
+                }
+            }
+            (EnumInstance { .. }, _) => Ordering::Greater,
             (Function(left), Function(right)) => left.cmp(right),
             (Function(_), _) => Ordering::Greater,
             (

@@ -160,6 +160,7 @@ pub enum ValidationError {
         identifier: Identifier,
         position: SourcePosition,
     },
+    EnumDefinitionNotFound(Identifier),
 }
 
 impl From<RwLockPoisonError> for ValidationError {

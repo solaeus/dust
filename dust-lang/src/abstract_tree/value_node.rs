@@ -16,6 +16,11 @@ use super::{
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueNode {
     Boolean(bool),
+    EnumInstance {
+        type_name: WithPosition<Identifier>,
+        variant: WithPosition<Identifier>,
+        content: Option<Vec<Expression>>,
+    },
     Float(f64),
     Integer(i64),
     List(Vec<Expression>),
@@ -142,6 +147,34 @@ impl Evaluate for ValueNode {
     ) -> Result<Evaluation, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
+
+            ValueNode::EnumInstance {
+                type_name,
+                variant,
+                content: expressions,
+            } => {
+                let content = if let Some(expressions) = expressions {
+                    let mut values = Vec::with_capacity(expressions.len());
+
+                    for expression in expressions {
+                        let position = expression.position();
+                        let evaluation = expression.evaluate(context, _manage_memory)?;
+
+                        if let Evaluation::Return(value) = evaluation {
+                            values.push(value);
+                        } else {
+                            return Err(RuntimeError::ValidationFailure(
+                                ValidationError::InterpreterExpectedReturn(position),
+                            ));
+                        }
+                    }
+                    Some(values)
+                } else {
+                    None
+                };
+
+                Value::enum_instance(type_name.node, variant.node, content)
+            }
             ValueNode::Float(float) => Value::float(float),
             ValueNode::Integer(integer) => Value::integer(integer),
             ValueNode::List(expression_list) => {
@@ -268,6 +301,33 @@ impl Ord for ValueNode {
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
             (
+                EnumInstance {
+                    type_name: left_name,
+                    variant: left_variant,
+                    content: left_content,
+                },
+                EnumInstance {
+                    type_name: right_name,
+                    variant: right_variant,
+                    content: right_content,
+                },
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp.is_eq() {
+                    let variant_cmp = left_variant.cmp(right_variant);
+
+                    if variant_cmp.is_eq() {
+                        left_content.cmp(right_content)
+                    } else {
+                        variant_cmp
+                    }
+                } else {
+                    name_cmp
+                }
+            }
+            (EnumInstance { .. }, _) => Ordering::Greater,
+            (
                 Function {
                     type_parameters: left_type_arguments,
                     value_parameters: left_parameters,
@@ -329,6 +389,15 @@ impl ExpectedType for ValueNode {
     fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
+            ValueNode::EnumInstance { type_name, .. } => {
+                if let Some(r#type) = context.get_type(&type_name.node)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::EnumDefinitionNotFound(
+                        type_name.node.clone(),
+                    ));
+                }
+            }
             ValueNode::Float(_) => Type::Float,
             ValueNode::Integer(_) => Type::Integer,
             ValueNode::List(items) => {
