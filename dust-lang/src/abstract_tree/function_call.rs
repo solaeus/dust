@@ -137,17 +137,17 @@ impl ExpectedType for FunctionCall {
             ..
         } = function_node_type
         {
-            for (constructor, identifier) in self
-                .type_arguments
-                .as_ref()
-                .unwrap()
-                .into_iter()
-                .zip(type_parameters.unwrap().into_iter())
+            if let Type::Generic {
+                identifier: return_identifier,
+                ..
+            } = *return_type.clone()
             {
-                if let Type::Generic {
-                    identifier: return_identifier,
-                    ..
-                } = *return_type.clone()
+                for (constructor, identifier) in self
+                    .type_arguments
+                    .as_ref()
+                    .unwrap()
+                    .into_iter()
+                    .zip(type_parameters.unwrap().into_iter())
                 {
                     if return_identifier == identifier {
                         let concrete_type = constructor.clone().construct(&context)?;
