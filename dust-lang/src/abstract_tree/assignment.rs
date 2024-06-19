@@ -8,7 +8,8 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Evaluation, ExpectedType, Statement, Type, TypeConstructor, WithPosition,
+    AbstractNode, Evaluation, ExpectedType, Expression, Statement, Type, TypeConstructor,
+    WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -52,7 +53,38 @@ impl AbstractNode for Assignment {
             ));
         }
 
-        if let Some(constructor) = &self.constructor {
+        if let (Some(constructor), Statement::Expression(Expression::FunctionCall(function_call))) =
+            (&self.constructor, self.statement.as_ref())
+        {
+            let declared_type = constructor.clone().construct(context)?;
+            let function_type = function_call.node.function().expected_type(context)?;
+
+            if let Type::Function {
+                return_type,
+                type_parameters: Some(type_parameters),
+                ..
+            } = function_type
+            {
+                if let Type::Generic {
+                    identifier,
+                    concrete_type,
+                } = *return_type
+                {
+                    let returned_parameter = type_parameters
+                        .into_iter()
+                        .find(|parameter| parameter == &identifier);
+
+                    if let Some(parameter) = returned_parameter {
+                        context.set_type(parameter, declared_type)?;
+                    }
+                }
+            } else {
+                return Err(ValidationError::ExpectedFunction {
+                    actual: function_type,
+                    position: function_call.position,
+                });
+            }
+        } else if let Some(constructor) = &self.constructor {
             let r#type = constructor.clone().construct(&context)?;
 
             r#type
@@ -78,8 +110,8 @@ impl AbstractNode for Assignment {
         context: &mut Context,
         manage_memory: bool,
     ) -> Result<Evaluation, RuntimeError> {
-        let action = self.statement.evaluate(context, manage_memory)?;
-        let right = match action {
+        let evaluation = self.statement.evaluate(context, manage_memory)?;
+        let right = match evaluation {
             Evaluation::Return(value) => value,
             r#break => return Ok(r#break),
         };

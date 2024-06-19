@@ -27,6 +27,10 @@ impl FunctionCall {
             value_arguments,
         }
     }
+
+    pub fn function(&self) -> &Box<Expression> {
+        &self.function
+    }
 }
 
 impl AbstractNode for FunctionCall {
@@ -148,7 +152,7 @@ impl ExpectedType for FunctionCall {
                     for (constructor, identifier) in
                         type_arguments.into_iter().zip(type_parameters.into_iter())
                     {
-                        if &return_identifier == identifier {
+                        if identifier == &return_identifier {
                             let concrete_type = constructor.clone().construct(&context)?;
 
                             return Ok(Type::Generic {

@@ -341,6 +341,10 @@ impl Function {
         &self.value_parameters
     }
 
+    pub fn body(&self) -> &Block {
+        &self.body
+    }
+
     pub fn call(
         self,
         arguments: Vec<Value>,
