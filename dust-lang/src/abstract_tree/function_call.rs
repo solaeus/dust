@@ -142,20 +142,36 @@ impl ExpectedType for FunctionCall {
                 ..
             } = *return_type.clone()
             {
-                for (constructor, identifier) in self
-                    .type_arguments
-                    .as_ref()
-                    .unwrap()
-                    .into_iter()
-                    .zip(type_parameters.unwrap().into_iter())
+                if let (Some(type_arguments), Some(type_parameters)) =
+                    (&self.type_arguments, &type_parameters)
                 {
-                    if return_identifier == identifier {
-                        let concrete_type = constructor.clone().construct(&context)?;
+                    for (constructor, identifier) in
+                        type_arguments.into_iter().zip(type_parameters.into_iter())
+                    {
+                        if &return_identifier == identifier {
+                            let concrete_type = constructor.clone().construct(&context)?;
 
-                        return Ok(Type::Generic {
-                            identifier,
-                            concrete_type: Some(Box::new(concrete_type)),
-                        });
+                            return Ok(Type::Generic {
+                                identifier: identifier.clone(),
+                                concrete_type: Some(Box::new(concrete_type)),
+                            });
+                        }
+                    }
+                }
+
+                if let (None, Some(type_parameters)) = (&self.type_arguments, type_parameters) {
+                    for (expression, identifier) in (&self.value_arguments)
+                        .into_iter()
+                        .zip(type_parameters.into_iter())
+                    {
+                        if identifier == return_identifier {
+                            let concrete_type = expression.expected_type(context)?;
+
+                            return Ok(Type::Generic {
+                                identifier,
+                                concrete_type: Some(Box::new(concrete_type)),
+                            });
+                        }
                     }
                 }
             }

@@ -1,2 +1,3 @@
 foo = fn |T| (x: T) -> T { x }
 bar: str = foo::(str)::("hi")
+baz: str = foo("hi")
