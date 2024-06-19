@@ -39,6 +39,14 @@ impl Statement {
             Statement::While(inner) => inner.position,
         }
     }
+
+    pub fn last_child_statement(&self) -> Option<&Self> {
+        match self {
+            Statement::Block(block) => Some(block.node.last_statement()),
+            Statement::Loop(r#loop) => Some(r#loop.node.last_statement()),
+            _ => None,
+        }
+    }
 }
 
 impl Evaluate for Statement {

@@ -41,6 +41,15 @@ pub enum ValueNode {
 
 impl Evaluate for ValueNode {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        if let ValueNode::EnumInstance { type_name, .. } = self {
+            if let Some(_) = context.get_type(&type_name.node)? {
+            } else {
+                return Err(ValidationError::EnumDefinitionNotFound(
+                    type_name.node.clone(),
+                ));
+            }
+        }
+
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, constructor_option, expression) in map_assignments {
                 expression.validate(context, _manage_memory)?;
@@ -147,7 +156,6 @@ impl Evaluate for ValueNode {
     ) -> Result<Evaluation, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
-
             ValueNode::EnumInstance {
                 type_name,
                 variant,

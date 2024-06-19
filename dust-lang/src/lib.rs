@@ -13,7 +13,7 @@ use std::{
 };
 
 use abstract_tree::{AbstractTree, Type};
-use ariadne::{Color, Fmt, Label, Report, ReportKind};
+use ariadne::{Color, Config, Fmt, Label, Report, ReportKind};
 use chumsky::prelude::*;
 use context::Context;
 use error::{DustError, RuntimeError, TypeConflict, ValidationError};
@@ -428,6 +428,8 @@ impl InterpreterError {
                     ValidationError::EnumDefinitionNotFound(_) => todo!(),
                 }
             }
+
+            builder = builder.with_config(Config::default().with_multiline_arrows(false));
 
             let report = builder.finish();
 

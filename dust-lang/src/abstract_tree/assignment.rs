@@ -52,8 +52,13 @@ impl Evaluate for Assignment {
             ));
         }
 
+        let statement = self
+            .statement
+            .last_child_statement()
+            .unwrap_or(&self.statement);
+
         if let (Some(constructor), Statement::Expression(Expression::FunctionCall(function_call))) =
-            (&self.constructor, self.statement.as_ref())
+            (&self.constructor, statement)
         {
             let declared_type = constructor.clone().construct(context)?;
             let function_type = function_call.node.function().expected_type(context)?;
@@ -79,18 +84,6 @@ impl Evaluate for Assignment {
                     position: function_call.position,
                 });
             }
-        } else if let Some(constructor) = &self.constructor {
-            let r#type = constructor.clone().construct(&context)?;
-
-            r#type
-                .check(&statement_type)
-                .map_err(|conflict| ValidationError::TypeCheck {
-                    conflict,
-                    actual_position: self.statement.position(),
-                    expected_position: Some(constructor.position()),
-                })?;
-
-            context.set_type(self.identifier.node.clone(), r#type.clone())?;
         } else {
             context.set_type(self.identifier.node.clone(), statement_type)?;
         }

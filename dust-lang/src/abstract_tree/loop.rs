@@ -16,6 +16,10 @@ impl Loop {
     pub fn new(statements: Vec<Statement>) -> Self {
         Self { statements }
     }
+
+    pub fn last_statement(&self) -> &Statement {
+        self.statements.last().unwrap()
+    }
 }
 
 impl Evaluate for Loop {

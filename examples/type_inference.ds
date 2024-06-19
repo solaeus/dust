@@ -14,3 +14,7 @@ x = json.parse::(int)::("1")
 
 // Use type annotation
 x: int = json.parse("1")
+
+x: int = {
+	json.parse("1")
+}
