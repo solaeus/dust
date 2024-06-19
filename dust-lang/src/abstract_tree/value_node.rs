@@ -149,12 +149,9 @@ impl AbstractNode for ValueNode {
 
                 for expression in expression_list {
                     let expression_position = expression.position();
-                    let action = expression.evaluate(context, _manage_memory)?;
-                    let value = if let Evaluation::Return(value) = action {
-                        WithPosition {
-                            node: value,
-                            position: expression_position,
-                        }
+                    let evaluation = expression.evaluate(context, _manage_memory)?;
+                    let value = if let Evaluation::Return(value) = evaluation {
+                        value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
                             ValidationError::InterpreterExpectedReturn(expression_position),

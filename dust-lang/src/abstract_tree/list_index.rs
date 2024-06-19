@@ -82,7 +82,7 @@ impl AbstractNode for ListIndex {
             let found_item = list.get(index as usize);
 
             if let Some(item) = found_item {
-                Ok(Evaluation::Return(item.node.clone()))
+                Ok(Evaluation::Return(item.clone()))
             } else {
                 Ok(Evaluation::None)
             }

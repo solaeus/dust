@@ -38,18 +38,44 @@ impl<'de> Deserialize<'de> for Identifier {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(Identifier(Arc::new(
-            deserializer.deserialize_string(StringVisitor)?,
-        )))
+        deserializer.deserialize_identifier(IdentifierVisitor)
     }
 }
 
-struct StringVisitor;
+struct IdentifierVisitor;
 
-impl<'de> Visitor<'de> for StringVisitor {
-    type Value = String;
+impl<'de> Visitor<'de> for IdentifierVisitor {
+    type Value = Identifier;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a UTF-8 string")
+    }
+
+    fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_str(v.encode_utf8(&mut [0u8; 4]))
+    }
+
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        Ok(Identifier::new(v))
+    }
+
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_str(v)
+    }
+
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: serde::de::Error,
+    {
+        self.visit_str(&v)
     }
 }

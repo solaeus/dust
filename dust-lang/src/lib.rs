@@ -272,11 +272,13 @@ impl InterpreterError {
                     Some(error),
                 ),
                 DustError::Runtime { error, position } => {
-                    let error_message = match &error {
-                        RuntimeError::Io(_) => todo!(),
+                    let note = match &error {
+                        RuntimeError::Io(io_error) => &io_error.to_string(),
                         RuntimeError::RwLockPoison(_) => todo!(),
-                        RuntimeError::ValidationFailure(_) => todo!(),
-                        RuntimeError::SerdeJson(serde_json_error) => serde_json_error.to_string(),
+                        RuntimeError::ValidationFailure(_) => {
+                            "This is the interpreter's fault. Please submit a bug with this error message."
+                        }
+                        RuntimeError::SerdeJson(serde_json_error) => &serde_json_error.to_string(),
                     };
 
                     (
@@ -286,14 +288,12 @@ impl InterpreterError {
                                 position.1,
                             )
                             .with_message("An error occured that forced the program to exit.")
-                            .with_note(
+                            .with_help(
                                 "There may be unexpected side-effects because the program could not finish.",
                             )
-                            .with_help(
-                                "This is the interpreter's fault. Please submit a bug with this error message.",
-                            )
+                            .with_note(note)
                             .with_label(
-                                Label::new((self.source_id.clone(), position.0..position.1)).with_message(error_message)
+                                Label::new((self.source_id.clone(), position.0..position.1)).with_message("Error occured here.")
                             ),
 
                             if let RuntimeError::ValidationFailure(validation_error) = error {

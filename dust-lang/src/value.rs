@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use chumsky::container::Container;
 use serde::{
     de::Visitor,
     ser::{SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple},
@@ -39,7 +40,7 @@ impl Value {
         Value(Arc::new(ValueInner::Integer(integer)))
     }
 
-    pub fn list(list: Vec<WithPosition<Value>>) -> Self {
+    pub fn list(list: Vec<Value>) -> Self {
         Value(Arc::new(ValueInner::List(list)))
     }
 
@@ -85,7 +86,7 @@ impl Value {
         }
     }
 
-    pub fn as_list(&self) -> Option<&Vec<WithPosition<Value>>> {
+    pub fn as_list(&self) -> Option<&Vec<Value>> {
         if let ValueInner::List(list) = self.inner().as_ref() {
             Some(list)
         } else {
@@ -113,9 +114,9 @@ impl Display for Value {
 
                 for (index, value) in list.into_iter().enumerate() {
                     if index == list.len() - 1 {
-                        write!(f, "{}", value.node)?;
+                        write!(f, "{}", value)?;
                     } else {
-                        write!(f, "{}, ", value.node)?;
+                        write!(f, "{}, ", value)?;
                     }
                 }
 
@@ -215,7 +216,7 @@ impl Serialize for Value {
                 let mut list_ser = serializer.serialize_seq(Some(list.len()))?;
 
                 for item in list {
-                    list_ser.serialize_element(&item.node)?;
+                    list_ser.serialize_element(&item)?;
                 }
 
                 list_ser.end()
@@ -264,10 +265,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Bool(v),
-            &self,
-        ))
+        Ok(Value::boolean(v))
     }
 
     fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
@@ -298,7 +296,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::integer(v))
     }
 
-    fn visit_i128<E>(self, v: i128) -> Result<Self::Value, E>
+    fn visit_i128<E>(self, _: i128) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
@@ -333,7 +331,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::integer(v as i64))
     }
 
-    fn visit_u128<E>(self, v: u128) -> Result<Self::Value, E>
+    fn visit_u128<E>(self, _: u128) -> Result<Self::Value, E>
     where
         E: serde::de::Error,
     {
@@ -351,10 +349,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Float(v),
-            &self,
-        ))
+        Ok(Value::float(v))
     }
 
     fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
@@ -368,10 +363,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Str(v),
-            &self,
-        ))
+        Ok(Value::string(v))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
@@ -454,26 +446,30 @@ impl<'de> Visitor<'de> for ValueVisitor {
         ))
     }
 
-    fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::SeqAccess<'de>,
     {
-        let _ = seq;
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Seq,
-            &self,
-        ))
+        let mut list = Vec::with_capacity(seq.size_hint().unwrap_or(10));
+
+        while let Some(element) = seq.next_element()? {
+            list.push(element);
+        }
+
+        Ok(Value::list(list))
     }
 
-    fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error>
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
     where
         A: serde::de::MapAccess<'de>,
     {
-        let _ = map;
-        Err(serde::de::Error::invalid_type(
-            serde::de::Unexpected::Map,
-            &self,
-        ))
+        let mut btree = BTreeMap::with_capacity(map.size_hint().unwrap_or(10));
+
+        while let Some((key, value)) = map.next_entry()? {
+            btree.insert(key, value);
+        }
+
+        Ok(Value::map(btree))
     }
 
     fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
@@ -503,7 +499,7 @@ pub enum ValueInner {
     Float(f64),
     Function(Function),
     Integer(i64),
-    List(Vec<WithPosition<Value>>),
+    List(Vec<Value>),
     Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
@@ -520,7 +516,7 @@ impl ValueInner {
             ValueInner::Float(_) => Type::Float,
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
-                let item_type = values.first().unwrap().node.r#type(context)?;
+                let item_type = values.first().unwrap().r#type(context)?;
 
                 Type::List {
                     length: values.len(),
