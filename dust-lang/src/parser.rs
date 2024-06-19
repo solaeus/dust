@@ -151,12 +151,58 @@ pub fn parser<'src>(
             .clone()
             .map(|identifier| TypeConstructor::Identifier(identifier));
 
+        let enum_variant = positioned_identifier.clone().then(
+            type_constructor
+                .clone()
+                .separated_by(just(Token::Control(Control::Comma)))
+                .collect()
+                .delimited_by(
+                    just(Token::Control(Control::ParenOpen)),
+                    just(Token::Control(Control::ParenClose)),
+                )
+                .or_not(),
+        );
+
+        let enum_type = just(Token::Keyword(Keyword::Enum))
+            .ignore_then(
+                positioned_identifier
+                    .clone()
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::Pipe)),
+                        just(Token::Control(Control::Pipe)),
+                    )
+                    .or_not(),
+            )
+            .then(
+                enum_variant
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .at_least(1)
+                    .allow_trailing()
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::CurlyOpen)),
+                        just(Token::Control(Control::CurlyClose)),
+                    ),
+            )
+            .map_with(|(type_parameters, variants), state| {
+                TypeConstructor::Enum(
+                    EnumTypeConstructor {
+                        type_parameters,
+                        variants,
+                    }
+                    .with_position(state.span()),
+                )
+            });
+
         choice((
             function_type,
             list_type,
             list_of_type,
             primitive_type,
             identifier_type,
+            enum_type,
         ))
     });
 
@@ -650,6 +696,101 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn enum_type_empty() {
+        assert_eq!(
+            parse(&lex("type MyEnum = enum { X, Y }").unwrap()).unwrap()[0],
+            Statement::TypeAssignment(
+                TypeAssignment::new(
+                    Identifier::new("MyEnum").with_position((5, 11)),
+                    TypeConstructor::Enum(
+                        EnumTypeConstructor {
+                            type_parameters: None,
+                            variants: vec![
+                                (Identifier::new("X").with_position((21, 22)), None),
+                                (Identifier::new("Y").with_position((24, 25)), None)
+                            ],
+                        }
+                        .with_position((14, 27))
+                    )
+                )
+                .with_position((0, 27))
+            )
+        );
+    }
+
+    #[test]
+    fn enum_type_with_contents() {
+        assert_eq!(
+            parse(&lex("type MyEnum = enum { X(str, int), Y(int) }").unwrap()).unwrap()[0],
+            Statement::TypeAssignment(
+                TypeAssignment::new(
+                    Identifier::new("MyEnum").with_position((5, 11)),
+                    TypeConstructor::Enum(
+                        EnumTypeConstructor {
+                            type_parameters: None,
+                            variants: vec![
+                                (
+                                    Identifier::new("X").with_position((21, 22)),
+                                    Some(vec![
+                                        TypeConstructor::Type(Type::String.with_position((23, 26))),
+                                        TypeConstructor::Type(
+                                            Type::Integer.with_position((28, 31))
+                                        )
+                                    ])
+                                ),
+                                (
+                                    Identifier::new("Y").with_position((34, 35)),
+                                    Some(vec![TypeConstructor::Type(
+                                        Type::Integer.with_position((36, 39))
+                                    )])
+                                )
+                            ],
+                        }
+                        .with_position((14, 42))
+                    )
+                )
+                .with_position((0, 42))
+            )
+        );
+    }
+
+    #[test]
+    fn enum_type_with_type_parameters() {
+        assert_eq!(
+            parse(&lex("type MyEnum = enum |T, U| { X(T), Y(U) }").unwrap()).unwrap()[0],
+            Statement::TypeAssignment(
+                TypeAssignment::new(
+                    Identifier::new("MyEnum").with_position((5, 11)),
+                    TypeConstructor::Enum(
+                        EnumTypeConstructor {
+                            type_parameters: Some(vec![
+                                Identifier::new("T").with_position((20, 21)),
+                                Identifier::new("U").with_position((23, 24)),
+                            ]),
+                            variants: vec![
+                                (
+                                    Identifier::new("X").with_position((28, 29)),
+                                    Some(vec![TypeConstructor::Identifier(
+                                        Identifier::new("T").with_position((30, 31))
+                                    )])
+                                ),
+                                (
+                                    Identifier::new("Y").with_position((34, 35)),
+                                    Some(vec![TypeConstructor::Identifier(
+                                        Identifier::new("U").with_position((36, 37))
+                                    )])
+                                ),
+                            ],
+                        }
+                        .with_position((14, 40))
+                    )
+                )
+                .with_position((0, 40))
+            )
+        );
+    }
 
     // Reuse these tests when structures are reimplemented
     // #[test]

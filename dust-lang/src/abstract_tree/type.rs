@@ -15,6 +15,9 @@ use super::{Evaluate, Evaluation};
 pub enum Type {
     Any,
     Boolean,
+    Enum {
+        variants: Vec<(Identifier, Vec<Type>)>,
+    },
     Float,
     Function {
         type_parameters: Option<Vec<Identifier>>,
@@ -226,6 +229,21 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
+            Type::Enum { variants } => {
+                write!(f, "enum {{")?;
+
+                for (identifier, types) in variants {
+                    writeln!(f, "{identifier}(")?;
+
+                    for r#type in types {
+                        write!(f, "{}", r#type)?
+                    }
+
+                    write!(f, ")")?;
+                }
+
+                write!(f, "}}")
+            }
             Type::Float => write!(f, "float"),
             Type::Generic { concrete_type, .. } => {
                 if let Some(r#type) = concrete_type {
