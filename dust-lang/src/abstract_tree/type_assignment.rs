@@ -24,11 +24,11 @@ impl TypeAssignment {
 }
 
 impl Evaluate for TypeAssignment {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
+    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        let r#type = self.constructor.clone().construct(&context)?;
+
+        context.set_type(self.identifier.node.clone(), r#type)?;
+
         Ok(())
     }
 

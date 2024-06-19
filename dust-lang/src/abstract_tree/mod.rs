@@ -14,7 +14,7 @@ pub mod math;
 pub mod statement;
 pub mod structure_definition;
 pub mod r#type;
-pub mod type_alias;
+pub mod type_assignment;
 pub mod type_constructor;
 pub mod value_node;
 pub mod r#while;
@@ -42,7 +42,7 @@ pub use self::{
     r#while::While,
     statement::Statement,
     structure_definition::StructureDefinition,
-    type_alias::TypeAssignment,
+    type_assignment::TypeAssignment,
     type_constructor::{
         EnumTypeConstructor, FunctionTypeConstructor, ListTypeConstructor, TypeConstructor,
     },

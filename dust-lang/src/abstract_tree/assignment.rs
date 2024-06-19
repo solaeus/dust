@@ -84,6 +84,18 @@ impl Evaluate for Assignment {
                     position: function_call.position,
                 });
             }
+        } else if let Some(constructor) = &self.constructor {
+            let r#type = constructor.clone().construct(&context)?;
+
+            r#type
+                .check(&statement_type)
+                .map_err(|conflict| ValidationError::TypeCheck {
+                    conflict,
+                    actual_position: self.statement.position(),
+                    expected_position: Some(constructor.position()),
+                })?;
+
+            context.set_type(self.identifier.node.clone(), r#type.clone())?;
         } else {
             context.set_type(self.identifier.node.clone(), statement_type)?;
         }
