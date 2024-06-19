@@ -234,11 +234,20 @@ impl ValueInner {
             ValueInner::Map(_) => Type::Map,
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
-            ValueInner::Function(function) => Type::Function {
-                type_parameters: None,
-                value_parameters: function.value_parameters.clone(),
-                return_type: Box::new(function.return_type.clone()),
-            },
+            ValueInner::Function(function) => {
+                let value_parameters = function
+                    .value_parameters()
+                    .into_iter()
+                    .map(|(_, r#type)| r#type)
+                    .cloned()
+                    .collect();
+
+                Type::Function {
+                    type_parameters: function.type_parameters().clone(),
+                    value_parameters,
+                    return_type: Box::new(function.return_type.clone()),
+                }
+            }
             ValueInner::Structure { name, .. } => {
                 if let Some(r#type) = context.get_type(&name.node)? {
                     r#type
@@ -326,6 +335,10 @@ pub struct Function {
 impl Function {
     pub fn type_parameters(&self) -> &Option<Vec<Identifier>> {
         &self.type_parameters
+    }
+
+    pub fn value_parameters(&self) -> &Vec<(Identifier, Type)> {
+        &self.value_parameters
     }
 
     pub fn call(

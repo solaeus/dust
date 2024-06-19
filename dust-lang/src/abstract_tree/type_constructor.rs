@@ -49,7 +49,35 @@ impl TypeConstructor {
 
     pub fn construct(self, context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
-            TypeConstructor::Function(_) => todo!(),
+            TypeConstructor::Function(function_type_constructor) => {
+                let FunctionTypeConstructor {
+                    type_parameters: declared_type_parameters,
+                    value_parameters: declared_value_parameters,
+                    return_type,
+                } = function_type_constructor.node;
+
+                let type_parameters = declared_type_parameters.map(|identifiers| {
+                    identifiers
+                        .into_iter()
+                        .map(|identifier| identifier.node)
+                        .collect()
+                });
+                let mut value_parameters = Vec::with_capacity(declared_value_parameters.len());
+
+                for parameter in declared_value_parameters {
+                    let r#type = parameter.construct(&context)?;
+
+                    value_parameters.push(r#type);
+                }
+
+                let return_type = Box::new(return_type.construct(&context)?);
+
+                Type::Function {
+                    type_parameters,
+                    value_parameters,
+                    return_type,
+                }
+            }
             TypeConstructor::Identifier(WithPosition {
                 node: identifier, ..
             }) => {

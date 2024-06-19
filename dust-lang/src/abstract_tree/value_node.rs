@@ -347,10 +347,10 @@ impl ExpectedType for ValueNode {
             } => {
                 let mut value_parameter_types = Vec::with_capacity(value_parameters.len());
 
-                for (identifier, type_constructor) in value_parameters {
+                for (_, type_constructor) in value_parameters {
                     let r#type = type_constructor.clone().construct(&context)?;
 
-                    value_parameter_types.push((identifier.clone(), r#type));
+                    value_parameter_types.push(r#type);
                 }
 
                 let type_parameters = type_parameters.clone().map(|parameters| {

@@ -18,7 +18,7 @@ pub enum Type {
     Float,
     Function {
         type_parameters: Option<Vec<Identifier>>,
-        value_parameters: Vec<(Identifier, Type)>,
+        value_parameters: Vec<Type>,
         return_type: Box<Type>,
     },
     Generic(Option<Box<Type>>),
@@ -236,8 +236,8 @@ impl Display for Type {
                     write!(f, ")(")?;
                 }
 
-                for (identifier, r#type) in value_parameters {
-                    write!(f, "{identifier}: {type}")?;
+                for r#type in value_parameters {
+                    write!(f, "{type}")?;
                 }
 
                 write!(f, ") : {}", return_type)
