@@ -204,96 +204,109 @@ impl InterpreterError {
 
         for error in self.errors {
             let (mut builder, validation_error) = match error {
-            DustError::Lex {
-                expected,
-                span,
-                reason,
-            } => {
-                let description = if expected.is_empty() {
-                    "Invalid character.".to_string()
-                } else {
-                    format!("Expected {expected}.")
-                };
+                DustError::Lex {
+                    expected,
+                    span,
+                    reason,
+                } => {
+                    let description = if expected.is_empty() {
+                        "Invalid character.".to_string()
+                    } else {
+                        format!("Expected {expected}.")
+                    };
 
-                (
-                    Report::build(
-                        ReportKind::Custom("Lexing Error", Color::Yellow),
-                        self.source_id.clone(),
-                        span.1,
+                    (
+                        Report::build(
+                            ReportKind::Custom("Lexing Error", Color::Yellow),
+                            self.source_id.clone(),
+                            span.1,
+                        )
+                        .with_message(description)
+                        .with_label(
+                            Label::new((self.source_id.clone(), span.0..span.1))
+                                .with_message(reason)
+                                .with_color(Color::Red),
+                        ),
+                        None,
                     )
-                    .with_message(description)
-                    .with_label(
-                        Label::new((self.source_id.clone(), span.0..span.1))
-                            .with_message(reason)
-                            .with_color(Color::Red),
-                    ),
-                    None,
-                )
-            }
-            DustError::Parse {
-                expected,
-                span,
-                found,
-            } => {
-                let description = if expected.is_empty() {
-                    "Invalid token.".to_string()
-                } else {                   
-                    format!("Expected {expected}.")
-                };
-                let found = found.unwrap_or_else(|| "End of input".to_string()).fg(token_color);
+                }
+                DustError::Parse {
+                    expected,
+                    span,
+                    found,
+                } => {
+                    let description = if expected.is_empty() {
+                        "Invalid token.".to_string()
+                    } else {
+                        format!("Expected {expected}.")
+                    };
+                    let found = found
+                        .unwrap_or_else(|| "End of input".to_string())
+                        .fg(token_color);
 
-                (
-                    Report::build(
-                        ReportKind::Custom("Parsing Error", Color::Yellow),
-                        self.source_id.clone(),
-                        span.1,
+                    (
+                        Report::build(
+                            ReportKind::Custom("Parsing Error", Color::Yellow),
+                            self.source_id.clone(),
+                            span.1,
+                        )
+                        .with_message(description)
+                        .with_label(
+                            Label::new((self.source_id.clone(), span.0..span.1))
+                                .with_message(format!("{found} is not valid in this position."))
+                                .with_color(Color::Red),
+                        ),
+                        None,
                     )
-                    .with_message(description)
-                    .with_label(
-                        Label::new((self.source_id.clone(), span.0..span.1))
-                            .with_message(format!("{found} is not valid in this position."))
-                            .with_color(Color::Red),
+                }
+                DustError::Validation { error, position } => (
+                    Report::build(
+                        ReportKind::Custom("Validation Error", Color::Magenta),
+                        self.source_id.clone(),
+                        position.1,
+                    )
+                    .with_message("The syntax is valid but this code would cause an error.")
+                    .with_note(
+                        "This error was detected by the interpreter before running the code.",
                     ),
-                    None,
-                )
-            }
-            DustError::Validation { error, position } => (
-                Report::build(
-                    ReportKind::Custom("Validation Error", Color::Magenta),
-                    self.source_id.clone(),
-                    position.1,
-                )
-                .with_message("The syntax is valid but this code would cause an error.")
-                .with_note("This error was detected by the interpreter before running the code."),
-                Some(error),
-            ),
-            DustError::Runtime { error, position } => (
-                Report::build(
-                    ReportKind::Custom("Runtime Error", Color::Red),
-                    self.source_id.clone(),
-                    position.1,
-                )
-                .with_message("An error occured that forced the program to exit.")
-                .with_note(
-                    "There may be unexpected side-effects because the program could not finish.",
-                )
-                .with_help(
-                    "This is the interpreter's fault. Please submit a bug with this error message.",
-                )
-                .with_label(
-                    Label::new((self.source_id.clone(), position.0..position.1)).with_message("Runtime error occured here.")
+                    Some(error),
                 ),
-                if let RuntimeError::ValidationFailure(validation_error) = error {
-                    Some(validation_error)
-                } else {
-                    None
-                },
-            ),
-        };
+                DustError::Runtime { error, position } => {
+                    let error_message = match &error {
+                        RuntimeError::Io(_) => todo!(),
+                        RuntimeError::RwLockPoison(_) => todo!(),
+                        RuntimeError::ValidationFailure(_) => todo!(),
+                        RuntimeError::SerdeJson(serde_json_error) => serde_json_error.to_string(),
+                    };
+
+                    (
+                            Report::build(
+                                ReportKind::Custom("Runtime Error", Color::Red),
+                                self.source_id.clone(),
+                                position.1,
+                            )
+                            .with_message("An error occured that forced the program to exit.")
+                            .with_note(
+                                "There may be unexpected side-effects because the program could not finish.",
+                            )
+                            .with_help(
+                                "This is the interpreter's fault. Please submit a bug with this error message.",
+                            )
+                            .with_label(
+                                Label::new((self.source_id.clone(), position.0..position.1)).with_message(error_message)
+                            ),
+
+                            if let RuntimeError::ValidationFailure(validation_error) = error {
+                                Some(validation_error)
+                            } else {
+                                None
+                            },
+                        )
+                }
+            };
 
             if let Some(validation_error) = validation_error {
                 match validation_error {
-
                     ValidationError::CannotAssignToNone(postion) => {
                         builder.add_label(
                             Label::new((self.source_id.clone(), postion.0..postion.1))

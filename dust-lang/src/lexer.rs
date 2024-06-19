@@ -24,7 +24,7 @@ impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Token::Boolean(boolean) => write!(f, "{boolean}"),
-            Token::Comment(comment) => write!(f, "# {comment}"),
+            Token::Comment(comment) => write!(f, "// {comment}"),
             Token::Integer(integer) => write!(f, "{integer}"),
             Token::Float(float) => write!(f, "{float}"),
             Token::String(string) => write!(f, "{string}"),

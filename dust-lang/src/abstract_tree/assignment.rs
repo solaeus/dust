@@ -65,11 +65,7 @@ impl AbstractNode for Assignment {
                 ..
             } = function_type
             {
-                if let Type::Generic {
-                    identifier,
-                    concrete_type,
-                } = *return_type
-                {
+                if let Type::Generic { identifier, .. } = *return_type {
                     let returned_parameter = type_parameters
                         .into_iter()
                         .find(|parameter| parameter == &identifier);

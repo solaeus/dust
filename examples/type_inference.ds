@@ -1,5 +1,16 @@
+// This function returns its argument.
 foo = fn |T| (x: T) -> T { x }
-bar: str = foo::(str)::("hi")
+
+// Use turbofish to supply type information.
+bar = foo::(str)::("hi")
+
+// Use type annotation
 baz: str = foo("hi")
+
+// The `json.parse` function takes a string and returns the specified type
+
+// Use turbofish
 x = json.parse::(int)::("1")
+
+// Use type annotation
 x: int = json.parse("1")

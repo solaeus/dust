@@ -33,6 +33,9 @@ pub fn parse<'src>(
 pub fn parser<'src>(
     allow_built_ins: bool,
 ) -> impl Parser<'src, ParserInput<'src>, Vec<Statement>, ParserExtra<'src>> {
+    let comment = select_ref! {
+        Token::Comment(_) => {}
+    };
     let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
     let identifier = select! {
         Token::Identifier(text) => {
@@ -527,6 +530,7 @@ pub fn parser<'src>(
                 basic_value,
                 identifier_expression,
             ))
+            // .delimited_by(comment.clone().or_not(), comment.or_not())
         });
 
         let expression_statement = expression
@@ -621,27 +625,24 @@ pub fn parser<'src>(
                 )
             });
 
-        choice((
-            async_block,
-            if_else,
-            assignment,
-            expression_statement,
-            r#break,
-            block_statement,
-            r#loop,
-            r#while,
-            type_assignment,
-        ))
-        .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
+        comment
+            .repeated()
+            .or_not()
+            .ignore_then(choice((
+                async_block,
+                if_else,
+                assignment,
+                expression_statement,
+                r#break,
+                block_statement,
+                r#loop,
+                r#while,
+                type_assignment,
+            )))
+            .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
 
-    select_ref! {
-        Token::Comment(_) => {}
-    }
-    .or_not()
-    .ignore_then(statement)
-    .repeated()
-    .collect()
+    statement.repeated().collect()
 }
 
 #[cfg(test)]
