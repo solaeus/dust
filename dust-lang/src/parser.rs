@@ -84,9 +84,13 @@ pub fn parser<'src>(
                     .clone()
                     .separated_by(just(Token::Control(Control::Comma)))
                     .at_least(1)
-                    .collect(),
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::Pipe)),
+                        just(Token::Control(Control::Pipe)),
+                    )
+                    .or_not(),
             )
-            .or_not()
             .then(
                 type_constructor
                     .clone()
@@ -226,9 +230,13 @@ pub fn parser<'src>(
                         .separated_by(just(Token::Control(Control::Comma)))
                         .at_least(1)
                         .allow_trailing()
-                        .collect(),
+                        .collect()
+                        .delimited_by(
+                            just(Token::Control(Control::Pipe)),
+                            just(Token::Control(Control::Pipe)),
+                        )
+                        .or_not(),
                 )
-                .or_not()
                 .then(
                     identifier
                         .clone()
@@ -939,26 +947,26 @@ mod tests {
     #[test]
     fn function_type() {
         assert_eq!(
-            parse(&lex("type Foo = fn T (int) -> T").unwrap()).unwrap()[0],
+            parse(&lex("type Foo = fn |T| (int) -> T").unwrap()).unwrap()[0],
             Statement::TypeAssignment(
                 TypeAssignment::new(
                     Identifier::new("Foo").with_position((5, 8)),
                     TypeConstructor::Function(
                         FunctionTypeConstructor {
                             type_parameters: Some(vec![
-                                Identifier::new("T").with_position((14, 15))
+                                Identifier::new("T").with_position((15, 16))
                             ]),
                             value_parameters: vec![TypeConstructor::Type(
-                                Type::Integer.with_position((17, 20))
+                                Type::Integer.with_position((19, 22))
                             )],
                             return_type: Box::new(TypeConstructor::Identifier(
-                                Identifier::new("T").with_position((25, 26))
+                                Identifier::new("T").with_position((27, 28))
                             )),
                         }
-                        .with_position((11, 26))
+                        .with_position((11, 28))
                     )
                 )
-                .with_position((0, 26))
+                .with_position((0, 28))
             )
         );
     }
@@ -1048,7 +1056,7 @@ mod tests {
     #[test]
     fn function_with_type_arguments() {
         assert_eq!(
-            parse(&lex("fn T, U (x: T, y: U) -> T { x }").unwrap()).unwrap()[0],
+            parse(&lex("fn |T, U| (x: T, y: U) -> T { x }").unwrap()).unwrap()[0],
             Statement::Expression(Expression::Value(
                 ValueNode::Function {
                     type_parameters: Some(vec![Identifier::new("T"), Identifier::new("U"),]),
@@ -1056,25 +1064,25 @@ mod tests {
                         (
                             Identifier::new("x"),
                             TypeConstructor::Identifier(
-                                Identifier::new("T").with_position((12, 13))
+                                Identifier::new("T").with_position((14, 15))
                             )
                         ),
                         (
                             Identifier::new("y"),
                             TypeConstructor::Identifier(
-                                Identifier::new("U").with_position((18, 19))
+                                Identifier::new("U").with_position((20, 21))
                             )
                         )
                     ],
                     return_type: TypeConstructor::Identifier(
-                        Identifier::new("T").with_position((24, 25))
+                        Identifier::new("T").with_position((26, 27))
                     ),
                     body: Block::new(vec![Statement::Expression(Expression::Identifier(
-                        Identifier::new("x").with_position((28, 29))
+                        Identifier::new("x").with_position((30, 31))
                     ))])
-                    .with_position((26, 31)),
+                    .with_position((28, 33)),
                 }
-                .with_position((0, 31))
+                .with_position((0, 33))
             ))
         )
     }
