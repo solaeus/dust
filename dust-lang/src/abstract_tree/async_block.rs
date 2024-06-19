@@ -8,7 +8,7 @@ use crate::{
     error::{RuntimeError, RwLockPoisonError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Statement, Type};
+use super::{Evaluate, Evaluation, ExpectedType, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AsyncBlock {
@@ -21,7 +21,7 @@ impl AsyncBlock {
     }
 }
 
-impl AbstractNode for AsyncBlock {
+impl Evaluate for AsyncBlock {
     fn validate(&self, _context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
             statement.validate(_context, manage_memory)?;

@@ -189,7 +189,7 @@ impl Index<usize> for AbstractTree {
     }
 }
 
-pub trait AbstractNode: Sized {
+pub trait Evaluate: Sized {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError>;
     fn evaluate(
         self,

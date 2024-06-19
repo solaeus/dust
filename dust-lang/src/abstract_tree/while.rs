@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Statement};
+use super::{Evaluate, Evaluation, Expression, Statement};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct While {
@@ -24,7 +24,7 @@ impl While {
     }
 }
 
-impl AbstractNode for While {
+impl Evaluate for While {
     fn validate(
         &self,
         _context: &mut Context,

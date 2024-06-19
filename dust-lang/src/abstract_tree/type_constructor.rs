@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{context::Context, error::ValidationError, identifier::Identifier};
 
-use super::{ExpectedType, SourcePosition, Type, WithPosition};
+use super::{SourcePosition, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum TypeConstructor {
@@ -37,14 +37,6 @@ impl TypeConstructor {
             TypeConstructor::ListOf(WithPosition { position, .. }) => *position,
             TypeConstructor::Type(WithPosition { position, .. }) => *position,
         }
-    }
-
-    pub fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
-        todo!()
     }
 
     pub fn construct(self, context: &Context) -> Result<Type, ValidationError> {
@@ -111,12 +103,6 @@ impl TypeConstructor {
         };
 
         Ok(r#type)
-    }
-}
-
-impl ExpectedType for TypeConstructor {
-    fn expected_type(&self, _: &mut Context) -> Result<Type, ValidationError> {
-        Ok(Type::None)
     }
 }
 

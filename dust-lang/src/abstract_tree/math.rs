@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Expression, SourcePosition, Type};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, SourcePosition, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Math {
@@ -18,7 +18,7 @@ pub enum Math {
     Modulo(Expression, Expression),
 }
 
-impl AbstractNode for Math {
+impl Evaluate for Math {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {

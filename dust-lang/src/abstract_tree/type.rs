@@ -9,7 +9,7 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Evaluation};
+use super::{Evaluate, Evaluation};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Type {
@@ -203,7 +203,7 @@ impl Type {
     }
 }
 
-impl AbstractNode for Type {
+impl Evaluate for Type {
     fn validate(
         &self,
         _context: &mut Context,

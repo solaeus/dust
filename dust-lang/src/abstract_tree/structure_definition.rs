@@ -6,7 +6,7 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Evaluation, Type, TypeConstructor};
+use super::{Evaluate, Evaluation, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructureDefinition {
@@ -20,7 +20,7 @@ impl StructureDefinition {
     }
 }
 
-impl AbstractNode for StructureDefinition {
+impl Evaluate for StructureDefinition {
     fn validate(
         &self,
         _context: &mut Context,

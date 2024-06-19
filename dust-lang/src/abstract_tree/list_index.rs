@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type, ValueNode, WithPosition};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListIndex {
@@ -22,7 +22,7 @@ impl ListIndex {
     }
 }
 
-impl AbstractNode for ListIndex {
+impl Evaluate for ListIndex {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         self.collection.validate(context, _manage_memory)?;
         self.index.validate(context, _manage_memory)?;

@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, Statement};
+use super::{Evaluate, Evaluation, Statement};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Loop {
@@ -18,7 +18,7 @@ impl Loop {
     }
 }
 
-impl AbstractNode for Loop {
+impl Evaluate for Loop {
     fn validate(
         &self,
         _context: &mut Context,

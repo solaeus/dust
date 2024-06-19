@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Logic {
@@ -22,7 +22,7 @@ pub enum Logic {
     Not(Expression),
 }
 
-impl AbstractNode for Logic {
+impl Evaluate for Logic {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Logic::Equal(left, right)

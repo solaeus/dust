@@ -6,7 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Block, Evaluation, ExpectedType, Expression, Type, WithPosition};
+use super::{Block, Evaluate, Evaluation, ExpectedType, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IfElse {
@@ -32,7 +32,7 @@ impl IfElse {
     }
 }
 
-impl AbstractNode for IfElse {
+impl Evaluate for IfElse {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.if_expression.validate(context, manage_memory)?;
         self.if_block.node.validate(context, manage_memory)?;

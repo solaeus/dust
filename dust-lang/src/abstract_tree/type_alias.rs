@@ -6,7 +6,7 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Evaluation, TypeConstructor, WithPosition};
+use super::{Evaluate, Evaluation, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TypeAssignment {
@@ -23,7 +23,7 @@ impl TypeAssignment {
     }
 }
 
-impl AbstractNode for TypeAssignment {
+impl Evaluate for TypeAssignment {
     fn validate(
         &self,
         _context: &mut Context,

@@ -6,7 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type, ValueNode, WithPosition};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MapIndex {
@@ -23,7 +23,7 @@ impl MapIndex {
     }
 }
 
-impl AbstractNode for MapIndex {
+impl Evaluate for MapIndex {
     fn validate(
         &self,
         _context: &mut Context,

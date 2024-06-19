@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Statement, Type};
+use super::{Evaluate, Evaluation, ExpectedType, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Block {
@@ -26,7 +26,7 @@ impl Block {
     }
 }
 
-impl AbstractNode for Block {
+impl Evaluate for Block {
     fn validate(
         &self,
         _context: &mut Context,

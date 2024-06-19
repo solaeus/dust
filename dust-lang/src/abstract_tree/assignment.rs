@@ -8,8 +8,7 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Evaluation, ExpectedType, Expression, Statement, Type, TypeConstructor,
-    WithPosition,
+    Evaluate, Evaluation, ExpectedType, Expression, Statement, Type, TypeConstructor, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -43,7 +42,7 @@ impl Assignment {
     }
 }
 
-impl AbstractNode for Assignment {
+impl Evaluate for Assignment {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         let statement_type = self.statement.expected_type(context)?;
 

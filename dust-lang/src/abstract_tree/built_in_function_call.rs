@@ -14,7 +14,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunctionCall {
@@ -26,7 +26,7 @@ pub enum BuiltInFunctionCall {
     WriteLine(Expression),
 }
 
-impl AbstractNode for BuiltInFunctionCall {
+impl Evaluate for BuiltInFunctionCall {
     fn validate(
         &self,
         _context: &mut Context,

@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Block, Evaluation, ExpectedType, Expression, Type, TypeConstructor, WithPosition,
+    Block, Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, WithPosition,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ pub enum ValueNode {
     },
 }
 
-impl AbstractNode for ValueNode {
+impl Evaluate for ValueNode {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, constructor_option, expression) in map_assignments {

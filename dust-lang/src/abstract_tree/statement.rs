@@ -6,8 +6,8 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Assignment, AsyncBlock, Block, Evaluation, ExpectedType, Expression, IfElse,
-    Loop, SourcePosition, StructureDefinition, Type, TypeAssignment, While, WithPosition,
+    Assignment, AsyncBlock, Block, Evaluate, Evaluation, ExpectedType, Expression, IfElse, Loop,
+    SourcePosition, StructureDefinition, Type, TypeAssignment, While, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -41,7 +41,7 @@ impl Statement {
     }
 }
 
-impl AbstractNode for Statement {
+impl Evaluate for Statement {
     fn validate(
         &self,
         _context: &mut Context,
