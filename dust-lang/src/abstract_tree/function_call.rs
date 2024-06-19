@@ -128,10 +128,38 @@ impl AbstractNode for FunctionCall {
 }
 
 impl ExpectedType for FunctionCall {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        let function_node_type = self.function.expected_type(_context)?;
+    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
+        let function_node_type = self.function.expected_type(context)?;
 
-        if let Type::Function { return_type, .. } = function_node_type {
+        if let Type::Function {
+            return_type,
+            type_parameters,
+            ..
+        } = function_node_type
+        {
+            for (constructor, identifier) in self
+                .type_arguments
+                .as_ref()
+                .unwrap()
+                .into_iter()
+                .zip(type_parameters.unwrap().into_iter())
+            {
+                if let Type::Generic {
+                    identifier: return_identifier,
+                    ..
+                } = *return_type.clone()
+                {
+                    if return_identifier == identifier {
+                        let concrete_type = constructor.clone().construct(&context)?;
+
+                        return Ok(Type::Generic {
+                            identifier,
+                            concrete_type: Some(Box::new(concrete_type)),
+                        });
+                    }
+                }
+            }
+
             Ok(*return_type)
         } else {
             Err(ValidationError::ExpectedFunction {

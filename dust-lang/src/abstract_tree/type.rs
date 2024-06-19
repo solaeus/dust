@@ -21,7 +21,10 @@ pub enum Type {
         value_parameters: Vec<Type>,
         return_type: Box<Type>,
     },
-    Generic(Option<Box<Type>>),
+    Generic {
+        identifier: Identifier,
+        concrete_type: Option<Box<Type>>,
+    },
     Integer,
     List {
         length: usize,
@@ -50,7 +53,16 @@ impl Type {
             | (Type::None, Type::None)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
-            (Type::Generic(left), Type::Generic(right)) => match (left, right) {
+            (
+                Type::Generic {
+                    concrete_type: left,
+                    ..
+                },
+                Type::Generic {
+                    concrete_type: right,
+                    ..
+                },
+            ) => match (left, right) {
                 (Some(left), Some(right)) => {
                     if left.check(&right).is_ok() {
                         return Ok(());
@@ -61,6 +73,14 @@ impl Type {
                 }
                 _ => {}
             },
+            (Type::Generic { concrete_type, .. }, other)
+            | (other, Type::Generic { concrete_type, .. }) => {
+                if let Some(concrete_type) = concrete_type {
+                    if other == concrete_type.as_ref() {
+                        return Ok(());
+                    }
+                }
+            }
             (Type::ListOf(left), Type::ListOf(right)) => {
                 if left.check(&right).is_ok() {
                     return Ok(());
@@ -207,11 +227,11 @@ impl Display for Type {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
             Type::Float => write!(f, "float"),
-            Type::Generic(type_option) => {
-                if let Some(concrete_type) = type_option {
-                    write!(f, "implied to be {concrete_type}")
+            Type::Generic { concrete_type, .. } => {
+                if let Some(r#type) = concrete_type {
+                    write!(f, "implied to be {}", r#type)
                 } else {
-                    todo!()
+                    write!(f, "unknown")
                 }
             }
             Type::Integer => write!(f, "int"),

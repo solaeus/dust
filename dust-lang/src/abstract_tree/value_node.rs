@@ -68,7 +68,13 @@ impl AbstractNode for ValueNode {
 
             if let Some(type_parameters) = type_parameters {
                 for identifier in type_parameters {
-                    function_context.set_type(identifier.clone(), Type::Generic(None))?;
+                    function_context.set_type(
+                        identifier.clone(),
+                        Type::Generic {
+                            identifier: identifier.clone(),
+                            concrete_type: None,
+                        },
+                    )?;
                 }
             }
 

@@ -82,9 +82,15 @@ impl TypeConstructor {
                 node: identifier, ..
             }) => {
                 if let Some(r#type) = context.get_type(&identifier)? {
-                    Type::Generic(Some(Box::new(r#type)))
+                    Type::Generic {
+                        identifier,
+                        concrete_type: Some(Box::new(r#type)),
+                    }
                 } else {
-                    Type::Generic(None)
+                    Type::Generic {
+                        identifier,
+                        concrete_type: None,
+                    }
                 }
             }
             TypeConstructor::List(positioned_constructor) => {
