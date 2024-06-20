@@ -12,7 +12,10 @@ use crate::{
     lexer::{Control, Keyword, Operator, Token},
 };
 
-use self::{enum_declaration::EnumVariant, type_constructor::TypeInvokationConstructor};
+use self::{
+    enum_declaration::EnumVariant,
+    type_constructor::{RawTypeConstructor, TypeInvokationConstructor},
+};
 
 pub type ParserInput<'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
@@ -76,15 +79,18 @@ pub fn parser<'src>(
 
     let type_constructor = recursive(|type_constructor| {
         let primitive_type = choice((
-            just(Token::Keyword(Keyword::Any)).to(Type::Any),
-            just(Token::Keyword(Keyword::Bool)).to(Type::Boolean),
-            just(Token::Keyword(Keyword::Float)).to(Type::Float),
-            just(Token::Keyword(Keyword::Int)).to(Type::Integer),
-            just(Token::Keyword(Keyword::None)).to(Type::None),
-            just(Token::Keyword(Keyword::Range)).to(Type::Range),
-            just(Token::Keyword(Keyword::Str)).to(Type::String),
+            just(Token::Keyword(Keyword::Any)).to(RawTypeConstructor::Any),
+            just(Token::Keyword(Keyword::Bool)).to(RawTypeConstructor::Boolean),
+            just(Token::Keyword(Keyword::Float)).to(RawTypeConstructor::Float),
+            just(Token::Keyword(Keyword::Int)).to(RawTypeConstructor::Integer),
+            just(Token::Keyword(Keyword::Map)).to(RawTypeConstructor::Map),
+            just(Token::Keyword(Keyword::None)).to(RawTypeConstructor::None),
+            just(Token::Keyword(Keyword::Range)).to(RawTypeConstructor::Range),
+            just(Token::Keyword(Keyword::Str)).to(RawTypeConstructor::String),
         ))
-        .map_with(|r#type, state| TypeConstructor::Raw(r#type.with_position(state.span())));
+        .map_with(|raw_constructor, state| {
+            TypeConstructor::Raw(raw_constructor.with_position(state.span()))
+        });
 
         let function_type = just(Token::Keyword(Keyword::Fn))
             .ignore_then(
@@ -700,6 +706,7 @@ pub fn parser<'src>(
                 positioned_identifier
                     .clone()
                     .separated_by(just(Token::Control(Control::Comma)))
+                    .allow_trailing()
                     .collect()
                     .delimited_by(
                         just(Token::Operator(Operator::Less)),
@@ -710,6 +717,8 @@ pub fn parser<'src>(
             .then(
                 enum_variant
                     .separated_by(just(Token::Control(Control::Comma)))
+                    .allow_trailing()
+                    .at_least(1)
                     .collect()
                     .delimited_by(
                         just(Token::Control(Control::CurlyOpen)),

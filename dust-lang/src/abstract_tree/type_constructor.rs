@@ -13,7 +13,19 @@ pub enum TypeConstructor {
     Invokation(TypeInvokationConstructor),
     List(WithPosition<ListTypeConstructor>),
     ListOf(WithPosition<Box<TypeConstructor>>),
-    Raw(WithPosition<Type>),
+    Raw(WithPosition<RawTypeConstructor>),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum RawTypeConstructor {
+    Any,
+    Boolean,
+    Float,
+    Integer,
+    Map,
+    None,
+    Range,
+    String,
 }
 
 impl TypeConstructor {
@@ -140,8 +152,8 @@ impl TypeConstructor {
                     return_type,
                 }
             }
-            TypeConstructor::List(positioned_constructor) => {
-                let ListTypeConstructor { length, item_type } = positioned_constructor.node;
+            TypeConstructor::List(constructor) => {
+                let ListTypeConstructor { length, item_type } = constructor.node;
                 let constructed_type = item_type.construct(context)?;
 
                 Type::List {
@@ -154,7 +166,16 @@ impl TypeConstructor {
 
                 Type::ListOf(Box::new(item_type))
             }
-            TypeConstructor::Raw(r#type) => r#type.node,
+            TypeConstructor::Raw(raw_type) => match raw_type.node {
+                RawTypeConstructor::Any => Type::Any,
+                RawTypeConstructor::Boolean => Type::Boolean,
+                RawTypeConstructor::Float => Type::Float,
+                RawTypeConstructor::Integer => Type::Integer,
+                RawTypeConstructor::Map => Type::Map,
+                RawTypeConstructor::None => Type::None,
+                RawTypeConstructor::Range => Type::Range,
+                RawTypeConstructor::String => Type::String,
+            },
         };
 
         Ok(r#type)

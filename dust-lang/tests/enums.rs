@@ -6,7 +6,7 @@ fn simple_enum() {
         interpret(
             "test",
             "
-            type FooBar = enum {
+            enum FooBar {
                 Foo,
                 Bar,
             }
@@ -28,7 +28,7 @@ fn big_enum() {
         interpret(
             "test",
             "
-            type FooBarBaz = enum |T, U, V| {
+            enum FooBarBaz <T, U, V> {
                 Foo(T),
                 Bar(U),
                 Baz(V),

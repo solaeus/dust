@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    type_constructor::TypeInvokationConstructor, Evaluate, Evaluation, ExpectedType, Expression,
-    Statement, Type, TypeConstructor, WithPosition,
+    type_constructor::{RawTypeConstructor, TypeInvokationConstructor},
+    Evaluate, Evaluation, ExpectedType, Expression, Statement, Type, TypeConstructor, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -46,7 +46,7 @@ impl Assignment {
 impl Evaluate for Assignment {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         if let Some(TypeConstructor::Raw(WithPosition {
-            node: Type::None,
+            node: RawTypeConstructor::None,
             position,
         })) = &self.constructor
         {

@@ -12,7 +12,7 @@ fn type_invokation() {
                 Some(TypeConstructor::Invokation(TypeInvokationConstructor {
                     identifier: Identifier::new("Foo").with_position((3, 6)),
                     type_arguments: Some(vec![TypeConstructor::Raw(
-                        Type::Integer.with_position((7, 10))
+                        RawTypeConstructor::Integer.with_position((7, 10))
                     )]),
                 })),
                 AssignmentOperator::Assign,
@@ -55,20 +55,20 @@ fn enum_declaration() {
         parse(&lex("enum MyEnum { X, Y }").unwrap()).unwrap()[0],
         Statement::EnumDeclaration(
             EnumDeclaration {
-                name: Identifier::new("MyEnum").with_position((0, 0)),
+                name: Identifier::new("MyEnum").with_position((5, 11)),
                 type_parameters: None,
                 variants: vec![
                     EnumVariant {
-                        name: Identifier::new("X").with_position((0, 0)),
+                        name: Identifier::new("X").with_position((14, 15)),
                         content: None
                     },
                     EnumVariant {
-                        name: Identifier::new("Y").with_position((0, 0)),
+                        name: Identifier::new("Y").with_position((17, 18)),
                         content: None
                     }
                 ],
             }
-            .with_position((0, 0))
+            .with_position((0, 20))
         )
     );
 }
@@ -79,25 +79,29 @@ fn enum_with_contents() {
         parse(&lex("enum MyEnum { X(str, int), Y(int) }").unwrap()).unwrap()[0],
         Statement::EnumDeclaration(
             EnumDeclaration {
-                name: Identifier::new("MyEnum").with_position((0, 0)),
+                name: Identifier::new("MyEnum").with_position((5, 11)),
                 type_parameters: None,
                 variants: vec![
                     EnumVariant {
-                        name: Identifier::new("X").with_position((0, 0)),
+                        name: Identifier::new("X").with_position((14, 15)),
                         content: Some(vec![
-                            TypeConstructor::Raw(Type::String.with_position((0, 0))),
-                            TypeConstructor::Raw(Type::Integer.with_position((0, 0))),
+                            TypeConstructor::Raw(
+                                RawTypeConstructor::String.with_position((16, 19))
+                            ),
+                            TypeConstructor::Raw(
+                                RawTypeConstructor::Integer.with_position((21, 24))
+                            ),
                         ])
                     },
                     EnumVariant {
-                        name: Identifier::new("Y").with_position((0, 0)),
+                        name: Identifier::new("Y").with_position((27, 28)),
                         content: Some(vec![TypeConstructor::Raw(
-                            Type::Integer.with_position((0, 0))
+                            RawTypeConstructor::Integer.with_position((29, 32))
                         ),])
                     }
                 ]
             }
-            .with_position((0, 0))
+            .with_position((0, 35))
         )
     );
 }
@@ -108,29 +112,33 @@ fn enum_with_type_parameters() {
         parse(&lex("enum MyEnum <T, U> { X(T), Y(U) }").unwrap()).unwrap()[0],
         Statement::EnumDeclaration(
             EnumDeclaration {
-                name: Identifier::new("MyEnum").with_position((0, 0)),
+                name: Identifier::new("MyEnum").with_position((5, 11)),
                 type_parameters: Some(vec![
-                    Identifier::new("T").with_position((0, 0)),
-                    Identifier::new("U").with_position((0, 0))
+                    Identifier::new("T").with_position((13, 14)),
+                    Identifier::new("U").with_position((16, 17))
                 ]),
                 variants: vec![
                     EnumVariant {
-                        name: Identifier::new("X").with_position((0, 0)),
-                        content: Some(vec![TypeConstructor::Raw(
-                            Type::Generic {
-                                identifier: Identifier::new("T"),
-                                concrete_type: None
+                        name: Identifier::new("X").with_position((21, 22)),
+                        content: Some(vec![TypeConstructor::Invokation(
+                            TypeInvokationConstructor {
+                                identifier: Identifier::new("T").with_position((23, 24)),
+                                type_arguments: None
                             }
-                            .with_position((0, 0))
                         )])
                     },
                     EnumVariant {
-                        name: todo!(),
-                        content: todo!()
-                    }
+                        name: Identifier::new("Y").with_position((27, 28)),
+                        content: Some(vec![TypeConstructor::Invokation(
+                            TypeInvokationConstructor {
+                                identifier: Identifier::new("U").with_position((29, 30)),
+                                type_arguments: None
+                            }
+                        )])
+                    },
                 ]
             }
-            .with_position((0, 0))
+            .with_position((0, 33))
         )
     );
 }
@@ -209,7 +217,7 @@ fn r#as() {
         Statement::Expression(Expression::As(
             Box::new(As::new(
                 Expression::Value(ValueNode::Integer(1).with_position((0, 1))),
-                TypeConstructor::Raw(Type::String.with_position((5, 8)))
+                TypeConstructor::Raw(RawTypeConstructor::String.with_position((5, 8)))
             ))
             .with_position((0, 8))
         ))
@@ -352,7 +360,9 @@ fn boolean_type() {
         Statement::Assignment(
             Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(TypeConstructor::Raw(Type::Boolean.with_position((9, 13)))),
+                Some(TypeConstructor::Raw(
+                    RawTypeConstructor::Boolean.with_position((9, 13))
+                )),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(
                     ValueNode::Boolean(true).with_position((16, 20))
@@ -374,7 +384,7 @@ fn list_type() {
                     ListTypeConstructor {
                         length: 2,
                         item_type: Box::new(TypeConstructor::Raw(
-                            Type::Integer.with_position((9, 12))
+                            RawTypeConstructor::Integer.with_position((9, 12))
                         ))
                     }
                     .with_position((8, 16))
@@ -397,8 +407,10 @@ fn list_of_type() {
             Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
                 Some(TypeConstructor::ListOf(
-                    Box::new(TypeConstructor::Raw(Type::Boolean.with_position((10, 14))))
-                        .with_position((9, 15))
+                    Box::new(TypeConstructor::Raw(
+                        RawTypeConstructor::Boolean.with_position((10, 14))
+                    ))
+                    .with_position((9, 15))
                 )),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(
@@ -419,24 +431,24 @@ fn function_type() {
         parse(&lex("type Foo = fn |T| (int) -> T").unwrap()).unwrap()[0],
         Statement::TypeAlias(
             TypeAlias::new(
-                Identifier::new("Foo").with_position((0, 0)),
+                Identifier::new("Foo").with_position((5, 8)),
                 TypeConstructor::Function(
                     FunctionTypeConstructor {
-                        type_parameters: Some(vec![Identifier::new("T").with_position((0, 0))]),
+                        type_parameters: Some(vec![Identifier::new("T").with_position((15, 16))]),
                         value_parameters: vec![TypeConstructor::Raw(
-                            Type::Integer.with_position((0, 0))
+                            RawTypeConstructor::Integer.with_position((19, 22))
                         )],
                         return_type: Box::new(TypeConstructor::Invokation(
                             TypeInvokationConstructor {
-                                identifier: Identifier::new("T").with_position((0, 0)),
+                                identifier: Identifier::new("T").with_position((27, 28)),
                                 type_arguments: None
                             }
                         ))
                     }
-                    .with_position((0, 0))
+                    .with_position((11, 28))
                 )
             )
-            .with_position((0, 0))
+            .with_position((0, 28))
         )
     );
 }
@@ -464,7 +476,7 @@ fn function_call_with_type_arguments() {
             FunctionCall::new(
                 Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
                 Some(vec![TypeConstructor::Raw(
-                    Type::String.with_position((9, 12))
+                    RawTypeConstructor::String.with_position((9, 12))
                 )]),
                 vec![Expression::Value(
                     ValueNode::String("hi".to_string()).with_position((16, 20))
@@ -493,7 +505,9 @@ fn function() {
             ValueNode::Function {
                 type_parameters: None,
                 value_parameters: vec![],
-                return_type: TypeConstructor::Raw(Type::Integer.with_position((9, 12))),
+                return_type: TypeConstructor::Raw(
+                    RawTypeConstructor::Integer.with_position((9, 12))
+                ),
                 body: Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::Integer(0).with_position((15, 16))
                 ))])
@@ -510,9 +524,11 @@ fn function() {
                 type_parameters: None,
                 value_parameters: vec![(
                     Identifier::new("x"),
-                    TypeConstructor::Raw(Type::Integer.with_position((7, 10)))
+                    TypeConstructor::Raw(RawTypeConstructor::Integer.with_position((7, 10)))
                 )],
-                return_type: TypeConstructor::Raw(Type::Integer.with_position((15, 18))),
+                return_type: TypeConstructor::Raw(
+                    RawTypeConstructor::Integer.with_position((15, 18))
+                ),
                 body: Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x").with_position((21, 22))
                 ))])
@@ -832,7 +848,9 @@ fn assignment_with_type() {
         Statement::Assignment(
             Assignment::new(
                 Identifier::new("foobar").with_position((0, 6)),
-                Some(TypeConstructor::Raw(Type::Integer.with_position((8, 11)))),
+                Some(TypeConstructor::Raw(
+                    RawTypeConstructor::Integer.with_position((8, 11))
+                )),
                 AssignmentOperator::Assign,
                 Statement::Expression(Expression::Value(
                     ValueNode::Integer(1).with_position((14, 15))
