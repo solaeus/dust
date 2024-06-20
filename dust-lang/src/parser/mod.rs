@@ -9,7 +9,7 @@ use crate::{
     abstract_tree::*,
     error::DustError,
     identifier::Identifier,
-    lexer::{Control, Keyword, Operator, Token},
+    lexer::{Keyword, Symbol, Token},
 };
 
 use self::{
@@ -96,26 +96,26 @@ pub fn parser<'src>(
             .ignore_then(
                 positioned_identifier
                     .clone()
-                    .separated_by(just(Token::Control(Control::Comma)))
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .at_least(1)
                     .collect()
                     .delimited_by(
-                        just(Token::Control(Control::Pipe)),
-                        just(Token::Control(Control::Pipe)),
+                        just(Token::Symbol(Symbol::Pipe)),
+                        just(Token::Symbol(Symbol::Pipe)),
                     )
                     .or_not(),
             )
             .then(
                 type_constructor
                     .clone()
-                    .separated_by(just(Token::Control(Control::Comma)))
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .collect()
                     .delimited_by(
-                        just(Token::Control(Control::ParenOpen)),
-                        just(Token::Control(Control::ParenClose)),
+                        just(Token::Symbol(Symbol::ParenOpen)),
+                        just(Token::Symbol(Symbol::ParenClose)),
                     ),
             )
-            .then_ignore(just(Token::Control(Control::SkinnyArrow)))
+            .then_ignore(just(Token::Symbol(Symbol::SkinnyArrow)))
             .then(type_constructor.clone())
             .map_with(
                 |((type_parameters, value_parameters), return_type), state| {
@@ -132,11 +132,11 @@ pub fn parser<'src>(
 
         let list_type = type_constructor
             .clone()
-            .then_ignore(just(Token::Control(Control::Semicolon)))
+            .then_ignore(just(Token::Symbol(Symbol::Semicolon)))
             .then(raw_integer.clone())
             .delimited_by(
-                just(Token::Control(Control::SquareOpen)),
-                just(Token::Control(Control::SquareClose)),
+                just(Token::Symbol(Symbol::SquareOpen)),
+                just(Token::Symbol(Symbol::SquareClose)),
             )
             .map_with(|(item_type, length), state| {
                 TypeConstructor::List(
@@ -151,8 +151,8 @@ pub fn parser<'src>(
         let list_of_type = type_constructor
             .clone()
             .delimited_by(
-                just(Token::Control(Control::SquareOpen)),
-                just(Token::Control(Control::SquareClose)),
+                just(Token::Symbol(Symbol::SquareOpen)),
+                just(Token::Symbol(Symbol::SquareClose)),
             )
             .map_with(|item_type, state| {
                 TypeConstructor::ListOf(Box::new(item_type).with_position(state.span()))
@@ -163,13 +163,13 @@ pub fn parser<'src>(
             .then(
                 type_constructor
                     .clone()
-                    .separated_by(just(Token::Control(Control::Comma)))
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .at_least(1)
                     .allow_trailing()
                     .collect()
                     .delimited_by(
-                        just(Token::Control(Control::ParenOpen)),
-                        just(Token::Control(Control::ParenClose)),
+                        just(Token::Symbol(Symbol::ParenOpen)),
+                        just(Token::Symbol(Symbol::ParenClose)),
                     )
                     .or_not(),
             )
@@ -190,7 +190,7 @@ pub fn parser<'src>(
     });
 
     let type_specification =
-        just(Token::Control(Control::Colon)).ignore_then(type_constructor.clone());
+        just(Token::Symbol(Symbol::Colon)).ignore_then(type_constructor.clone());
 
     let statement = recursive(|statement| {
         let allow_built_ins = allow_built_ins.clone();
@@ -201,8 +201,8 @@ pub fn parser<'src>(
             .at_least(1)
             .collect()
             .delimited_by(
-                just(Token::Control(Control::CurlyOpen)),
-                just(Token::Control(Control::CurlyClose)),
+                just(Token::Symbol(Symbol::CurlyOpen)),
+                just(Token::Symbol(Symbol::CurlyClose)),
             )
             .map_with(|statements, state| Block::new(statements).with_position(state.span()));
 
@@ -215,7 +215,7 @@ pub fn parser<'src>(
 
             let range = raw_integer
                 .clone()
-                .then_ignore(just(Token::Control(Control::DoubleDot)))
+                .then_ignore(just(Token::Symbol(Symbol::DoubleDot)))
                 .then(raw_integer)
                 .map_with(|(start, end), state| {
                     Expression::Value(ValueNode::Range(start..end).with_position(state.span()))
@@ -223,12 +223,12 @@ pub fn parser<'src>(
 
             let list = expression
                 .clone()
-                .separated_by(just(Token::Control(Control::Comma)))
+                .separated_by(just(Token::Symbol(Symbol::Comma)))
                 .allow_trailing()
                 .collect()
                 .delimited_by(
-                    just(Token::Control(Control::SquareOpen)),
-                    just(Token::Control(Control::SquareClose)),
+                    just(Token::Symbol(Symbol::SquareOpen)),
+                    just(Token::Symbol(Symbol::SquareClose)),
                 )
                 .map_with(|list, state| {
                     Expression::Value(ValueNode::List(list).with_position(state.span()))
@@ -237,17 +237,17 @@ pub fn parser<'src>(
             let map_fields = identifier
                 .clone()
                 .then(type_specification.clone().or_not())
-                .then_ignore(just(Token::Operator(Operator::Assign)))
+                .then_ignore(just(Token::Symbol(Symbol::Equal)))
                 .then(expression.clone())
                 .map(|((identifier, r#type), expression)| (identifier, r#type, expression));
 
             let map = map_fields
-                .separated_by(just(Token::Control(Control::Comma)).or_not())
+                .separated_by(just(Token::Symbol(Symbol::Comma)).or_not())
                 .allow_trailing()
                 .collect()
                 .delimited_by(
-                    just(Token::Control(Control::CurlyOpen)),
-                    just(Token::Control(Control::CurlyClose)),
+                    just(Token::Symbol(Symbol::CurlyOpen)),
+                    just(Token::Symbol(Symbol::CurlyClose)),
                 )
                 .map_with(|map_assigment_list, state| {
                     Expression::Value(
@@ -259,30 +259,30 @@ pub fn parser<'src>(
                 .ignore_then(
                     identifier
                         .clone()
-                        .separated_by(just(Token::Control(Control::Comma)))
+                        .separated_by(just(Token::Symbol(Symbol::Comma)))
                         .at_least(1)
                         .allow_trailing()
                         .collect()
                         .delimited_by(
-                            just(Token::Control(Control::Pipe)),
-                            just(Token::Control(Control::Pipe)),
+                            just(Token::Symbol(Symbol::Pipe)),
+                            just(Token::Symbol(Symbol::Pipe)),
                         )
                         .or_not(),
                 )
                 .then(
                     identifier
                         .clone()
-                        .then_ignore(just(Token::Control(Control::Colon)))
+                        .then_ignore(just(Token::Symbol(Symbol::Colon)))
                         .then(type_constructor.clone())
-                        .separated_by(just(Token::Control(Control::Comma)))
+                        .separated_by(just(Token::Symbol(Symbol::Comma)))
                         .allow_trailing()
                         .collect()
                         .delimited_by(
-                            just(Token::Control(Control::ParenOpen)),
-                            just(Token::Control(Control::ParenClose)),
+                            just(Token::Symbol(Symbol::ParenOpen)),
+                            just(Token::Symbol(Symbol::ParenClose)),
                         ),
                 )
-                .then_ignore(just(Token::Control(Control::SkinnyArrow)))
+                .then_ignore(just(Token::Symbol(Symbol::SkinnyArrow)))
                 .then(type_constructor.clone())
                 .then(block.clone())
                 .map_with(
@@ -301,16 +301,16 @@ pub fn parser<'src>(
 
             let enum_instance = positioned_identifier
                 .clone()
-                .then_ignore(just(Token::Control(Control::DoubleColon)))
+                .then_ignore(just(Token::Symbol(Symbol::DoubleColon)))
                 .then(positioned_identifier.clone())
                 .then(
                     expression
                         .clone()
-                        .separated_by(just(Token::Control(Control::Comma)))
+                        .separated_by(just(Token::Symbol(Symbol::Comma)))
                         .collect()
                         .delimited_by(
-                            just(Token::Control(Control::ParenOpen)),
-                            just(Token::Control(Control::ParenClose)),
+                            just(Token::Symbol(Symbol::ParenOpen)),
+                            just(Token::Symbol(Symbol::ParenClose)),
                         )
                         .or_not(),
                 )
@@ -386,16 +386,16 @@ pub fn parser<'src>(
 
             let turbofish = type_constructor
                 .clone()
-                .separated_by(just(Token::Control(Control::Comma)))
+                .separated_by(just(Token::Symbol(Symbol::Comma)))
                 .at_least(1)
                 .collect()
                 .delimited_by(
-                    just(Token::Control(Control::ParenOpen)),
-                    just(Token::Control(Control::ParenClose)),
+                    just(Token::Symbol(Symbol::ParenOpen)),
+                    just(Token::Symbol(Symbol::ParenClose)),
                 )
                 .delimited_by(
-                    just(Token::Control(Control::DoubleColon)),
-                    just(Token::Control(Control::DoubleColon)),
+                    just(Token::Symbol(Symbol::DoubleColon)),
+                    just(Token::Symbol(Symbol::DoubleColon)),
                 );
 
             let atom = choice((
@@ -407,8 +407,8 @@ pub fn parser<'src>(
                 basic_value.clone(),
                 identifier_expression.clone(),
                 expression.clone().delimited_by(
-                    just(Token::Control(Control::ParenOpen)),
-                    just(Token::Control(Control::ParenClose)),
+                    just(Token::Symbol(Symbol::ParenOpen)),
+                    just(Token::Symbol(Symbol::ParenClose)),
                 ),
             ));
 
@@ -416,21 +416,21 @@ pub fn parser<'src>(
                 // Logic
                 prefix(
                     2,
-                    just(Token::Operator(Operator::Not)),
+                    just(Token::Symbol(Symbol::Exclamation)),
                     |_, expression, span| {
                         Expression::Logic(Box::new(Logic::Not(expression)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::Equal)),
+                    just(Token::Symbol(Symbol::DoubleEqual)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Equal(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::NotEqual)),
+                    just(Token::Symbol(Symbol::NotEqual)),
                     |left, _, right, span| {
                         Expression::Logic(
                             Box::new(Logic::NotEqual(left, right)).with_position(span),
@@ -439,21 +439,21 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::Greater)),
+                    just(Token::Symbol(Symbol::Greater)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Greater(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::Less)),
+                    just(Token::Symbol(Symbol::Less)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Less(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::GreaterOrEqual)),
+                    just(Token::Symbol(Symbol::GreaterOrEqual)),
                     |left, _, right, span| {
                         Expression::Logic(
                             Box::new(Logic::GreaterOrEqual(left, right)).with_position(span),
@@ -462,7 +462,7 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::LessOrEqual)),
+                    just(Token::Symbol(Symbol::LessOrEqual)),
                     |left, _, right, span| {
                         Expression::Logic(
                             Box::new(Logic::LessOrEqual(left, right)).with_position(span),
@@ -471,14 +471,14 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::And)),
+                    just(Token::Symbol(Symbol::DoubleAmpersand)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::And(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::Or)),
+                    just(Token::Symbol(Symbol::DoublePipe)),
                     |left, _, right, span| {
                         Expression::Logic(Box::new(Logic::Or(left, right)).with_position(span))
                     },
@@ -486,35 +486,35 @@ pub fn parser<'src>(
                 // Math
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::Add)),
+                    just(Token::Symbol(Symbol::Plus)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Add(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::Subtract)),
+                    just(Token::Symbol(Symbol::Minus)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Subtract(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(2),
-                    just(Token::Operator(Operator::Multiply)),
+                    just(Token::Symbol(Symbol::Asterisk)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Multiply(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(2),
-                    just(Token::Operator(Operator::Divide)),
+                    just(Token::Symbol(Symbol::Slash)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Divide(left, right)).with_position(span))
                     },
                 ),
                 infix(
                     left(1),
-                    just(Token::Operator(Operator::Modulo)),
+                    just(Token::Symbol(Symbol::Slash)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Modulo(left, right)).with_position(span))
                     },
@@ -522,7 +522,7 @@ pub fn parser<'src>(
                 // Indexes
                 infix(
                     left(4),
-                    just(Token::Control(Control::Dot)),
+                    just(Token::Symbol(Symbol::Dot)),
                     |left, _, right, span| {
                         Expression::MapIndex(
                             Box::new(MapIndex::new(left, right)).with_position(span),
@@ -532,8 +532,8 @@ pub fn parser<'src>(
                 postfix(
                     3,
                     expression.clone().delimited_by(
-                        just(Token::Control(Control::SquareOpen)),
-                        just(Token::Control(Control::SquareClose)),
+                        just(Token::Symbol(Symbol::SquareOpen)),
+                        just(Token::Symbol(Symbol::SquareClose)),
                     ),
                     |left, right, span| {
                         Expression::ListIndex(
@@ -547,11 +547,11 @@ pub fn parser<'src>(
                     turbofish.clone().or_not().then(
                         expression
                             .clone()
-                            .separated_by(just(Token::Control(Control::Comma)))
+                            .separated_by(just(Token::Symbol(Symbol::Comma)))
                             .collect()
                             .delimited_by(
-                                just(Token::Control(Control::ParenOpen)),
-                                just(Token::Control(Control::ParenClose)),
+                                just(Token::Symbol(Symbol::ParenOpen)),
+                                just(Token::Symbol(Symbol::ParenClose)),
                             ),
                     ),
                     |function_expression, (type_parameters, value_parameters), span| {
@@ -596,8 +596,8 @@ pub fn parser<'src>(
 
         let async_block = just(Token::Keyword(Keyword::Async))
             .ignore_then(statement.clone().repeated().collect().delimited_by(
-                just(Token::Control(Control::CurlyOpen)),
-                just(Token::Control(Control::CurlyClose)),
+                just(Token::Symbol(Symbol::CurlyOpen)),
+                just(Token::Symbol(Symbol::CurlyClose)),
             ))
             .map_with(|statements, state| {
                 Statement::AsyncBlock(AsyncBlock::new(statements).with_position(state.span()))
@@ -610,9 +610,9 @@ pub fn parser<'src>(
             .clone()
             .then(type_specification.clone().or_not())
             .then(choice((
-                just(Token::Operator(Operator::Assign)).to(AssignmentOperator::Assign),
-                just(Token::Operator(Operator::AddAssign)).to(AssignmentOperator::AddAssign),
-                just(Token::Operator(Operator::SubAssign)).to(AssignmentOperator::SubAssign),
+                just(Token::Symbol(Symbol::Equal)).to(AssignmentOperator::Assign),
+                just(Token::Symbol(Symbol::PlusEquals)).to(AssignmentOperator::AddAssign),
+                just(Token::Symbol(Symbol::MinusEqual)).to(AssignmentOperator::SubAssign),
             )))
             .then(statement.clone())
             .map_with(|(((identifier, r#type), operator), statement), state| {
@@ -630,8 +630,8 @@ pub fn parser<'src>(
             .at_least(1)
             .collect()
             .delimited_by(
-                just(Token::Keyword(Keyword::Loop)).then(just(Token::Control(Control::CurlyOpen))),
-                just(Token::Control(Control::CurlyClose)),
+                just(Token::Keyword(Keyword::Loop)).then(just(Token::Symbol(Symbol::CurlyOpen))),
+                just(Token::Symbol(Symbol::CurlyClose)),
             )
             .map_with(|statements, state| {
                 Statement::Loop(Loop::new(statements).with_position(state.span()))
@@ -640,8 +640,8 @@ pub fn parser<'src>(
         let r#while = just(Token::Keyword(Keyword::While))
             .ignore_then(expression.clone())
             .then(statement.clone().repeated().collect().delimited_by(
-                just(Token::Control(Control::CurlyOpen)),
-                just(Token::Control(Control::CurlyClose)),
+                just(Token::Symbol(Symbol::CurlyOpen)),
+                just(Token::Symbol(Symbol::CurlyClose)),
             ))
             .map_with(|(expression, statements), state| {
                 Statement::While(While::new(expression, statements).with_position(state.span()))
@@ -656,7 +656,9 @@ pub fn parser<'src>(
                     .ignore_then(expression.clone())
                     .then(block.clone())
                     .repeated()
-                    .collect(),
+                    .at_least(1)
+                    .collect()
+                    .or_not(),
             )
             .then(
                 just(Token::Keyword(Keyword::Else))
@@ -674,7 +676,7 @@ pub fn parser<'src>(
 
         let type_alias = just(Token::Keyword(Keyword::Type))
             .ignore_then(positioned_identifier.clone())
-            .then_ignore(just(Token::Operator(Operator::Assign)))
+            .then_ignore(just(Token::Symbol(Symbol::Equal)))
             .then(type_constructor.clone())
             .map_with(|(identifier, constructor), state| {
                 Statement::TypeAlias(
@@ -687,11 +689,11 @@ pub fn parser<'src>(
             .then(
                 type_constructor
                     .clone()
-                    .separated_by(just(Token::Control(Control::Comma)))
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .collect()
                     .delimited_by(
-                        just(Token::Control(Control::ParenOpen)),
-                        just(Token::Control(Control::ParenClose)),
+                        just(Token::Symbol(Symbol::ParenOpen)),
+                        just(Token::Symbol(Symbol::ParenClose)),
                     )
                     .or_not(),
             )
@@ -705,24 +707,24 @@ pub fn parser<'src>(
             .then(
                 positioned_identifier
                     .clone()
-                    .separated_by(just(Token::Control(Control::Comma)))
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .allow_trailing()
                     .collect()
                     .delimited_by(
-                        just(Token::Operator(Operator::Less)),
-                        just(Token::Operator(Operator::Greater)),
+                        just(Token::Symbol(Symbol::Less)),
+                        just(Token::Symbol(Symbol::Greater)),
                     )
                     .or_not(),
             )
             .then(
                 enum_variant
-                    .separated_by(just(Token::Control(Control::Comma)))
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .allow_trailing()
                     .at_least(1)
                     .collect()
                     .delimited_by(
-                        just(Token::Control(Control::CurlyOpen)),
-                        just(Token::Control(Control::CurlyClose)),
+                        just(Token::Symbol(Symbol::CurlyOpen)),
+                        just(Token::Symbol(Symbol::CurlyClose)),
                     ),
             )
             .map_with(|((name, type_parameters), variants), state| {
@@ -751,7 +753,7 @@ pub fn parser<'src>(
                 type_alias,
                 enum_declaration,
             )))
-            .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
+            .then_ignore(just(Token::Symbol(Symbol::Semicolon)).or_not())
     });
 
     statement.repeated().collect()

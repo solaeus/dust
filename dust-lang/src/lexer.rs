@@ -15,8 +15,7 @@ pub enum Token<'src> {
     Float(f64),
     String(&'src str),
     Identifier(&'src str),
-    Operator(Operator),
-    Control(Control),
+    Symbol(Symbol),
     Keyword(Keyword),
 }
 
@@ -29,8 +28,7 @@ impl<'src> Display for Token<'src> {
             Token::Float(float) => write!(f, "{float}"),
             Token::String(string) => write!(f, "{string}"),
             Token::Identifier(string) => write!(f, "{string}"),
-            Token::Operator(operator) => write!(f, "{operator}"),
-            Token::Control(control) => write!(f, "{control}"),
+            Token::Symbol(control) => write!(f, "{control}"),
             Token::Keyword(keyword) => write!(f, "{keyword}"),
         }
     }
@@ -100,91 +98,80 @@ impl Display for Keyword {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Operator {
-    Add,
-    AddAssign,
-    And,
-    Assign,
-    Divide,
+pub enum Symbol {
+    Plus,
+    PlusEquals,
+    DoubleAmpersand,
+    Colon,
+    Comma,
+    CurlyClose,
+    CurlyOpen,
+    Slash,
+    Dollar,
+    Dot,
+    DoubleColon,
+    DoubleDot,
+    DoubleEqual,
+    DoubleUnderscore,
     Equal,
+    FatArrow,
     Greater,
     GreaterOrEqual,
     Less,
     LessOrEqual,
-    Modulo,
-    Multiply,
-    Not,
+    Percent,
+    Asterisk,
+    Exclamation,
     NotEqual,
-    Or,
-    SubAssign,
-    Subtract,
-}
-
-impl Display for Operator {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Operator::Add => write!(f, "+"),
-            Operator::AddAssign => write!(f, "+="),
-            Operator::And => write!(f, "&&"),
-            Operator::Assign => write!(f, "="),
-            Operator::Divide => write!(f, "="),
-            Operator::Equal => write!(f, "=="),
-            Operator::Greater => write!(f, ">"),
-            Operator::GreaterOrEqual => write!(f, ">="),
-            Operator::Less => write!(f, "<"),
-            Operator::LessOrEqual => write!(f, "<="),
-            Operator::Modulo => write!(f, "%"),
-            Operator::Multiply => write!(f, "*"),
-            Operator::Not => write!(f, "!"),
-            Operator::NotEqual => write!(f, "!="),
-            Operator::Or => write!(f, "||"),
-            Operator::SubAssign => write!(f, "-="),
-            Operator::Subtract => write!(f, "-"),
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Control {
-    CurlyOpen,
-    CurlyClose,
-    SquareOpen,
-    SquareClose,
-    ParenOpen,
+    DoublePipe,
     ParenClose,
+    ParenOpen,
     Pipe,
-    Comma,
-    DoubleColon,
-    Colon,
-    Dollar,
-    Dot,
-    DoubleDot,
     Semicolon,
     SkinnyArrow,
-    FatArrow,
-    DoubleUnderscore,
+    SquareClose,
+    SquareOpen,
+    MinusEqual,
+    Minus,
 }
 
-impl Display for Control {
+impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Control::CurlyOpen => write!(f, "{{"),
-            Control::CurlyClose => write!(f, "}}"),
-            Control::Dollar => write!(f, "$"),
-            Control::SquareOpen => write!(f, "["),
-            Control::SquareClose => write!(f, "]"),
-            Control::ParenOpen => write!(f, "("),
-            Control::ParenClose => write!(f, ")"),
-            Control::Pipe => write!(f, "|"),
-            Control::Comma => write!(f, ","),
-            Control::DoubleColon => write!(f, "::"),
-            Control::Colon => write!(f, ":"),
-            Control::Dot => write!(f, "."),
-            Control::Semicolon => write!(f, ";"),
-            Control::DoubleDot => write!(f, ".."),
-            Control::SkinnyArrow => write!(f, "->"),
-            Control::FatArrow => write!(f, "=>"),
-            Control::DoubleUnderscore => write!(f, "__"),
+            Symbol::Asterisk => write!(f, "*"),
+            Symbol::Colon => write!(f, ":"),
+            Symbol::Comma => write!(f, ","),
+            Symbol::CurlyClose => write!(f, "}}"),
+            Symbol::CurlyOpen => write!(f, "{{"),
+            Symbol::Dollar => write!(f, "$"),
+            Symbol::Dot => write!(f, "."),
+            Symbol::DoubleAmpersand => write!(f, "&&"),
+            Symbol::DoubleColon => write!(f, "::"),
+            Symbol::DoubleDot => write!(f, ".."),
+            Symbol::DoubleEqual => write!(f, "=="),
+            Symbol::DoublePipe => write!(f, "||"),
+            Symbol::DoubleUnderscore => write!(f, "__"),
+            Symbol::Equal => write!(f, "="),
+            Symbol::Exclamation => write!(f, "!"),
+            Symbol::FatArrow => write!(f, "=>"),
+            Symbol::Greater => write!(f, ">"),
+            Symbol::GreaterOrEqual => write!(f, ">="),
+            Symbol::Less => write!(f, "<"),
+            Symbol::LessOrEqual => write!(f, "<="),
+            Symbol::Minus => write!(f, "-"),
+            Symbol::MinusEqual => write!(f, "-="),
+            Symbol::NotEqual => write!(f, "!="),
+            Symbol::ParenClose => write!(f, ")"),
+            Symbol::ParenOpen => write!(f, "("),
+            Symbol::Percent => write!(f, "%"),
+            Symbol::Pipe => write!(f, "|"),
+            Symbol::Plus => write!(f, "+"),
+            Symbol::PlusEquals => write!(f, "+="),
+            Symbol::Semicolon => write!(f, ";"),
+            Symbol::SkinnyArrow => write!(f, "->"),
+            Symbol::Slash => write!(f, "/"),
+            Symbol::SquareClose => write!(f, "]"),
+            Symbol::SquareOpen => write!(f, "["),
         }
     }
 }
@@ -294,51 +281,42 @@ pub fn lexer<'src>() -> impl Parser<
         _ => Token::Identifier(text),
     });
 
-    let operator = choice((
-        // logic
-        just("&&").to(Operator::And),
-        just("==").to(Operator::Equal),
-        just("!=").to(Operator::NotEqual),
-        just(">=").to(Operator::GreaterOrEqual),
-        just("<=").to(Operator::LessOrEqual),
-        just(">").to(Operator::Greater),
-        just("<").to(Operator::Less),
-        just("!").to(Operator::Not),
-        just("!=").to(Operator::NotEqual),
-        just("||").to(Operator::Or),
-        // assignment
-        just("=").to(Operator::Assign),
-        just("+=").to(Operator::AddAssign),
-        just("-=").to(Operator::SubAssign),
-        // math
-        just("+").to(Operator::Add),
-        just("-").to(Operator::Subtract),
-        just("*").to(Operator::Multiply),
-        just("/").to(Operator::Divide),
-        just("%").to(Operator::Modulo),
-    ))
-    .map(Token::Operator);
-
-    let control = choice((
-        just("->").to(Control::SkinnyArrow),
-        just("=>").to(Control::FatArrow),
-        just("{").to(Control::CurlyOpen),
-        just("}").to(Control::CurlyClose),
-        just("[").to(Control::SquareOpen),
-        just("]").to(Control::SquareClose),
-        just("(").to(Control::ParenOpen),
-        just(")").to(Control::ParenClose),
-        just("|").to(Control::Pipe),
-        just(",").to(Control::Comma),
-        just(";").to(Control::Semicolon),
-        just("::").to(Control::DoubleColon),
-        just(":").to(Control::Colon),
-        just("..").to(Control::DoubleDot),
-        just(".").to(Control::Dot),
-        just("$").to(Control::Dollar),
-        just("__").to(Control::DoubleUnderscore),
-    ))
-    .map(Token::Control);
+    let symbol = choice([
+        just("!=").to(Token::Symbol(Symbol::NotEqual)),
+        just("!").to(Token::Symbol(Symbol::Exclamation)),
+        just("$").to(Token::Symbol(Symbol::Dollar)),
+        just("%").to(Token::Symbol(Symbol::Percent)),
+        just("&&").to(Token::Symbol(Symbol::DoubleAmpersand)),
+        just("(").to(Token::Symbol(Symbol::ParenOpen)),
+        just(")").to(Token::Symbol(Symbol::ParenClose)),
+        just("*").to(Token::Symbol(Symbol::Asterisk)),
+        just("+=").to(Token::Symbol(Symbol::PlusEquals)),
+        just("+").to(Token::Symbol(Symbol::Plus)),
+        just(",").to(Token::Symbol(Symbol::Comma)),
+        just("->").to(Token::Symbol(Symbol::SkinnyArrow)),
+        just("-=").to(Token::Symbol(Symbol::MinusEqual)),
+        just("-").to(Token::Symbol(Symbol::Minus)),
+        just("..").to(Token::Symbol(Symbol::DoubleDot)),
+        just(".").to(Token::Symbol(Symbol::Dot)),
+        just("/").to(Token::Symbol(Symbol::Slash)),
+        just("::").to(Token::Symbol(Symbol::DoubleColon)),
+        just(":").to(Token::Symbol(Symbol::Colon)),
+        just(";").to(Token::Symbol(Symbol::Semicolon)),
+        just("<=").to(Token::Symbol(Symbol::LessOrEqual)),
+        just("<").to(Token::Symbol(Symbol::Less)),
+        just("=>").to(Token::Symbol(Symbol::FatArrow)),
+        just("==").to(Token::Symbol(Symbol::DoubleEqual)),
+        just("=").to(Token::Symbol(Symbol::Equal)),
+        just(">=").to(Token::Symbol(Symbol::GreaterOrEqual)),
+        just(">").to(Token::Symbol(Symbol::Greater)),
+        just("[").to(Token::Symbol(Symbol::SquareOpen)),
+        just("]").to(Token::Symbol(Symbol::SquareClose)),
+        just("__").to(Token::Symbol(Symbol::DoubleUnderscore)),
+        just("{").to(Token::Symbol(Symbol::CurlyOpen)),
+        just("||").to(Token::Symbol(Symbol::DoublePipe)),
+        just("|").to(Token::Symbol(Symbol::Pipe)),
+        just("}").to(Token::Symbol(Symbol::CurlyClose)),
+    ]);
 
     choice((
         line_comment,
@@ -348,10 +326,9 @@ pub fn lexer<'src>() -> impl Parser<
         integer,
         string,
         identifier_and_keyword,
-        control,
-        operator,
+        symbol,
     ))
-    .map_with(|token, state| (token, state.span()))
+    .map_with(|token: Token, state| (token, state.span()))
     .padded()
     .repeated()
     .collect()
@@ -427,7 +404,7 @@ mod tests {
             lex("1..10").unwrap(),
             vec![
                 (Token::Integer(1), (0..1).into()),
-                (Token::Control(Control::DoubleDot), (1..3).into()),
+                (Token::Symbol(Symbol::DoubleDot), (1..3).into()),
                 (Token::Integer(10), (3..5).into())
             ]
         )
@@ -439,7 +416,7 @@ mod tests {
             lex("1 + 1").unwrap(),
             vec![
                 (Token::Integer(1), (0..1).into()),
-                (Token::Operator(Operator::Add), (2..3).into()),
+                (Token::Symbol(Symbol::Plus), (2..3).into()),
                 (Token::Integer(1), (4..5).into())
             ]
         )

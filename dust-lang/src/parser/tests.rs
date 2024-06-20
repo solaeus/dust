@@ -587,7 +587,7 @@ fn r#if() {
                     ValueNode::String("foo".to_string()).with_position((10, 15))
                 ))])
                 .with_position((8, 17)),
-                Vec::with_capacity(0),
+                None,
                 None
             )
             .with_position((0, 17))
@@ -606,7 +606,7 @@ fn if_else() {
                     ValueNode::String("foo".to_string()).with_position((9, 14))
                 ))])
                 .with_position((8, 16)),
-                Vec::with_capacity(0),
+                None,
                 Some(
                     Block::new(vec![Statement::Expression(Expression::Value(
                         ValueNode::String("bar".to_string()).with_position((24, 29))
@@ -695,6 +695,10 @@ fn r#loop() {
             .with_position((0, 11))
         )
     );
+}
+
+#[test]
+fn complex_loop() {
     assert_eq!(
         parse(&lex("loop { if i > 2 { break } else { i += 1 } }").unwrap()).unwrap()[0],
         Statement::Loop(
@@ -709,7 +713,7 @@ fn r#loop() {
                     ),
                     Block::new(vec![Statement::Break(().with_position((18, 23)))])
                         .with_position((16, 25)),
-                    Vec::with_capacity(0),
+                    None,
                     Some(
                         Block::new(vec![Statement::Assignment(
                             Assignment::new(

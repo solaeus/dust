@@ -12,7 +12,7 @@ use super::{Block, Evaluate, Evaluation, ExpectedType, Expression, Type, WithPos
 pub struct IfElse {
     if_expression: Expression,
     if_block: WithPosition<Block>,
-    else_ifs: Vec<(Expression, WithPosition<Block>)>,
+    else_ifs: Option<Vec<(Expression, WithPosition<Block>)>>,
     else_block: Option<WithPosition<Block>>,
 }
 
@@ -20,7 +20,7 @@ impl IfElse {
     pub fn new(
         if_expression: Expression,
         if_block: WithPosition<Block>,
-        else_ifs: Vec<(Expression, WithPosition<Block>)>,
+        else_ifs: Option<Vec<(Expression, WithPosition<Block>)>>,
         else_block: Option<WithPosition<Block>>,
     ) -> Self {
         Self {
@@ -61,26 +61,28 @@ impl Evaluate for IfElse {
             });
         }
 
-        for (expression, block) in &self.else_ifs {
-            let expression_type = expression.expected_type(context)?;
+        if let Some(else_ifs) = &self.else_ifs {
+            for (expression, block) in else_ifs {
+                let expression_type = expression.expected_type(context)?;
 
-            if let Type::Boolean = expression_type {
-                block.node.validate(context, manage_memory)?;
+                if let Type::Boolean = expression_type {
+                    block.node.validate(context, manage_memory)?;
 
-                let actual = block.node.expected_type(context)?;
+                    let actual = block.node.expected_type(context)?;
 
-                expected_type
-                    .check(&actual)
-                    .map_err(|conflict| ValidationError::TypeCheck {
-                        conflict,
-                        actual_position: self.if_block.node.last_statement().position(),
-                        expected_position: Some(self.if_expression.position()),
+                    expected_type.check(&actual).map_err(|conflict| {
+                        ValidationError::TypeCheck {
+                            conflict,
+                            actual_position: self.if_block.node.last_statement().position(),
+                            expected_position: Some(self.if_expression.position()),
+                        }
                     })?;
-            } else {
-                return Err(ValidationError::ExpectedBoolean {
-                    actual: if_expression_type,
-                    position: self.if_expression.position(),
-                });
+                } else {
+                    return Err(ValidationError::ExpectedBoolean {
+                        actual: if_expression_type,
+                        position: self.if_expression.position(),
+                    });
+                }
             }
         }
 
@@ -104,9 +106,11 @@ impl Evaluate for IfElse {
 
         if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
             if *if_boolean {
-                self.if_block.node.evaluate(context, _manage_memory)
-            } else {
-                for (expression, block) in self.else_ifs {
+                return self.if_block.node.evaluate(context, _manage_memory);
+            }
+
+            if let Some(else_ifs) = self.else_ifs {
+                for (expression, block) in else_ifs {
                     let expression_position = expression.position();
                     let action = expression.evaluate(context, _manage_memory)?;
                     let value = if let Evaluation::Return(value) = action {
@@ -130,12 +134,12 @@ impl Evaluate for IfElse {
                         ));
                     }
                 }
+            }
 
-                if let Some(else_statement) = self.else_block {
-                    else_statement.node.evaluate(context, _manage_memory)
-                } else {
-                    Ok(Evaluation::None)
-                }
+            if let Some(else_statement) = self.else_block {
+                else_statement.node.evaluate(context, _manage_memory)
+            } else {
+                Ok(Evaluation::None)
             }
         } else {
             Err(RuntimeError::ValidationFailure(
@@ -172,7 +176,7 @@ mod tests {
                     ValueNode::String("foo".to_string()).with_position((0, 0))
                 ))])
                 .with_position((0, 0)),
-                Vec::with_capacity(0),
+                Some(Vec::with_capacity(0)),
                 None
             )
             .evaluate(&mut Context::new(None), true)
