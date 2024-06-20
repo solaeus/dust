@@ -335,6 +335,17 @@ impl InterpreterError {
                                 )),
                         );
                     }
+                    ValidationError::FullTypeNotKnown {
+                        identifier,
+                        position,
+                    } => builder.add_label(
+                        Label::new((self.source_id.clone(), position.0..position.1)).with_message(
+                            format!(
+                                "The full type for {} must be known.",
+                                identifier.fg(identifier_color)
+                            ),
+                        ),
+                    ),
                     ValidationError::RwLockPoison(_) => todo!(),
                     ValidationError::TypeCheck {
                         conflict,
@@ -425,7 +436,25 @@ impl InterpreterError {
                         )
                     }
                     ValidationError::ExpectedString { .. } => todo!(),
-                    ValidationError::EnumDefinitionNotFound(_) => todo!(),
+                    ValidationError::EnumDefinitionNotFound {
+                        identifier,
+                        position,
+                    } => {
+                        let message = format!(
+                            "The enum {} does not exist in this context.",
+                            identifier.fg(identifier_color),
+                        );
+
+                        if let Some(position) = position {
+                            builder.add_label(
+                                Label::new((self.source_id.clone(), position.0..position.1))
+                                    .with_message(message),
+                            )
+                        } else {
+                            builder = builder.with_message(message);
+                        }
+                    }
+                    ValidationError::EnumVariantNotFound { .. } => todo!(),
                 }
             }
 

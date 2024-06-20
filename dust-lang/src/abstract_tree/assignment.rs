@@ -8,7 +8,8 @@ use crate::{
 };
 
 use super::{
-    Evaluate, Evaluation, ExpectedType, Expression, Statement, Type, TypeConstructor, WithPosition,
+    type_constructor::TypeInvokationConstructor, Evaluate, Evaluation, ExpectedType, Expression,
+    Statement, Type, TypeConstructor, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -44,21 +45,66 @@ impl Assignment {
 
 impl Evaluate for Assignment {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
-        let statement_type = self.statement.expected_type(context)?;
+        if let Some(TypeConstructor::Raw(WithPosition {
+            node: Type::None,
+            position,
+        })) = &self.constructor
+        {
+            return Err(ValidationError::CannotAssignToNone(position.clone()));
+        }
 
-        if let Type::None = statement_type {
+        let relevant_statement = self.statement.last_child_statement();
+        let statement_type = relevant_statement.expected_type(context)?;
+
+        if let Type::None = &statement_type {
             return Err(ValidationError::CannotAssignToNone(
                 self.statement.position(),
             ));
         }
 
-        let statement = self
-            .statement
-            .last_child_statement()
-            .unwrap_or(&self.statement);
+        if let Some(constructor) = &self.constructor {
+            let r#type = constructor.clone().construct(&context)?;
+
+            r#type
+                .check(&statement_type)
+                .map_err(|conflict| ValidationError::TypeCheck {
+                    conflict,
+                    actual_position: self.statement.position(),
+                    expected_position: Some(constructor.position()),
+                })?;
+
+            context.set_type(self.identifier.node.clone(), r#type.clone())?;
+        } else {
+            context.set_type(self.identifier.node.clone(), statement_type.clone())?;
+        }
+
+        self.statement.validate(context, manage_memory)?;
+
+        if let (
+            Some(TypeConstructor::Invokation(TypeInvokationConstructor {
+                identifier,
+                type_arguments,
+            })),
+            Statement::Expression(Expression::Value(_)),
+            Type::Enum {
+                type_parameters, ..
+            },
+        ) = (&self.constructor, relevant_statement, &statement_type)
+        {
+            if let (Some(parameters), Some(arguments)) = (type_parameters, type_arguments) {
+                if parameters.len() != arguments.len() {
+                    return Err(ValidationError::FullTypeNotKnown {
+                        identifier: identifier.node.clone(),
+                        position: self.constructor.clone().unwrap().position(),
+                    });
+                }
+            }
+
+            return Ok(());
+        }
 
         if let (Some(constructor), Statement::Expression(Expression::FunctionCall(function_call))) =
-            (&self.constructor, statement)
+            (&self.constructor, relevant_statement)
         {
             let declared_type = constructor.clone().construct(context)?;
             let function_type = function_call.node.function().expected_type(context)?;
@@ -76,6 +122,8 @@ impl Evaluate for Assignment {
 
                     if let Some(parameter) = returned_parameter {
                         context.set_type(parameter, declared_type)?;
+
+                        return Ok(());
                     }
                 }
             } else {
@@ -84,23 +132,7 @@ impl Evaluate for Assignment {
                     position: function_call.position,
                 });
             }
-        } else if let Some(constructor) = &self.constructor {
-            let r#type = constructor.clone().construct(&context)?;
-
-            r#type
-                .check(&statement_type)
-                .map_err(|conflict| ValidationError::TypeCheck {
-                    conflict,
-                    actual_position: self.statement.position(),
-                    expected_position: Some(constructor.position()),
-                })?;
-
-            context.set_type(self.identifier.node.clone(), r#type.clone())?;
-        } else {
-            context.set_type(self.identifier.node.clone(), statement_type)?;
         }
-
-        self.statement.validate(context, manage_memory)?;
 
         Ok(())
     }

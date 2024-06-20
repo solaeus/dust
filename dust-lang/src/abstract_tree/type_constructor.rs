@@ -10,10 +10,10 @@ use super::{SourcePosition, Type, WithPosition};
 pub enum TypeConstructor {
     Enum(WithPosition<EnumTypeConstructor>),
     Function(WithPosition<FunctionTypeConstructor>),
-    Identifier(WithPosition<Identifier>),
+    Invokation(TypeInvokationConstructor),
     List(WithPosition<ListTypeConstructor>),
     ListOf(WithPosition<Box<TypeConstructor>>),
-    Type(WithPosition<Type>),
+    Raw(WithPosition<Type>),
 }
 
 impl TypeConstructor {
@@ -21,17 +21,61 @@ impl TypeConstructor {
         match self {
             TypeConstructor::Enum(WithPosition { position, .. }) => *position,
             TypeConstructor::Function(WithPosition { position, .. }) => *position,
-            TypeConstructor::Identifier(WithPosition { position, .. }) => *position,
+            TypeConstructor::Invokation(TypeInvokationConstructor {
+                identifier,
+                type_arguments,
+            }) => {
+                if let Some(arguments) = type_arguments {
+                    SourcePosition(
+                        identifier.position.0,
+                        arguments.last().unwrap().position().1,
+                    )
+                } else {
+                    SourcePosition(identifier.position.0, identifier.position.1)
+                }
+            }
             TypeConstructor::List(WithPosition { position, .. }) => *position,
             TypeConstructor::ListOf(WithPosition { position, .. }) => *position,
-            TypeConstructor::Type(WithPosition { position, .. }) => *position,
+            TypeConstructor::Raw(WithPosition { position, .. }) => *position,
         }
     }
 
     pub fn construct(self, context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
+            TypeConstructor::Invokation(TypeInvokationConstructor { identifier, .. }) => {
+                let invoked_type = if let Some(r#type) = context.get_type(&identifier.node)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::VariableNotFound {
+                        identifier: identifier.node,
+                        position: identifier.position,
+                    });
+                };
+
+                if let Type::Enum {
+                    type_parameters,
+                    variants,
+                } = invoked_type
+                {
+                    let mut mapped_variants = Vec::with_capacity(variants.len());
+
+                    for (variant_name, content) in variants {
+                        mapped_variants.push((variant_name.clone(), content.clone()));
+                    }
+
+                    Type::Enum {
+                        type_parameters: type_parameters.clone(),
+                        variants: mapped_variants,
+                    }
+                } else {
+                    invoked_type
+                }
+            }
             TypeConstructor::Enum(enum_type_constructor) => {
-                let EnumTypeConstructor { variants, .. } = enum_type_constructor.node;
+                let EnumTypeConstructor {
+                    type_parameters,
+                    variants,
+                } = enum_type_constructor.node;
                 let mut type_variants = Vec::with_capacity(variants.len());
 
                 for (variant_name, constructors) in variants {
@@ -44,11 +88,22 @@ impl TypeConstructor {
                             types.push(r#type);
                         }
 
-                        type_variants.push((variant_name.node, types));
+                        type_variants.push((variant_name.node, Some(types)));
+                    } else {
+                        type_variants.push((variant_name.node, None))
                     }
                 }
 
                 Type::Enum {
+                    type_parameters: type_parameters.map(|identifiers| {
+                        identifiers
+                            .into_iter()
+                            .map(|identifier| Type::Generic {
+                                identifier: identifier.node,
+                                concrete_type: None,
+                            })
+                            .collect()
+                    }),
                     variants: type_variants,
                 }
             }
@@ -81,21 +136,6 @@ impl TypeConstructor {
                     return_type,
                 }
             }
-            TypeConstructor::Identifier(WithPosition {
-                node: identifier, ..
-            }) => {
-                if let Some(r#type) = context.get_type(&identifier)? {
-                    Type::Generic {
-                        identifier,
-                        concrete_type: Some(Box::new(r#type)),
-                    }
-                } else {
-                    Type::Generic {
-                        identifier,
-                        concrete_type: None,
-                    }
-                }
-            }
             TypeConstructor::List(positioned_constructor) => {
                 let ListTypeConstructor { length, item_type } = positioned_constructor.node;
                 let constructed_type = item_type.construct(context)?;
@@ -110,7 +150,7 @@ impl TypeConstructor {
 
                 Type::ListOf(Box::new(item_type))
             }
-            TypeConstructor::Type(r#type) => r#type.node,
+            TypeConstructor::Raw(r#type) => r#type.node,
         };
 
         Ok(r#type)
@@ -140,4 +180,10 @@ pub struct FunctionTypeConstructor {
 pub struct ListTypeConstructor {
     pub length: usize,
     pub item_type: Box<TypeConstructor>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct TypeInvokationConstructor {
+    pub identifier: WithPosition<Identifier>,
+    pub type_arguments: Option<Vec<TypeConstructor>>,
 }

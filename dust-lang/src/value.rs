@@ -564,7 +564,10 @@ impl ValueInner {
                 if let Some(r#type) = context.get_type(type_name)? {
                     r#type
                 } else {
-                    return Err(ValidationError::EnumDefinitionNotFound(type_name.clone()));
+                    return Err(ValidationError::EnumDefinitionNotFound {
+                        identifier: type_name.clone(),
+                        position: None,
+                    });
                 }
             }
             ValueInner::Float(_) => Type::Float,
@@ -720,11 +723,14 @@ impl Function {
 
     pub fn call(
         self,
-        arguments: Vec<Value>,
+        value_arguments: Vec<Value>,
         context: &mut Context,
         clear_variables: bool,
     ) -> Result<Evaluation, RuntimeError> {
-        for ((identifier, _), value) in self.value_parameters.into_iter().zip(arguments.into_iter())
+        for ((identifier, _), value) in self
+            .value_parameters
+            .into_iter()
+            .zip(value_arguments.into_iter())
         {
             context.set_value(identifier.clone(), value)?;
         }

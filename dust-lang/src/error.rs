@@ -132,6 +132,10 @@ pub enum ValidationError {
         position: SourcePosition,
     },
     ExpectedValue(SourcePosition),
+    FullTypeNotKnown {
+        identifier: Identifier,
+        position: SourcePosition,
+    },
     InterpreterExpectedReturn(SourcePosition),
     RwLockPoison(RwLockPoisonError),
     TypeCheck {
@@ -160,7 +164,14 @@ pub enum ValidationError {
         identifier: Identifier,
         position: SourcePosition,
     },
-    EnumDefinitionNotFound(Identifier),
+    EnumDefinitionNotFound {
+        identifier: Identifier,
+        position: Option<SourcePosition>,
+    },
+    EnumVariantNotFound {
+        identifier: Identifier,
+        position: SourcePosition,
+    },
 }
 
 impl From<RwLockPoisonError> for ValidationError {

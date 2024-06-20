@@ -9,6 +9,8 @@ use crate::{
     lexer::{Control, Keyword, Operator, Token},
 };
 
+use self::type_constructor::TypeInvokationConstructor;
+
 pub type ParserInput<'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
 
@@ -79,7 +81,7 @@ pub fn parser<'src>(
             just(Token::Keyword(Keyword::Range)).to(Type::Range),
             just(Token::Keyword(Keyword::Str)).to(Type::String),
         ))
-        .map_with(|r#type, state| TypeConstructor::Type(r#type.with_position(state.span())));
+        .map_with(|r#type, state| TypeConstructor::Raw(r#type.with_position(state.span())));
 
         let function_type = just(Token::Keyword(Keyword::Fn))
             .ignore_then(
@@ -147,10 +149,6 @@ pub fn parser<'src>(
                 TypeConstructor::ListOf(Box::new(item_type).with_position(state.span()))
             });
 
-        let identifier_type = positioned_identifier
-            .clone()
-            .map(|identifier| TypeConstructor::Identifier(identifier));
-
         let enum_variant = positioned_identifier.clone().then(
             type_constructor
                 .clone()
@@ -196,12 +194,34 @@ pub fn parser<'src>(
                 )
             });
 
+        let type_invokation = positioned_identifier
+            .clone()
+            .then(
+                type_constructor
+                    .clone()
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .at_least(1)
+                    .allow_trailing()
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::ParenOpen)),
+                        just(Token::Control(Control::ParenClose)),
+                    )
+                    .or_not(),
+            )
+            .map(|(identifier, type_arguments)| {
+                TypeConstructor::Invokation(TypeInvokationConstructor {
+                    identifier,
+                    type_arguments,
+                })
+            });
+
         choice((
+            type_invokation,
             function_type,
             list_type,
             list_of_type,
             primitive_type,
-            identifier_type,
             enum_type,
         ))
     });
@@ -703,10 +723,10 @@ pub fn parser<'src>(
             .repeated()
             .or_not()
             .ignore_then(choice((
-                async_block,
-                if_else,
                 assignment,
                 expression_statement,
+                async_block,
+                if_else,
                 r#break,
                 block_statement,
                 r#loop,
@@ -724,6 +744,53 @@ mod tests {
     use crate::lexer::lex;
 
     use super::*;
+
+    #[test]
+    fn type_invokation() {
+        assert_eq!(
+            parse(&lex("x: Foo(int) = Foo::Bar(42)").unwrap()).unwrap()[0],
+            Statement::Assignment(
+                Assignment::new(
+                    Identifier::new("x").with_position((0, 1)),
+                    Some(TypeConstructor::Invokation(TypeInvokationConstructor {
+                        identifier: Identifier::new("Foo").with_position((3, 6)),
+                        type_arguments: Some(vec![TypeConstructor::Raw(
+                            Type::Integer.with_position((7, 10))
+                        )]),
+                    })),
+                    AssignmentOperator::Assign,
+                    Statement::Expression(Expression::Value(
+                        ValueNode::EnumInstance {
+                            type_name: Identifier::new("Foo").with_position((14, 17)),
+                            variant: Identifier::new("Bar").with_position((19, 22)),
+                            content: Some(vec![Expression::Value(
+                                ValueNode::Integer(42).with_position((23, 25))
+                            )])
+                        }
+                        .with_position((14, 26))
+                    ))
+                )
+                .with_position((0, 26))
+            )
+        );
+    }
+
+    #[test]
+    fn enum_instance() {
+        assert_eq!(
+            parse(&lex("Foo::Bar(42)").unwrap()).unwrap()[0],
+            Statement::Expression(Expression::Value(
+                ValueNode::EnumInstance {
+                    type_name: Identifier::new("Foo").with_position((0, 3)),
+                    variant: Identifier::new("Bar").with_position((5, 8)),
+                    content: Some(vec![Expression::Value(
+                        ValueNode::Integer(42).with_position((9, 11))
+                    )])
+                }
+                .with_position((0, 12))
+            ))
+        );
+    }
 
     #[test]
     fn enum_type_empty() {
@@ -762,15 +829,13 @@ mod tests {
                                 (
                                     Identifier::new("X").with_position((21, 22)),
                                     Some(vec![
-                                        TypeConstructor::Type(Type::String.with_position((23, 26))),
-                                        TypeConstructor::Type(
-                                            Type::Integer.with_position((28, 31))
-                                        )
+                                        TypeConstructor::Raw(Type::String.with_position((23, 26))),
+                                        TypeConstructor::Raw(Type::Integer.with_position((28, 31)))
                                     ])
                                 ),
                                 (
                                     Identifier::new("Y").with_position((34, 35)),
-                                    Some(vec![TypeConstructor::Type(
+                                    Some(vec![TypeConstructor::Raw(
                                         Type::Integer.with_position((36, 39))
                                     )])
                                 )
@@ -800,14 +865,22 @@ mod tests {
                             variants: vec![
                                 (
                                     Identifier::new("X").with_position((28, 29)),
-                                    Some(vec![TypeConstructor::Identifier(
-                                        Identifier::new("T").with_position((30, 31))
+                                    Some(vec![TypeConstructor::Invokation(
+                                        TypeInvokationConstructor {
+                                            identifier: Identifier::new("T")
+                                                .with_position((30, 31)),
+                                            type_arguments: None,
+                                        }
                                     )])
                                 ),
                                 (
                                     Identifier::new("Y").with_position((34, 35)),
-                                    Some(vec![TypeConstructor::Identifier(
-                                        Identifier::new("U").with_position((36, 37))
+                                    Some(vec![TypeConstructor::Invokation(
+                                        TypeInvokationConstructor {
+                                            identifier: Identifier::new("U")
+                                                .with_position((36, 37)),
+                                            type_arguments: None,
+                                        }
                                     )])
                                 ),
                             ],
@@ -894,7 +967,7 @@ mod tests {
             Statement::TypeAssignment(
                 TypeAssignment::new(
                     Identifier::new("MyType").with_position((5, 11)),
-                    TypeConstructor::Type(Type::String.with_position((14, 17)))
+                    TypeConstructor::Raw(Type::String.with_position((14, 17)))
                 )
                 .with_position((0, 17))
             )
@@ -908,7 +981,7 @@ mod tests {
             Statement::Expression(Expression::As(
                 Box::new(As::new(
                     Expression::Value(ValueNode::Integer(1).with_position((0, 1))),
-                    TypeConstructor::Type(Type::String.with_position((5, 8)))
+                    TypeConstructor::Raw(Type::String.with_position((5, 8)))
                 ))
                 .with_position((0, 8))
             ))
@@ -1053,7 +1126,7 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(TypeConstructor::Type(Type::Boolean.with_position((9, 13)))),
+                    Some(TypeConstructor::Raw(Type::Boolean.with_position((9, 13)))),
                     AssignmentOperator::Assign,
                     Statement::Expression(Expression::Value(
                         ValueNode::Boolean(true).with_position((16, 20))
@@ -1074,7 +1147,7 @@ mod tests {
                     Some(TypeConstructor::List(
                         ListTypeConstructor {
                             length: 2,
-                            item_type: Box::new(TypeConstructor::Type(
+                            item_type: Box::new(TypeConstructor::Raw(
                                 Type::Integer.with_position((9, 12))
                             ))
                         }
@@ -1098,7 +1171,7 @@ mod tests {
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
                     Some(TypeConstructor::ListOf(
-                        Box::new(TypeConstructor::Type(Type::Boolean.with_position((10, 14))))
+                        Box::new(TypeConstructor::Raw(Type::Boolean.with_position((10, 14))))
                             .with_position((9, 15))
                     )),
                     AssignmentOperator::Assign,
@@ -1126,11 +1199,14 @@ mod tests {
                             type_parameters: Some(vec![
                                 Identifier::new("T").with_position((15, 16))
                             ]),
-                            value_parameters: vec![TypeConstructor::Type(
+                            value_parameters: vec![TypeConstructor::Raw(
                                 Type::Integer.with_position((19, 22))
                             )],
-                            return_type: Box::new(TypeConstructor::Identifier(
-                                Identifier::new("T").with_position((27, 28))
+                            return_type: Box::new(TypeConstructor::Invokation(
+                                TypeInvokationConstructor {
+                                    identifier: Identifier::new("T").with_position((27, 28)),
+                                    type_arguments: None,
+                                }
                             )),
                         }
                         .with_position((11, 28))
@@ -1163,7 +1239,7 @@ mod tests {
             Statement::Expression(Expression::FunctionCall(
                 FunctionCall::new(
                     Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
-                    Some(vec![TypeConstructor::Type(
+                    Some(vec![TypeConstructor::Raw(
                         Type::String.with_position((9, 12))
                     )]),
                     vec![Expression::Value(
@@ -1193,7 +1269,7 @@ mod tests {
                 ValueNode::Function {
                     type_parameters: None,
                     value_parameters: vec![],
-                    return_type: TypeConstructor::Type(Type::Integer.with_position((9, 12))),
+                    return_type: TypeConstructor::Raw(Type::Integer.with_position((9, 12))),
                     body: Block::new(vec![Statement::Expression(Expression::Value(
                         ValueNode::Integer(0).with_position((15, 16))
                     ))])
@@ -1210,9 +1286,9 @@ mod tests {
                     type_parameters: None,
                     value_parameters: vec![(
                         Identifier::new("x"),
-                        TypeConstructor::Type(Type::Integer.with_position((7, 10)))
+                        TypeConstructor::Raw(Type::Integer.with_position((7, 10)))
                     )],
-                    return_type: TypeConstructor::Type(Type::Integer.with_position((15, 18))),
+                    return_type: TypeConstructor::Raw(Type::Integer.with_position((15, 18))),
                     body: Block::new(vec![Statement::Expression(Expression::Identifier(
                         Identifier::new("x").with_position((21, 22))
                     ))])
@@ -1233,20 +1309,23 @@ mod tests {
                     value_parameters: vec![
                         (
                             Identifier::new("x"),
-                            TypeConstructor::Identifier(
-                                Identifier::new("T").with_position((14, 15))
-                            )
+                            TypeConstructor::Invokation(TypeInvokationConstructor {
+                                identifier: Identifier::new("T").with_position((14, 15)),
+                                type_arguments: None,
+                            })
                         ),
                         (
                             Identifier::new("y"),
-                            TypeConstructor::Identifier(
-                                Identifier::new("U").with_position((20, 21))
-                            )
+                            TypeConstructor::Invokation(TypeInvokationConstructor {
+                                identifier: Identifier::new("U").with_position((20, 21)),
+                                type_arguments: None,
+                            })
                         )
                     ],
-                    return_type: TypeConstructor::Identifier(
-                        Identifier::new("T").with_position((26, 27))
-                    ),
+                    return_type: TypeConstructor::Invokation(TypeInvokationConstructor {
+                        identifier: Identifier::new("T").with_position((26, 27)),
+                        type_arguments: None,
+                    }),
                     body: Block::new(vec![Statement::Expression(Expression::Identifier(
                         Identifier::new("x").with_position((30, 31))
                     ))])
@@ -1531,7 +1610,7 @@ mod tests {
             Statement::Assignment(
                 Assignment::new(
                     Identifier::new("foobar").with_position((0, 6)),
-                    Some(TypeConstructor::Type(Type::Integer.with_position((8, 11)))),
+                    Some(TypeConstructor::Raw(Type::Integer.with_position((8, 11)))),
                     AssignmentOperator::Assign,
                     Statement::Expression(Expression::Value(
                         ValueNode::Integer(1).with_position((14, 15))

@@ -33,7 +33,7 @@ impl Evaluate for As {
         _manage_memory: bool,
     ) -> Result<(), ValidationError> {
         match self.constructor {
-            TypeConstructor::Type(_) => {}
+            TypeConstructor::Raw(_) => {}
             _ => todo!("Create an error for this occurence."),
         };
 

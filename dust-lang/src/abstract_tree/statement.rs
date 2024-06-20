@@ -40,11 +40,11 @@ impl Statement {
         }
     }
 
-    pub fn last_child_statement(&self) -> Option<&Self> {
+    pub fn last_child_statement(&self) -> &Self {
         match self {
-            Statement::Block(block) => Some(block.node.last_statement()),
-            Statement::Loop(r#loop) => Some(r#loop.node.last_statement()),
-            _ => None,
+            Statement::Block(inner) => inner.node.last_statement(),
+            Statement::Loop(inner) => inner.node.last_statement(),
+            statement => statement,
         }
     }
 }

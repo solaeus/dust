@@ -16,7 +16,8 @@ pub enum Type {
     Any,
     Boolean,
     Enum {
-        variants: Vec<(Identifier, Vec<Type>)>,
+        type_parameters: Option<Vec<Type>>,
+        variants: Vec<(Identifier, Option<Vec<Type>>)>,
     },
     Float,
     Function {
@@ -229,14 +230,20 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
-            Type::Enum { variants } => {
-                write!(f, "enum {{")?;
+            Type::Enum { variants, .. } => {
+                write!(f, "enum ")?;
+
+                write!(f, " {{")?;
 
                 for (identifier, types) in variants {
-                    writeln!(f, "{identifier}(")?;
+                    writeln!(f, "{identifier}")?;
 
-                    for r#type in types {
-                        write!(f, "{}", r#type)?
+                    if let Some(types) = types {
+                        write!(f, "(")?;
+
+                        for r#type in types {
+                            write!(f, "{}", r#type)?;
+                        }
                     }
 
                     write!(f, ")")?;

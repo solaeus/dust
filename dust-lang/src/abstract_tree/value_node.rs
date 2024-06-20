@@ -41,12 +41,26 @@ pub enum ValueNode {
 
 impl Evaluate for ValueNode {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        if let ValueNode::EnumInstance { type_name, .. } = self {
-            if let Some(_) = context.get_type(&type_name.node)? {
+        if let ValueNode::EnumInstance {
+            type_name, variant, ..
+        } = self
+        {
+            if let Some(Type::Enum { variants, .. }) = context.get_type(&type_name.node)? {
+                if variants
+                    .iter()
+                    .find(|(identifier, _)| identifier == &variant.node)
+                    .is_none()
+                {
+                    return Err(ValidationError::EnumVariantNotFound {
+                        identifier: variant.node.clone(),
+                        position: variant.position,
+                    });
+                }
             } else {
-                return Err(ValidationError::EnumDefinitionNotFound(
-                    type_name.node.clone(),
-                ));
+                return Err(ValidationError::EnumDefinitionNotFound {
+                    identifier: type_name.node.clone(),
+                    position: Some(type_name.position),
+                });
             }
         }
 
@@ -231,17 +245,28 @@ impl Evaluate for ValueNode {
                 return_type,
                 body,
             } => {
-                let type_parameters =
-                    type_parameters.map(|parameter_list| parameter_list.into_iter().collect());
+                let function_context = context.create_child();
                 let mut value_parameters = Vec::with_capacity(constructors.len());
 
                 for (identifier, constructor) in constructors {
-                    let r#type = constructor.construct(&context)?;
+                    let r#type = constructor.construct(&function_context)?;
 
                     value_parameters.push((identifier, r#type));
                 }
 
-                let return_type = return_type.construct(&context)?;
+                if let Some(identifiers) = &type_parameters {
+                    for identifier in identifiers {
+                        function_context.set_type(
+                            identifier.clone(),
+                            Type::Generic {
+                                identifier: identifier.clone(),
+                                concrete_type: None,
+                            },
+                        )?;
+                    }
+                }
+
+                let return_type = return_type.construct(&function_context)?;
 
                 Value::function(type_parameters, value_parameters, return_type, body.node)
             }
@@ -401,9 +426,10 @@ impl ExpectedType for ValueNode {
                 if let Some(r#type) = context.get_type(&type_name.node)? {
                     r#type
                 } else {
-                    return Err(ValidationError::EnumDefinitionNotFound(
-                        type_name.node.clone(),
-                    ));
+                    return Err(ValidationError::EnumDefinitionNotFound {
+                        identifier: type_name.node.clone(),
+                        position: Some(type_name.position),
+                    });
                 }
             }
             ValueNode::Float(_) => Type::Float,
