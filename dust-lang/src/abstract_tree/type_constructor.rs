@@ -53,6 +53,7 @@ impl TypeConstructor {
                 };
 
                 if let Type::Enum {
+                    name,
                     type_parameters,
                     variants,
                 } = invoked_type
@@ -64,6 +65,7 @@ impl TypeConstructor {
                     }
 
                     Type::Enum {
+                        name,
                         type_parameters: type_parameters.clone(),
                         variants: mapped_variants,
                     }
@@ -73,6 +75,7 @@ impl TypeConstructor {
             }
             TypeConstructor::Enum(enum_type_constructor) => {
                 let EnumTypeConstructor {
+                    name,
                     type_parameters,
                     variants,
                 } = enum_type_constructor.node;
@@ -95,6 +98,7 @@ impl TypeConstructor {
                 }
 
                 Type::Enum {
+                    name: name.node,
                     type_parameters: type_parameters.map(|identifiers| {
                         identifiers
                             .into_iter()
@@ -165,6 +169,7 @@ impl Display for TypeConstructor {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumTypeConstructor {
+    pub name: WithPosition<Identifier>,
     pub type_parameters: Option<Vec<WithPosition<Identifier>>>,
     pub variants: Vec<(WithPosition<Identifier>, Option<Vec<TypeConstructor>>)>,
 }

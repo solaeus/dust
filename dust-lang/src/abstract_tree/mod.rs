@@ -3,6 +3,7 @@ pub mod assignment;
 pub mod async_block;
 pub mod block;
 pub mod built_in_function_call;
+pub mod enum_declaration;
 pub mod expression;
 pub mod function_call;
 pub mod if_else;
@@ -14,7 +15,7 @@ pub mod math;
 pub mod statement;
 pub mod structure_definition;
 pub mod r#type;
-pub mod type_assignment;
+pub mod type_alias;
 pub mod type_constructor;
 pub mod value_node;
 pub mod r#while;
@@ -29,6 +30,7 @@ pub use self::{
     async_block::AsyncBlock,
     block::Block,
     built_in_function_call::BuiltInFunctionCall,
+    enum_declaration::{EnumDeclaration, EnumVariant},
     expression::Expression,
     function_call::FunctionCall,
     if_else::IfElse,
@@ -42,7 +44,7 @@ pub use self::{
     r#while::While,
     statement::Statement,
     structure_definition::StructureDefinition,
-    type_assignment::TypeAssignment,
+    type_alias::TypeAlias,
     type_constructor::{
         EnumTypeConstructor, FunctionTypeConstructor, ListTypeConstructor, TypeConstructor,
     },

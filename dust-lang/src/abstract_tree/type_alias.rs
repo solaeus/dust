@@ -9,12 +9,12 @@ use crate::{
 use super::{Evaluate, Evaluation, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct TypeAssignment {
+pub struct TypeAlias {
     identifier: WithPosition<Identifier>,
     constructor: TypeConstructor,
 }
 
-impl TypeAssignment {
+impl TypeAlias {
     pub fn new(identifier: WithPosition<Identifier>, constructor: TypeConstructor) -> Self {
         Self {
             identifier,
@@ -23,7 +23,7 @@ impl TypeAssignment {
     }
 }
 
-impl Evaluate for TypeAssignment {
+impl Evaluate for TypeAlias {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         let r#type = self.constructor.clone().construct(&context)?;
 

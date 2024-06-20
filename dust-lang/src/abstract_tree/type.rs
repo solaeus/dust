@@ -16,6 +16,7 @@ pub enum Type {
     Any,
     Boolean,
     Enum {
+        name: Identifier,
         type_parameters: Option<Vec<Type>>,
         variants: Vec<(Identifier, Option<Vec<Type>>)>,
     },

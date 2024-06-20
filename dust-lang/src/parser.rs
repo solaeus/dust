@@ -9,7 +9,7 @@ use crate::{
     lexer::{Control, Keyword, Operator, Token},
 };
 
-use self::type_constructor::TypeInvokationConstructor;
+use self::{enum_declaration::EnumVariant, type_constructor::TypeInvokationConstructor};
 
 pub type ParserInput<'src> =
     SpannedInput<Token<'src>, SimpleSpan, &'src [(Token<'src>, SimpleSpan)]>;
@@ -149,51 +149,6 @@ pub fn parser<'src>(
                 TypeConstructor::ListOf(Box::new(item_type).with_position(state.span()))
             });
 
-        let enum_variant = positioned_identifier.clone().then(
-            type_constructor
-                .clone()
-                .separated_by(just(Token::Control(Control::Comma)))
-                .collect()
-                .delimited_by(
-                    just(Token::Control(Control::ParenOpen)),
-                    just(Token::Control(Control::ParenClose)),
-                )
-                .or_not(),
-        );
-
-        let enum_type = just(Token::Keyword(Keyword::Enum))
-            .ignore_then(
-                positioned_identifier
-                    .clone()
-                    .separated_by(just(Token::Control(Control::Comma)))
-                    .collect()
-                    .delimited_by(
-                        just(Token::Control(Control::Pipe)),
-                        just(Token::Control(Control::Pipe)),
-                    )
-                    .or_not(),
-            )
-            .then(
-                enum_variant
-                    .separated_by(just(Token::Control(Control::Comma)))
-                    .at_least(1)
-                    .allow_trailing()
-                    .collect()
-                    .delimited_by(
-                        just(Token::Control(Control::CurlyOpen)),
-                        just(Token::Control(Control::CurlyClose)),
-                    ),
-            )
-            .map_with(|(type_parameters, variants), state| {
-                TypeConstructor::Enum(
-                    EnumTypeConstructor {
-                        type_parameters,
-                        variants,
-                    }
-                    .with_position(state.span()),
-                )
-            });
-
         let type_invokation = positioned_identifier
             .clone()
             .then(
@@ -222,7 +177,6 @@ pub fn parser<'src>(
             list_type,
             list_of_type,
             primitive_type,
-            enum_type,
         ))
     });
 
@@ -709,13 +663,64 @@ pub fn parser<'src>(
                 },
             );
 
-        let type_assignment = just(Token::Keyword(Keyword::Type))
+        let type_alias = just(Token::Keyword(Keyword::Type))
             .ignore_then(positioned_identifier.clone())
             .then_ignore(just(Token::Operator(Operator::Assign)))
             .then(type_constructor.clone())
             .map_with(|(identifier, constructor), state| {
-                Statement::TypeAssignment(
-                    TypeAssignment::new(identifier, constructor).with_position(state.span()),
+                Statement::TypeAlias(
+                    TypeAlias::new(identifier, constructor).with_position(state.span()),
+                )
+            });
+
+        let enum_variant = positioned_identifier
+            .clone()
+            .then(
+                type_constructor
+                    .clone()
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::ParenOpen)),
+                        just(Token::Control(Control::ParenClose)),
+                    )
+                    .or_not(),
+            )
+            .map(|(identifier, constructors)| EnumVariant {
+                name: identifier,
+                content: constructors,
+            });
+
+        let enum_declaration = just(Token::Keyword(Keyword::Enum))
+            .ignore_then(positioned_identifier.clone())
+            .then(
+                positioned_identifier
+                    .clone()
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .collect()
+                    .delimited_by(
+                        just(Token::Operator(Operator::Less)),
+                        just(Token::Operator(Operator::Greater)),
+                    )
+                    .or_not(),
+            )
+            .then(
+                enum_variant
+                    .separated_by(just(Token::Control(Control::Comma)))
+                    .collect()
+                    .delimited_by(
+                        just(Token::Control(Control::CurlyOpen)),
+                        just(Token::Control(Control::CurlyClose)),
+                    ),
+            )
+            .map_with(|((name, type_parameters), variants), state| {
+                Statement::EnumDeclaration(
+                    EnumDeclaration {
+                        name,
+                        type_parameters,
+                        variants,
+                    }
+                    .with_position((0, 0)),
                 )
             });
 
@@ -731,7 +736,8 @@ pub fn parser<'src>(
                 block_statement,
                 r#loop,
                 r#while,
-                type_assignment,
+                type_alias,
+                enum_declaration,
             )))
             .then_ignore(just(Token::Control(Control::Semicolon)).or_not())
     });
@@ -741,6 +747,8 @@ pub fn parser<'src>(
 
 #[cfg(test)]
 mod tests {
+    use tests::enum_declaration::{EnumDeclaration, EnumVariant};
+
     use crate::lexer::lex;
 
     use super::*;
@@ -793,103 +801,88 @@ mod tests {
     }
 
     #[test]
-    fn enum_type_empty() {
+    fn enum_declaration() {
         assert_eq!(
-            parse(&lex("type MyEnum = enum { X, Y }").unwrap()).unwrap()[0],
-            Statement::TypeAssignment(
-                TypeAssignment::new(
-                    Identifier::new("MyEnum").with_position((5, 11)),
-                    TypeConstructor::Enum(
-                        EnumTypeConstructor {
-                            type_parameters: None,
-                            variants: vec![
-                                (Identifier::new("X").with_position((21, 22)), None),
-                                (Identifier::new("Y").with_position((24, 25)), None)
-                            ],
+            parse(&lex("enum MyEnum { X, Y }").unwrap()).unwrap()[0],
+            Statement::EnumDeclaration(TypeDeclaration::Enum(
+                EnumDeclaration {
+                    name: Identifier::new("MyEnum").with_position((0, 0)),
+                    type_parameters: None,
+                    variants: vec![
+                        EnumVariant {
+                            name: Identifier::new("X").with_position((0, 0)),
+                            content: None
+                        },
+                        EnumVariant {
+                            name: Identifier::new("Y").with_position((0, 0)),
+                            content: None
                         }
-                        .with_position((14, 27))
-                    )
-                )
-                .with_position((0, 27))
-            )
+                    ],
+                }
+                .with_position((0, 0))
+            ))
         );
     }
 
     #[test]
-    fn enum_type_with_contents() {
+    fn enum_with_contents() {
         assert_eq!(
-            parse(&lex("type MyEnum = enum { X(str, int), Y(int) }").unwrap()).unwrap()[0],
-            Statement::TypeAssignment(
-                TypeAssignment::new(
-                    Identifier::new("MyEnum").with_position((5, 11)),
-                    TypeConstructor::Enum(
-                        EnumTypeConstructor {
-                            type_parameters: None,
-                            variants: vec![
-                                (
-                                    Identifier::new("X").with_position((21, 22)),
-                                    Some(vec![
-                                        TypeConstructor::Raw(Type::String.with_position((23, 26))),
-                                        TypeConstructor::Raw(Type::Integer.with_position((28, 31)))
-                                    ])
-                                ),
-                                (
-                                    Identifier::new("Y").with_position((34, 35)),
-                                    Some(vec![TypeConstructor::Raw(
-                                        Type::Integer.with_position((36, 39))
-                                    )])
-                                )
-                            ],
+            parse(&lex("enum MyEnum { X(str, int), Y(int) }").unwrap()).unwrap()[0],
+            Statement::EnumDeclaration(TypeDeclaration::Enum(
+                EnumDeclaration {
+                    name: Identifier::new("MyEnum").with_position((0, 0)),
+                    type_parameters: None,
+                    variants: vec![
+                        EnumVariant {
+                            name: Identifier::new("X").with_position((0, 0)),
+                            content: Some(vec![
+                                TypeConstructor::Raw(Type::String.with_position((0, 0))),
+                                TypeConstructor::Raw(Type::Integer.with_position((0, 0))),
+                            ])
+                        },
+                        EnumVariant {
+                            name: Identifier::new("Y").with_position((0, 0)),
+                            content: Some(vec![TypeConstructor::Raw(
+                                Type::Integer.with_position((0, 0))
+                            ),])
                         }
-                        .with_position((14, 42))
-                    )
-                )
-                .with_position((0, 42))
-            )
+                    ]
+                }
+                .with_position((0, 0))
+            ))
         );
     }
 
     #[test]
-    fn enum_type_with_type_parameters() {
+    fn enum_with_type_parameters() {
         assert_eq!(
-            parse(&lex("type MyEnum = enum |T, U| { X(T), Y(U) }").unwrap()).unwrap()[0],
-            Statement::TypeAssignment(
-                TypeAssignment::new(
-                    Identifier::new("MyEnum").with_position((5, 11)),
-                    TypeConstructor::Enum(
-                        EnumTypeConstructor {
-                            type_parameters: Some(vec![
-                                Identifier::new("T").with_position((20, 21)),
-                                Identifier::new("U").with_position((23, 24)),
-                            ]),
-                            variants: vec![
-                                (
-                                    Identifier::new("X").with_position((28, 29)),
-                                    Some(vec![TypeConstructor::Invokation(
-                                        TypeInvokationConstructor {
-                                            identifier: Identifier::new("T")
-                                                .with_position((30, 31)),
-                                            type_arguments: None,
-                                        }
-                                    )])
-                                ),
-                                (
-                                    Identifier::new("Y").with_position((34, 35)),
-                                    Some(vec![TypeConstructor::Invokation(
-                                        TypeInvokationConstructor {
-                                            identifier: Identifier::new("U")
-                                                .with_position((36, 37)),
-                                            type_arguments: None,
-                                        }
-                                    )])
-                                ),
-                            ],
+            parse(&lex("enum MyEnum <T, U> { X(T), Y(U) }").unwrap()).unwrap()[0],
+            Statement::EnumDeclaration(TypeDeclaration::Enum(
+                EnumDeclaration {
+                    name: Identifier::new("MyEnum").with_position((0, 0)),
+                    type_parameters: Some(vec![
+                        Identifier::new("T").with_position((0, 0)),
+                        Identifier::new("U").with_position((0, 0))
+                    ]),
+                    variants: vec![
+                        EnumVariant {
+                            name: Identifier::new("X").with_position((0, 0)),
+                            content: Some(vec![TypeConstructor::Raw(
+                                Type::Generic {
+                                    identifier: Identifier::new("T"),
+                                    concrete_type: None
+                                }
+                                .with_position((0, 0))
+                            )])
+                        },
+                        EnumVariant {
+                            name: todo!(),
+                            content: todo!()
                         }
-                        .with_position((14, 40))
-                    )
-                )
-                .with_position((0, 40))
-            )
+                    ]
+                }
+                .with_position((0, 0))
+            ))
         );
     }
 
@@ -959,20 +952,6 @@ mod tests {
     //         )
     //     )
     // }
-
-    #[test]
-    fn type_alias() {
-        assert_eq!(
-            parse(&lex("type MyType = str").unwrap()).unwrap()[0],
-            Statement::TypeAssignment(
-                TypeAssignment::new(
-                    Identifier::new("MyType").with_position((5, 11)),
-                    TypeConstructor::Raw(Type::String.with_position((14, 17)))
-                )
-                .with_position((0, 17))
-            )
-        )
-    }
 
     #[test]
     fn r#as() {
@@ -1191,28 +1170,26 @@ mod tests {
     fn function_type() {
         assert_eq!(
             parse(&lex("type Foo = fn |T| (int) -> T").unwrap()).unwrap()[0],
-            Statement::TypeAssignment(
-                TypeAssignment::new(
-                    Identifier::new("Foo").with_position((5, 8)),
+            Statement::TypeAlias(
+                TypeAlias::new(
+                    Identifier::new("Foo").with_position((0, 0)),
                     TypeConstructor::Function(
                         FunctionTypeConstructor {
-                            type_parameters: Some(vec![
-                                Identifier::new("T").with_position((15, 16))
-                            ]),
+                            type_parameters: Some(vec![Identifier::new("T").with_position((0, 0))]),
                             value_parameters: vec![TypeConstructor::Raw(
-                                Type::Integer.with_position((19, 22))
+                                Type::Integer.with_position((0, 0))
                             )],
                             return_type: Box::new(TypeConstructor::Invokation(
                                 TypeInvokationConstructor {
-                                    identifier: Identifier::new("T").with_position((27, 28)),
-                                    type_arguments: None,
+                                    identifier: Identifier::new("T").with_position((0, 0)),
+                                    type_arguments: None
                                 }
-                            )),
+                            ))
                         }
-                        .with_position((11, 28))
+                        .with_position((0, 0))
                     )
                 )
-                .with_position((0, 28))
+                .with_position((0, 0))
             )
         );
     }

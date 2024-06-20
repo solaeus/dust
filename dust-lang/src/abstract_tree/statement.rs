@@ -6,8 +6,8 @@ use crate::{
 };
 
 use super::{
-    Assignment, AsyncBlock, Block, Evaluate, Evaluation, ExpectedType, Expression, IfElse, Loop,
-    SourcePosition, StructureDefinition, Type, TypeAssignment, While, WithPosition,
+    Assignment, AsyncBlock, Block, EnumDeclaration, Evaluate, Evaluation, ExpectedType, Expression,
+    IfElse, Loop, SourcePosition, StructureDefinition, Type, TypeAlias, While, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -19,7 +19,8 @@ pub enum Statement {
     IfElse(WithPosition<IfElse>),
     Loop(WithPosition<Loop>),
     StructureDefinition(WithPosition<StructureDefinition>),
-    TypeAssignment(WithPosition<TypeAssignment>),
+    TypeAlias(WithPosition<TypeAlias>),
+    EnumDeclaration(WithPosition<EnumDeclaration>),
     Expression(Expression),
     While(WithPosition<While>),
 }
@@ -35,7 +36,8 @@ impl Statement {
             Statement::IfElse(inner) => inner.position,
             Statement::Loop(inner) => inner.position,
             Statement::StructureDefinition(inner) => inner.position,
-            Statement::TypeAssignment(inner) => inner.position,
+            Statement::TypeAlias(inner) => inner.position,
+            Statement::EnumDeclaration(inner) => inner.position,
             Statement::While(inner) => inner.position,
         }
     }
@@ -68,8 +70,9 @@ impl Evaluate for Statement {
             Statement::StructureDefinition(structure_definition) => {
                 structure_definition.node.validate(_context, _manage_memory)
             }
-            Statement::TypeAssignment(type_alias) => {
-                type_alias.node.validate(_context, _manage_memory)
+            Statement::TypeAlias(type_alias) => type_alias.node.validate(_context, _manage_memory),
+            Statement::EnumDeclaration(type_declaration) => {
+                type_declaration.node.validate(_context, _manage_memory)
             }
             Statement::While(r#while) => r#while.node.validate(_context, _manage_memory),
         }
@@ -91,7 +94,8 @@ impl Evaluate for Statement {
             Statement::StructureDefinition(structure_definition) => {
                 structure_definition.node.evaluate(context, manage_memory)
             }
-            Statement::TypeAssignment(type_alias) => {
+            Statement::TypeAlias(type_alias) => type_alias.node.evaluate(context, manage_memory),
+            Statement::EnumDeclaration(type_alias) => {
                 type_alias.node.evaluate(context, manage_memory)
             }
             Statement::While(r#while) => r#while.node.evaluate(context, manage_memory),
