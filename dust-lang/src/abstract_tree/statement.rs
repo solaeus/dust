@@ -115,7 +115,7 @@ impl ExpectedType for Statement {
             Statement::IfElse(if_else) => if_else.node.expected_type(_context),
             Statement::Block(block) => block.node.expected_type(_context),
             Statement::AsyncBlock(async_block) => async_block.node.expected_type(_context),
-            _ => Ok(Type::None),
+            _ => Ok(Type::Void),
         }
     }
 }

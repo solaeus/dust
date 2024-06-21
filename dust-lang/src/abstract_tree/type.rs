@@ -31,13 +31,13 @@ pub enum Type {
     },
     ListOf(Box<Type>),
     Map,
-    None,
     Range,
     String,
     Structure {
         name: Identifier,
         fields: Vec<(Identifier, Type)>,
     },
+    Void,
 }
 
 impl Type {
@@ -49,7 +49,7 @@ impl Type {
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
             | (Type::Map, Type::Map)
-            | (Type::None, Type::None)
+            | (Type::Void, Type::Void)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
             (
@@ -240,7 +240,7 @@ impl Display for Type {
             Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
             Type::ListOf(item_type) => write!(f, "list({})", item_type),
             Type::Map => write!(f, "map"),
-            Type::None => write!(f, "none"),
+            Type::Void => write!(f, "none"),
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),
             Type::Function {
@@ -296,7 +296,7 @@ mod tests {
         );
 
         assert_eq!(Type::Map.check(&Type::Map), Ok(()));
-        assert_eq!(Type::None.check(&Type::None), Ok(()));
+        assert_eq!(Type::Void.check(&Type::Void), Ok(()));
         assert_eq!(Type::Range.check(&Type::Range), Ok(()));
         assert_eq!(Type::String.check(&Type::String), Ok(()));
     }
@@ -332,7 +332,7 @@ mod tests {
             },
             Type::ListOf(Box::new(Type::Boolean)),
             Type::Map,
-            Type::None,
+            Type::Void,
             Type::Range,
             Type::String,
         ];

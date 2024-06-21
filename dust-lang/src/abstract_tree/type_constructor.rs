@@ -172,7 +172,7 @@ impl TypeConstructor {
                 RawTypeConstructor::Float => Type::Float,
                 RawTypeConstructor::Integer => Type::Integer,
                 RawTypeConstructor::Map => Type::Map,
-                RawTypeConstructor::None => Type::None,
+                RawTypeConstructor::None => Type::Void,
                 RawTypeConstructor::Range => Type::Range,
                 RawTypeConstructor::String => Type::String,
             },

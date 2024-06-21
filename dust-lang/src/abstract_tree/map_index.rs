@@ -117,7 +117,7 @@ impl ExpectedType for MapIndex {
                 }
             }
 
-            return Ok(Type::None);
+            return Ok(Type::Void);
         }
 
         if let (
@@ -137,7 +137,7 @@ impl ExpectedType for MapIndex {
             }) {
                 type_result
             } else {
-                Ok(Type::None)
+                Ok(Type::Void)
             };
         }
 

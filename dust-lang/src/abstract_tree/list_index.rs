@@ -121,7 +121,7 @@ impl ExpectedType for ListIndex {
             let expression = if let Some(expression) = expression_list.get(*index as usize) {
                 expression
             } else {
-                return Ok(Type::None);
+                return Ok(Type::Void);
             };
 
             expression.expected_type(_context)

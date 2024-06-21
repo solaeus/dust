@@ -57,7 +57,7 @@ impl Validate for Assignment {
         let relevant_statement = self.statement.last_child_statement();
         let statement_type = relevant_statement.expected_type(context)?;
 
-        if let Type::None = &statement_type {
+        if let Type::Void = &statement_type {
             return Err(ValidationError::CannotAssignToNone(
                 self.statement.position(),
             ));

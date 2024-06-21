@@ -171,8 +171,8 @@ impl ExpectedType for BuiltInFunctionCall {
             BuiltInFunctionCall::Length(_) => Ok(Type::Integer),
             BuiltInFunctionCall::ReadFile(_) => Ok(Type::String),
             BuiltInFunctionCall::ReadLine => Ok(Type::String),
-            BuiltInFunctionCall::Sleep(_) => Ok(Type::None),
-            BuiltInFunctionCall::WriteLine(_) => Ok(Type::None),
+            BuiltInFunctionCall::Sleep(_) => Ok(Type::Void),
+            BuiltInFunctionCall::WriteLine(_) => Ok(Type::Void),
         }
     }
 }
