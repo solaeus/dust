@@ -9,7 +9,8 @@ use crate::{
 
 use super::{
     type_constructor::{RawTypeConstructor, TypeInvokationConstructor},
-    Evaluate, Evaluation, ExpectedType, Expression, Statement, Type, TypeConstructor, WithPosition,
+    Evaluation, ExpectedType, Expression, Run, Statement, Type, TypeConstructor, Validate,
+    WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -43,7 +44,7 @@ impl Assignment {
     }
 }
 
-impl Evaluate for Assignment {
+impl Validate for Assignment {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         if let Some(TypeConstructor::Raw(WithPosition {
             node: RawTypeConstructor::None,
@@ -136,16 +137,18 @@ impl Evaluate for Assignment {
 
         Ok(())
     }
+}
 
-    fn evaluate(
+impl Run for Assignment {
+    fn run(
         self,
         context: &mut Context,
         manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
-        let evaluation = self.statement.evaluate(context, manage_memory)?;
+    ) -> Result<Option<Evaluation>, RuntimeError> {
+        let evaluation = self.statement.run(context, manage_memory)?;
         let right = match evaluation {
-            Evaluation::Return(value) => value,
-            r#break => return Ok(r#break),
+            Some(Evaluation::Return(value)) => value,
+            evaluation => return Ok(evaluation),
         };
 
         match self.operator {
@@ -244,6 +247,6 @@ impl Evaluate for Assignment {
             }
         }
 
-        Ok(Evaluation::None)
+        Ok(Some(Evaluation::Void))
     }
 }

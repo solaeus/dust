@@ -1,12 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    context::Context,
-    error::{RuntimeError, ValidationError},
-    identifier::Identifier,
-};
+use crate::{context::Context, error::RuntimeError, identifier::Identifier};
 
-use super::{Evaluate, Evaluation, Type, TypeConstructor, WithPosition};
+use super::{Evaluation, Run, Type, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumDeclaration {
@@ -29,20 +25,12 @@ impl EnumDeclaration {
     }
 }
 
-impl Evaluate for EnumDeclaration {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
-        Ok(())
-    }
-
-    fn evaluate(
+impl Run for EnumDeclaration {
+    fn run(
         self,
         context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let EnumDeclaration {
             name,
             type_parameters,
@@ -86,7 +74,7 @@ impl Evaluate for EnumDeclaration {
 
         context.set_type(name.node, r#type)?;
 
-        Ok(Evaluation::None)
+        Ok(None)
     }
 }
 

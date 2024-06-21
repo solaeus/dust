@@ -3,13 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use clap::error::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    context::Context,
-    error::{RuntimeError, TypeConflict, ValidationError},
-    identifier::Identifier,
-};
-
-use super::{Evaluate, Evaluation};
+use crate::{error::TypeConflict, identifier::Identifier};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Type {
@@ -205,24 +199,6 @@ impl Type {
             actual: other.clone(),
             expected: self.clone(),
         })
-    }
-}
-
-impl Evaluate for Type {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
-        Ok(())
-    }
-
-    fn evaluate(
-        self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
-        Ok(Evaluation::None)
     }
 }
 

@@ -5,7 +5,9 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, ValueNode, WithPosition};
+use super::{
+    Evaluate, Evaluation, ExpectedType, Expression, Type, Validate, ValueNode, WithPosition,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListIndex {
@@ -22,7 +24,7 @@ impl ListIndex {
     }
 }
 
-impl Evaluate for ListIndex {
+impl Validate for ListIndex {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         self.collection.validate(context, _manage_memory)?;
         self.index.validate(context, _manage_memory)?;
@@ -53,7 +55,9 @@ impl Evaluate for ListIndex {
             }),
         }
     }
+}
 
+impl Evaluate for ListIndex {
     fn evaluate(
         self,
         context: &mut Context,
@@ -84,7 +88,7 @@ impl Evaluate for ListIndex {
             if let Some(item) = found_item {
                 Ok(Evaluation::Return(item.clone()))
             } else {
-                Ok(Evaluation::None)
+                Ok(Evaluation::Void)
             }
         } else {
             Err(RuntimeError::ValidationFailure(

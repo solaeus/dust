@@ -6,7 +6,9 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{Block, Evaluate, Evaluation, ExpectedType, Expression, Type, WithPosition};
+use super::{
+    Block, Evaluate, Evaluation, ExpectedType, Expression, Run, Type, Validate, WithPosition,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IfElse {
@@ -32,7 +34,7 @@ impl IfElse {
     }
 }
 
-impl Evaluate for IfElse {
+impl Validate for IfElse {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.if_expression.validate(context, manage_memory)?;
         self.if_block.node.validate(context, manage_memory)?;
@@ -88,12 +90,14 @@ impl Evaluate for IfElse {
 
         Ok(())
     }
+}
 
-    fn evaluate(
+impl Run for IfElse {
+    fn run(
         self,
         context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let if_position = self.if_expression.position();
         let action = self.if_expression.evaluate(context, _manage_memory)?;
         let value = if let Evaluation::Return(value) = action {
@@ -106,7 +110,7 @@ impl Evaluate for IfElse {
 
         if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
             if *if_boolean {
-                return self.if_block.node.evaluate(context, _manage_memory);
+                return self.if_block.node.run(context, _manage_memory);
             }
 
             if let Some(else_ifs) = self.else_ifs {
@@ -123,7 +127,7 @@ impl Evaluate for IfElse {
 
                     if let ValueInner::Boolean(else_if_boolean) = value.inner().as_ref() {
                         if *else_if_boolean {
-                            return block.node.evaluate(context, _manage_memory);
+                            return block.node.run(context, _manage_memory);
                         }
                     } else {
                         return Err(RuntimeError::ValidationFailure(
@@ -137,9 +141,9 @@ impl Evaluate for IfElse {
             }
 
             if let Some(else_statement) = self.else_block {
-                else_statement.node.evaluate(context, _manage_memory)
+                else_statement.node.run(context, _manage_memory)
             } else {
-                Ok(Evaluation::None)
+                Ok(None)
             }
         } else {
             Err(RuntimeError::ValidationFailure(
@@ -179,9 +183,9 @@ mod tests {
                 Some(Vec::with_capacity(0)),
                 None
             )
-            .evaluate(&mut Context::new(None), true)
+            .run(&mut Context::new(None), true)
             .unwrap(),
-            Evaluation::Return(Value::string("foo".to_string()))
+            Some(Evaluation::Return(Value::string("foo".to_string())))
         )
     }
 }

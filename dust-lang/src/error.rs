@@ -1,4 +1,4 @@
-use std::{io, sync::PoisonError};
+use std::{io, sync::PoisonError as StdPoisonError};
 
 use chumsky::{prelude::Rich, span::Span};
 
@@ -53,20 +53,20 @@ impl<'src> From<Rich<'_, Token<'src>>> for DustError {
 #[derive(Debug)]
 pub enum RuntimeError {
     Io(io::Error),
-    RwLockPoison(RwLockPoisonError),
+    RwLockPoison(PoisonError),
     ValidationFailure(ValidationError),
     SerdeJson(serde_json::Error),
 }
 
-impl From<RwLockPoisonError> for RuntimeError {
-    fn from(error: RwLockPoisonError) -> Self {
+impl From<PoisonError> for RuntimeError {
+    fn from(error: PoisonError) -> Self {
         RuntimeError::RwLockPoison(error)
     }
 }
 
-impl<T> From<PoisonError<T>> for RuntimeError {
-    fn from(_: PoisonError<T>) -> Self {
-        RuntimeError::RwLockPoison(RwLockPoisonError)
+impl<T> From<StdPoisonError<T>> for RuntimeError {
+    fn from(_: StdPoisonError<T>) -> Self {
+        RuntimeError::RwLockPoison(PoisonError)
     }
 }
 
@@ -137,7 +137,7 @@ pub enum ValidationError {
         position: SourcePosition,
     },
     InterpreterExpectedReturn(SourcePosition),
-    RwLockPoison(RwLockPoisonError),
+    RwLockPoison(PoisonError),
     TypeCheck {
         /// The mismatch that caused the error.
         conflict: TypeConflict,
@@ -174,24 +174,24 @@ pub enum ValidationError {
     },
 }
 
-impl From<RwLockPoisonError> for ValidationError {
-    fn from(error: RwLockPoisonError) -> Self {
+impl From<PoisonError> for ValidationError {
+    fn from(error: PoisonError) -> Self {
         ValidationError::RwLockPoison(error)
     }
 }
 
-impl<T> From<PoisonError<T>> for ValidationError {
-    fn from(_: PoisonError<T>) -> Self {
-        ValidationError::RwLockPoison(RwLockPoisonError)
+impl<T> From<StdPoisonError<T>> for ValidationError {
+    fn from(_: StdPoisonError<T>) -> Self {
+        ValidationError::RwLockPoison(PoisonError)
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct RwLockPoisonError;
+pub struct PoisonError;
 
-impl<T> From<PoisonError<T>> for RwLockPoisonError {
-    fn from(_: PoisonError<T>) -> Self {
-        RwLockPoisonError
+impl<T> From<StdPoisonError<T>> for PoisonError {
+    fn from(_: StdPoisonError<T>) -> Self {
+        PoisonError
     }
 }
 

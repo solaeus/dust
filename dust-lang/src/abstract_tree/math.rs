@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, SourcePosition, Type};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, SourcePosition, Type, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Math {
@@ -18,7 +18,7 @@ pub enum Math {
     Modulo(Expression, Expression),
 }
 
-impl Evaluate for Math {
+impl Validate for Math {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
@@ -66,7 +66,9 @@ impl Evaluate for Math {
             }
         }
     }
+}
 
+impl Evaluate for Math {
     fn evaluate(
         self,
         _context: &mut Context,

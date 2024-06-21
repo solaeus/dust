@@ -9,7 +9,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct As {
@@ -26,7 +26,7 @@ impl As {
     }
 }
 
-impl Evaluate for As {
+impl Validate for As {
     fn validate(
         &self,
         _context: &mut Context,
@@ -44,7 +44,9 @@ impl Evaluate for As {
 
         Ok(())
     }
+}
 
+impl Evaluate for As {
     fn evaluate(
         self,
         context: &mut Context,

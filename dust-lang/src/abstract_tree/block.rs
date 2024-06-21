@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Statement, Type};
+use super::{Evaluation, ExpectedType, Run, Statement, Type, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Block {
@@ -26,7 +26,7 @@ impl Block {
     }
 }
 
-impl Evaluate for Block {
+impl Validate for Block {
     fn validate(
         &self,
         _context: &mut Context,
@@ -38,16 +38,18 @@ impl Evaluate for Block {
 
         Ok(())
     }
+}
 
-    fn evaluate(
+impl Run for Block {
+    fn run(
         self,
         _context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
-        let mut previous = Evaluation::None;
+    ) -> Result<Option<Evaluation>, RuntimeError> {
+        let mut previous = None;
 
         for statement in self.statements {
-            previous = statement.evaluate(_context, _manage_memory)?;
+            previous = statement.run(_context, _manage_memory)?;
         }
 
         Ok(previous)
@@ -84,8 +86,8 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.evaluate(&mut Context::new(None), true).unwrap(),
-            Evaluation::Return(Value::integer(42))
+            block.run(&mut Context::new(None), true).unwrap(),
+            Some(Evaluation::Return(Value::integer(42)))
         )
     }
 

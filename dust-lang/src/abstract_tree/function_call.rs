@@ -6,7 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionCall {
@@ -33,7 +33,7 @@ impl FunctionCall {
     }
 }
 
-impl Evaluate for FunctionCall {
+impl Validate for FunctionCall {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.function.validate(context, manage_memory)?;
 
@@ -69,7 +69,9 @@ impl Evaluate for FunctionCall {
             })
         }
     }
+}
 
+impl Evaluate for FunctionCall {
     fn evaluate(
         self,
         context: &mut Context,

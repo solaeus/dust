@@ -1,14 +1,14 @@
-use std::sync::RwLock;
+use std::sync::Mutex;
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     context::Context,
-    error::{RuntimeError, RwLockPoisonError, ValidationError},
+    error::{PoisonError, RuntimeError, ValidationError},
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Statement, Type};
+use super::{Evaluation, ExpectedType, Run, Statement, Type, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AsyncBlock {
@@ -21,7 +21,7 @@ impl AsyncBlock {
     }
 }
 
-impl Evaluate for AsyncBlock {
+impl Validate for AsyncBlock {
     fn validate(&self, _context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
             statement.validate(_context, manage_memory)?;
@@ -29,30 +29,32 @@ impl Evaluate for AsyncBlock {
 
         Ok(())
     }
+}
 
-    fn evaluate(
+impl Run for AsyncBlock {
+    fn run(
         self,
         _context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let statement_count = self.statements.len();
-        let final_result = RwLock::new(Ok(Evaluation::None));
+        let final_result = Mutex::new(Ok(None));
 
         self.statements
             .into_par_iter()
             .enumerate()
-            .find_map_first(|(index, statement)| {
-                let result = statement.evaluate(&mut _context.clone(), false);
+            .find_map_any(|(index, statement)| {
+                let result = statement.run(&mut _context.clone(), false);
 
                 if index == statement_count - 1 {
-                    let get_write_lock = final_result.write();
+                    let get_write_lock = final_result.lock();
 
                     match get_write_lock {
                         Ok(mut final_result) => {
                             *final_result = result;
                             None
                         }
-                        Err(_error) => Some(Err(RuntimeError::RwLockPoison(RwLockPoisonError))),
+                        Err(_error) => Some(Err(RuntimeError::RwLockPoison(PoisonError))),
                     }
                 } else {
                     None
@@ -61,8 +63,8 @@ impl Evaluate for AsyncBlock {
             .unwrap_or(
                 final_result
                     .into_inner()
-                    .map_err(|_| RuntimeError::RwLockPoison(RwLockPoisonError))?,
-            )
+                    .map_err(|_| RuntimeError::RwLockPoison(PoisonError)),
+            )?
     }
 }
 

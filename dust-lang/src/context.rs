@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     abstract_tree::Type,
-    error::{RwLockPoisonError, ValidationError},
+    error::{PoisonError, ValidationError},
     identifier::Identifier,
     Value,
 };
@@ -32,12 +32,11 @@ impl<'a> Context<'a> {
 
     pub fn inner(
         &self,
-    ) -> Result<RwLockReadGuard<HashMap<Identifier, (VariableData, UsageData)>>, RwLockPoisonError>
-    {
+    ) -> Result<RwLockReadGuard<HashMap<Identifier, (VariableData, UsageData)>>, PoisonError> {
         Ok(self.variables.read()?)
     }
 
-    pub fn contains(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
+    pub fn contains(&self, identifier: &Identifier) -> Result<bool, PoisonError> {
         log::trace!("Checking that {identifier} exists.");
 
         if self.variables.read()?.contains_key(identifier) {
@@ -66,7 +65,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
+    pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
         if let Some((VariableData::Value(value), usage_data)) =
             self.variables.read()?.get(identifier)
         {
@@ -83,7 +82,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, RwLockPoisonError> {
+    pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
         if let Some((VariableData::Value(value), _)) = self.variables.read()?.get(identifier) {
             log::trace!("Getting {identifier}'s value.");
 
@@ -98,7 +97,7 @@ impl<'a> Context<'a> {
     pub fn get_data(
         &self,
         identifier: &Identifier,
-    ) -> Result<Option<(VariableData, UsageData)>, RwLockPoisonError> {
+    ) -> Result<Option<(VariableData, UsageData)>, PoisonError> {
         if let Some(full_data) = self.variables.read()?.get(identifier) {
             log::trace!("Getting {identifier}'s value.");
 
@@ -110,7 +109,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), RwLockPoisonError> {
+    pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), PoisonError> {
         log::debug!("Setting {identifier} to type {}.", r#type);
 
         self.variables
@@ -120,11 +119,7 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    pub fn set_value(
-        &mut self,
-        identifier: Identifier,
-        value: Value,
-    ) -> Result<(), RwLockPoisonError> {
+    pub fn set_value(&mut self, identifier: Identifier, value: Value) -> Result<(), PoisonError> {
         log::debug!("Setting {identifier} to value {value}.");
 
         let mut variables = self.variables.write()?;
@@ -141,7 +136,7 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    pub fn clean(&mut self) -> Result<(), RwLockPoisonError> {
+    pub fn clean(&mut self) -> Result<(), PoisonError> {
         if *self.is_clean.read()? {
             return Ok(());
         }
@@ -169,7 +164,7 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    pub fn is_clean(&mut self) -> Result<bool, RwLockPoisonError> {
+    pub fn is_clean(&mut self) -> Result<bool, PoisonError> {
         if *self.is_clean.read()? {
             Ok(true)
         } else {
@@ -185,7 +180,7 @@ impl<'a> Context<'a> {
         }
     }
 
-    pub fn add_expected_use(&self, identifier: &Identifier) -> Result<bool, RwLockPoisonError> {
+    pub fn add_expected_use(&self, identifier: &Identifier) -> Result<bool, PoisonError> {
         if let Some((_, usage_data)) = self.variables.read()?.get(identifier) {
             log::trace!("Adding expected use for variable {identifier}.");
 

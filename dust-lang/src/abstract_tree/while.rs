@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, Expression, Statement};
+use super::{Evaluate, Evaluation, Expression, Run, Statement, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct While {
@@ -24,7 +24,7 @@ impl While {
     }
 }
 
-impl Evaluate for While {
+impl Validate for While {
     fn validate(
         &self,
         _context: &mut Context,
@@ -38,12 +38,14 @@ impl Evaluate for While {
 
         Ok(())
     }
+}
 
-    fn evaluate(
+impl Run for While {
+    fn run(
         self,
         _context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
             let expression_position = self.expression.position();
             let action = self
@@ -62,16 +64,14 @@ impl Evaluate for While {
 
         while let ValueInner::Boolean(true) = get_boolean()?.inner().as_ref() {
             for statement in &self.statements {
-                let action = statement.clone().evaluate(&mut _context.clone(), false)?;
+                let evaluation = statement.clone().run(&mut _context.clone(), false)?;
 
-                match action {
-                    Evaluation::Return(_) => {}
-                    Evaluation::None => {}
-                    Evaluation::Break => return Ok(Evaluation::Break),
+                if let Some(Evaluation::Break) = evaluation {
+                    return Ok(evaluation);
                 }
             }
         }
 
-        Ok(Evaluation::None)
+        Ok(None)
     }
 }

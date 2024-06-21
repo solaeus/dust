@@ -1,12 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    context::Context,
-    error::{RuntimeError, ValidationError},
-    identifier::Identifier,
-};
+use crate::{context::Context, error::RuntimeError, identifier::Identifier};
 
-use super::{Evaluate, Evaluation, Type, TypeConstructor};
+use super::{Evaluation, Run, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructureDefinition {
@@ -20,20 +16,12 @@ impl StructureDefinition {
     }
 }
 
-impl Evaluate for StructureDefinition {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
-        Ok(())
-    }
-
-    fn evaluate(
+impl Run for StructureDefinition {
+    fn run(
         self,
         context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let mut fields = Vec::with_capacity(self.fields.len());
 
         for (identifier, constructor) in self.fields {
@@ -49,6 +37,6 @@ impl Evaluate for StructureDefinition {
 
         context.set_type(self.name, struct_type)?;
 
-        Ok(Evaluation::None)
+        Ok(None)
     }
 }

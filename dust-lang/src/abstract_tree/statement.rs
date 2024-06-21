@@ -7,7 +7,8 @@ use crate::{
 
 use super::{
     Assignment, AsyncBlock, Block, EnumDeclaration, Evaluate, Evaluation, ExpectedType, Expression,
-    IfElse, Loop, SourcePosition, StructureDefinition, Type, TypeAlias, While, WithPosition,
+    IfElse, Loop, Run, SourcePosition, StructureDefinition, Type, TypeAlias, Validate, While,
+    WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -51,7 +52,41 @@ impl Statement {
     }
 }
 
-impl Evaluate for Statement {
+impl Run for Statement {
+    fn run(
+        self,
+        context: &mut Context,
+        manage_memory: bool,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
+        let result = match self {
+            Statement::Assignment(assignment) => assignment.node.run(context, manage_memory),
+            Statement::AsyncBlock(async_block) => async_block.node.run(context, manage_memory),
+            Statement::Block(block) => block.node.run(context, manage_memory),
+            Statement::Break(_) => Ok(Some(Evaluation::Break)),
+            Statement::Expression(expression) => {
+                let evaluation = expression.evaluate(context, manage_memory)?;
+
+                Ok(Some(evaluation))
+            }
+            Statement::IfElse(if_else) => if_else.node.run(context, manage_memory),
+            Statement::Loop(r#loop) => r#loop.node.run(context, manage_memory),
+            Statement::StructureDefinition(structure_definition) => {
+                structure_definition.node.run(context, manage_memory)
+            }
+            Statement::TypeAlias(type_alias) => type_alias.node.run(context, manage_memory),
+            Statement::EnumDeclaration(type_alias) => type_alias.node.run(context, manage_memory),
+            Statement::While(r#while) => r#while.node.run(context, manage_memory),
+        };
+
+        if manage_memory {
+            context.clean()?;
+        }
+
+        result
+    }
+}
+
+impl Validate for Statement {
     fn validate(
         &self,
         _context: &mut Context,
@@ -67,45 +102,9 @@ impl Evaluate for Statement {
             Statement::Expression(expression) => expression.validate(_context, _manage_memory),
             Statement::IfElse(if_else) => if_else.node.validate(_context, _manage_memory),
             Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
-            Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.validate(_context, _manage_memory)
-            }
-            Statement::TypeAlias(type_alias) => type_alias.node.validate(_context, _manage_memory),
-            Statement::EnumDeclaration(type_declaration) => {
-                type_declaration.node.validate(_context, _manage_memory)
-            }
             Statement::While(r#while) => r#while.node.validate(_context, _manage_memory),
+            _ => Ok(()),
         }
-    }
-
-    fn evaluate(
-        self,
-        context: &mut Context,
-        manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
-        let result = match self {
-            Statement::Assignment(assignment) => assignment.node.evaluate(context, manage_memory),
-            Statement::AsyncBlock(async_block) => async_block.node.evaluate(context, manage_memory),
-            Statement::Block(block) => block.node.evaluate(context, manage_memory),
-            Statement::Break(_) => Ok(Evaluation::Break),
-            Statement::Expression(expression) => expression.evaluate(context, manage_memory),
-            Statement::IfElse(if_else) => if_else.node.evaluate(context, manage_memory),
-            Statement::Loop(r#loop) => r#loop.node.evaluate(context, manage_memory),
-            Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.evaluate(context, manage_memory)
-            }
-            Statement::TypeAlias(type_alias) => type_alias.node.evaluate(context, manage_memory),
-            Statement::EnumDeclaration(type_alias) => {
-                type_alias.node.evaluate(context, manage_memory)
-            }
-            Statement::While(r#while) => r#while.node.evaluate(context, manage_memory),
-        };
-
-        if manage_memory {
-            context.clean()?;
-        }
-
-        result
     }
 }
 

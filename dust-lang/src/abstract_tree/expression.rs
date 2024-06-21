@@ -8,7 +8,7 @@ use crate::{
 
 use super::{
     As, BuiltInFunctionCall, Evaluate, Evaluation, ExpectedType, FunctionCall, ListIndex, Logic,
-    MapIndex, Math, SourcePosition, Type, ValueNode, WithPosition,
+    MapIndex, Math, SourcePosition, Type, Validate, ValueNode, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -40,7 +40,7 @@ impl Expression {
     }
 }
 
-impl Evaluate for Expression {
+impl Validate for Expression {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Expression::As(r#as) => r#as.node.validate(context, manage_memory),
@@ -73,7 +73,9 @@ impl Evaluate for Expression {
             Expression::Value(value_node) => value_node.node.validate(context, manage_memory),
         }
     }
+}
 
+impl Evaluate for Expression {
     fn evaluate(
         self,
         context: &mut Context,

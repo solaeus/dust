@@ -91,9 +91,10 @@ impl From<(usize, usize)> for SourcePosition {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub enum Evaluation {
-    Return(Value),
     Break,
-    None,
+    Continue,
+    Return(Value),
+    Void,
 }
 
 #[derive(Debug, Clone)]
@@ -120,12 +121,12 @@ impl AbstractTree {
 
         for statement in valid_statements {
             let position = statement.position();
-            let run = statement.evaluate(context, manage_memory);
+            let run = statement.run(context, manage_memory);
 
             match run {
-                Ok(action) => match action {
-                    Evaluation::Return(value) => previous_value = Some(value),
-                    Evaluation::None => previous_value = None,
+                Ok(evaluation) => match evaluation {
+                    Some(Evaluation::Return(value)) => previous_value = Some(value),
+                    Some(Evaluation::Void) | None => previous_value = None,
                     _ => {}
                 },
                 Err(runtime_error) => {
@@ -159,7 +160,7 @@ impl AbstractTree {
             } else if errors.is_empty() {
                 if let Statement::StructureDefinition(_) = statement {
                     let position = statement.position();
-                    let run = statement.evaluate(context, true);
+                    let run = statement.run(context, true);
 
                     if let Err(runtime_error) = run {
                         errors.push(DustError::Runtime {
@@ -193,13 +194,24 @@ impl Index<usize> for AbstractTree {
     }
 }
 
-pub trait Evaluate: Sized {
+pub trait Validate {
     fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError>;
+}
+
+pub trait Evaluate: ExpectedType {
     fn evaluate(
         self,
         context: &mut Context,
         manage_memory: bool,
     ) -> Result<Evaluation, RuntimeError>;
+}
+
+pub trait Run {
+    fn run(
+        self,
+        context: &mut Context,
+        manage_memory: bool,
+    ) -> Result<Option<Evaluation>, RuntimeError>;
 }
 
 pub trait ExpectedType {

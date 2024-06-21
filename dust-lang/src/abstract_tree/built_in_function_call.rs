@@ -14,7 +14,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor};
+use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunctionCall {
@@ -26,7 +26,7 @@ pub enum BuiltInFunctionCall {
     WriteLine(Expression),
 }
 
-impl Evaluate for BuiltInFunctionCall {
+impl Validate for BuiltInFunctionCall {
     fn validate(
         &self,
         _context: &mut Context,
@@ -49,7 +49,9 @@ impl Evaluate for BuiltInFunctionCall {
             }
         }
     }
+}
 
+impl Evaluate for BuiltInFunctionCall {
     fn evaluate(
         self,
         context: &mut Context,
@@ -136,7 +138,7 @@ impl Evaluate for BuiltInFunctionCall {
                     thread::sleep(Duration::from_millis(*milliseconds as u64));
                 }
 
-                Ok(Evaluation::None)
+                Ok(Evaluation::Void)
             }
             BuiltInFunctionCall::WriteLine(expression) => {
                 let action = expression.clone().evaluate(context, _manage_memory)?;
@@ -156,7 +158,7 @@ impl Evaluate for BuiltInFunctionCall {
                     stdout.flush()?;
                 }
 
-                Ok(Evaluation::None)
+                Ok(Evaluation::Void)
             }
         }
     }

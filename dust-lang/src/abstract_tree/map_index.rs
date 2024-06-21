@@ -6,7 +6,9 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, ValueNode, WithPosition};
+use super::{
+    Evaluate, Evaluation, ExpectedType, Expression, Type, Validate, ValueNode, WithPosition,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MapIndex {
@@ -23,7 +25,7 @@ impl MapIndex {
     }
 }
 
-impl Evaluate for MapIndex {
+impl Validate for MapIndex {
     fn validate(
         &self,
         _context: &mut Context,
@@ -31,7 +33,9 @@ impl Evaluate for MapIndex {
     ) -> Result<(), ValidationError> {
         self.collection.validate(_context, _manage_memory)
     }
+}
 
+impl Evaluate for MapIndex {
     fn evaluate(
         self,
         context: &mut Context,
@@ -53,7 +57,7 @@ impl Evaluate for MapIndex {
             let action = map
                 .get(&index.node)
                 .map(|value| Evaluation::Return(value.clone()))
-                .unwrap_or(Evaluation::None);
+                .unwrap_or(Evaluation::Void);
 
             Ok(action)
         } else {

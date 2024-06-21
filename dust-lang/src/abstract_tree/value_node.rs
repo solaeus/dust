@@ -10,7 +10,8 @@ use crate::{
 };
 
 use super::{
-    Block, Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, WithPosition,
+    Block, Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate,
+    WithPosition,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -39,7 +40,7 @@ pub enum ValueNode {
     },
 }
 
-impl Evaluate for ValueNode {
+impl Validate for ValueNode {
     fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::EnumInstance {
             type_name, variant, ..
@@ -162,7 +163,9 @@ impl Evaluate for ValueNode {
 
         Ok(())
     }
+}
 
+impl Evaluate for ValueNode {
     fn evaluate(
         self,
         context: &mut Context,

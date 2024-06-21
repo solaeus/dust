@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{Evaluate, Evaluation, Statement};
+use super::{Evaluation, Run, Statement, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Loop {
@@ -22,7 +22,7 @@ impl Loop {
     }
 }
 
-impl Evaluate for Loop {
+impl Validate for Loop {
     fn validate(
         &self,
         _context: &mut Context,
@@ -34,20 +34,20 @@ impl Evaluate for Loop {
 
         Ok(())
     }
+}
 
-    fn evaluate(
+impl Run for Loop {
+    fn run(
         self,
         _context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         loop {
             for statement in &self.statements {
-                let action = statement.clone().evaluate(_context, false)?;
+                let run = statement.clone().run(_context, false)?;
 
-                match action {
-                    Evaluation::Return(_) => {}
-                    Evaluation::None => {}
-                    Evaluation::Break => return Ok(Evaluation::Break),
+                if let Some(Evaluation::Break) = run {
+                    return Ok(run);
                 }
             }
         }
