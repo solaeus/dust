@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     context::Context,
-    error::{PoisonError, RuntimeError, ValidationError},
+    error::{RuntimeError, ValidationError},
 };
 
 use super::{Evaluation, ExpectedType, Run, Statement, Type, Validate};
@@ -43,28 +43,23 @@ impl Run for AsyncBlock {
         self.statements
             .into_par_iter()
             .enumerate()
-            .find_map_any(|(index, statement)| {
-                let result = statement.run(&mut _context.clone(), false);
+            .find_map_any(
+                |(index, statement)| -> Option<Result<Option<Evaluation>, RuntimeError>> {
+                    let result = statement.run(&mut _context.clone(), false);
 
-                if index == statement_count - 1 {
-                    let get_write_lock = final_result.lock();
-
-                    match get_write_lock {
-                        Ok(mut final_result) => {
-                            *final_result = result;
-                            None
-                        }
-                        Err(_error) => Some(Err(RuntimeError::RwLockPoison(PoisonError))),
+                    if result.is_err() {
+                        return Some(result);
                     }
-                } else {
+
+                    if index == statement_count - 1 {
+                        // It is safe to unwrap here because only one thread uses the Mutex
+                        *final_result.lock().unwrap() = result;
+                    }
+
                     None
-                }
-            })
-            .unwrap_or(
-                final_result
-                    .into_inner()
-                    .map_err(|_| RuntimeError::RwLockPoison(PoisonError)),
-            )?
+                },
+            )
+            .unwrap_or(final_result.into_inner()?)
     }
 }
 
