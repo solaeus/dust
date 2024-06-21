@@ -10,9 +10,23 @@ use super::{Evaluate, Evaluation, Type, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumDeclaration {
-    pub name: WithPosition<Identifier>,
-    pub type_parameters: Option<Vec<WithPosition<Identifier>>>,
-    pub variants: Vec<EnumVariant>,
+    name: WithPosition<Identifier>,
+    type_parameters: Option<Vec<WithPosition<Identifier>>>,
+    variants: Vec<EnumVariant>,
+}
+
+impl EnumDeclaration {
+    pub fn new(
+        name: WithPosition<Identifier>,
+        type_parameters: Option<Vec<WithPosition<Identifier>>>,
+        variants: Vec<EnumVariant>,
+    ) -> Self {
+        Self {
+            name,
+            type_parameters,
+            variants,
+        }
+    }
 }
 
 impl Evaluate for EnumDeclaration {

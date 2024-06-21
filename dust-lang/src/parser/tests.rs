@@ -54,10 +54,10 @@ fn enum_declaration() {
     assert_eq!(
         parse(&lex("enum MyEnum { X, Y }").unwrap()).unwrap()[0],
         Statement::EnumDeclaration(
-            EnumDeclaration {
-                name: Identifier::new("MyEnum").with_position((5, 11)),
-                type_parameters: None,
-                variants: vec![
+            EnumDeclaration::new(
+                Identifier::new("MyEnum").with_position((5, 11)),
+                None,
+                vec![
                     EnumVariant {
                         name: Identifier::new("X").with_position((14, 15)),
                         content: None
@@ -67,7 +67,7 @@ fn enum_declaration() {
                         content: None
                     }
                 ],
-            }
+            )
             .with_position((0, 20))
         )
     );
@@ -78,10 +78,10 @@ fn enum_with_contents() {
     assert_eq!(
         parse(&lex("enum MyEnum { X(str, int), Y(int) }").unwrap()).unwrap()[0],
         Statement::EnumDeclaration(
-            EnumDeclaration {
-                name: Identifier::new("MyEnum").with_position((5, 11)),
-                type_parameters: None,
-                variants: vec![
+            EnumDeclaration::new(
+                Identifier::new("MyEnum").with_position((5, 11)),
+                None,
+                vec![
                     EnumVariant {
                         name: Identifier::new("X").with_position((14, 15)),
                         content: Some(vec![
@@ -100,7 +100,7 @@ fn enum_with_contents() {
                         ),])
                     }
                 ]
-            }
+            )
             .with_position((0, 35))
         )
     );
@@ -111,13 +111,13 @@ fn enum_with_type_parameters() {
     assert_eq!(
         parse(&lex("enum MyEnum <T, U> { X(T), Y(U) }").unwrap()).unwrap()[0],
         Statement::EnumDeclaration(
-            EnumDeclaration {
-                name: Identifier::new("MyEnum").with_position((5, 11)),
-                type_parameters: Some(vec![
+            EnumDeclaration::new(
+                Identifier::new("MyEnum").with_position((5, 11)),
+                Some(vec![
                     Identifier::new("T").with_position((13, 14)),
                     Identifier::new("U").with_position((16, 17))
                 ]),
-                variants: vec![
+                vec![
                     EnumVariant {
                         name: Identifier::new("X").with_position((21, 22)),
                         content: Some(vec![TypeConstructor::Invokation(
@@ -137,7 +137,7 @@ fn enum_with_type_parameters() {
                         )])
                     },
                 ]
-            }
+            )
             .with_position((0, 33))
         )
     );

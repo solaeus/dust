@@ -729,12 +729,8 @@ pub fn parser<'src>(
             )
             .map_with(|((name, type_parameters), variants), state| {
                 Statement::EnumDeclaration(
-                    EnumDeclaration {
-                        name,
-                        type_parameters,
-                        variants,
-                    }
-                    .with_position(state.span()),
+                    EnumDeclaration::new(name, type_parameters, variants)
+                        .with_position(state.span()),
                 )
             });
 
