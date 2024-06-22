@@ -33,6 +33,7 @@ pub enum ValueNode {
     },
     Function(FunctionNode),
 }
+
 impl ValueNode {
     pub fn function(
         type_parameters: Option<Vec<Identifier>>,
@@ -51,28 +52,28 @@ impl ValueNode {
 }
 
 impl AbstractNode for ValueNode {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn define_types(&self, outer_context: &Context) -> Result<(), ValidationError> {
         match self {
             ValueNode::EnumInstance { content, .. } => {
                 if let Some(expressions) = content {
                     for expression in expressions {
-                        expression.define_types(_context)?;
+                        expression.define_types(outer_context)?;
                     }
                 }
             }
             ValueNode::List(expressions) => {
                 for expression in expressions {
-                    expression.define_types(_context)?;
+                    expression.define_types(outer_context)?;
                 }
             }
             ValueNode::Map(fields) => {
                 for (_, _, expression) in fields {
-                    expression.define_types(_context)?;
+                    expression.define_types(outer_context)?;
                 }
             }
             ValueNode::Structure { fields, .. } => {
                 for (_, expression) in fields {
-                    expression.define_types(_context)?;
+                    expression.define_types(outer_context)?;
                 }
             }
             ValueNode::Function(FunctionNode {
@@ -95,12 +96,12 @@ impl AbstractNode for ValueNode {
                 }
 
                 for (identifier, type_constructor) in value_parameters {
-                    let r#type = type_constructor.clone().construct(&context_template)?;
+                    let r#type = type_constructor.clone().construct(outer_context)?;
 
                     context_template.set_type(identifier.clone(), r#type)?;
                 }
 
-                body.node.define_types(_context)?;
+                body.node.define_types(context_template)?;
             }
             _ => {}
         }
@@ -169,7 +170,10 @@ impl AbstractNode for ValueNode {
             let ((expected_return, expected_position), actual_return) =
                 match (return_type, body.node.expected_type(&context_template)?) {
                     (Some(constructor), Some(r#type)) => (
-                        (constructor.construct(context)?, constructor.position()),
+                        (
+                            constructor.construct(context_template)?,
+                            constructor.position(),
+                        ),
                         r#type,
                     ),
                     (None, Some(_)) => return Err(ValidationError::ExpectedValue(body.position)),
@@ -312,11 +316,10 @@ impl AbstractNode for ValueNode {
                 context_template,
             }) => {
                 let outer_context = context;
-                let function_context = context_template.create_child();
                 let mut value_parameters = Vec::with_capacity(constructors.len());
 
                 for (identifier, constructor) in constructors {
-                    let r#type = constructor.construct(&function_context)?;
+                    let r#type = constructor.construct(&outer_context)?;
 
                     value_parameters.push((identifier, r#type));
                 }

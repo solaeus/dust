@@ -4,7 +4,6 @@ use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
-    value::ValueInner,
 };
 
 use super::{
@@ -47,24 +46,7 @@ impl AbstractNode for Expression {
             Expression::As(inner) => inner.node.define_types(_context),
             Expression::BuiltInFunctionCall(inner) => inner.node.define_types(_context),
             Expression::FunctionCall(inner) => inner.node.define_types(_context),
-            Expression::Identifier(identifier) => {
-                let found = _context.get_value(&identifier.node)?;
-
-                if let Some(value) = &found {
-                    if let ValueInner::Function(function) = value.inner().as_ref() {
-                        function.body().define_types(_context)?;
-                    }
-                }
-
-                if found.is_some() {
-                    Ok(())
-                } else {
-                    Err(ValidationError::VariableNotFound {
-                        identifier: identifier.node.clone(),
-                        position: identifier.position,
-                    })
-                }
-            }
+            Expression::Identifier(_) => Ok(()),
             Expression::MapIndex(inner) => inner.node.define_types(_context),
             Expression::ListIndex(inner) => inner.node.define_types(_context),
             Expression::Logic(inner) => inner.node.define_types(_context),
@@ -83,15 +65,9 @@ impl AbstractNode for Expression {
                 function_call.node.validate(context, manage_memory)
             }
             Expression::Identifier(identifier) => {
-                let found = context.get_value(&identifier.node)?;
+                let found = context.add_expected_use(&identifier.node)?;
 
-                if let Some(value) = &found {
-                    if let ValueInner::Function(function) = value.inner().as_ref() {
-                        function.body().validate(context, manage_memory)?;
-                    }
-                }
-
-                if found.is_some() {
+                if found {
                     Ok(())
                 } else {
                     Err(ValidationError::VariableNotFound {

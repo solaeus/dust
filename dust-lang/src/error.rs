@@ -118,6 +118,10 @@ pub enum ValidationError {
         actual: Type,
         position: SourcePosition,
     },
+    ExpectedList {
+        actual: Type,
+        position: SourcePosition,
+    },
     ExpectedBoolean {
         actual: Type,
         position: SourcePosition,

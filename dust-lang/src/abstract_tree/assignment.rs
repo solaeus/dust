@@ -70,60 +70,6 @@ impl AbstractNode for Assignment {
             context.set_type(self.identifier.node.clone(), statement_type.clone())?;
         }
 
-        Ok(())
-    }
-
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        let relevant_statement = self.statement.last_evaluated_statement();
-        let statement_type = if let Some(r#type) = relevant_statement.expected_type(context)? {
-            r#type
-        } else {
-            return Err(ValidationError::CannotAssignToNone(
-                self.statement.position(),
-            ));
-        };
-
-        if let Some(constructor) = &self.constructor {
-            let r#type = constructor.clone().construct(&context)?;
-
-            r#type
-                .check(&statement_type)
-                .map_err(|conflict| ValidationError::TypeCheck {
-                    conflict,
-                    actual_position: self.statement.position(),
-                    expected_position: Some(constructor.position()),
-                })?;
-
-            context.set_type(self.identifier.node.clone(), r#type.clone())?;
-        } else {
-            context.set_type(self.identifier.node.clone(), statement_type.clone())?;
-        }
-
-        self.statement.validate(context, manage_memory)?;
-
-        if let (
-            Some(TypeConstructor::Invokation(TypeInvokationConstructor {
-                identifier,
-                type_arguments,
-            })),
-            Statement::Expression(Expression::Value(_)),
-            Type::Enum {
-                type_parameters, ..
-            },
-        ) = (&self.constructor, relevant_statement, &statement_type)
-        {
-            if let (Some(parameters), Some(arguments)) = (type_parameters, type_arguments) {
-                if parameters.len() != arguments.len() {
-                    return Err(ValidationError::FullTypeNotKnown {
-                        identifier: identifier.node.clone(),
-                        position: self.constructor.clone().unwrap().position(),
-                    });
-                }
-            }
-
-            return Ok(());
-        }
-
         if let (Some(constructor), Statement::Expression(Expression::FunctionCall(function_call))) =
             (&self.constructor, relevant_statement)
         {
@@ -156,6 +102,43 @@ impl AbstractNode for Assignment {
                     position: function_call.position,
                 });
             }
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+        let relevant_statement = self.statement.last_evaluated_statement();
+        let statement_type = if let Some(r#type) = relevant_statement.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::CannotAssignToNone(
+                self.statement.position(),
+            ));
+        };
+
+        self.statement.validate(context, manage_memory)?;
+
+        if let (
+            Some(TypeConstructor::Invokation(TypeInvokationConstructor {
+                identifier,
+                type_arguments,
+            })),
+            Type::Enum {
+                type_parameters, ..
+            },
+        ) = (&self.constructor, &statement_type)
+        {
+            if let (Some(parameters), Some(arguments)) = (type_parameters, type_arguments) {
+                if parameters.len() != arguments.len() {
+                    return Err(ValidationError::FullTypeNotKnown {
+                        identifier: identifier.node.clone(),
+                        position: self.constructor.clone().unwrap().position(),
+                    });
+                }
+            }
+
+            return Ok(());
         }
 
         Ok(())

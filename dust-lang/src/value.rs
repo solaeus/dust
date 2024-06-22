@@ -721,6 +721,22 @@ pub struct Function {
 }
 
 impl Function {
+    pub fn new(
+        type_parameters: Option<Vec<Identifier>>,
+        value_parameters: Vec<(Identifier, Type)>,
+        return_type: Option<Type>,
+        body: Block,
+        context_template: Context,
+    ) -> Self {
+        Self {
+            type_parameters,
+            value_parameters,
+            return_type,
+            body,
+            context_template,
+        }
+    }
+
     pub fn context_template(&self) -> &Context {
         &self.context_template
     }

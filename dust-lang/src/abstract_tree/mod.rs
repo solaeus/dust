@@ -2,7 +2,7 @@ pub mod r#as;
 pub mod assignment;
 pub mod async_block;
 pub mod block;
-pub mod built_in_function_call;
+pub mod built_in_function;
 pub mod enum_declaration;
 pub mod expression;
 pub mod function_call;
@@ -29,7 +29,7 @@ pub use self::{
     assignment::{Assignment, AssignmentOperator},
     async_block::AsyncBlock,
     block::Block,
-    built_in_function_call::BuiltInFunctionCall,
+    built_in_function::FunctionLogic,
     enum_declaration::{EnumDeclaration, EnumVariant},
     expression::Expression,
     function_call::FunctionCall,
