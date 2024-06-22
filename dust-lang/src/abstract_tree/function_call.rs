@@ -35,7 +35,7 @@ impl FunctionCall {
 
 impl AbstractNode for FunctionCall {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        self.function.define_ypes(_context)?;
+        self.function.define_types(_context)?;
 
         let mut previous = ();
 
@@ -53,7 +53,13 @@ impl AbstractNode for FunctionCall {
             expression.validate(context, manage_memory)?;
         }
 
-        let function_node_type = self.function.expected_type(context)?;
+        let function_node_type = if let Some(r#type) = self.function.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.function.position(),
+            ));
+        };
 
         if let Type::Function {
             type_parameters,
@@ -88,12 +94,12 @@ impl AbstractNode for FunctionCall {
         clear_variables: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let function_position = self.function.position();
-        let action = self.function.evaluate(context, clear_variables)?;
-        let value = if let Evaluation::Return(value) = action {
+        let evaluation = self.function.evaluate(context, clear_variables)?;
+        let value = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(function_position),
+                ValidationError::ExpectedExpression(function_position),
             ));
         };
         let function = if let ValueInner::Function(function) = value.inner().as_ref() {
@@ -111,15 +117,15 @@ impl AbstractNode for FunctionCall {
         for expression in self.value_arguments {
             let expression_position = expression.position();
             let action = expression.evaluate(context, clear_variables)?;
-            let value = if let Evaluation::Return(value) = action {
+            let evalution = if let Some(Evaluation::Return(value)) = action {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
-                    ValidationError::InterpreterExpectedReturn(expression_position),
+                    ValidationError::ExpectedExpression(expression_position),
                 ));
             };
 
-            arguments.push(value);
+            arguments.push(evalution);
         }
 
         let mut function_context = Context::new(Some(&context));
@@ -143,13 +149,19 @@ impl AbstractNode for FunctionCall {
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
-        let function_node_type = self.function.expected_type(context)?;
+        let function_type = if let Some(r#type) = self.function.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.function.position(),
+            ));
+        };
 
         if let Type::Function {
             return_type,
             type_parameters,
             ..
-        } = function_node_type
+        } = function_type
         {
             if let Type::Generic {
                 identifier: return_identifier,
@@ -179,7 +191,14 @@ impl AbstractNode for FunctionCall {
                         .zip(type_parameters.into_iter())
                     {
                         if identifier == return_identifier {
-                            let concrete_type = expression.expected_type(context)?;
+                            let concrete_type =
+                                if let Some(r#type) = expression.expected_type(context)? {
+                                    r#type
+                                } else {
+                                    return Err(ValidationError::ExpectedExpression(
+                                        expression.position(),
+                                    ));
+                                };
 
                             return Ok(Some(Type::Generic {
                                 identifier,
@@ -193,7 +212,7 @@ impl AbstractNode for FunctionCall {
             Ok(Some(*return_type))
         } else {
             Err(ValidationError::ExpectedFunction {
-                actual: function_node_type,
+                actual: function_type,
                 position: self.function.position(),
             })
         }

@@ -114,7 +114,6 @@ pub enum ValidationError {
         index_type: Type,
         index_position: SourcePosition,
     },
-    CannotIndexWithVoid(SourcePosition),
     ExpectedString {
         actual: Type,
         position: SourcePosition,
@@ -137,7 +136,7 @@ pub enum ValidationError {
         identifier: Identifier,
         position: SourcePosition,
     },
-    InterpreterExpectedReturn(SourcePosition),
+    ExpectedExpression(SourcePosition),
     RwLockPoison(PoisonError),
     TypeCheck {
         /// The mismatch that caused the error.

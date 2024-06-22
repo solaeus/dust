@@ -51,7 +51,7 @@ impl AbstractNode for Block {
         let mut previous = None;
 
         for statement in self.statements {
-            previous = statement.run(_context, _manage_memory)?;
+            previous = statement.evaluate(_context, _manage_memory)?;
         }
 
         Ok(previous)
@@ -86,7 +86,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.run(&mut Context::new(None), true).unwrap(),
+            block.evaluate(&Context::new(None), true).unwrap(),
             Some(Evaluation::Return(Value::integer(42)))
         )
     }
@@ -103,8 +103,8 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.expected_type(&mut Context::new(None)),
-            Ok(Type::Integer)
+            block.expected_type(&Context::new(None)),
+            Ok(Some(Type::Integer))
         )
     }
 }

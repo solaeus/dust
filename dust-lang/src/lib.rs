@@ -416,7 +416,7 @@ impl InterpreterError {
                             .with_message(format!("This has type {}.", index_type.fg(type_color),)),
                         ])
                     }
-                    ValidationError::InterpreterExpectedReturn(_) => todo!(),
+                    ValidationError::ExpectedExpression(_) => todo!(),
                     ValidationError::ExpectedFunction { .. } => todo!(),
                     ValidationError::ExpectedValue(_) => todo!(),
                     ValidationError::PropertyNotFound { .. } => todo!(),
@@ -455,6 +455,7 @@ impl InterpreterError {
                         }
                     }
                     ValidationError::EnumVariantNotFound { .. } => todo!(),
+                    ValidationError::CannotIndexWithVoid(_) => todo!(),
                 }
             }
 

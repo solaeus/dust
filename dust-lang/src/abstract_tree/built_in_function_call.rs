@@ -26,8 +26,15 @@ pub enum BuiltInFunctionCall {
     WriteLine(Expression),
 }
 impl AbstractNode for BuiltInFunctionCall {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
-        Ok(())
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        match self {
+            BuiltInFunctionCall::JsonParse(_, expression) => expression.define_types(_context),
+            BuiltInFunctionCall::Length(expression) => expression.define_types(_context),
+            BuiltInFunctionCall::ReadFile(expression) => expression.define_types(_context),
+            BuiltInFunctionCall::ReadLine => Ok(()),
+            BuiltInFunctionCall::Sleep(expression) => expression.define_types(_context),
+            BuiltInFunctionCall::WriteLine(expression) => expression.define_types(_context),
+        }
     }
 
     fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
@@ -54,56 +61,53 @@ impl AbstractNode for BuiltInFunctionCall {
         context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
+        fn evaluate_expression(
+            expression: Expression,
+            context: &Context,
+            _manage_memory: bool,
+        ) -> Result<Value, RuntimeError> {
+            let position = expression.position();
+            let evaluation = expression.evaluate(context, _manage_memory)?;
+
+            if let Some(Evaluation::Return(value)) = evaluation {
+                Ok(value)
+            } else {
+                Err(RuntimeError::ValidationFailure(
+                    ValidationError::ExpectedExpression(position),
+                ))
+            }
+        }
+
         match self {
             BuiltInFunctionCall::JsonParse(_type, expression) => {
-                let action = expression.clone().evaluate(context, _manage_memory)?;
-                let value = if let Evaluation::Return(value) = action {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::InterpreterExpectedReturn(expression.position()),
-                    ));
-                };
+                let position = expression.position();
+                let value = evaluate_expression(expression, context, _manage_memory)?;
 
                 if let ValueInner::String(string) = value.inner().as_ref() {
-                    let deserialized = serde_json::from_str(string)?;
+                    let deserialized = serde_json::from_str(&string)?;
 
                     Ok(Some(Evaluation::Return(deserialized)))
                 } else {
                     Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedString {
                             actual: value.r#type(context)?,
-                            position: expression.position(),
+                            position,
                         },
                     ))
                 }
             }
             BuiltInFunctionCall::Length(expression) => {
-                let action = expression.clone().evaluate(context, _manage_memory)?;
-                let value = if let Evaluation::Return(value) = action {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::InterpreterExpectedReturn(expression.position()),
-                    ));
-                };
+                let value = evaluate_expression(expression, context, _manage_memory)?;
                 let length = if let ValueInner::List(list) = value.inner().as_ref() {
                     list.len() as i64
                 } else {
-                    0
+                    todo!("Create an error for this occurence.")
                 };
 
                 Ok(Some(Evaluation::Return(Value::integer(length))))
             }
             BuiltInFunctionCall::ReadFile(expression) => {
-                let action = expression.clone().evaluate(context, _manage_memory)?;
-                let value = if let Evaluation::Return(value) = action {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::InterpreterExpectedReturn(expression.position()),
-                    ));
-                };
+                let value = evaluate_expression(expression, context, _manage_memory)?;
                 let file_contents = if let ValueInner::String(path) = value.inner().as_ref() {
                     read_to_string(path)?
                 } else {
@@ -122,30 +126,16 @@ impl AbstractNode for BuiltInFunctionCall {
                 ))))
             }
             BuiltInFunctionCall::Sleep(expression) => {
-                let action = expression.clone().evaluate(context, _manage_memory)?;
-                let value = if let Evaluation::Return(value) = action {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::InterpreterExpectedReturn(expression.position()),
-                    ));
-                };
+                let value = evaluate_expression(expression, context, _manage_memory)?;
 
                 if let ValueInner::Integer(milliseconds) = value.inner().as_ref() {
                     thread::sleep(Duration::from_millis(*milliseconds as u64));
                 }
 
-                Ok(Evaluation::Void)
+                Ok(None)
             }
             BuiltInFunctionCall::WriteLine(expression) => {
-                let action = expression.clone().evaluate(context, _manage_memory)?;
-                let value = if let Evaluation::Return(value) = action {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::InterpreterExpectedReturn(expression.position()),
-                    ));
-                };
+                let value = evaluate_expression(expression, context, _manage_memory)?;
 
                 if let ValueInner::String(output) = value.inner().as_ref() {
                     let mut stdout = stdout();
@@ -155,7 +145,7 @@ impl AbstractNode for BuiltInFunctionCall {
                     stdout.flush()?;
                 }
 
-                Ok(Evaluation::Void)
+                Ok(None)
             }
         }
     }

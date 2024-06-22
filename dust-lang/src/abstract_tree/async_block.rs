@@ -38,11 +38,7 @@ impl AbstractNode for AsyncBlock {
         Ok(())
     }
 
-    fn evaluate(
-        self,
-        _context: &Context,
-        _manage_memory: bool,
-    ) -> Result<Option<Evaluation>, RuntimeError> {
+    fn evaluate(self, _context: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
         let statement_count = self.statements.len();
         let final_result = Mutex::new(Ok(None));
 
@@ -51,7 +47,7 @@ impl AbstractNode for AsyncBlock {
             .enumerate()
             .find_map_any(
                 |(index, statement)| -> Option<Result<Option<Evaluation>, RuntimeError>> {
-                    let result = statement.run(&mut _context.clone(), false);
+                    let result = statement.evaluate(&_context, false);
 
                     if result.is_err() {
                         return Some(result);

@@ -46,13 +46,13 @@ impl Assignment {
 impl AbstractNode for Assignment {
     fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
         let relevant_statement = self.statement.last_evaluated_statement();
-        let statement_type = relevant_statement.expected_type(context)?;
-
-        if let Type::Void = &statement_type {
+        let statement_type = if let Some(r#type) = relevant_statement.expected_type(context)? {
+            r#type
+        } else {
             return Err(ValidationError::CannotAssignToNone(
                 self.statement.position(),
             ));
-        }
+        };
 
         if let Some(constructor) = &self.constructor {
             let r#type = constructor.clone().construct(&context)?;
@@ -83,13 +83,13 @@ impl AbstractNode for Assignment {
         }
 
         let relevant_statement = self.statement.last_evaluated_statement();
-        let statement_type = relevant_statement.expected_type(context)?;
-
-        if let Type::Void = &statement_type {
+        let statement_type = if let Some(r#type) = relevant_statement.expected_type(context)? {
+            r#type
+        } else {
             return Err(ValidationError::CannotAssignToNone(
                 self.statement.position(),
             ));
-        }
+        };
 
         if let Some(constructor) = &self.constructor {
             let r#type = constructor.clone().construct(&context)?;
@@ -138,11 +138,11 @@ impl AbstractNode for Assignment {
             let declared_type = constructor.clone().construct(context)?;
             let function_type = function_call.node.function().expected_type(context)?;
 
-            if let Type::Function {
+            if let Some(Type::Function {
                 return_type,
                 type_parameters: Some(type_parameters),
                 ..
-            } = function_type
+            }) = function_type
             {
                 if let Type::Generic { identifier, .. } = *return_type {
                     let returned_parameter = type_parameters
@@ -157,7 +157,7 @@ impl AbstractNode for Assignment {
                 }
             } else {
                 return Err(ValidationError::ExpectedFunction {
-                    actual: function_type,
+                    actual: function_type.unwrap(),
                     position: function_call.position,
                 });
             }
@@ -171,7 +171,7 @@ impl AbstractNode for Assignment {
         context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        let evaluation = self.statement.run(context, manage_memory)?;
+        let evaluation = self.statement.evaluate(context, manage_memory)?;
         let right = match evaluation {
             Some(Evaluation::Return(value)) => value,
             evaluation => return Ok(evaluation),
@@ -273,10 +273,10 @@ impl AbstractNode for Assignment {
             }
         }
 
-        Ok(Some(Evaluation::Void))
+        Ok(None)
     }
 
-    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
     }
 }

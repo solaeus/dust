@@ -35,16 +35,16 @@ impl IfElse {
 impl AbstractNode for IfElse {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
         self.if_expression.define_types(_context)?;
-        self.if_block.define_type(_context)?;
+        self.if_block.node.define_types(_context)?;
 
-        if let Some(else_ifs) = self.else_ifs {
+        if let Some(else_ifs) = &self.else_ifs {
             for (expression, block) in else_ifs {
                 expression.define_types(_context)?;
                 block.node.define_types(_context)?;
             }
         }
 
-        if let Some(else_block) = self.else_block {
+        if let Some(else_block) = &self.else_block {
             else_block.node.define_types(_context)?;
         }
 
@@ -55,22 +55,36 @@ impl AbstractNode for IfElse {
         self.if_expression.validate(context, manage_memory)?;
         self.if_block.node.validate(context, manage_memory)?;
 
-        let expected_type = self.if_block.node.expected_type(context)?;
-        let if_expression_type = self.if_expression.expected_type(context)?;
+        let if_expression_type = if let Some(r#type) = self.if_expression.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.if_expression.position(),
+            ));
+        };
+        let expected_type = if let Some(r#type) = self.if_block.node.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(self.if_block.position));
+        };
 
         if let Type::Boolean = if_expression_type {
             if let Some(else_block) = &self.else_block {
                 else_block.node.validate(context, manage_memory)?;
 
-                let actual = else_block.node.expected_type(context)?;
+                let actual_type = if let Some(r#type) = else_block.node.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(else_block.position));
+                };
 
-                expected_type
-                    .check(&actual)
-                    .map_err(|conflict| ValidationError::TypeCheck {
+                expected_type.check(&actual_type).map_err(|conflict| {
+                    ValidationError::TypeCheck {
                         conflict,
                         actual_position: else_block.node.last_statement().position(),
                         expected_position: Some(self.if_block.node.first_statement().position()),
-                    })?;
+                    }
+                })?;
             }
         } else {
             return Err(ValidationError::ExpectedBoolean {
@@ -83,12 +97,16 @@ impl AbstractNode for IfElse {
             for (expression, block) in else_ifs {
                 let expression_type = expression.expected_type(context)?;
 
-                if let Type::Boolean = expression_type {
+                if let Some(Type::Boolean) = expression_type {
                     block.node.validate(context, manage_memory)?;
 
-                    let actual = block.node.expected_type(context)?;
+                    let actual_type = if let Some(r#type) = block.node.expected_type(context)? {
+                        r#type
+                    } else {
+                        return Err(ValidationError::ExpectedExpression(block.position));
+                    };
 
-                    expected_type.check(&actual).map_err(|conflict| {
+                    expected_type.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: self.if_block.node.last_statement().position(),
@@ -113,35 +131,35 @@ impl AbstractNode for IfElse {
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let if_position = self.if_expression.position();
-        let action = self.if_expression.evaluate(context, _manage_memory)?;
-        let value = if let Evaluation::Return(value) = action {
+        let evaluation = self.if_expression.evaluate(context, _manage_memory)?;
+        let value = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(if_position),
+                ValidationError::ExpectedExpression(if_position),
             ));
         };
 
         if let ValueInner::Boolean(if_boolean) = value.inner().as_ref() {
             if *if_boolean {
-                return self.if_block.node.run(context, _manage_memory);
+                return self.if_block.node.evaluate(context, _manage_memory);
             }
 
             if let Some(else_ifs) = self.else_ifs {
                 for (expression, block) in else_ifs {
                     let expression_position = expression.position();
-                    let action = expression.evaluate(context, _manage_memory)?;
-                    let value = if let Evaluation::Return(value) = action {
+                    let evaluation = expression.evaluate(context, _manage_memory)?;
+                    let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::InterpreterExpectedReturn(expression_position),
+                            ValidationError::ExpectedExpression(expression_position),
                         ));
                     };
 
                     if let ValueInner::Boolean(else_if_boolean) = value.inner().as_ref() {
                         if *else_if_boolean {
-                            return block.node.run(context, _manage_memory);
+                            return block.node.evaluate(context, _manage_memory);
                         }
                     } else {
                         return Err(RuntimeError::ValidationFailure(
@@ -155,7 +173,7 @@ impl AbstractNode for IfElse {
             }
 
             if let Some(else_statement) = self.else_block {
-                else_statement.node.run(context, _manage_memory)
+                else_statement.node.evaluate(context, _manage_memory)
             } else {
                 Ok(None)
             }
@@ -195,7 +213,7 @@ mod tests {
                 Some(Vec::with_capacity(0)),
                 None
             )
-            .run(&mut Context::new(None), true)
+            .evaluate(&Context::new(None), true)
             .unwrap(),
             Some(Evaluation::Return(Value::string("foo".to_string())))
         )

@@ -63,7 +63,7 @@ impl AbstractNode for EnumDeclaration {
                 None
             };
 
-            type_variants.push((name.node, types));
+            type_variants.push((name.node.clone(), types));
         }
 
         let r#type = Type::Enum {
@@ -72,31 +72,20 @@ impl AbstractNode for EnumDeclaration {
             variants: type_variants,
         };
 
-        context.set_type(name.node, r#type)?;
+        context.set_type(name.node.clone(), r#type)?;
 
         Ok(())
     }
 
-    fn validate(
-        &self,
-        context: &Context,
-        manage_memory: bool,
-    ) -> Result<(), crate::error::ValidationError> {
+    fn validate(&self, _: &Context, _: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 
-    fn evaluate(
-        self,
-        context: &Context,
-        _manage_memory: bool,
-    ) -> Result<Option<Evaluation>, RuntimeError> {
+    fn evaluate(self, _: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
         Ok(None)
     }
 
-    fn expected_type(
-        &self,
-        context: &Context,
-    ) -> Result<Option<Type>, crate::error::ValidationError> {
+    fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
     }
 }

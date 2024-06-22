@@ -119,7 +119,7 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    pub fn set_value(&mut self, identifier: Identifier, value: Value) -> Result<(), PoisonError> {
+    pub fn set_value(&self, identifier: Identifier, value: Value) -> Result<(), PoisonError> {
         log::debug!("Setting {identifier} to value {value}.");
 
         let mut variables = self.variables.write()?;
@@ -136,7 +136,7 @@ impl<'a> Context<'a> {
         Ok(())
     }
 
-    pub fn clean(&mut self) -> Result<(), PoisonError> {
+    pub fn clean(&self) -> Result<(), PoisonError> {
         if *self.is_clean.read()? {
             return Ok(());
         }

@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Block, Evaluation, Expression, Type, TypeConstructor, Validate, WithPosition,
+    AbstractNode, Block, Evaluation, Expression, Type, TypeConstructor, WithPos, WithPosition,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -39,8 +39,46 @@ pub enum ValueNode {
     },
 }
 
-impl Validate for ValueNode {
-    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for ValueNode {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        match self {
+            ValueNode::EnumInstance { content, .. } => {
+                if let Some(expressions) = content {
+                    for expression in expressions {
+                        expression.define_types(_context)?;
+                    }
+                }
+            }
+            ValueNode::List(expressions) => {
+                for expression in expressions {
+                    expression.define_types(_context)?;
+                }
+            }
+            ValueNode::Map(fields) => {
+                for (_, _, expression) in fields {
+                    expression.define_types(_context)?;
+                }
+            }
+            ValueNode::Structure { fields, .. } => {
+                for (_, expression) in fields {
+                    expression.define_types(_context)?;
+                }
+            }
+            ValueNode::Function {
+                type_parameters,
+                value_parameters,
+                return_type,
+                body,
+            } => {
+                body.node.define_types(_context)?;
+            }
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         if let ValueNode::EnumInstance {
             type_name, variant, ..
         } = self
@@ -69,7 +107,11 @@ impl Validate for ValueNode {
                 expression.validate(context, _manage_memory)?;
 
                 if let Some(constructor) = constructor_option {
-                    let actual_type = expression.expected_type(context)?;
+                    let actual_type = if let Some(r#type) = expression.expected_type(context)? {
+                        r#type
+                    } else {
+                        return Err(ValidationError::ExpectedExpression(expression.position()));
+                    };
                     let exprected_type = constructor.clone().construct(&context)?;
 
                     exprected_type.check(&actual_type).map_err(|conflict| {
@@ -114,7 +156,11 @@ impl Validate for ValueNode {
 
             body.node.validate(&mut function_context, _manage_memory)?;
 
-            let actual_return_type = body.node.expected_type(&mut function_context)?;
+            let actual_return_type = if let Some(r#type) = body.node.expected_type(context)? {
+                r#type
+            } else {
+                return Err(ValidationError::ExpectedExpression(body.position));
+            };
 
             return_type
                 .clone()
@@ -147,7 +193,11 @@ impl Validate for ValueNode {
             }) = context.get_type(&name.node)?
             {
                 for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
-                    let actual_type = expression.expected_type(context)?;
+                    let actual_type = if let Some(r#type) = expression.expected_type(context)? {
+                        r#type
+                    } else {
+                        return Err(ValidationError::ExpectedExpression(expression.position()));
+                    };
 
                     expected_type.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
@@ -162,12 +212,10 @@ impl Validate for ValueNode {
 
         Ok(())
     }
-}
 
-impl AbstractNode for ValueNode {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let value = match self {
@@ -184,11 +232,11 @@ impl AbstractNode for ValueNode {
                         let position = expression.position();
                         let evaluation = expression.evaluate(context, _manage_memory)?;
 
-                        if let Evaluation::Return(value) = evaluation {
+                        if let Some(Evaluation::Return(value)) = evaluation {
                             values.push(value);
                         } else {
                             return Err(RuntimeError::ValidationFailure(
-                                ValidationError::InterpreterExpectedReturn(position),
+                                ValidationError::ExpectedExpression(position),
                             ));
                         }
                     }
@@ -205,13 +253,13 @@ impl AbstractNode for ValueNode {
                 let mut value_list = Vec::with_capacity(expression_list.len());
 
                 for expression in expression_list {
-                    let expression_position = expression.position();
+                    let position = expression.position();
                     let evaluation = expression.evaluate(context, _manage_memory)?;
-                    let value = if let Evaluation::Return(value) = evaluation {
+                    let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::InterpreterExpectedReturn(expression_position),
+                            ValidationError::ExpectedExpression(position),
                         ));
                     };
 
@@ -224,13 +272,13 @@ impl AbstractNode for ValueNode {
                 let mut property_map = BTreeMap::new();
 
                 for (identifier, _type, expression) in property_list {
-                    let expression_position = expression.position();
-                    let action = expression.evaluate(context, _manage_memory)?;
-                    let value = if let Evaluation::Return(value) = action {
+                    let position = expression.position();
+                    let evaluation = expression.evaluate(context, _manage_memory)?;
+                    let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::InterpreterExpectedReturn(expression_position),
+                            ValidationError::ExpectedExpression(position),
                         ));
                     };
 
@@ -279,13 +327,13 @@ impl AbstractNode for ValueNode {
                 let mut fields = Vec::with_capacity(expressions.len());
 
                 for (identifier, expression) in expressions {
-                    let expression_position = expression.position();
-                    let action = expression.evaluate(context, _manage_memory)?;
-                    let value = if let Evaluation::Return(value) = action {
+                    let position = expression.position();
+                    let evaluation = expression.evaluate(context, _manage_memory)?;
+                    let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::InterpreterExpectedReturn(expression_position),
+                            ValidationError::ExpectedExpression(position),
                         ));
                     };
 
@@ -299,7 +347,7 @@ impl AbstractNode for ValueNode {
         Ok(Some(Evaluation::Return(value)))
     }
 
-    fn expected_type(&self, context: &mut Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
         let r#type = match self {
             ValueNode::Boolean(_) => Type::Boolean,
             ValueNode::EnumInstance { type_name, .. } => {
@@ -314,11 +362,16 @@ impl AbstractNode for ValueNode {
             }
             ValueNode::Float(_) => Type::Float,
             ValueNode::Integer(_) => Type::Integer,
-            ValueNode::List(items) => {
-                let item_type = items.first().unwrap().expected_type(context)?;
+            ValueNode::List(expressions) => {
+                let first_item = expressions.first().unwrap();
+                let item_type = if let Some(r#type) = first_item.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(first_item.position()));
+                };
 
                 Type::List {
-                    length: items.len(),
+                    length: expressions.len(),
                     item_type: Box::new(item_type),
                 }
             }
@@ -360,14 +413,15 @@ impl AbstractNode for ValueNode {
                 let mut types = Vec::with_capacity(expressions.len());
 
                 for (identifier, expression) in expressions {
-                    let r#type = expression.expected_type(context)?;
+                    let r#type = if let Some(r#type) = expression.expected_type(context)? {
+                        r#type
+                    } else {
+                        return Err(ValidationError::ExpectedExpression(expression.position()));
+                    };
 
                     types.push((
                         identifier.clone(),
-                        WithPosition {
-                            node: r#type,
-                            position: expression.position(),
-                        },
+                        r#type.with_position(expression.position()),
                     ));
                 }
 

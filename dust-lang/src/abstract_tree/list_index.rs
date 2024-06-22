@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, Validate, ValueNode, WithPosition};
+use super::{AbstractNode, Evaluation, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListIndex {
@@ -22,8 +22,13 @@ impl ListIndex {
     }
 }
 
-impl Validate for ListIndex {
-    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for ListIndex {
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        self.collection.define_types(context)?;
+        self.index.define_types(context)
+    }
+
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         self.collection.validate(context, _manage_memory)?;
         self.index.validate(context, _manage_memory)?;
 
@@ -57,12 +62,10 @@ impl Validate for ListIndex {
             }),
         }
     }
-}
 
-impl AbstractNode for ListIndex {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         _clear_variables: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let left_position = self.collection.position();
@@ -71,7 +74,7 @@ impl AbstractNode for ListIndex {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(left_position),
+                ValidationError::ExpectedExpression(left_position),
             ));
         };
         let right_position = self.index.position();
@@ -80,7 +83,7 @@ impl AbstractNode for ListIndex {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(right_position),
+                ValidationError::ExpectedExpression(right_position),
             ));
         };
 
@@ -104,7 +107,7 @@ impl AbstractNode for ListIndex {
         }
     }
 
-    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         let left_type = self.collection.expected_type(_context)?;
 
         if let (

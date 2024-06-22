@@ -6,9 +6,8 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Assignment, AsyncBlock, Block, DefineTypes, EnumDeclaration, Evaluation,
-    Expression, IfElse, Loop, SourcePosition, StructureDefinition, Type, TypeAlias, Validate,
-    While, WithPosition,
+    AbstractNode, Assignment, AsyncBlock, Block, EnumDeclaration, Evaluation, Expression, IfElse,
+    Loop, SourcePosition, StructureDefinition, Type, TypeAlias, While, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -52,7 +51,7 @@ impl Statement {
     }
 }
 
-impl DefineTypes for Statement {
+impl AbstractNode for Statement {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
         match self {
             Statement::Expression(expression) => expression.define_types(_context),
@@ -72,12 +71,26 @@ impl DefineTypes for Statement {
             Statement::While(r#while) => r#while.node.define_types(_context),
         }
     }
-}
 
-impl AbstractNode for Statement {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        match self {
+            Statement::Assignment(assignment) => assignment.node.validate(_context, _manage_memory),
+            Statement::AsyncBlock(async_block) => {
+                async_block.node.validate(_context, _manage_memory)
+            }
+            Statement::Block(block) => block.node.validate(_context, _manage_memory),
+            Statement::Break(_) => Ok(()),
+            Statement::Expression(expression) => expression.validate(_context, _manage_memory),
+            Statement::IfElse(if_else) => if_else.node.validate(_context, _manage_memory),
+            Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
+            Statement::While(r#while) => r#while.node.validate(_context, _manage_memory),
+            _ => Ok(()),
+        }
+    }
+
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let result = match self {
@@ -105,7 +118,7 @@ impl AbstractNode for Statement {
         result
     }
 
-    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         match self {
             Statement::Expression(expression) => expression.expected_type(_context),
             Statement::IfElse(if_else) => if_else.node.expected_type(_context),
@@ -122,28 +135,6 @@ impl AbstractNode for Statement {
                 enum_declaration.node.expected_type(_context)
             }
             Statement::While(r#while) => r#while.node.expected_type(_context),
-        }
-    }
-}
-
-impl Validate for Statement {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
-        match self {
-            Statement::Assignment(assignment) => assignment.node.validate(_context, _manage_memory),
-            Statement::AsyncBlock(async_block) => {
-                async_block.node.validate(_context, _manage_memory)
-            }
-            Statement::Block(block) => block.node.validate(_context, _manage_memory),
-            Statement::Break(_) => Ok(()),
-            Statement::Expression(expression) => expression.validate(_context, _manage_memory),
-            Statement::IfElse(if_else) => if_else.node.validate(_context, _manage_memory),
-            Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
-            Statement::While(r#while) => r#while.node.validate(_context, _manage_memory),
-            _ => Ok(()),
         }
     }
 }

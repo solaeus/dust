@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, Validate};
+use super::{AbstractNode, Evaluation, Expression, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Logic {
@@ -22,8 +22,46 @@ pub enum Logic {
     Not(Expression),
 }
 
-impl Validate for Logic {
-    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for Logic {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        match self {
+            Logic::Equal(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::NotEqual(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::Greater(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::Less(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::GreaterOrEqual(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::LessOrEqual(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::And(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::Or(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Logic::Not(expression) => expression.define_types(_context),
+        }
+    }
+
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Logic::Equal(left, right)
             | Logic::NotEqual(left, right)
@@ -88,12 +126,10 @@ impl Validate for Logic {
             }
         }
     }
-}
 
-impl AbstractNode for Logic {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
@@ -103,7 +139,7 @@ impl AbstractNode for Logic {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
-                    ValidationError::InterpreterExpectedReturn(expression_position),
+                    ValidationError::ExpectedExpression(expression_position),
                 ));
             };
 
@@ -117,7 +153,7 @@ impl AbstractNode for Logic {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
-                    ValidationError::InterpreterExpectedReturn(expression_position),
+                    ValidationError::ExpectedExpression(expression_position),
                 ));
             };
 
@@ -196,7 +232,7 @@ impl AbstractNode for Logic {
         Ok(Some(Evaluation::Return(Value::boolean(boolean))))
     }
 
-    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(Some(Type::Boolean))
     }
 }

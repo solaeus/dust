@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Statement, Type, Validate};
+use super::{AbstractNode, Evaluation, Expression, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct While {
@@ -24,12 +24,18 @@ impl While {
     }
 }
 
-impl Validate for While {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
+impl AbstractNode for While {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        self.expression.define_types(_context)?;
+
+        for statement in &self.statements {
+            statement.define_types(_context)?;
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         self.expression.validate(_context, false)?;
 
         for statement in &self.statements {
@@ -38,12 +44,10 @@ impl Validate for While {
 
         Ok(())
     }
-}
 
-impl AbstractNode for While {
     fn evaluate(
         self,
-        _context: &mut Context,
+        _context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
@@ -57,7 +61,7 @@ impl AbstractNode for While {
                 Ok(value)
             } else {
                 Err(RuntimeError::ValidationFailure(
-                    ValidationError::InterpreterExpectedReturn(expression_position),
+                    ValidationError::ExpectedExpression(expression_position),
                 ))
             }
         };
@@ -75,7 +79,7 @@ impl AbstractNode for While {
         Ok(None)
     }
 
-    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.statements.last().unwrap().expected_type(_context)
     }
 }

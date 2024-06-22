@@ -6,7 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, Validate, ValueNode, WithPosition};
+use super::{AbstractNode, Evaluation, Expression, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MapIndex {
@@ -23,20 +23,19 @@ impl MapIndex {
     }
 }
 
-impl Validate for MapIndex {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
+impl AbstractNode for MapIndex {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        self.collection.define_types(_context)?;
+        self.index.define_types(_context)
+    }
+
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         self.collection.validate(_context, _manage_memory)
     }
-}
 
-impl AbstractNode for MapIndex {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let collection_position = self.collection.position();
@@ -45,7 +44,7 @@ impl AbstractNode for MapIndex {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::InterpreterExpectedReturn(collection_position),
+                ValidationError::ExpectedExpression(collection_position),
             ));
         };
 
@@ -67,7 +66,7 @@ impl AbstractNode for MapIndex {
         }
     }
 
-    fn expected_type(&self, context: &mut Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
         if let (Expression::Identifier(collection), Expression::Identifier(index)) =
             (&self.collection, &self.index)
         {

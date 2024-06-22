@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type, Validate};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Math {
@@ -18,8 +18,33 @@ pub enum Math {
     Modulo(Expression, Expression),
 }
 
-impl Validate for Math {
-    fn validate(&self, context: &mut Context, _manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for Math {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        match self {
+            Math::Add(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Math::Subtract(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Math::Multiply(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Math::Divide(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+            Math::Modulo(left, right) => {
+                left.define_types(_context)?;
+                right.define_types(_context)
+            }
+        }
+    }
+
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
                 let left_position = left.position();
@@ -66,12 +91,10 @@ impl Validate for Math {
             }
         }
     }
-}
 
-impl AbstractNode for Math {
     fn evaluate(
         self,
-        _context: &mut Context,
+        _context: &Context,
         _clear_variables: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value =
@@ -81,7 +104,7 @@ impl AbstractNode for Math {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::InterpreterExpectedReturn(position),
+                        ValidationError::ExpectedExpression(position),
                     ));
                 };
 
@@ -296,7 +319,7 @@ impl AbstractNode for Math {
         Ok(Some(Evaluation::Return(value)))
     }
 
-    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         match self {
             Math::Add(left, right)
             | Math::Subtract(left, right)

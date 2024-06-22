@@ -46,7 +46,7 @@ impl AbstractNode for Expression {
             Expression::As(inner) => inner.node.define_types(_context),
             Expression::BuiltInFunctionCall(inner) => inner.node.define_types(_context),
             Expression::FunctionCall(inner) => inner.node.define_types(_context),
-            Expression::Identifier(inner) => inner.node.define_types(_context),
+            Expression::Identifier(_) => Ok(()),
             Expression::MapIndex(inner) => inner.node.define_types(_context),
             Expression::ListIndex(inner) => inner.node.define_types(_context),
             Expression::Logic(inner) => inner.node.define_types(_context),
@@ -132,7 +132,7 @@ impl AbstractNode for Expression {
             Expression::As(r#as) => r#as.node.expected_type(_context),
             Expression::FunctionCall(function_call) => function_call.node.expected_type(_context),
             Expression::Identifier(identifier) => {
-                let get_type = _context.get_type(identifier)?;
+                let get_type = _context.get_type(&identifier.node)?;
 
                 if get_type.is_none() {
                     Err(ValidationError::VariableNotFound {

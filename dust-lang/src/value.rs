@@ -14,7 +14,7 @@ use serde::{
 };
 
 use crate::{
-    abstract_tree::{Block, Evaluation, Type, WithPosition},
+    abstract_tree::{AbstractNode, Block, Evaluation, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
@@ -725,8 +725,8 @@ impl Function {
         self,
         value_arguments: Vec<Value>,
         context: &mut Context,
-        clear_variables: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+        manage_memory: bool,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         for ((identifier, _), value) in self
             .value_parameters
             .into_iter()
@@ -735,12 +735,6 @@ impl Function {
             context.set_value(identifier.clone(), value)?;
         }
 
-        self.body.run(context, clear_variables).map(|eval_option| {
-            if let Some(evaluation) = eval_option {
-                evaluation
-            } else {
-                Evaluation::Void
-            }
-        })
+        self.body.evaluate(context, manage_memory)
     }
 }
