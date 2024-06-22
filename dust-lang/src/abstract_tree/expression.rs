@@ -14,7 +14,7 @@ use super::{
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
     As(WithPosition<Box<As>>),
-    BuiltInFunctionCall(WithPosition<Box<BuiltInFunctionCall>>),
+    BuiltIn(WithPosition<BuiltInFunctionCall>),
     FunctionCall(WithPosition<FunctionCall>),
     Identifier(WithPosition<Identifier>),
     MapIndex(WithPosition<Box<MapIndex>>),
@@ -35,7 +35,7 @@ impl Expression {
             Expression::Logic(inner) => inner.position,
             Expression::Math(inner) => inner.position,
             Expression::Value(inner) => inner.position,
-            Expression::BuiltInFunctionCall(inner) => inner.position,
+            Expression::BuiltIn(inner) => inner.position,
         }
     }
 }
@@ -44,7 +44,7 @@ impl AbstractNode for Expression {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
         match self {
             Expression::As(inner) => inner.node.define_types(_context),
-            Expression::BuiltInFunctionCall(inner) => inner.node.define_types(_context),
+            Expression::BuiltIn(inner) => inner.node.define_types(_context),
             Expression::FunctionCall(inner) => inner.node.define_types(_context),
             Expression::Identifier(_) => Ok(()),
             Expression::MapIndex(inner) => inner.node.define_types(_context),
@@ -58,7 +58,7 @@ impl AbstractNode for Expression {
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Expression::As(r#as) => r#as.node.validate(context, manage_memory),
-            Expression::BuiltInFunctionCall(built_in_function_call) => {
+            Expression::BuiltIn(built_in_function_call) => {
                 built_in_function_call.node.validate(context, manage_memory)
             }
             Expression::FunctionCall(function_call) => {
@@ -117,7 +117,7 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.evaluate(context, manage_memory),
             Expression::Math(math) => math.node.evaluate(context, manage_memory),
             Expression::Value(value_node) => value_node.node.evaluate(context, manage_memory),
-            Expression::BuiltInFunctionCall(built_in_function_call) => {
+            Expression::BuiltIn(built_in_function_call) => {
                 built_in_function_call.node.evaluate(context, manage_memory)
             }
         }
@@ -144,7 +144,7 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.expected_type(_context),
             Expression::Math(math) => math.node.expected_type(_context),
             Expression::Value(value_node) => value_node.node.expected_type(_context),
-            Expression::BuiltInFunctionCall(built_in_function_call) => {
+            Expression::BuiltIn(built_in_function_call) => {
                 built_in_function_call.node.expected_type(_context)
             }
         }

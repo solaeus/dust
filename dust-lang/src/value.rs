@@ -787,18 +787,39 @@ impl Eq for Function {}
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        self.type_parameters == other.type_parameters
+            && self.value_parameters == other.value_parameters
+            && self.return_type == other.return_type
+            && self.body == other.body
     }
 }
 
 impl PartialOrd for Function {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        todo!()
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Function {
     fn cmp(&self, other: &Self) -> Ordering {
-        todo!()
+        let type_params_cmp = self.type_parameters.cmp(&other.type_parameters);
+
+        if type_params_cmp.is_eq() {
+            let value_params_cmp = self.value_parameters.cmp(&other.value_parameters);
+
+            if value_params_cmp.is_eq() {
+                let return_cmp = self.return_type.cmp(&other.return_type);
+
+                if return_cmp.is_eq() {
+                    self.body.cmp(&other.body)
+                } else {
+                    return_cmp
+                }
+            } else {
+                value_params_cmp
+            }
+        } else {
+            type_params_cmp
+        }
     }
 }

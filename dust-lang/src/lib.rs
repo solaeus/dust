@@ -470,6 +470,8 @@ impl InterpreterError {
                         }
                     }
                     ValidationError::EnumVariantNotFound { .. } => todo!(),
+                    ValidationError::ExpectedList { .. } => todo!(),
+                    ValidationError::BuiltInFunctionFailure(_) => todo!(),
                 }
             }
 
