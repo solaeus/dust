@@ -5,9 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{
-    Evaluate, Evaluation, ExpectedType, Expression, Type, Validate, ValueNode, WithPosition,
-};
+use super::{AbstractNode, Evaluation, Expression, Type, Validate, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListIndex {
@@ -32,12 +30,16 @@ impl Validate for ListIndex {
         let collection_type = self.collection.expected_type(context)?;
         let index_type = self.index.expected_type(context)?;
 
+        if index_type.is_none() {
+            return Err(ValidationError::CannotIndexWithVoid(self.index.position()));
+        }
+
         match collection_type {
             Type::List {
                 length: _,
                 item_type: _,
             } => {
-                if index_type == Type::Integer {
+                if index_type == Some(Type::Integer) {
                     Ok(())
                 } else {
                     Err(ValidationError::CannotIndexWith {
@@ -57,12 +59,12 @@ impl Validate for ListIndex {
     }
 }
 
-impl Evaluate for ListIndex {
+impl AbstractNode for ListIndex {
     fn evaluate(
         self,
         context: &mut Context,
         _clear_variables: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let left_position = self.collection.position();
         let left_action = self.collection.evaluate(context, _clear_variables)?;
         let left_value = if let Evaluation::Return(value) = left_action {
@@ -86,7 +88,7 @@ impl Evaluate for ListIndex {
             let found_item = list.get(index as usize);
 
             if let Some(item) = found_item {
-                Ok(Evaluation::Return(item.clone()))
+                Ok(Some(Evaluation::Return(item.clone())))
             } else {
                 Ok(Evaluation::Void)
             }
@@ -101,10 +103,8 @@ impl Evaluate for ListIndex {
             ))
         }
     }
-}
 
-impl ExpectedType for ListIndex {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
         let left_type = self.collection.expected_type(_context)?;
 
         if let (

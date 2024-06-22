@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{context::Context, error::RuntimeError, identifier::Identifier};
 
-use super::{Evaluation, Run, Type, TypeConstructor};
+use super::{AbstractNode, Evaluation, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructureDefinition {
@@ -16,8 +16,8 @@ impl StructureDefinition {
     }
 }
 
-impl Run for StructureDefinition {
-    fn run(
+impl AbstractNode for StructureDefinition {
+    fn evaluate(
         self,
         context: &mut Context,
         _manage_memory: bool,
@@ -37,6 +37,13 @@ impl Run for StructureDefinition {
 
         context.set_type(self.name, struct_type)?;
 
+        Ok(None)
+    }
+
+    fn expected_type(
+        &self,
+        context: &mut Context,
+    ) -> Result<Option<Type>, crate::error::ValidationError> {
         Ok(None)
     }
 }

@@ -9,7 +9,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate};
+use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct As {
@@ -26,35 +26,33 @@ impl As {
     }
 }
 
-impl Validate for As {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
+impl AbstractNode for As {
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        Ok(())
+    }
+
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self.constructor {
             TypeConstructor::Raw(_) => {}
             _ => todo!("Create an error for this occurence."),
         };
 
         match self.expression.expected_type(_context)? {
-            Type::Boolean | Type::Float | Type::Integer | Type::String => {}
+            Some(Type::Boolean) | Some(Type::Float) | Some(Type::Integer) | Some(Type::String) => {}
             _ => todo!("Create an error for this occurence."),
         };
 
         Ok(())
     }
-}
 
-impl Evaluate for As {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let expression_position = self.expression.position();
-        let action = self.expression.evaluate(context, _manage_memory)?;
-        let value = if let Evaluation::Return(value) = action {
+        let evaluation = self.expression.evaluate(context, _manage_memory)?;
+        let value = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -70,12 +68,12 @@ impl Evaluate for As {
             _ => todo!("Create an error for this occurence."),
         };
 
-        Ok(Evaluation::Return(converted))
+        Ok(Some(Evaluation::Return(converted)))
     }
-}
 
-impl ExpectedType for As {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
-        self.constructor.clone().construct(&context)
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
+        self.constructor
+            .construct(&context)
+            .map(|r#type| Some(r#type))
     }
 }

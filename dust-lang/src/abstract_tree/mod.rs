@@ -94,7 +94,6 @@ pub enum Evaluation {
     Break,
     Continue,
     Return(Value),
-    Void,
 }
 
 #[derive(Debug, Clone)]
@@ -116,10 +115,37 @@ impl AbstractTree {
         context: &mut Context,
         manage_memory: bool,
     ) -> Result<Option<Value>, Vec<DustError>> {
-        let valid_statements = self.validate(context, manage_memory)?;
+        let mut errors = Vec::new();
+
+        for statement in &self.0 {
+            let define_result = statement.define_types(context);
+
+            if let Err(error) = define_result {
+                errors.push(DustError::Validation {
+                    error,
+                    position: statement.position(),
+                });
+
+                continue;
+            }
+
+            let validation_result = statement.validate(context, manage_memory);
+
+            if let Err(error) = validation_result {
+                errors.push(DustError::Validation {
+                    error,
+                    position: statement.position(),
+                });
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+
         let mut previous_value = None;
 
-        for statement in valid_statements {
+        for statement in self.0 {
             let position = statement.position();
             let run = statement.run(context, manage_memory);
 
@@ -140,50 +166,6 @@ impl AbstractTree {
 
         Ok(previous_value)
     }
-
-    fn validate(
-        self,
-        context: &mut Context,
-        manage_memory: bool,
-    ) -> Result<Vec<Statement>, Vec<DustError>> {
-        let mut errors = Vec::new();
-        let mut valid_statements = Vec::new();
-
-        for statement in self.0 {
-            let validation = statement.validate(context, manage_memory);
-
-            if let Err(validation_error) = validation {
-                errors.push(DustError::Validation {
-                    error: validation_error,
-                    position: statement.position(),
-                })
-            } else if errors.is_empty() {
-                if let Statement::StructureDefinition(_) = statement {
-                    let position = statement.position();
-                    let run = statement.run(context, true);
-
-                    if let Err(runtime_error) = run {
-                        errors.push(DustError::Runtime {
-                            error: runtime_error,
-                            position,
-                        });
-
-                        return Err(errors);
-                    }
-                } else {
-                    valid_statements.push(statement)
-                }
-            } else {
-                continue;
-            }
-        }
-
-        if errors.is_empty() {
-            Ok(valid_statements)
-        } else {
-            Err(errors)
-        }
-    }
 }
 
 impl Index<usize> for AbstractTree {
@@ -194,26 +176,16 @@ impl Index<usize> for AbstractTree {
     }
 }
 
-pub trait Validate {
-    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError>;
-}
+pub trait AbstractNode {
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError>;
 
-pub trait Evaluate: ExpectedType {
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError>;
+
     fn evaluate(
         self,
-        context: &mut Context,
-        manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError>;
-}
-
-pub trait Run {
-    fn run(
-        self,
-        context: &mut Context,
+        context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError>;
-}
 
-pub trait ExpectedType {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError>;
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError>;
 }

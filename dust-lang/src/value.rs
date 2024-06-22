@@ -14,7 +14,7 @@ use serde::{
 };
 
 use crate::{
-    abstract_tree::{Block, Evaluation, Run, Type, WithPosition},
+    abstract_tree::{Block, Evaluation, Type, WithPosition},
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,

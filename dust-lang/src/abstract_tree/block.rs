@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{Evaluation, ExpectedType, Run, Statement, Type, Validate};
+use super::{AbstractNode, Evaluation, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Block {
@@ -26,24 +26,26 @@ impl Block {
     }
 }
 
-impl Validate for Block {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
+impl AbstractNode for Block {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        for statement in &self.statements {
+            statement.define_types(_context)?;
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
             statement.validate(_context, _manage_memory)?;
         }
 
         Ok(())
     }
-}
 
-impl Run for Block {
-    fn run(
+    fn evaluate(
         self,
-        _context: &mut Context,
+        _context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let mut previous = None;
@@ -54,10 +56,8 @@ impl Run for Block {
 
         Ok(previous)
     }
-}
 
-impl ExpectedType for Block {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.last_statement().expected_type(_context)
     }
 }

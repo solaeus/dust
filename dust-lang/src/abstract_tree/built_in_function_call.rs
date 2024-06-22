@@ -14,7 +14,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate};
+use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunctionCall {
@@ -25,13 +25,12 @@ pub enum BuiltInFunctionCall {
     Sleep(Expression),
     WriteLine(Expression),
 }
+impl AbstractNode for BuiltInFunctionCall {
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        Ok(())
+    }
 
-impl Validate for BuiltInFunctionCall {
-    fn validate(
-        &self,
-        _context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<(), ValidationError> {
+    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             BuiltInFunctionCall::JsonParse(_, expression) => {
                 expression.validate(_context, _manage_memory)
@@ -49,14 +48,12 @@ impl Validate for BuiltInFunctionCall {
             }
         }
     }
-}
 
-impl Evaluate for BuiltInFunctionCall {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         match self {
             BuiltInFunctionCall::JsonParse(_type, expression) => {
                 let action = expression.clone().evaluate(context, _manage_memory)?;
@@ -71,7 +68,7 @@ impl Evaluate for BuiltInFunctionCall {
                 if let ValueInner::String(string) = value.inner().as_ref() {
                     let deserialized = serde_json::from_str(string)?;
 
-                    Ok(Evaluation::Return(deserialized))
+                    Ok(Some(Evaluation::Return(deserialized)))
                 } else {
                     Err(RuntimeError::ValidationFailure(
                         ValidationError::ExpectedString {
@@ -96,7 +93,7 @@ impl Evaluate for BuiltInFunctionCall {
                     0
                 };
 
-                Ok(Evaluation::Return(Value::integer(length)))
+                Ok(Some(Evaluation::Return(Value::integer(length))))
             }
             BuiltInFunctionCall::ReadFile(expression) => {
                 let action = expression.clone().evaluate(context, _manage_memory)?;
@@ -113,16 +110,16 @@ impl Evaluate for BuiltInFunctionCall {
                     String::with_capacity(0)
                 };
 
-                Ok(Evaluation::Return(Value::string(file_contents)))
+                Ok(Some(Evaluation::Return(Value::string(file_contents))))
             }
             BuiltInFunctionCall::ReadLine => {
                 let mut buffer = String::new();
 
                 stdin().read_line(&mut buffer)?;
 
-                Ok(Evaluation::Return(Value::string(
+                Ok(Some(Evaluation::Return(Value::string(
                     buffer.strip_suffix('\n').unwrap_or(&buffer),
-                )))
+                ))))
             }
             BuiltInFunctionCall::Sleep(expression) => {
                 let action = expression.clone().evaluate(context, _manage_memory)?;
@@ -162,17 +159,17 @@ impl Evaluate for BuiltInFunctionCall {
             }
         }
     }
-}
 
-impl ExpectedType for BuiltInFunctionCall {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
         match self {
-            BuiltInFunctionCall::JsonParse(r#type, _) => Ok(r#type.clone().construct(&context)?),
-            BuiltInFunctionCall::Length(_) => Ok(Type::Integer),
-            BuiltInFunctionCall::ReadFile(_) => Ok(Type::String),
-            BuiltInFunctionCall::ReadLine => Ok(Type::String),
-            BuiltInFunctionCall::Sleep(_) => Ok(Type::Void),
-            BuiltInFunctionCall::WriteLine(_) => Ok(Type::Void),
+            BuiltInFunctionCall::JsonParse(r#type, _) => {
+                Ok(Some(r#type.clone().construct(&context)?))
+            }
+            BuiltInFunctionCall::Length(_) => Ok(Some(Type::Integer)),
+            BuiltInFunctionCall::ReadFile(_) => Ok(Some(Type::String)),
+            BuiltInFunctionCall::ReadLine => Ok(Some(Type::String)),
+            BuiltInFunctionCall::Sleep(_) => Ok(None),
+            BuiltInFunctionCall::WriteLine(_) => Ok(None),
         }
     }
 }

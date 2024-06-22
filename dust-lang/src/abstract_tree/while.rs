@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, Expression, Run, Statement, Validate};
+use super::{AbstractNode, Evaluation, Expression, Statement, Type, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct While {
@@ -40,8 +40,8 @@ impl Validate for While {
     }
 }
 
-impl Run for While {
-    fn run(
+impl AbstractNode for While {
+    fn evaluate(
         self,
         _context: &mut Context,
         _manage_memory: bool,
@@ -73,5 +73,9 @@ impl Run for While {
         }
 
         Ok(None)
+    }
+
+    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+        self.statements.last().unwrap().expected_type(_context)
     }
 }

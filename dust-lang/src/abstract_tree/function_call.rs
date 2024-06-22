@@ -6,7 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate};
+use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionCall {
@@ -33,8 +33,20 @@ impl FunctionCall {
     }
 }
 
-impl Validate for FunctionCall {
-    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for FunctionCall {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        self.function.define_ypes(_context)?;
+
+        let mut previous = ();
+
+        for expression in &self.value_arguments {
+            previous = expression.define_types(_context)?;
+        }
+
+        Ok(previous)
+    }
+
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.function.validate(context, manage_memory)?;
 
         for expression in &self.value_arguments {
@@ -69,14 +81,12 @@ impl Validate for FunctionCall {
             })
         }
     }
-}
 
-impl Evaluate for FunctionCall {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         clear_variables: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let function_position = self.function.position();
         let action = self.function.evaluate(context, clear_variables)?;
         let value = if let Evaluation::Return(value) = action {
@@ -131,10 +141,8 @@ impl Evaluate for FunctionCall {
             .clone()
             .call(arguments, &mut function_context, clear_variables)
     }
-}
 
-impl ExpectedType for FunctionCall {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
         let function_node_type = self.function.expected_type(context)?;
 
         if let Type::Function {
@@ -157,10 +165,10 @@ impl ExpectedType for FunctionCall {
                         if identifier == &return_identifier {
                             let concrete_type = constructor.clone().construct(&context)?;
 
-                            return Ok(Type::Generic {
+                            return Ok(Some(Type::Generic {
                                 identifier: identifier.clone(),
                                 concrete_type: Some(Box::new(concrete_type)),
-                            });
+                            }));
                         }
                     }
                 }
@@ -173,16 +181,16 @@ impl ExpectedType for FunctionCall {
                         if identifier == return_identifier {
                             let concrete_type = expression.expected_type(context)?;
 
-                            return Ok(Type::Generic {
+                            return Ok(Some(Type::Generic {
                                 identifier,
                                 concrete_type: Some(Box::new(concrete_type)),
-                            });
+                            }));
                         }
                     }
                 }
             }
 
-            Ok(*return_type)
+            Ok(Some(*return_type))
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_node_type,

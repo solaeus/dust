@@ -9,8 +9,7 @@ use crate::{
 
 use super::{
     type_constructor::{RawTypeConstructor, TypeInvokationConstructor},
-    Evaluation, ExpectedType, Expression, Run, Statement, Type, TypeConstructor, Validate,
-    WithPosition,
+    AbstractNode, Evaluation, Expression, Statement, Type, TypeConstructor, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -44,8 +43,37 @@ impl Assignment {
     }
 }
 
-impl Validate for Assignment {
-    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for Assignment {
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        let relevant_statement = self.statement.last_evaluated_statement();
+        let statement_type = relevant_statement.expected_type(context)?;
+
+        if let Type::Void = &statement_type {
+            return Err(ValidationError::CannotAssignToNone(
+                self.statement.position(),
+            ));
+        }
+
+        if let Some(constructor) = &self.constructor {
+            let r#type = constructor.clone().construct(&context)?;
+
+            r#type
+                .check(&statement_type)
+                .map_err(|conflict| ValidationError::TypeCheck {
+                    conflict,
+                    actual_position: self.statement.position(),
+                    expected_position: Some(constructor.position()),
+                })?;
+
+            context.set_type(self.identifier.node.clone(), r#type.clone())?;
+        } else {
+            context.set_type(self.identifier.node.clone(), statement_type.clone())?;
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         if let Some(TypeConstructor::Raw(WithPosition {
             node: RawTypeConstructor::None,
             position,
@@ -54,7 +82,7 @@ impl Validate for Assignment {
             return Err(ValidationError::CannotAssignToNone(position.clone()));
         }
 
-        let relevant_statement = self.statement.last_child_statement();
+        let relevant_statement = self.statement.last_evaluated_statement();
         let statement_type = relevant_statement.expected_type(context)?;
 
         if let Type::Void = &statement_type {
@@ -137,12 +165,10 @@ impl Validate for Assignment {
 
         Ok(())
     }
-}
 
-impl Run for Assignment {
-    fn run(
+    fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let evaluation = self.statement.run(context, manage_memory)?;
@@ -248,5 +274,9 @@ impl Run for Assignment {
         }
 
         Ok(Some(Evaluation::Void))
+    }
+
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
+        Ok(None)
     }
 }

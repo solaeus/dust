@@ -10,8 +10,7 @@ use crate::{
 };
 
 use super::{
-    Block, Evaluate, Evaluation, ExpectedType, Expression, Type, TypeConstructor, Validate,
-    WithPosition,
+    AbstractNode, Block, Evaluation, Expression, Type, TypeConstructor, Validate, WithPosition,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -165,12 +164,12 @@ impl Validate for ValueNode {
     }
 }
 
-impl Evaluate for ValueNode {
+impl AbstractNode for ValueNode {
     fn evaluate(
         self,
         context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
             ValueNode::EnumInstance {
@@ -297,7 +296,92 @@ impl Evaluate for ValueNode {
             }
         };
 
-        Ok(Evaluation::Return(value))
+        Ok(Some(Evaluation::Return(value)))
+    }
+
+    fn expected_type(&self, context: &mut Context) -> Result<Option<Type>, ValidationError> {
+        let r#type = match self {
+            ValueNode::Boolean(_) => Type::Boolean,
+            ValueNode::EnumInstance { type_name, .. } => {
+                if let Some(r#type) = context.get_type(&type_name.node)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::EnumDefinitionNotFound {
+                        identifier: type_name.node.clone(),
+                        position: Some(type_name.position),
+                    });
+                }
+            }
+            ValueNode::Float(_) => Type::Float,
+            ValueNode::Integer(_) => Type::Integer,
+            ValueNode::List(items) => {
+                let item_type = items.first().unwrap().expected_type(context)?;
+
+                Type::List {
+                    length: items.len(),
+                    item_type: Box::new(item_type),
+                }
+            }
+            ValueNode::Map(_) => Type::Map,
+            ValueNode::Range(_) => Type::Range,
+            ValueNode::String(_) => Type::String,
+            ValueNode::Function {
+                type_parameters,
+                value_parameters,
+                return_type,
+                ..
+            } => {
+                let mut value_parameter_types = Vec::with_capacity(value_parameters.len());
+
+                for (_, type_constructor) in value_parameters {
+                    let r#type = type_constructor.clone().construct(&context)?;
+
+                    value_parameter_types.push(r#type);
+                }
+
+                let type_parameters = type_parameters.clone().map(|parameters| {
+                    parameters
+                        .iter()
+                        .map(|identifier| identifier.clone())
+                        .collect()
+                });
+                let return_type = return_type.clone().construct(&context)?;
+
+                Type::Function {
+                    type_parameters,
+                    value_parameters: value_parameter_types,
+                    return_type: Box::new(return_type),
+                }
+            }
+            ValueNode::Structure {
+                name,
+                fields: expressions,
+            } => {
+                let mut types = Vec::with_capacity(expressions.len());
+
+                for (identifier, expression) in expressions {
+                    let r#type = expression.expected_type(context)?;
+
+                    types.push((
+                        identifier.clone(),
+                        WithPosition {
+                            node: r#type,
+                            position: expression.position(),
+                        },
+                    ));
+                }
+
+                Type::Structure {
+                    name: name.node.clone(),
+                    fields: types
+                        .into_iter()
+                        .map(|(identifier, r#type)| (identifier.node, r#type.node))
+                        .collect(),
+                }
+            }
+        };
+
+        Ok(Some(r#type))
     }
 }
 
@@ -418,92 +502,5 @@ impl Ord for ValueNode {
             }
             (Structure { .. }, _) => Ordering::Greater,
         }
-    }
-}
-
-impl ExpectedType for ValueNode {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
-        let r#type = match self {
-            ValueNode::Boolean(_) => Type::Boolean,
-            ValueNode::EnumInstance { type_name, .. } => {
-                if let Some(r#type) = context.get_type(&type_name.node)? {
-                    r#type
-                } else {
-                    return Err(ValidationError::EnumDefinitionNotFound {
-                        identifier: type_name.node.clone(),
-                        position: Some(type_name.position),
-                    });
-                }
-            }
-            ValueNode::Float(_) => Type::Float,
-            ValueNode::Integer(_) => Type::Integer,
-            ValueNode::List(items) => {
-                let item_type = items.first().unwrap().expected_type(context)?;
-
-                Type::List {
-                    length: items.len(),
-                    item_type: Box::new(item_type),
-                }
-            }
-            ValueNode::Map(_) => Type::Map,
-            ValueNode::Range(_) => Type::Range,
-            ValueNode::String(_) => Type::String,
-            ValueNode::Function {
-                type_parameters,
-                value_parameters,
-                return_type,
-                ..
-            } => {
-                let mut value_parameter_types = Vec::with_capacity(value_parameters.len());
-
-                for (_, type_constructor) in value_parameters {
-                    let r#type = type_constructor.clone().construct(&context)?;
-
-                    value_parameter_types.push(r#type);
-                }
-
-                let type_parameters = type_parameters.clone().map(|parameters| {
-                    parameters
-                        .iter()
-                        .map(|identifier| identifier.clone())
-                        .collect()
-                });
-                let return_type = return_type.clone().construct(&context)?;
-
-                Type::Function {
-                    type_parameters,
-                    value_parameters: value_parameter_types,
-                    return_type: Box::new(return_type),
-                }
-            }
-            ValueNode::Structure {
-                name,
-                fields: expressions,
-            } => {
-                let mut types = Vec::with_capacity(expressions.len());
-
-                for (identifier, expression) in expressions {
-                    let r#type = expression.expected_type(context)?;
-
-                    types.push((
-                        identifier.clone(),
-                        WithPosition {
-                            node: r#type,
-                            position: expression.position(),
-                        },
-                    ));
-                }
-
-                Type::Structure {
-                    name: name.node.clone(),
-                    fields: types
-                        .into_iter()
-                        .map(|(identifier, r#type)| (identifier.node, r#type.node))
-                        .collect(),
-                }
-            }
-        };
-
-        Ok(r#type)
     }
 }

@@ -52,14 +52,14 @@ impl TypeConstructor {
         }
     }
 
-    pub fn construct(self, context: &Context) -> Result<Type, ValidationError> {
+    pub fn construct(&self, context: &Context) -> Result<Type, ValidationError> {
         let r#type = match self {
             TypeConstructor::Invokation(TypeInvokationConstructor { identifier, .. }) => {
                 let invoked_type = if let Some(r#type) = context.get_type(&identifier.node)? {
                     r#type
                 } else {
                     return Err(ValidationError::VariableNotFound {
-                        identifier: identifier.node,
+                        identifier: identifier.node.clone(),
                         position: identifier.position,
                     });
                 };
@@ -90,7 +90,7 @@ impl TypeConstructor {
                     name,
                     type_parameters,
                     variants,
-                } = enum_type_constructor.node;
+                } = &enum_type_constructor.node;
                 let mut type_variants = Vec::with_capacity(variants.len());
 
                 for (variant_name, constructors) in variants {
@@ -103,19 +103,19 @@ impl TypeConstructor {
                             types.push(r#type);
                         }
 
-                        type_variants.push((variant_name.node, Some(types)));
+                        type_variants.push((variant_name.node.clone(), Some(types)));
                     } else {
-                        type_variants.push((variant_name.node, None))
+                        type_variants.push((variant_name.node.clone(), None))
                     }
                 }
 
                 Type::Enum {
-                    name: name.node,
-                    type_parameters: type_parameters.map(|identifiers| {
+                    name: name.node.clone(),
+                    type_parameters: type_parameters.as_ref().map(|identifiers| {
                         identifiers
                             .into_iter()
                             .map(|identifier| Type::Generic {
-                                identifier: identifier.node,
+                                identifier: identifier.node.clone(),
                                 concrete_type: None,
                             })
                             .collect()
@@ -128,12 +128,12 @@ impl TypeConstructor {
                     type_parameters: declared_type_parameters,
                     value_parameters: declared_value_parameters,
                     return_type,
-                } = function_type_constructor.node;
+                } = &function_type_constructor.node;
 
-                let type_parameters = declared_type_parameters.map(|identifiers| {
+                let type_parameters = declared_type_parameters.as_ref().map(|identifiers| {
                     identifiers
                         .into_iter()
-                        .map(|identifier| identifier.node)
+                        .map(|identifier| identifier.node.clone())
                         .collect()
                 });
                 let mut value_parameters = Vec::with_capacity(declared_value_parameters.len());
@@ -153,11 +153,11 @@ impl TypeConstructor {
                 }
             }
             TypeConstructor::List(constructor) => {
-                let ListTypeConstructor { length, item_type } = constructor.node;
+                let ListTypeConstructor { length, item_type } = &constructor.node;
                 let constructed_type = item_type.construct(context)?;
 
                 Type::List {
-                    length,
+                    length: *length,
                     item_type: Box::new(constructed_type),
                 }
             }

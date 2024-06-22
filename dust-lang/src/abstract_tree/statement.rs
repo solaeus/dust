@@ -6,9 +6,9 @@ use crate::{
 };
 
 use super::{
-    Assignment, AsyncBlock, Block, EnumDeclaration, Evaluate, Evaluation, ExpectedType, Expression,
-    IfElse, Loop, Run, SourcePosition, StructureDefinition, Type, TypeAlias, Validate, While,
-    WithPosition,
+    AbstractNode, Assignment, AsyncBlock, Block, DefineTypes, EnumDeclaration, Evaluation,
+    Expression, IfElse, Loop, SourcePosition, StructureDefinition, Type, TypeAlias, Validate,
+    While, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -43,7 +43,7 @@ impl Statement {
         }
     }
 
-    pub fn last_child_statement(&self) -> &Self {
+    pub fn last_evaluated_statement(&self) -> &Self {
         match self {
             Statement::Block(inner) => inner.node.last_statement(),
             Statement::Loop(inner) => inner.node.last_statement(),
@@ -52,30 +52,50 @@ impl Statement {
     }
 }
 
-impl Run for Statement {
-    fn run(
+impl DefineTypes for Statement {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        match self {
+            Statement::Expression(expression) => expression.define_types(_context),
+            Statement::IfElse(if_else) => if_else.node.define_types(_context),
+            Statement::Block(block) => block.node.define_types(_context),
+            Statement::AsyncBlock(async_block) => async_block.node.define_types(_context),
+            Statement::Assignment(assignment) => assignment.node.define_types(_context),
+            Statement::Break(_) => Ok(None),
+            Statement::Loop(r#loop) => r#loop.node.define_types(_context),
+            Statement::StructureDefinition(struct_definition) => {
+                struct_definition.node.define_types(_context)
+            }
+            Statement::TypeAlias(type_alias) => type_alias.node.define_types(_context),
+            Statement::EnumDeclaration(enum_declaration) => {
+                enum_declaration.node.define_types(_context)
+            }
+            Statement::While(r#while) => r#while.node.define_types(_context),
+        }
+    }
+}
+
+impl AbstractNode for Statement {
+    fn evaluate(
         self,
         context: &mut Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let result = match self {
-            Statement::Assignment(assignment) => assignment.node.run(context, manage_memory),
-            Statement::AsyncBlock(async_block) => async_block.node.run(context, manage_memory),
-            Statement::Block(block) => block.node.run(context, manage_memory),
+            Statement::Assignment(assignment) => assignment.node.evaluate(context, manage_memory),
+            Statement::AsyncBlock(async_block) => async_block.node.evaluate(context, manage_memory),
+            Statement::Block(block) => block.node.evaluate(context, manage_memory),
             Statement::Break(_) => Ok(Some(Evaluation::Break)),
-            Statement::Expression(expression) => {
-                let evaluation = expression.evaluate(context, manage_memory)?;
-
-                Ok(Some(evaluation))
-            }
-            Statement::IfElse(if_else) => if_else.node.run(context, manage_memory),
-            Statement::Loop(r#loop) => r#loop.node.run(context, manage_memory),
+            Statement::Expression(expression) => expression.evaluate(context, manage_memory),
+            Statement::IfElse(if_else) => if_else.node.evaluate(context, manage_memory),
+            Statement::Loop(r#loop) => r#loop.node.evaluate(context, manage_memory),
             Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.run(context, manage_memory)
+                structure_definition.node.evaluate(context, manage_memory)
             }
-            Statement::TypeAlias(type_alias) => type_alias.node.run(context, manage_memory),
-            Statement::EnumDeclaration(type_alias) => type_alias.node.run(context, manage_memory),
-            Statement::While(r#while) => r#while.node.run(context, manage_memory),
+            Statement::TypeAlias(type_alias) => type_alias.node.evaluate(context, manage_memory),
+            Statement::EnumDeclaration(type_alias) => {
+                type_alias.node.evaluate(context, manage_memory)
+            }
+            Statement::While(r#while) => r#while.node.evaluate(context, manage_memory),
         };
 
         if manage_memory {
@@ -83,6 +103,26 @@ impl Run for Statement {
         }
 
         result
+    }
+
+    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+        match self {
+            Statement::Expression(expression) => expression.expected_type(_context),
+            Statement::IfElse(if_else) => if_else.node.expected_type(_context),
+            Statement::Block(block) => block.node.expected_type(_context),
+            Statement::AsyncBlock(async_block) => async_block.node.expected_type(_context),
+            Statement::Assignment(assignment) => assignment.node.expected_type(_context),
+            Statement::Break(_) => Ok(None),
+            Statement::Loop(r#loop) => r#loop.node.expected_type(_context),
+            Statement::StructureDefinition(struct_definition) => {
+                struct_definition.node.expected_type(_context)
+            }
+            Statement::TypeAlias(type_alias) => type_alias.node.expected_type(_context),
+            Statement::EnumDeclaration(enum_declaration) => {
+                enum_declaration.node.expected_type(_context)
+            }
+            Statement::While(r#while) => r#while.node.expected_type(_context),
+        }
     }
 }
 
@@ -104,18 +144,6 @@ impl Validate for Statement {
             Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
             Statement::While(r#while) => r#while.node.validate(_context, _manage_memory),
             _ => Ok(()),
-        }
-    }
-}
-
-impl ExpectedType for Statement {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        match self {
-            Statement::Expression(expression) => expression.expected_type(_context),
-            Statement::IfElse(if_else) => if_else.node.expected_type(_context),
-            Statement::Block(block) => block.node.expected_type(_context),
-            Statement::AsyncBlock(async_block) => async_block.node.expected_type(_context),
-            _ => Ok(Type::Void),
         }
     }
 }

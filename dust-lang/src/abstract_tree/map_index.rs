@@ -6,9 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{
-    Evaluate, Evaluation, ExpectedType, Expression, Type, Validate, ValueNode, WithPosition,
-};
+use super::{AbstractNode, Evaluation, Expression, Type, Validate, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MapIndex {
@@ -35,12 +33,12 @@ impl Validate for MapIndex {
     }
 }
 
-impl Evaluate for MapIndex {
+impl AbstractNode for MapIndex {
     fn evaluate(
         self,
         context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let collection_position = self.collection.position();
         let action = self.collection.evaluate(context, _manage_memory)?;
         let collection = if let Evaluation::Return(value) = action {
@@ -54,12 +52,11 @@ impl Evaluate for MapIndex {
         if let (ValueInner::Map(map), Expression::Identifier(index)) =
             (collection.inner().as_ref(), self.index)
         {
-            let action = map
+            let evaluation = map
                 .get(&index.node)
-                .map(|value| Evaluation::Return(value.clone()))
-                .unwrap_or(Evaluation::Void);
+                .map(|value| Some(Evaluation::Return(value.clone())));
 
-            Ok(action)
+            Ok(evaluation)
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndex {
@@ -69,10 +66,8 @@ impl Evaluate for MapIndex {
             ))
         }
     }
-}
 
-impl ExpectedType for MapIndex {
-    fn expected_type(&self, context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, context: &mut Context) -> Result<Option<Type>, ValidationError> {
         if let (Expression::Identifier(collection), Expression::Identifier(index)) =
             (&self.collection, &self.index)
         {
@@ -87,7 +82,7 @@ impl ExpectedType for MapIndex {
 
             if let ValueInner::Map(map) = collection.inner().as_ref() {
                 return if let Some(value) = map.get(&index.node) {
-                    Ok(value.r#type(context)?)
+                    Ok(Some(value.r#type(context)?))
                 } else {
                     Err(ValidationError::PropertyNotFound {
                         identifier: index.node.clone(),
@@ -110,9 +105,9 @@ impl ExpectedType for MapIndex {
                     return if let Some(constructor) = constructor_option {
                         let r#type = constructor.clone().construct(&context)?;
 
-                        Ok(r#type)
+                        Ok(Some(r#type))
                     } else {
-                        Ok(expression.expected_type(context)?)
+                        expression.expected_type(context)
                     };
                 }
             }

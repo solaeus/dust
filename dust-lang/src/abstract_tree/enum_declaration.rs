@@ -1,8 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{context::Context, error::RuntimeError, identifier::Identifier};
+use crate::{
+    context::Context,
+    error::{RuntimeError, ValidationError},
+    identifier::Identifier,
+};
 
-use super::{Evaluation, Run, Type, TypeConstructor, WithPosition};
+use super::{AbstractNode, Evaluation, Type, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumDeclaration {
@@ -25,12 +29,8 @@ impl EnumDeclaration {
     }
 }
 
-impl Run for EnumDeclaration {
-    fn run(
-        self,
-        context: &mut Context,
-        _manage_memory: bool,
-    ) -> Result<Option<Evaluation>, RuntimeError> {
+impl AbstractNode for EnumDeclaration {
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
         let EnumDeclaration {
             name,
             type_parameters,
@@ -74,6 +74,29 @@ impl Run for EnumDeclaration {
 
         context.set_type(name.node, r#type)?;
 
+        Ok(())
+    }
+
+    fn validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), crate::error::ValidationError> {
+        Ok(())
+    }
+
+    fn evaluate(
+        self,
+        context: &Context,
+        _manage_memory: bool,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
+        Ok(None)
+    }
+
+    fn expected_type(
+        &self,
+        context: &Context,
+    ) -> Result<Option<Type>, crate::error::ValidationError> {
         Ok(None)
     }
 }

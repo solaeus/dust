@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, Type, Validate};
+use super::{AbstractNode, Evaluation, Expression, Type, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Logic {
@@ -90,12 +90,12 @@ impl Validate for Logic {
     }
 }
 
-impl Evaluate for Logic {
+impl AbstractNode for Logic {
     fn evaluate(
         self,
         context: &mut Context,
         _manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
             let expression_position = expression.position();
             let action = expression.evaluate(&mut context.clone(), _manage_memory)?;
@@ -193,13 +193,11 @@ impl Evaluate for Logic {
             }
         };
 
-        Ok(Evaluation::Return(Value::boolean(boolean)))
+        Ok(Some(Evaluation::Return(Value::boolean(boolean))))
     }
-}
 
-impl ExpectedType for Logic {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        Ok(Type::Boolean)
+    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
+        Ok(Some(Type::Boolean))
     }
 }
 

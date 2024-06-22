@@ -5,7 +5,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{Evaluation, Run, Statement, Validate};
+use super::{AbstractNode, Evaluation, Statement, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Loop {
@@ -36,8 +36,8 @@ impl Validate for Loop {
     }
 }
 
-impl Run for Loop {
-    fn run(
+impl AbstractNode for Loop {
+    fn evaluate(
         self,
         _context: &mut Context,
         _manage_memory: bool,
@@ -51,5 +51,12 @@ impl Run for Loop {
                 }
             }
         }
+    }
+
+    fn expected_type(
+        &self,
+        _context: &mut Context,
+    ) -> Result<Option<super::Type>, ValidationError> {
+        self.last_statement().expected_type(_context)
     }
 }

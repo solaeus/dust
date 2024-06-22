@@ -8,7 +8,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{Evaluation, ExpectedType, Run, Statement, Type, Validate};
+use super::{AbstractNode, Evaluation, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AsyncBlock {
@@ -21,20 +21,26 @@ impl AsyncBlock {
     }
 }
 
-impl Validate for AsyncBlock {
-    fn validate(&self, _context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for AsyncBlock {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        for statement in &self.statements {
+            statement.define_types(_context)?;
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, _context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         for statement in &self.statements {
             statement.validate(_context, manage_memory)?;
         }
 
         Ok(())
     }
-}
 
-impl Run for AsyncBlock {
-    fn run(
+    fn evaluate(
         self,
-        _context: &mut Context,
+        _context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let statement_count = self.statements.len();
@@ -61,10 +67,8 @@ impl Run for AsyncBlock {
             )
             .unwrap_or(final_result.into_inner()?)
     }
-}
 
-impl ExpectedType for AsyncBlock {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
-        self.statements.first().unwrap().expected_type(_context)
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
+        self.statements.last().unwrap().expected_type(_context)
     }
 }

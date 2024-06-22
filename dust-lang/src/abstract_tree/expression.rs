@@ -7,8 +7,8 @@ use crate::{
 };
 
 use super::{
-    As, BuiltInFunctionCall, Evaluate, Evaluation, ExpectedType, FunctionCall, ListIndex, Logic,
-    MapIndex, Math, SourcePosition, Type, Validate, ValueNode, WithPosition,
+    AbstractNode, As, BuiltInFunctionCall, Evaluation, FunctionCall, ListIndex, Logic, MapIndex,
+    Math, SourcePosition, Type, ValueNode, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -40,8 +40,22 @@ impl Expression {
     }
 }
 
-impl Validate for Expression {
-    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for Expression {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        match self {
+            Expression::As(inner) => inner.node.define_types(_context),
+            Expression::BuiltInFunctionCall(inner) => inner.node.define_types(_context),
+            Expression::FunctionCall(inner) => inner.node.define_types(_context),
+            Expression::Identifier(inner) => inner.node.define_types(_context),
+            Expression::MapIndex(inner) => inner.node.define_types(_context),
+            Expression::ListIndex(inner) => inner.node.define_types(_context),
+            Expression::Logic(inner) => inner.node.define_types(_context),
+            Expression::Math(inner) => inner.node.define_types(_context),
+            Expression::Value(inner) => inner.node.define_types(_context),
+        }
+    }
+
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Expression::As(r#as) => r#as.node.validate(context, manage_memory),
             Expression::BuiltInFunctionCall(built_in_function_call) => {
@@ -73,14 +87,12 @@ impl Validate for Expression {
             Expression::Value(value_node) => value_node.node.validate(context, manage_memory),
         }
     }
-}
 
-impl Evaluate for Expression {
     fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         manage_memory: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         match self {
             Expression::As(r#as) => r#as.node.evaluate(context, manage_memory),
             Expression::FunctionCall(function_call) => {
@@ -94,7 +106,7 @@ impl Evaluate for Expression {
                 };
 
                 if let Some(value) = value_option {
-                    Ok(Evaluation::Return(value))
+                    Ok(Some(Evaluation::Return(value)))
                 } else {
                     Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
@@ -114,21 +126,21 @@ impl Evaluate for Expression {
             }
         }
     }
-}
 
-impl ExpectedType for Expression {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         match self {
             Expression::As(r#as) => r#as.node.expected_type(_context),
             Expression::FunctionCall(function_call) => function_call.node.expected_type(_context),
             Expression::Identifier(identifier) => {
-                if let Some(r#type) = _context.get_type(&identifier.node)? {
-                    Ok(r#type)
-                } else {
+                let get_type = _context.get_type(identifier)?;
+
+                if get_type.is_none() {
                     Err(ValidationError::VariableNotFound {
                         identifier: identifier.node.clone(),
                         position: identifier.position,
                     })
+                } else {
+                    Ok(get_type)
                 }
             }
             Expression::MapIndex(map_index) => map_index.node.expected_type(_context),

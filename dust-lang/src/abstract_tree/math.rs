@@ -7,7 +7,7 @@ use crate::{
     Value,
 };
 
-use super::{Evaluate, Evaluation, ExpectedType, Expression, SourcePosition, Type, Validate};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type, Validate};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Math {
@@ -68,12 +68,12 @@ impl Validate for Math {
     }
 }
 
-impl Evaluate for Math {
+impl AbstractNode for Math {
     fn evaluate(
         self,
         _context: &mut Context,
         _clear_variables: bool,
-    ) -> Result<Evaluation, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value =
             |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
                 let action = expression.evaluate(&mut _context.clone(), _clear_variables)?;
@@ -293,12 +293,10 @@ impl Evaluate for Math {
             }
         };
 
-        Ok(Evaluation::Return(value))
+        Ok(Some(Evaluation::Return(value)))
     }
-}
 
-impl ExpectedType for Math {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &mut Context) -> Result<Option<Type>, ValidationError> {
         match self {
             Math::Add(left, right)
             | Math::Subtract(left, right)
@@ -309,11 +307,11 @@ impl ExpectedType for Math {
                 let right_type = right.expected_type(_context)?;
 
                 if let Type::Float = left_type {
-                    return Ok(Type::Float);
+                    return Ok(Some(Type::Float));
                 }
 
                 if let Type::Float = right_type {
-                    return Ok(Type::Float);
+                    return Ok(Some(Type::Float));
                 }
 
                 Ok(left_type)

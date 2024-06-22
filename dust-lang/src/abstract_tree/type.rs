@@ -37,7 +37,6 @@ pub enum Type {
         name: Identifier,
         fields: Vec<(Identifier, Type)>,
     },
-    Void,
 }
 
 impl Type {

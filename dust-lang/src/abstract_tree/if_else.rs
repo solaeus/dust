@@ -6,9 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{
-    Block, Evaluate, Evaluation, ExpectedType, Expression, Run, Type, Validate, WithPosition,
-};
+use super::{AbstractNode, Block, Evaluation, Expression, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IfElse {
@@ -34,8 +32,26 @@ impl IfElse {
     }
 }
 
-impl Validate for IfElse {
-    fn validate(&self, context: &mut Context, manage_memory: bool) -> Result<(), ValidationError> {
+impl AbstractNode for IfElse {
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        self.if_expression.define_types(_context)?;
+        self.if_block.define_type(_context)?;
+
+        if let Some(else_ifs) = self.else_ifs {
+            for (expression, block) in else_ifs {
+                expression.define_types(_context)?;
+                block.node.define_types(_context)?;
+            }
+        }
+
+        if let Some(else_block) = self.else_block {
+            else_block.node.define_types(_context)?;
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.if_expression.validate(context, manage_memory)?;
         self.if_block.node.validate(context, manage_memory)?;
 
@@ -90,12 +106,10 @@ impl Validate for IfElse {
 
         Ok(())
     }
-}
 
-impl Run for IfElse {
-    fn run(
+    fn evaluate(
         self,
-        context: &mut Context,
+        context: &Context,
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let if_position = self.if_expression.position();
@@ -154,10 +168,8 @@ impl Run for IfElse {
             ))
         }
     }
-}
 
-impl ExpectedType for IfElse {
-    fn expected_type(&self, _context: &mut Context) -> Result<Type, ValidationError> {
+    fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.if_block.node.expected_type(_context)
     }
 }
