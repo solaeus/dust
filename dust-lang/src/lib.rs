@@ -14,16 +14,15 @@ use std::{
 
 use abstract_tree::{AbstractTree, Type};
 use ariadne::{Color, Config, Fmt, Label, Report, ReportKind};
-use chumsky::prelude::*;
 use context::Context;
 use error::{DustError, RuntimeError, TypeConflict, ValidationError};
 use lexer::{lex, Token};
-use parser::{parse, parser};
+use parser::parse;
 use rayon::prelude::*;
 pub use value::Value;
 
 pub fn interpret<'src>(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
-    let mut interpreter = Interpreter::new(Context::new(None));
+    let interpreter = Interpreter::new(Context::new(None));
 
     interpreter.load_std()?;
     interpreter.run(Arc::from(source_id), Arc::from(source))
@@ -33,7 +32,7 @@ pub fn interpret_without_std(
     source_id: &str,
     source: &str,
 ) -> Result<Option<Value>, InterpreterError> {
-    let mut interpreter = Interpreter::new(Context::new(None));
+    let interpreter = Interpreter::new(Context::new(None));
 
     interpreter.run(Arc::from(source_id.to_string()), Arc::from(source))
 }
@@ -51,11 +50,11 @@ impl Interpreter {
         }
     }
 
-    pub fn lex<'source>(
-        &mut self,
+    pub fn lex<'src>(
+        &self,
         source_id: Arc<str>,
-        source: &'source str,
-    ) -> Result<Vec<Token<'source>>, InterpreterError> {
+        source: &'src str,
+    ) -> Result<Vec<Token<'src>>, InterpreterError> {
         let mut sources = self.sources.write().unwrap();
 
         sources.clear();
@@ -66,10 +65,10 @@ impl Interpreter {
             .map_err(|errors| InterpreterError { source_id, errors })
     }
 
-    pub fn parse<'source>(
-        &mut self,
+    pub fn parse<'src>(
+        &self,
         source_id: Arc<str>,
-        source: &'source str,
+        source: &'src str,
     ) -> Result<AbstractTree, InterpreterError> {
         let mut sources = self.sources.write().unwrap();
 
@@ -84,7 +83,7 @@ impl Interpreter {
     }
 
     pub fn run(
-        &mut self,
+        &self,
         source_id: Arc<str>,
         source: Arc<str>,
     ) -> Result<Option<Value>, InterpreterError> {
@@ -102,18 +101,20 @@ impl Interpreter {
             errors,
         })?;
         let value_option = abstract_tree
-            .run(&mut self.context, true)
+            .run(&self.context, true)
             .map_err(|errors| InterpreterError { source_id, errors })?;
 
         Ok(value_option)
     }
 
-    pub fn load_std(&mut self) -> Result<(), InterpreterError> {
-        let std_sources: [(Arc<str>, Arc<str>); 5] = [
+    pub fn load_std(&self) -> Result<(), InterpreterError> {
+        let std_core_source: (Arc<str>, Arc<str>) = {
             (
                 Arc::from("std/core.ds"),
                 Arc::from(include_str!("../../std/core.ds")),
-            ),
+            )
+        };
+        let std_sources: [(Arc<str>, Arc<str>); 4] = [
             (
                 Arc::from("std/fs.ds"),
                 Arc::from(include_str!("../../std/fs.ds")),
@@ -134,39 +135,21 @@ impl Interpreter {
 
         log::info!("Start loading standard library...");
 
-        let error = std_sources
-            .into_par_iter()
-            .find_map_any(|(source_id, source)| {
-                self.sources
-                    .write()
-                    .unwrap()
-                    .push((source_id.clone(), source.clone()));
+        // Always load the core library first because other parts of the standard library may depend
+        // on it.
+        self.run(std_core_source.0, std_core_source.1)?;
 
-                let lex_result = lex(source.as_ref()).map_err(|errors| InterpreterError {
-                    source_id: source_id.clone(),
-                    errors,
-                });
-                let tokens = match lex_result {
-                    Ok(tokens) => tokens,
-                    Err(error) => return Some(error),
-                };
-                let parse_result = parser(true)
-                    .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
-                    .into_result()
-                    .map_err(|errors| InterpreterError {
-                        source_id: source_id.clone(),
-                        errors: errors.into_iter().map(DustError::from).collect(),
-                    });
-                let abstract_tree = match parse_result {
-                    Ok(statements) => AbstractTree::new(statements),
-                    Err(error) => return Some(error),
-                };
-
-                abstract_tree
-                    .run(&mut self.context.clone(), false)
-                    .map_err(|errors| InterpreterError { source_id, errors })
-                    .err()
-            });
+        let error = if cfg!(test) {
+            // In debug mode, load the standard library sequentially to get consistent errors.
+            std_sources
+                .into_iter()
+                .find_map(|(source_id, source)| self.run(source_id, source).err())
+        } else {
+            // In release mode, load the standard library asynchronously.
+            std_sources
+                .into_par_iter()
+                .find_map_any(|(source_id, source)| self.run(source_id, source).err())
+        };
 
         log::info!("Finish loading standard library.");
 

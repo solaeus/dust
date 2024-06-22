@@ -112,7 +112,7 @@ impl AbstractTree {
 
     pub fn run(
         self,
-        context: &mut Context,
+        context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Value>, Vec<DustError>> {
         let mut errors = Vec::new();

@@ -296,13 +296,6 @@ impl AbstractNode for ValueNode {
                 body,
             } => {
                 let function_context = context.create_child();
-                let mut value_parameters = Vec::with_capacity(constructors.len());
-
-                for (identifier, constructor) in constructors {
-                    let r#type = constructor.construct(&function_context)?;
-
-                    value_parameters.push((identifier, r#type));
-                }
 
                 if let Some(identifiers) = &type_parameters {
                     for identifier in identifiers {
@@ -314,6 +307,14 @@ impl AbstractNode for ValueNode {
                             },
                         )?;
                     }
+                }
+
+                let mut value_parameters = Vec::with_capacity(constructors.len());
+
+                for (identifier, constructor) in constructors {
+                    let r#type = constructor.construct(&function_context)?;
+
+                    value_parameters.push((identifier, r#type));
                 }
 
                 let return_type = if let Some(constructor) = return_type {

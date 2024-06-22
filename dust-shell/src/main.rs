@@ -57,7 +57,7 @@ fn main() {
 
     let args = Args::parse();
     let context = Context::new(None);
-    let mut interpreter = Interpreter::new(context.clone());
+    let interpreter = Interpreter::new(context.clone());
 
     if !args.no_std {
         let load_std_result = interpreter.load_std();

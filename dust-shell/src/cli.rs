@@ -16,7 +16,7 @@ use reedline::{
 };
 
 pub fn run_shell(context: Context) -> Result<(), io::Error> {
-    let mut interpreter = Interpreter::new(context.clone());
+    let interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 
     keybindings.add_binding(
