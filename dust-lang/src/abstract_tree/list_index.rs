@@ -32,7 +32,7 @@ impl AbstractNode for ListIndex {
         self.collection.validate(context, _manage_memory)?;
         self.index.validate(context, _manage_memory)?;
 
-        let collection_type = if let Some(r#type) = self.index.expected_type(context)? {
+        let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type
         } else {
             return Err(ValidationError::ExpectedExpression(

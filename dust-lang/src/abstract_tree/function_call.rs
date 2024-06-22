@@ -37,7 +37,7 @@ impl FunctionCall {
         }
     }
 
-    pub fn function(&self) -> &Box<Expression> {
+    pub fn function_expression(&self) -> &Box<Expression> {
         &self.function_expression
     }
 }
@@ -126,22 +126,6 @@ impl AbstractNode for FunctionCall {
                 },
             ));
         };
-        let mut arguments = Vec::with_capacity(self.value_arguments.len());
-
-        for expression in self.value_arguments {
-            let expression_position = expression.position();
-            let evaluation = expression.evaluate(context, clear_variables)?;
-            let value = if let Some(Evaluation::Return(value)) = evaluation {
-                value
-            } else {
-                return Err(RuntimeError::ValidationFailure(
-                    ValidationError::ExpectedExpression(expression_position),
-                ));
-            };
-
-            arguments.push(value);
-        }
-
         let function_context = if let Some(context) = self.context.lock()?.clone() {
             context
         } else {
@@ -161,9 +145,25 @@ impl AbstractNode for FunctionCall {
             _ => {}
         }
 
-        function
-            .clone()
-            .call(arguments, &function_context, clear_variables)
+        for ((identifier, _), expression) in function
+            .value_parameters()
+            .into_iter()
+            .zip(self.value_arguments.iter())
+        {
+            let expression_position = expression.position();
+            let evaluation = expression.clone().evaluate(context, clear_variables)?;
+            let value = if let Some(Evaluation::Return(value)) = evaluation {
+                value
+            } else {
+                return Err(RuntimeError::ValidationFailure(
+                    ValidationError::ExpectedExpression(expression_position),
+                ));
+            };
+
+            function_context.set_value(identifier.clone(), value)?;
+        }
+
+        function.clone().call(&function_context, clear_variables)
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {

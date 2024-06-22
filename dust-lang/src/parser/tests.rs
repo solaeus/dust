@@ -528,17 +528,17 @@ fn function() {
     assert_eq!(
         parse(&lex("fn () -> int { 0 }").unwrap()).unwrap()[0],
         Statement::Expression(Expression::Value(
-            ValueNode::Function {
-                type_parameters: None,
-                value_parameters: vec![],
-                return_type: Some(TypeConstructor::Raw(
+            ValueNode::function(
+                None,
+                vec![],
+                Some(TypeConstructor::Raw(
                     RawTypeConstructor::Integer.with_position((9, 12))
                 )),
-                body: Block::new(vec![Statement::Expression(Expression::Value(
+                Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::Integer(0).with_position((15, 16))
                 ))])
-                .with_position((13, 18))
-            }
+                .with_position((13, 18)),
+            )
             .with_position((0, 18))
         ),)
     );
@@ -546,20 +546,20 @@ fn function() {
     assert_eq!(
         parse(&lex("fn (x: int) -> int { x }").unwrap()).unwrap()[0],
         Statement::Expression(Expression::Value(
-            ValueNode::Function {
-                type_parameters: None,
-                value_parameters: vec![(
+            ValueNode::function(
+                None,
+                vec![(
                     Identifier::new("x"),
                     TypeConstructor::Raw(RawTypeConstructor::Integer.with_position((7, 10)))
                 )],
-                return_type: Some(TypeConstructor::Raw(
+                Some(TypeConstructor::Raw(
                     RawTypeConstructor::Integer.with_position((15, 18))
                 )),
-                body: Block::new(vec![Statement::Expression(Expression::Identifier(
+                Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x").with_position((21, 22))
                 ))])
                 .with_position((19, 24)),
-            }
+            )
             .with_position((0, 24))
         ),)
     );
@@ -570,9 +570,9 @@ fn function_with_type_arguments() {
     assert_eq!(
         parse(&lex("fn |T, U| (x: T, y: U) -> T { x }").unwrap()).unwrap()[0],
         Statement::Expression(Expression::Value(
-            ValueNode::Function {
-                type_parameters: Some(vec![Identifier::new("T"), Identifier::new("U"),]),
-                value_parameters: vec![
+            ValueNode::function(
+                Some(vec![Identifier::new("T"), Identifier::new("U"),]),
+                vec![
                     (
                         Identifier::new("x"),
                         TypeConstructor::Invokation(TypeInvokationConstructor {
@@ -588,15 +588,15 @@ fn function_with_type_arguments() {
                         })
                     )
                 ],
-                return_type: Some(TypeConstructor::Invokation(TypeInvokationConstructor {
+                Some(TypeConstructor::Invokation(TypeInvokationConstructor {
                     identifier: Identifier::new("T").with_position((26, 27)),
                     type_arguments: None,
                 })),
-                body: Block::new(vec![Statement::Expression(Expression::Identifier(
+                Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x").with_position((30, 31))
                 ))])
                 .with_position((28, 33)),
-            }
+            )
             .with_position((0, 33))
         ))
     )

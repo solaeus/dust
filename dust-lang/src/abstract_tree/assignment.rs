@@ -128,7 +128,10 @@ impl AbstractNode for Assignment {
             (&self.constructor, relevant_statement)
         {
             let declared_type = constructor.clone().construct(context)?;
-            let function_type = function_call.node.function().expected_type(context)?;
+            let function_type = function_call
+                .node
+                .function_expression()
+                .expected_type(context)?;
 
             if let Some(Type::Function {
                 return_type,

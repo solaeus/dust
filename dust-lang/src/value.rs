@@ -16,7 +16,7 @@ use serde::{
 use crate::{
     abstract_tree::{AbstractNode, Block, Evaluation, Type, WithPosition},
     context::Context,
-    error::{RuntimeError, ValidationError},
+    error::{PoisonError, RuntimeError, ValidationError},
     identifier::Identifier,
 };
 
@@ -73,12 +73,14 @@ impl Value {
         value_parameters: Vec<(Identifier, Type)>,
         return_type: Option<Type>,
         body: Block,
+        context_template: Context,
     ) -> Self {
         Value(Arc::new(ValueInner::Function(Function {
             type_parameters,
             value_parameters,
             return_type,
             body,
+            context_template,
         })))
     }
 
@@ -167,6 +169,7 @@ impl Display for Value {
                 value_parameters: parameters,
                 return_type,
                 body,
+                ..
             }) => {
                 if let Some(type_parameters) = type_parameters {
                     write!(f, "(")?;
@@ -249,6 +252,7 @@ impl Serialize for Value {
                 value_parameters,
                 return_type,
                 body,
+                ..
             }) => {
                 let mut struct_ser = serializer.serialize_struct("Function", 4)?;
 
@@ -541,7 +545,7 @@ impl<'de> Deserialize<'de> for Value {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ValueInner {
     Boolean(bool),
     EnumInstance {
@@ -707,15 +711,20 @@ impl Ord for ValueInner {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Function {
     type_parameters: Option<Vec<Identifier>>,
     value_parameters: Vec<(Identifier, Type)>,
     return_type: Option<Type>,
     body: Block,
+    context_template: Context,
 }
 
 impl Function {
+    pub fn context_template(&self) -> &Context {
+        &self.context_template
+    }
+
     pub fn type_parameters(&self) -> &Option<Vec<Identifier>> {
         &self.type_parameters
     }
@@ -730,18 +739,50 @@ impl Function {
 
     pub fn call(
         self,
-        value_arguments: Vec<Value>,
         context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        for ((identifier, _), value) in self
-            .value_parameters
-            .into_iter()
-            .zip(value_arguments.into_iter())
-        {
-            context.set_value(identifier.clone(), value)?;
+        self.body.evaluate(context, manage_memory)
+    }
+
+    pub fn populate_context_template(&self) -> Result<(), PoisonError> {
+        if let Some(type_parameters) = &self.type_parameters {
+            for identifier in type_parameters {
+                self.context_template.set_type(
+                    identifier.clone(),
+                    Type::Generic {
+                        identifier: identifier.clone(),
+                        concrete_type: None,
+                    },
+                )?;
+            }
         }
 
-        self.body.evaluate(context, manage_memory)
+        for (identifier, r#type) in &self.value_parameters {
+            self.context_template
+                .set_type(identifier.clone(), r#type.clone())?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Eq for Function {}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl PartialOrd for Function {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        todo!()
+    }
+}
+
+impl Ord for Function {
+    fn cmp(&self, other: &Self) -> Ordering {
+        todo!()
     }
 }

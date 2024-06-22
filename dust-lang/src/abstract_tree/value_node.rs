@@ -31,12 +31,23 @@ pub enum ValueNode {
         name: WithPosition<Identifier>,
         fields: Vec<(WithPosition<Identifier>, Expression)>,
     },
-    Function {
+    Function(FunctionNode),
+}
+impl ValueNode {
+    pub fn function(
         type_parameters: Option<Vec<Identifier>>,
         value_parameters: Vec<(Identifier, TypeConstructor)>,
         return_type: Option<TypeConstructor>,
         body: WithPosition<Block>,
-    },
+    ) -> Self {
+        ValueNode::Function(FunctionNode {
+            type_parameters,
+            value_parameters,
+            return_type,
+            body,
+            context_template: Context::new(None),
+        })
+    }
 }
 
 impl AbstractNode for ValueNode {
@@ -64,7 +75,31 @@ impl AbstractNode for ValueNode {
                     expression.define_types(_context)?;
                 }
             }
-            ValueNode::Function { body, .. } => {
+            ValueNode::Function(FunctionNode {
+                body,
+                type_parameters,
+                value_parameters,
+                context_template,
+                ..
+            }) => {
+                if let Some(type_parameters) = type_parameters {
+                    for identifier in type_parameters {
+                        context_template.set_type(
+                            identifier.clone(),
+                            Type::Generic {
+                                identifier: identifier.clone(),
+                                concrete_type: None,
+                            },
+                        )?;
+                    }
+                }
+
+                for (identifier, type_constructor) in value_parameters {
+                    let r#type = type_constructor.clone().construct(&context_template)?;
+
+                    context_template.set_type(identifier.clone(), r#type)?;
+                }
+
                 body.node.define_types(_context)?;
             }
             _ => {}
@@ -122,37 +157,17 @@ impl AbstractNode for ValueNode {
             return Ok(());
         }
 
-        if let ValueNode::Function {
-            type_parameters,
-            value_parameters,
+        if let ValueNode::Function(FunctionNode {
             return_type,
             body,
-        } = self
+            context_template,
+            ..
+        }) = self
         {
-            let mut function_context = context.create_child();
-
-            if let Some(type_parameters) = type_parameters {
-                for identifier in type_parameters {
-                    function_context.set_type(
-                        identifier.clone(),
-                        Type::Generic {
-                            identifier: identifier.clone(),
-                            concrete_type: None,
-                        },
-                    )?;
-                }
-            }
-
-            for (identifier, type_constructor) in value_parameters {
-                let r#type = type_constructor.clone().construct(&function_context)?;
-
-                function_context.set_type(identifier.clone(), r#type)?;
-            }
-
-            body.node.validate(&mut function_context, _manage_memory)?;
+            body.node.validate(&context_template, _manage_memory)?;
 
             let ((expected_return, expected_position), actual_return) =
-                match (return_type, body.node.expected_type(context)?) {
+                match (return_type, body.node.expected_type(&context_template)?) {
                     (Some(constructor), Some(r#type)) => (
                         (constructor.construct(context)?, constructor.position()),
                         r#type,
@@ -289,26 +304,15 @@ impl AbstractNode for ValueNode {
             }
             ValueNode::Range(range) => Value::range(range),
             ValueNode::String(string) => Value::string(string),
-            ValueNode::Function {
+            ValueNode::Function(FunctionNode {
                 type_parameters,
                 value_parameters: constructors,
                 return_type,
                 body,
-            } => {
-                let function_context = context.create_child();
-
-                if let Some(identifiers) = &type_parameters {
-                    for identifier in identifiers {
-                        function_context.set_type(
-                            identifier.clone(),
-                            Type::Generic {
-                                identifier: identifier.clone(),
-                                concrete_type: None,
-                            },
-                        )?;
-                    }
-                }
-
+                context_template,
+            }) => {
+                let outer_context = context;
+                let function_context = context_template.create_child();
                 let mut value_parameters = Vec::with_capacity(constructors.len());
 
                 for (identifier, constructor) in constructors {
@@ -318,12 +322,18 @@ impl AbstractNode for ValueNode {
                 }
 
                 let return_type = if let Some(constructor) = return_type {
-                    Some(constructor.construct(&function_context)?)
+                    Some(constructor.construct(&outer_context)?)
                 } else {
                     None
                 };
 
-                Value::function(type_parameters, value_parameters, return_type, body.node)
+                Value::function(
+                    type_parameters,
+                    value_parameters,
+                    return_type,
+                    body.node,
+                    context_template,
+                )
             }
             ValueNode::Structure {
                 name,
@@ -383,12 +393,12 @@ impl AbstractNode for ValueNode {
             ValueNode::Map(_) => Type::Map,
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
-            ValueNode::Function {
+            ValueNode::Function(FunctionNode {
                 type_parameters,
                 value_parameters,
                 return_type,
                 ..
-            } => {
+            }) => {
                 let mut value_parameter_types = Vec::with_capacity(value_parameters.len());
 
                 for (_, type_constructor) in value_parameters {
@@ -511,18 +521,20 @@ impl Ord for ValueNode {
             }
             (EnumInstance { .. }, _) => Ordering::Greater,
             (
-                Function {
+                Function(FunctionNode {
                     type_parameters: left_type_arguments,
                     value_parameters: left_parameters,
                     return_type: left_return,
                     body: left_body,
-                },
-                Function {
+                    ..
+                }),
+                Function(FunctionNode {
                     type_parameters: right_type_arguments,
                     value_parameters: right_parameters,
                     return_type: right_return,
                     body: right_body,
-                },
+                    ..
+                }),
             ) => {
                 let parameter_cmp = left_parameters.cmp(right_parameters);
 
@@ -565,5 +577,24 @@ impl Ord for ValueNode {
             }
             (Structure { .. }, _) => Ordering::Greater,
         }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FunctionNode {
+    type_parameters: Option<Vec<Identifier>>,
+    value_parameters: Vec<(Identifier, TypeConstructor)>,
+    return_type: Option<TypeConstructor>,
+    body: WithPosition<Block>,
+    #[serde(skip)]
+    context_template: Context,
+}
+
+impl PartialEq for FunctionNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_parameters == other.type_parameters
+            && self.value_parameters == other.value_parameters
+            && self.return_type == other.return_type
+            && self.body == other.body
     }
 }

@@ -152,19 +152,12 @@ impl Context {
         self.data
             .write()?
             .variables
-            .retain(|identifier, (value_data, usage_data)| {
-                if let VariableData::Value(_) = value_data {
+            .retain(|_, (value_data, usage_data)| match value_data {
+                VariableData::Type(_) => true,
+                VariableData::Value(_) => {
                     let usage = usage_data.inner().read().unwrap();
 
-                    if usage.actual < usage.expected {
-                        true
-                    } else {
-                        log::trace!("Removing variable {identifier}.");
-
-                        false
-                    }
-                } else {
-                    false
+                    usage.actual < usage.expected
                 }
             });
 
@@ -175,6 +168,12 @@ impl Context {
 
     pub fn is_clean(&mut self) -> Result<bool, PoisonError> {
         Ok(*self.is_clean.read()?)
+    }
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Context::new(None)
     }
 }
 

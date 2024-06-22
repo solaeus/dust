@@ -291,12 +291,12 @@ pub fn parser<'src>(
                 .map_with(
                     |(((type_parameters, value_parameters), return_type), body), state| {
                         Expression::Value(
-                            ValueNode::Function {
+                            ValueNode::function(
                                 type_parameters,
                                 value_parameters,
                                 return_type,
                                 body,
-                            }
+                            )
                             .with_position(state.span()),
                         )
                     },
