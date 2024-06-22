@@ -11,6 +11,7 @@ use std::{
     fs::read_to_string,
     io::{stderr, Write},
     sync::Arc,
+    vec,
 };
 
 use dust_lang::{context::Context, Interpreter};
@@ -78,9 +79,9 @@ fn main() {
     let (source_id, source): (Arc<str>, Arc<str>) = if let Some(path) = args.path {
         let source = read_to_string(&path).unwrap();
 
-        (Arc::from(path), Arc::from(source.as_str()))
+        (Arc::from(path.as_str()), Arc::from(source))
     } else if let Some(command) = args.command {
-        (Arc::from("command"), Arc::from(command.as_str()))
+        (Arc::from("command"), Arc::from(command))
     } else {
         match run_shell(context) {
             Ok(_) => {}
@@ -96,7 +97,12 @@ fn main() {
             Err(error) => {
                 for report in error.build_reports() {
                     report
-                        .write_for_stdout(sources(interpreter.sources()), stderr())
+                        .write_for_stdout(
+                            sources::<Arc<str>, Arc<str>, vec::IntoIter<(Arc<str>, Arc<str>)>>(
+                                interpreter.sources(),
+                            ),
+                            stderr(),
+                        )
                         .unwrap();
                 }
             }
@@ -120,7 +126,7 @@ fn main() {
         return;
     }
 
-    let run_result = interpreter.run(source_id.clone(), source.clone());
+    let run_result = interpreter.run(source_id.clone(), source);
 
     match run_result {
         Ok(value) => {

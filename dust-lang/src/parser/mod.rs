@@ -25,7 +25,7 @@ pub type ParserExtra<'src> = extra::Err<Rich<'src, Token<'src>, SimpleSpan>>;
 pub fn parse<'src>(
     tokens: &'src [(Token<'src>, SimpleSpan)],
 ) -> Result<AbstractTree, Vec<DustError>> {
-    let statements = parser(false)
+    parser(false)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
         .map_err(|errors| {
@@ -33,14 +33,12 @@ pub fn parse<'src>(
                 .into_iter()
                 .map(|error| DustError::from(error))
                 .collect::<Vec<DustError>>()
-        })?;
-
-    Ok(AbstractTree::new(statements))
+        })
 }
 
 pub fn parser<'src>(
     allow_built_ins: bool,
-) -> impl Parser<'src, ParserInput<'src>, Vec<Statement>, ParserExtra<'src>> {
+) -> impl Parser<'src, ParserInput<'src>, AbstractTree, ParserExtra<'src>> {
     let comment = select_ref! {
         Token::Comment(_) => {}
     };
@@ -330,8 +328,15 @@ pub fn parser<'src>(
                     )
                 });
 
+            let _built_in_function = |keyword| {
+                just(Token::Keyword(keyword)).delimited_by(
+                    just(Token::Symbol(Symbol::DoubleUnderscore)),
+                    just(Token::Symbol(Symbol::DoubleUnderscore)),
+                )
+            };
+
             let built_in_function_call = choice((
-                just(Token::Keyword(Keyword::Length))
+                _built_in_function(Keyword::Length)
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltInFunctionCall(
@@ -339,7 +344,7 @@ pub fn parser<'src>(
                                 .with_position(state.span()),
                         )
                     }),
-                just(Token::Keyword(Keyword::ReadFile))
+                _built_in_function(Keyword::ReadFile)
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltInFunctionCall(
@@ -347,12 +352,12 @@ pub fn parser<'src>(
                                 .with_position(state.span()),
                         )
                     }),
-                just(Token::Keyword(Keyword::ReadLine)).map_with(|_, state| {
+                _built_in_function(Keyword::ReadLine).map_with(|_, state| {
                     Expression::BuiltInFunctionCall(
                         Box::new(BuiltInFunctionCall::ReadLine).with_position(state.span()),
                     )
                 }),
-                just(Token::Keyword(Keyword::Sleep))
+                _built_in_function(Keyword::Sleep)
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltInFunctionCall(
@@ -360,7 +365,7 @@ pub fn parser<'src>(
                                 .with_position(state.span()),
                         )
                     }),
-                just(Token::Keyword(Keyword::WriteLine))
+                _built_in_function(Keyword::WriteLine)
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltInFunctionCall(
@@ -368,7 +373,7 @@ pub fn parser<'src>(
                                 .with_position(state.span()),
                         )
                     }),
-                just(Token::Keyword(Keyword::JsonParse))
+                _built_in_function(Keyword::JsonParse)
                     .ignore_then(type_constructor.clone())
                     .then(expression.clone())
                     .map_with(|(constructor, argument), state| {
@@ -378,15 +383,15 @@ pub fn parser<'src>(
                         )
                     }),
             ))
-            .try_map_with(move |expression, state| {
-                if allow_built_ins {
-                    Ok(expression)
-                } else {
-                    Err(Rich::custom(
+            .validate(move |expression, state, emitter| {
+                if !allow_built_ins {
+                    emitter.emit(Rich::custom(
                         state.span(),
                         "Built-in function calls can only be used by the standard library.",
                     ))
                 }
+
+                expression
             });
 
             let turbofish = type_constructor
@@ -583,9 +588,9 @@ pub fn parser<'src>(
             ));
 
             choice((
+                built_in_function_call,
                 logic_math_indexes_as_and_function_calls,
                 enum_instance,
-                built_in_function_call,
                 range,
                 function,
                 list,
@@ -616,7 +621,7 @@ pub fn parser<'src>(
             .then(type_specification.clone().or_not())
             .then(choice((
                 just(Token::Symbol(Symbol::Equal)).to(AssignmentOperator::Assign),
-                just(Token::Symbol(Symbol::PlusEquals)).to(AssignmentOperator::AddAssign),
+                just(Token::Symbol(Symbol::PlusEqual)).to(AssignmentOperator::AddAssign),
                 just(Token::Symbol(Symbol::MinusEqual)).to(AssignmentOperator::SubAssign),
             )))
             .then(statement.clone())
@@ -757,5 +762,8 @@ pub fn parser<'src>(
             .then_ignore(just(Token::Symbol(Symbol::Semicolon)).or_not())
     });
 
-    statement.repeated().collect()
+    statement
+        .repeated()
+        .collect()
+        .map(|statements| AbstractTree::new(statements))
 }

@@ -100,7 +100,7 @@ impl Display for Keyword {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Symbol {
     Plus,
-    PlusEquals,
+    PlusEqual,
     DoubleAmpersand,
     Colon,
     Comma,
@@ -166,7 +166,7 @@ impl Display for Symbol {
             Symbol::Percent => write!(f, "%"),
             Symbol::Pipe => write!(f, "|"),
             Symbol::Plus => write!(f, "+"),
-            Symbol::PlusEquals => write!(f, "+="),
+            Symbol::PlusEqual => write!(f, "+="),
             Symbol::Semicolon => write!(f, ";"),
             Symbol::SkinnyArrow => write!(f, "->"),
             Symbol::Slash => write!(f, "/"),
@@ -251,35 +251,34 @@ pub fn lexer<'src>() -> impl Parser<
         delimited_string('`'),
     ));
 
-    let identifier_and_keyword = text::ident().map(|text: &str| match text {
-        "any" => Token::Keyword(Keyword::Any),
-        "async" => Token::Keyword(Keyword::Async),
-        "as" => Token::Keyword(Keyword::As),
-        "bool" => Token::Keyword(Keyword::Bool),
-        "break" => Token::Keyword(Keyword::Break),
-        "enum" => Token::Keyword(Keyword::Enum),
-        "else" => Token::Keyword(Keyword::Else),
-        "float" => Token::Keyword(Keyword::Float),
-        "fn" => Token::Keyword(Keyword::Fn),
-        "int" => Token::Keyword(Keyword::Int),
-        "if" => Token::Keyword(Keyword::If),
-        "list" => Token::Keyword(Keyword::List),
-        "map" => Token::Keyword(Keyword::Map),
-        "none" => Token::Keyword(Keyword::None),
-        "range" => Token::Keyword(Keyword::Range),
-        "struct" => Token::Keyword(Keyword::Struct),
-        "str" => Token::Keyword(Keyword::Str),
-        "type" => Token::Keyword(Keyword::Type),
-        "loop" => Token::Keyword(Keyword::Loop),
-        "while" => Token::Keyword(Keyword::While),
-        "JSON_PARSE" => Token::Keyword(Keyword::JsonParse),
-        "LENGTH" => Token::Keyword(Keyword::Length),
-        "READ_FILE" => Token::Keyword(Keyword::ReadFile),
-        "READ_LINE" => Token::Keyword(Keyword::ReadLine),
-        "SLEEP" => Token::Keyword(Keyword::Sleep),
-        "WRITE_LINE" => Token::Keyword(Keyword::WriteLine),
-        _ => Token::Identifier(text),
-    });
+    let keyword = choice((
+        just("any").to(Token::Keyword(Keyword::Any)),
+        just("async").to(Token::Keyword(Keyword::Async)),
+        just("as").to(Token::Keyword(Keyword::As)),
+        just("bool").to(Token::Keyword(Keyword::Bool)),
+        just("break").to(Token::Keyword(Keyword::Break)),
+        just("enum").to(Token::Keyword(Keyword::Enum)),
+        just("else").to(Token::Keyword(Keyword::Else)),
+        just("float").to(Token::Keyword(Keyword::Float)),
+        just("fn").to(Token::Keyword(Keyword::Fn)),
+        just("int").to(Token::Keyword(Keyword::Int)),
+        just("if").to(Token::Keyword(Keyword::If)),
+        just("list").to(Token::Keyword(Keyword::List)),
+        just("map").to(Token::Keyword(Keyword::Map)),
+        just("none").to(Token::Keyword(Keyword::None)),
+        just("range").to(Token::Keyword(Keyword::Range)),
+        just("struct").to(Token::Keyword(Keyword::Struct)),
+        just("str").to(Token::Keyword(Keyword::Str)),
+        just("type").to(Token::Keyword(Keyword::Type)),
+        just("loop").to(Token::Keyword(Keyword::Loop)),
+        just("while").to(Token::Keyword(Keyword::While)),
+        just("JSON_PARSE").to(Token::Keyword(Keyword::JsonParse)),
+        just("LENGTH").to(Token::Keyword(Keyword::Length)),
+        just("READ_FILE").to(Token::Keyword(Keyword::ReadFile)),
+        just("READ_LINE").to(Token::Keyword(Keyword::ReadLine)),
+        just("SLEEP").to(Token::Keyword(Keyword::Sleep)),
+        just("WRITE_LINE").to(Token::Keyword(Keyword::WriteLine)),
+    ));
 
     let symbol = choice([
         just("!=").to(Token::Symbol(Symbol::NotEqual)),
@@ -290,7 +289,7 @@ pub fn lexer<'src>() -> impl Parser<
         just("(").to(Token::Symbol(Symbol::ParenOpen)),
         just(")").to(Token::Symbol(Symbol::ParenClose)),
         just("*").to(Token::Symbol(Symbol::Asterisk)),
-        just("+=").to(Token::Symbol(Symbol::PlusEquals)),
+        just("+=").to(Token::Symbol(Symbol::PlusEqual)),
         just("+").to(Token::Symbol(Symbol::Plus)),
         just(",").to(Token::Symbol(Symbol::Comma)),
         just("->").to(Token::Symbol(Symbol::SkinnyArrow)),
@@ -313,10 +312,12 @@ pub fn lexer<'src>() -> impl Parser<
         just("]").to(Token::Symbol(Symbol::SquareClose)),
         just("__").to(Token::Symbol(Symbol::DoubleUnderscore)),
         just("{").to(Token::Symbol(Symbol::CurlyOpen)),
+        just("}").to(Token::Symbol(Symbol::CurlyClose)),
         just("||").to(Token::Symbol(Symbol::DoublePipe)),
         just("|").to(Token::Symbol(Symbol::Pipe)),
-        just("}").to(Token::Symbol(Symbol::CurlyClose)),
     ]);
+
+    let identifier = text::ident().map(|text: &str| Token::Identifier(text));
 
     choice((
         line_comment,
@@ -325,8 +326,9 @@ pub fn lexer<'src>() -> impl Parser<
         float,
         integer,
         string,
-        identifier_and_keyword,
+        keyword,
         symbol,
+        identifier,
     ))
     .map_with(|token: Token, state| (token, state.span()))
     .padded()

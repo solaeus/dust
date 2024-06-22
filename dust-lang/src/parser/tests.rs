@@ -226,7 +226,7 @@ fn r#as() {
 
 #[test]
 fn built_in_function() {
-    let tokens = lex("READ_LINE").unwrap();
+    let tokens = lex("__READ_LINE__").unwrap();
     let statements = parser(true)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
@@ -241,11 +241,14 @@ fn built_in_function() {
     assert_eq!(
         statements[0],
         Statement::Expression(Expression::BuiltInFunctionCall(
-            Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 9))
+            Box::new(BuiltInFunctionCall::ReadLine).with_position((0, 13))
         ))
     );
+}
 
-    let tokens = lex("WRITE_LINE 'hiya'").unwrap();
+#[test]
+fn built_in_function_with_arg() {
+    let tokens = lex("__WRITE_LINE__ 'hiya'").unwrap();
     let statements = parser(true)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
@@ -261,9 +264,9 @@ fn built_in_function() {
         statements[0],
         Statement::Expression(Expression::BuiltInFunctionCall(
             Box::new(BuiltInFunctionCall::WriteLine(Expression::Value(
-                ValueNode::String("hiya".to_string()).with_position((11, 17))
+                ValueNode::String("hiya".to_string()).with_position((15, 21))
             )))
-            .with_position((0, 17))
+            .with_position((0, 21))
         ))
     );
 }

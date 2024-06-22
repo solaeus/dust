@@ -1,5 +1,5 @@
 json = {
 	parse = fn |T| (input: str) -> T {
-		JSON_PARSE T input
+		__JSON_PARSE__ T input
 	}
 }

@@ -1,5 +1,5 @@
 fs = {
 	read_file = fn (path: str) -> str {
-		READ_FILE path
+		__READ_FILE__ path
 	}
 }

@@ -86,9 +86,8 @@ pub fn run_shell(context: Context) -> Result<(), io::Error> {
                         let reports = error.build_reports();
 
                         for report in reports {
-                            report
-                                .write_for_stdout(sources(interpreter.sources()), stderr())
-                                .unwrap();
+                            let cache = sources(interpreter.sources());
+                            report.write_for_stdout(cache, stderr()).unwrap();
                         }
                     }
                 }

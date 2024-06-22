@@ -14,14 +14,15 @@ use std::{
 
 use abstract_tree::{AbstractTree, Type};
 use ariadne::{Color, Config, Fmt, Label, Report, ReportKind};
+use chumsky::prelude::*;
 use context::Context;
 use error::{DustError, RuntimeError, TypeConflict, ValidationError};
 use lexer::{lex, Token};
-use parser::parse;
+use parser::{parse, parser};
 use rayon::prelude::*;
 pub use value::Value;
 
-pub fn interpret<'src>(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
+pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
     let interpreter = Interpreter::new(Context::new(None));
 
     interpreter.load_std()?;
@@ -34,7 +35,7 @@ pub fn interpret_without_std(
 ) -> Result<Option<Value>, InterpreterError> {
     let interpreter = Interpreter::new(Context::new(None));
 
-    interpreter.run(Arc::from(source_id.to_string()), Arc::from(source))
+    interpreter.run(Arc::from(source_id), Arc::from(source))
 }
 
 pub struct Interpreter {
@@ -137,18 +138,18 @@ impl Interpreter {
 
         // Always load the core library first because other parts of the standard library may depend
         // on it.
-        self.run(std_core_source.0, std_core_source.1)?;
+        self.run_with_builtins(std_core_source.0, std_core_source.1)?;
 
         let error = if cfg!(test) {
             // In debug mode, load the standard library sequentially to get consistent errors.
             std_sources
                 .into_iter()
-                .find_map(|(source_id, source)| self.run(source_id, source).err())
+                .find_map(|(source_id, source)| self.run_with_builtins(source_id, source).err())
         } else {
             // In release mode, load the standard library asynchronously.
             std_sources
                 .into_par_iter()
-                .find_map_any(|(source_id, source)| self.run(source_id, source).err())
+                .find_map_any(|(source_id, source)| self.run_with_builtins(source_id, source).err())
         };
 
         log::info!("Finish loading standard library.");
@@ -162,6 +163,37 @@ impl Interpreter {
 
     pub fn sources(&self) -> vec::IntoIter<(Arc<str>, Arc<str>)> {
         self.sources.read().unwrap().clone().into_iter()
+    }
+
+    fn run_with_builtins(
+        &self,
+        source_id: Arc<str>,
+        source: Arc<str>,
+    ) -> Result<Option<Value>, InterpreterError> {
+        let mut sources = self.sources.write().unwrap();
+
+        sources.clear();
+        sources.push((source_id.clone(), source.clone()));
+
+        let tokens = lex(source.as_ref()).map_err(|errors| InterpreterError {
+            source_id: source_id.clone(),
+            errors,
+        })?;
+        let abstract_tree = parser(true)
+            .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
+            .into_result()
+            .map_err(|errors| InterpreterError {
+                source_id: source_id.clone(),
+                errors: errors
+                    .into_iter()
+                    .map(|error| DustError::from(error))
+                    .collect(),
+            })?;
+        let value_option = abstract_tree
+            .run(&self.context, true)
+            .map_err(|errors| InterpreterError { source_id, errors })?;
+
+        Ok(value_option)
     }
 }
 
