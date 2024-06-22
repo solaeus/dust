@@ -8,8 +8,8 @@ use crate::{
 };
 
 use super::{
-    type_constructor::{RawTypeConstructor, TypeInvokationConstructor},
-    AbstractNode, Evaluation, Expression, Statement, Type, TypeConstructor, WithPosition,
+    type_constructor::TypeInvokationConstructor, AbstractNode, Evaluation, Expression, Statement,
+    Type, TypeConstructor, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -74,14 +74,6 @@ impl AbstractNode for Assignment {
     }
 
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        if let Some(TypeConstructor::Raw(WithPosition {
-            node: RawTypeConstructor::None,
-            position,
-        })) = &self.constructor
-        {
-            return Err(ValidationError::CannotAssignToNone(position.clone()));
-        }
-
         let relevant_statement = self.statement.last_evaluated_statement();
         let statement_type = if let Some(r#type) = relevant_statement.expected_type(context)? {
             r#type
@@ -144,7 +136,7 @@ impl AbstractNode for Assignment {
                 ..
             }) = function_type
             {
-                if let Type::Generic { identifier, .. } = *return_type {
+                if let Some(Type::Generic { identifier, .. }) = return_type.map(|r#box| *r#box) {
                     let returned_parameter = type_parameters
                         .into_iter()
                         .find(|parameter| parameter == &identifier);

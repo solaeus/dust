@@ -59,7 +59,7 @@ impl AbstractNode for Statement {
             Statement::Block(block) => block.node.define_types(_context),
             Statement::AsyncBlock(async_block) => async_block.node.define_types(_context),
             Statement::Assignment(assignment) => assignment.node.define_types(_context),
-            Statement::Break(_) => Ok(None),
+            Statement::Break(_) => Ok(()),
             Statement::Loop(r#loop) => r#loop.node.define_types(_context),
             Statement::StructureDefinition(struct_definition) => {
                 struct_definition.node.define_types(_context)

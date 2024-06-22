@@ -27,24 +27,20 @@ impl AbstractNode for TypeAlias {
     fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
         let r#type = self.constructor.construct(&context)?;
 
-        context.set_type(self.identifier.node, r#type)?;
+        context.set_type(self.identifier.node.clone(), r#type)?;
 
         Ok(())
     }
 
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, _: &Context, _: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 
-    fn evaluate(
-        self,
-        context: &Context,
-        manage_memory: bool,
-    ) -> Result<Option<Evaluation>, RuntimeError> {
+    fn evaluate(self, _: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
         Ok(None)
     }
 
-    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
     }
 }

@@ -34,7 +34,7 @@ pub enum ValueNode {
     Function {
         type_parameters: Option<Vec<Identifier>>,
         value_parameters: Vec<(Identifier, TypeConstructor)>,
-        return_type: TypeConstructor,
+        return_type: Option<TypeConstructor>,
         body: WithPosition<Block>,
     },
 }
@@ -64,12 +64,7 @@ impl AbstractNode for ValueNode {
                     expression.define_types(_context)?;
                 }
             }
-            ValueNode::Function {
-                type_parameters,
-                value_parameters,
-                return_type,
-                body,
-            } => {
+            ValueNode::Function { body, .. } => {
                 body.node.define_types(_context)?;
             }
             _ => {}
@@ -156,20 +151,23 @@ impl AbstractNode for ValueNode {
 
             body.node.validate(&mut function_context, _manage_memory)?;
 
+            let (expected_return_type, expected_position) = if let Some(constructor) = return_type {
+                (constructor.construct(context)?, constructor.position())
+            } else {
+                return Err(ValidationError::ExpectedExpression(body.position));
+            };
             let actual_return_type = if let Some(r#type) = body.node.expected_type(context)? {
                 r#type
             } else {
                 return Err(ValidationError::ExpectedExpression(body.position));
             };
 
-            return_type
-                .clone()
-                .construct(&function_context)?
+            expected_return_type
                 .check(&actual_return_type)
                 .map_err(|conflict| ValidationError::TypeCheck {
                     conflict,
                     actual_position: body.position,
-                    expected_position: Some(return_type.position()),
+                    expected_position: Some(expected_position),
                 })?;
 
             return Ok(());
@@ -316,7 +314,11 @@ impl AbstractNode for ValueNode {
                     }
                 }
 
-                let return_type = return_type.construct(&function_context)?;
+                let return_type = if let Some(constructor) = return_type {
+                    Some(constructor.construct(&function_context)?)
+                } else {
+                    None
+                };
 
                 Value::function(type_parameters, value_parameters, return_type, body.node)
             }
@@ -398,12 +400,16 @@ impl AbstractNode for ValueNode {
                         .map(|identifier| identifier.clone())
                         .collect()
                 });
-                let return_type = return_type.clone().construct(&context)?;
+                let return_type = if let Some(constructor) = return_type {
+                    Some(Box::new(constructor.construct(context)?))
+                } else {
+                    None
+                };
 
                 Type::Function {
                     type_parameters,
                     value_parameters: value_parameter_types,
-                    return_type: Box::new(return_type),
+                    return_type,
                 }
             }
             ValueNode::Structure {

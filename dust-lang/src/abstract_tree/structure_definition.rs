@@ -24,10 +24,10 @@ impl AbstractNode for StructureDefinition {
     fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
         let mut fields = Vec::with_capacity(self.fields.len());
 
-        for (identifier, constructor) in self.fields {
+        for (identifier, constructor) in &self.fields {
             let r#type = constructor.construct(&context)?;
 
-            fields.push((identifier, r#type));
+            fields.push((identifier.clone(), r#type));
         }
 
         let struct_type = Type::Structure {
@@ -35,12 +35,12 @@ impl AbstractNode for StructureDefinition {
             fields,
         };
 
-        context.set_type(self.name, struct_type)?;
+        context.set_type(self.name.clone(), struct_type)?;
 
-        Ok(None)
+        Ok(())
     }
 
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+    fn validate(&self, _: &Context, _: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 
@@ -67,7 +67,7 @@ impl AbstractNode for StructureDefinition {
         Ok(None)
     }
 
-    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
+    fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
     }
 }

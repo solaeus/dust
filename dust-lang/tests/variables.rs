@@ -48,7 +48,7 @@ fn function_variable() {
         Ok(Some(Value::function(
             None,
             vec![(Identifier::new("x"), Type::Integer)],
-            Type::Integer,
+            Some(Type::Integer),
             Block::new(vec![Statement::Expression(Expression::Identifier(
                 Identifier::new("x").with_position((30, 31))
             ))])

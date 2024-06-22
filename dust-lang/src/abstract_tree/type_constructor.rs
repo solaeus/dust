@@ -23,7 +23,6 @@ pub enum RawTypeConstructor {
     Float,
     Integer,
     Map,
-    None,
     Range,
     String,
 }
@@ -144,7 +143,11 @@ impl TypeConstructor {
                     value_parameters.push(r#type);
                 }
 
-                let return_type = Box::new(return_type.construct(&context)?);
+                let return_type = if let Some(constructor) = return_type {
+                    Some(Box::new(constructor.construct(context)?))
+                } else {
+                    None
+                };
 
                 Type::Function {
                     type_parameters,
@@ -172,7 +175,6 @@ impl TypeConstructor {
                 RawTypeConstructor::Float => Type::Float,
                 RawTypeConstructor::Integer => Type::Integer,
                 RawTypeConstructor::Map => Type::Map,
-                RawTypeConstructor::None => Type::Void,
                 RawTypeConstructor::Range => Type::Range,
                 RawTypeConstructor::String => Type::String,
             },
@@ -199,7 +201,7 @@ pub struct EnumTypeConstructor {
 pub struct FunctionTypeConstructor {
     pub type_parameters: Option<Vec<WithPosition<Identifier>>>,
     pub value_parameters: Vec<TypeConstructor>,
-    pub return_type: Box<TypeConstructor>,
+    pub return_type: Option<Box<TypeConstructor>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]

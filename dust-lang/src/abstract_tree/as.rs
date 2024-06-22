@@ -27,7 +27,7 @@ impl As {
 }
 
 impl AbstractNode for As {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+    fn define_types(&self, _: &Context) -> Result<(), ValidationError> {
         Ok(())
     }
 

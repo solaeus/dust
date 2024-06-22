@@ -32,19 +32,25 @@ impl AbstractNode for ListIndex {
         self.collection.validate(context, _manage_memory)?;
         self.index.validate(context, _manage_memory)?;
 
-        let collection_type = self.collection.expected_type(context)?;
-        let index_type = self.index.expected_type(context)?;
-
-        if index_type.is_none() {
-            return Err(ValidationError::CannotIndexWithVoid(self.index.position()));
-        }
+        let collection_type = if let Some(r#type) = self.index.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.collection.position(),
+            ));
+        };
+        let index_type = if let Some(r#type) = self.index.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(self.index.position()));
+        };
 
         match collection_type {
             Type::List {
                 length: _,
                 item_type: _,
             } => {
-                if index_type == Some(Type::Integer) {
+                if index_type == Type::Integer {
                     Ok(())
                 } else {
                     Err(ValidationError::CannotIndexWith {
@@ -69,8 +75,8 @@ impl AbstractNode for ListIndex {
         _clear_variables: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let left_position = self.collection.position();
-        let left_action = self.collection.evaluate(context, _clear_variables)?;
-        let left_value = if let Evaluation::Return(value) = left_action {
+        let left_evaluation = self.collection.evaluate(context, _clear_variables)?;
+        let left_value = if let Some(Evaluation::Return(value)) = left_evaluation {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -78,8 +84,8 @@ impl AbstractNode for ListIndex {
             ));
         };
         let right_position = self.index.position();
-        let right_action = self.index.evaluate(context, _clear_variables)?;
-        let right_value = if let Evaluation::Return(value) = right_action {
+        let right_evaluation = self.index.evaluate(context, _clear_variables)?;
+        let right_value = if let Some(Evaluation::Return(value)) = right_evaluation {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -93,7 +99,7 @@ impl AbstractNode for ListIndex {
             if let Some(item) = found_item {
                 Ok(Some(Evaluation::Return(item.clone())))
             } else {
-                Ok(Evaluation::Void)
+                Ok(None)
             }
         } else {
             Err(RuntimeError::ValidationFailure(
@@ -108,7 +114,13 @@ impl AbstractNode for ListIndex {
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
-        let left_type = self.collection.expected_type(_context)?;
+        let left_type = if let Some(r#type) = self.collection.expected_type(_context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.collection.position(),
+            ));
+        };
 
         if let (
             Expression::Value(WithPosition {
@@ -124,7 +136,7 @@ impl AbstractNode for ListIndex {
             let expression = if let Some(expression) = expression_list.get(*index as usize) {
                 expression
             } else {
-                return Ok(Type::Void);
+                return Ok(None);
             };
 
             expression.expected_type(_context)

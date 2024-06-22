@@ -3,7 +3,7 @@ io = {
 		READ_LINE
 	}
 
-	write_line = fn (output: any) -> none {
+	write_line = fn (output: any) {
 		WRITE_LINE output
 	}
 }

@@ -455,7 +455,6 @@ impl InterpreterError {
                         }
                     }
                     ValidationError::EnumVariantNotFound { .. } => todo!(),
-                    ValidationError::CannotIndexWithVoid(_) => todo!(),
                 }
             }
 

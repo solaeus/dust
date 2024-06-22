@@ -72,8 +72,16 @@ impl AbstractNode for Logic {
                 left.validate(context, _manage_memory)?;
                 right.validate(context, _manage_memory)?;
 
-                let left_type = left.expected_type(context)?;
-                let right_type = right.expected_type(context)?;
+                let left_type = if let Some(r#type) = left.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(left.position()));
+                };
+                let right_type = if let Some(r#type) = right.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(right.position()));
+                };
 
                 left_type
                     .check(&right_type)
@@ -89,8 +97,16 @@ impl AbstractNode for Logic {
                 left.validate(context, _manage_memory)?;
                 right.validate(context, _manage_memory)?;
 
-                let left_type = left.expected_type(context)?;
-                let right_type = right.expected_type(context)?;
+                let left_type = if let Some(r#type) = left.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(left.position()));
+                };
+                let right_type = if let Some(r#type) = right.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(right.position()));
+                };
 
                 if let Type::Boolean = left_type {
                 } else {
@@ -113,7 +129,11 @@ impl AbstractNode for Logic {
             Logic::Not(expression) => {
                 expression.validate(context, _manage_memory)?;
 
-                let expression_type = expression.expected_type(context)?;
+                let expression_type = if let Some(r#type) = expression.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(expression.position()));
+                };
 
                 if let Type::Boolean = expression_type {
                     Ok(())
@@ -134,8 +154,8 @@ impl AbstractNode for Logic {
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.evaluate(&mut context.clone(), _manage_memory)?;
-            let value = if let Evaluation::Return(value) = action {
+            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory)?;
+            let value = if let Some(Evaluation::Return(value)) = evaluation {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
@@ -148,8 +168,8 @@ impl AbstractNode for Logic {
 
         let run_and_expect_boolean = |expression: Expression| -> Result<bool, RuntimeError> {
             let expression_position = expression.position();
-            let action = expression.evaluate(&mut context.clone(), _manage_memory)?;
-            let value = if let Evaluation::Return(value) = action {
+            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory)?;
+            let value = if let Some(Evaluation::Return(value)) = evaluation {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
@@ -251,7 +271,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
 
@@ -263,7 +283,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
 
@@ -275,7 +295,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
 
@@ -287,7 +307,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
 
@@ -299,7 +319,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(41).with_position((0, 0)))
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
 
         assert_eq!(
@@ -308,7 +328,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
     }
 
@@ -320,7 +340,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
 
         assert_eq!(
@@ -329,7 +349,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
     }
 
@@ -341,7 +361,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
 
@@ -353,7 +373,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(false).with_position((0, 0))),
             )
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
 
@@ -364,7 +384,7 @@ mod tests {
                 ValueNode::Boolean(false).with_position((0, 0))
             ))
             .evaluate(&mut Context::new(None), true),
-            Ok(Evaluation::Return(Value::boolean(true)))
+            Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
 }

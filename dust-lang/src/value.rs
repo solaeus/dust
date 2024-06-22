@@ -71,7 +71,7 @@ impl Value {
     pub fn function(
         type_parameters: Option<Vec<Identifier>>,
         value_parameters: Vec<(Identifier, Type)>,
-        return_type: Type,
+        return_type: Option<Type>,
         body: Block,
     ) -> Self {
         Value(Arc::new(ValueInner::Function(Function {
@@ -188,7 +188,13 @@ impl Display for Value {
                     write!(f, "{identifier}: {}", r#type)?;
                 }
 
-                write!(f, "): {} {:?}", return_type, body)
+                write!(f, ")")?;
+
+                if let Some(return_type) = return_type {
+                    write!(f, "-> {return_type}")?
+                }
+
+                write!(f, " {{ {body:?} }}")
             }
             ValueInner::Structure { name, fields } => {
                 write!(f, "{}\n{{", name.node)?;
@@ -590,11 +596,12 @@ impl ValueInner {
                     .map(|(_, r#type)| r#type)
                     .cloned()
                     .collect();
+                let return_type = function.return_type.clone().map(|r#type| Box::new(r#type));
 
                 Type::Function {
                     type_parameters: function.type_parameters().clone(),
                     value_parameters,
-                    return_type: Box::new(function.return_type.clone()),
+                    return_type,
                 }
             }
             ValueInner::Structure { name, .. } => {
@@ -704,7 +711,7 @@ impl Ord for ValueInner {
 pub struct Function {
     type_parameters: Option<Vec<Identifier>>,
     value_parameters: Vec<(Identifier, Type)>,
-    return_type: Type,
+    return_type: Option<Type>,
     body: Block,
 }
 

@@ -147,12 +147,12 @@ impl AbstractTree {
 
         for statement in self.0 {
             let position = statement.position();
-            let run = statement.run(context, manage_memory);
+            let run = statement.evaluate(context, manage_memory);
 
             match run {
                 Ok(evaluation) => match evaluation {
                     Some(Evaluation::Return(value)) => previous_value = Some(value),
-                    Some(Evaluation::Void) | None => previous_value = None,
+                    None => previous_value = None,
                     _ => {}
                 },
                 Err(runtime_error) => {

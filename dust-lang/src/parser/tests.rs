@@ -438,12 +438,12 @@ fn function_type() {
                         value_parameters: vec![TypeConstructor::Raw(
                             RawTypeConstructor::Integer.with_position((19, 22))
                         )],
-                        return_type: Box::new(TypeConstructor::Invokation(
+                        return_type: Some(Box::new(TypeConstructor::Invokation(
                             TypeInvokationConstructor {
                                 identifier: Identifier::new("T").with_position((27, 28)),
                                 type_arguments: None
                             }
-                        ))
+                        )))
                     }
                     .with_position((11, 28))
                 )
@@ -505,9 +505,9 @@ fn function() {
             ValueNode::Function {
                 type_parameters: None,
                 value_parameters: vec![],
-                return_type: TypeConstructor::Raw(
+                return_type: Some(TypeConstructor::Raw(
                     RawTypeConstructor::Integer.with_position((9, 12))
-                ),
+                )),
                 body: Block::new(vec![Statement::Expression(Expression::Value(
                     ValueNode::Integer(0).with_position((15, 16))
                 ))])
@@ -526,9 +526,9 @@ fn function() {
                     Identifier::new("x"),
                     TypeConstructor::Raw(RawTypeConstructor::Integer.with_position((7, 10)))
                 )],
-                return_type: TypeConstructor::Raw(
+                return_type: Some(TypeConstructor::Raw(
                     RawTypeConstructor::Integer.with_position((15, 18))
-                ),
+                )),
                 body: Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x").with_position((21, 22))
                 ))])
@@ -562,10 +562,10 @@ fn function_with_type_arguments() {
                         })
                     )
                 ],
-                return_type: TypeConstructor::Invokation(TypeInvokationConstructor {
+                return_type: Some(TypeConstructor::Invokation(TypeInvokationConstructor {
                     identifier: Identifier::new("T").with_position((26, 27)),
                     type_arguments: None,
-                }),
+                })),
                 body: Block::new(vec![Statement::Expression(Expression::Identifier(
                     Identifier::new("x").with_position((30, 31))
                 ))])

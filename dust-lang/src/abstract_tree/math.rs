@@ -47,25 +47,30 @@ impl AbstractNode for Math {
     fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
-                let left_position = left.position();
-                let left_type = left.expected_type(context)?;
+                let left_type = if let Some(r#type) = left.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(left.position()));
+                };
+                let right_type = if let Some(r#type) = right.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(right.position()));
+                };
 
                 if let Type::Integer | Type::Float | Type::String = left_type {
-                    let right_position = right.position();
-                    let right_type = right.expected_type(context)?;
-
                     if let Type::Integer | Type::Float | Type::String = right_type {
                         Ok(())
                     } else {
                         Err(ValidationError::ExpectedIntegerFloatOrString {
                             actual: right_type,
-                            position: right_position,
+                            position: right.position(),
                         })
                     }
                 } else {
                     Err(ValidationError::ExpectedIntegerFloatOrString {
                         actual: left_type,
-                        position: left_position,
+                        position: left.position(),
                     })
                 }
             }
@@ -73,20 +78,25 @@ impl AbstractNode for Math {
             | Math::Multiply(left, right)
             | Math::Divide(left, right)
             | Math::Modulo(left, right) => {
-                let left_position = left.position();
-                let left_type = left.expected_type(context)?;
+                let left_type = if let Some(r#type) = left.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(left.position()));
+                };
+                let right_type = if let Some(r#type) = right.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(right.position()));
+                };
 
                 if let Type::Integer | Type::Float = left_type {
-                    let right_position = right.position();
-                    let right_type = right.expected_type(context)?;
-
                     if let Type::Integer | Type::Float = right_type {
                         Ok(())
                     } else {
-                        Err(ValidationError::ExpectedIntegerOrFloat(right_position))
+                        Err(ValidationError::ExpectedIntegerOrFloat(right.position()))
                     }
                 } else {
-                    Err(ValidationError::ExpectedIntegerOrFloat(left_position))
+                    Err(ValidationError::ExpectedIntegerOrFloat(left.position()))
                 }
             }
         }
@@ -99,8 +109,8 @@ impl AbstractNode for Math {
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value =
             |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
-                let action = expression.evaluate(&mut _context.clone(), _clear_variables)?;
-                let value = if let Evaluation::Return(value) = action {
+                let evaluation = expression.evaluate(&mut _context.clone(), _clear_variables)?;
+                let value = if let Some(Evaluation::Return(value)) = evaluation {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
@@ -326,8 +336,16 @@ impl AbstractNode for Math {
             | Math::Multiply(left, right)
             | Math::Divide(left, right)
             | Math::Modulo(left, right) => {
-                let left_type = left.expected_type(_context)?;
-                let right_type = right.expected_type(_context)?;
+                let left_type = if let Some(r#type) = left.expected_type(_context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(left.position()));
+                };
+                let right_type = if let Some(r#type) = right.expected_type(_context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(right.position()));
+                };
 
                 if let Type::Float = left_type {
                     return Ok(Some(Type::Float));
@@ -337,7 +355,7 @@ impl AbstractNode for Math {
                     return Ok(Some(Type::Float));
                 }
 
-                Ok(left_type)
+                Ok(Some(left_type))
             }
         }
     }

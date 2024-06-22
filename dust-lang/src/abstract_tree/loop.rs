@@ -45,7 +45,7 @@ impl AbstractNode for Loop {
     ) -> Result<Option<Evaluation>, RuntimeError> {
         loop {
             for statement in &self.statements {
-                let run = statement.clone().run(_context, false)?;
+                let run = statement.clone().evaluate(_context, false)?;
 
                 if let Some(Evaluation::Break) = run {
                     return Ok(run);

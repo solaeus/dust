@@ -84,7 +84,6 @@ pub fn parser<'src>(
             just(Token::Keyword(Keyword::Float)).to(RawTypeConstructor::Float),
             just(Token::Keyword(Keyword::Int)).to(RawTypeConstructor::Integer),
             just(Token::Keyword(Keyword::Map)).to(RawTypeConstructor::Map),
-            just(Token::Keyword(Keyword::None)).to(RawTypeConstructor::None),
             just(Token::Keyword(Keyword::Range)).to(RawTypeConstructor::Range),
             just(Token::Keyword(Keyword::Str)).to(RawTypeConstructor::String),
         ))
@@ -115,15 +114,18 @@ pub fn parser<'src>(
                         just(Token::Symbol(Symbol::ParenClose)),
                     ),
             )
-            .then_ignore(just(Token::Symbol(Symbol::SkinnyArrow)))
-            .then(type_constructor.clone())
+            .then(
+                just(Token::Symbol(Symbol::SkinnyArrow))
+                    .ignore_then(type_constructor.clone())
+                    .or_not(),
+            )
             .map_with(
                 |((type_parameters, value_parameters), return_type), state| {
                     TypeConstructor::Function(
                         FunctionTypeConstructor {
                             type_parameters,
                             value_parameters,
-                            return_type: Box::new(return_type),
+                            return_type: return_type.map(|r#type| Box::new(r#type)),
                         }
                         .with_position(state.span()),
                     )
@@ -282,8 +284,11 @@ pub fn parser<'src>(
                             just(Token::Symbol(Symbol::ParenClose)),
                         ),
                 )
-                .then_ignore(just(Token::Symbol(Symbol::SkinnyArrow)))
-                .then(type_constructor.clone())
+                .then(
+                    just(Token::Symbol(Symbol::SkinnyArrow))
+                        .ignore_then(type_constructor.clone())
+                        .or_not(),
+                )
                 .then(block.clone())
                 .map_with(
                     |(((type_parameters, value_parameters), return_type), body), state| {

@@ -163,10 +163,12 @@ impl AbstractNode for FunctionCall {
             ..
         } = function_type
         {
-            if let Type::Generic {
+            let return_type = return_type.map(|r#box| *r#box);
+
+            if let Some(Type::Generic {
                 identifier: return_identifier,
                 ..
-            } = *return_type.clone()
+            }) = &return_type
             {
                 if let (Some(type_arguments), Some(type_parameters)) =
                     (&self.type_arguments, &type_parameters)
@@ -174,7 +176,7 @@ impl AbstractNode for FunctionCall {
                     for (constructor, identifier) in
                         type_arguments.into_iter().zip(type_parameters.into_iter())
                     {
-                        if identifier == &return_identifier {
+                        if identifier == return_identifier {
                             let concrete_type = constructor.clone().construct(&context)?;
 
                             return Ok(Some(Type::Generic {
@@ -190,7 +192,7 @@ impl AbstractNode for FunctionCall {
                         .into_iter()
                         .zip(type_parameters.into_iter())
                     {
-                        if identifier == return_identifier {
+                        if &identifier == return_identifier {
                             let concrete_type =
                                 if let Some(r#type) = expression.expected_type(context)? {
                                     r#type
@@ -209,7 +211,7 @@ impl AbstractNode for FunctionCall {
                 }
             }
 
-            Ok(Some(*return_type))
+            Ok(return_type)
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_type,

@@ -18,7 +18,7 @@ pub enum Type {
     Function {
         type_parameters: Option<Vec<Identifier>>,
         value_parameters: Vec<Type>,
-        return_type: Box<Type>,
+        return_type: Option<Box<Type>>,
     },
     Generic {
         identifier: Identifier,
@@ -48,7 +48,6 @@ impl Type {
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
             | (Type::Map, Type::Map)
-            | (Type::Void, Type::Void)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
             (
@@ -239,7 +238,6 @@ impl Display for Type {
             Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
             Type::ListOf(item_type) => write!(f, "list({})", item_type),
             Type::Map => write!(f, "map"),
-            Type::Void => write!(f, "none"),
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),
             Type::Function {
@@ -261,7 +259,13 @@ impl Display for Type {
                     write!(f, "{type}")?;
                 }
 
-                write!(f, ") : {}", return_type)
+                write!(f, ")")?;
+
+                if let Some(r#type) = return_type {
+                    write!(f, " -> {}", r#type)
+                } else {
+                    Ok(())
+                }
             }
             Type::Structure { name, .. } => write!(f, "{name}"),
         }
@@ -295,7 +299,6 @@ mod tests {
         );
 
         assert_eq!(Type::Map.check(&Type::Map), Ok(()));
-        assert_eq!(Type::Void.check(&Type::Void), Ok(()));
         assert_eq!(Type::Range.check(&Type::Range), Ok(()));
         assert_eq!(Type::String.check(&Type::String), Ok(()));
     }
@@ -321,7 +324,6 @@ mod tests {
         );
 
         let types = [
-            Type::Any,
             Type::Boolean,
             Type::Float,
             Type::Integer,
@@ -331,23 +333,24 @@ mod tests {
             },
             Type::ListOf(Box::new(Type::Boolean)),
             Type::Map,
-            Type::Void,
             Type::Range,
             Type::String,
         ];
 
-        for (left, right) in types.iter().zip(types.iter()) {
-            if left == right {
-                continue;
-            }
+        for left in types.clone() {
+            for right in types.clone() {
+                if left == right {
+                    continue;
+                }
 
-            assert_eq!(
-                left.check(right),
-                Err(TypeConflict {
-                    actual: right.clone(),
-                    expected: left.clone()
-                })
-            );
+                assert_eq!(
+                    left.check(&right),
+                    Err(TypeConflict {
+                        actual: right.clone(),
+                        expected: left.clone()
+                    })
+                );
+            }
         }
     }
 

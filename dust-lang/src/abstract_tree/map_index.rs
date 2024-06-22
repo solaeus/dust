@@ -39,8 +39,8 @@ impl AbstractNode for MapIndex {
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let collection_position = self.collection.position();
-        let action = self.collection.evaluate(context, _manage_memory)?;
-        let collection = if let Evaluation::Return(value) = action {
+        let evaluation = self.collection.evaluate(context, _manage_memory)?;
+        let collection = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -51,11 +51,12 @@ impl AbstractNode for MapIndex {
         if let (ValueInner::Map(map), Expression::Identifier(index)) =
             (collection.inner().as_ref(), self.index)
         {
-            let evaluation = map
+            let eval_option = map
                 .get(&index.node)
-                .map(|value| Some(Evaluation::Return(value.clone())));
+                .cloned()
+                .map(|value| Evaluation::Return(value));
 
-            Ok(evaluation)
+            Ok(eval_option)
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::CannotIndex {
@@ -111,7 +112,7 @@ impl AbstractNode for MapIndex {
                 }
             }
 
-            return Ok(Type::Void);
+            return Ok(None);
         }
 
         if let (
@@ -131,12 +132,20 @@ impl AbstractNode for MapIndex {
             }) {
                 type_result
             } else {
-                Ok(Type::Void)
+                Ok(None)
             };
         }
 
+        let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.collection.position(),
+            ));
+        };
+
         Err(ValidationError::CannotIndex {
-            r#type: self.collection.expected_type(context)?,
+            r#type: collection_type,
             position: self.collection.position(),
         })
     }
