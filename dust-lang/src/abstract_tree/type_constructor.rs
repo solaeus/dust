@@ -57,9 +57,9 @@ impl TypeConstructor {
                 let invoked_type = if let Some(r#type) = context.get_type(&identifier.node)? {
                     r#type
                 } else {
-                    return Err(ValidationError::VariableNotFound {
+                    return Ok(Type::Generic {
                         identifier: identifier.node.clone(),
-                        position: identifier.position,
+                        concrete_type: None,
                     });
                 };
 
