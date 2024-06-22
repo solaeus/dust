@@ -151,24 +151,26 @@ impl AbstractNode for ValueNode {
 
             body.node.validate(&mut function_context, _manage_memory)?;
 
-            let (expected_return_type, expected_position) = if let Some(constructor) = return_type {
-                (constructor.construct(context)?, constructor.position())
-            } else {
-                return Err(ValidationError::ExpectedExpression(body.position));
-            };
-            let actual_return_type = if let Some(r#type) = body.node.expected_type(context)? {
-                r#type
-            } else {
-                return Err(ValidationError::ExpectedExpression(body.position));
-            };
+            let ((expected_return, expected_position), actual_return) =
+                match (return_type, body.node.expected_type(context)?) {
+                    (Some(constructor), Some(r#type)) => (
+                        (constructor.construct(context)?, constructor.position()),
+                        r#type,
+                    ),
+                    (None, Some(_)) => return Err(ValidationError::ExpectedValue(body.position)),
+                    (Some(constructor), None) => {
+                        return Err(ValidationError::ExpectedExpression(constructor.position()))
+                    }
+                    (None, None) => return Ok(()),
+                };
 
-            expected_return_type
-                .check(&actual_return_type)
-                .map_err(|conflict| ValidationError::TypeCheck {
+            expected_return.check(&actual_return).map_err(|conflict| {
+                ValidationError::TypeCheck {
                     conflict,
                     actual_position: body.position,
                     expected_position: Some(expected_position),
-                })?;
+                }
+            })?;
 
             return Ok(());
         }

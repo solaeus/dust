@@ -428,6 +428,29 @@ fn list_of_type() {
 #[test]
 fn function_type() {
     assert_eq!(
+        parse(&lex("type Foo = fn |T| (int)").unwrap()).unwrap()[0],
+        Statement::TypeAlias(
+            TypeAlias::new(
+                Identifier::new("Foo").with_position((5, 8)),
+                TypeConstructor::Function(
+                    FunctionTypeConstructor {
+                        type_parameters: Some(vec![Identifier::new("T").with_position((15, 16))]),
+                        value_parameters: vec![TypeConstructor::Raw(
+                            RawTypeConstructor::Integer.with_position((19, 22))
+                        )],
+                        return_type: None
+                    }
+                    .with_position((11, 23))
+                )
+            )
+            .with_position((0, 23))
+        )
+    );
+}
+
+#[test]
+fn function_type_with_return() {
+    assert_eq!(
         parse(&lex("type Foo = fn |T| (int) -> T").unwrap()).unwrap()[0],
         Statement::TypeAlias(
             TypeAlias::new(
@@ -666,7 +689,7 @@ fn map() {
                 ),
             ])
             .with_position((0, 15))
-        ),)
+        ))
     );
 }
 
