@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    cmp::Ordering,
+    sync::{Arc, Mutex},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +15,7 @@ use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
-    function: Box<Expression>,
+    function_expression: Box<Expression>,
     type_arguments: Option<Vec<TypeConstructor>>,
     value_arguments: Vec<Expression>,
 
@@ -22,12 +25,12 @@ pub struct FunctionCall {
 
 impl FunctionCall {
     pub fn new(
-        function: Expression,
+        function_expression: Expression,
         type_arguments: Option<Vec<TypeConstructor>>,
         value_arguments: Vec<Expression>,
     ) -> Self {
         FunctionCall {
-            function: Box::new(function),
+            function_expression: Box::new(function_expression),
             type_arguments,
             value_arguments,
             context: Arc::new(Mutex::new(None)),
@@ -35,7 +38,7 @@ impl FunctionCall {
     }
 
     pub fn function(&self) -> &Box<Expression> {
-        &self.function
+        &self.function_expression
     }
 }
 
@@ -43,7 +46,7 @@ impl AbstractNode for FunctionCall {
     fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
         *self.context.lock()? = Some(context.create_child());
 
-        self.function.define_types(context)?;
+        self.function_expression.define_types(context)?;
 
         let mut previous = ();
 
@@ -55,19 +58,20 @@ impl AbstractNode for FunctionCall {
     }
 
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        self.function.validate(context, manage_memory)?;
+        self.function_expression.validate(context, manage_memory)?;
 
         for expression in &self.value_arguments {
             expression.validate(context, manage_memory)?;
         }
 
-        let function_node_type = if let Some(r#type) = self.function.expected_type(context)? {
-            r#type
-        } else {
-            return Err(ValidationError::ExpectedExpression(
-                self.function.position(),
-            ));
-        };
+        let function_node_type =
+            if let Some(r#type) = self.function_expression.expected_type(context)? {
+                r#type
+            } else {
+                return Err(ValidationError::ExpectedExpression(
+                    self.function_expression.position(),
+                ));
+            };
 
         if let Type::Function {
             type_parameters,
@@ -91,7 +95,7 @@ impl AbstractNode for FunctionCall {
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_node_type,
-                position: self.function.position(),
+                position: self.function_expression.position(),
             })
         }
     }
@@ -101,8 +105,10 @@ impl AbstractNode for FunctionCall {
         context: &Context,
         clear_variables: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        let function_position = self.function.position();
-        let evaluation = self.function.evaluate(context, clear_variables)?;
+        let function_position = self.function_expression.position();
+        let evaluation = self
+            .function_expression
+            .evaluate(context, clear_variables)?;
         let value = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {
@@ -124,8 +130,8 @@ impl AbstractNode for FunctionCall {
 
         for expression in self.value_arguments {
             let expression_position = expression.position();
-            let action = expression.evaluate(context, clear_variables)?;
-            let evalution = if let Some(Evaluation::Return(value)) = action {
+            let evaluation = expression.evaluate(context, clear_variables)?;
+            let value = if let Some(Evaluation::Return(value)) = evaluation {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
@@ -133,13 +139,13 @@ impl AbstractNode for FunctionCall {
                 ));
             };
 
-            arguments.push(evalution);
+            arguments.push(value);
         }
 
         let function_context = if let Some(context) = self.context.lock()?.clone() {
             context
         } else {
-            panic!("");
+            todo!("New error for out-of-order execution.")
         };
 
         match (function.type_parameters(), self.type_arguments) {
@@ -161,11 +167,11 @@ impl AbstractNode for FunctionCall {
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
-        let function_type = if let Some(r#type) = self.function.expected_type(context)? {
+        let function_type = if let Some(r#type) = self.function_expression.expected_type(context)? {
             r#type
         } else {
             return Err(ValidationError::ExpectedExpression(
-                self.function.position(),
+                self.function_expression.position(),
             ));
         };
 
@@ -227,7 +233,7 @@ impl AbstractNode for FunctionCall {
         } else {
             Err(ValidationError::ExpectedFunction {
                 actual: function_type,
-                position: self.function.position(),
+                position: self.function_expression.position(),
             })
         }
     }
@@ -237,18 +243,32 @@ impl Eq for FunctionCall {}
 
 impl PartialEq for FunctionCall {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        self.function_expression == other.function_expression
+            && self.type_arguments == other.type_arguments
+            && self.value_arguments == other.value_arguments
     }
 }
 
 impl PartialOrd for FunctionCall {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        todo!()
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for FunctionCall {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        todo!()
+    fn cmp(&self, other: &Self) -> Ordering {
+        let function_cmp = self.function_expression.cmp(&other.function_expression);
+
+        if function_cmp.is_eq() {
+            let type_arg_cmp = self.type_arguments.cmp(&other.type_arguments);
+
+            if type_arg_cmp.is_eq() {
+                self.value_arguments.cmp(&other.value_arguments)
+            } else {
+                type_arg_cmp
+            }
+        } else {
+            function_cmp
+        }
     }
 }
