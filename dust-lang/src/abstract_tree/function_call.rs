@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -8,11 +10,14 @@ use crate::{
 
 use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
     function: Box<Expression>,
     type_arguments: Option<Vec<TypeConstructor>>,
     value_arguments: Vec<Expression>,
+
+    #[serde(skip)]
+    context: Arc<Mutex<Option<Context>>>,
 }
 
 impl FunctionCall {
@@ -25,6 +30,7 @@ impl FunctionCall {
             function: Box::new(function),
             type_arguments,
             value_arguments,
+            context: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -34,13 +40,15 @@ impl FunctionCall {
 }
 
 impl AbstractNode for FunctionCall {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        self.function.define_types(_context)?;
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        *self.context.lock()? = Some(context.create_child());
+
+        self.function.define_types(context)?;
 
         let mut previous = ();
 
         for expression in &self.value_arguments {
-            previous = expression.define_types(_context)?;
+            previous = expression.define_types(context)?;
         }
 
         Ok(previous)
@@ -128,7 +136,11 @@ impl AbstractNode for FunctionCall {
             arguments.push(evalution);
         }
 
-        let mut function_context = Context::new(Some(&context));
+        let function_context = if let Some(context) = self.context.lock()?.clone() {
+            context
+        } else {
+            panic!("");
+        };
 
         match (function.type_parameters(), self.type_arguments) {
             (Some(type_parameters), Some(type_arguments)) => {
@@ -145,7 +157,7 @@ impl AbstractNode for FunctionCall {
 
         function
             .clone()
-            .call(arguments, &mut function_context, clear_variables)
+            .call(arguments, &function_context, clear_variables)
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
@@ -218,5 +230,25 @@ impl AbstractNode for FunctionCall {
                 position: self.function.position(),
             })
         }
+    }
+}
+
+impl Eq for FunctionCall {}
+
+impl PartialEq for FunctionCall {
+    fn eq(&self, other: &Self) -> bool {
+        todo!()
+    }
+}
+
+impl PartialOrd for FunctionCall {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        todo!()
+    }
+}
+
+impl Ord for FunctionCall {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        todo!()
     }
 }

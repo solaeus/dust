@@ -731,7 +731,7 @@ impl Function {
     pub fn call(
         self,
         value_arguments: Vec<Value>,
-        context: &mut Context,
+        context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         for ((identifier, _), value) in self

@@ -15,7 +15,7 @@ use reedline::{
     SqliteBackedHistory,
 };
 
-pub fn run_shell<'a>(context: Context<'a>) -> Result<(), io::Error> {
+pub fn run_shell(context: Context) -> Result<(), io::Error> {
     let mut interpreter = Interpreter::new(context.clone());
     let mut keybindings = default_emacs_keybindings();
 

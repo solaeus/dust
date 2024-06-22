@@ -38,13 +38,13 @@ pub fn interpret_without_std(
     interpreter.run(Arc::from(source_id.to_string()), Arc::from(source))
 }
 
-pub struct Interpreter<'a> {
-    context: Context<'a>,
+pub struct Interpreter {
+    context: Context,
     sources: Arc<RwLock<Vec<(Arc<str>, Arc<str>)>>>,
 }
 
-impl<'a> Interpreter<'a> {
-    pub fn new(context: Context<'a>) -> Self {
+impl Interpreter {
+    pub fn new(context: Context) -> Self {
         Interpreter {
             context,
             sources: Arc::new(RwLock::new(Vec::new())),
