@@ -13,7 +13,9 @@ use crate::{
 };
 
 use self::{
-    built_in_function::BuiltInFunctionCall,
+    built_in_function::{
+        BuiltInFunctionCall, JsonParse, Length, ReadFile, ReadLine, Sleep, WriteLine,
+    },
     enum_declaration::EnumVariant,
     type_constructor::{RawTypeConstructor, TypeInvokationConstructor},
 };
@@ -385,33 +387,37 @@ pub fn parser<'src>(
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltIn(
-                            BuiltInFunctionCall::length(argument).with_position(state.span()),
+                            BuiltInFunctionCall::Length(Length::new(argument))
+                                .with_position(state.span()),
                         )
                     }),
                 _built_in_function(Keyword::ReadFile)
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltIn(
-                            BuiltInFunctionCall::read_file(argument).with_position(state.span()),
+                            BuiltInFunctionCall::ReadFile(ReadFile::new(argument))
+                                .with_position(state.span()),
                         )
                     }),
                 _built_in_function(Keyword::ReadLine).map_with(|_, state| {
                     Expression::BuiltIn(
-                        BuiltInFunctionCall::read_line().with_position(state.span()),
+                        BuiltInFunctionCall::ReadLine(ReadLine).with_position(state.span()),
                     )
                 }),
                 _built_in_function(Keyword::Sleep)
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltIn(
-                            BuiltInFunctionCall::sleep(argument).with_position(state.span()),
+                            BuiltInFunctionCall::Sleep(Sleep::new(argument))
+                                .with_position(state.span()),
                         )
                     }),
                 _built_in_function(Keyword::WriteLine)
                     .ignore_then(expression.clone())
                     .map_with(|argument, state| {
                         Expression::BuiltIn(
-                            BuiltInFunctionCall::write_line(argument).with_position(state.span()),
+                            BuiltInFunctionCall::WriteLine(WriteLine::new(argument))
+                                .with_position(state.span()),
                         )
                     }),
                 _built_in_function(Keyword::JsonParse)
@@ -419,7 +425,7 @@ pub fn parser<'src>(
                     .then(expression.clone())
                     .map_with(|(constructor, argument), state| {
                         Expression::BuiltIn(
-                            BuiltInFunctionCall::json_parse(constructor, argument)
+                            BuiltInFunctionCall::JsonParse(JsonParse::new(constructor, argument))
                                 .with_position(state.span()),
                         )
                     }),

@@ -1,4 +1,4 @@
-use std::{array, fs::read_to_string, io::stdin};
+use std::{fs::read_to_string, io::stdin};
 
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
@@ -15,64 +15,21 @@ use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunctionCall {
-    Length(BuiltInContextBinding<Length>),
-    ReadFile(BuiltInContextBinding<ReadFile>),
-    ReadLine(BuiltInContextBinding<ReadLine>),
-    Sleep(BuiltInContextBinding<Sleep>),
-    WriteLine(BuiltInContextBinding<WriteLine>),
-    JsonParse(BuiltInContextBinding<JsonParse>),
-}
-
-impl BuiltInFunctionCall {
-    pub fn length(argument: Expression) -> Self {
-        BuiltInFunctionCall::Length(BuiltInContextBinding::new(Length(Box::new(argument))))
-    }
-
-    pub fn read_file(argument: Expression) -> Self {
-        BuiltInFunctionCall::ReadFile(BuiltInContextBinding::new(ReadFile(Box::new(argument))))
-    }
-
-    pub fn read_line() -> Self {
-        BuiltInFunctionCall::ReadLine(BuiltInContextBinding::new(ReadLine))
-    }
-
-    pub fn sleep(argument: Expression) -> Self {
-        BuiltInFunctionCall::Sleep(BuiltInContextBinding::new(Sleep(Box::new(argument))))
-    }
-
-    pub fn write_line(argument: Expression) -> Self {
-        BuiltInFunctionCall::WriteLine(BuiltInContextBinding::new(WriteLine(Box::new(argument))))
-    }
-
-    pub fn json_parse(r#type: TypeConstructor, argument: Expression) -> Self {
-        BuiltInFunctionCall::JsonParse(BuiltInContextBinding::new(JsonParse(
-            r#type,
-            Box::new(argument),
-        )))
-    }
+    Length(Length),
+    ReadFile(ReadFile),
+    ReadLine(ReadLine),
+    Sleep(Sleep),
+    WriteLine(WriteLine),
+    JsonParse(JsonParse),
 }
 
 impl AbstractNode for BuiltInFunctionCall {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        match self {
-            BuiltInFunctionCall::Length(inner) => inner.define_types(_context),
-            BuiltInFunctionCall::ReadFile(inner) => inner.define_types(_context),
-            BuiltInFunctionCall::ReadLine(inner) => inner.define_types(_context),
-            BuiltInFunctionCall::Sleep(inner) => inner.define_types(_context),
-            BuiltInFunctionCall::WriteLine(inner) => inner.define_types(_context),
-            BuiltInFunctionCall::JsonParse(inner) => inner.define_types(_context),
-        }
+        Ok(())
     }
 
     fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        match self {
-            BuiltInFunctionCall::Length(inner) => inner.validate(_context, _manage_memory),
-            BuiltInFunctionCall::ReadFile(inner) => inner.validate(_context, _manage_memory),
-            BuiltInFunctionCall::ReadLine(inner) => inner.validate(_context, _manage_memory),
-            BuiltInFunctionCall::Sleep(inner) => inner.validate(_context, _manage_memory),
-            BuiltInFunctionCall::WriteLine(inner) => inner.validate(_context, _manage_memory),
-            BuiltInFunctionCall::JsonParse(inner) => inner.validate(_context, _manage_memory),
-        }
+        Ok(())
     }
 
     fn evaluate(
@@ -81,70 +38,28 @@ impl AbstractNode for BuiltInFunctionCall {
         _manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         match self {
-            BuiltInFunctionCall::Length(inner) => inner.evaluate(_context, _manage_memory),
-            BuiltInFunctionCall::ReadFile(inner) => inner.evaluate(_context, _manage_memory),
-            BuiltInFunctionCall::ReadLine(inner) => inner.evaluate(_context, _manage_memory),
-            BuiltInFunctionCall::Sleep(inner) => inner.evaluate(_context, _manage_memory),
-            BuiltInFunctionCall::WriteLine(inner) => inner.evaluate(_context, _manage_memory),
-            BuiltInFunctionCall::JsonParse(inner) => inner.evaluate(_context, _manage_memory),
+            BuiltInFunctionCall::Length(inner) => inner.call(_context, _manage_memory),
+            BuiltInFunctionCall::ReadFile(inner) => inner.call(_context, _manage_memory),
+            BuiltInFunctionCall::ReadLine(inner) => inner.call(_context, _manage_memory),
+            BuiltInFunctionCall::Sleep(inner) => inner.call(_context, _manage_memory),
+            BuiltInFunctionCall::WriteLine(inner) => inner.call(_context, _manage_memory),
+            BuiltInFunctionCall::JsonParse(inner) => inner.call(_context, _manage_memory),
         }
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         match self {
-            BuiltInFunctionCall::Length(inner) => inner.expected_type(_context),
-            BuiltInFunctionCall::ReadFile(inner) => inner.expected_type(_context),
-            BuiltInFunctionCall::ReadLine(inner) => inner.expected_type(_context),
-            BuiltInFunctionCall::Sleep(inner) => inner.expected_type(_context),
-            BuiltInFunctionCall::WriteLine(inner) => inner.expected_type(_context),
-            BuiltInFunctionCall::JsonParse(inner) => inner.expected_type(_context),
+            BuiltInFunctionCall::Length(inner) => inner.return_type(_context),
+            BuiltInFunctionCall::ReadFile(inner) => inner.return_type(_context),
+            BuiltInFunctionCall::ReadLine(inner) => inner.return_type(_context),
+            BuiltInFunctionCall::Sleep(inner) => inner.return_type(_context),
+            BuiltInFunctionCall::WriteLine(inner) => inner.return_type(_context),
+            BuiltInFunctionCall::JsonParse(inner) => inner.return_type(_context),
         }
-    }
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct BuiltInContextBinding<F> {
-    function: F,
-    #[serde(skip)]
-    context: Context,
-}
-
-impl<F> BuiltInContextBinding<F> {
-    pub fn new(function: F) -> Self {
-        Self {
-            function,
-            context: Context::new(None),
-        }
-    }
-}
-
-impl<F: Eq> Eq for BuiltInContextBinding<F> {}
-
-impl<F: PartialEq> PartialEq for BuiltInContextBinding<F> {
-    fn eq(&self, other: &Self) -> bool {
-        self.function == other.function
-    }
-}
-
-impl<F: Ord> PartialOrd for BuiltInContextBinding<F> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.function.cmp(&other.function))
-    }
-}
-
-impl<F: Ord> Ord for BuiltInContextBinding<F> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.function.cmp(&other.function)
     }
 }
 
 trait FunctionLogic {
-    fn arguments(
-        self,
-    ) -> (
-        Option<impl IntoIterator<Item = Identifier>>,
-        Option<impl IntoIterator<Item = (Identifier, Type)>>,
-    );
     fn return_type(&self, context: &Context) -> Result<Option<Type>, ValidationError>;
     fn call(
         self,
@@ -153,68 +68,16 @@ trait FunctionLogic {
     ) -> Result<Option<Evaluation>, RuntimeError>;
 }
 
-impl<F> AbstractNode for BuiltInContextBinding<F>
-where
-    F: FunctionLogic + Clone,
-{
-    fn define_types(&self, _: &Context) -> Result<(), ValidationError> {
-        let (type_arguments, value_arguments) = self.function.clone().arguments();
-
-        if let Some(type_arguments) = type_arguments {
-            for identifier in type_arguments {
-                self.context.set_type(
-                    identifier.clone(),
-                    Type::Generic {
-                        identifier,
-                        concrete_type: None,
-                    },
-                )?;
-            }
-        }
-
-        if let Some(value_arguments) = value_arguments {
-            for (identifier, r#type) in value_arguments {
-                self.context.set_type(identifier, r#type)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        Ok(())
-    }
-
-    fn evaluate(
-        self,
-        context: &Context,
-        manage_memory: bool,
-    ) -> Result<Option<Evaluation>, RuntimeError> {
-        self.context.set_parent(context.clone())?;
-        self.function.call(&self.context, manage_memory)
-    }
-
-    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
-        self.function.return_type(context)
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Length(Box<Expression>);
 
-impl FunctionLogic for Length {
-    fn arguments(
-        self,
-    ) -> (
-        Option<impl IntoIterator<Item = Identifier>>,
-        Option<impl IntoIterator<Item = (Identifier, Type)>>,
-    ) {
-        (
-            None::<array::IntoIter<Identifier, 0>>,
-            Some([(Identifier::new("list"), Type::ListOf(Box::new(Type::Any)))].into_iter()),
-        )
+impl Length {
+    pub fn new(expression: Expression) -> Self {
+        Length(Box::new(expression))
     }
+}
 
+impl FunctionLogic for Length {
     fn return_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(Some(Type::Integer))
     }
@@ -251,19 +114,13 @@ impl FunctionLogic for Length {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ReadFile(Box<Expression>);
 
-impl FunctionLogic for ReadFile {
-    fn arguments(
-        self,
-    ) -> (
-        Option<impl IntoIterator<Item = Identifier>>,
-        Option<impl IntoIterator<Item = (Identifier, Type)>>,
-    ) {
-        (
-            None::<array::IntoIter<Identifier, 0>>,
-            Some([(Identifier::new("path"), Type::ListOf(Box::new(Type::Any)))].into_iter()),
-        )
+impl ReadFile {
+    pub fn new(expression: Expression) -> Self {
+        ReadFile(Box::new(expression))
     }
+}
 
+impl FunctionLogic for ReadFile {
     fn return_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(Some(Type::String))
     }
@@ -287,18 +144,6 @@ impl FunctionLogic for ReadFile {
 pub struct ReadLine;
 
 impl FunctionLogic for ReadLine {
-    fn arguments(
-        self,
-    ) -> (
-        Option<impl IntoIterator<Item = Identifier>>,
-        Option<impl IntoIterator<Item = (Identifier, Type)>>,
-    ) {
-        (
-            None::<array::IntoIter<Identifier, 0>>,
-            None::<array::IntoIter<(Identifier, Type), 0>>,
-        )
-    }
-
     fn return_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(Some(Type::String))
     }
@@ -317,19 +162,13 @@ impl FunctionLogic for ReadLine {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Sleep(Box<Expression>);
 
-impl FunctionLogic for Sleep {
-    fn arguments(
-        self,
-    ) -> (
-        Option<impl IntoIterator<Item = Identifier>>,
-        Option<impl IntoIterator<Item = (Identifier, Type)>>,
-    ) {
-        (
-            None::<array::IntoIter<Identifier, 0>>,
-            Some([(Identifier::new("milliseconds"), Type::Integer)].into_iter()),
-        )
+impl Sleep {
+    pub fn new(expression: Expression) -> Self {
+        Sleep(Box::new(expression))
     }
+}
 
+impl FunctionLogic for Sleep {
     fn return_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
     }
@@ -342,19 +181,13 @@ impl FunctionLogic for Sleep {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct WriteLine(Box<Expression>);
 
-impl FunctionLogic for WriteLine {
-    fn arguments(
-        self,
-    ) -> (
-        Option<impl IntoIterator<Item = Identifier>>,
-        Option<impl IntoIterator<Item = (Identifier, Type)>>,
-    ) {
-        (
-            None::<array::IntoIter<Identifier, 0>>,
-            Some([(Identifier::new("output"), Type::Any)].into_iter()),
-        )
+impl WriteLine {
+    pub fn new(expression: Expression) -> Self {
+        WriteLine(Box::new(expression))
     }
+}
 
+impl FunctionLogic for WriteLine {
     fn return_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
     }
@@ -383,57 +216,71 @@ impl FunctionLogic for WriteLine {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct JsonParse(TypeConstructor, Box<Expression>);
 
-impl FunctionLogic for JsonParse {
-    fn arguments(
-        self,
-    ) -> (
-        Option<impl IntoIterator<Item = Identifier>>,
-        Option<impl IntoIterator<Item = (Identifier, Type)>>,
-    ) {
-        (
-            Some([Identifier::new("T")].into_iter()),
-            Some([(Identifier::new("input"), Type::Any)].into_iter()),
-        )
+impl JsonParse {
+    pub fn new(constructor: TypeConstructor, expression: Expression) -> Self {
+        JsonParse(constructor, Box::new(expression))
     }
+}
 
+impl FunctionLogic for JsonParse {
     fn return_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
         self.0.construct(context).map(|r#type| Some(r#type))
     }
 
-    fn call(self, context: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
-        let target_type = context.get_type(&Identifier::new("T"))?;
-        let input = context.get_value(&Identifier::new("input"))?;
+    fn call(
+        self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
+        let target_type = self.0.construct(context)?;
+        let position = self.1.position();
+        let evaluation = self.1.evaluate(context, manage_memory)?;
+        let value = if let Some(Evaluation::Return(value)) = evaluation {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedExpression(position),
+            ));
+        };
+        let input = if let ValueInner::String(string) = value.inner().as_ref() {
+            string
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedString {
+                    actual: value.r#type(context)?,
+                    position,
+                },
+            ));
+        };
 
-        if let (Some(r#type), Some(value)) = (target_type, input) {
-            let input_string = if let ValueInner::String(string) = value.inner().as_ref() {
-                string
-            } else {
-                return Err(RuntimeError::ValidationFailure(
-                    ValidationError::BuiltInFunctionFailure(self.0.position()),
-                ));
-            };
-
-            let parsed_value = match r#type {
-                Type::Any => from_str::<Value>(input_string)?,
-                Type::Boolean => Value::boolean(from_str::<bool>(input_string)?),
+        fn parse_value(input: &str, r#type: Type) -> Result<Value, RuntimeError> {
+            let value = match r#type {
+                Type::Any => from_str::<Value>(input)?,
+                Type::Boolean => Value::boolean(from_str::<bool>(input)?),
                 Type::Enum { .. } => todo!(),
-                Type::Float => Value::float(from_str::<f64>(input_string)?),
+                Type::Float => Value::float(from_str::<f64>(input)?),
                 Type::Function { .. } => todo!(),
-                Type::Generic { .. } => todo!(),
-                Type::Integer => Value::integer(from_str::<i64>(input_string)?),
+                Type::Generic { concrete_type, .. } => {
+                    if let Some(r#type) = concrete_type {
+                        parse_value(input, *r#type)?
+                    } else {
+                        todo!("Create an error for this occurence");
+                    }
+                }
+                Type::Integer => Value::integer(from_str::<i64>(input)?),
                 Type::List { .. } => todo!(),
                 Type::ListOf(_) => todo!(),
                 Type::Map(_) => todo!(),
                 Type::Range => todo!(),
-                Type::String => Value::string(from_str::<String>(input_string)?),
+                Type::String => Value::string(from_str::<String>(input)?),
                 Type::Structure { .. } => todo!(),
             };
 
-            return Ok(Some(Evaluation::Return(parsed_value)));
+            Ok(value)
         }
 
-        Err(RuntimeError::ValidationFailure(
-            ValidationError::BuiltInFunctionFailure(self.0.position()),
-        ))
+        let value = parse_value(&input, target_type)?;
+
+        Ok(Some(Evaluation::Return(value)))
     }
 }

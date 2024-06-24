@@ -29,13 +29,32 @@ impl AbstractNode for MapIndex {
         self.index.define_types(_context)
     }
 
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        self.collection.validate(_context, _manage_memory)?;
+    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        self.collection.validate(context, _manage_memory)?;
 
-        if let Expression::Identifier(identifier) = &self.index {
+        let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.collection.position(),
+            ));
+        };
+
+        if let (Type::Map(fields), Expression::Identifier(identifier)) =
+            (collection_type, &self.index)
+        {
+            if !fields.contains_key(&identifier.node) {
+                return Err(ValidationError::FieldNotFound {
+                    identifier: identifier.node.clone(),
+                    position: identifier.position,
+                });
+            }
+        }
+
+        if let Expression::Identifier(_) = &self.index {
             Ok(())
         } else {
-            self.index.validate(_context, _manage_memory)
+            self.index.validate(context, _manage_memory)
         }
     }
 
@@ -90,7 +109,7 @@ impl AbstractNode for MapIndex {
                 return if let Some(value) = map.get(&index.node) {
                     Ok(Some(value.r#type(context)?))
                 } else {
-                    Err(ValidationError::PropertyNotFound {
+                    Err(ValidationError::FieldNotFound {
                         identifier: index.node.clone(),
                         position: index.position,
                     })

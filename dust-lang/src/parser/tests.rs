@@ -271,7 +271,7 @@ fn built_in_function() {
     assert_eq!(
         statements[0],
         Statement::Expression(Expression::BuiltIn(
-            BuiltInFunctionCall::read_line().with_position((0, 13))
+            BuiltInFunctionCall::ReadLine(ReadLine).with_position((0, 13))
         ))
     );
 }
@@ -293,9 +293,9 @@ fn built_in_function_with_arg() {
     assert_eq!(
         statements[0],
         Statement::Expression(Expression::BuiltIn(
-            BuiltInFunctionCall::write_line(Expression::Value(
+            BuiltInFunctionCall::WriteLine(WriteLine::new(Expression::Value(
                 ValueNode::String("hiya".to_string()).with_position((15, 21))
-            ))
+            )))
             .with_position((0, 21))
         ))
     );

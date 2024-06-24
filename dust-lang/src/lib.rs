@@ -434,7 +434,17 @@ impl InterpreterError {
                     ValidationError::ExpectedExpression(_) => todo!(),
                     ValidationError::ExpectedFunction { .. } => todo!(),
                     ValidationError::ExpectedValue(_) => todo!(),
-                    ValidationError::PropertyNotFound { .. } => todo!(),
+                    ValidationError::FieldNotFound {
+                        identifier,
+                        position,
+                    } => builder.add_label(
+                        Label::new((self.source_id.clone(), position.0..position.1)).with_message(
+                            format!(
+                                "This map has no field named {}.",
+                                identifier.fg(identifier_color)
+                            ),
+                        ),
+                    ),
                     ValidationError::WrongArguments { .. } => todo!(),
                     ValidationError::WrongTypeArgumentCount { .. } => todo!(),
                     ValidationError::ExpectedIntegerFloatOrString { actual, position } => {

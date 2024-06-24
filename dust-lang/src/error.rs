@@ -165,7 +165,7 @@ pub enum ValidationError {
         identifier: Identifier,
         position: SourcePosition,
     },
-    PropertyNotFound {
+    FieldNotFound {
         identifier: Identifier,
         position: SourcePosition,
     },
