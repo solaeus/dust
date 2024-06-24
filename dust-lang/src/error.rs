@@ -3,7 +3,7 @@ use std::{io, sync::PoisonError as StdPoisonError};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
-    abstract_tree::{r#type::Type, SourcePosition, TypeConstructor},
+    abstract_tree::{r#type::Type, Expression, SourcePosition, TypeConstructor},
     identifier::Identifier,
     lexer::Token,
 };
@@ -153,13 +153,13 @@ pub enum ValidationError {
         /// The position of the item that gave the "expected" type.
         expected_position: Option<SourcePosition>,
     },
-    WrongTypeArgumentCount {
-        expected: usize,
-        actual: usize,
+    WrongTypeArguments {
+        parameters: Vec<Identifier>,
+        arguments: Vec<TypeConstructor>,
     },
-    WrongArguments {
-        expected: Vec<TypeConstructor>,
-        actual: Vec<TypeConstructor>,
+    WrongValueArguments {
+        parameters: Vec<(Identifier, Type)>,
+        arguments: Vec<Expression>,
     },
     VariableNotFound {
         identifier: Identifier,

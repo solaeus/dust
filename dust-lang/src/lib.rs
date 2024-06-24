@@ -451,10 +451,20 @@ impl InterpreterError {
                             ),
                         ),
                     ),
-                    ValidationError::WrongArguments { .. } => todo!(),
-                    ValidationError::WrongTypeArgumentCount { expected, actual } => {
+                    ValidationError::WrongTypeArguments {
+                        parameters,
+                        arguments,
+                    } => {
                         builder = builder.with_message(format!(
-                            "Expected {expected} arguments but got {actual}."
+                            "Expected {parameters:?} arguments but got {arguments:?}."
+                        ));
+                    }
+                    ValidationError::WrongValueArguments {
+                        parameters,
+                        arguments,
+                    } => {
+                        builder = builder.with_message(format!(
+                            "Expected {parameters:?} arguments but got {arguments:?}."
                         ));
                     }
                     ValidationError::ExpectedIntegerFloatOrString { actual, position } => {

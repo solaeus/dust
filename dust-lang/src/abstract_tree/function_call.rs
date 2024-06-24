@@ -1,3 +1,4 @@
+use chumsky::container::Container;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -76,11 +77,11 @@ impl AbstractNode for FunctionCall {
         } = function_node_type
         {
             match (type_parameters, &self.type_arguments) {
-                (Some(type_parameters), Some(type_arguments)) => {
-                    if type_parameters.len() != type_arguments.len() {
-                        return Err(ValidationError::WrongTypeArgumentCount {
-                            actual: type_parameters.len(),
-                            expected: type_arguments.len(),
+                (Some(parameters), Some(type_arguments)) => {
+                    if parameters.len() != type_arguments.len() {
+                        return Err(ValidationError::WrongTypeArguments {
+                            arguments: type_arguments.clone(),
+                            parameters: parameters.clone(),
                         });
                     }
                 }
@@ -90,23 +91,23 @@ impl AbstractNode for FunctionCall {
             match (value_parameters, &self.value_arguments) {
                 (Some(parameters), Some(arguments)) => {
                     if parameters.len() != arguments.len() {
-                        return Err(ValidationError::WrongTypeArgumentCount {
-                            actual: parameters.len(),
-                            expected: arguments.len(),
+                        return Err(ValidationError::WrongValueArguments {
+                            parameters,
+                            arguments: arguments.clone(),
                         });
                     }
                 }
                 (Some(parameters), None) => {
-                    return Err(ValidationError::WrongTypeArgumentCount {
-                        expected: parameters.len(),
-                        actual: 0,
-                    })
+                    return Err(ValidationError::WrongValueArguments {
+                        parameters,
+                        arguments: Vec::with_capacity(0),
+                    });
                 }
                 (None, Some(arguments)) => {
-                    return Err(ValidationError::WrongTypeArgumentCount {
-                        expected: 0,
-                        actual: arguments.len(),
-                    })
+                    return Err(ValidationError::WrongValueArguments {
+                        parameters: Vec::with_capacity(0),
+                        arguments: arguments.clone(),
+                    });
                 }
                 (None, None) => {}
             }
