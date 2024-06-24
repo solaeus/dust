@@ -299,10 +299,7 @@ impl InterpreterError {
                                 self.source_id.clone(),
                                 position.1,
                             )
-                            .with_message("An error occured that forced the program to exit.")
-                            .with_help(
-                                "There may be unexpected side-effects because the program could not finish.",
-                            )
+                            .with_message("An error occured that forced the program to exit. There may be unexpected side-effects because the program could not finish.")
                             .with_note(note)
                             .with_label(
                                 Label::new((self.source_id.clone(), position.0..position.1)).with_message("Error occured here.")
@@ -359,11 +356,17 @@ impl InterpreterError {
                     ),
                     ValidationError::RwLockPoison(_) => todo!(),
                     ValidationError::TypeCheck {
-                        conflict,
+                        conflict: TypeConflict { actual, expected },
                         actual_position,
                         expected_position,
                     } => {
-                        let TypeConflict { actual, expected } = conflict;
+                        if let Type::Generic {
+                            concrete_type: None,
+                            ..
+                        } = actual
+                        {
+                            builder = builder.with_help("Try specifying the type using turbofish.");
+                        }
 
                         if let Some(position) = expected_position {
                             builder.add_label(

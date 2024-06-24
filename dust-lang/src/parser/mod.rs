@@ -414,19 +414,17 @@ pub fn parser<'src>(
                 expression
             });
 
-            let turbofish = type_constructor
-                .clone()
-                .separated_by(just(Token::Symbol(Symbol::Comma)))
-                .at_least(1)
-                .collect()
-                .delimited_by(
-                    just(Token::Symbol(Symbol::ParenOpen)),
-                    just(Token::Symbol(Symbol::ParenClose)),
-                )
-                .delimited_by(
-                    just(Token::Symbol(Symbol::DoubleColon)),
-                    just(Token::Symbol(Symbol::DoubleColon)),
-                );
+            let turbofish = just(Token::Symbol(Symbol::DoubleColon)).ignore_then(
+                type_constructor
+                    .clone()
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
+                    .at_least(1)
+                    .collect()
+                    .delimited_by(
+                        just(Token::Symbol(Symbol::Less)),
+                        just(Token::Symbol(Symbol::Greater)),
+                    ),
+            );
 
             let atom = choice((
                 built_in_function.clone(),

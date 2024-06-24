@@ -7,7 +7,7 @@ fn function_call_with_type_argument() {
             "test",
             "
             foobar = fn |T| (x: T) -> T { x }
-            foobar::(int)::(42)
+            foobar::<int>(42)
             ",
         ),
         Ok(Some(Value::integer(42)))

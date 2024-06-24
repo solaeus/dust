@@ -152,15 +152,15 @@ impl AbstractNode for FunctionCall {
 
         let function_context = Context::new(Some(context.clone()));
 
-        if let Some(type_parameters) = function.type_parameters() {
-            for identifier in type_parameters {
-                function_context.set_type(
-                    identifier.clone(),
-                    Type::Generic {
-                        identifier: identifier.clone(),
-                        concrete_type: None,
-                    },
-                )?;
+        if let (Some(type_parameters), Some(type_arguments)) =
+            (function.type_parameters(), self.type_arguments)
+        {
+            for (identifier, constructor) in
+                type_parameters.into_iter().zip(type_arguments.into_iter())
+            {
+                let r#type = constructor.construct(context)?;
+
+                function_context.set_type(identifier.clone(), r#type)?;
             }
         }
 

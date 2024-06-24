@@ -539,7 +539,7 @@ fn function_call() {
 #[test]
 fn function_call_with_type_arguments() {
     assert_eq!(
-        parse(&lex("foobar::(str)::('hi')").unwrap()).unwrap()[0],
+        parse(&lex("foobar::<str>('hi')").unwrap()).unwrap()[0],
         Statement::Expression(Expression::FunctionCall(
             FunctionCall::new(
                 Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
@@ -547,10 +547,10 @@ fn function_call_with_type_arguments() {
                     RawTypeConstructor::String.with_position((9, 12))
                 )]),
                 Some(vec![Expression::Value(
-                    ValueNode::String("hi".to_string()).with_position((16, 20))
+                    ValueNode::String("hi".to_string()).with_position((14, 18))
                 )]),
             )
-            .with_position((0, 21))
+            .with_position((0, 19))
         ))
     )
 }
