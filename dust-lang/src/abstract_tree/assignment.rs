@@ -100,6 +100,12 @@ impl AbstractNode for Assignment {
 
         let statement_type = self.statement.expected_type(context)?;
 
+        if statement_type.is_none() {
+            return Err(ValidationError::CannotAssignToNone(
+                self.statement.last_evaluated_statement().position(),
+            ));
+        }
+
         if let (Some(expected_type_constructor), Some(actual_type)) =
             (&self.constructor, statement_type)
         {

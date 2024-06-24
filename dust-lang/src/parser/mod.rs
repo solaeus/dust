@@ -549,7 +549,7 @@ pub fn parser<'src>(
                 ),
                 infix(
                     left(1),
-                    just(Token::Symbol(Symbol::Slash)),
+                    just(Token::Symbol(Symbol::Percent)),
                     |left, _, right, span| {
                         Expression::Math(Box::new(Math::Modulo(left, right)).with_position(span))
                     },

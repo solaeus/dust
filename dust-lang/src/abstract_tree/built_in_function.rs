@@ -1,8 +1,4 @@
-use std::{
-    array,
-    fs::read_to_string,
-    io::{self, stdin},
-};
+use std::{array, fs::read_to_string, io::stdin};
 
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
@@ -308,9 +304,13 @@ impl FunctionLogic for ReadLine {
     }
 
     fn call(self, _: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
-        let user_input = io::read_to_string(stdin())?;
+        let mut user_input = String::new();
 
-        Ok(Some(Evaluation::Return(Value::string(user_input))))
+        stdin().read_line(&mut user_input)?;
+
+        Ok(Some(Evaluation::Return(Value::string(
+            user_input.trim_end_matches('\n'),
+        ))))
     }
 }
 
