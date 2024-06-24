@@ -1,8 +1,3 @@
-/*
-	This is is simple program to get the length of a json array.
-
-	Use `cargo run --package dust-shell examples/json_length.ds`
-*/
 input = fs.read_file('examples/assets/data.json')
 data = json.parse(input)
 

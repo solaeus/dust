@@ -1,3 +1,3 @@
 length = fn (list: [any]) -> int {
-	__LENGTH__ list
+	__LENGTH__(list)
 }

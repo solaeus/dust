@@ -14,7 +14,7 @@ use serde::{
 };
 
 use crate::{
-    abstract_tree::{AbstractNode, Block, Evaluation, Type, WithPosition},
+    abstract_tree::{AbstractNode, Block, BuiltInFunction, Evaluation, Type, WithPosition},
     context::Context,
     error::{PoisonError, RuntimeError, ValidationError},
     identifier::Identifier,
@@ -214,6 +214,7 @@ impl Display for Value {
 
                 write!(f, "}}")
             }
+            ValueInner::BuiltInFunction(_) => todo!(),
         }
     }
 }
@@ -305,6 +306,7 @@ impl Serialize for Value {
 
                 struct_ser.end()
             }
+            ValueInner::BuiltInFunction(_) => todo!(),
         }
     }
 }
@@ -554,6 +556,7 @@ impl<'de> Deserialize<'de> for Value {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueInner {
     Boolean(bool),
+    BuiltInFunction(BuiltInFunction),
     EnumInstance {
         type_name: Identifier,
         variant: Identifier,
@@ -628,6 +631,7 @@ impl ValueInner {
                     });
                 }
             }
+            ValueInner::BuiltInFunction(_) => todo!(),
         };
 
         Ok(r#type)
@@ -717,6 +721,8 @@ impl Ord for ValueInner {
                 }
             }
             (Structure { .. }, _) => Ordering::Greater,
+            (BuiltInFunction(left), BuiltInFunction(right)) => left.cmp(right),
+            (BuiltInFunction(_), _) => Ordering::Greater,
         }
     }
 }

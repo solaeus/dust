@@ -270,15 +270,15 @@ fn built_in_function() {
 
     assert_eq!(
         statements[0],
-        Statement::Expression(Expression::BuiltIn(
-            BuiltInFunctionCall::ReadLine(ReadLine).with_position((0, 13))
+        Statement::Expression(Expression::Value(
+            ValueNode::BuiltInFunction(BuiltInFunction::ReadLine).with_position((0, 13))
         ))
     );
 }
 
 #[test]
 fn built_in_function_with_arg() {
-    let tokens = lex("__WRITE_LINE__ 'hiya'").unwrap();
+    let tokens = lex("__WRITE_LINE__('hiya')").unwrap();
     let statements = parser(true)
         .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
         .into_result()
@@ -292,11 +292,17 @@ fn built_in_function_with_arg() {
 
     assert_eq!(
         statements[0],
-        Statement::Expression(Expression::BuiltIn(
-            BuiltInFunctionCall::WriteLine(WriteLine::new(Expression::Value(
-                ValueNode::String("hiya".to_string()).with_position((15, 21))
-            )))
-            .with_position((0, 21))
+        Statement::Expression(Expression::FunctionCall(
+            FunctionCall::new(
+                Expression::Value(
+                    ValueNode::BuiltInFunction(BuiltInFunction::WriteLine).with_position((0, 14))
+                ),
+                None,
+                Some(vec![Expression::Value(
+                    ValueNode::String("hiya".to_string()).with_position((15, 21))
+                )])
+            )
+            .with_position((0, 22))
         ))
     );
 }

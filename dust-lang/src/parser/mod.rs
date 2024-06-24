@@ -13,9 +13,7 @@ use crate::{
 };
 
 use self::{
-    built_in_function::{
-        BuiltInFunctionCall, JsonParse, Length, ReadFile, ReadLine, Sleep, WriteLine,
-    },
+    built_in_function::BuiltInFunction,
     enum_declaration::EnumVariant,
     type_constructor::{RawTypeConstructor, TypeInvokationConstructor},
 };
@@ -375,60 +373,50 @@ pub fn parser<'src>(
                     )
                 });
 
-            let _built_in_function = |keyword| {
+            let underscored = |keyword| {
                 just(Token::Keyword(keyword)).delimited_by(
                     just(Token::Symbol(Symbol::DoubleUnderscore)),
                     just(Token::Symbol(Symbol::DoubleUnderscore)),
                 )
             };
 
-            let built_in_function_call = choice((
-                _built_in_function(Keyword::Length)
-                    .ignore_then(expression.clone())
-                    .map_with(|argument, state| {
-                        Expression::BuiltIn(
-                            BuiltInFunctionCall::Length(Length::new(argument))
-                                .with_position(state.span()),
-                        )
-                    }),
-                _built_in_function(Keyword::ReadFile)
-                    .ignore_then(expression.clone())
-                    .map_with(|argument, state| {
-                        Expression::BuiltIn(
-                            BuiltInFunctionCall::ReadFile(ReadFile::new(argument))
-                                .with_position(state.span()),
-                        )
-                    }),
-                _built_in_function(Keyword::ReadLine).map_with(|_, state| {
-                    Expression::BuiltIn(
-                        BuiltInFunctionCall::ReadLine(ReadLine).with_position(state.span()),
+            let built_in_function = choice((
+                underscored(Keyword::Length).map_with(|_, state| {
+                    Expression::Value(
+                        ValueNode::BuiltInFunction(BuiltInFunction::Length)
+                            .with_position(state.span()),
                     )
                 }),
-                _built_in_function(Keyword::Sleep)
-                    .ignore_then(expression.clone())
-                    .map_with(|argument, state| {
-                        Expression::BuiltIn(
-                            BuiltInFunctionCall::Sleep(Sleep::new(argument))
-                                .with_position(state.span()),
-                        )
-                    }),
-                _built_in_function(Keyword::WriteLine)
-                    .ignore_then(expression.clone())
-                    .map_with(|argument, state| {
-                        Expression::BuiltIn(
-                            BuiltInFunctionCall::WriteLine(WriteLine::new(argument))
-                                .with_position(state.span()),
-                        )
-                    }),
-                _built_in_function(Keyword::JsonParse)
-                    .ignore_then(type_constructor.clone())
-                    .then(expression.clone())
-                    .map_with(|(constructor, argument), state| {
-                        Expression::BuiltIn(
-                            BuiltInFunctionCall::JsonParse(JsonParse::new(constructor, argument))
-                                .with_position(state.span()),
-                        )
-                    }),
+                underscored(Keyword::ReadLine).map_with(|_, state| {
+                    Expression::Value(
+                        ValueNode::BuiltInFunction(BuiltInFunction::ReadLine)
+                            .with_position(state.span()),
+                    )
+                }),
+                underscored(Keyword::ReadFile).map_with(|_, state| {
+                    Expression::Value(
+                        ValueNode::BuiltInFunction(BuiltInFunction::ReadFile)
+                            .with_position(state.span()),
+                    )
+                }),
+                underscored(Keyword::Sleep).map_with(|_, state| {
+                    Expression::Value(
+                        ValueNode::BuiltInFunction(BuiltInFunction::Sleep)
+                            .with_position(state.span()),
+                    )
+                }),
+                underscored(Keyword::WriteLine).map_with(|_, state| {
+                    Expression::Value(
+                        ValueNode::BuiltInFunction(BuiltInFunction::WriteLine)
+                            .with_position(state.span()),
+                    )
+                }),
+                underscored(Keyword::JsonParse).map_with(|_, state| {
+                    Expression::Value(
+                        ValueNode::BuiltInFunction(BuiltInFunction::JsonParse)
+                            .with_position(state.span()),
+                    )
+                }),
             ))
             .validate(move |expression, state, emitter| {
                 if !allow_built_ins {
@@ -456,6 +444,7 @@ pub fn parser<'src>(
                 );
 
             let atom = choice((
+                built_in_function.clone(),
                 enum_instance.clone(),
                 range.clone(),
                 function.clone(),
@@ -646,8 +635,8 @@ pub fn parser<'src>(
             ));
 
             choice((
-                built_in_function_call,
                 logic_math_indexes_as_and_function_calls,
+                built_in_function,
                 enum_instance,
                 range,
                 function,

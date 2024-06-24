@@ -10,12 +10,14 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Block, Evaluation, Expression, Type, TypeConstructor, WithPos, WithPosition,
+    AbstractNode, Block, BuiltInFunction, Evaluation, Expression, Type, TypeConstructor, WithPos,
+    WithPosition,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueNode {
     Boolean(bool),
+    BuiltInFunction(BuiltInFunction),
     EnumInstance {
         type_name: WithPosition<Identifier>,
         variant: WithPosition<Identifier>,
@@ -239,7 +241,7 @@ impl AbstractNode for ValueNode {
     fn evaluate(
         self,
         context: &Context,
-        _manage_memory: bool,
+        manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
@@ -253,7 +255,7 @@ impl AbstractNode for ValueNode {
 
                     for expression in expressions {
                         let position = expression.position();
-                        let evaluation = expression.evaluate(context, _manage_memory)?;
+                        let evaluation = expression.evaluate(context, manage_memory)?;
 
                         if let Some(Evaluation::Return(value)) = evaluation {
                             values.push(value);
@@ -277,7 +279,7 @@ impl AbstractNode for ValueNode {
 
                 for expression in expression_list {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(context, _manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -296,7 +298,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, _type, expression) in property_list {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(context, _manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -355,7 +357,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, expression) in expressions {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(context, _manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -368,6 +370,9 @@ impl AbstractNode for ValueNode {
                 }
 
                 Value::structure(name, fields)
+            }
+            ValueNode::BuiltInFunction(built_in_function) => {
+                built_in_function.call(context, manage_memory)?
             }
         };
 
@@ -488,6 +493,7 @@ impl AbstractNode for ValueNode {
                         .collect(),
                 }
             }
+            ValueNode::BuiltInFunction(built_in_function) => built_in_function.r#type(),
         };
 
         Ok(Some(r#type))
@@ -612,6 +618,8 @@ impl Ord for ValueNode {
                 }
             }
             (Structure { .. }, _) => Ordering::Greater,
+            (BuiltInFunction(left), BuiltInFunction(right)) => left.cmp(right),
+            (BuiltInFunction(_), _) => Ordering::Greater,
         }
     }
 }

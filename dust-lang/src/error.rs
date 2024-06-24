@@ -103,7 +103,7 @@ impl PartialEq for RuntimeError {
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
-    BuiltInFunctionFailure(SourcePosition),
+    BuiltInFunctionFailure(&'static str),
     CannotAssignToNone(SourcePosition),
     CannotIndex {
         r#type: Type,
