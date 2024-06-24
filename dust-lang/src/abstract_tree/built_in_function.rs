@@ -1,4 +1,4 @@
-use std::{fs::read_to_string, io::stdin};
+use std::{fs::read_to_string, io::stdin, thread::sleep, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
@@ -11,7 +11,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
+use super::Type;
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunction {
@@ -98,13 +98,29 @@ impl FunctionLogic for ReadFile {
     fn r#type() -> Type {
         Type::Function {
             type_parameters: None,
-            value_parameters: None,
+            value_parameters: Some(vec![(Identifier::new("path"), Type::String)]),
             return_type: Some(Box::new(Type::String)),
         }
     }
 
     fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
-        todo!()
+        let value = if let Some(value) = context.get_value(&Identifier::new("path"))? {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::BuiltInFunctionFailure("path does not exist"),
+            ));
+        };
+        let path = if let ValueInner::String(string) = value.inner().as_ref() {
+            string
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::BuiltInFunctionFailure("path is not a string"),
+            ));
+        };
+        let file_content = read_to_string(path)?;
+
+        Ok(Some(Value::string(file_content)))
     }
 }
 
@@ -121,7 +137,11 @@ impl FunctionLogic for ReadLine {
     }
 
     fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
-        todo!()
+        let mut user_input = String::new();
+
+        stdin().read_line(&mut user_input)?;
+
+        Ok(Some(Value::string(user_input)))
     }
 }
 
@@ -132,13 +152,30 @@ impl FunctionLogic for Sleep {
     fn r#type() -> Type {
         Type::Function {
             type_parameters: None,
-            value_parameters: None,
+            value_parameters: Some(vec![(Identifier::new("milliseconds"), Type::Integer)]),
             return_type: None,
         }
     }
 
     fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
-        todo!()
+        let value = if let Some(value) = context.get_value(&Identifier::new("milliseconds"))? {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::BuiltInFunctionFailure("milliseconds does not exist"),
+            ));
+        };
+        let milliseconds = if let ValueInner::Integer(integer) = value.inner().as_ref() {
+            integer
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::BuiltInFunctionFailure("milliseconds is not an integer"),
+            ));
+        };
+
+        sleep(Duration::from_millis(*milliseconds as u64));
+
+        Ok(None)
     }
 }
 
@@ -149,7 +186,7 @@ impl FunctionLogic for WriteLine {
     fn r#type() -> Type {
         Type::Function {
             type_parameters: None,
-            value_parameters: None,
+            value_parameters: Some(vec![(Identifier::new("output"), Type::String)]),
             return_type: None,
         }
     }
@@ -162,7 +199,7 @@ impl FunctionLogic for WriteLine {
                 ValidationError::BuiltInFunctionFailure("output does not exist"),
             ));
         };
-        let input = if let ValueInner::String(string) = value.inner().as_ref() {
+        let output = if let ValueInner::String(string) = value.inner().as_ref() {
             string
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -170,7 +207,7 @@ impl FunctionLogic for WriteLine {
             ));
         };
 
-        println!("{input}");
+        println!("{output}");
 
         Ok(None)
     }
@@ -181,13 +218,15 @@ struct JsonParse;
 
 impl FunctionLogic for JsonParse {
     fn r#type() -> Type {
+        let type_t = Type::Generic {
+            identifier: Identifier::new("T"),
+            concrete_type: None,
+        };
+
         Type::Function {
             type_parameters: None,
-            value_parameters: None,
-            return_type: Some(Box::new(Type::Generic {
-                identifier: Identifier::new("T"),
-                concrete_type: None,
-            })),
+            value_parameters: Some(vec![(Identifier::new("input"), type_t.clone())]),
+            return_type: Some(Box::new(type_t)),
         }
     }
 

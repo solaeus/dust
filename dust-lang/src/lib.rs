@@ -452,7 +452,11 @@ impl InterpreterError {
                         ),
                     ),
                     ValidationError::WrongArguments { .. } => todo!(),
-                    ValidationError::WrongTypeArgumentCount { .. } => todo!(),
+                    ValidationError::WrongTypeArgumentCount { expected, actual } => {
+                        builder = builder.with_message(format!(
+                            "Expected {expected} arguments but got {actual}."
+                        ));
+                    }
                     ValidationError::ExpectedIntegerFloatOrString { actual, position } => {
                         builder = builder.with_message(format!(
                             "Expected an {}, {} or {}.",

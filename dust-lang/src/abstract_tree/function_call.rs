@@ -47,14 +47,6 @@ impl AbstractNode for FunctionCall {
     }
 
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        if let Expression::Value(WithPosition {
-            node: ValueNode::BuiltInFunction(_),
-            ..
-        }) = self.function_expression.as_ref()
-        {
-            return Ok(());
-        }
-
         self.function_expression.validate(context, manage_memory)?;
 
         if let Some(value_arguments) = &self.value_arguments {
@@ -63,18 +55,23 @@ impl AbstractNode for FunctionCall {
             }
         }
 
-        let function_node_type =
-            if let Some(r#type) = self.function_expression.expected_type(context)? {
-                r#type
-            } else {
-                return Err(ValidationError::ExpectedExpression(
-                    self.function_expression.position(),
-                ));
-            };
+        let function_node_type = if let Expression::Value(WithPosition {
+            node: ValueNode::BuiltInFunction(function),
+            ..
+        }) = self.function_expression.as_ref()
+        {
+            function.r#type()
+        } else if let Some(r#type) = self.function_expression.expected_type(context)? {
+            r#type
+        } else {
+            return Err(ValidationError::ExpectedExpression(
+                self.function_expression.position(),
+            ));
+        };
 
         if let Type::Function {
             type_parameters,
-            value_parameters: _,
+            value_parameters,
             return_type: _,
         } = function_node_type
         {
@@ -88,6 +85,30 @@ impl AbstractNode for FunctionCall {
                     }
                 }
                 _ => {}
+            }
+
+            match (value_parameters, &self.value_arguments) {
+                (Some(parameters), Some(arguments)) => {
+                    if parameters.len() != arguments.len() {
+                        return Err(ValidationError::WrongTypeArgumentCount {
+                            actual: parameters.len(),
+                            expected: arguments.len(),
+                        });
+                    }
+                }
+                (Some(parameters), None) => {
+                    return Err(ValidationError::WrongTypeArgumentCount {
+                        expected: parameters.len(),
+                        actual: 0,
+                    })
+                }
+                (None, Some(arguments)) => {
+                    return Err(ValidationError::WrongTypeArgumentCount {
+                        expected: 0,
+                        actual: arguments.len(),
+                    })
+                }
+                (None, None) => {}
             }
 
             Ok(())
