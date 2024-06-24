@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod tests;
 
-use std::{cell::RefCell, collections::HashMap};
-
 use chumsky::{input::SpannedInput, pratt::*, prelude::*};
 
 use crate::{
@@ -43,21 +41,8 @@ pub fn parser<'src>(
     let comment = select_ref! {
         Token::Comment(_) => {}
     };
-    let identifiers: RefCell<HashMap<&str, Identifier>> = RefCell::new(HashMap::new());
     let identifier = select! {
-        Token::Identifier(text) => {
-            let mut identifiers = identifiers.borrow_mut();
-
-            if let Some(identifier) = identifiers.get(&text) {
-                identifier.clone()
-            } else {
-                let new = Identifier::new(text);
-
-                identifiers.insert(text, new.clone());
-
-                new
-            }
-        }
+        Token::Identifier(text) => Identifier::new(text),
     };
 
     let positioned_identifier = identifier

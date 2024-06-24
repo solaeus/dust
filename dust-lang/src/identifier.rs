@@ -1,16 +1,36 @@
 use std::{
+    collections::HashMap,
     fmt::{self, Display, Formatter},
-    sync::Arc,
+    sync::{Arc, OnceLock, RwLock},
 };
 
 use serde::{de::Visitor, Deserialize, Serialize};
+
+static IDENTIFIER_CACHE: OnceLock<RwLock<HashMap<String, Identifier>>> = OnceLock::new();
+
+fn identifier_cache<'a>() -> &'a RwLock<HashMap<String, Identifier>> {
+    IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+}
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Identifier(Arc<String>);
 
 impl Identifier {
-    pub fn new<T: ToString>(string: T) -> Self {
-        Identifier(Arc::new(string.to_string()))
+    pub fn new(string: &str) -> Self {
+        let cache = identifier_cache();
+
+        if let Some(identifier) = cache.read().unwrap().get(string) {
+            return identifier.clone();
+        }
+
+        let identifier = Identifier(Arc::new(string.to_string()));
+
+        cache
+            .write()
+            .unwrap()
+            .insert(string.to_string(), identifier.clone());
+
+        identifier
     }
 
     pub fn as_str(&self) -> &str {
