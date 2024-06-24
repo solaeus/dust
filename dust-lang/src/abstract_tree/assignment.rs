@@ -96,7 +96,25 @@ impl AbstractNode for Assignment {
     }
 
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        self.statement.validate(context, manage_memory)
+        self.statement.validate(context, manage_memory)?;
+
+        let statement_type = self.statement.expected_type(context)?;
+
+        if let (Some(expected_type_constructor), Some(actual_type)) =
+            (&self.constructor, statement_type)
+        {
+            let expected_type = expected_type_constructor.construct(context)?;
+
+            expected_type
+                .check(&actual_type)
+                .map_err(|conflict| ValidationError::TypeCheck {
+                    conflict,
+                    actual_position: self.statement.last_evaluated_statement().position(),
+                    expected_position: Some(expected_type_constructor.position()),
+                })?;
+        }
+
+        Ok(())
     }
 
     fn evaluate(
