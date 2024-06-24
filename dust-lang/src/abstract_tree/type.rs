@@ -17,7 +17,7 @@ pub enum Type {
     Float,
     Function {
         type_parameters: Option<Vec<Identifier>>,
-        value_parameters: Vec<Type>,
+        value_parameters: Option<Vec<(Identifier, Type)>>,
         return_type: Option<Box<Type>>,
     },
     Generic {
@@ -255,14 +255,16 @@ impl Display for Type {
                     write!(f, ")(")?;
                 }
 
-                for r#type in value_parameters {
-                    write!(f, "{type}")?;
+                if let Some(value_parameters) = value_parameters {
+                    for (identifier, r#type) in value_parameters {
+                        write!(f, "{identifier}: {type}")?;
+                    }
                 }
 
                 write!(f, ")")?;
 
                 if let Some(r#type) = return_type {
-                    write!(f, " -> {}", r#type)
+                    write!(f, " -> {type}")
                 } else {
                     Ok(())
                 }

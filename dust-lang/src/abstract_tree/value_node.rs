@@ -37,7 +37,7 @@ pub enum ValueNode {
 impl ValueNode {
     pub fn function(
         type_parameters: Option<Vec<Identifier>>,
-        value_parameters: Vec<(Identifier, TypeConstructor)>,
+        value_parameters: Option<Vec<(Identifier, TypeConstructor)>>,
         return_type: Option<TypeConstructor>,
         body: WithPosition<Block>,
     ) -> Self {
@@ -95,10 +95,12 @@ impl AbstractNode for ValueNode {
                     }
                 }
 
-                for (identifier, type_constructor) in value_parameters {
-                    let r#type = type_constructor.clone().construct(outer_context)?;
+                if let Some(value_parameters) = value_parameters {
+                    for (identifier, type_constructor) in value_parameters {
+                        let r#type = type_constructor.clone().construct(outer_context)?;
 
-                    context_template.set_type(identifier.clone(), r#type)?;
+                        context_template.set_type(identifier.clone(), r#type)?;
+                    }
                 }
 
                 body.node.define_types(context_template)?;
@@ -310,20 +312,25 @@ impl AbstractNode for ValueNode {
             ValueNode::String(string) => Value::string(string),
             ValueNode::Function(FunctionNode {
                 type_parameters,
-                value_parameters: constructors,
+                value_parameters,
                 return_type,
                 body,
                 context_template,
             }) => {
                 let outer_context = context;
-                let mut value_parameters = Vec::with_capacity(constructors.len());
+                let value_parameters = if let Some(value_parameters) = value_parameters {
+                    let mut parameters = Vec::with_capacity(value_parameters.len());
 
-                for (identifier, constructor) in constructors {
-                    let r#type = constructor.construct(&outer_context)?;
+                    for (identifier, constructor) in value_parameters {
+                        let r#type = constructor.construct(&outer_context)?;
 
-                    value_parameters.push((identifier, r#type));
-                }
+                        parameters.push((identifier, r#type));
+                    }
 
+                    Some(parameters)
+                } else {
+                    None
+                };
                 let return_type = if let Some(constructor) = return_type {
                     Some(constructor.construct(&outer_context)?)
                 } else {
@@ -402,13 +409,19 @@ impl AbstractNode for ValueNode {
                 return_type,
                 ..
             }) => {
-                let mut value_parameter_types = Vec::with_capacity(value_parameters.len());
+                let value_parameters = if let Some(value_parameters) = value_parameters {
+                    let mut parameters = Vec::with_capacity(value_parameters.len());
 
-                for (_, type_constructor) in value_parameters {
-                    let r#type = type_constructor.clone().construct(&context)?;
+                    for (identifier, type_constructor) in value_parameters {
+                        let r#type = type_constructor.clone().construct(&context)?;
 
-                    value_parameter_types.push(r#type);
-                }
+                        parameters.push((identifier.clone(), r#type));
+                    }
+
+                    Some(parameters)
+                } else {
+                    None
+                };
 
                 let type_parameters = type_parameters.clone().map(|parameters| {
                     parameters
@@ -424,7 +437,7 @@ impl AbstractNode for ValueNode {
 
                 Type::Function {
                     type_parameters,
-                    value_parameters: value_parameter_types,
+                    value_parameters,
                     return_type,
                 }
             }
@@ -586,7 +599,7 @@ impl Ord for ValueNode {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionNode {
     type_parameters: Option<Vec<Identifier>>,
-    value_parameters: Vec<(Identifier, TypeConstructor)>,
+    value_parameters: Option<Vec<(Identifier, TypeConstructor)>>,
     return_type: Option<TypeConstructor>,
     body: WithPosition<Block>,
     #[serde(skip)]

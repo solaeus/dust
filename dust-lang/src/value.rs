@@ -70,7 +70,7 @@ impl Value {
 
     pub fn function(
         type_parameters: Option<Vec<Identifier>>,
-        value_parameters: Vec<(Identifier, Type)>,
+        value_parameters: Option<Vec<(Identifier, Type)>>,
         return_type: Option<Type>,
         body: Block,
         context_template: Context,
@@ -166,7 +166,7 @@ impl Display for Value {
             ValueInner::String(string) => write!(f, "{string}"),
             ValueInner::Function(Function {
                 type_parameters,
-                value_parameters: parameters,
+                value_parameters,
                 return_type,
                 body,
                 ..
@@ -187,8 +187,10 @@ impl Display for Value {
 
                 write!(f, "(")?;
 
-                for (identifier, r#type) in parameters {
-                    write!(f, "{identifier}: {}", r#type)?;
+                if let Some(value_parameters) = value_parameters {
+                    for (identifier, r#type) in value_parameters {
+                        write!(f, "{identifier}: {}", r#type)?;
+                    }
                 }
 
                 write!(f, ")")?;
@@ -594,17 +596,11 @@ impl ValueInner {
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
             ValueInner::Function(function) => {
-                let value_parameters = function
-                    .value_parameters()
-                    .into_iter()
-                    .map(|(_, r#type)| r#type)
-                    .cloned()
-                    .collect();
                 let return_type = function.return_type.clone().map(|r#type| Box::new(r#type));
 
                 Type::Function {
                     type_parameters: function.type_parameters().clone(),
-                    value_parameters,
+                    value_parameters: function.value_parameters().clone(),
                     return_type,
                 }
             }
@@ -714,7 +710,7 @@ impl Ord for ValueInner {
 #[derive(Clone, Debug)]
 pub struct Function {
     type_parameters: Option<Vec<Identifier>>,
-    value_parameters: Vec<(Identifier, Type)>,
+    value_parameters: Option<Vec<(Identifier, Type)>>,
     return_type: Option<Type>,
     body: Block,
     context_template: Context,
@@ -723,7 +719,7 @@ pub struct Function {
 impl Function {
     pub fn new(
         type_parameters: Option<Vec<Identifier>>,
-        value_parameters: Vec<(Identifier, Type)>,
+        value_parameters: Option<Vec<(Identifier, Type)>>,
         return_type: Option<Type>,
         body: Block,
         context_template: Context,
@@ -745,7 +741,7 @@ impl Function {
         &self.type_parameters
     }
 
-    pub fn value_parameters(&self) -> &Vec<(Identifier, Type)> {
+    pub fn value_parameters(&self) -> &Option<Vec<(Identifier, Type)>> {
         &self.value_parameters
     }
 
@@ -774,9 +770,11 @@ impl Function {
             }
         }
 
-        for (identifier, r#type) in &self.value_parameters {
-            self.context_template
-                .set_type(identifier.clone(), r#type.clone())?;
+        if let Some(value_parameters) = &self.value_parameters {
+            for (identifier, r#type) in value_parameters {
+                self.context_template
+                    .set_type(identifier.clone(), r#type.clone())?;
+            }
         }
 
         Ok(())

@@ -104,8 +104,10 @@ pub fn parser<'src>(
                     .or_not(),
             )
             .then(
-                type_constructor
+                positioned_identifier
                     .clone()
+                    .then_ignore(just(Token::Symbol(Symbol::Colon)))
+                    .then(type_constructor.clone())
                     .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .collect()
                     .delimited_by(
@@ -119,7 +121,20 @@ pub fn parser<'src>(
                     .or_not(),
             )
             .map_with(
-                |((type_parameters, value_parameters), return_type), state| {
+                |((type_parameters, value_parameters), return_type): (
+                    (
+                        Option<Vec<WithPosition<Identifier>>>,
+                        Vec<(WithPosition<Identifier>, TypeConstructor)>,
+                    ),
+                    Option<TypeConstructor>,
+                ),
+                 state| {
+                    let value_parameters = if value_parameters.is_empty() {
+                        None
+                    } else {
+                        Some(value_parameters)
+                    };
+
                     TypeConstructor::Function(
                         FunctionTypeConstructor {
                             type_parameters,
@@ -290,7 +305,20 @@ pub fn parser<'src>(
                 )
                 .then(block.clone())
                 .map_with(
-                    |(((type_parameters, value_parameters), return_type), body), state| {
+                    |(((type_parameters, value_parameters), return_type), body): (
+                        (
+                            (Option<Vec<Identifier>>, Vec<(Identifier, TypeConstructor)>),
+                            Option<TypeConstructor>,
+                        ),
+                        WithPosition<Block>,
+                    ),
+                     state| {
+                        let value_parameters = if value_parameters.is_empty() {
+                            None
+                        } else {
+                            Some(value_parameters)
+                        };
+
                         Expression::Value(
                             ValueNode::function(
                                 type_parameters,
@@ -561,7 +589,18 @@ pub fn parser<'src>(
                                 just(Token::Symbol(Symbol::ParenClose)),
                             ),
                     ),
-                    |function_expression, (type_parameters, value_parameters), span| {
+                    |function_expression,
+                     (type_parameters, value_parameters): (
+                        Option<Vec<TypeConstructor>>,
+                        Vec<Expression>,
+                    ),
+                     span| {
+                        let value_parameters = if value_parameters.is_empty() {
+                            None
+                        } else {
+                            Some(value_parameters)
+                        };
+
                         Expression::FunctionCall(
                             FunctionCall::new(
                                 function_expression,

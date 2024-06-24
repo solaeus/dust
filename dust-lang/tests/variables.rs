@@ -48,7 +48,7 @@ fn function_variable() {
         interpret("test", "foobar = fn (x: int) -> int { x }; foobar"),
         Ok(Some(Value::function(
             None,
-            vec![(Identifier::new("x"), Type::Integer)],
+            Some(vec![(Identifier::new("x"), Type::Integer)]),
             Some(Type::Integer),
             Block::new(vec![Statement::Expression(Expression::Identifier(
                 Identifier::new("x").with_position((30, 31))

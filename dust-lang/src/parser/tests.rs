@@ -344,9 +344,9 @@ fn r#while() {
                     FunctionCall::new(
                         Expression::Identifier(Identifier::new("output").with_position((13, 19))),
                         None,
-                        vec![Expression::Value(
+                        Some(vec![Expression::Value(
                             ValueNode::String("hi".to_string()).with_position((20, 24))
-                        )]
+                        )])
                     )
                     .with_position((13, 25))
                 ))]
@@ -431,22 +431,25 @@ fn list_of_type() {
 #[test]
 fn function_type() {
     assert_eq!(
-        parse(&lex("type Foo = fn |T| (int)").unwrap()).unwrap()[0],
+        parse(&lex("type Foo = fn |T| (x: int)").unwrap()).unwrap()[0],
         Statement::TypeAlias(
             TypeAlias::new(
                 Identifier::new("Foo").with_position((5, 8)),
                 TypeConstructor::Function(
                     FunctionTypeConstructor {
                         type_parameters: Some(vec![Identifier::new("T").with_position((15, 16))]),
-                        value_parameters: vec![TypeConstructor::Raw(
-                            RawTypeConstructor::Integer.with_position((19, 22))
-                        )],
+                        value_parameters: Some(vec![(
+                            Identifier::new("x").with_position((19, 20)),
+                            TypeConstructor::Raw(
+                                RawTypeConstructor::Integer.with_position((22, 25))
+                            )
+                        )]),
                         return_type: None
                     }
-                    .with_position((11, 23))
+                    .with_position((11, 26))
                 )
             )
-            .with_position((0, 23))
+            .with_position((0, 26))
         )
     );
 }
@@ -454,27 +457,30 @@ fn function_type() {
 #[test]
 fn function_type_with_return() {
     assert_eq!(
-        parse(&lex("type Foo = fn |T| (int) -> T").unwrap()).unwrap()[0],
+        parse(&lex("type Foo = fn |T| (x: int) -> T").unwrap()).unwrap()[0],
         Statement::TypeAlias(
             TypeAlias::new(
                 Identifier::new("Foo").with_position((5, 8)),
                 TypeConstructor::Function(
                     FunctionTypeConstructor {
                         type_parameters: Some(vec![Identifier::new("T").with_position((15, 16))]),
-                        value_parameters: vec![TypeConstructor::Raw(
-                            RawTypeConstructor::Integer.with_position((19, 22))
-                        )],
+                        value_parameters: Some(vec![(
+                            Identifier::new("x").with_position((19, 20)),
+                            TypeConstructor::Raw(
+                                RawTypeConstructor::Integer.with_position((22, 25))
+                            )
+                        )]),
                         return_type: Some(Box::new(TypeConstructor::Invokation(
                             TypeInvokationConstructor {
-                                identifier: Identifier::new("T").with_position((27, 28)),
+                                identifier: Identifier::new("T").with_position((30, 31)),
                                 type_arguments: None
                             }
                         )))
                     }
-                    .with_position((11, 28))
+                    .with_position((11, 31))
                 )
             )
-            .with_position((0, 28))
+            .with_position((0, 31))
         )
     );
 }
@@ -487,7 +493,7 @@ fn function_call() {
             FunctionCall::new(
                 Expression::Identifier(Identifier::new("foobar").with_position((0, 6))),
                 None,
-                Vec::with_capacity(0),
+                None,
             )
             .with_position((0, 8))
         ))
@@ -504,9 +510,9 @@ fn function_call_with_type_arguments() {
                 Some(vec![TypeConstructor::Raw(
                     RawTypeConstructor::String.with_position((9, 12))
                 )]),
-                vec![Expression::Value(
+                Some(vec![Expression::Value(
                     ValueNode::String("hi".to_string()).with_position((16, 20))
-                )],
+                )]),
             )
             .with_position((0, 21))
         ))
@@ -530,7 +536,7 @@ fn function() {
         Statement::Expression(Expression::Value(
             ValueNode::function(
                 None,
-                vec![],
+                None,
                 Some(TypeConstructor::Raw(
                     RawTypeConstructor::Integer.with_position((9, 12))
                 )),
@@ -548,10 +554,10 @@ fn function() {
         Statement::Expression(Expression::Value(
             ValueNode::function(
                 None,
-                vec![(
+                Some(vec![(
                     Identifier::new("x"),
                     TypeConstructor::Raw(RawTypeConstructor::Integer.with_position((7, 10)))
-                )],
+                )]),
                 Some(TypeConstructor::Raw(
                     RawTypeConstructor::Integer.with_position((15, 18))
                 )),
@@ -572,7 +578,7 @@ fn function_with_type_arguments() {
         Statement::Expression(Expression::Value(
             ValueNode::function(
                 Some(vec![Identifier::new("T"), Identifier::new("U"),]),
-                vec![
+                Some(vec![
                     (
                         Identifier::new("x"),
                         TypeConstructor::Invokation(TypeInvokationConstructor {
@@ -587,7 +593,7 @@ fn function_with_type_arguments() {
                             type_arguments: None,
                         })
                     )
-                ],
+                ]),
                 Some(TypeConstructor::Invokation(TypeInvokationConstructor {
                     identifier: Identifier::new("T").with_position((26, 27)),
                     type_arguments: None,

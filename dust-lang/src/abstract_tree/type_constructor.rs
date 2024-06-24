@@ -135,13 +135,20 @@ impl TypeConstructor {
                         .map(|identifier| identifier.node.clone())
                         .collect()
                 });
-                let mut value_parameters = Vec::with_capacity(declared_value_parameters.len());
+                let value_parameters =
+                    if let Some(declared_value_parameters) = declared_value_parameters {
+                        let mut parameters = Vec::with_capacity(declared_value_parameters.len());
 
-                for parameter in declared_value_parameters {
-                    let r#type = parameter.construct(&context)?;
+                        for (identifier, constructor) in declared_value_parameters {
+                            let r#type = constructor.construct(&context)?;
 
-                    value_parameters.push(r#type);
-                }
+                            parameters.push((identifier.node.clone(), r#type));
+                        }
+
+                        Some(parameters)
+                    } else {
+                        None
+                    };
 
                 let return_type = if let Some(constructor) = return_type {
                     Some(Box::new(constructor.construct(context)?))
@@ -200,7 +207,7 @@ pub struct EnumTypeConstructor {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionTypeConstructor {
     pub type_parameters: Option<Vec<WithPosition<Identifier>>>,
-    pub value_parameters: Vec<TypeConstructor>,
+    pub value_parameters: Option<Vec<(WithPosition<Identifier>, TypeConstructor)>>,
     pub return_type: Option<Box<TypeConstructor>>,
 }
 

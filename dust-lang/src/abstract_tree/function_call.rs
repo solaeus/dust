@@ -1,7 +1,4 @@
-use std::{
-    cmp::Ordering,
-    sync::{Arc, Mutex},
-};
+use std::cmp::Ordering;
 
 use serde::{Deserialize, Serialize};
 
@@ -17,23 +14,23 @@ use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 pub struct FunctionCall {
     function_expression: Box<Expression>,
     type_arguments: Option<Vec<TypeConstructor>>,
-    value_arguments: Vec<Expression>,
+    value_arguments: Option<Vec<Expression>>,
 
     #[serde(skip)]
-    context: Arc<Mutex<Option<Context>>>,
+    context: Context,
 }
 
 impl FunctionCall {
     pub fn new(
         function_expression: Expression,
         type_arguments: Option<Vec<TypeConstructor>>,
-        value_arguments: Vec<Expression>,
+        value_arguments: Option<Vec<Expression>>,
     ) -> Self {
         FunctionCall {
             function_expression: Box::new(function_expression),
             type_arguments,
             value_arguments,
-            context: Arc::new(Mutex::new(None)),
+            context: Context::new(None),
         }
     }
 
@@ -44,24 +41,49 @@ impl FunctionCall {
 
 impl AbstractNode for FunctionCall {
     fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
-        *self.context.lock()? = Some(context.create_child());
-
         self.function_expression.define_types(context)?;
 
-        let mut previous = ();
+        let (type_parameters, value_parameters) =
+            if let Some(r#type) = self.function_expression.expected_type(context)? {
+                if let Type::Function {
+                    type_parameters,
+                    value_parameters,
+                    ..
+                } = r#type
+                {
+                    (type_parameters, value_parameters)
+                } else {
+                    return Err(ValidationError::ExpectedFunction {
+                        actual: r#type,
+                        position: self.function_expression.position(),
+                    });
+                }
+            } else {
+                todo!("Create an error for this occurence");
+            };
 
-        for expression in &self.value_arguments {
-            previous = expression.define_types(context)?;
+        if let (Some(type_parameters), Some(type_arguments)) =
+            (type_parameters, &self.type_arguments)
+        {
+            for (identifier, constructor) in
+                type_parameters.into_iter().zip(type_arguments.into_iter())
+            {
+                let r#type = constructor.construct(context)?;
+
+                self.context.set_type(identifier, r#type)?;
+            }
         }
 
-        Ok(previous)
+        Ok(())
     }
 
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         self.function_expression.validate(context, manage_memory)?;
 
-        for expression in &self.value_arguments {
-            expression.validate(context, manage_memory)?;
+        if let Some(value_arguments) = &self.value_arguments {
+            for expression in value_arguments {
+                expression.validate(context, manage_memory)?;
+            }
         }
 
         let function_node_type =
@@ -126,11 +148,6 @@ impl AbstractNode for FunctionCall {
                 },
             ));
         };
-        let function_context = if let Some(context) = self.context.lock()?.clone() {
-            context
-        } else {
-            todo!("New error for out-of-order execution.")
-        };
 
         match (function.type_parameters(), self.type_arguments) {
             (Some(type_parameters), Some(type_arguments)) => {
@@ -139,103 +156,59 @@ impl AbstractNode for FunctionCall {
                 {
                     let r#type = constructor.construct(context)?;
 
-                    function_context.set_type(parameter.clone(), r#type)?;
+                    self.context.set_type(parameter.clone(), r#type)?;
                 }
             }
             _ => {}
         }
 
-        for ((identifier, _), expression) in function
-            .value_parameters()
-            .into_iter()
-            .zip(self.value_arguments.iter())
+        if let (Some(value_parameters), Some(value_arguments)) =
+            (function.value_parameters(), self.value_arguments)
         {
-            let expression_position = expression.position();
-            let evaluation = expression.clone().evaluate(context, clear_variables)?;
-            let value = if let Some(Evaluation::Return(value)) = evaluation {
-                value
-            } else {
-                return Err(RuntimeError::ValidationFailure(
-                    ValidationError::ExpectedExpression(expression_position),
-                ));
-            };
+            for ((identifier, _), expression) in
+                value_parameters.into_iter().zip(value_arguments.iter())
+            {
+                let expression_position = expression.position();
+                let evaluation = expression.clone().evaluate(context, clear_variables)?;
+                let value = if let Some(Evaluation::Return(value)) = evaluation {
+                    value
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedExpression(expression_position),
+                    ));
+                };
 
-            function_context.set_value(identifier.clone(), value)?;
+                self.context.set_value(identifier.clone(), value)?;
+            }
         }
 
-        function.clone().call(&function_context, clear_variables)
+        function.clone().call(&self.context, clear_variables)
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
-        let function_type = if let Some(r#type) = self.function_expression.expected_type(context)? {
-            r#type
+        let return_type = if let Some(r#type) = self.function_expression.expected_type(context)? {
+            if let Type::Function {
+                type_parameters,
+                value_parameters,
+                return_type,
+            } = r#type
+            {
+                return_type
+            } else {
+                return Err(ValidationError::ExpectedFunction {
+                    actual: r#type,
+                    position: self.function_expression.position(),
+                });
+            }
         } else {
             return Err(ValidationError::ExpectedExpression(
                 self.function_expression.position(),
             ));
         };
 
-        if let Type::Function {
-            return_type,
-            type_parameters,
-            ..
-        } = function_type
-        {
-            let return_type = return_type.map(|r#box| *r#box);
+        let return_type = return_type.map(|r#box| *r#box);
 
-            if let Some(Type::Generic {
-                identifier: return_identifier,
-                ..
-            }) = &return_type
-            {
-                if let (Some(type_arguments), Some(type_parameters)) =
-                    (&self.type_arguments, &type_parameters)
-                {
-                    for (constructor, identifier) in
-                        type_arguments.into_iter().zip(type_parameters.into_iter())
-                    {
-                        if identifier == return_identifier {
-                            let concrete_type = constructor.clone().construct(&context)?;
-
-                            return Ok(Some(Type::Generic {
-                                identifier: identifier.clone(),
-                                concrete_type: Some(Box::new(concrete_type)),
-                            }));
-                        }
-                    }
-                }
-
-                if let (None, Some(type_parameters)) = (&self.type_arguments, type_parameters) {
-                    for (expression, identifier) in (&self.value_arguments)
-                        .into_iter()
-                        .zip(type_parameters.into_iter())
-                    {
-                        if &identifier == return_identifier {
-                            let concrete_type =
-                                if let Some(r#type) = expression.expected_type(context)? {
-                                    r#type
-                                } else {
-                                    return Err(ValidationError::ExpectedExpression(
-                                        expression.position(),
-                                    ));
-                                };
-
-                            return Ok(Some(Type::Generic {
-                                identifier,
-                                concrete_type: Some(Box::new(concrete_type)),
-                            }));
-                        }
-                    }
-                }
-            }
-
-            Ok(return_type)
-        } else {
-            Err(ValidationError::ExpectedFunction {
-                actual: function_type,
-                position: self.function_expression.position(),
-            })
-        }
+        Ok(return_type)
     }
 }
 
