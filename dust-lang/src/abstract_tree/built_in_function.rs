@@ -146,8 +146,8 @@ trait FunctionLogic {
     fn arguments(
         self,
     ) -> (
-        Option<impl IntoIterator<Item = (Identifier, TypeConstructor)>>,
-        Option<impl IntoIterator<Item = (Identifier, Expression)>>,
+        Option<impl IntoIterator<Item = Identifier>>,
+        Option<impl IntoIterator<Item = (Identifier, Type)>>,
     );
     fn return_type(&self, context: &Context) -> Result<Option<Type>, ValidationError>;
     fn call(
@@ -165,18 +165,20 @@ where
         let (type_arguments, value_arguments) = self.function.clone().arguments();
 
         if let Some(type_arguments) = type_arguments {
-            for (identifier, constructor) in type_arguments {
-                let r#type = constructor.construct(&self.context)?;
-
-                self.context.set_type(identifier, r#type)?;
+            for identifier in type_arguments {
+                self.context.set_type(
+                    identifier.clone(),
+                    Type::Generic {
+                        identifier,
+                        concrete_type: None,
+                    },
+                )?;
             }
         }
 
         if let Some(value_arguments) = value_arguments {
-            for (identifier, expression) in value_arguments {
-                if let Some(r#type) = expression.expected_type(&self.context)? {
-                    self.context.set_type(identifier, r#type)?;
-                }
+            for (identifier, r#type) in value_arguments {
+                self.context.set_type(identifier, r#type)?;
             }
         }
 
@@ -207,12 +209,12 @@ impl FunctionLogic for Length {
     fn arguments(
         self,
     ) -> (
-        Option<impl IntoIterator<Item = (Identifier, TypeConstructor)>>,
-        Option<impl IntoIterator<Item = (Identifier, Expression)>>,
+        Option<impl IntoIterator<Item = Identifier>>,
+        Option<impl IntoIterator<Item = (Identifier, Type)>>,
     ) {
         (
-            None::<array::IntoIter<(Identifier, TypeConstructor), 0>>,
-            Some([(Identifier::new("list"), *self.0)].into_iter()),
+            None::<array::IntoIter<Identifier, 0>>,
+            Some([(Identifier::new("list"), Type::ListOf(Box::new(Type::Any)))].into_iter()),
         )
     }
 
@@ -256,12 +258,12 @@ impl FunctionLogic for ReadFile {
     fn arguments(
         self,
     ) -> (
-        Option<impl IntoIterator<Item = (Identifier, TypeConstructor)>>,
-        Option<impl IntoIterator<Item = (Identifier, Expression)>>,
+        Option<impl IntoIterator<Item = Identifier>>,
+        Option<impl IntoIterator<Item = (Identifier, Type)>>,
     ) {
         (
-            None::<array::IntoIter<(Identifier, TypeConstructor), 0>>,
-            Some([(Identifier::new("path"), *self.0)].into_iter()),
+            None::<array::IntoIter<Identifier, 0>>,
+            Some([(Identifier::new("path"), Type::ListOf(Box::new(Type::Any)))].into_iter()),
         )
     }
 
@@ -291,12 +293,12 @@ impl FunctionLogic for ReadLine {
     fn arguments(
         self,
     ) -> (
-        Option<impl IntoIterator<Item = (Identifier, TypeConstructor)>>,
-        Option<impl IntoIterator<Item = (Identifier, Expression)>>,
+        Option<impl IntoIterator<Item = Identifier>>,
+        Option<impl IntoIterator<Item = (Identifier, Type)>>,
     ) {
         (
-            None::<array::IntoIter<(Identifier, TypeConstructor), 0>>,
-            None::<array::IntoIter<(Identifier, Expression), 0>>,
+            None::<array::IntoIter<Identifier, 0>>,
+            None::<array::IntoIter<(Identifier, Type), 0>>,
         )
     }
 
@@ -318,12 +320,12 @@ impl FunctionLogic for Sleep {
     fn arguments(
         self,
     ) -> (
-        Option<impl IntoIterator<Item = (Identifier, TypeConstructor)>>,
-        Option<impl IntoIterator<Item = (Identifier, Expression)>>,
+        Option<impl IntoIterator<Item = Identifier>>,
+        Option<impl IntoIterator<Item = (Identifier, Type)>>,
     ) {
         (
-            None::<array::IntoIter<(Identifier, TypeConstructor), 0>>,
-            Some([(Identifier::new("milliseconds"), *self.0)].into_iter()),
+            None::<array::IntoIter<Identifier, 0>>,
+            Some([(Identifier::new("milliseconds"), Type::Integer)].into_iter()),
         )
     }
 
@@ -343,12 +345,12 @@ impl FunctionLogic for WriteLine {
     fn arguments(
         self,
     ) -> (
-        Option<impl IntoIterator<Item = (Identifier, TypeConstructor)>>,
-        Option<impl IntoIterator<Item = (Identifier, Expression)>>,
+        Option<impl IntoIterator<Item = Identifier>>,
+        Option<impl IntoIterator<Item = (Identifier, Type)>>,
     ) {
         (
-            None::<array::IntoIter<(Identifier, TypeConstructor), 0>>,
-            Some([(Identifier::new("message"), *self.0)].into_iter()),
+            None::<array::IntoIter<Identifier, 0>>,
+            Some([(Identifier::new("message"), Type::String)].into_iter()),
         )
     }
 
@@ -378,12 +380,12 @@ impl FunctionLogic for JsonParse {
     fn arguments(
         self,
     ) -> (
-        Option<impl IntoIterator<Item = (Identifier, TypeConstructor)>>,
-        Option<impl IntoIterator<Item = (Identifier, Expression)>>,
+        Option<impl IntoIterator<Item = Identifier>>,
+        Option<impl IntoIterator<Item = (Identifier, Type)>>,
     ) {
         (
-            Some([(Identifier::new("T"), self.0)].into_iter()),
-            Some([(Identifier::new("input"), *self.1)].into_iter()),
+            Some([Identifier::new("T")].into_iter()),
+            Some([(Identifier::new("input"), Type::Any)].into_iter()),
         )
     }
 
