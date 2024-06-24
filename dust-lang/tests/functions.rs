@@ -6,7 +6,7 @@ fn function_call_with_type_argument() {
         interpret(
             "test",
             "
-            foobar = fn |T| (x: T) -> T { x }
+            foobar = fn <T> (x: T) -> T { x }
             foobar::<int>(42)
             ",
         ),

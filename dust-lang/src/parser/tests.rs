@@ -467,7 +467,7 @@ fn list_of_type() {
 #[test]
 fn function_type() {
     assert_eq!(
-        parse(&lex("type Foo = fn |T| (x: int)").unwrap()).unwrap()[0],
+        parse(&lex("type Foo = fn <T> (x: int)").unwrap()).unwrap()[0],
         Statement::TypeAlias(
             TypeAlias::new(
                 Identifier::new("Foo").with_position((5, 8)),
@@ -493,7 +493,7 @@ fn function_type() {
 #[test]
 fn function_type_with_return() {
     assert_eq!(
-        parse(&lex("type Foo = fn |T| (x: int) -> T").unwrap()).unwrap()[0],
+        parse(&lex("type Foo = fn <T> (x: int) -> T").unwrap()).unwrap()[0],
         Statement::TypeAlias(
             TypeAlias::new(
                 Identifier::new("Foo").with_position((5, 8)),
@@ -537,7 +537,7 @@ fn function_call() {
 }
 
 #[test]
-fn function_call_with_type_arguments() {
+fn function_call_with_arguments() {
     assert_eq!(
         parse(&lex("foobar::<str>('hi')").unwrap()).unwrap()[0],
         Statement::Expression(Expression::FunctionCall(
@@ -610,7 +610,7 @@ fn function() {
 #[test]
 fn function_with_type_arguments() {
     assert_eq!(
-        parse(&lex("fn |T, U| (x: T, y: U) -> T { x }").unwrap()).unwrap()[0],
+        parse(&lex("fn <T, U> (x: T, y: U) -> T { x }").unwrap()).unwrap()[0],
         Statement::Expression(Expression::Value(
             ValueNode::function(
                 Some(vec![Identifier::new("T"), Identifier::new("U"),]),

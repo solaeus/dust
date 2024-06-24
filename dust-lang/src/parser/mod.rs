@@ -82,8 +82,8 @@ pub fn parser<'src>(
                     .at_least(1)
                     .collect()
                     .delimited_by(
-                        just(Token::Symbol(Symbol::Pipe)),
-                        just(Token::Symbol(Symbol::Pipe)),
+                        just(Token::Symbol(Symbol::Less)),
+                        just(Token::Symbol(Symbol::Greater)),
                     )
                     .or_not(),
             )
@@ -281,8 +281,8 @@ pub fn parser<'src>(
                         .allow_trailing()
                         .collect()
                         .delimited_by(
-                            just(Token::Symbol(Symbol::Pipe)),
-                            just(Token::Symbol(Symbol::Pipe)),
+                            just(Token::Symbol(Symbol::Less)),
+                            just(Token::Symbol(Symbol::Greater)),
                         )
                         .or_not(),
                 )
