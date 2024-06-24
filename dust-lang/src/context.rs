@@ -37,6 +37,12 @@ impl Context {
         Context::new(Some(self.clone()))
     }
 
+    pub fn set_parent(&self, parent: Context) -> Result<(), PoisonError> {
+        self.data.write()?.parent = Some(parent);
+
+        Ok(())
+    }
+
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, PoisonError> {
         log::trace!("Checking that {identifier} exists.");
 

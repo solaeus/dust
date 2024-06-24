@@ -191,9 +191,11 @@ where
 
     fn evaluate(
         self,
-        _: &Context,
+        context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
+        self.context.set_parent(context.clone())?;
+
         self.function.call(&self.context, manage_memory)
     }
 
@@ -350,7 +352,7 @@ impl FunctionLogic for WriteLine {
     ) {
         (
             None::<array::IntoIter<Identifier, 0>>,
-            Some([(Identifier::new("message"), Type::String)].into_iter()),
+            Some([(Identifier::new("output"), Type::Any)].into_iter()),
         )
     }
 
@@ -358,18 +360,24 @@ impl FunctionLogic for WriteLine {
         Ok(None)
     }
 
-    fn call(self, context: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
-        let message = context.get_value(&Identifier::new("message"))?;
-
-        if let Some(message) = message {
-            println!("{message}");
-
-            Ok(None)
+    fn call(
+        self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
+        let position = self.0.position();
+        let evaluation = self.0.evaluate(context, manage_memory)?;
+        let value = if let Some(Evaluation::Return(value)) = evaluation {
+            value
         } else {
-            Err(RuntimeError::ValidationFailure(
-                ValidationError::BuiltInFunctionFailure(self.0.position()),
-            ))
-        }
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::ExpectedExpression(position),
+            ));
+        };
+
+        println!("{value}");
+
+        Ok(None)
     }
 }
 
