@@ -116,9 +116,19 @@ impl AbstractNode for FunctionCall {
             ));
         };
 
-        function.populate_context_template()?;
+        let function_context = Context::new(None);
 
-        let function_context = function.context_template().create_child();
+        if let Some(type_parameters) = function.type_parameters() {
+            for identifier in type_parameters {
+                function_context.set_type(
+                    identifier.clone(),
+                    Type::Generic {
+                        identifier: identifier.clone(),
+                        concrete_type: None,
+                    },
+                )?;
+            }
+        }
 
         if let (Some(parameters), Some(arguments)) =
             (function.value_parameters(), self.value_arguments)

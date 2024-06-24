@@ -45,6 +45,8 @@ impl Assignment {
 
 impl AbstractNode for Assignment {
     fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        self.statement.define_types(context)?;
+
         let relevant_statement = self.statement.last_evaluated_statement();
         let statement_type = if let Some(r#type) = relevant_statement.expected_type(context)? {
             r#type
@@ -113,7 +115,7 @@ impl AbstractNode for Assignment {
             r#type
         } else {
             return Err(ValidationError::CannotAssignToNone(
-                self.statement.position(),
+                relevant_statement.position(),
             ));
         };
 
