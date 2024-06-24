@@ -1,4 +1,3 @@
-use chumsky::container::Container;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -56,19 +55,14 @@ impl AbstractNode for FunctionCall {
             }
         }
 
-        let function_node_type = if let Expression::Value(WithPosition {
-            node: ValueNode::BuiltInFunction(function),
-            ..
-        }) = self.function_expression.as_ref()
-        {
-            function.r#type()
-        } else if let Some(r#type) = self.function_expression.expected_type(context)? {
-            r#type
-        } else {
-            return Err(ValidationError::ExpectedExpression(
-                self.function_expression.position(),
-            ));
-        };
+        let function_node_type =
+            if let Some(r#type) = self.function_expression.expected_type(context)? {
+                r#type
+            } else {
+                return Err(ValidationError::ExpectedExpression(
+                    self.function_expression.position(),
+                ));
+            };
 
         if let Type::Function {
             type_parameters,

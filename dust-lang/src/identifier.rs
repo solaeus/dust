@@ -16,19 +16,19 @@ fn identifier_cache<'a>() -> &'a RwLock<HashMap<String, Identifier>> {
 pub struct Identifier(Arc<String>);
 
 impl Identifier {
-    pub fn new(string: &str) -> Self {
+    pub fn new(text: &str) -> Self {
         let cache = identifier_cache();
 
-        if let Some(identifier) = cache.read().unwrap().get(string) {
+        if let Some(identifier) = cache.read().unwrap().get(text) {
             return identifier.clone();
         }
 
-        let identifier = Identifier(Arc::new(string.to_string()));
+        let identifier = Identifier(Arc::new(text.to_string()));
 
         cache
             .write()
             .unwrap()
-            .insert(string.to_string(), identifier.clone());
+            .insert(text.to_string(), identifier.clone());
 
         identifier
     }

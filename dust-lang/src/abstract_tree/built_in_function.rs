@@ -71,7 +71,7 @@ impl FunctionLogic for Length {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
+    fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
         let value = if let Some(value) = context.get_value(&Identifier::new("input"))? {
             value
         } else {
@@ -103,7 +103,7 @@ impl FunctionLogic for ReadFile {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
+    fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
         let value = if let Some(value) = context.get_value(&Identifier::new("path"))? {
             value
         } else {
@@ -136,12 +136,12 @@ impl FunctionLogic for ReadLine {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
+    fn call(_: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
         let mut user_input = String::new();
 
         stdin().read_line(&mut user_input)?;
 
-        Ok(Some(Value::string(user_input)))
+        Ok(Some(Value::string(user_input.trim_end_matches('\n'))))
     }
 }
 
@@ -157,7 +157,7 @@ impl FunctionLogic for Sleep {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
+    fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
         let value = if let Some(value) = context.get_value(&Identifier::new("milliseconds"))? {
             value
         } else {
@@ -191,7 +191,7 @@ impl FunctionLogic for WriteLine {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
+    fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
         let value = if let Some(value) = context.get_value(&Identifier::new("output"))? {
             value
         } else {
@@ -230,7 +230,7 @@ impl FunctionLogic for JsonParse {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
+    fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
         let target_type = if let Some(r#type) = context.get_type(&Identifier::new("T"))? {
             r#type
         } else {
