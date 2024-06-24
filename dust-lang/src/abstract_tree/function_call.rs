@@ -8,10 +8,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{
-    expression, AbstractNode, Evaluation, Expression, Type, TypeConstructor, ValueNode,
-    WithPosition,
-};
+use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor, ValueNode, WithPosition};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
@@ -255,7 +252,9 @@ impl Eq for FunctionCall {}
 
 impl PartialEq for FunctionCall {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        self.function_expression == other.function_expression
+            && self.type_arguments == other.type_arguments
+            && self.value_arguments == other.value_arguments
     }
 }
 

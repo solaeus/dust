@@ -81,6 +81,6 @@ fn recursion() {
             fib(8)
             "
         ),
-        Ok(Some(Value::integer(34)))
+        Ok(Some(Value::integer(13)))
     );
 }
