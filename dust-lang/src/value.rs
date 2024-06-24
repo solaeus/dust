@@ -142,7 +142,15 @@ impl Display for Value {
                     write!(f, "{type_name}::{variant}")
                 }
             }
-            ValueInner::Float(float) => write!(f, "{float}"),
+            ValueInner::Float(float) => {
+                write!(f, "{float}")?;
+
+                if &float.floor() == float {
+                    write!(f, ".0")?;
+                }
+
+                Ok(())
+            }
             ValueInner::Integer(integer) => write!(f, "{integer}"),
             ValueInner::List(list) => {
                 write!(f, "[")?;
