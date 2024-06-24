@@ -13,7 +13,7 @@ use std::{
 };
 
 use abstract_tree::{AbstractTree, Type};
-use ariadne::{Color, Config, Fmt, Label, Report, ReportKind};
+use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use chumsky::prelude::*;
 use context::Context;
 use error::{DustError, RuntimeError, TypeConflict, ValidationError};
@@ -307,13 +307,12 @@ impl InterpreterError {
                             .with_label(
                                 Label::new((self.source_id.clone(), position.0..position.1)).with_message("Error occured here.")
                             ),
-
-                            if let RuntimeError::ValidationFailure(validation_error) = error {
-                                Some(validation_error)
-                            } else {
-                                None
-                            },
-                        )
+                        if let RuntimeError::ValidationFailure(validation_error) = error {
+                            Some(validation_error)
+                        } else {
+                            None
+                        },
+                    )
                 }
             };
 
@@ -432,7 +431,14 @@ impl InterpreterError {
                         Label::new((self.source_id.clone(), position.0..position.1))
                             .with_message("Expected a statement that ends in an expression."),
                     ),
-                    ValidationError::ExpectedFunction { .. } => todo!(),
+                    ValidationError::ExpectedFunction { actual, position } => builder.add_label(
+                        Label::new((self.source_id.clone(), position.0..position.1)).with_message(
+                            format!(
+                                "Expected a function value but got {}.",
+                                actual.fg(type_color)
+                            ),
+                        ),
+                    ),
                     ValidationError::ExpectedValue(_) => todo!(),
                     ValidationError::FieldNotFound {
                         identifier,
@@ -481,11 +487,10 @@ impl InterpreterError {
                     }
                     ValidationError::EnumVariantNotFound { .. } => todo!(),
                     ValidationError::ExpectedList { .. } => todo!(),
-                    ValidationError::BuiltInFunctionFailure(_) => todo!(),
+                    ValidationError::BuiltInFunctionFailure(reason) => builder
+                        .add_label(Label::new((self.source_id.clone(), 0..0)).with_message(reason)),
                 }
             }
-
-            builder = builder.with_config(Config::default().with_multiline_arrows(false));
 
             let report = builder.finish();
 

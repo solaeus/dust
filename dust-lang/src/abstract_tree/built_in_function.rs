@@ -155,7 +155,24 @@ impl FunctionLogic for WriteLine {
     }
 
     fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
-        todo!()
+        let value = if let Some(value) = context.get_value(&Identifier::new("output"))? {
+            value
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::BuiltInFunctionFailure("output does not exist"),
+            ));
+        };
+        let input = if let ValueInner::String(string) = value.inner().as_ref() {
+            string
+        } else {
+            return Err(RuntimeError::ValidationFailure(
+                ValidationError::BuiltInFunctionFailure("output is not a string"),
+            ));
+        };
+
+        println!("{input}");
+
+        Ok(None)
     }
 }
 

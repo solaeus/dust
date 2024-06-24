@@ -104,6 +104,16 @@ impl AbstractNode for FunctionCall {
         context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
+        if let Expression::Value(WithPosition {
+            node: ValueNode::BuiltInFunction(function),
+            ..
+        }) = *self.function_expression
+        {
+            return function
+                .call(context, manage_memory)
+                .map(|value_option| value_option.map(|value| Evaluation::Return(value)));
+        }
+
         let function_position = self.function_expression.position();
         let evaluation = self.function_expression.evaluate(context, manage_memory)?;
         let value = if let Some(Evaluation::Return(value)) = evaluation {

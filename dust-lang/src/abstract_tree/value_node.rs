@@ -173,8 +173,6 @@ impl AbstractNode for ValueNode {
         {
             body.node.validate(&context_template, _manage_memory)?;
 
-            println!("beep");
-
             let ((expected_return, expected_position), actual_return) =
                 match (return_type, body.node.expected_type(&context_template)?) {
                     (Some(constructor), Some(r#type)) => (
@@ -373,11 +371,7 @@ impl AbstractNode for ValueNode {
 
                 Value::structure(name, fields)
             }
-            ValueNode::BuiltInFunction(built_in_function) => {
-                return built_in_function
-                    .call(context, manage_memory)
-                    .map(|value_option| value_option.map(|value| Evaluation::Return(value)));
-            }
+            ValueNode::BuiltInFunction(function) => Value::built_in_function(function),
         };
 
         Ok(Some(Evaluation::Return(value)))

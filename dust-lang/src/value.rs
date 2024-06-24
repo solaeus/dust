@@ -32,6 +32,10 @@ impl Value {
         Value(Arc::new(ValueInner::Boolean(boolean)))
     }
 
+    pub fn built_in_function(function: BuiltInFunction) -> Self {
+        Value(Arc::new(ValueInner::BuiltInFunction(function)))
+    }
+
     pub fn enum_instance(
         type_name: Identifier,
         variant: Identifier,
@@ -631,7 +635,7 @@ impl ValueInner {
                     });
                 }
             }
-            ValueInner::BuiltInFunction(_) => todo!(),
+            ValueInner::BuiltInFunction(function) => function.r#type(),
         };
 
         Ok(r#type)
