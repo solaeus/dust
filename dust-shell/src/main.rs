@@ -50,9 +50,8 @@ fn main() {
                 Level::Error => "ERROR".red().bold(),
                 Level::Info => "INFO".white().bold(),
             };
-            let timestamp = buffer.timestamp_seconds().to_string().dimmed();
 
-            writeln!(buffer, "[{} {}] {}", log_level, timestamp, args)
+            writeln!(buffer, "[{}] {}", log_level, args)
         })
         .init();
 

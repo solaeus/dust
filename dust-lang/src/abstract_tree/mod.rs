@@ -20,7 +20,11 @@ pub mod type_constructor;
 pub mod value_node;
 pub mod r#while;
 
-use std::{cmp::Ordering, ops::Index};
+use std::{
+    cmp::Ordering,
+    fmt::{self, Display, Formatter},
+    ops::Index,
+};
 
 use chumsky::span::{SimpleSpan, Span};
 use serde::{Deserialize, Serialize};
@@ -76,6 +80,12 @@ impl<T> WithPos for T {}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SourcePosition(pub usize, pub usize);
+
+impl Display for SourcePosition {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.0, self.1)
+    }
+}
 
 impl From<SimpleSpan> for SourcePosition {
     fn from(span: SimpleSpan) -> Self {

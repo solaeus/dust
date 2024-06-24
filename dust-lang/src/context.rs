@@ -95,7 +95,7 @@ impl Context {
         if let Some((VariableData::Value(value), _)) = data.variables.get(identifier) {
             Ok(Some(value.clone()))
         } else if let Some(parent) = &data.parent {
-            parent.use_value(identifier)
+            parent.get_value(identifier)
         } else {
             Ok(None)
         }
@@ -149,17 +149,22 @@ impl Context {
             return Ok(());
         }
 
-        self.data
-            .write()?
-            .variables
-            .retain(|_, (value_data, usage_data)| match value_data {
+        self.data.write()?.variables.retain(
+            |identifier, (value_data, usage_data)| match value_data {
                 VariableData::Type(_) => true,
                 VariableData::Value(_) => {
                     let usage = usage_data.inner().read().unwrap();
 
-                    usage.actual < usage.expected
+                    if usage.actual < usage.expected {
+                        true
+                    } else {
+                        log::trace!("Removing {identifier}.");
+
+                        false
+                    }
                 }
-            });
+            },
+        );
 
         *self.is_clean.write()? = true;
 

@@ -53,6 +53,8 @@ impl Statement {
 
 impl AbstractNode for Statement {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        log::trace!("Defining types for statement at {}", self.position());
+
         match self {
             Statement::Expression(expression) => expression.define_types(_context),
             Statement::IfElse(if_else) => if_else.node.define_types(_context),
@@ -73,6 +75,8 @@ impl AbstractNode for Statement {
     }
 
     fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        log::trace!("Validating statement at {}", self.position());
+
         match self {
             Statement::Assignment(assignment) => assignment.node.validate(_context, _manage_memory),
             Statement::AsyncBlock(async_block) => {
@@ -93,6 +97,8 @@ impl AbstractNode for Statement {
         context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
+        log::trace!("Evaluating statement at {}", self.position());
+
         let result = match self {
             Statement::Assignment(assignment) => assignment.node.evaluate(context, manage_memory),
             Statement::AsyncBlock(async_block) => async_block.node.evaluate(context, manage_memory),
