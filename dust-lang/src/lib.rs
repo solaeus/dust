@@ -109,12 +109,10 @@ impl Interpreter {
     }
 
     pub fn load_std(&self) -> Result<(), InterpreterError> {
-        let std_core_source: (Arc<str>, Arc<str>) = {
-            (
-                Arc::from("std/core.ds"),
-                Arc::from(include_str!("../../std/core.ds")),
-            )
-        };
+        let std_core_source: (Arc<str>, Arc<str>) = (
+            Arc::from("std/core.ds"),
+            Arc::from(include_str!("../../std/core.ds")),
+        );
         let std_sources: [(Arc<str>, Arc<str>); 4] = [
             (
                 Arc::from("std/fs.ds"),
@@ -172,7 +170,6 @@ impl Interpreter {
     ) -> Result<Option<Value>, InterpreterError> {
         let mut sources = self.sources.write().unwrap();
 
-        sources.clear();
         sources.push((source_id.clone(), source.clone()));
 
         let tokens = lex(source.as_ref()).map_err(|errors| InterpreterError {
@@ -431,7 +428,10 @@ impl InterpreterError {
                             .with_message(format!("This has type {}.", index_type.fg(type_color),)),
                         ])
                     }
-                    ValidationError::ExpectedExpression(_) => todo!(),
+                    ValidationError::ExpectedExpression(position) => builder.add_label(
+                        Label::new((self.source_id.clone(), position.0..position.1))
+                            .with_message("Expected a statement that ends in an expression."),
+                    ),
                     ValidationError::ExpectedFunction { .. } => todo!(),
                     ValidationError::ExpectedValue(_) => todo!(),
                     ValidationError::FieldNotFound {

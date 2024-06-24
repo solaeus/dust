@@ -6,7 +6,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
+use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor, ValueNode, WithPosition};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionCall {
@@ -47,6 +47,14 @@ impl AbstractNode for FunctionCall {
     }
 
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+        if let Expression::Value(WithPosition {
+            node: ValueNode::BuiltInFunction(_),
+            ..
+        }) = self.function_expression.as_ref()
+        {
+            return Ok(());
+        }
+
         self.function_expression.validate(context, manage_memory)?;
 
         if let Some(value_arguments) = &self.value_arguments {

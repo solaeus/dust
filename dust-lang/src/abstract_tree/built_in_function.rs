@@ -35,7 +35,11 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn call(&self, context: &Context, manage_memory: bool) -> Result<Value, RuntimeError> {
+    pub fn call(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<Option<Value>, RuntimeError> {
         match self {
             BuiltInFunction::Length => Length::call(context, manage_memory),
             BuiltInFunction::ReadLine => ReadLine::call(context, manage_memory),
@@ -49,7 +53,7 @@ impl BuiltInFunction {
 
 trait FunctionLogic {
     fn r#type() -> Type;
-    fn call(context: &Context, manage_memory: bool) -> Result<Value, RuntimeError>;
+    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -67,7 +71,7 @@ impl FunctionLogic for Length {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Value, RuntimeError> {
+    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
         let value = if let Some(value) = context.get_value(&Identifier::new("input"))? {
             value
         } else {
@@ -83,7 +87,7 @@ impl FunctionLogic for Length {
             ));
         };
 
-        Ok(Value::integer(list.len() as i64))
+        Ok(Some(Value::integer(list.len() as i64)))
     }
 }
 
@@ -95,11 +99,11 @@ impl FunctionLogic for ReadFile {
         Type::Function {
             type_parameters: None,
             value_parameters: None,
-            return_type: None,
+            return_type: Some(Box::new(Type::String)),
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Value, RuntimeError> {
+    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
         todo!()
     }
 }
@@ -112,11 +116,11 @@ impl FunctionLogic for ReadLine {
         Type::Function {
             type_parameters: None,
             value_parameters: None,
-            return_type: None,
+            return_type: Some(Box::new(Type::String)),
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Value, RuntimeError> {
+    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
         todo!()
     }
 }
@@ -133,7 +137,7 @@ impl FunctionLogic for Sleep {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Value, RuntimeError> {
+    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
         todo!()
     }
 }
@@ -150,7 +154,7 @@ impl FunctionLogic for WriteLine {
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Value, RuntimeError> {
+    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
         todo!()
     }
 }
@@ -163,11 +167,14 @@ impl FunctionLogic for JsonParse {
         Type::Function {
             type_parameters: None,
             value_parameters: None,
-            return_type: None,
+            return_type: Some(Box::new(Type::Generic {
+                identifier: Identifier::new("T"),
+                concrete_type: None,
+            })),
         }
     }
 
-    fn call(context: &Context, manage_memory: bool) -> Result<Value, RuntimeError> {
+    fn call(context: &Context, manage_memory: bool) -> Result<Option<Value>, RuntimeError> {
         let target_type = if let Some(r#type) = context.get_type(&Identifier::new("T"))? {
             r#type
         } else {
@@ -216,6 +223,6 @@ impl FunctionLogic for JsonParse {
             Ok(value)
         }
 
-        parse_value(&input, target_type)
+        parse_value(&input, target_type).map(|value| Some(value))
     }
 }
