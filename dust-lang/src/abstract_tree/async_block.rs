@@ -39,29 +39,30 @@ impl AbstractNode for AsyncBlock {
     }
 
     fn evaluate(self, _context: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
-        let statement_count = self.statements.len();
         let final_result = Mutex::new(Ok(None));
+        let statement_count = self.statements.len();
+        let error_option = self.statements.into_par_iter().enumerate().find_map_any(
+            |(index, statement)| -> Option<RuntimeError> {
+                let result = statement.evaluate(&_context, false);
 
-        self.statements
-            .into_par_iter()
-            .enumerate()
-            .find_map_any(
-                |(index, statement)| -> Option<Result<Option<Evaluation>, RuntimeError>> {
-                    let result = statement.evaluate(&_context, false);
+                if let Err(error) = result {
+                    return Some(error);
+                }
 
-                    if result.is_err() {
-                        return Some(result);
-                    }
+                if index == statement_count - 1 {
+                    // It is safe to unwrap here because only one thread uses the Mutex
+                    *final_result.lock().unwrap() = result;
+                }
 
-                    if index == statement_count - 1 {
-                        // It is safe to unwrap here because only one thread uses the Mutex
-                        *final_result.lock().unwrap() = result;
-                    }
+                None
+            },
+        );
 
-                    None
-                },
-            )
-            .unwrap_or(final_result.into_inner()?)
+        if let Some(error) = error_option {
+            Err(error)
+        } else {
+            final_result.into_inner()?
+        }
     }
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
