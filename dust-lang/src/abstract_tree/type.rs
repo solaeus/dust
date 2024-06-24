@@ -244,14 +244,18 @@ impl Display for Type {
             Type::Integer => write!(f, "int"),
             Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
             Type::ListOf(item_type) => write!(f, "[{}]", item_type),
-            Type::Map(item_types) => {
-                writeln!(f, "{{")?;
+            Type::Map(map) => {
+                write!(f, "{{ ")?;
 
-                for (identifier, r#type) in item_types {
-                    writeln!(f, "{identifier}: {type}")?;
+                for (index, (key, r#type)) in map.into_iter().enumerate() {
+                    write!(f, "{key}: {type}")?;
+
+                    if index != map.len() - 1 {
+                        write!(f, ", ")?;
+                    }
                 }
 
-                write!(f, "}}")
+                write!(f, " }}")
             }
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),

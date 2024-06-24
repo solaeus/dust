@@ -3,6 +3,36 @@ use crate::lexer::lex;
 use super::*;
 
 #[test]
+fn map_type() {
+    assert_eq!(
+        parse(&lex("type Map = { x: int, y: str }").unwrap()).unwrap()[0],
+        Statement::TypeAlias(
+            TypeAlias::new(
+                Identifier::new("Map").with_position((5, 8)),
+                TypeConstructor::Map(
+                    vec![
+                        (
+                            Identifier::new("x").with_position((13, 14)),
+                            TypeConstructor::Raw(
+                                RawTypeConstructor::Integer.with_position((16, 19))
+                            )
+                        ),
+                        (
+                            Identifier::new("y").with_position((21, 22)),
+                            TypeConstructor::Raw(
+                                RawTypeConstructor::String.with_position((24, 27))
+                            )
+                        )
+                    ]
+                    .with_position((11, 29))
+                )
+            )
+            .with_position((0, 29))
+        )
+    );
+}
+
+#[test]
 fn type_invokation() {
     assert_eq!(
         parse(&lex("x: Foo(int) = Foo::Bar(42)").unwrap()).unwrap()[0],

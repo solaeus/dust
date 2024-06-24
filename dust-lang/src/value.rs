@@ -154,13 +154,17 @@ impl Display for Value {
                 write!(f, "]")
             }
             ValueInner::Map(map) => {
-                write!(f, "[")?;
+                write!(f, "{{ ")?;
 
-                for (key, value) in map {
-                    writeln!(f, "{key} = {value},")?;
+                for (index, (key, value)) in map.into_iter().enumerate() {
+                    write!(f, "{key} = {value}")?;
+
+                    if index != map.len() - 1 {
+                        write!(f, ", ")?;
+                    }
                 }
 
-                write!(f, "]")
+                write!(f, " }}")
             }
             ValueInner::Range(_) => todo!(),
             ValueInner::String(string) => write!(f, "{string}"),
