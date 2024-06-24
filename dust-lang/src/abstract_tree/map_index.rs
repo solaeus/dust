@@ -30,7 +30,13 @@ impl AbstractNode for MapIndex {
     }
 
     fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        self.collection.validate(_context, _manage_memory)
+        self.collection.validate(_context, _manage_memory)?;
+
+        if let Expression::Identifier(identifier) = &self.index {
+            Ok(())
+        } else {
+            self.index.validate(_context, _manage_memory)
+        }
     }
 
     fn evaluate(

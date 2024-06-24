@@ -423,7 +423,7 @@ impl FunctionLogic for JsonParse {
                 Type::Integer => Value::integer(from_str::<i64>(input_string)?),
                 Type::List { .. } => todo!(),
                 Type::ListOf(_) => todo!(),
-                Type::Map => todo!(),
+                Type::Map(_) => todo!(),
                 Type::Range => todo!(),
                 Type::String => Value::string(from_str::<String>(input_string)?),
                 Type::Structure { .. } => todo!(),

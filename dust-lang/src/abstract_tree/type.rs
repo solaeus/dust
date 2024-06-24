@@ -1,4 +1,7 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Display, Formatter},
+};
 
 use clap::error::Result;
 use serde::{Deserialize, Serialize};
@@ -30,7 +33,7 @@ pub enum Type {
         item_type: Box<Type>,
     },
     ListOf(Box<Type>),
-    Map,
+    Map(BTreeMap<Identifier, Type>),
     Range,
     String,
     Structure {
@@ -47,7 +50,6 @@ impl Type {
             | (Type::Boolean, Type::Boolean)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::Map, Type::Map)
             | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
             (
@@ -190,6 +192,11 @@ impl Type {
                     return Ok(());
                 }
             }
+            (Type::Map(left), Type::Map(right)) => {
+                if left == right {
+                    return Ok(());
+                }
+            }
             _ => {}
         }
 
@@ -236,8 +243,16 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
-            Type::ListOf(item_type) => write!(f, "list({})", item_type),
-            Type::Map => write!(f, "map"),
+            Type::ListOf(item_type) => write!(f, "[{}]", item_type),
+            Type::Map(item_types) => {
+                writeln!(f, "{{")?;
+
+                for (identifier, r#type) in item_types {
+                    writeln!(f, "{identifier}: {type}")?;
+                }
+
+                write!(f, "}}")
+            }
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),
             Type::Function {
@@ -300,7 +315,13 @@ mod tests {
             Ok(())
         );
 
-        assert_eq!(Type::Map.check(&Type::Map), Ok(()));
+        let mut map = BTreeMap::new();
+
+        map.insert(Identifier::new("x"), Type::Integer);
+        map.insert(Identifier::new("y"), Type::String);
+        map.insert(Identifier::new("z"), Type::Map(map.clone()));
+
+        assert_eq!(Type::Map(map.clone()).check(&Type::Map(map)), Ok(()));
         assert_eq!(Type::Range.check(&Type::Range), Ok(()));
         assert_eq!(Type::String.check(&Type::String), Ok(()));
     }
@@ -334,7 +355,7 @@ mod tests {
                 item_type: Box::new(Type::Integer),
             },
             Type::ListOf(Box::new(Type::Boolean)),
-            Type::Map,
+            Type::Map(BTreeMap::new()),
             Type::Range,
             Type::String,
         ];

@@ -82,7 +82,6 @@ pub fn parser<'src>(
             just(Token::Keyword(Keyword::Bool)).to(RawTypeConstructor::Boolean),
             just(Token::Keyword(Keyword::Float)).to(RawTypeConstructor::Float),
             just(Token::Keyword(Keyword::Int)).to(RawTypeConstructor::Integer),
-            just(Token::Keyword(Keyword::Map)).to(RawTypeConstructor::Map),
             just(Token::Keyword(Keyword::Range)).to(RawTypeConstructor::Range),
             just(Token::Keyword(Keyword::Str)).to(RawTypeConstructor::String),
         ))
@@ -196,7 +195,24 @@ pub fn parser<'src>(
                 })
             });
 
+        let map_type = positioned_identifier
+            .clone()
+            .then_ignore(just(Token::Symbol(Symbol::Colon)))
+            .then(type_constructor.clone())
+            .separated_by(just(Token::Symbol(Symbol::Comma)))
+            .collect()
+            .delimited_by(
+                just(Token::Symbol(Symbol::CurlyOpen)),
+                just(Token::Symbol(Symbol::CurlyClose)),
+            )
+            .map_with(
+                |fields: Vec<(WithPosition<Identifier>, TypeConstructor)>, state| {
+                    TypeConstructor::Map(fields.with_position(state.span()))
+                },
+            );
+
         choice((
+            map_type,
             type_invokation,
             function_type,
             list_type,

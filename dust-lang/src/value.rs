@@ -592,7 +592,17 @@ impl ValueInner {
                     item_type: Box::new(item_type),
                 }
             }
-            ValueInner::Map(_) => Type::Map,
+            ValueInner::Map(value_map) => {
+                let mut type_map = BTreeMap::with_capacity(value_map.len());
+
+                for (identifier, value) in value_map {
+                    let r#type = value.r#type(context)?;
+
+                    type_map.insert(identifier.clone(), r#type);
+                }
+
+                Type::Map(type_map)
+            }
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
             ValueInner::Function(function) => {

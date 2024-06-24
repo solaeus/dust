@@ -1,5 +1,9 @@
-use std::fmt::{self, Display, Formatter};
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Display, Formatter},
+};
 
+use chumsky::container::Container;
 use serde::{Deserialize, Serialize};
 
 use crate::{context::Context, error::ValidationError, identifier::Identifier};
@@ -13,6 +17,7 @@ pub enum TypeConstructor {
     Invokation(TypeInvokationConstructor),
     List(WithPosition<ListTypeConstructor>),
     ListOf(WithPosition<Box<TypeConstructor>>),
+    Map(WithPosition<Vec<(WithPosition<Identifier>, TypeConstructor)>>),
     Raw(WithPosition<RawTypeConstructor>),
 }
 
@@ -22,7 +27,6 @@ pub enum RawTypeConstructor {
     Boolean,
     Float,
     Integer,
-    Map,
     Range,
     String,
 }
@@ -47,6 +51,7 @@ impl TypeConstructor {
             }
             TypeConstructor::List(WithPosition { position, .. }) => *position,
             TypeConstructor::ListOf(WithPosition { position, .. }) => *position,
+            TypeConstructor::Map(WithPosition { position, .. }) => *position,
             TypeConstructor::Raw(WithPosition { position, .. }) => *position,
         }
     }
@@ -176,12 +181,22 @@ impl TypeConstructor {
 
                 Type::ListOf(Box::new(item_type))
             }
+            TypeConstructor::Map(field_type_constructors) => {
+                let mut field_types = BTreeMap::with_capacity(field_type_constructors.node.len());
+
+                for (identifier, constructor) in &field_type_constructors.node {
+                    let r#type = constructor.construct(context)?;
+
+                    field_types.insert(identifier.node.clone(), r#type);
+                }
+
+                Type::Map(field_types)
+            }
             TypeConstructor::Raw(raw_type) => match raw_type.node {
                 RawTypeConstructor::Any => Type::Any,
                 RawTypeConstructor::Boolean => Type::Boolean,
                 RawTypeConstructor::Float => Type::Float,
                 RawTypeConstructor::Integer => Type::Integer,
-                RawTypeConstructor::Map => Type::Map,
                 RawTypeConstructor::Range => Type::Range,
                 RawTypeConstructor::String => Type::String,
             },

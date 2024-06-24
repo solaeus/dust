@@ -402,7 +402,25 @@ impl AbstractNode for ValueNode {
                     item_type: Box::new(item_type),
                 }
             }
-            ValueNode::Map(_) => Type::Map,
+            ValueNode::Map(fields) => {
+                let mut field_types = BTreeMap::new();
+
+                for (identifier, constructor_option, expression) in fields {
+                    let r#type = if let Some(constructor) = constructor_option {
+                        constructor.construct(context)?
+                    } else {
+                        if let Some(r#type) = expression.expected_type(context)? {
+                            r#type
+                        } else {
+                            return Err(ValidationError::CannotAssignToNone(expression.position()));
+                        }
+                    };
+
+                    field_types.insert(identifier.clone(), r#type);
+                }
+
+                Type::Map(field_types)
+            }
             ValueNode::Range(_) => Type::Range,
             ValueNode::String(_) => Type::String,
             ValueNode::Function(FunctionNode {
