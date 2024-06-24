@@ -116,7 +116,7 @@ impl AbstractNode for FunctionCall {
             ));
         };
 
-        let function_context = Context::new(None);
+        let function_context = Context::new(Some(context.clone()));
 
         if let Some(type_parameters) = function.type_parameters() {
             for identifier in type_parameters {

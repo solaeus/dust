@@ -62,36 +62,7 @@ impl AbstractNode for IfElse {
                 self.if_expression.position(),
             ));
         };
-        let expected_type = if let Some(r#type) = self.if_block.node.expected_type(context)? {
-            r#type
-        } else {
-            return Err(ValidationError::ExpectedExpression(self.if_block.position));
-        };
-
-        if let Type::Boolean = if_expression_type {
-            if let Some(else_block) = &self.else_block {
-                else_block.node.validate(context, manage_memory)?;
-
-                let actual_type = if let Some(r#type) = else_block.node.expected_type(context)? {
-                    r#type
-                } else {
-                    return Err(ValidationError::ExpectedExpression(else_block.position));
-                };
-
-                expected_type.check(&actual_type).map_err(|conflict| {
-                    ValidationError::TypeCheck {
-                        conflict,
-                        actual_position: else_block.node.last_statement().position(),
-                        expected_position: Some(self.if_block.node.first_statement().position()),
-                    }
-                })?;
-            }
-        } else {
-            return Err(ValidationError::ExpectedBoolean {
-                actual: if_expression_type,
-                position: self.if_expression.position(),
-            });
-        }
+        let if_block_type = self.if_block.node.expected_type(context)?;
 
         if let Some(else_ifs) = &self.else_ifs {
             for (expression, block) in else_ifs {
@@ -100,25 +71,39 @@ impl AbstractNode for IfElse {
                 if let Some(Type::Boolean) = expression_type {
                     block.node.validate(context, manage_memory)?;
 
-                    let actual_type = if let Some(r#type) = block.node.expected_type(context)? {
-                        r#type
-                    } else {
-                        return Err(ValidationError::ExpectedExpression(block.position));
-                    };
+                    let else_if_block_type = block.node.expected_type(context)?;
 
-                    expected_type.check(&actual_type).map_err(|conflict| {
-                        ValidationError::TypeCheck {
-                            conflict,
-                            actual_position: self.if_block.node.last_statement().position(),
-                            expected_position: Some(self.if_expression.position()),
-                        }
-                    })?;
+                    if let (Some(expected), Some(actual)) = (&if_block_type, else_if_block_type) {
+                        expected
+                            .check(&actual)
+                            .map_err(|conflict| ValidationError::TypeCheck {
+                                conflict,
+                                actual_position: self.if_block.node.last_statement().position(),
+                                expected_position: Some(self.if_expression.position()),
+                            })?;
+                    }
                 } else {
                     return Err(ValidationError::ExpectedBoolean {
                         actual: if_expression_type,
                         position: self.if_expression.position(),
                     });
                 }
+            }
+        }
+
+        if let Some(block) = &self.else_block {
+            block.node.validate(context, manage_memory)?;
+
+            let else_if_block_type = block.node.expected_type(context)?;
+
+            if let (Some(expected), Some(actual)) = (if_block_type, else_if_block_type) {
+                expected
+                    .check(&actual)
+                    .map_err(|conflict| ValidationError::TypeCheck {
+                        conflict,
+                        actual_position: self.if_block.node.last_statement().position(),
+                        expected_position: Some(self.if_expression.position()),
+                    })?;
             }
         }
 

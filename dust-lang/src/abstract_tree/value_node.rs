@@ -83,6 +83,8 @@ impl AbstractNode for ValueNode {
                 context_template,
                 ..
             }) => {
+                context_template.set_parent(outer_context.clone())?;
+
                 if let Some(type_parameters) = type_parameters {
                     for identifier in type_parameters {
                         context_template.set_type(

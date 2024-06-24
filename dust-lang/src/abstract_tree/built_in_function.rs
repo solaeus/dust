@@ -195,7 +195,6 @@ where
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         self.context.set_parent(context.clone())?;
-
         self.function.call(&self.context, manage_memory)
     }
 
