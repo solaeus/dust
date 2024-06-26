@@ -12,7 +12,6 @@ use super::{SourcePosition, Type, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum TypeConstructor {
-    Enum(WithPosition<EnumTypeConstructor>),
     Function(WithPosition<FunctionTypeConstructor>),
     Invokation(TypeInvokationConstructor),
     List(WithPosition<ListTypeConstructor>),
@@ -21,20 +20,9 @@ pub enum TypeConstructor {
     Raw(WithPosition<RawTypeConstructor>),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum RawTypeConstructor {
-    Any,
-    Boolean,
-    Float,
-    Integer,
-    Range,
-    String,
-}
-
 impl TypeConstructor {
     pub fn position(&self) -> SourcePosition {
         match self {
-            TypeConstructor::Enum(WithPosition { position, .. }) => *position,
             TypeConstructor::Function(WithPosition { position, .. }) => *position,
             TypeConstructor::Invokation(TypeInvokationConstructor {
                 identifier,
@@ -87,44 +75,6 @@ impl TypeConstructor {
                     }
                 } else {
                     invoked_type
-                }
-            }
-            TypeConstructor::Enum(enum_type_constructor) => {
-                let EnumTypeConstructor {
-                    name,
-                    type_parameters,
-                    variants,
-                } = &enum_type_constructor.node;
-                let mut type_variants = Vec::with_capacity(variants.len());
-
-                for (variant_name, constructors) in variants {
-                    if let Some(constructors) = constructors {
-                        let mut types = Vec::with_capacity(constructors.len());
-
-                        for constructor in constructors {
-                            let r#type = constructor.construct(context)?;
-
-                            types.push(r#type);
-                        }
-
-                        type_variants.push((variant_name.node.clone(), Some(types)));
-                    } else {
-                        type_variants.push((variant_name.node.clone(), None))
-                    }
-                }
-
-                Type::Enum {
-                    name: name.node.clone(),
-                    type_parameters: type_parameters.as_ref().map(|identifiers| {
-                        identifiers
-                            .into_iter()
-                            .map(|identifier| Type::Generic {
-                                identifier: identifier.node.clone(),
-                                concrete_type: None,
-                            })
-                            .collect()
-                    }),
-                    variants: type_variants,
                 }
             }
             TypeConstructor::Function(function_type_constructor) => {
@@ -207,16 +157,42 @@ impl TypeConstructor {
 }
 
 impl Display for TypeConstructor {
-    fn fmt(&self, _: &mut Formatter) -> fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            TypeConstructor::Function(WithPosition { node, position }) => write!(f, "{node}")?,
+            TypeConstructor::Invokation(type_invokation) => write!(f, "{type_invokation}")?,
+            TypeConstructor::List(WithPosition { node, position }) => write!(f, "{node}")?,
+            TypeConstructor::ListOf(WithPosition { node, position }) => write!(f, "{node}")?,
+            TypeConstructor::Map(WithPosition { node, position }) => {
+                write!(f, "{{ ")?;
+
+                for (identifier, constructor) in node {
+                    write!(f, "{}: {constructor}, ", identifier.node)?;
+                }
+
+                write!(f, "}}")?;
+            }
+            TypeConstructor::Raw(WithPosition { node, position }) => write!(f, "{node}")?,
+        }
+
+        Ok(())
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct EnumTypeConstructor {
-    pub name: WithPosition<Identifier>,
-    pub type_parameters: Option<Vec<WithPosition<Identifier>>>,
-    pub variants: Vec<(WithPosition<Identifier>, Option<Vec<TypeConstructor>>)>,
+pub enum RawTypeConstructor {
+    Any,
+    Boolean,
+    Float,
+    Integer,
+    Range,
+    String,
+}
+
+impl Display for RawTypeConstructor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -226,14 +202,48 @@ pub struct FunctionTypeConstructor {
     pub return_type: Option<Box<TypeConstructor>>,
 }
 
+impl Display for FunctionTypeConstructor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListTypeConstructor {
     pub length: usize,
     pub item_type: Box<TypeConstructor>,
 }
 
+impl Display for ListTypeConstructor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TypeInvokationConstructor {
     pub identifier: WithPosition<Identifier>,
     pub type_arguments: Option<Vec<TypeConstructor>>,
+}
+impl Display for TypeInvokationConstructor {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let TypeInvokationConstructor {
+            identifier,
+            type_arguments,
+        } = self;
+
+        write!(f, "{}", identifier.node)?;
+
+        if let Some(arguments) = type_arguments {
+            write!(f, "(")?;
+
+            for constructor in arguments {
+                write!(f, "{constructor}, ")?;
+            }
+
+            write!(f, ")")?;
+        }
+
+        Ok(())
+    }
 }

@@ -49,9 +49,7 @@ pub use self::{
     statement::Statement,
     structure_definition::StructureDefinition,
     type_alias::TypeAlias,
-    type_constructor::{
-        EnumTypeConstructor, FunctionTypeConstructor, ListTypeConstructor, TypeConstructor,
-    },
+    type_constructor::{FunctionTypeConstructor, ListTypeConstructor, TypeConstructor},
     value_node::ValueNode,
 };
 

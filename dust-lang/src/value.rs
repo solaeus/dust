@@ -169,7 +169,7 @@ impl Display for Value {
                 write!(f, "{{ ")?;
 
                 for (index, (key, value)) in map.into_iter().enumerate() {
-                    write!(f, "{key} = {value:?}")?;
+                    write!(f, "{key} = {value}")?;
 
                     if index != map.len() - 1 {
                         write!(f, ", ")?;
@@ -217,7 +217,7 @@ impl Display for Value {
                     write!(f, "-> {return_type}")?
                 }
 
-                write!(f, " {{ {body:?} }}")
+                write!(f, " {{ {body} }}")
             }
             ValueInner::Structure { name, fields } => {
                 write!(f, "{}\n{{", name.node)?;
