@@ -687,18 +687,18 @@ impl Display for ValueNode {
                 value_parameters,
                 return_type,
                 body,
-                context_template,
+                context_template: _,
             }) => {
                 write!(f, "fn ")?;
 
                 if let Some(type_parameters) = type_parameters {
-                    write!(f, "(")?;
+                    write!(f, "<")?;
 
                     for identifier in type_parameters {
                         write!(f, "{identifier}")?;
                     }
 
-                    write!(f, ")")?;
+                    write!(f, ">")?;
                 }
 
                 if let Some(value_parameters) = value_parameters {
@@ -711,7 +711,11 @@ impl Display for ValueNode {
                     write!(f, ")")?;
                 }
 
-                write!(f, "{}", body.node)
+                if let Some(r#type) = return_type {
+                    write!(f, " -> {type}")?;
+                }
+
+                write!(f, " {}", body.node)
             }
         }
     }

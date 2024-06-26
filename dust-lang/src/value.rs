@@ -190,7 +190,7 @@ impl Display for Value {
                 write!(f, "fn ")?;
 
                 if let Some(type_parameters) = type_parameters {
-                    write!(f, "(")?;
+                    write!(f, "<")?;
 
                     for (index, identifier) in type_parameters.into_iter().enumerate() {
                         if index == type_parameters.len() - 1 {
@@ -200,7 +200,7 @@ impl Display for Value {
                         }
                     }
 
-                    write!(f, ")")?;
+                    write!(f, ">")?;
                 }
 
                 write!(f, "(")?;

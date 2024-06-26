@@ -264,15 +264,19 @@ impl Display for Type {
                 value_parameters,
                 return_type,
             } => {
-                write!(f, "fn (")?;
+                write!(f, "fn ")?;
 
                 if let Some(type_parameters) = type_parameters {
+                    write!(f, "<")?;
+
                     for identifier in type_parameters {
-                        write!(f, "{} ", identifier)?;
+                        write!(f, "{}, ", identifier)?;
                     }
 
-                    write!(f, ")(")?;
+                    write!(f, ">")?;
                 }
+
+                write!(f, "(")?;
 
                 if let Some(value_parameters) = value_parameters {
                     for (identifier, r#type) in value_parameters {

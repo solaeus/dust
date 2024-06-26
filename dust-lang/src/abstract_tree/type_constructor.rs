@@ -159,11 +159,11 @@ impl TypeConstructor {
 impl Display for TypeConstructor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            TypeConstructor::Function(WithPosition { node, position }) => write!(f, "{node}")?,
+            TypeConstructor::Function(WithPosition { node, .. }) => write!(f, "{node}")?,
             TypeConstructor::Invokation(type_invokation) => write!(f, "{type_invokation}")?,
-            TypeConstructor::List(WithPosition { node, position }) => write!(f, "{node}")?,
-            TypeConstructor::ListOf(WithPosition { node, position }) => write!(f, "{node}")?,
-            TypeConstructor::Map(WithPosition { node, position }) => {
+            TypeConstructor::List(WithPosition { node, .. }) => write!(f, "{node}")?,
+            TypeConstructor::ListOf(WithPosition { node, .. }) => write!(f, "{node}")?,
+            TypeConstructor::Map(WithPosition { node, .. }) => {
                 write!(f, "{{ ")?;
 
                 for (identifier, constructor) in node {
@@ -172,7 +172,7 @@ impl Display for TypeConstructor {
 
                 write!(f, "}}")?;
             }
-            TypeConstructor::Raw(WithPosition { node, position }) => write!(f, "{node}")?,
+            TypeConstructor::Raw(WithPosition { node, .. }) => write!(f, "{node}")?,
         }
 
         Ok(())
@@ -191,7 +191,14 @@ pub enum RawTypeConstructor {
 
 impl Display for RawTypeConstructor {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        todo!()
+        match self {
+            RawTypeConstructor::Any => write!(f, "any"),
+            RawTypeConstructor::Boolean => write!(f, "bool"),
+            RawTypeConstructor::Float => write!(f, "float"),
+            RawTypeConstructor::Integer => write!(f, "int"),
+            RawTypeConstructor::Range => write!(f, "range"),
+            RawTypeConstructor::String => write!(f, "str"),
+        }
     }
 }
 
@@ -204,7 +211,29 @@ pub struct FunctionTypeConstructor {
 
 impl Display for FunctionTypeConstructor {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        todo!()
+        write!(f, "fn ")?;
+
+        if let Some(parameters) = &self.type_parameters {
+            write!(f, "<")?;
+
+            for identifier in parameters {
+                write!(f, "{}, ", identifier.node)?;
+            }
+
+            write!(f, ">")?;
+        }
+
+        if let Some(parameters) = &self.value_parameters {
+            for (identifier, constructor) in parameters {
+                write!(f, "{}: {constructor}", identifier.node)?;
+            }
+        }
+
+        write!(f, "(")?;
+
+        write!(f, ")")?;
+
+        Ok(())
     }
 }
 
@@ -216,7 +245,9 @@ pub struct ListTypeConstructor {
 
 impl Display for ListTypeConstructor {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        todo!()
+        let ListTypeConstructor { length, item_type } = self;
+
+        write!(f, "[{item_type}; {length}]")
     }
 }
 
