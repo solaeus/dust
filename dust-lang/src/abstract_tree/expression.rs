@@ -40,8 +40,6 @@ impl Expression {
 
 impl AbstractNode for Expression {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        log::trace!("Defining types for expression at {}", self.position());
-
         match self {
             Expression::As(inner) => inner.node.define_types(_context),
             Expression::FunctionCall(inner) => inner.node.define_types(_context),
@@ -55,8 +53,6 @@ impl AbstractNode for Expression {
     }
 
     fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        log::trace!("Validating expression at {}", self.position());
-
         match self {
             Expression::As(r#as) => r#as.node.validate(context, manage_memory),
             Expression::FunctionCall(function_call) => {
@@ -87,8 +83,6 @@ impl AbstractNode for Expression {
         context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        log::trace!("Evaluating expression at {}", self.position());
-
         match self {
             Expression::As(r#as) => r#as.node.evaluate(context, manage_memory),
             Expression::FunctionCall(function_call) => {

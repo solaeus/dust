@@ -1,4 +1,10 @@
-use std::{fs::read_to_string, io::stdin, thread::sleep, time::Duration};
+use std::{
+    fmt::{self, Display, Formatter},
+    fs::read_to_string,
+    io::stdin,
+    thread::sleep,
+    time::Duration,
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::from_str;
@@ -48,6 +54,21 @@ impl BuiltInFunction {
             BuiltInFunction::WriteLine => WriteLine::call(context, manage_memory),
             BuiltInFunction::JsonParse => JsonParse::call(context, manage_memory),
         }
+    }
+}
+
+impl Display for BuiltInFunction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let display = match self {
+            BuiltInFunction::Length => "__LENGTH__",
+            BuiltInFunction::ReadLine => "__READ_LINE__",
+            BuiltInFunction::ReadFile => "__READ_FILE__",
+            BuiltInFunction::Sleep => "__SLEEP__",
+            BuiltInFunction::WriteLine => "__WRITE_LINE__",
+            BuiltInFunction::JsonParse => "__JSON_PARSE__",
+        };
+
+        write!(f, "{display}")
     }
 }
 

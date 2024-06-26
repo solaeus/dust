@@ -8,7 +8,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor, ValueNode, WithPosition};
+use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
@@ -143,16 +143,6 @@ impl AbstractNode for FunctionCall {
         context: &Context,
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        if let Expression::Value(WithPosition {
-            node: ValueNode::BuiltInFunction(function),
-            ..
-        }) = *self.function_expression
-        {
-            return function
-                .call(context, manage_memory)
-                .map(|value_option| value_option.map(|value| Evaluation::Return(value)));
-        }
-
         let function_position = self.function_expression.position();
         let evaluation = self.function_expression.evaluate(context, manage_memory)?;
         let value = if let Some(Evaluation::Return(value)) = evaluation {
@@ -162,48 +152,101 @@ impl AbstractNode for FunctionCall {
                 ValidationError::ExpectedExpression(function_position),
             ));
         };
-        let function = if let ValueInner::Function(function) = value.inner().as_ref() {
-            function.clone()
-        } else {
-            return Err(RuntimeError::ValidationFailure(
-                ValidationError::ExpectedFunction {
-                    actual: value.r#type(context)?,
-                    position: function_position,
-                },
-            ));
-        };
 
-        if let (Some(type_parameters), Some(type_arguments)) =
-            (function.type_parameters(), self.type_arguments)
-        {
-            for (identifier, constructor) in
-                type_parameters.into_iter().zip(type_arguments.into_iter())
+        if let ValueInner::Function(function) = value.inner().as_ref() {
+            if let (Some(type_parameters), Some(type_arguments)) =
+                (function.type_parameters(), self.type_arguments)
             {
-                let r#type = constructor.construct(context)?;
+                for (identifier, constructor) in
+                    type_parameters.into_iter().zip(type_arguments.into_iter())
+                {
+                    let r#type = constructor.construct(context)?;
 
-                self.context.set_type(identifier.clone(), r#type)?;
+                    self.context.set_type(identifier.clone(), r#type)?;
+                }
             }
+
+            if let (Some(parameters), Some(arguments)) =
+                (function.value_parameters(), self.value_arguments)
+            {
+                for ((identifier, _), expression) in
+                    parameters.into_iter().zip(arguments.into_iter())
+                {
+                    let position = expression.position();
+                    let evaluation = expression.evaluate(context, manage_memory)?;
+                    let value = if let Some(Evaluation::Return(value)) = evaluation {
+                        value
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::ExpectedValue(position),
+                        ));
+                    };
+
+                    self.context.set_value(identifier.clone(), value)?;
+                }
+            }
+
+            return function.clone().call(&self.context, manage_memory);
         }
 
-        if let (Some(parameters), Some(arguments)) =
-            (function.value_parameters(), self.value_arguments)
-        {
-            for ((identifier, _), expression) in parameters.into_iter().zip(arguments.into_iter()) {
-                let position = expression.position();
-                let evaluation = expression.evaluate(context, manage_memory)?;
-                let value = if let Some(Evaluation::Return(value)) = evaluation {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedValue(position),
-                    ));
-                };
+        if let ValueInner::BuiltInFunction(function) = value.inner().as_ref() {
+            let (type_parameters, value_parameters, _) = if let Type::Function {
+                type_parameters,
+                value_parameters,
+                return_type,
+            } = function.r#type()
+            {
+                (type_parameters, value_parameters, return_type)
+            } else {
+                return Err(RuntimeError::ValidationFailure(
+                    ValidationError::ExpectedFunction {
+                        actual: function.r#type(),
+                        position: function_position,
+                    },
+                ));
+            };
 
-                self.context.set_value(identifier.clone(), value)?;
+            if let (Some(type_parameters), Some(type_arguments)) =
+                (type_parameters, self.type_arguments)
+            {
+                for (identifier, constructor) in
+                    type_parameters.into_iter().zip(type_arguments.into_iter())
+                {
+                    let r#type = constructor.construct(context)?;
+
+                    self.context.set_type(identifier.clone(), r#type)?;
+                }
             }
+
+            if let (Some(parameters), Some(arguments)) = (value_parameters, self.value_arguments) {
+                for ((identifier, _), expression) in
+                    parameters.into_iter().zip(arguments.into_iter())
+                {
+                    let position = expression.position();
+                    let evaluation = expression.evaluate(context, manage_memory)?;
+                    let value = if let Some(Evaluation::Return(value)) = evaluation {
+                        value
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::ExpectedValue(position),
+                        ));
+                    };
+
+                    self.context.set_value(identifier.clone(), value)?;
+                }
+            }
+
+            return function
+                .call(&self.context, manage_memory)
+                .map(|option| option.map(|value| Evaluation::Return(value)));
         }
 
-        function.call(&self.context, manage_memory)
+        return Err(RuntimeError::ValidationFailure(
+            ValidationError::ExpectedFunction {
+                actual: value.r#type(context)?,
+                position: function_position,
+            },
+        ));
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {

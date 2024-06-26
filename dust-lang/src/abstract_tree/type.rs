@@ -235,10 +235,10 @@ impl Display for Type {
             }
             Type::Float => write!(f, "float"),
             Type::Generic { concrete_type, .. } => {
-                if let Some(r#type) = concrete_type {
-                    write!(f, "implied to be {}", r#type)
-                } else {
-                    write!(f, "unknown")
+                match concrete_type.clone().map(|r#box| *r#box) {
+                    Some(Type::Generic { identifier, .. }) => write!(f, "{identifier}"),
+                    Some(concrete_type) => write!(f, "implied to be {concrete_type}"),
+                    None => write!(f, "unknown"),
                 }
             }
             Type::Integer => write!(f, "int"),

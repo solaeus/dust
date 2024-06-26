@@ -169,7 +169,7 @@ impl Display for Value {
                 write!(f, "{{ ")?;
 
                 for (index, (key, value)) in map.into_iter().enumerate() {
-                    write!(f, "{key} = {value}")?;
+                    write!(f, "{key} = {value:?}")?;
 
                     if index != map.len() - 1 {
                         write!(f, ", ")?;
@@ -178,7 +178,7 @@ impl Display for Value {
 
                 write!(f, " }}")
             }
-            ValueInner::Range(_) => todo!(),
+            ValueInner::Range(range) => write!(f, "{}..{}", range.start, range.end),
             ValueInner::String(string) => write!(f, "{string}"),
             ValueInner::Function(Function {
                 type_parameters,
@@ -187,14 +187,16 @@ impl Display for Value {
                 body,
                 ..
             }) => {
+                write!(f, "fn ")?;
+
                 if let Some(type_parameters) = type_parameters {
                     write!(f, "(")?;
 
-                    for (index, r#type) in type_parameters.into_iter().enumerate() {
+                    for (index, identifier) in type_parameters.into_iter().enumerate() {
                         if index == type_parameters.len() - 1 {
-                            write!(f, "{}", r#type)?;
+                            write!(f, "{}", identifier)?;
                         } else {
-                            write!(f, "{} ", r#type)?;
+                            write!(f, "{} ", identifier)?;
                         }
                     }
 
@@ -226,7 +228,7 @@ impl Display for Value {
 
                 write!(f, "}}")
             }
-            ValueInner::BuiltInFunction(_) => todo!(),
+            ValueInner::BuiltInFunction(built_in_function) => write!(f, "{built_in_function}"),
         }
     }
 }
