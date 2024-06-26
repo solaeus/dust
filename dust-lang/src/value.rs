@@ -214,10 +214,10 @@ impl Display for Value {
                 write!(f, ")")?;
 
                 if let Some(return_type) = return_type {
-                    write!(f, "-> {return_type}")?
+                    write!(f, " -> {return_type}")?
                 }
 
-                write!(f, " {{ {body} }}")
+                write!(f, " {body}")
             }
             ValueInner::Structure { name, fields } => {
                 write!(f, "{}\n{{", name.node)?;

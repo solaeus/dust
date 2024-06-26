@@ -407,7 +407,7 @@ pub fn parser<'src>(
                 if !allow_built_ins {
                     emitter.emit(Rich::custom(
                         state.span(),
-                        "Built-in function calls can only be used by the standard library.",
+                        "Built-in functions can only be used by the standard library.",
                     ))
                 }
 

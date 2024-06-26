@@ -7,6 +7,7 @@ use crate::{
     abstract_tree::Type,
     error::{PoisonError, ValidationError},
     identifier::Identifier,
+    value::ValueInner,
     Value,
 };
 
@@ -43,22 +44,14 @@ impl Context {
         Ok(())
     }
 
-    pub fn contains(&self, identifier: &Identifier) -> Result<bool, PoisonError> {
-        log::trace!("Checking that {identifier} exists.");
+    pub fn contains(&self, identifier: &Identifier) -> Result<bool, ValidationError> {
+        log::trace!("Checking that {identifier} exists");
 
-        let data = self.data.read()?;
-
-        if data.variables.contains_key(identifier) {
-            Ok(true)
-        } else if let Some(parent) = &data.parent {
-            parent.contains(identifier)
-        } else {
-            Ok(false)
-        }
+        Ok(self.get_type(identifier)?.is_some())
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
-        log::trace!("Getting {identifier}'s type.");
+        log::trace!("Getting {identifier}'s type");
 
         let data = self.data.read()?;
 
@@ -68,16 +61,23 @@ impl Context {
                 VariableData::Value(value) => value.r#type(self)?,
             };
 
-            Ok(Some(r#type.clone()))
+            return Ok(Some(r#type.clone()));
         } else if let Some(parent) = &data.parent {
-            parent.get_type(identifier)
-        } else {
-            Ok(None)
+            if let Some(r#type) = parent.get_type(identifier)? {
+                match r#type {
+                    Type::Enum { .. } | Type::Function { .. } | Type::Structure { .. } => {
+                        return Ok(Some(r#type))
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Ok(None)
     }
 
     pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
-        log::trace!("Using {identifier}'s value.");
+        log::trace!("Using {identifier}'s value");
 
         let data = self.data.read()?;
 
@@ -85,30 +85,44 @@ impl Context {
             usage_data.inner().write()?.actual += 1;
             *self.is_clean.write()? = false;
 
-            Ok(Some(value.clone()))
+            return Ok(Some(value.clone()));
         } else if let Some(parent) = &data.parent {
-            parent.get_value(identifier)
-        } else {
-            Ok(None)
+            if let Some(value) = parent.get_value(identifier)? {
+                match value.inner().as_ref() {
+                    ValueInner::EnumInstance { .. }
+                    | ValueInner::Function(_)
+                    | ValueInner::Structure { .. } => return Ok(Some(value)),
+                    _ => {}
+                }
+            }
         }
+
+        Ok(None)
     }
 
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
-        log::trace!("Getting {identifier}'s value.");
+        log::trace!("Getting {identifier}'s value");
 
         let data = self.data.read()?;
 
         if let Some((VariableData::Value(value), _)) = data.variables.get(identifier) {
-            Ok(Some(value.clone()))
+            return Ok(Some(value.clone()));
         } else if let Some(parent) = &data.parent {
-            parent.get_value(identifier)
-        } else {
-            Ok(None)
+            if let Some(value) = parent.get_value(identifier)? {
+                match value.inner().as_ref() {
+                    ValueInner::EnumInstance { .. }
+                    | ValueInner::Function(_)
+                    | ValueInner::Structure { .. } => return Ok(Some(value)),
+                    _ => {}
+                }
+            }
         }
+
+        Ok(None)
     }
 
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), PoisonError> {
-        log::debug!("Setting {identifier} to type {}.", r#type);
+        log::debug!("Setting {identifier} to type {}", r#type);
 
         self.data
             .write()?
@@ -119,7 +133,7 @@ impl Context {
     }
 
     pub fn set_value(&self, identifier: Identifier, value: Value) -> Result<(), PoisonError> {
-        log::debug!("Setting {identifier} to value {value}.");
+        log::debug!("Setting {identifier} to value {value}");
 
         let mut data = self.data.write()?;
         let usage_data = data
@@ -138,7 +152,7 @@ impl Context {
         let data = self.data.read()?;
 
         if let Some((_, usage_data)) = data.variables.get(identifier) {
-            log::trace!("Adding expected use for variable {identifier}.");
+            log::trace!("Adding expected use for variable {identifier}");
 
             usage_data.inner().write()?.expected += 1;
 
@@ -155,22 +169,22 @@ impl Context {
             return Ok(());
         }
 
-        // self.data.write()?.variables.retain(
-        //     |identifier, (value_data, usage_data)| match value_data {
-        //         VariableData::Type(_) => true,
-        //         VariableData::Value(_) => {
-        //             let usage = usage_data.inner().read().unwrap();
+        self.data.write()?.variables.retain(
+            |identifier, (value_data, usage_data)| match value_data {
+                VariableData::Type(_) => true,
+                VariableData::Value(_) => {
+                    let usage = usage_data.inner().read().unwrap();
 
-        //             if usage.actual < usage.expected {
-        //                 true
-        //             } else {
-        //                 log::trace!("Removing {identifier}.");
+                    if usage.actual < usage.expected {
+                        true
+                    } else {
+                        log::trace!("Removing {identifier}");
 
-        //                 false
-        //             }
-        //         }
-        //     },
-        // );
+                        false
+                    }
+                }
+            },
+        );
 
         *self.is_clean.write()? = true;
 

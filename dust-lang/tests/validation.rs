@@ -49,3 +49,35 @@ fn function_return_type_error() {
         }]
     );
 }
+
+#[test]
+fn scope() {
+    assert_eq!(
+        interpret(
+            "test",
+            "
+            x = 1
+
+            foo = fn () -> int {
+                x
+                1
+            }
+
+            foo()
+            "
+        )
+        .unwrap_err()
+        .errors(),
+        &vec![DustError::Validation {
+            error: ValidationError::TypeCheck {
+                conflict: TypeConflict {
+                    actual: Type::String,
+                    expected: Type::Integer
+                },
+                actual_position: (66, 71).into(),
+                expected_position: Some((60, 63).into())
+            },
+            position: (55, 71).into()
+        }]
+    );
+}

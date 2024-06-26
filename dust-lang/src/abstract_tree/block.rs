@@ -66,10 +66,10 @@ impl AbstractNode for Block {
 
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{{")?;
+        write!(f, "{{ ")?;
 
         for statement in &self.statements {
-            write!(f, "{statement}")?;
+            write!(f, "{statement} ")?;
         }
 
         write!(f, "}}")
