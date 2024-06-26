@@ -9,7 +9,7 @@ use crate::{
     Context, Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Statement, Type, TypeConstructor, WithPosition};
+use super::{AbstractNode, Evaluation, Statement, Type, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Assignment {
@@ -54,45 +54,9 @@ impl AbstractNode for Assignment {
             context.set_type(self.identifier.node.clone(), r#type)?;
         } else {
             return Err(ValidationError::CannotAssignToNone(
-                self.statement.position(),
+                self.statement.last_evaluated_statement().position(),
             ));
         };
-
-        let relevant_statement = self.statement.last_evaluated_statement();
-
-        if let (Some(constructor), Statement::Expression(Expression::FunctionCall(function_call))) =
-            (&self.constructor, relevant_statement)
-        {
-            let declared_type = constructor.clone().construct(context)?;
-            let function_type = function_call
-                .node
-                .function_expression()
-                .expected_type(context)?;
-
-            if let Some(Type::Function {
-                return_type,
-                type_parameters: Some(type_parameters),
-                ..
-            }) = function_type
-            {
-                if let Some(Type::Generic { identifier, .. }) = return_type.map(|r#box| *r#box) {
-                    let returned_parameter = type_parameters
-                        .into_iter()
-                        .find(|parameter| parameter == &identifier);
-
-                    if let Some(parameter) = returned_parameter {
-                        context.set_type(parameter, declared_type)?;
-
-                        return Ok(());
-                    }
-                }
-            } else {
-                return Err(ValidationError::ExpectedFunction {
-                    actual: function_type.unwrap(),
-                    position: function_call.position,
-                });
-            }
-        }
 
         Ok(())
     }

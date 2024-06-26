@@ -1,3 +1,5 @@
+mod validation;
+
 use dust_lang::*;
 
 #[test]

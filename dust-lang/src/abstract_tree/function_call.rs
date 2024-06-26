@@ -132,13 +132,13 @@ impl AbstractNode for FunctionCall {
                 (None, None) => {}
             }
 
-            Ok(())
-        } else {
-            Err(ValidationError::ExpectedFunction {
-                actual: function_node_type,
-                position: self.function_expression.position(),
-            })
+            return Ok(());
         }
+
+        Err(ValidationError::ExpectedFunction {
+            actual: function_node_type,
+            position: self.function_expression.position(),
+        })
     }
 
     fn evaluate(
@@ -244,12 +244,12 @@ impl AbstractNode for FunctionCall {
                 .map(|option| option.map(|value| Evaluation::Return(value)));
         }
 
-        return Err(RuntimeError::ValidationFailure(
+        Err(RuntimeError::ValidationFailure(
             ValidationError::ExpectedFunction {
                 actual: value.r#type(context)?,
                 position: function_position,
             },
-        ));
+        ))
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {

@@ -1,7 +1,6 @@
 use dust_lang::{
     abstract_tree::{Block, Expression, Statement, Type, WithPos},
     context::Context,
-    error::{DustError, TypeConflict, ValidationError},
     identifier::Identifier,
     *,
 };
@@ -19,26 +18,6 @@ fn set_variable_with_type() {
     assert_eq!(
         interpret("test", "foobar: bool = true; foobar"),
         Ok(Some(Value::boolean(true)))
-    );
-}
-
-#[test]
-fn set_variable_with_type_error() {
-    assert_eq!(
-        interpret("test", "foobar: str = true")
-            .unwrap_err()
-            .errors(),
-        &vec![DustError::Validation {
-            error: ValidationError::TypeCheck {
-                conflict: TypeConflict {
-                    actual: Type::Boolean,
-                    expected: Type::String
-                },
-                actual_position: (14, 18).into(),
-                expected_position: Some((8, 11).into())
-            },
-            position: (0, 18).into()
-        }]
     );
 }
 

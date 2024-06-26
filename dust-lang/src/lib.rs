@@ -12,7 +12,10 @@ use std::{
     vec,
 };
 
-use abstract_tree::{AbstractTree, Type};
+pub use abstract_tree::Type;
+pub use value::Value;
+
+use abstract_tree::AbstractTree;
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use chumsky::prelude::*;
 use context::Context;
@@ -20,7 +23,6 @@ use error::{DustError, RuntimeError, TypeConflict, ValidationError};
 use lexer::{lex, Token};
 use parser::{parse, parser};
 use rayon::prelude::*;
-pub use value::Value;
 
 pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
     let interpreter = Interpreter::new(Context::new(None));
