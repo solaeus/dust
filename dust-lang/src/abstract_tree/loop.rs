@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -21,6 +23,7 @@ impl Loop {
         self.statements.last().unwrap()
     }
 }
+
 impl AbstractNode for Loop {
     fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
         for statement in &self.statements {
@@ -56,5 +59,17 @@ impl AbstractNode for Loop {
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.last_statement().expected_type(_context)
+    }
+}
+
+impl Display for Loop {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "loop {{ ")?;
+
+        for statement in &self.statements {
+            write!(f, "{statement}")?;
+        }
+
+        write!(f, " }}")
     }
 }

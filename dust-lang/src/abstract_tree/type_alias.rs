@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -42,5 +44,16 @@ impl AbstractNode for TypeAlias {
 
     fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
+    }
+}
+
+impl Display for TypeAlias {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let TypeAlias {
+            identifier,
+            constructor,
+        } = self;
+
+        write!(f, "type {} = {constructor}", identifier.node)
     }
 }

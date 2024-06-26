@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -173,5 +175,13 @@ impl AbstractNode for MapIndex {
             r#type: collection_type,
             position: self.collection.position(),
         })
+    }
+}
+
+impl Display for MapIndex {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let MapIndex { collection, index } = self;
+
+        write!(f, "{collection}.{index}")
     }
 }

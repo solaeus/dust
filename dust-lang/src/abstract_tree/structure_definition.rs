@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -69,5 +71,19 @@ impl AbstractNode for StructureDefinition {
 
     fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
+    }
+}
+
+impl Display for StructureDefinition {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let StructureDefinition { name, fields } = self;
+
+        write!(f, "struct {name} {{ ")?;
+
+        for (identifer, constructor) in fields {
+            write!(f, "{identifer}: {constructor}, ")?;
+        }
+
+        write!(f, " }}")
     }
 }

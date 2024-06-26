@@ -1,4 +1,7 @@
-use std::sync::Mutex;
+use std::{
+    fmt::{self, Display, Formatter},
+    sync::Mutex,
+};
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -67,5 +70,17 @@ impl AbstractNode for AsyncBlock {
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.statements.last().unwrap().expected_type(_context)
+    }
+}
+
+impl Display for AsyncBlock {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "async {{")?;
+
+        for statement in &self.statements {
+            write!(f, "{statement}")?;
+        }
+
+        write!(f, "}}")
     }
 }

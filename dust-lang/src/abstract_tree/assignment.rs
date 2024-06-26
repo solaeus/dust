@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -235,5 +237,29 @@ impl AbstractNode for Assignment {
 
     fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
+    }
+}
+
+impl Display for Assignment {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Assignment {
+            identifier,
+            constructor,
+            operator,
+            statement,
+        } = self;
+        write!(f, "{} ", identifier.node)?;
+
+        if let Some(constructor) = constructor {
+            write!(f, ": {constructor} ")?;
+        }
+
+        match operator {
+            AssignmentOperator::Assign => write!(f, "="),
+            AssignmentOperator::AddAssign => write!(f, "+="),
+            AssignmentOperator::SubAssign => write!(f, "-="),
+        }?;
+
+        write!(f, " {statement}")
     }
 }

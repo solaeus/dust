@@ -1,4 +1,7 @@
-use std::borrow::Borrow;
+use std::{
+    borrow::Borrow,
+    fmt::{self, Display, Formatter},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -75,5 +78,11 @@ impl AbstractNode for As {
         self.constructor
             .construct(&context)
             .map(|r#type| Some(r#type))
+    }
+}
+
+impl Display for As {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{} as {}", self.expression, self.constructor)
     }
 }

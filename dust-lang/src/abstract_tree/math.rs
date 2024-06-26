@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -357,6 +359,18 @@ impl AbstractNode for Math {
 
                 Ok(Some(left_type))
             }
+        }
+    }
+}
+
+impl Display for Math {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Math::Add(left, right) => write!(f, "{left} + {right}"),
+            Math::Subtract(left, right) => write!(f, "{left} - {right}"),
+            Math::Multiply(left, right) => write!(f, "{left} * {right}"),
+            Math::Divide(left, right) => write!(f, "{left} / {right}"),
+            Math::Modulo(left, right) => write!(f, "{left} % {right}"),
         }
     }
 }

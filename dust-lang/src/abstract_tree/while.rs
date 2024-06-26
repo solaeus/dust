@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -81,5 +83,17 @@ impl AbstractNode for While {
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.statements.last().unwrap().expected_type(_context)
+    }
+}
+
+impl Display for While {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "while {} {{", self.expression)?;
+
+        for statement in &self.statements {
+            write!(f, "{statement}")?;
+        }
+
+        write!(f, "}}")
     }
 }

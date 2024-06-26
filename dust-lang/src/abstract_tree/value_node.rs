@@ -1,4 +1,9 @@
-use std::{cmp::Ordering, collections::BTreeMap, ops::Range};
+use std::{
+    cmp::Ordering,
+    collections::BTreeMap,
+    fmt::{self, Display, Formatter},
+    ops::Range,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -618,6 +623,96 @@ impl Ord for ValueNode {
             (Structure { .. }, _) => Ordering::Greater,
             (BuiltInFunction(left), BuiltInFunction(right)) => left.cmp(right),
             (BuiltInFunction(_), _) => Ordering::Greater,
+        }
+    }
+}
+
+impl Display for ValueNode {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ValueNode::Boolean(boolean) => write!(f, "{boolean}"),
+            ValueNode::BuiltInFunction(built_in_function) => write!(f, "{built_in_function}"),
+            ValueNode::EnumInstance {
+                type_name,
+                variant,
+                content,
+            } => {
+                write!(f, "{}::{}", type_name.node, variant.node)?;
+
+                if let Some(content) = content {
+                    for expression in content {
+                        write!(f, "{expression}")?;
+                    }
+                }
+
+                Ok(())
+            }
+            ValueNode::Float(float) => write!(f, "{float}"),
+            ValueNode::Integer(integer) => write!(f, "{integer}"),
+            ValueNode::List(expressions) => {
+                for expression in expressions {
+                    write!(f, "{expression}")?;
+                }
+
+                Ok(())
+            }
+            ValueNode::Map(fields) => {
+                write!(f, "{{ ")?;
+
+                for (identifier, type_option, expression) in fields {
+                    write!(f, "{identifier}")?;
+
+                    if let Some(r#type) = type_option {
+                        write!(f, ": {type}")?;
+                    }
+
+                    write!(f, " = {expression}")?;
+                }
+
+                write!(f, " }}")
+            }
+            ValueNode::Range(range) => write!(f, "{}..{}", range.start, range.end),
+            ValueNode::String(string) => write!(f, "{string}"),
+            ValueNode::Structure { name, fields } => {
+                write!(f, "{}", name.node)?;
+
+                for (identifier, expression) in fields {
+                    write!(f, "{} = {expression},", identifier.node)?;
+                }
+
+                Ok(())
+            }
+            ValueNode::Function(FunctionNode {
+                type_parameters,
+                value_parameters,
+                return_type,
+                body,
+                context_template,
+            }) => {
+                write!(f, "fn ")?;
+
+                if let Some(type_parameters) = type_parameters {
+                    write!(f, "(")?;
+
+                    for identifier in type_parameters {
+                        write!(f, "{identifier}")?;
+                    }
+
+                    write!(f, ")")?;
+                }
+
+                if let Some(value_parameters) = value_parameters {
+                    write!(f, "(")?;
+
+                    for (identifier, constructor) in value_parameters {
+                        write!(f, "{identifier}: {constructor}")?;
+                    }
+
+                    write!(f, ")")?;
+                }
+
+                write!(f, "{}", body.node)
+            }
         }
     }
 }

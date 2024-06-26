@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -135,6 +137,21 @@ impl AbstractNode for Expression {
             Expression::Logic(logic) => logic.node.expected_type(_context),
             Expression::Math(math) => math.node.expected_type(_context),
             Expression::Value(value_node) => value_node.node.expected_type(_context),
+        }
+    }
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Expression::As(inner) => write!(f, "{}", inner.node),
+            Expression::FunctionCall(inner) => write!(f, "{}", inner.node),
+            Expression::Identifier(inner) => write!(f, "{}", inner.node),
+            Expression::MapIndex(inner) => write!(f, "{}", inner.node),
+            Expression::ListIndex(inner) => write!(f, "{}", inner.node),
+            Expression::Logic(inner) => write!(f, "{}", inner.node),
+            Expression::Math(inner) => write!(f, "{}", inner.node),
+            Expression::Value(inner) => write!(f, "{}", inner.node),
         }
     }
 }

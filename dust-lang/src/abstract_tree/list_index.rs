@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -146,5 +148,13 @@ impl AbstractNode for ListIndex {
                 position: self.collection.position(),
             })
         }
+    }
+}
+
+impl Display for ListIndex {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let ListIndex { collection, index } = self;
+
+        write!(f, "{collection}[{index}]")
     }
 }

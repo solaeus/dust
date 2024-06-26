@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -87,6 +89,42 @@ impl AbstractNode for EnumDeclaration {
 
     fn expected_type(&self, _: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(None)
+    }
+}
+
+impl Display for EnumDeclaration {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let EnumDeclaration {
+            name,
+            type_parameters,
+            variants,
+        } = self;
+
+        write!(f, "enum {}", name.node)?;
+
+        if let Some(parameters) = type_parameters {
+            write!(f, "<")?;
+            for WithPosition { node, .. } in parameters {
+                write!(f, "{node}, ")?;
+            }
+            write!(f, ">")?;
+        }
+
+        for EnumVariant { name, content } in variants {
+            write!(f, "{}", name.node)?;
+
+            if let Some(content) = content {
+                write!(f, "(")?;
+
+                for constructor in content {
+                    write!(f, "{constructor}, ")?;
+                }
+
+                write!(f, ")")?;
+            }
+        }
+
+        Ok(())
     }
 }
 

@@ -1,4 +1,7 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    fmt::{self, Display, Formatter},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -288,6 +291,41 @@ impl AbstractNode for FunctionCall {
         }
 
         Ok(return_type.map(|r#box| *r#box))
+    }
+}
+
+impl Display for FunctionCall {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let FunctionCall {
+            function_expression,
+            type_arguments,
+            value_arguments,
+            context,
+        } = self;
+
+        write!(f, "{function_expression}")?;
+
+        if let Some(type_arguments) = type_arguments {
+            write!(f, "::<")?;
+
+            for constructor in type_arguments {
+                write!(f, "{constructor}, ")?;
+            }
+
+            write!(f, ">")?;
+        }
+
+        write!(f, "(")?;
+
+        if let Some(value_arguments) = value_arguments {
+            for expression in value_arguments {
+                write!(f, "{expression}, ")?;
+            }
+        }
+
+        write!(f, ")")?;
+
+        Ok(())
     }
 }
 

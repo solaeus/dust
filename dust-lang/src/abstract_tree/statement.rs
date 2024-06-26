@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -141,6 +143,24 @@ impl AbstractNode for Statement {
                 enum_declaration.node.expected_type(_context)
             }
             Statement::While(r#while) => r#while.node.expected_type(_context),
+        }
+    }
+}
+
+impl Display for Statement {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Statement::Assignment(inner) => write!(f, "{}", inner.node),
+            Statement::AsyncBlock(inner) => write!(f, "{}", inner.node),
+            Statement::Block(inner) => write!(f, "{}", inner.node),
+            Statement::Break(_) => write!(f, "break"),
+            Statement::IfElse(inner) => write!(f, "{}", inner.node),
+            Statement::Loop(inner) => write!(f, "{}", inner.node),
+            Statement::StructureDefinition(inner) => write!(f, "{}", inner.node),
+            Statement::TypeAlias(inner) => write!(f, "{}", inner.node),
+            Statement::EnumDeclaration(inner) => write!(f, "{}", inner.node),
+            Statement::Expression(expression) => write!(f, "{expression}"),
+            Statement::While(inner) => write!(f, "{}", inner.node),
         }
     }
 }

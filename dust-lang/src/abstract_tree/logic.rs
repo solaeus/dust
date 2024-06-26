@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -254,6 +256,22 @@ impl AbstractNode for Logic {
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         Ok(Some(Type::Boolean))
+    }
+}
+
+impl Display for Logic {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Logic::Equal(left, right) => write!(f, "{left} == {right}"),
+            Logic::NotEqual(left, right) => write!(f, "{left} != {right}"),
+            Logic::Greater(left, right) => write!(f, "{left} > {right}"),
+            Logic::Less(left, right) => write!(f, "{left} < {right}"),
+            Logic::GreaterOrEqual(left, right) => write!(f, "{left} >= {right}"),
+            Logic::LessOrEqual(left, right) => write!(f, "{left} <= {right}"),
+            Logic::And(left, right) => write!(f, "{left} && {right}"),
+            Logic::Or(left, right) => write!(f, "{left} || {right}"),
+            Logic::Not(expression) => write!(f, "!{expression}"),
+        }
     }
 }
 

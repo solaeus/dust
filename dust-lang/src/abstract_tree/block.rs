@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -59,6 +61,18 @@ impl AbstractNode for Block {
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.last_statement().expected_type(_context)
+    }
+}
+
+impl Display for Block {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{{")?;
+
+        for statement in &self.statements {
+            write!(f, "{statement}")?;
+        }
+
+        write!(f, "}}")
     }
 }
 

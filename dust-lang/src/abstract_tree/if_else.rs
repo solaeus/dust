@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -174,6 +176,31 @@ impl AbstractNode for IfElse {
 
     fn expected_type(&self, _context: &Context) -> Result<Option<Type>, ValidationError> {
         self.if_block.node.expected_type(_context)
+    }
+}
+
+impl Display for IfElse {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let IfElse {
+            if_expression,
+            if_block,
+            else_ifs,
+            else_block,
+        } = self;
+
+        write!(f, "if {if_expression} {}", if_block.node)?;
+
+        if let Some(else_ifs) = else_ifs {
+            for (expression, block) in else_ifs {
+                write!(f, "else if {expression} {}", block.node)?;
+            }
+        }
+
+        if let Some(else_block) = else_block {
+            write!(f, "{}", else_block.node)?;
+        }
+
+        Ok(())
     }
 }
 
