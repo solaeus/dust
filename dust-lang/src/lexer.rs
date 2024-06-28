@@ -17,6 +17,7 @@ pub enum Token<'src> {
     Identifier(&'src str),
     Symbol(Symbol),
     Keyword(Keyword),
+    Use(&'src str),
 }
 
 impl<'src> Display for Token<'src> {
@@ -30,6 +31,7 @@ impl<'src> Display for Token<'src> {
             Token::Identifier(string) => write!(f, "{string}"),
             Token::Symbol(control) => write!(f, "{control}"),
             Token::Keyword(keyword) => write!(f, "{keyword}"),
+            Token::Use(path) => write!(f, "use {path}"),
         }
     }
 }
@@ -316,6 +318,13 @@ pub fn lexer<'src>() -> impl Parser<
 
     let identifier = text::ident().map(|text: &str| Token::Identifier(text));
 
+    let r#use = just("use ").ignore_then(
+        none_of('\n')
+            .repeated()
+            .to_slice()
+            .map(|text: &str| Token::Use(text)),
+    );
+
     choice((
         line_comment,
         multi_line_comment,
@@ -325,6 +334,7 @@ pub fn lexer<'src>() -> impl Parser<
         string,
         keyword,
         symbol,
+        r#use,
         identifier,
     ))
     .map_with(|token: Token, state| (token, state.span()))
@@ -336,6 +346,19 @@ pub fn lexer<'src>() -> impl Parser<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn r#use() {
+        assert_eq!(
+            lex("use std/io.ds").unwrap(),
+            vec![(Token::Use("std/io.ds"), (0..13).into())]
+        );
+
+        assert_eq!(
+            lex("use https://example.com/std.ds").unwrap(),
+            vec![(Token::Use("https://example.com/std.ds"), (0..30).into())]
+        );
+    }
 
     #[test]
     fn line_comment() {
