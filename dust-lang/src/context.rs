@@ -34,6 +34,18 @@ impl Context {
         }
     }
 
+    pub fn with_variables_from(other: &Context) -> Result<Self, PoisonError> {
+        let variables = other.data.read()?.variables.clone();
+
+        Ok(Context {
+            data: Arc::new(RwLock::new(ContextData {
+                variables,
+                parent: None,
+            })),
+            is_clean: Arc::new(RwLock::new(true)),
+        })
+    }
+
     pub fn create_child(&self) -> Context {
         Context::new(Some(self.clone()))
     }
@@ -91,7 +103,8 @@ impl Context {
                 match value.inner().as_ref() {
                     ValueInner::EnumInstance { .. }
                     | ValueInner::Function(_)
-                    | ValueInner::Structure { .. } => return Ok(Some(value)),
+                    | ValueInner::Structure { .. }
+                    | ValueInner::BuiltInFunction(_) => return Ok(Some(value)),
                     _ => {}
                 }
             }
@@ -112,7 +125,8 @@ impl Context {
                 match value.inner().as_ref() {
                     ValueInner::EnumInstance { .. }
                     | ValueInner::Function(_)
-                    | ValueInner::Structure { .. } => return Ok(Some(value)),
+                    | ValueInner::Structure { .. }
+                    | ValueInner::BuiltInFunction(_) => return Ok(Some(value)),
                     _ => {}
                 }
             }
@@ -140,7 +154,7 @@ impl Context {
             .variables
             .remove(&identifier)
             .map(|(_, usage_data)| usage_data)
-            .unwrap_or(UsageData::new());
+            .unwrap_or_else(|| UsageData::new());
 
         data.variables
             .insert(identifier, (VariableData::Value(value), usage_data));
@@ -156,12 +170,22 @@ impl Context {
 
             usage_data.inner().write()?.expected += 1;
 
-            Ok(true)
+            return Ok(true);
         } else if let Some(parent) = &data.parent {
-            parent.add_expected_use(identifier)
-        } else {
-            Ok(false)
+            let parent_data = parent.data.read()?;
+
+            if let Some((variable_data, usage_data)) = parent_data.variables.get(identifier) {
+                if let VariableData::Value(value) = variable_data {
+                    if let ValueInner::Function(_) = value.inner().as_ref() {
+                        usage_data.inner().write()?.expected += 1;
+
+                        return Ok(true);
+                    }
+                }
+            }
         }
+
+        Ok(false)
     }
 
     pub fn clean(&self) -> Result<(), PoisonError> {

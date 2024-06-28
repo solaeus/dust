@@ -1,6 +1,5 @@
 use dust_lang::{
     abstract_tree::{Block, Expression, Statement, Type, WithPos},
-    context::Context,
     identifier::Identifier,
     *,
 };
@@ -32,7 +31,6 @@ fn function_variable() {
             Block::new(vec![Statement::Expression(Expression::Identifier(
                 Identifier::new("x").with_position((30, 31))
             ))]),
-            Context::new(None)
         )))
     );
 }

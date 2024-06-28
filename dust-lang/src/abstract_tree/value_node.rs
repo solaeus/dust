@@ -53,7 +53,7 @@ impl ValueNode {
             value_parameters,
             return_type,
             body,
-            context_template: Context::new(None),
+            validation_context: Context::new(None),
         })
     }
 }
@@ -87,14 +87,14 @@ impl AbstractNode for ValueNode {
                 body,
                 type_parameters,
                 value_parameters,
-                context_template,
+                validation_context,
                 ..
             }) => {
-                context_template.set_parent(outer_context.clone())?;
+                validation_context.set_parent(outer_context.clone())?;
 
                 if let Some(type_parameters) = type_parameters {
                     for identifier in type_parameters {
-                        context_template.set_type(
+                        validation_context.set_type(
                             identifier.clone(),
                             Type::Generic {
                                 identifier: identifier.clone(),
@@ -108,11 +108,11 @@ impl AbstractNode for ValueNode {
                     for (identifier, type_constructor) in value_parameters {
                         let r#type = type_constructor.clone().construct(outer_context)?;
 
-                        context_template.set_type(identifier.clone(), r#type)?;
+                        validation_context.set_type(identifier.clone(), r#type)?;
                     }
                 }
 
-                body.node.define_types(context_template)?;
+                body.node.define_types(validation_context)?;
             }
             _ => {}
         }
@@ -121,6 +121,32 @@ impl AbstractNode for ValueNode {
     }
 
     fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        if let ValueNode::List(list) = self {
+            let mut items = list.into_iter();
+            let first_item = items.next().unwrap();
+            let first_item_type = if let Some(r#type) = first_item.expected_type(context)? {
+                r#type
+            } else {
+                return Err(ValidationError::ExpectedExpression(first_item.position()));
+            };
+
+            for item in items {
+                let item_type = if let Some(r#type) = item.expected_type(context)? {
+                    r#type
+                } else {
+                    return Err(ValidationError::ExpectedExpression(item.position()));
+                };
+
+                first_item_type.check(&item_type).map_err(|conflict| {
+                    ValidationError::TypeCheck {
+                        conflict,
+                        actual_position: item.position(),
+                        expected_position: Some(first_item.position()),
+                    }
+                })?
+            }
+        }
+
         if let ValueNode::EnumInstance {
             type_name, variant, ..
         } = self
@@ -154,9 +180,9 @@ impl AbstractNode for ValueNode {
                     } else {
                         return Err(ValidationError::ExpectedExpression(expression.position()));
                     };
-                    let exprected_type = constructor.clone().construct(&context)?;
+                    let expected_type = constructor.clone().construct(&context)?;
 
-                    exprected_type.check(&actual_type).map_err(|conflict| {
+                    expected_type.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
                             conflict,
                             actual_position: expression.position(),
@@ -172,17 +198,17 @@ impl AbstractNode for ValueNode {
         if let ValueNode::Function(FunctionNode {
             return_type,
             body,
-            context_template,
+            validation_context,
             ..
         }) = self
         {
-            body.node.validate(&context_template, _manage_memory)?;
+            body.node.validate(&validation_context, _manage_memory)?;
 
             let ((expected_return, expected_position), actual_return) =
-                match (return_type, body.node.expected_type(&context_template)?) {
+                match (return_type, body.node.expected_type(&validation_context)?) {
                     (Some(constructor), Some(r#type)) => (
                         (
-                            constructor.construct(context_template)?,
+                            constructor.construct(validation_context)?,
                             constructor.position(),
                         ),
                         r#type,
@@ -324,7 +350,7 @@ impl AbstractNode for ValueNode {
                 value_parameters,
                 return_type,
                 body,
-                context_template,
+                ..
             }) => {
                 let outer_context = context;
                 let value_parameters = if let Some(value_parameters) = value_parameters {
@@ -346,13 +372,7 @@ impl AbstractNode for ValueNode {
                     None
                 };
 
-                Value::function(
-                    type_parameters,
-                    value_parameters,
-                    return_type,
-                    body.node,
-                    context_template,
-                )
+                Value::function(type_parameters, value_parameters, return_type, body.node)
             }
             ValueNode::Structure {
                 name,
@@ -450,7 +470,6 @@ impl AbstractNode for ValueNode {
                 } else {
                     None
                 };
-
                 let type_parameters = type_parameters.clone().map(|parameters| {
                     parameters
                         .iter()
@@ -687,7 +706,7 @@ impl Display for ValueNode {
                 value_parameters,
                 return_type,
                 body,
-                context_template: _,
+                validation_context: _,
             }) => {
                 write!(f, "fn ")?;
 
@@ -728,7 +747,7 @@ pub struct FunctionNode {
     return_type: Option<TypeConstructor>,
     body: WithPosition<Block>,
     #[serde(skip)]
-    context_template: Context,
+    validation_context: Context,
 }
 
 impl PartialEq for FunctionNode {

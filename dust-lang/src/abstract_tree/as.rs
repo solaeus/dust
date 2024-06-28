@@ -30,19 +30,16 @@ impl As {
 }
 
 impl AbstractNode for As {
-    fn define_types(&self, _: &Context) -> Result<(), ValidationError> {
-        Ok(())
+    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+        self.expression.define_types(_context)
     }
 
     fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+        self.expression.validate(_context, _manage_memory)?;
+
         match self.constructor {
             TypeConstructor::Raw(_) => {}
-            _ => todo!("Create an error for this occurence."),
-        };
-
-        match self.expression.expected_type(_context)? {
-            Some(Type::Boolean) | Some(Type::Float) | Some(Type::Integer) | Some(Type::String) => {}
-            _ => todo!("Create an error for this occurence."),
+            _ => todo!("Create an error for this occurence"),
         };
 
         Ok(())
@@ -66,9 +63,8 @@ impl AbstractNode for As {
         let (from_value, to_type): (&ValueInner, Type) = (value.inner().borrow(), r#type);
 
         let converted = match (from_value, to_type) {
-            (ValueInner::Boolean(boolean), Type::String) => Value::string(boolean.to_string()),
-            (ValueInner::Integer(integer), Type::String) => Value::string(integer.to_string()),
-            _ => todo!("Create an error for this occurence."),
+            (_, Type::String) => Value::string(value.to_string()),
+            _ => todo!("Create an error for this occurence"),
         };
 
         Ok(Some(Evaluation::Return(converted)))

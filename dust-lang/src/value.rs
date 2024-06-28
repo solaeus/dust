@@ -16,7 +16,7 @@ use serde::{
 use crate::{
     abstract_tree::{AbstractNode, Block, BuiltInFunction, Evaluation, Type, WithPosition},
     context::Context,
-    error::{PoisonError, RuntimeError, ValidationError},
+    error::{RuntimeError, ValidationError},
     identifier::Identifier,
 };
 
@@ -77,14 +77,12 @@ impl Value {
         value_parameters: Option<Vec<(Identifier, Type)>>,
         return_type: Option<Type>,
         body: Block,
-        context_template: Context,
     ) -> Self {
         Value(Arc::new(ValueInner::Function(Function {
             type_parameters,
             value_parameters,
             return_type,
             body,
-            context_template,
         })))
     }
 
@@ -741,13 +739,12 @@ impl Ord for ValueInner {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Function {
     type_parameters: Option<Vec<Identifier>>,
     value_parameters: Option<Vec<(Identifier, Type)>>,
     return_type: Option<Type>,
     body: Block,
-    context_template: Context,
 }
 
 impl Function {
@@ -756,19 +753,13 @@ impl Function {
         value_parameters: Option<Vec<(Identifier, Type)>>,
         return_type: Option<Type>,
         body: Block,
-        context_template: Context,
     ) -> Self {
         Self {
             type_parameters,
             value_parameters,
             return_type,
             body,
-            context_template,
         }
-    }
-
-    pub fn context_template(&self) -> &Context {
-        &self.context_template
     }
 
     pub fn type_parameters(&self) -> &Option<Vec<Identifier>> {
@@ -789,69 +780,5 @@ impl Function {
         manage_memory: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         self.body.evaluate(context, manage_memory)
-    }
-
-    pub fn populate_context_template(&self) -> Result<(), PoisonError> {
-        if let Some(type_parameters) = &self.type_parameters {
-            for identifier in type_parameters {
-                self.context_template.set_type(
-                    identifier.clone(),
-                    Type::Generic {
-                        identifier: identifier.clone(),
-                        concrete_type: None,
-                    },
-                )?;
-            }
-        }
-
-        if let Some(value_parameters) = &self.value_parameters {
-            for (identifier, r#type) in value_parameters {
-                self.context_template
-                    .set_type(identifier.clone(), r#type.clone())?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-impl Eq for Function {}
-
-impl PartialEq for Function {
-    fn eq(&self, other: &Self) -> bool {
-        self.type_parameters == other.type_parameters
-            && self.value_parameters == other.value_parameters
-            && self.return_type == other.return_type
-            && self.body == other.body
-    }
-}
-
-impl PartialOrd for Function {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Function {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let type_params_cmp = self.type_parameters.cmp(&other.type_parameters);
-
-        if type_params_cmp.is_eq() {
-            let value_params_cmp = self.value_parameters.cmp(&other.value_parameters);
-
-            if value_params_cmp.is_eq() {
-                let return_cmp = self.return_type.cmp(&other.return_type);
-
-                if return_cmp.is_eq() {
-                    self.body.cmp(&other.body)
-                } else {
-                    return_cmp
-                }
-            } else {
-                value_params_cmp
-            }
-        } else {
-            type_params_cmp
-        }
     }
 }

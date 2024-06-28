@@ -1,19 +1,23 @@
-count_slowly = fn (multiplier: int) {
+count_slowly = fn (
+	multiplier: int,
+	sleep: fn (milliseconds: int),
+	write_line: fn (output: str),
+) {
 	i = 0
 
 	while i < 10 {
 		sleep_time = i * multiplier;
 
-		thread.sleep(sleep_time)
-		io.write_line(i as str)
+		sleep(sleep_time)
+		write_line(i as str)
 
 		i += 1
 	}
 }
 
 async {
-	count_slowly(50)
-	count_slowly(100)
-	count_slowly(200)
-	count_slowly(250)
+	count_slowly(50, thread.sleep, io.write_line)
+	count_slowly(100, thread.sleep, io.write_line)
+	count_slowly(200, thread.sleep, io.write_line)
+	count_slowly(250, thread.sleep, io.write_line)
 }
