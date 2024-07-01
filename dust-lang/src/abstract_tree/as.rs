@@ -56,7 +56,7 @@ impl AbstractNode for As {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::ExpectedExpression(expression_position),
+                ValidationError::ExpectedValueStatement(expression_position),
             ));
         };
         let r#type = self.constructor.construct(&context)?;

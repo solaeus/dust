@@ -341,9 +341,13 @@ impl InterpreterError {
                             .with_message(format!("This has type {}.", index_type.fg(type_color),)),
                         ])
                     }
-                    ValidationError::ExpectedExpression(position) => builder.add_label(
+                    ValidationError::ExpectedValueStatement(position) => builder.add_label(
                         Label::new((self.source_id.clone(), position.0..position.1))
-                            .with_message("Expected a statement that ends in an expression."),
+                            .with_message("Expected a statement that yields a value."),
+                    ),
+                    ValidationError::ExpectedNonValueStatement(position) => builder.add_label(
+                        Label::new((self.source_id.clone(), position.0..position.1))
+                            .with_message("Expected a statement that does not yield a value."),
                     ),
                     ValidationError::ExpectedFunction { actual, position } => builder.add_label(
                         Label::new((self.source_id.clone(), position.0..position.1)).with_message(
@@ -353,7 +357,6 @@ impl InterpreterError {
                             ),
                         ),
                     ),
-                    ValidationError::ExpectedValue(_) => todo!(),
                     ValidationError::FieldNotFound {
                         identifier,
                         position,
@@ -418,6 +421,7 @@ impl InterpreterError {
                     ValidationError::BuiltInFunctionFailure(reason) => builder
                         .add_label(Label::new((self.source_id.clone(), 0..0)).with_message(reason)),
                     ValidationError::CannotUsePath(_) => todo!(),
+                    ValidationError::Uninitialized => todo!(),
                 }
             }
 

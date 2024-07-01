@@ -7,6 +7,7 @@ use crate::{
     abstract_tree::Type,
     error::{PoisonError, ValidationError},
     identifier::Identifier,
+    standard_library::core_context,
     value::ValueInner,
     Value,
 };
@@ -32,6 +33,16 @@ impl Context {
             })),
             is_clean: Arc::new(RwLock::new(true)),
         }
+    }
+
+    pub fn new_with_std_core(parent: Option<Context>) -> Result<Self, PoisonError> {
+        let new = Context::with_variables_from(core_context())?;
+
+        if let Some(context) = parent {
+            new.set_parent(context)?;
+        }
+
+        Ok(new)
     }
 
     pub fn with_variables_from(other: &Context) -> Result<Self, PoisonError> {

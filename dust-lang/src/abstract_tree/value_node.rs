@@ -127,14 +127,16 @@ impl AbstractNode for ValueNode {
             let first_item_type = if let Some(r#type) = first_item.expected_type(context)? {
                 r#type
             } else {
-                return Err(ValidationError::ExpectedExpression(first_item.position()));
+                return Err(ValidationError::ExpectedValueStatement(
+                    first_item.position(),
+                ));
             };
 
             for item in items {
                 let item_type = if let Some(r#type) = item.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(item.position()));
+                    return Err(ValidationError::ExpectedValueStatement(item.position()));
                 };
 
                 first_item_type.check(&item_type).map_err(|conflict| {
@@ -178,7 +180,9 @@ impl AbstractNode for ValueNode {
                     let actual_type = if let Some(r#type) = expression.expected_type(context)? {
                         r#type
                     } else {
-                        return Err(ValidationError::ExpectedExpression(expression.position()));
+                        return Err(ValidationError::ExpectedValueStatement(
+                            expression.position(),
+                        ));
                     };
                     let expected_type = constructor.clone().construct(&context)?;
 
@@ -213,9 +217,13 @@ impl AbstractNode for ValueNode {
                         ),
                         r#type,
                     ),
-                    (None, Some(_)) => return Err(ValidationError::ExpectedValue(body.position)),
+                    (None, Some(_)) => {
+                        return Err(ValidationError::ExpectedNonValueStatement(body.position))
+                    }
                     (Some(constructor), None) => {
-                        return Err(ValidationError::ExpectedExpression(constructor.position()))
+                        return Err(ValidationError::ExpectedValueStatement(
+                            constructor.position(),
+                        ))
                     }
                     (None, None) => return Ok(()),
                 };
@@ -252,7 +260,9 @@ impl AbstractNode for ValueNode {
                     let actual_type = if let Some(r#type) = expression.expected_type(context)? {
                         r#type
                     } else {
-                        return Err(ValidationError::ExpectedExpression(expression.position()));
+                        return Err(ValidationError::ExpectedValueStatement(
+                            expression.position(),
+                        ));
                     };
 
                     expected_type.check(&actual_type).map_err(|conflict| {
@@ -292,7 +302,7 @@ impl AbstractNode for ValueNode {
                             values.push(value);
                         } else {
                             return Err(RuntimeError::ValidationFailure(
-                                ValidationError::ExpectedExpression(position),
+                                ValidationError::ExpectedValueStatement(position),
                             ));
                         }
                     }
@@ -315,7 +325,7 @@ impl AbstractNode for ValueNode {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedExpression(position),
+                            ValidationError::ExpectedValueStatement(position),
                         ));
                     };
 
@@ -334,7 +344,7 @@ impl AbstractNode for ValueNode {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedExpression(position),
+                            ValidationError::ExpectedValueStatement(position),
                         ));
                     };
 
@@ -387,7 +397,7 @@ impl AbstractNode for ValueNode {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedExpression(position),
+                            ValidationError::ExpectedValueStatement(position),
                         ));
                     };
 
@@ -422,7 +432,9 @@ impl AbstractNode for ValueNode {
                 let item_type = if let Some(r#type) = first_item.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(first_item.position()));
+                    return Err(ValidationError::ExpectedValueStatement(
+                        first_item.position(),
+                    ));
                 };
 
                 Type::List {
@@ -498,7 +510,9 @@ impl AbstractNode for ValueNode {
                     let r#type = if let Some(r#type) = expression.expected_type(context)? {
                         r#type
                     } else {
-                        return Err(ValidationError::ExpectedExpression(expression.position()));
+                        return Err(ValidationError::ExpectedValueStatement(
+                            expression.position(),
+                        ));
                     };
 
                     types.push((

@@ -77,12 +77,12 @@ impl AbstractNode for Logic {
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(left.position()));
+                    return Err(ValidationError::ExpectedValueStatement(left.position()));
                 };
                 let right_type = if let Some(r#type) = right.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(right.position()));
+                    return Err(ValidationError::ExpectedValueStatement(right.position()));
                 };
 
                 left_type
@@ -102,12 +102,12 @@ impl AbstractNode for Logic {
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(left.position()));
+                    return Err(ValidationError::ExpectedValueStatement(left.position()));
                 };
                 let right_type = if let Some(r#type) = right.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(right.position()));
+                    return Err(ValidationError::ExpectedValueStatement(right.position()));
                 };
 
                 if let Type::Boolean = left_type {
@@ -134,7 +134,9 @@ impl AbstractNode for Logic {
                 let expression_type = if let Some(r#type) = expression.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(expression.position()));
+                    return Err(ValidationError::ExpectedValueStatement(
+                        expression.position(),
+                    ));
                 };
 
                 if let Type::Boolean = expression_type {
@@ -161,7 +163,7 @@ impl AbstractNode for Logic {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
-                    ValidationError::ExpectedExpression(expression_position),
+                    ValidationError::ExpectedValueStatement(expression_position),
                 ));
             };
 
@@ -175,7 +177,7 @@ impl AbstractNode for Logic {
                 value
             } else {
                 return Err(RuntimeError::ValidationFailure(
-                    ValidationError::ExpectedExpression(expression_position),
+                    ValidationError::ExpectedValueStatement(expression_position),
                 ));
             };
 

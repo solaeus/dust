@@ -120,26 +120,6 @@ impl AbstractTree {
         AbstractTree(statements)
     }
 
-    pub(crate) fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
-        for statement in &self.0 {
-            statement.define_types(context)?;
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn validate(
-        &self,
-        context: &Context,
-        manage_memory: bool,
-    ) -> Result<(), ValidationError> {
-        for statement in &self.0 {
-            statement.validate(context, manage_memory)?;
-        }
-
-        Ok(())
-    }
-
     pub fn run(
         self,
         context: &Context,
@@ -203,6 +183,42 @@ impl Index<usize> for AbstractTree {
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
+    }
+}
+
+impl AbstractNode for AbstractTree {
+    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        for statement in &self.0 {
+            statement.define_types(context)?;
+        }
+
+        Ok(())
+    }
+
+    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
+        for statement in &self.0 {
+            statement.validate(context, manage_memory)?;
+        }
+
+        Ok(())
+    }
+
+    fn evaluate(
+        self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
+        let mut previous = None;
+
+        for statement in self.0 {
+            previous = statement.evaluate(context, manage_memory)?;
+        }
+
+        Ok(previous)
+    }
+
+    fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
+        self.0.last().unwrap().expected_type(context)
     }
 }
 

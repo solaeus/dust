@@ -52,12 +52,12 @@ impl AbstractNode for Math {
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(left.position()));
+                    return Err(ValidationError::ExpectedValueStatement(left.position()));
                 };
                 let right_type = if let Some(r#type) = right.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(right.position()));
+                    return Err(ValidationError::ExpectedValueStatement(right.position()));
                 };
 
                 if let Type::Integer | Type::Float | Type::String = left_type {
@@ -83,12 +83,12 @@ impl AbstractNode for Math {
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(left.position()));
+                    return Err(ValidationError::ExpectedValueStatement(left.position()));
                 };
                 let right_type = if let Some(r#type) = right.expected_type(context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(right.position()));
+                    return Err(ValidationError::ExpectedValueStatement(right.position()));
                 };
 
                 if let Type::Integer | Type::Float = left_type {
@@ -116,7 +116,7 @@ impl AbstractNode for Math {
                     value
                 } else {
                     return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedExpression(position),
+                        ValidationError::ExpectedValueStatement(position),
                     ));
                 };
 
@@ -341,12 +341,12 @@ impl AbstractNode for Math {
                 let left_type = if let Some(r#type) = left.expected_type(_context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(left.position()));
+                    return Err(ValidationError::ExpectedValueStatement(left.position()));
                 };
                 let right_type = if let Some(r#type) = right.expected_type(_context)? {
                     r#type
                 } else {
-                    return Err(ValidationError::ExpectedExpression(right.position()));
+                    return Err(ValidationError::ExpectedValueStatement(right.position()));
                 };
 
                 if let Type::Float = left_type {

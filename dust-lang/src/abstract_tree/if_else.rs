@@ -60,7 +60,7 @@ impl AbstractNode for IfElse {
         let if_expression_type = if let Some(r#type) = self.if_expression.expected_type(context)? {
             r#type
         } else {
-            return Err(ValidationError::ExpectedExpression(
+            return Err(ValidationError::ExpectedValueStatement(
                 self.if_expression.position(),
             ));
         };
@@ -123,7 +123,7 @@ impl AbstractNode for IfElse {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::ExpectedExpression(if_position),
+                ValidationError::ExpectedValueStatement(if_position),
             ));
         };
 
@@ -140,7 +140,7 @@ impl AbstractNode for IfElse {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedExpression(expression_position),
+                            ValidationError::ExpectedValueStatement(expression_position),
                         ));
                     };
 

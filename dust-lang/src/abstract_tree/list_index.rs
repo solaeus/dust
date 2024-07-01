@@ -37,14 +37,16 @@ impl AbstractNode for ListIndex {
         let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type
         } else {
-            return Err(ValidationError::ExpectedExpression(
+            return Err(ValidationError::ExpectedValueStatement(
                 self.collection.position(),
             ));
         };
         let index_type = if let Some(r#type) = self.index.expected_type(context)? {
             r#type
         } else {
-            return Err(ValidationError::ExpectedExpression(self.index.position()));
+            return Err(ValidationError::ExpectedValueStatement(
+                self.index.position(),
+            ));
         };
 
         match collection_type {
@@ -82,7 +84,7 @@ impl AbstractNode for ListIndex {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::ExpectedExpression(left_position),
+                ValidationError::ExpectedValueStatement(left_position),
             ));
         };
         let right_position = self.index.position();
@@ -91,7 +93,7 @@ impl AbstractNode for ListIndex {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::ExpectedExpression(right_position),
+                ValidationError::ExpectedValueStatement(right_position),
             ));
         };
 
@@ -119,7 +121,7 @@ impl AbstractNode for ListIndex {
         let left_type = if let Some(r#type) = self.collection.expected_type(_context)? {
             r#type
         } else {
-            return Err(ValidationError::ExpectedExpression(
+            return Err(ValidationError::ExpectedValueStatement(
                 self.collection.position(),
             ));
         };

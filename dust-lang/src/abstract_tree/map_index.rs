@@ -37,7 +37,7 @@ impl AbstractNode for MapIndex {
         let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type
         } else {
-            return Err(ValidationError::ExpectedExpression(
+            return Err(ValidationError::ExpectedValueStatement(
                 self.collection.position(),
             ));
         };
@@ -71,7 +71,7 @@ impl AbstractNode for MapIndex {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::ExpectedExpression(collection_position),
+                ValidationError::ExpectedValueStatement(collection_position),
             ));
         };
 
@@ -166,7 +166,7 @@ impl AbstractNode for MapIndex {
         let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type
         } else {
-            return Err(ValidationError::ExpectedExpression(
+            return Err(ValidationError::ExpectedValueStatement(
                 self.collection.position(),
             ));
         };

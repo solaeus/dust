@@ -71,7 +71,7 @@ impl AbstractNode for FunctionCall {
             if let Some(r#type) = self.function_expression.expected_type(outer_context)? {
                 r#type
             } else {
-                return Err(ValidationError::ExpectedExpression(
+                return Err(ValidationError::ExpectedValueStatement(
                     self.function_expression.position(),
                 ));
             };
@@ -102,13 +102,14 @@ impl AbstractNode for FunctionCall {
                     for ((identifier, _), expression) in
                         parameters.iter().zip(arguments.into_iter())
                     {
-                        let r#type = if let Some(r#type) =
-                            expression.expected_type(outer_context)?
-                        {
-                            r#type
-                        } else {
-                            return Err(ValidationError::ExpectedExpression(expression.position()));
-                        };
+                        let r#type =
+                            if let Some(r#type) = expression.expected_type(outer_context)? {
+                                r#type
+                            } else {
+                                return Err(ValidationError::ExpectedValueStatement(
+                                    expression.position(),
+                                ));
+                            };
 
                         self.context.set_type(identifier.clone(), r#type)?;
                     }
@@ -157,7 +158,7 @@ impl AbstractNode for FunctionCall {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
-                ValidationError::ExpectedExpression(function_position),
+                ValidationError::ExpectedValueStatement(function_position),
             ));
         };
 
@@ -186,7 +187,7 @@ impl AbstractNode for FunctionCall {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedValue(position),
+                            ValidationError::ExpectedValueStatement(position),
                         ));
                     };
 
@@ -236,7 +237,7 @@ impl AbstractNode for FunctionCall {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedValue(position),
+                            ValidationError::ExpectedValueStatement(position),
                         ));
                     };
 
@@ -259,7 +260,7 @@ impl AbstractNode for FunctionCall {
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
         let expression_type = self.function_expression.expected_type(context)?.ok_or(
-            ValidationError::ExpectedExpression(self.function_expression.position()),
+            ValidationError::ExpectedValueStatement(self.function_expression.position()),
         )?;
 
         let (type_parameters, return_type) = if let Type::Function {

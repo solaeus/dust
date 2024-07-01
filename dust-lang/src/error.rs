@@ -104,6 +104,8 @@ impl PartialEq for RuntimeError {
 
 #[derive(Debug, PartialEq)]
 pub enum ValidationError {
+    /// A node needs to be initialized before it can be validated.
+    Uninitialized,
     BuiltInFunctionFailure(&'static str),
     CannotAssignToNone(SourcePosition),
     CannotIndex {
@@ -138,12 +140,12 @@ pub enum ValidationError {
         actual: Type,
         position: SourcePosition,
     },
-    ExpectedValue(SourcePosition),
     FullTypeNotKnown {
         identifier: Identifier,
         position: SourcePosition,
     },
-    ExpectedExpression(SourcePosition),
+    ExpectedValueStatement(SourcePosition),
+    ExpectedNonValueStatement(SourcePosition),
     RwLockPoison(PoisonError),
     TypeCheck {
         /// The mismatch that caused the error.

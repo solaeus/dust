@@ -63,7 +63,7 @@ impl AbstractNode for While {
                 Ok(value)
             } else {
                 Err(RuntimeError::ValidationFailure(
-                    ValidationError::ExpectedExpression(expression_position),
+                    ValidationError::ExpectedValueStatement(expression_position),
                 ))
             }
         };
