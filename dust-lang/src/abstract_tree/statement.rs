@@ -20,6 +20,7 @@ pub enum Statement {
     Break(WithPosition<()>),
     IfElse(WithPosition<IfElse>),
     Loop(WithPosition<Loop>),
+    Null(WithPosition<()>),
     StructureDefinition(WithPosition<StructureDefinition>),
     TypeAlias(WithPosition<TypeAlias>),
     EnumDeclaration(WithPosition<EnumDeclaration>),
@@ -38,6 +39,7 @@ impl Statement {
             Statement::Expression(expression) => expression.position(),
             Statement::IfElse(inner) => inner.position,
             Statement::Loop(inner) => inner.position,
+            Statement::Null(inner) => inner.position,
             Statement::StructureDefinition(inner) => inner.position,
             Statement::TypeAlias(inner) => inner.position,
             Statement::EnumDeclaration(inner) => inner.position,
@@ -65,7 +67,6 @@ impl AbstractNode for Statement {
             Statement::Block(block) => block.node.define_types(_context),
             Statement::AsyncBlock(async_block) => async_block.node.define_types(_context),
             Statement::Assignment(assignment) => assignment.node.define_types(_context),
-            Statement::Break(_) => Ok(()),
             Statement::Loop(r#loop) => r#loop.node.define_types(_context),
             Statement::StructureDefinition(struct_definition) => {
                 struct_definition.node.define_types(_context)
@@ -76,6 +77,7 @@ impl AbstractNode for Statement {
             }
             Statement::While(r#while) => r#while.node.define_types(_context),
             Statement::Use(r#use) => r#use.node.define_types(_context),
+            Statement::Break(_) | Statement::Null(_) => Ok(()),
         }
     }
 
@@ -88,7 +90,6 @@ impl AbstractNode for Statement {
                 async_block.node.validate(_context, _manage_memory)
             }
             Statement::Block(block) => block.node.validate(_context, _manage_memory),
-            Statement::Break(_) => Ok(()),
             Statement::Expression(expression) => expression.validate(_context, _manage_memory),
             Statement::IfElse(if_else) => if_else.node.validate(_context, _manage_memory),
             Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
@@ -113,6 +114,7 @@ impl AbstractNode for Statement {
             Statement::Expression(expression) => expression.evaluate(context, manage_memory),
             Statement::IfElse(if_else) => if_else.node.evaluate(context, manage_memory),
             Statement::Loop(r#loop) => r#loop.node.evaluate(context, manage_memory),
+            Statement::Null(_) => Ok(None),
             Statement::StructureDefinition(structure_definition) => {
                 structure_definition.node.evaluate(context, manage_memory)
             }
@@ -138,7 +140,6 @@ impl AbstractNode for Statement {
             Statement::Block(block) => block.node.expected_type(_context),
             Statement::AsyncBlock(async_block) => async_block.node.expected_type(_context),
             Statement::Assignment(assignment) => assignment.node.expected_type(_context),
-            Statement::Break(_) => Ok(None),
             Statement::Loop(r#loop) => r#loop.node.expected_type(_context),
             Statement::StructureDefinition(struct_definition) => {
                 struct_definition.node.expected_type(_context)
@@ -149,6 +150,7 @@ impl AbstractNode for Statement {
             }
             Statement::While(r#while) => r#while.node.expected_type(_context),
             Statement::Use(r#use) => r#use.node.expected_type(_context),
+            Statement::Break(_) | Statement::Null(_) => Ok(None),
         }
     }
 }
@@ -162,6 +164,7 @@ impl Display for Statement {
             Statement::Break(_) => write!(f, "break"),
             Statement::IfElse(inner) => write!(f, "{}", inner.node),
             Statement::Loop(inner) => write!(f, "{}", inner.node),
+            Statement::Null(_) => write!(f, ";"),
             Statement::StructureDefinition(inner) => write!(f, "{}", inner.node),
             Statement::TypeAlias(inner) => write!(f, "{}", inner.node),
             Statement::EnumDeclaration(inner) => write!(f, "{}", inner.node),

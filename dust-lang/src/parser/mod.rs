@@ -781,23 +781,24 @@ pub fn parser<'src>(
             Statement::Use(Use::new(text.to_string()).with_position(state.span()))
         });
 
-        comment
-            .repeated()
-            .or_not()
-            .ignore_then(choice((
-                assignment,
-                expression_statement,
-                async_block,
-                if_else,
-                r#break,
-                block_statement,
-                r#loop,
-                r#while,
-                type_alias,
-                enum_declaration,
-                r#use,
-            )))
-            .then_ignore(just(Token::Symbol(Symbol::Semicolon)).or_not())
+        let null = just(Token::Symbol(Symbol::Semicolon))
+            .ignored()
+            .map_with(|_, state| Statement::Null(().with_position(state.span())));
+
+        comment.repeated().or_not().ignore_then(choice((
+            assignment,
+            expression_statement,
+            async_block,
+            if_else,
+            r#break,
+            block_statement,
+            r#loop,
+            r#while,
+            type_alias,
+            enum_declaration,
+            r#use,
+            null,
+        )))
     });
 
     statement
