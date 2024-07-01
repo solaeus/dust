@@ -318,11 +318,11 @@ pub fn lexer<'src>() -> impl Parser<
 
     let identifier = text::ident().map(|text: &str| Token::Identifier(text));
 
-    let r#use = just("use ").ignore_then(
+    let r#use = just("use").ignore_then(
         none_of('\n')
             .repeated()
             .to_slice()
-            .map(|text: &str| Token::Use(text)),
+            .map(|text: &str| Token::Use(text.trim())),
     );
 
     choice((

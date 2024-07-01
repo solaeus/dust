@@ -56,6 +56,7 @@ pub enum RuntimeError {
     RwLockPoison(PoisonError),
     ValidationFailure(ValidationError),
     SerdeJson(serde_json::Error),
+    Use(Vec<DustError>),
 }
 
 impl From<PoisonError> for RuntimeError {

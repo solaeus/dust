@@ -17,6 +17,7 @@ pub mod structure_definition;
 pub mod r#type;
 pub mod type_alias;
 pub mod type_constructor;
+pub mod r#use;
 pub mod value_node;
 pub mod r#while;
 
@@ -45,6 +46,7 @@ pub use self::{
     r#as::As,
     r#loop::Loop,
     r#type::Type,
+    r#use::Use,
     r#while::While,
     statement::Statement,
     structure_definition::StructureDefinition,
