@@ -345,10 +345,16 @@ impl InterpreterError {
                         Label::new((self.source_id.clone(), position.0..position.1))
                             .with_message("Expected a statement that yields a value."),
                     ),
-                    ValidationError::ExpectedNonValueStatement(position) => builder.add_label(
-                        Label::new((self.source_id.clone(), position.0..position.1))
-                            .with_message("Expected a statement that does not yield a value."),
-                    ),
+                    ValidationError::ExpectedNonValueStatement(position) => {
+                        builder.add_label(
+                            Label::new((self.source_id.clone(), position.0..position.1))
+                                .with_message("Expected a statement that does not yield a value."),
+                        );
+                        builder.add_label(
+                            Label::new((self.source_id.clone(), position.0..position.1))
+                                .with_message("Try adding a semicolon here."),
+                        );
+                    }
                     ValidationError::ExpectedFunction { actual, position } => builder.add_label(
                         Label::new((self.source_id.clone(), position.0..position.1)).with_message(
                             format!(

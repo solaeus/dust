@@ -218,7 +218,9 @@ impl AbstractNode for ValueNode {
                         r#type,
                     ),
                     (None, Some(_)) => {
-                        return Err(ValidationError::ExpectedNonValueStatement(body.position))
+                        return Err(ValidationError::ExpectedNonValueStatement(
+                            body.node.last_statement().position(),
+                        ))
                     }
                     (Some(constructor), None) => {
                         return Err(ValidationError::ExpectedValueStatement(
