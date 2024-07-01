@@ -820,8 +820,8 @@ fn block() {
         parse(
             &lex("
                 {
-                    x;
-                    y;
+                    x
+                    y
                     z
                 }
                 ")
@@ -834,13 +834,13 @@ fn block() {
                     Identifier::new("x").with_position((39, 40))
                 )),
                 Statement::Expression(Expression::Identifier(
-                    Identifier::new("y").with_position((62, 63))
+                    Identifier::new("y").with_position((61, 62))
                 )),
                 Statement::Expression(Expression::Identifier(
-                    Identifier::new("z").with_position((85, 86))
+                    Identifier::new("z").with_position((83, 84))
                 )),
             ])
-            .with_position((17, 104)),
+            .with_position((17, 102)),
         )
     );
 
