@@ -318,8 +318,8 @@ pub fn lexer<'src>() -> impl Parser<
 
     let identifier = text::ident().map(|text: &str| Token::Identifier(text));
 
-    let r#use = just("use").ignore_then(
-        none_of('\n')
+    let r#use = just("use").padded().ignore_then(
+        none_of(" \n\r;")
             .repeated()
             .to_slice()
             .map(|text: &str| Token::Use(text.trim())),
@@ -350,8 +350,8 @@ mod tests {
     #[test]
     fn r#use() {
         assert_eq!(
-            lex("use std/io.ds").unwrap(),
-            vec![(Token::Use("std/io.ds"), (0..13).into())]
+            lex("use std.io").unwrap(),
+            vec![(Token::Use("std.io"), (0..10).into())]
         );
 
         assert_eq!(

@@ -774,6 +774,13 @@ pub fn parser<'src>(
                 )
             });
 
+        let r#use = select! {
+            Token::Use(text) => text,
+        }
+        .map_with(|text, state| {
+            Statement::Use(Use::new(text.to_string()).with_position(state.span()))
+        });
+
         comment
             .repeated()
             .or_not()
@@ -788,6 +795,7 @@ pub fn parser<'src>(
                 r#while,
                 type_alias,
                 enum_declaration,
+                r#use,
             )))
             .then_ignore(just(Token::Symbol(Symbol::Semicolon)).or_not())
     });

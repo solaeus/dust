@@ -33,7 +33,7 @@ struct Args {
     parse: bool,
 
     #[arg(long)]
-    no_std: bool,
+    compile: bool,
 
     /// Location of the file to run.
     path: Option<String>,
@@ -58,22 +58,6 @@ fn main() {
     let args = Args::parse();
     let context = Context::new(None);
     let interpreter = Interpreter::new(context.clone());
-
-    if !args.no_std {
-        let load_std_result = interpreter.load_std();
-
-        if let Err(error) = load_std_result {
-            eprintln!("Failed to load standard library");
-
-            for report in error.build_reports() {
-                report
-                    .write_for_stdout(sources(interpreter.sources()), stderr())
-                    .unwrap();
-            }
-
-            return;
-        }
-    }
 
     let (source_id, source): (Arc<str>, Arc<str>) = if let Some(path) = args.path {
         let source = read_to_string(&path).unwrap();
@@ -113,6 +97,25 @@ fn main() {
     if args.parse {
         match interpreter.parse(source_id, source.as_ref()) {
             Ok(abstract_tree) => println!("{abstract_tree:?}"),
+            Err(error) => {
+                for report in error.build_reports() {
+                    report
+                        .write_for_stdout(sources(interpreter.sources()), stderr())
+                        .unwrap();
+                }
+            }
+        }
+
+        return;
+    }
+
+    if args.compile {
+        match interpreter.parse(source_id, source.as_ref()) {
+            Ok(abstract_tree) => {
+                let ron = ron::to_string(&abstract_tree).unwrap();
+
+                println!("{ron}")
+            }
             Err(error) => {
                 for report in error.build_reports() {
                     report

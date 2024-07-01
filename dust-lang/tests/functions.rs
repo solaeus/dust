@@ -46,7 +46,10 @@ fn callback() {
 
 #[test]
 fn built_in_function_call() {
-    assert_eq!(interpret("test", "io.write_line('Hiya')"), Ok(None));
+    assert_eq!(
+        interpret("test", "use std.io io.write_line('Hiya')"),
+        Ok(None)
+    );
 }
 
 #[test]

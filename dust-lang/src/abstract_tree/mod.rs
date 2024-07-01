@@ -106,7 +106,7 @@ pub enum Evaluation {
     Return(Value),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AbstractTree(Vec<Statement>);
 
 impl AbstractTree {
@@ -118,6 +118,26 @@ impl AbstractTree {
         });
 
         AbstractTree(statements)
+    }
+
+    pub(crate) fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+        for statement in &self.0 {
+            statement.define_types(context)?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError> {
+        for statement in &self.0 {
+            statement.validate(context, manage_memory)?;
+        }
+
+        Ok(())
     }
 
     pub fn run(

@@ -9,7 +9,7 @@ use crate::{
 
 use super::{
     AbstractNode, Assignment, AsyncBlock, Block, EnumDeclaration, Evaluation, Expression, IfElse,
-    Loop, SourcePosition, StructureDefinition, Type, TypeAlias, While, WithPosition,
+    Loop, SourcePosition, StructureDefinition, Type, TypeAlias, Use, While, WithPosition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -25,6 +25,7 @@ pub enum Statement {
     EnumDeclaration(WithPosition<EnumDeclaration>),
     Expression(Expression),
     While(WithPosition<While>),
+    Use(WithPosition<Use>),
 }
 
 impl Statement {
@@ -41,6 +42,7 @@ impl Statement {
             Statement::TypeAlias(inner) => inner.position,
             Statement::EnumDeclaration(inner) => inner.position,
             Statement::While(inner) => inner.position,
+            Statement::Use(inner) => inner.position,
         }
     }
 
@@ -73,6 +75,7 @@ impl AbstractNode for Statement {
                 enum_declaration.node.define_types(_context)
             }
             Statement::While(r#while) => r#while.node.define_types(_context),
+            Statement::Use(r#use) => r#use.node.define_types(_context),
         }
     }
 
@@ -90,6 +93,7 @@ impl AbstractNode for Statement {
             Statement::IfElse(if_else) => if_else.node.validate(_context, _manage_memory),
             Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
             Statement::While(r#while) => r#while.node.validate(_context, _manage_memory),
+            Statement::Use(r#use) => r#use.node.validate(_context, _manage_memory),
             _ => Ok(()),
         }
     }
@@ -117,6 +121,7 @@ impl AbstractNode for Statement {
                 type_alias.node.evaluate(context, manage_memory)
             }
             Statement::While(r#while) => r#while.node.evaluate(context, manage_memory),
+            Statement::Use(r#use) => r#use.node.evaluate(context, manage_memory),
         };
 
         if manage_memory {
@@ -143,6 +148,7 @@ impl AbstractNode for Statement {
                 enum_declaration.node.expected_type(_context)
             }
             Statement::While(r#while) => r#while.node.expected_type(_context),
+            Statement::Use(r#use) => r#use.node.expected_type(_context),
         }
     }
 }
@@ -161,6 +167,7 @@ impl Display for Statement {
             Statement::EnumDeclaration(inner) => write!(f, "{}", inner.node),
             Statement::Expression(expression) => write!(f, "{expression}"),
             Statement::While(inner) => write!(f, "{}", inner.node),
+            Statement::Use(inner) => write!(f, "{}", inner.node),
         }
     }
 }

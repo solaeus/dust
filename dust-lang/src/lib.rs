@@ -4,6 +4,7 @@ pub mod error;
 pub mod identifier;
 pub mod lexer;
 pub mod parser;
+pub mod standard_library;
 pub mod value;
 
 use std::{
@@ -17,24 +18,12 @@ pub use value::Value;
 
 use abstract_tree::AbstractTree;
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
-use chumsky::prelude::*;
 use context::Context;
 use error::{DustError, RuntimeError, TypeConflict, ValidationError};
 use lexer::{lex, Token};
 use parser::{parse, parser};
-use rayon::prelude::*;
 
 pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
-    let interpreter = Interpreter::new(Context::new(None));
-
-    interpreter.load_std()?;
-    interpreter.run(Arc::from(source_id), Arc::from(source))
-}
-
-pub fn interpret_without_std(
-    source_id: &str,
-    source: &str,
-) -> Result<Option<Value>, InterpreterError> {
     let interpreter = Interpreter::new(Context::new(None));
 
     interpreter.run(Arc::from(source_id), Arc::from(source))
@@ -110,89 +99,8 @@ impl Interpreter {
         Ok(value_option)
     }
 
-    pub fn load_std(&self) -> Result<(), InterpreterError> {
-        let std_core_source: (Arc<str>, Arc<str>) = (
-            Arc::from("std/core.ds"),
-            Arc::from(include_str!("../../std/core.ds")),
-        );
-        let std_sources: [(Arc<str>, Arc<str>); 4] = [
-            (
-                Arc::from("std/fs.ds"),
-                Arc::from(include_str!("../../std/fs.ds")),
-            ),
-            (
-                Arc::from("std/io.ds"),
-                Arc::from(include_str!("../../std/io.ds")),
-            ),
-            (
-                Arc::from("std/json.ds"),
-                Arc::from(include_str!("../../std/json.ds")),
-            ),
-            (
-                Arc::from("std/thread.ds"),
-                Arc::from(include_str!("../../std/thread.ds")),
-            ),
-        ];
-
-        log::info!("Start loading standard library...");
-
-        // Always load the core library first because other parts of the standard library may depend
-        // on it.
-        self.run_with_builtins(std_core_source.0, std_core_source.1)?;
-
-        let error = if cfg!(test) {
-            // In debug mode, load the standard library sequentially to get consistent errors.
-            std_sources
-                .into_iter()
-                .find_map(|(source_id, source)| self.run_with_builtins(source_id, source).err())
-        } else {
-            // In release mode, load the standard library asynchronously.
-            std_sources
-                .into_par_iter()
-                .find_map_any(|(source_id, source)| self.run_with_builtins(source_id, source).err())
-        };
-
-        log::info!("Finish loading standard library.");
-
-        if let Some(error) = error {
-            Err(error)
-        } else {
-            Ok(())
-        }
-    }
-
     pub fn sources(&self) -> vec::IntoIter<(Arc<str>, Arc<str>)> {
         self.sources.read().unwrap().clone().into_iter()
-    }
-
-    fn run_with_builtins(
-        &self,
-        source_id: Arc<str>,
-        source: Arc<str>,
-    ) -> Result<Option<Value>, InterpreterError> {
-        let mut sources = self.sources.write().unwrap();
-
-        sources.push((source_id.clone(), source.clone()));
-
-        let tokens = lex(source.as_ref()).map_err(|errors| InterpreterError {
-            source_id: source_id.clone(),
-            errors,
-        })?;
-        let abstract_tree = parser(true)
-            .parse(tokens.spanned((tokens.len()..tokens.len()).into()))
-            .into_result()
-            .map_err(|errors| InterpreterError {
-                source_id: source_id.clone(),
-                errors: errors
-                    .into_iter()
-                    .map(|error| DustError::from(error))
-                    .collect(),
-            })?;
-        let value_option = abstract_tree
-            .run(&self.context, true)
-            .map_err(|errors| InterpreterError { source_id, errors })?;
-
-        Ok(value_option)
     }
 }
 
@@ -293,6 +201,7 @@ impl InterpreterError {
                             "This is the interpreter's fault. Please submit a bug with this error message."
                         }
                         RuntimeError::SerdeJson(serde_json_error) => &serde_json_error.to_string(),
+                        RuntimeError::Use(_) => todo!(),
                     };
 
                     (
@@ -508,6 +417,7 @@ impl InterpreterError {
                     ValidationError::ExpectedList { .. } => todo!(),
                     ValidationError::BuiltInFunctionFailure(reason) => builder
                         .add_label(Label::new((self.source_id.clone(), 0..0)).with_message(reason)),
+                    ValidationError::CannotUsePath(_) => todo!(),
                 }
             }
 
@@ -522,10 +432,16 @@ impl InterpreterError {
 
 #[cfg(test)]
 mod tests {
+    use self::standard_library::std_full_compiled;
+
     use super::*;
 
     #[test]
     fn load_standard_library() {
-        Interpreter::new(Context::new(None)).load_std().unwrap();
+        let context = Context::new(None);
+
+        for abstract_tree in std_full_compiled() {
+            abstract_tree.run(&context, true).unwrap();
+        }
     }
 }

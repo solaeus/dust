@@ -116,6 +116,7 @@ pub enum ValidationError {
         index_type: Type,
         index_position: SourcePosition,
     },
+    CannotUsePath(String),
     ExpectedString {
         actual: Type,
         position: SourcePosition,

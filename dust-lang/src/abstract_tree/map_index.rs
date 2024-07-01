@@ -98,8 +98,8 @@ impl AbstractNode for MapIndex {
         if let (Expression::Identifier(collection), Expression::Identifier(index)) =
             (&self.collection, &self.index)
         {
-            let collection = if let Some(collection) = context.get_value(&collection.node)? {
-                collection
+            let r#type = if let Some(r#type) = context.get_type(&collection.node)? {
+                r#type
             } else {
                 return Err(ValidationError::VariableNotFound {
                     identifier: collection.node.clone(),
@@ -107,9 +107,9 @@ impl AbstractNode for MapIndex {
                 });
             };
 
-            if let ValueInner::Map(map) = collection.inner().as_ref() {
-                return if let Some(value) = map.get(&index.node) {
-                    Ok(Some(value.r#type(context)?))
+            if let Type::Map(map) = r#type {
+                return if let Some(r#type) = map.get(&index.node) {
+                    Ok(Some(r#type.clone()))
                 } else {
                     Err(ValidationError::FieldNotFound {
                         identifier: index.node.clone(),
