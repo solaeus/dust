@@ -32,7 +32,7 @@ impl EnumDeclaration {
 }
 
 impl AbstractNode for EnumDeclaration {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(&self, context: &Context, _: bool) -> Result<(), ValidationError> {
         let EnumDeclaration {
             name,
             type_parameters,
@@ -76,10 +76,6 @@ impl AbstractNode for EnumDeclaration {
 
         context.set_type(name.node.clone(), r#type)?;
 
-        Ok(())
-    }
-
-    fn validate(&self, _: &Context, _: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 

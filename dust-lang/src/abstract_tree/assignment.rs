@@ -43,9 +43,11 @@ impl Assignment {
 }
 
 impl AbstractNode for Assignment {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
-        self.statement.define_types(context)?;
-
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         if let Some(constructor) = &self.constructor {
             let r#type = constructor.construct(&context)?;
 
@@ -58,11 +60,7 @@ impl AbstractNode for Assignment {
             ));
         };
 
-        Ok(())
-    }
-
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        self.statement.validate(context, manage_memory)?;
+        self.statement.define_and_validate(context, manage_memory)?;
 
         let statement_type = self.statement.expected_type(context)?;
 

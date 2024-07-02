@@ -37,7 +37,11 @@ impl Use {
 }
 
 impl AbstractNode for Use {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         let abstract_tree = match self.path.as_str() {
             "std.fs" => std_fs_compiled().clone(),
             "std.json" => std_json_compiled().clone(),
@@ -52,16 +56,10 @@ impl AbstractNode for Use {
             }
         };
 
-        abstract_tree.define_types(_context)?;
-
         *self.abstract_tree.write()? = Some(abstract_tree);
 
-        Ok(())
-    }
-
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
         if let Some(abstract_tree) = self.abstract_tree.read()?.as_ref() {
-            abstract_tree.validate(context, manage_memory)
+            abstract_tree.define_and_validate(context, manage_memory)
         } else {
             Err(ValidationError::Uninitialized)
         }

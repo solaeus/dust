@@ -58,44 +58,40 @@ impl Statement {
 }
 
 impl AbstractNode for Statement {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        log::trace!("Defining types for statement at {}", self.position());
-
-        match self {
-            Statement::Expression(expression) => expression.define_types(_context),
-            Statement::IfElse(if_else) => if_else.node.define_types(_context),
-            Statement::Block(block) => block.node.define_types(_context),
-            Statement::AsyncBlock(async_block) => async_block.node.define_types(_context),
-            Statement::Assignment(assignment) => assignment.node.define_types(_context),
-            Statement::Loop(r#loop) => r#loop.node.define_types(_context),
-            Statement::StructureDefinition(struct_definition) => {
-                struct_definition.node.define_types(_context)
-            }
-            Statement::TypeAlias(type_alias) => type_alias.node.define_types(_context),
-            Statement::EnumDeclaration(enum_declaration) => {
-                enum_declaration.node.define_types(_context)
-            }
-            Statement::While(r#while) => r#while.node.define_types(_context),
-            Statement::Use(r#use) => r#use.node.define_types(_context),
-            Statement::Break(_) | Statement::Null(_) => Ok(()),
-        }
-    }
-
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        _context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         log::trace!("Validating statement at {}", self.position());
 
         match self {
-            Statement::Assignment(assignment) => assignment.node.validate(_context, _manage_memory),
-            Statement::AsyncBlock(async_block) => {
-                async_block.node.validate(_context, _manage_memory)
+            Statement::Assignment(assignment) => assignment
+                .node
+                .define_and_validate(_context, _manage_memory),
+            Statement::AsyncBlock(async_block) => async_block
+                .node
+                .define_and_validate(_context, _manage_memory),
+            Statement::Block(block) => block.node.define_and_validate(_context, _manage_memory),
+            Statement::EnumDeclaration(enum_declaration) => enum_declaration
+                .node
+                .define_and_validate(_context, _manage_memory),
+            Statement::Expression(expression) => {
+                expression.define_and_validate(_context, _manage_memory)
             }
-            Statement::Block(block) => block.node.validate(_context, _manage_memory),
-            Statement::Expression(expression) => expression.validate(_context, _manage_memory),
-            Statement::IfElse(if_else) => if_else.node.validate(_context, _manage_memory),
-            Statement::Loop(r#loop) => r#loop.node.validate(_context, _manage_memory),
-            Statement::While(r#while) => r#while.node.validate(_context, _manage_memory),
-            Statement::Use(r#use) => r#use.node.validate(_context, _manage_memory),
-            _ => Ok(()),
+            Statement::IfElse(if_else) => {
+                if_else.node.define_and_validate(_context, _manage_memory)
+            }
+            Statement::Loop(r#loop) => r#loop.node.define_and_validate(_context, _manage_memory),
+            Statement::StructureDefinition(struct_definition) => struct_definition
+                .node
+                .define_and_validate(_context, _manage_memory),
+            Statement::TypeAlias(type_alias) => type_alias
+                .node
+                .define_and_validate(_context, _manage_memory),
+            Statement::While(r#while) => r#while.node.define_and_validate(_context, _manage_memory),
+            Statement::Use(r#use) => r#use.node.define_and_validate(_context, _manage_memory),
+            Statement::Break(_) | Statement::Null(_) => Ok(()),
         }
     }
 

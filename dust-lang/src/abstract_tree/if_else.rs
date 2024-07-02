@@ -35,27 +35,16 @@ impl IfElse {
 }
 
 impl AbstractNode for IfElse {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        self.if_expression.define_types(_context)?;
-        self.if_block.node.define_types(_context)?;
-
-        if let Some(else_ifs) = &self.else_ifs {
-            for (expression, block) in else_ifs {
-                expression.define_types(_context)?;
-                block.node.define_types(_context)?;
-            }
-        }
-
-        if let Some(else_block) = &self.else_block {
-            else_block.node.define_types(_context)?;
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        self.if_expression.validate(context, manage_memory)?;
-        self.if_block.node.validate(context, manage_memory)?;
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError> {
+        self.if_expression
+            .define_and_validate(context, manage_memory)?;
+        self.if_block
+            .node
+            .define_and_validate(context, manage_memory)?;
 
         let if_expression_type = if let Some(r#type) = self.if_expression.expected_type(context)? {
             r#type
@@ -71,7 +60,7 @@ impl AbstractNode for IfElse {
                 let expression_type = expression.expected_type(context)?;
 
                 if let Some(Type::Boolean) = expression_type {
-                    block.node.validate(context, manage_memory)?;
+                    block.node.define_and_validate(context, manage_memory)?;
 
                     let else_if_block_type = block.node.expected_type(context)?;
 
@@ -94,7 +83,7 @@ impl AbstractNode for IfElse {
         }
 
         if let Some(block) = &self.else_block {
-            block.node.validate(context, manage_memory)?;
+            block.node.define_and_validate(context, manage_memory)?;
 
             let else_if_block_type = block.node.expected_type(context)?;
 

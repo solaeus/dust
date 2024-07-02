@@ -32,10 +32,7 @@ pub fn core_context<'a>() -> &'a Context {
         let std_core = std_core_compiled().clone();
 
         std_core
-            .define_types(&context)
-            .expect("Failed to define types for std.core");
-        std_core
-            .validate(&context, true)
+            .define_and_validate(&context, true)
             .expect("Failed to validate std.core");
         std_core
             .evaluate(&context, true)

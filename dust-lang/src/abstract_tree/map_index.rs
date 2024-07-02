@@ -26,13 +26,13 @@ impl MapIndex {
 }
 
 impl AbstractNode for MapIndex {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        self.collection.define_types(_context)?;
-        self.index.define_types(_context)
-    }
-
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        self.collection.validate(context, _manage_memory)?;
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
+        self.collection
+            .define_and_validate(context, _manage_memory)?;
 
         let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type
@@ -56,7 +56,7 @@ impl AbstractNode for MapIndex {
         if let Expression::Identifier(_) = &self.index {
             Ok(())
         } else {
-            self.index.validate(context, _manage_memory)
+            self.index.define_and_validate(context, _manage_memory)
         }
     }
 

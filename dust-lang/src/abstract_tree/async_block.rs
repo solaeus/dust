@@ -25,17 +25,13 @@ impl AsyncBlock {
 }
 
 impl AbstractNode for AsyncBlock {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        _context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.define_types(_context)?;
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, _context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        for statement in &self.statements {
-            statement.validate(_context, manage_memory)?;
+            statement.define_and_validate(_context, manage_memory)?;
         }
 
         Ok(())

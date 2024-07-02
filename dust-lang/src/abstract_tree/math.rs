@@ -21,32 +21,11 @@ pub enum Math {
 }
 
 impl AbstractNode for Math {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        match self {
-            Math::Add(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Math::Subtract(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Math::Multiply(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Math::Divide(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Math::Modulo(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-        }
-    }
-
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
                 let left_type = if let Some(r#type) = left.expected_type(context)? {

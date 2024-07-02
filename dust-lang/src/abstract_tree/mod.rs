@@ -58,6 +58,7 @@ pub use self::{
 use crate::{
     context::Context,
     error::{DustError, RuntimeError, ValidationError},
+    identifier::Identifier,
     Value,
 };
 
@@ -128,18 +129,7 @@ impl AbstractTree {
         let mut errors = Vec::new();
 
         for statement in &self.0 {
-            let define_result = statement.define_types(context);
-
-            if let Err(error) = define_result {
-                errors.push(DustError::Validation {
-                    error,
-                    position: statement.position(),
-                });
-
-                continue;
-            }
-
-            let validation_result = statement.validate(context, manage_memory);
+            let validation_result = statement.define_and_validate(context, manage_memory);
 
             if let Err(error) = validation_result {
                 errors.push(DustError::Validation {
@@ -187,17 +177,13 @@ impl Index<usize> for AbstractTree {
 }
 
 impl AbstractNode for AbstractTree {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         for statement in &self.0 {
-            statement.define_types(context)?;
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        for statement in &self.0 {
-            statement.validate(context, manage_memory)?;
+            statement.define_and_validate(context, manage_memory)?;
         }
 
         Ok(())
@@ -223,9 +209,11 @@ impl AbstractNode for AbstractTree {
 }
 
 pub trait AbstractNode {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError>;
-
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError>;
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError>;
 
     fn evaluate(
         self,

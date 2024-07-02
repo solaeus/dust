@@ -59,68 +59,11 @@ impl ValueNode {
 }
 
 impl AbstractNode for ValueNode {
-    fn define_types(&self, outer_context: &Context) -> Result<(), ValidationError> {
-        match self {
-            ValueNode::EnumInstance { content, .. } => {
-                if let Some(expressions) = content {
-                    for expression in expressions {
-                        expression.define_types(outer_context)?;
-                    }
-                }
-            }
-            ValueNode::List(expressions) => {
-                for expression in expressions {
-                    expression.define_types(outer_context)?;
-                }
-            }
-            ValueNode::Map(fields) => {
-                for (_, _, expression) in fields {
-                    expression.define_types(outer_context)?;
-                }
-            }
-            ValueNode::Structure { fields, .. } => {
-                for (_, expression) in fields {
-                    expression.define_types(outer_context)?;
-                }
-            }
-            ValueNode::Function(FunctionNode {
-                body,
-                type_parameters,
-                value_parameters,
-                validation_context,
-                ..
-            }) => {
-                validation_context.set_parent(outer_context.clone())?;
-
-                if let Some(type_parameters) = type_parameters {
-                    for identifier in type_parameters {
-                        validation_context.set_type(
-                            identifier.clone(),
-                            Type::Generic {
-                                identifier: identifier.clone(),
-                                concrete_type: None,
-                            },
-                        )?;
-                    }
-                }
-
-                if let Some(value_parameters) = value_parameters {
-                    for (identifier, type_constructor) in value_parameters {
-                        let r#type = type_constructor.clone().construct(outer_context)?;
-
-                        validation_context.set_type(identifier.clone(), r#type)?;
-                    }
-                }
-
-                body.node.define_types(validation_context)?;
-            }
-            _ => {}
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         if let ValueNode::List(list) = self {
             let mut items = list.into_iter();
             let first_item = items.next().unwrap();
@@ -133,6 +76,8 @@ impl AbstractNode for ValueNode {
             };
 
             for item in items {
+                item.define_and_validate(context, _manage_memory)?;
+
                 let item_type = if let Some(r#type) = item.expected_type(context)? {
                     r#type
                 } else {
@@ -150,9 +95,17 @@ impl AbstractNode for ValueNode {
         }
 
         if let ValueNode::EnumInstance {
-            type_name, variant, ..
+            type_name,
+            variant,
+            content,
         } = self
         {
+            if let Some(expressions) = content {
+                for expression in expressions {
+                    expression.define_and_validate(context, _manage_memory)?;
+                }
+            }
+
             if let Some(Type::Enum { variants, .. }) = context.get_type(&type_name.node)? {
                 if variants
                     .iter()
@@ -174,7 +127,7 @@ impl AbstractNode for ValueNode {
 
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, constructor_option, expression) in map_assignments {
-                expression.validate(context, _manage_memory)?;
+                expression.define_and_validate(context, _manage_memory)?;
 
                 if let Some(constructor) = constructor_option {
                     let actual_type = if let Some(r#type) = expression.expected_type(context)? {
@@ -203,10 +156,36 @@ impl AbstractNode for ValueNode {
             return_type,
             body,
             validation_context,
-            ..
+            type_parameters,
+            value_parameters,
         }) = self
         {
-            body.node.validate(&validation_context, _manage_memory)?;
+            let outer_context = context;
+
+            validation_context.set_parent(outer_context.clone())?;
+
+            if let Some(type_parameters) = type_parameters {
+                for identifier in type_parameters {
+                    validation_context.set_type(
+                        identifier.clone(),
+                        Type::Generic {
+                            identifier: identifier.clone(),
+                            concrete_type: None,
+                        },
+                    )?;
+                }
+            }
+
+            if let Some(value_parameters) = value_parameters {
+                for (identifier, type_constructor) in value_parameters {
+                    let r#type = type_constructor.clone().construct(outer_context)?;
+
+                    validation_context.set_type(identifier.clone(), r#type)?;
+                }
+            }
+
+            body.node
+                .define_and_validate(&validation_context, _manage_memory)?;
 
             let ((expected_return, expected_position), actual_return) =
                 match (return_type, body.node.expected_type(&validation_context)?) {
@@ -259,6 +238,8 @@ impl AbstractNode for ValueNode {
             }) = context.get_type(&name.node)?
             {
                 for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
+                    expression.define_and_validate(context, _manage_memory)?;
+
                     let actual_type = if let Some(r#type) = expression.expected_type(context)? {
                         r#type
                     } else {

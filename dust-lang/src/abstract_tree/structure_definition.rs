@@ -23,7 +23,7 @@ impl StructureDefinition {
 }
 
 impl AbstractNode for StructureDefinition {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(&self, context: &Context, _: bool) -> Result<(), ValidationError> {
         let mut fields = Vec::with_capacity(self.fields.len());
 
         for (identifier, constructor) in &self.fields {
@@ -39,10 +39,6 @@ impl AbstractNode for StructureDefinition {
 
         context.set_type(self.name.clone(), struct_type)?;
 
-        Ok(())
-    }
-
-    fn validate(&self, _: &Context, _: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 

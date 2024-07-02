@@ -29,17 +29,13 @@ impl Block {
 }
 
 impl AbstractNode for Block {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        _context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.define_types(_context)?;
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        for statement in &self.statements {
-            statement.validate(_context, _manage_memory)?;
+            statement.define_and_validate(_context, _manage_memory)?;
         }
 
         Ok(())

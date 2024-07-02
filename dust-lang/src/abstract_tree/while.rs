@@ -27,21 +27,15 @@ impl While {
 }
 
 impl AbstractNode for While {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        self.expression.define_types(_context)?;
+    fn define_and_validate(
+        &self,
+        _context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
+        self.expression.define_and_validate(_context, false)?;
 
         for statement in &self.statements {
-            statement.define_types(_context)?;
-        }
-
-        Ok(())
-    }
-
-    fn validate(&self, _context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        self.expression.validate(_context, false)?;
-
-        for statement in &self.statements {
-            statement.validate(_context, false)?;
+            statement.define_and_validate(_context, false)?;
         }
 
         Ok(())

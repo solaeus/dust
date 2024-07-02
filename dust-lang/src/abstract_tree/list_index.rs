@@ -25,14 +25,14 @@ impl ListIndex {
 }
 
 impl AbstractNode for ListIndex {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
-        self.collection.define_types(context)?;
-        self.index.define_types(context)
-    }
-
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
-        self.collection.validate(context, _manage_memory)?;
-        self.index.validate(context, _manage_memory)?;
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
+        self.collection
+            .define_and_validate(context, _manage_memory)?;
+        self.index.define_and_validate(context, _manage_memory)?;
 
         let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type

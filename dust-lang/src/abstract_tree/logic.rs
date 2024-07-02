@@ -25,45 +25,11 @@ pub enum Logic {
 }
 
 impl AbstractNode for Logic {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
-        match self {
-            Logic::Equal(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::NotEqual(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::Greater(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::Less(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::GreaterOrEqual(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::LessOrEqual(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::And(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::Or(left, right) => {
-                left.define_types(_context)?;
-                right.define_types(_context)
-            }
-            Logic::Not(expression) => expression.define_types(_context),
-        }
-    }
-
-    fn validate(&self, context: &Context, _manage_memory: bool) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         match self {
             Logic::Equal(left, right)
             | Logic::NotEqual(left, right)
@@ -71,8 +37,8 @@ impl AbstractNode for Logic {
             | Logic::Less(left, right)
             | Logic::GreaterOrEqual(left, right)
             | Logic::LessOrEqual(left, right) => {
-                left.validate(context, _manage_memory)?;
-                right.validate(context, _manage_memory)?;
+                left.define_and_validate(context, _manage_memory)?;
+                right.define_and_validate(context, _manage_memory)?;
 
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
@@ -96,8 +62,8 @@ impl AbstractNode for Logic {
                 Ok(())
             }
             Logic::And(left, right) | Logic::Or(left, right) => {
-                left.validate(context, _manage_memory)?;
-                right.validate(context, _manage_memory)?;
+                left.define_and_validate(context, _manage_memory)?;
+                right.define_and_validate(context, _manage_memory)?;
 
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
@@ -129,7 +95,7 @@ impl AbstractNode for Logic {
                 Ok(())
             }
             Logic::Not(expression) => {
-                expression.validate(context, _manage_memory)?;
+                expression.define_and_validate(context, _manage_memory)?;
 
                 let expression_type = if let Some(r#type) = expression.expected_type(context)? {
                     r#type

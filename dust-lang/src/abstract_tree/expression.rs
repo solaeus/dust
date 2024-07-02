@@ -41,25 +41,16 @@ impl Expression {
 }
 
 impl AbstractNode for Expression {
-    fn define_types(&self, _context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        manage_memory: bool,
+    ) -> Result<(), ValidationError> {
         match self {
-            Expression::As(inner) => inner.node.define_types(_context),
-            Expression::FunctionCall(inner) => inner.node.define_types(_context),
-            Expression::Identifier(_) => Ok(()),
-            Expression::MapIndex(inner) => inner.node.define_types(_context),
-            Expression::ListIndex(inner) => inner.node.define_types(_context),
-            Expression::Logic(inner) => inner.node.define_types(_context),
-            Expression::Math(inner) => inner.node.define_types(_context),
-            Expression::Value(inner) => inner.node.define_types(_context),
-        }
-    }
-
-    fn validate(&self, context: &Context, manage_memory: bool) -> Result<(), ValidationError> {
-        match self {
-            Expression::As(r#as) => r#as.node.validate(context, manage_memory),
-            Expression::FunctionCall(function_call) => {
-                function_call.node.validate(context, manage_memory)
-            }
+            Expression::As(r#as) => r#as.node.define_and_validate(context, manage_memory),
+            Expression::FunctionCall(function_call) => function_call
+                .node
+                .define_and_validate(context, manage_memory),
             Expression::Identifier(identifier) => {
                 let found = context.add_expected_use(&identifier.node)?;
 
@@ -72,11 +63,17 @@ impl AbstractNode for Expression {
                     })
                 }
             }
-            Expression::MapIndex(map_index) => map_index.node.validate(context, manage_memory),
-            Expression::ListIndex(list_index) => list_index.node.validate(context, manage_memory),
-            Expression::Logic(logic) => logic.node.validate(context, manage_memory),
-            Expression::Math(math) => math.node.validate(context, manage_memory),
-            Expression::Value(value_node) => value_node.node.validate(context, manage_memory),
+            Expression::MapIndex(map_index) => {
+                map_index.node.define_and_validate(context, manage_memory)
+            }
+            Expression::ListIndex(list_index) => {
+                list_index.node.define_and_validate(context, manage_memory)
+            }
+            Expression::Logic(logic) => logic.node.define_and_validate(context, manage_memory),
+            Expression::Math(math) => math.node.define_and_validate(context, manage_memory),
+            Expression::Value(value_node) => {
+                value_node.node.define_and_validate(context, manage_memory)
+            }
         }
     }
 

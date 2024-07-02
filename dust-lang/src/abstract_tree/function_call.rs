@@ -39,31 +39,18 @@ impl FunctionCall {
 }
 
 impl AbstractNode for FunctionCall {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
-        self.function_expression.define_types(context)?;
-
-        if let Some(expressions) = &self.value_arguments {
-            for expression in expressions {
-                expression.define_types(context)?;
-            }
-        }
-
-        self.context.set_parent(context.clone())?;
-
-        Ok(())
-    }
-
-    fn validate(
+    fn define_and_validate(
         &self,
         outer_context: &Context,
         manage_memory: bool,
     ) -> Result<(), ValidationError> {
+        self.context.set_parent(outer_context.clone())?;
         self.function_expression
-            .validate(outer_context, manage_memory)?;
+            .define_and_validate(outer_context, manage_memory)?;
 
         if let Some(value_arguments) = &self.value_arguments {
             for expression in value_arguments {
-                expression.validate(outer_context, manage_memory)?;
+                expression.define_and_validate(outer_context, manage_memory)?;
             }
         }
 

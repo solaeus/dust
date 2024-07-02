@@ -26,15 +26,11 @@ impl TypeAlias {
 }
 
 impl AbstractNode for TypeAlias {
-    fn define_types(&self, context: &Context) -> Result<(), ValidationError> {
+    fn define_and_validate(&self, context: &Context, _: bool) -> Result<(), ValidationError> {
         let r#type = self.constructor.construct(&context)?;
 
         context.set_type(self.identifier.node.clone(), r#type)?;
 
-        Ok(())
-    }
-
-    fn validate(&self, _: &Context, _: bool) -> Result<(), ValidationError> {
         Ok(())
     }
 
