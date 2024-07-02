@@ -70,7 +70,30 @@ impl Context {
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, ValidationError> {
         log::trace!("Checking that {identifier} exists");
 
-        Ok(self.get_type(identifier)?.is_some())
+        let data = self.data.read()?;
+
+        if let Some(_) = data.variables.get(identifier) {
+            return Ok(true);
+        } else if let Some(parent) = &data.parent {
+            let parent_data = parent.data.read()?;
+
+            if let Some((variable_data, _)) = parent_data.variables.get(identifier) {
+                match variable_data {
+                    VariableData::Type(Type::Enum { .. })
+                    | VariableData::Type(Type::Function { .. })
+                    | VariableData::Type(Type::Structure { .. }) => return Ok(true),
+                    VariableData::Value(value) => match value.inner().as_ref() {
+                        ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => {
+                            return Ok(true)
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
@@ -174,11 +197,11 @@ impl Context {
     }
 
     pub fn add_expected_use(&self, identifier: &Identifier) -> Result<bool, PoisonError> {
+        log::trace!("Adding expected use for variable {identifier}");
+
         let data = self.data.read()?;
 
         if let Some((_, usage_data)) = data.variables.get(identifier) {
-            log::trace!("Adding expected use for variable {identifier}");
-
             usage_data.inner().write()?.expected += 1;
 
             return Ok(true);
@@ -186,12 +209,23 @@ impl Context {
             let parent_data = parent.data.read()?;
 
             if let Some((variable_data, usage_data)) = parent_data.variables.get(identifier) {
-                if let VariableData::Value(value) = variable_data {
-                    if let ValueInner::Function(_) = value.inner().as_ref() {
+                match variable_data {
+                    VariableData::Type(Type::Enum { .. })
+                    | VariableData::Type(Type::Function { .. })
+                    | VariableData::Type(Type::Structure { .. }) => {
                         usage_data.inner().write()?.expected += 1;
 
                         return Ok(true);
                     }
+                    VariableData::Value(value) => match value.inner().as_ref() {
+                        ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => {
+                            usage_data.inner().write()?.expected += 1;
+
+                            return Ok(true);
+                        }
+                        _ => {}
+                    },
+                    _ => {}
                 }
             }
         }
