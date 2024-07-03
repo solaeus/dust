@@ -58,7 +58,6 @@ pub use self::{
 use crate::{
     context::Context,
     error::{DustError, RuntimeError, ValidationError},
-    identifier::Identifier,
     Value,
 };
 

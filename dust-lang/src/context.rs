@@ -219,10 +219,15 @@ impl Context {
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), PoisonError> {
         log::debug!("Setting {identifier} to type {}", r#type);
 
-        self.data
-            .write()?
+        let mut data = self.data.write()?;
+        let usage_data = data
             .variables
-            .insert(identifier, (VariableData::Type(r#type), UsageData::new()));
+            .remove(&identifier)
+            .map(|(_, usage_data)| usage_data)
+            .unwrap_or_else(|| UsageData::new());
+
+        data.variables
+            .insert(identifier, (VariableData::Type(r#type), usage_data));
 
         Ok(())
     }
