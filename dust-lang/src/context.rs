@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
     sync::{Arc, RwLock},
 };
 
@@ -73,27 +74,35 @@ impl Context {
         let data = self.data.read()?;
 
         if let Some(_) = data.variables.get(identifier) {
-            return Ok(true);
+            Ok(true)
         } else if let Some(parent) = &data.parent {
-            let parent_data = parent.data.read()?;
+            parent.contains_inheritable(identifier)
+        } else {
+            Ok(false)
+        }
+    }
 
-            if let Some((variable_data, _)) = parent_data.variables.get(identifier) {
-                match variable_data {
-                    VariableData::Type(Type::Enum { .. })
-                    | VariableData::Type(Type::Function { .. })
-                    | VariableData::Type(Type::Structure { .. }) => return Ok(true),
-                    VariableData::Value(value) => match value.inner().as_ref() {
-                        ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => {
-                            return Ok(true)
-                        }
-                        _ => {}
-                    },
+    fn contains_inheritable(&self, identifier: &Identifier) -> Result<bool, ValidationError> {
+        let data = self.data.read()?;
+
+        if let Some((variable_data, _)) = data.variables.get(identifier) {
+            match variable_data {
+                VariableData::Type(Type::Enum { .. })
+                | VariableData::Type(Type::Function { .. })
+                | VariableData::Type(Type::Structure { .. }) => return Ok(true),
+                VariableData::Value(value) => match value.inner().as_ref() {
+                    ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => return Ok(true),
                     _ => {}
-                }
+                },
+                _ => {}
             }
         }
 
-        Ok(false)
+        if let Some(parent) = &data.parent {
+            parent.contains_inheritable(identifier)
+        } else {
+            Ok(false)
+        }
     }
 
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ValidationError> {
@@ -107,19 +116,34 @@ impl Context {
                 VariableData::Value(value) => value.r#type(self)?,
             };
 
-            return Ok(Some(r#type.clone()));
+            Ok(Some(r#type.clone()))
         } else if let Some(parent) = &data.parent {
-            if let Some(r#type) = parent.get_type(identifier)? {
-                match r#type {
-                    Type::Enum { .. } | Type::Function { .. } | Type::Structure { .. } => {
-                        return Ok(Some(r#type))
-                    }
-                    _ => {}
+            parent.get_inheritable_type(identifier)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn get_inheritable_type(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<Type>, ValidationError> {
+        let data = self.data.read()?;
+
+        if let Some(r#type) = self.get_type(identifier)? {
+            match r#type {
+                Type::Enum { .. } | Type::Function { .. } | Type::Structure { .. } => {
+                    return Ok(Some(r#type))
                 }
+                _ => {}
             }
         }
 
-        Ok(None)
+        if let Some(parent) = &data.parent {
+            parent.get_inheritable_type(identifier)
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn use_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
@@ -133,18 +157,32 @@ impl Context {
 
             return Ok(Some(value.clone()));
         } else if let Some(parent) = &data.parent {
-            if let Some(value) = parent.get_value(identifier)? {
-                match value.inner().as_ref() {
-                    ValueInner::EnumInstance { .. }
-                    | ValueInner::Function(_)
-                    | ValueInner::Structure { .. }
-                    | ValueInner::BuiltInFunction(_) => return Ok(Some(value)),
-                    _ => {}
+            parent.use_inheritable_value(identifier)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn use_inheritable_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
+        let data = self.data.read()?;
+
+        if let Some((VariableData::Value(value), usage_data)) = data.variables.get(identifier) {
+            match value.inner().as_ref() {
+                ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => {
+                    usage_data.inner().write()?.actual += 1;
+                    *self.is_clean.write()? = false;
+
+                    return Ok(Some(value.clone()));
                 }
+                _ => {}
             }
         }
 
-        Ok(None)
+        if let Some(parent) = &data.parent {
+            parent.use_inheritable_value(identifier)
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn get_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
@@ -153,20 +191,29 @@ impl Context {
         let data = self.data.read()?;
 
         if let Some((VariableData::Value(value), _)) = data.variables.get(identifier) {
-            return Ok(Some(value.clone()));
+            Ok(Some(value.clone()))
         } else if let Some(parent) = &data.parent {
-            if let Some(value) = parent.get_value(identifier)? {
-                match value.inner().as_ref() {
-                    ValueInner::EnumInstance { .. }
-                    | ValueInner::Function(_)
-                    | ValueInner::Structure { .. }
-                    | ValueInner::BuiltInFunction(_) => return Ok(Some(value)),
-                    _ => {}
-                }
+            parent.get_inheritable_value(identifier)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn get_inheritable_value(&self, identifier: &Identifier) -> Result<Option<Value>, PoisonError> {
+        if let Some(value) = self.get_value(identifier)? {
+            match value.inner().as_ref() {
+                ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => return Ok(Some(value)),
+                _ => {}
             }
         }
 
-        Ok(None)
+        let data = self.data.read()?;
+
+        if let Some(parent) = &data.parent {
+            parent.get_inheritable_value(identifier)
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn set_type(&self, identifier: Identifier, r#type: Type) -> Result<(), PoisonError> {
@@ -206,31 +253,44 @@ impl Context {
 
             return Ok(true);
         } else if let Some(parent) = &data.parent {
-            let parent_data = parent.data.read()?;
+            parent.add_expected_use_for_inheritable(identifier)
+        } else {
+            Ok(false)
+        }
+    }
 
-            if let Some((variable_data, usage_data)) = parent_data.variables.get(identifier) {
-                match variable_data {
-                    VariableData::Type(Type::Enum { .. })
-                    | VariableData::Type(Type::Function { .. })
-                    | VariableData::Type(Type::Structure { .. }) => {
+    fn add_expected_use_for_inheritable(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<bool, PoisonError> {
+        let data = self.data.read()?;
+
+        if let Some((variable_data, usage_data)) = data.variables.get(identifier) {
+            match variable_data {
+                VariableData::Type(Type::Enum { .. })
+                | VariableData::Type(Type::Function { .. })
+                | VariableData::Type(Type::Structure { .. }) => {
+                    usage_data.inner().write()?.expected += 1;
+
+                    return Ok(true);
+                }
+                VariableData::Value(value) => match value.inner().as_ref() {
+                    ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => {
                         usage_data.inner().write()?.expected += 1;
 
                         return Ok(true);
                     }
-                    VariableData::Value(value) => match value.inner().as_ref() {
-                        ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => {
-                            usage_data.inner().write()?.expected += 1;
-
-                            return Ok(true);
-                        }
-                        _ => {}
-                    },
                     _ => {}
-                }
+                },
+                _ => {}
             }
         }
 
-        Ok(false)
+        if let Some(parent) = &data.parent {
+            parent.add_expected_use_for_inheritable(identifier)
+        } else {
+            Ok(false)
+        }
     }
 
     pub fn clean(&self) -> Result<(), PoisonError> {
