@@ -56,7 +56,7 @@ fn main() {
         .init();
 
     let args = Args::parse();
-    let context = Context::new_with_std_core(None).unwrap();
+    let context = Context::new_with_std_core().unwrap();
     let interpreter = Interpreter::new(context.clone());
 
     let (source_id, source): (Arc<str>, Arc<str>) = if let Some(path) = args.path {

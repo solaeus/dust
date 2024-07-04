@@ -25,6 +25,7 @@ impl AbstractNode for Math {
         &self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
@@ -86,21 +87,23 @@ impl AbstractNode for Math {
     fn evaluate(
         self,
         _context: &Context,
-        _clear_variables: bool,
+        _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        let run_and_expect_value =
-            |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
-                let evaluation = expression.evaluate(&mut _context.clone(), _clear_variables)?;
-                let value = if let Some(Evaluation::Return(value)) = evaluation {
-                    value
-                } else {
-                    return Err(RuntimeError::ValidationFailure(
-                        ValidationError::ExpectedValueStatement(position),
-                    ));
-                };
-
-                Ok(value)
+        let run_and_expect_value = |position: SourcePosition,
+                                    expression: Expression|
+         -> Result<Value, RuntimeError> {
+            let evaluation = expression.evaluate(&mut _context.clone(), _manage_memory, scope)?;
+            let value = if let Some(Evaluation::Return(value)) = evaluation {
+                value
+            } else {
+                return Err(RuntimeError::ValidationFailure(
+                    ValidationError::ExpectedValueStatement(position),
+                ));
             };
+
+            Ok(value)
+        };
 
         let value = match self {
             Math::Add(left, right) => {

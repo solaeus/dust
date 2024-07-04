@@ -126,9 +126,11 @@ impl AbstractTree {
         manage_memory: bool,
     ) -> Result<Option<Value>, Vec<DustError>> {
         let mut errors = Vec::new();
+        let global_scope = SourcePosition(0, usize::MAX);
 
         for statement in &self.0 {
-            let validation_result = statement.define_and_validate(context, manage_memory);
+            let validation_result =
+                statement.define_and_validate(context, manage_memory, global_scope);
 
             if let Err(error) = validation_result {
                 errors.push(DustError::Validation {
@@ -146,7 +148,7 @@ impl AbstractTree {
 
         for statement in self.0 {
             let position = statement.position();
-            let run = statement.evaluate(context, manage_memory);
+            let run = statement.evaluate(context, manage_memory, global_scope);
 
             match run {
                 Ok(evaluation) => match evaluation {
@@ -180,9 +182,10 @@ impl AbstractNode for AbstractTree {
         &self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         for statement in &self.0 {
-            statement.define_and_validate(context, manage_memory)?;
+            statement.define_and_validate(context, manage_memory, scope)?;
         }
 
         Ok(())
@@ -192,11 +195,12 @@ impl AbstractNode for AbstractTree {
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let mut previous = None;
 
         for statement in self.0 {
-            previous = statement.evaluate(context, manage_memory)?;
+            previous = statement.evaluate(context, manage_memory, scope)?;
         }
 
         Ok(previous)
@@ -212,12 +216,14 @@ pub trait AbstractNode {
         &self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError>;
 
     fn evaluate(
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError>;
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError>;

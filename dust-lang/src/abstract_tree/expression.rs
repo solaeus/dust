@@ -45,12 +45,15 @@ impl AbstractNode for Expression {
         &self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         match self {
-            Expression::As(r#as) => r#as.node.define_and_validate(context, manage_memory),
-            Expression::FunctionCall(function_call) => function_call
-                .node
-                .define_and_validate(context, manage_memory),
+            Expression::As(r#as) => r#as.node.define_and_validate(context, manage_memory, scope),
+            Expression::FunctionCall(function_call) => {
+                function_call
+                    .node
+                    .define_and_validate(context, manage_memory, scope)
+            }
             Expression::Identifier(identifier) => {
                 let found = context.add_expected_use(&identifier.node)?;
 
@@ -64,15 +67,25 @@ impl AbstractNode for Expression {
                 }
             }
             Expression::MapIndex(map_index) => {
-                map_index.node.define_and_validate(context, manage_memory)
+                map_index
+                    .node
+                    .define_and_validate(context, manage_memory, scope)
             }
             Expression::ListIndex(list_index) => {
-                list_index.node.define_and_validate(context, manage_memory)
+                list_index
+                    .node
+                    .define_and_validate(context, manage_memory, scope)
             }
-            Expression::Logic(logic) => logic.node.define_and_validate(context, manage_memory),
-            Expression::Math(math) => math.node.define_and_validate(context, manage_memory),
+            Expression::Logic(logic) => {
+                logic
+                    .node
+                    .define_and_validate(context, manage_memory, scope)
+            }
+            Expression::Math(math) => math.node.define_and_validate(context, manage_memory, scope),
             Expression::Value(value_node) => {
-                value_node.node.define_and_validate(context, manage_memory)
+                value_node
+                    .node
+                    .define_and_validate(context, manage_memory, scope)
             }
         }
     }
@@ -81,11 +94,12 @@ impl AbstractNode for Expression {
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         match self {
-            Expression::As(r#as) => r#as.node.evaluate(context, manage_memory),
+            Expression::As(r#as) => r#as.node.evaluate(context, manage_memory, scope),
             Expression::FunctionCall(function_call) => {
-                function_call.node.evaluate(context, manage_memory)
+                function_call.node.evaluate(context, manage_memory, scope)
             }
             Expression::Identifier(identifier) => {
                 let value_option = if manage_memory {
@@ -105,11 +119,17 @@ impl AbstractNode for Expression {
                     ))
                 }
             }
-            Expression::MapIndex(map_index) => map_index.node.evaluate(context, manage_memory),
-            Expression::ListIndex(list_index) => list_index.node.evaluate(context, manage_memory),
-            Expression::Logic(logic) => logic.node.evaluate(context, manage_memory),
-            Expression::Math(math) => math.node.evaluate(context, manage_memory),
-            Expression::Value(value_node) => value_node.node.evaluate(context, manage_memory),
+            Expression::MapIndex(map_index) => {
+                map_index.node.evaluate(context, manage_memory, scope)
+            }
+            Expression::ListIndex(list_index) => {
+                list_index.node.evaluate(context, manage_memory, scope)
+            }
+            Expression::Logic(logic) => logic.node.evaluate(context, manage_memory, scope),
+            Expression::Math(math) => math.node.evaluate(context, manage_memory, scope),
+            Expression::Value(value_node) => {
+                value_node.node.evaluate(context, manage_memory, scope)
+            }
         }
     }
 

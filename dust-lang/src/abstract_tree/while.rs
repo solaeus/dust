@@ -9,7 +9,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Statement, Type};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct While {
@@ -31,11 +31,13 @@ impl AbstractNode for While {
         &self,
         _context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
-        self.expression.define_and_validate(_context, false)?;
+        self.expression
+            .define_and_validate(_context, false, scope)?;
 
         for statement in &self.statements {
-            statement.define_and_validate(_context, false)?;
+            statement.define_and_validate(_context, false, scope)?;
         }
 
         Ok(())
@@ -45,13 +47,14 @@ impl AbstractNode for While {
         self,
         _context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
             let expression_position = self.expression.position();
-            let evaluation = self
-                .expression
-                .clone()
-                .evaluate(&mut _context.clone(), false)?;
+            let evaluation =
+                self.expression
+                    .clone()
+                    .evaluate(&mut _context.clone(), false, scope)?;
 
             if let Some(Evaluation::Return(value)) = evaluation {
                 Ok(value)
@@ -64,7 +67,9 @@ impl AbstractNode for While {
 
         while let ValueInner::Boolean(true) = get_boolean()?.inner().as_ref() {
             for statement in &self.statements {
-                let evaluation = statement.clone().evaluate(&mut _context.clone(), false)?;
+                let evaluation = statement
+                    .clone()
+                    .evaluate(&mut _context.clone(), false, scope)?;
 
                 if let Some(Evaluation::Break) = evaluation {
                     return Ok(evaluation);

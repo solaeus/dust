@@ -8,7 +8,7 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, ValueNode, WithPosition};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct MapIndex {
@@ -30,9 +30,10 @@ impl AbstractNode for MapIndex {
         &self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         self.collection
-            .define_and_validate(context, _manage_memory)?;
+            .define_and_validate(context, _manage_memory, scope)?;
 
         let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type
@@ -56,7 +57,8 @@ impl AbstractNode for MapIndex {
         if let Expression::Identifier(_) = &self.index {
             Ok(())
         } else {
-            self.index.define_and_validate(context, _manage_memory)
+            self.index
+                .define_and_validate(context, _manage_memory, scope)
         }
     }
 
@@ -64,9 +66,10 @@ impl AbstractNode for MapIndex {
         self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let collection_position = self.collection.position();
-        let evaluation = self.collection.evaluate(context, _manage_memory)?;
+        let evaluation = self.collection.evaluate(context, _manage_memory, scope)?;
         let collection = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {

@@ -7,7 +7,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, Statement, Type};
+use super::{AbstractNode, Evaluation, SourcePosition, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Block {
@@ -33,9 +33,10 @@ impl AbstractNode for Block {
         &self,
         _context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.define_and_validate(_context, _manage_memory)?;
+            statement.define_and_validate(_context, _manage_memory, scope)?;
         }
 
         Ok(())
@@ -45,11 +46,12 @@ impl AbstractNode for Block {
         self,
         _context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let mut previous = None;
 
         for statement in self.statements {
-            previous = statement.evaluate(_context, _manage_memory)?;
+            previous = statement.evaluate(_context, _manage_memory, scope)?;
         }
 
         Ok(previous)
@@ -96,7 +98,9 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.evaluate(&Context::new(None), true).unwrap(),
+            block
+                .evaluate(&Context::new(), true, SourcePosition(0, 0))
+                .unwrap(),
             Some(Evaluation::Return(Value::integer(42)))
         )
     }
@@ -113,7 +117,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            block.expected_type(&Context::new(None)),
+            block.expected_type(&Context::new()),
             Ok(Some(Type::Integer))
         )
     }

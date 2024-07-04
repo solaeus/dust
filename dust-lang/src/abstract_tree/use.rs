@@ -17,7 +17,7 @@ use crate::{
     Type,
 };
 
-use super::{AbstractNode, AbstractTree, Evaluation};
+use super::{AbstractNode, AbstractTree, Evaluation, SourcePosition};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Use {
@@ -41,6 +41,7 @@ impl AbstractNode for Use {
         &self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         let abstract_tree = match self.path.as_str() {
             "std.fs" => std_fs_compiled().clone(),
@@ -59,7 +60,7 @@ impl AbstractNode for Use {
         *self.abstract_tree.write()? = Some(abstract_tree);
 
         if let Some(abstract_tree) = self.abstract_tree.read()?.as_ref() {
-            abstract_tree.define_and_validate(context, manage_memory)
+            abstract_tree.define_and_validate(context, manage_memory, scope)
         } else {
             Err(ValidationError::Uninitialized)
         }
@@ -69,9 +70,12 @@ impl AbstractNode for Use {
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         if let Some(abstract_tree) = self.abstract_tree.read()?.as_ref() {
-            abstract_tree.clone().evaluate(context, manage_memory)
+            abstract_tree
+                .clone()
+                .evaluate(context, manage_memory, scope)
         } else {
             Err(RuntimeError::ValidationFailure(
                 ValidationError::Uninitialized,

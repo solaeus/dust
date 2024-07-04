@@ -15,8 +15,8 @@ use crate::{
 };
 
 use super::{
-    AbstractNode, Block, BuiltInFunction, Evaluation, Expression, Type, TypeConstructor, WithPos,
-    WithPosition,
+    AbstractNode, Block, BuiltInFunction, Evaluation, Expression, SourcePosition, Type,
+    TypeConstructor, WithPos, WithPosition,
 };
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -53,7 +53,6 @@ impl ValueNode {
             value_parameters,
             return_type,
             body,
-            validation_context: Context::new(None),
         })
     }
 }
@@ -63,6 +62,7 @@ impl AbstractNode for ValueNode {
         &self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         if let ValueNode::List(list) = self {
             let mut items = list.into_iter();
@@ -76,7 +76,7 @@ impl AbstractNode for ValueNode {
             };
 
             for item in items {
-                item.define_and_validate(context, _manage_memory)?;
+                item.define_and_validate(context, _manage_memory, scope)?;
 
                 let item_type = if let Some(r#type) = item.expected_type(context)? {
                     r#type
@@ -102,7 +102,7 @@ impl AbstractNode for ValueNode {
         {
             if let Some(expressions) = content {
                 for expression in expressions {
-                    expression.define_and_validate(context, _manage_memory)?;
+                    expression.define_and_validate(context, _manage_memory, scope)?;
                 }
             }
 
@@ -127,7 +127,7 @@ impl AbstractNode for ValueNode {
 
         if let ValueNode::Map(map_assignments) = self {
             for (_identifier, constructor_option, expression) in map_assignments {
-                expression.define_and_validate(context, _manage_memory)?;
+                expression.define_and_validate(context, _manage_memory, scope)?;
 
                 if let Some(constructor) = constructor_option {
                     let actual_type = if let Some(r#type) = expression.expected_type(context)? {
@@ -155,45 +155,38 @@ impl AbstractNode for ValueNode {
         if let ValueNode::Function(FunctionNode {
             return_type,
             body,
-            validation_context,
             type_parameters,
             value_parameters,
         }) = self
         {
-            let outer_context = context;
-
-            validation_context.set_parent(outer_context.clone())?;
-
             if let Some(type_parameters) = type_parameters {
                 for identifier in type_parameters {
-                    validation_context.set_type(
+                    context.set_type(
                         identifier.clone(),
                         Type::Generic {
                             identifier: identifier.clone(),
                             concrete_type: None,
                         },
+                        body.position,
                     )?;
                 }
             }
 
             if let Some(value_parameters) = value_parameters {
                 for (identifier, type_constructor) in value_parameters {
-                    let r#type = type_constructor.clone().construct(outer_context)?;
+                    let r#type = type_constructor.clone().construct(context)?;
 
-                    validation_context.set_type(identifier.clone(), r#type)?;
+                    context.set_type(identifier.clone(), r#type, body.position)?;
                 }
             }
 
             body.node
-                .define_and_validate(&validation_context, _manage_memory)?;
+                .define_and_validate(context, _manage_memory, scope)?;
 
             let ((expected_return, expected_position), actual_return) =
-                match (return_type, body.node.expected_type(&validation_context)?) {
+                match (return_type, body.node.expected_type(context)?) {
                     (Some(constructor), Some(r#type)) => (
-                        (
-                            constructor.construct(validation_context)?,
-                            constructor.position(),
-                        ),
+                        (constructor.construct(context)?, constructor.position()),
                         r#type,
                     ),
                     (None, Some(_)) => {
@@ -238,7 +231,7 @@ impl AbstractNode for ValueNode {
             }) = context.get_type(&name.node)?
             {
                 for ((_, expression), (_, expected_type)) in expressions.iter().zip(types.iter()) {
-                    expression.define_and_validate(context, _manage_memory)?;
+                    expression.define_and_validate(context, _manage_memory, scope)?;
 
                     let actual_type = if let Some(r#type) = expression.expected_type(context)? {
                         r#type
@@ -266,6 +259,7 @@ impl AbstractNode for ValueNode {
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let value = match self {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
@@ -279,7 +273,7 @@ impl AbstractNode for ValueNode {
 
                     for expression in expressions {
                         let position = expression.position();
-                        let evaluation = expression.evaluate(context, manage_memory)?;
+                        let evaluation = expression.evaluate(context, manage_memory, scope)?;
 
                         if let Some(Evaluation::Return(value)) = evaluation {
                             values.push(value);
@@ -303,7 +297,7 @@ impl AbstractNode for ValueNode {
 
                 for expression in expression_list {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(context, manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory, scope)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -322,7 +316,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, _type, expression) in property_list {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(context, manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory, scope)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -375,7 +369,7 @@ impl AbstractNode for ValueNode {
 
                 for (identifier, expression) in expressions {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(context, manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory, scope)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -703,7 +697,6 @@ impl Display for ValueNode {
                 value_parameters,
                 return_type,
                 body,
-                validation_context: _,
             }) => {
                 write!(f, "fn ")?;
 
@@ -743,8 +736,6 @@ pub struct FunctionNode {
     value_parameters: Option<Vec<(Identifier, TypeConstructor)>>,
     return_type: Option<TypeConstructor>,
     body: WithPosition<Block>,
-    #[serde(skip)]
-    validation_context: Context,
 }
 
 impl PartialEq for FunctionNode {

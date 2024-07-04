@@ -325,9 +325,9 @@ mod tests {
 
         let mut map = BTreeMap::new();
 
-        map.insert(Identifier::new("x"), Type::Integer);
-        map.insert(Identifier::new("y"), Type::String);
-        map.insert(Identifier::new("z"), Type::Map(map.clone()));
+        map.insert(Identifier::from("x"), Type::Integer);
+        map.insert(Identifier::from("y"), Type::String);
+        map.insert(Identifier::from("z"), Type::Map(map.clone()));
 
         assert_eq!(Type::Map(map.clone()).check(&Type::Map(map)), Ok(()));
         assert_eq!(Type::Range.check(&Type::Range), Ok(()));

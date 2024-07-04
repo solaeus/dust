@@ -1,10 +1,13 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    hash::{Hash, Hasher},
     sync::{Arc, OnceLock, RwLock},
 };
 
 use serde::{de::Visitor, Deserialize, Serialize};
+
+use crate::abstract_tree::SourcePosition;
 
 static IDENTIFIER_CACHE: OnceLock<RwLock<HashMap<String, Identifier>>> = OnceLock::new();
 
@@ -12,29 +15,32 @@ fn identifier_cache<'a>() -> &'a RwLock<HashMap<String, Identifier>> {
     IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier(Arc<String>);
 
 impl Identifier {
-    pub fn new(text: &str) -> Self {
+    pub fn new(text: &str, scope: Option<SourcePosition>) -> Self {
         let cache = identifier_cache();
 
-        if let Some(identifier) = cache.read().unwrap().get(text) {
-            return identifier.clone();
+        if let Some(identifier) = cache.read().unwrap().get(text).cloned() {
+            return identifier;
         }
 
-        let identifier = Identifier(Arc::new(text.to_string()));
+        let new = Identifier(Arc::new(text.to_string()));
 
-        cache
-            .write()
-            .unwrap()
-            .insert(text.to_string(), identifier.clone());
+        cache.write().unwrap().insert(text.to_string(), new.clone());
 
-        identifier
+        new
     }
 
     pub fn as_str(&self) -> &str {
-        self.0.as_str()
+        &self.0.as_str()
+    }
+}
+
+impl From<&str> for Identifier {
+    fn from(text: &str) -> Self {
+        Identifier::new(text, None)
     }
 }
 
@@ -82,7 +88,7 @@ impl<'de> Visitor<'de> for IdentifierVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Identifier::new(v))
+        Ok(Identifier::new(v, None))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>

@@ -8,7 +8,7 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Evaluation, Type, TypeConstructor};
+use super::{AbstractNode, Evaluation, SourcePosition, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructureDefinition {
@@ -23,7 +23,12 @@ impl StructureDefinition {
 }
 
 impl AbstractNode for StructureDefinition {
-    fn define_and_validate(&self, context: &Context, _: bool) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _: bool,
+        scope: SourcePosition,
+    ) -> Result<(), ValidationError> {
         let mut fields = Vec::with_capacity(self.fields.len());
 
         for (identifier, constructor) in &self.fields {
@@ -37,7 +42,7 @@ impl AbstractNode for StructureDefinition {
             fields,
         };
 
-        context.set_type(self.name.clone(), struct_type)?;
+        context.set_type(self.name.clone(), struct_type, scope)?;
 
         Ok(())
     }
@@ -46,6 +51,7 @@ impl AbstractNode for StructureDefinition {
         self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let mut fields = Vec::with_capacity(self.fields.len());
 
@@ -60,7 +66,7 @@ impl AbstractNode for StructureDefinition {
             fields,
         };
 
-        context.set_type(self.name, struct_type)?;
+        context.set_type(self.name, struct_type, scope)?;
 
         Ok(None)
     }

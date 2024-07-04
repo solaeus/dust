@@ -42,7 +42,7 @@ pub fn parser<'src>(
         Token::Comment(_) => {}
     };
     let identifier = select! {
-        Token::Identifier(text) => Identifier::new(text),
+        Token::Identifier(text) => Identifier::from(text),
     };
 
     let positioned_identifier = identifier

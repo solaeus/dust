@@ -62,35 +62,60 @@ impl AbstractNode for Statement {
         &self,
         _context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         log::trace!("Validating statement at {}", self.position());
 
         match self {
-            Statement::Assignment(assignment) => assignment
-                .node
-                .define_and_validate(_context, _manage_memory),
-            Statement::AsyncBlock(async_block) => async_block
-                .node
-                .define_and_validate(_context, _manage_memory),
-            Statement::Block(block) => block.node.define_and_validate(_context, _manage_memory),
+            Statement::Assignment(assignment) => {
+                assignment
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
+            }
+            Statement::AsyncBlock(async_block) => {
+                async_block
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
+            }
+            Statement::Block(block) => {
+                block
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
+            }
             Statement::EnumDeclaration(enum_declaration) => enum_declaration
                 .node
-                .define_and_validate(_context, _manage_memory),
+                .define_and_validate(_context, _manage_memory, scope),
             Statement::Expression(expression) => {
-                expression.define_and_validate(_context, _manage_memory)
+                expression.define_and_validate(_context, _manage_memory, scope)
             }
             Statement::IfElse(if_else) => {
-                if_else.node.define_and_validate(_context, _manage_memory)
+                if_else
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
             }
-            Statement::Loop(r#loop) => r#loop.node.define_and_validate(_context, _manage_memory),
+            Statement::Loop(r#loop) => {
+                r#loop
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
+            }
             Statement::StructureDefinition(struct_definition) => struct_definition
                 .node
-                .define_and_validate(_context, _manage_memory),
-            Statement::TypeAlias(type_alias) => type_alias
-                .node
-                .define_and_validate(_context, _manage_memory),
-            Statement::While(r#while) => r#while.node.define_and_validate(_context, _manage_memory),
-            Statement::Use(r#use) => r#use.node.define_and_validate(_context, _manage_memory),
+                .define_and_validate(_context, _manage_memory, scope),
+            Statement::TypeAlias(type_alias) => {
+                type_alias
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
+            }
+            Statement::While(r#while) => {
+                r#while
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
+            }
+            Statement::Use(r#use) => {
+                r#use
+                    .node
+                    .define_and_validate(_context, _manage_memory, scope)
+            }
             Statement::Break(_) | Statement::Null(_) => Ok(()),
         }
     }
@@ -99,27 +124,34 @@ impl AbstractNode for Statement {
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         log::trace!("Evaluating statement at {}", self.position());
 
         let result = match self {
-            Statement::Assignment(assignment) => assignment.node.evaluate(context, manage_memory),
-            Statement::AsyncBlock(async_block) => async_block.node.evaluate(context, manage_memory),
-            Statement::Block(block) => block.node.evaluate(context, manage_memory),
+            Statement::Assignment(assignment) => {
+                assignment.node.evaluate(context, manage_memory, scope)
+            }
+            Statement::AsyncBlock(async_block) => {
+                async_block.node.evaluate(context, manage_memory, scope)
+            }
+            Statement::Block(block) => block.node.evaluate(context, manage_memory, scope),
             Statement::Break(_) => Ok(Some(Evaluation::Break)),
-            Statement::Expression(expression) => expression.evaluate(context, manage_memory),
-            Statement::IfElse(if_else) => if_else.node.evaluate(context, manage_memory),
-            Statement::Loop(r#loop) => r#loop.node.evaluate(context, manage_memory),
+            Statement::Expression(expression) => expression.evaluate(context, manage_memory, scope),
+            Statement::IfElse(if_else) => if_else.node.evaluate(context, manage_memory, scope),
+            Statement::Loop(r#loop) => r#loop.node.evaluate(context, manage_memory, scope),
             Statement::Null(_) => Ok(None),
-            Statement::StructureDefinition(structure_definition) => {
-                structure_definition.node.evaluate(context, manage_memory)
+            Statement::StructureDefinition(structure_definition) => structure_definition
+                .node
+                .evaluate(context, manage_memory, scope),
+            Statement::TypeAlias(type_alias) => {
+                type_alias.node.evaluate(context, manage_memory, scope)
             }
-            Statement::TypeAlias(type_alias) => type_alias.node.evaluate(context, manage_memory),
             Statement::EnumDeclaration(type_alias) => {
-                type_alias.node.evaluate(context, manage_memory)
+                type_alias.node.evaluate(context, manage_memory, scope)
             }
-            Statement::While(r#while) => r#while.node.evaluate(context, manage_memory),
-            Statement::Use(r#use) => r#use.node.evaluate(context, manage_memory),
+            Statement::While(r#while) => r#while.node.evaluate(context, manage_memory, scope),
+            Statement::Use(r#use) => r#use.node.evaluate(context, manage_memory, scope),
         };
 
         if manage_memory {

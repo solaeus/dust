@@ -1,7 +1,7 @@
 use std::sync::{Arc, OnceLock};
 
 use crate::{
-    abstract_tree::{AbstractNode, AbstractTree},
+    abstract_tree::{AbstractNode, AbstractTree, SourcePosition},
     context::Context,
     lexer::lex,
     parser,
@@ -28,14 +28,15 @@ static CORE_CONTEXT: OnceLock<Context> = OnceLock::new();
 
 pub fn core_context<'a>() -> &'a Context {
     CORE_CONTEXT.get_or_init(|| {
-        let context = Context::new(None);
+        let context = Context::new();
         let std_core = std_core_compiled().clone();
+        let global_scope = SourcePosition(0, usize::MAX);
 
         std_core
-            .define_and_validate(&context, true)
+            .define_and_validate(&context, true, global_scope)
             .expect("Failed to validate std.core");
         std_core
-            .evaluate(&context, true)
+            .evaluate(&context, true, global_scope)
             .expect("Failed to evaluate std.core");
 
         context

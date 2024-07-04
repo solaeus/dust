@@ -11,7 +11,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, Statement, Type};
+use super::{AbstractNode, Evaluation, SourcePosition, Statement, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AsyncBlock {
@@ -29,20 +29,26 @@ impl AbstractNode for AsyncBlock {
         &self,
         _context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         for statement in &self.statements {
-            statement.define_and_validate(_context, manage_memory)?;
+            statement.define_and_validate(_context, manage_memory, scope)?;
         }
 
         Ok(())
     }
 
-    fn evaluate(self, _context: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
+    fn evaluate(
+        self,
+        _context: &Context,
+        _: bool,
+        scope: SourcePosition,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         let final_result = Mutex::new(Ok(None));
         let statement_count = self.statements.len();
         let error_option = self.statements.into_par_iter().enumerate().find_map_any(
             |(index, statement)| -> Option<RuntimeError> {
-                let result = statement.evaluate(&_context, false);
+                let result = statement.evaluate(&_context, false, scope);
 
                 if let Err(error) = result {
                     return Some(error);

@@ -85,7 +85,7 @@ impl FunctionLogic for Length {
         Type::Function {
             type_parameters: None,
             value_parameters: Some(vec![(
-                Identifier::new("list"),
+                Identifier::from("list"),
                 Type::ListOf(Box::new(Type::Any)),
             )]),
             return_type: Some(Box::new(Type::Integer)),
@@ -93,7 +93,7 @@ impl FunctionLogic for Length {
     }
 
     fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
-        let value = if let Some(value) = context.get_value(&Identifier::new("input"))? {
+        let value = if let Some(value) = context.get_value(&Identifier::from("input"))? {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -119,13 +119,13 @@ impl FunctionLogic for ReadFile {
     fn r#type() -> Type {
         Type::Function {
             type_parameters: None,
-            value_parameters: Some(vec![(Identifier::new("path"), Type::String)]),
+            value_parameters: Some(vec![(Identifier::from("path"), Type::String)]),
             return_type: Some(Box::new(Type::String)),
         }
     }
 
     fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
-        let value = if let Some(value) = context.get_value(&Identifier::new("path"))? {
+        let value = if let Some(value) = context.get_value(&Identifier::from("path"))? {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -173,13 +173,13 @@ impl FunctionLogic for Sleep {
     fn r#type() -> Type {
         Type::Function {
             type_parameters: None,
-            value_parameters: Some(vec![(Identifier::new("milliseconds"), Type::Integer)]),
+            value_parameters: Some(vec![(Identifier::from("milliseconds"), Type::Integer)]),
             return_type: None,
         }
     }
 
     fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
-        let value = if let Some(value) = context.get_value(&Identifier::new("milliseconds"))? {
+        let value = if let Some(value) = context.get_value(&Identifier::from("milliseconds"))? {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -207,13 +207,13 @@ impl FunctionLogic for WriteLine {
     fn r#type() -> Type {
         Type::Function {
             type_parameters: None,
-            value_parameters: Some(vec![(Identifier::new("output"), Type::String)]),
+            value_parameters: Some(vec![(Identifier::from("output"), Type::String)]),
             return_type: None,
         }
     }
 
     fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
-        let value = if let Some(value) = context.get_value(&Identifier::new("output"))? {
+        let value = if let Some(value) = context.get_value(&Identifier::from("output"))? {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(
@@ -240,26 +240,26 @@ struct JsonParse;
 impl FunctionLogic for JsonParse {
     fn r#type() -> Type {
         let type_t = Type::Generic {
-            identifier: Identifier::new("T"),
+            identifier: Identifier::from("T"),
             concrete_type: None,
         };
 
         Type::Function {
             type_parameters: None,
-            value_parameters: Some(vec![(Identifier::new("input"), type_t.clone())]),
+            value_parameters: Some(vec![(Identifier::from("input"), type_t.clone())]),
             return_type: Some(Box::new(type_t)),
         }
     }
 
     fn call(context: &Context, _: bool) -> Result<Option<Value>, RuntimeError> {
-        let target_type = if let Some(r#type) = context.get_type(&Identifier::new("T"))? {
+        let target_type = if let Some(r#type) = context.get_type(&Identifier::from("T"))? {
             r#type
         } else {
             return Err(RuntimeError::ValidationFailure(
                 ValidationError::BuiltInFunctionFailure("T does not exist"),
             ));
         };
-        let value = if let Some(value) = context.get_value(&Identifier::new("input"))? {
+        let value = if let Some(value) = context.get_value(&Identifier::from("input"))? {
             value
         } else {
             return Err(RuntimeError::ValidationFailure(

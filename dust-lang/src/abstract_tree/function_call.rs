@@ -11,16 +11,13 @@ use crate::{
     value::ValueInner,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type, TypeConstructor};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FunctionCall {
     function_expression: Box<Expression>,
     type_arguments: Option<Vec<TypeConstructor>>,
     value_arguments: Option<Vec<Expression>>,
-
-    #[serde(skip)]
-    context: Context,
 }
 
 impl FunctionCall {
@@ -33,7 +30,6 @@ impl FunctionCall {
             function_expression: Box::new(function_expression),
             type_arguments,
             value_arguments,
-            context: Context::new(None),
         }
     }
 }
@@ -41,21 +37,21 @@ impl FunctionCall {
 impl AbstractNode for FunctionCall {
     fn define_and_validate(
         &self,
-        outer_context: &Context,
+        context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
-        self.context.set_parent(outer_context.clone())?;
         self.function_expression
-            .define_and_validate(outer_context, manage_memory)?;
+            .define_and_validate(context, manage_memory, scope)?;
 
         if let Some(value_arguments) = &self.value_arguments {
             for expression in value_arguments {
-                expression.define_and_validate(outer_context, manage_memory)?;
+                expression.define_and_validate(context, manage_memory, scope)?;
             }
         }
 
         let function_node_type =
-            if let Some(r#type) = self.function_expression.expected_type(outer_context)? {
+            if let Some(r#type) = self.function_expression.expected_type(context)? {
                 r#type
             } else {
                 return Err(ValidationError::ExpectedValueStatement(
@@ -78,9 +74,9 @@ impl AbstractNode for FunctionCall {
                 }
 
                 for (identifier, constructor) in parameters.into_iter().zip(arguments.into_iter()) {
-                    let r#type = constructor.construct(outer_context)?;
+                    let r#type = constructor.construct(context)?;
 
-                    self.context.set_type(identifier, r#type)?;
+                    context.set_type(identifier, r#type, self.function_expression.position())?;
                 }
             }
 
@@ -89,16 +85,19 @@ impl AbstractNode for FunctionCall {
                     for ((identifier, _), expression) in
                         parameters.iter().zip(arguments.into_iter())
                     {
-                        let r#type =
-                            if let Some(r#type) = expression.expected_type(outer_context)? {
-                                r#type
-                            } else {
-                                return Err(ValidationError::ExpectedValueStatement(
-                                    expression.position(),
-                                ));
-                            };
+                        let r#type = if let Some(r#type) = expression.expected_type(context)? {
+                            r#type
+                        } else {
+                            return Err(ValidationError::ExpectedValueStatement(
+                                expression.position(),
+                            ));
+                        };
 
-                        self.context.set_type(identifier.clone(), r#type)?;
+                        context.set_type(
+                            identifier.clone(),
+                            r#type,
+                            self.function_expression.position(),
+                        )?;
                     }
 
                     if parameters.len() != arguments.len() {
@@ -134,13 +133,14 @@ impl AbstractNode for FunctionCall {
 
     fn evaluate(
         self,
-        outer_context: &Context,
+        context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let function_position = self.function_expression.position();
         let evaluation = self
             .function_expression
-            .evaluate(outer_context, manage_memory)?;
+            .evaluate(context, manage_memory, scope)?;
         let value = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {
@@ -156,9 +156,9 @@ impl AbstractNode for FunctionCall {
                 for (identifier, constructor) in
                     type_parameters.into_iter().zip(type_arguments.into_iter())
                 {
-                    let r#type = constructor.construct(outer_context)?;
+                    let r#type = constructor.construct(context)?;
 
-                    self.context.set_type(identifier.clone(), r#type)?;
+                    context.set_type(identifier.clone(), r#type, function_position)?;
                 }
             }
 
@@ -169,7 +169,7 @@ impl AbstractNode for FunctionCall {
                     parameters.into_iter().zip(arguments.into_iter())
                 {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(outer_context, manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory, scope)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -178,11 +178,11 @@ impl AbstractNode for FunctionCall {
                         ));
                     };
 
-                    self.context.set_value(identifier.clone(), value)?;
+                    context.set_value(identifier.clone(), value, function_position)?;
                 }
             }
 
-            return function.clone().call(&self.context, manage_memory);
+            return function.clone().call(context, manage_memory, scope);
         }
 
         if let ValueInner::BuiltInFunction(function) = value.inner().as_ref() {
@@ -208,9 +208,9 @@ impl AbstractNode for FunctionCall {
                 for (identifier, constructor) in
                     type_parameters.into_iter().zip(type_arguments.into_iter())
                 {
-                    let r#type = constructor.construct(outer_context)?;
+                    let r#type = constructor.construct(context)?;
 
-                    self.context.set_type(identifier.clone(), r#type)?;
+                    context.set_type(identifier.clone(), r#type, function_position)?;
                 }
             }
 
@@ -219,7 +219,7 @@ impl AbstractNode for FunctionCall {
                     parameters.into_iter().zip(arguments.into_iter())
                 {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(outer_context, manage_memory)?;
+                    let evaluation = expression.evaluate(context, manage_memory, scope)?;
                     let value = if let Some(Evaluation::Return(value)) = evaluation {
                         value
                     } else {
@@ -228,18 +228,18 @@ impl AbstractNode for FunctionCall {
                         ));
                     };
 
-                    self.context.set_value(identifier.clone(), value)?;
+                    context.set_value(identifier.clone(), value, function_position)?;
                 }
             }
 
             return function
-                .call(&self.context, manage_memory)
+                .call(context, manage_memory)
                 .map(|option| option.map(|value| Evaluation::Return(value)));
         }
 
         Err(RuntimeError::ValidationFailure(
             ValidationError::ExpectedFunction {
-                actual: value.r#type(outer_context)?,
+                actual: value.r#type(context)?,
                 position: function_position,
             },
         ))

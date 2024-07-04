@@ -8,7 +8,7 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Evaluation, Type, TypeConstructor, WithPosition};
+use super::{AbstractNode, Evaluation, SourcePosition, Type, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumDeclaration {
@@ -32,7 +32,12 @@ impl EnumDeclaration {
 }
 
 impl AbstractNode for EnumDeclaration {
-    fn define_and_validate(&self, context: &Context, _: bool) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _: bool,
+        scope: SourcePosition,
+    ) -> Result<(), ValidationError> {
         let EnumDeclaration {
             name,
             type_parameters,
@@ -73,13 +78,25 @@ impl AbstractNode for EnumDeclaration {
             type_parameters,
             variants: type_variants,
         };
+        let final_node_position = if let Some(constructors) = &self.variants.last().unwrap().content
+        {
+            constructors.last().unwrap().position()
+        } else {
+            self.variants.last().unwrap().name.position
+        };
+        let scope = SourcePosition(self.name.position.0, final_node_position.1);
 
-        context.set_type(name.node.clone(), r#type)?;
+        context.set_type(name.node.clone(), r#type, scope)?;
 
         Ok(())
     }
 
-    fn evaluate(self, _: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
+    fn evaluate(
+        self,
+        _: &Context,
+        _: bool,
+        scope: SourcePosition,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         Ok(None)
     }
 

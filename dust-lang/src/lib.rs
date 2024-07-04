@@ -24,7 +24,7 @@ use lexer::{lex, Token};
 use parser::{parse, parser};
 
 pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
-    let interpreter = Interpreter::new(Context::new(None));
+    let interpreter = Interpreter::new(Context::new());
 
     interpreter.run(Arc::from(source_id), Arc::from(source))
 }
@@ -448,7 +448,7 @@ mod tests {
 
     #[test]
     fn load_standard_library() {
-        let context = Context::new(None);
+        let context = Context::new();
 
         for abstract_tree in std_full_compiled() {
             abstract_tree.run(&context, true).unwrap();

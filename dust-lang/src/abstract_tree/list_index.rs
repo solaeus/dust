@@ -7,7 +7,7 @@ use crate::{
     error::{RuntimeError, ValidationError},
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, ValueNode, WithPosition};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type, ValueNode, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ListIndex {
@@ -29,10 +29,12 @@ impl AbstractNode for ListIndex {
         &self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         self.collection
-            .define_and_validate(context, _manage_memory)?;
-        self.index.define_and_validate(context, _manage_memory)?;
+            .define_and_validate(context, _manage_memory, scope)?;
+        self.index
+            .define_and_validate(context, _manage_memory, scope)?;
 
         let collection_type = if let Some(r#type) = self.collection.expected_type(context)? {
             r#type
@@ -77,9 +79,10 @@ impl AbstractNode for ListIndex {
         self,
         context: &Context,
         _clear_variables: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let left_position = self.collection.position();
-        let left_evaluation = self.collection.evaluate(context, _clear_variables)?;
+        let left_evaluation = self.collection.evaluate(context, _clear_variables, scope)?;
         let left_value = if let Some(Evaluation::Return(value)) = left_evaluation {
             value
         } else {
@@ -88,7 +91,7 @@ impl AbstractNode for ListIndex {
             ));
         };
         let right_position = self.index.position();
-        let right_evaluation = self.index.evaluate(context, _clear_variables)?;
+        let right_evaluation = self.index.evaluate(context, _clear_variables, scope)?;
         let right_value = if let Some(Evaluation::Return(value)) = right_evaluation {
             value
         } else {

@@ -9,7 +9,9 @@ use crate::{
     Context, Value,
 };
 
-use super::{AbstractNode, Evaluation, Statement, Type, TypeConstructor, WithPosition};
+use super::{
+    AbstractNode, Evaluation, SourcePosition, Statement, Type, TypeConstructor, WithPosition,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Assignment {
@@ -47,20 +49,21 @@ impl AbstractNode for Assignment {
         &self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
-        if let Some(constructor) = &self.constructor {
-            let r#type = constructor.construct(&context)?;
-
-            context.set_type(self.identifier.node.clone(), r#type.clone())?;
+        let r#type = if let Some(constructor) = &self.constructor {
+            constructor.construct(&context)?
         } else if let Some(r#type) = self.statement.expected_type(context)? {
-            context.set_type(self.identifier.node.clone(), r#type)?;
+            r#type
         } else {
             return Err(ValidationError::CannotAssignToNone(
                 self.statement.last_evaluated_statement().position(),
             ));
         };
 
-        self.statement.define_and_validate(context, manage_memory)?;
+        context.set_type(self.identifier.node.clone(), r#type, scope)?;
+        self.statement
+            .define_and_validate(context, manage_memory, scope)?;
 
         let statement_type = self.statement.expected_type(context)?;
 
@@ -91,8 +94,9 @@ impl AbstractNode for Assignment {
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        let evaluation = self.statement.evaluate(context, manage_memory)?;
+        let evaluation = self.statement.evaluate(context, manage_memory, scope)?;
         let right = match evaluation {
             Some(Evaluation::Return(value)) => value,
             evaluation => return Ok(evaluation),
@@ -100,7 +104,7 @@ impl AbstractNode for Assignment {
 
         match self.operator {
             AssignmentOperator::Assign => {
-                context.set_value(self.identifier.node, right)?;
+                context.set_value(self.identifier.node, right, scope)?;
             }
             AssignmentOperator::AddAssign => {
                 let left_option = if manage_memory {
@@ -137,7 +141,7 @@ impl AbstractNode for Assignment {
                             ))
                         }
                     };
-                    context.set_value(self.identifier.node, new_value)?;
+                    context.set_value(self.identifier.node, new_value, scope)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {
@@ -182,7 +186,7 @@ impl AbstractNode for Assignment {
                             ))
                         }
                     };
-                    context.set_value(self.identifier.node, new_value)?;
+                    context.set_value(self.identifier.node, new_value, scope)?;
                 } else {
                     return Err(RuntimeError::ValidationFailure(
                         ValidationError::VariableNotFound {

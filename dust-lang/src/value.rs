@@ -14,7 +14,9 @@ use serde::{
 };
 
 use crate::{
-    abstract_tree::{AbstractNode, Block, BuiltInFunction, Evaluation, Type, WithPosition},
+    abstract_tree::{
+        AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type, WithPosition,
+    },
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
@@ -778,7 +780,10 @@ impl Function {
         self,
         context: &Context,
         manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        self.body.evaluate(context, manage_memory)
+        self.body
+            .define_and_validate(context, manage_memory, scope)?;
+        self.body.evaluate(context, manage_memory, scope)
     }
 }

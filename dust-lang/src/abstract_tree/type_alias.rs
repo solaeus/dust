@@ -8,7 +8,7 @@ use crate::{
     identifier::Identifier,
 };
 
-use super::{AbstractNode, Evaluation, Type, TypeConstructor, WithPosition};
+use super::{AbstractNode, Evaluation, SourcePosition, Type, TypeConstructor, WithPosition};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TypeAlias {
@@ -26,15 +26,25 @@ impl TypeAlias {
 }
 
 impl AbstractNode for TypeAlias {
-    fn define_and_validate(&self, context: &Context, _: bool) -> Result<(), ValidationError> {
+    fn define_and_validate(
+        &self,
+        context: &Context,
+        _: bool,
+        scope: SourcePosition,
+    ) -> Result<(), ValidationError> {
         let r#type = self.constructor.construct(&context)?;
 
-        context.set_type(self.identifier.node.clone(), r#type)?;
+        context.set_type(self.identifier.node.clone(), r#type, scope)?;
 
         Ok(())
     }
 
-    fn evaluate(self, _: &Context, _: bool) -> Result<Option<Evaluation>, RuntimeError> {
+    fn evaluate(
+        self,
+        _: &Context,
+        _: bool,
+        _: SourcePosition,
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         Ok(None)
     }
 

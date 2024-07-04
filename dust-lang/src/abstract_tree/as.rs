@@ -12,7 +12,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type, TypeConstructor};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type, TypeConstructor};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct As {
@@ -34,9 +34,10 @@ impl AbstractNode for As {
         &self,
         _context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         self.expression
-            .define_and_validate(_context, _manage_memory)?;
+            .define_and_validate(_context, _manage_memory, scope)?;
 
         match self.constructor {
             TypeConstructor::Raw(_) => {}
@@ -50,9 +51,10 @@ impl AbstractNode for As {
         self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let expression_position = self.expression.position();
-        let evaluation = self.expression.evaluate(context, _manage_memory)?;
+        let evaluation = self.expression.evaluate(context, _manage_memory, scope)?;
         let value = if let Some(Evaluation::Return(value)) = evaluation {
             value
         } else {

@@ -9,7 +9,7 @@ use crate::{
     Value,
 };
 
-use super::{AbstractNode, Evaluation, Expression, Type};
+use super::{AbstractNode, Evaluation, Expression, SourcePosition, Type};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Logic {
@@ -29,6 +29,7 @@ impl AbstractNode for Logic {
         &self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         match self {
             Logic::Equal(left, right)
@@ -37,8 +38,8 @@ impl AbstractNode for Logic {
             | Logic::Less(left, right)
             | Logic::GreaterOrEqual(left, right)
             | Logic::LessOrEqual(left, right) => {
-                left.define_and_validate(context, _manage_memory)?;
-                right.define_and_validate(context, _manage_memory)?;
+                left.define_and_validate(context, _manage_memory, scope)?;
+                right.define_and_validate(context, _manage_memory, scope)?;
 
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
@@ -62,8 +63,8 @@ impl AbstractNode for Logic {
                 Ok(())
             }
             Logic::And(left, right) | Logic::Or(left, right) => {
-                left.define_and_validate(context, _manage_memory)?;
-                right.define_and_validate(context, _manage_memory)?;
+                left.define_and_validate(context, _manage_memory, scope)?;
+                right.define_and_validate(context, _manage_memory, scope)?;
 
                 let left_type = if let Some(r#type) = left.expected_type(context)? {
                     r#type
@@ -95,7 +96,7 @@ impl AbstractNode for Logic {
                 Ok(())
             }
             Logic::Not(expression) => {
-                expression.define_and_validate(context, _manage_memory)?;
+                expression.define_and_validate(context, _manage_memory, scope)?;
 
                 let expression_type = if let Some(r#type) = expression.expected_type(context)? {
                     r#type
@@ -121,10 +122,11 @@ impl AbstractNode for Logic {
         self,
         context: &Context,
         _manage_memory: bool,
+        scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
             let expression_position = expression.position();
-            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory)?;
+            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory, scope)?;
             let value = if let Some(Evaluation::Return(value)) = evaluation {
                 value
             } else {
@@ -138,7 +140,7 @@ impl AbstractNode for Logic {
 
         let run_and_expect_boolean = |expression: Expression| -> Result<bool, RuntimeError> {
             let expression_position = expression.position();
-            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory)?;
+            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory, scope)?;
             let value = if let Some(Evaluation::Return(value)) = evaluation {
                 value
             } else {
@@ -256,7 +258,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -268,7 +270,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -280,7 +282,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -292,7 +294,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -304,7 +306,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(41).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
 
@@ -313,7 +315,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
     }
@@ -325,7 +327,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(41).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
 
@@ -334,7 +336,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
     }
@@ -346,7 +348,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -358,7 +360,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
                 Expression::Value(ValueNode::Boolean(false).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -369,7 +371,7 @@ mod tests {
             Logic::Not(Expression::Value(
                 ValueNode::Boolean(false).with_position((0, 0))
             ))
-            .evaluate(&mut Context::new(None), true),
+            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
