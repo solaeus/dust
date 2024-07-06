@@ -1,20 +1,24 @@
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     fmt::Debug,
     sync::{Arc, RwLock},
 };
+
+use log::trace;
+use rand::random;
 
 use crate::{
     abstract_tree::{SourcePosition, Type},
     error::{PoisonError, ValidationError},
     identifier::Identifier,
     standard_library::core_context,
-    value::ValueInner,
     Value,
 };
 
 #[derive(Clone, Debug)]
 pub struct Context {
+    id: u32,
     variables: Arc<RwLock<HashMap<Identifier, (VariableData, UsageData, SourcePosition)>>>,
     is_clean: Arc<RwLock<bool>>,
 }
@@ -22,6 +26,7 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         Context {
+            id: random(),
             variables: Arc::new(RwLock::new(HashMap::new())),
             is_clean: Arc::new(RwLock::new(true)),
         }
@@ -37,9 +42,27 @@ impl Context {
         let variables = other.variables.read()?.clone();
 
         Ok(Context {
+            id: random(),
             variables: Arc::new(RwLock::new(variables)),
             is_clean: Arc::new(RwLock::new(true)),
         })
+    }
+
+    pub fn inherit_variables_from(&self, other: &Context) -> Result<(), PoisonError> {
+        let (get_self_variables, get_other_variables) =
+            (self.variables.try_write(), other.variables.try_read());
+
+        if let (Ok(mut self_variables), Ok(other_variables)) =
+            (get_self_variables, get_other_variables)
+        {
+            self_variables.extend(other_variables.iter().map(|(identifier, data)| {
+                trace!("Inheriting {identifier}");
+
+                (identifier.clone(), data.clone())
+            }));
+        }
+
+        Ok(())
     }
 
     pub fn contains(
@@ -55,6 +78,8 @@ impl Context {
             if scope.0 >= variable_scope.0 && scope.1 <= variable_scope.1 {
                 return Ok(true);
             }
+        } else {
+            trace!("Denying access to {identifier}, out of scope")
         }
 
         Ok(false)
@@ -191,6 +216,26 @@ impl Context {
 impl Default for Context {
     fn default() -> Self {
         Context::new()
+    }
+}
+
+impl Eq for Context {}
+
+impl PartialEq for Context {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl PartialOrd for Context {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Context {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.id.cmp(&other.id)
     }
 }
 

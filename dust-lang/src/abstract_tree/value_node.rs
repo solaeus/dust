@@ -218,7 +218,7 @@ impl AbstractNode for ValueNode {
             fields: expressions,
         } = self
         {
-            if !context.contains(&name.node)? {
+            if !context.contains(&name.node, scope)? {
                 return Err(ValidationError::VariableNotFound {
                     identifier: name.node.clone(),
                     position: name.position,

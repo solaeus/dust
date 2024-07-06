@@ -150,27 +150,28 @@ impl AbstractNode for FunctionCall {
         };
 
         if let ValueInner::Function(function) = value.inner().as_ref() {
-            if let (Some(type_parameters), Some(type_arguments)) =
-                (function.type_parameters(), self.type_arguments)
-            {
-                for (identifier, constructor) in
-                    type_parameters.into_iter().zip(type_arguments.into_iter())
-                {
-                    let r#type = constructor.construct(context)?;
+            let type_arguments = if let Some(type_arguments) = self.type_arguments {
+                let mut types = Vec::with_capacity(type_arguments.len());
 
-                    context.set_type(identifier.clone(), r#type, function_position)?;
+                for constructor in type_arguments {
+                    types.push(constructor.construct(context)?)
                 }
-            }
 
-            if let (Some(parameters), Some(arguments)) =
-                (function.value_parameters(), self.value_arguments)
-            {
-                for ((identifier, _), expression) in
-                    parameters.into_iter().zip(arguments.into_iter())
-                {
+                Some(types)
+            } else {
+                None
+            };
+            let value_arguments = if let Some(value_arguments) = self.value_arguments {
+                let mut values = Vec::with_capacity(value_arguments.len());
+
+                for expression in value_arguments {
                     let position = expression.position();
-                    let evaluation = expression.evaluate(context, manage_memory, scope)?;
-                    let value = if let Some(Evaluation::Return(value)) = evaluation {
+                    let evaluation = (expression.evaluate(context, manage_memory, scope)?).ok_or(
+                        RuntimeError::ValidationFailure(ValidationError::ExpectedValueStatement(
+                            position,
+                        )),
+                    )?;
+                    let value = if let Evaluation::Return(value) = evaluation {
                         value
                     } else {
                         return Err(RuntimeError::ValidationFailure(
@@ -178,11 +179,17 @@ impl AbstractNode for FunctionCall {
                         ));
                     };
 
-                    context.set_value(identifier.clone(), value, function_position)?;
+                    values.push(value);
                 }
-            }
 
-            return function.clone().call(context, manage_memory, scope);
+                Some(values)
+            } else {
+                None
+            };
+
+            return function
+                .clone()
+                .call(Some(context), type_arguments, value_arguments);
         }
 
         if let ValueInner::BuiltInFunction(function) = value.inner().as_ref() {

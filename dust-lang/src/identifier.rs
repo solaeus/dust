@@ -1,13 +1,11 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    hash::{Hash, Hasher},
+    hash::Hash,
     sync::{Arc, OnceLock, RwLock},
 };
 
 use serde::{de::Visitor, Deserialize, Serialize};
-
-use crate::abstract_tree::SourcePosition;
 
 static IDENTIFIER_CACHE: OnceLock<RwLock<HashMap<String, Identifier>>> = OnceLock::new();
 
@@ -19,7 +17,7 @@ fn identifier_cache<'a>() -> &'a RwLock<HashMap<String, Identifier>> {
 pub struct Identifier(Arc<String>);
 
 impl Identifier {
-    pub fn new(text: &str, scope: Option<SourcePosition>) -> Self {
+    pub fn new(text: &str) -> Self {
         let cache = identifier_cache();
 
         if let Some(identifier) = cache.read().unwrap().get(text).cloned() {
@@ -40,7 +38,7 @@ impl Identifier {
 
 impl From<&str> for Identifier {
     fn from(text: &str) -> Self {
-        Identifier::new(text, None)
+        Identifier::new(text)
     }
 }
 
@@ -88,7 +86,7 @@ impl<'de> Visitor<'de> for IdentifierVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Identifier::new(v, None))
+        Ok(Identifier::new(v))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>

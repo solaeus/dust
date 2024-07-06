@@ -7,6 +7,7 @@ use std::{
 };
 
 use chumsky::container::Container;
+use log::{debug, trace};
 use serde::{
     de::Visitor,
     ser::{SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple},
@@ -15,7 +16,8 @@ use serde::{
 
 use crate::{
     abstract_tree::{
-        AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type, WithPosition,
+        AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type, TypeConstructor,
+        WithPosition,
     },
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -80,12 +82,12 @@ impl Value {
         return_type: Option<Type>,
         body: Block,
     ) -> Self {
-        Value(Arc::new(ValueInner::Function(Function {
+        Value(Arc::new(ValueInner::Function(Function::new(
             type_parameters,
             value_parameters,
             return_type,
             body,
-        })))
+        ))))
     }
 
     pub fn structure(name: WithPosition<Identifier>, fields: Vec<(Identifier, Value)>) -> Self {
@@ -741,12 +743,13 @@ impl Ord for ValueInner {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug)]
 pub struct Function {
     type_parameters: Option<Vec<Identifier>>,
     value_parameters: Option<Vec<(Identifier, Type)>>,
     return_type: Option<Type>,
     body: Block,
+    context: Context,
 }
 
 impl Function {
@@ -761,6 +764,7 @@ impl Function {
             value_parameters,
             return_type,
             body,
+            context: Context::new(),
         }
     }
 
@@ -778,12 +782,68 @@ impl Function {
 
     pub fn call(
         self,
-        context: &Context,
-        manage_memory: bool,
-        scope: SourcePosition,
+        outer_context: Option<&Context>,
+        type_arguments: Option<Vec<Type>>,
+        value_arguments: Option<Vec<Value>>,
     ) -> Result<Option<Evaluation>, RuntimeError> {
+        trace!("Setting function call variables");
+
+        if let Some(outer_context) = outer_context {
+            if &self.context == outer_context {
+                log::debug!("Recursion detected");
+            }
+
+            self.context.inherit_variables_from(outer_context)?;
+        }
+
+        if let (Some(type_parameters), Some(type_arguments)) =
+            (self.type_parameters, type_arguments)
+        {
+            for (identifier, r#type) in type_parameters.into_iter().zip(type_arguments.into_iter())
+            {
+                self.context
+                    .set_type(identifier.clone(), r#type, SourcePosition(0, usize::MAX))?;
+            }
+        }
+
+        if let (Some(value_parameters), Some(value_arguments)) =
+            (self.value_parameters, value_arguments)
+        {
+            for ((identifier, _), value) in value_parameters
+                .into_iter()
+                .zip(value_arguments.into_iter())
+            {
+                self.context
+                    .set_value(identifier.clone(), value, SourcePosition(0, usize::MAX))?;
+            }
+        }
+
+        debug!("Calling function");
+
         self.body
-            .define_and_validate(context, manage_memory, scope)?;
-        self.body.evaluate(context, manage_memory, scope)
+            .evaluate(&self.context, false, SourcePosition(0, usize::MAX))
+    }
+}
+
+impl Eq for Function {}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_parameters == other.type_parameters
+            && self.value_parameters == other.value_parameters
+            && self.return_type == other.return_type
+            && self.body == other.body
+    }
+}
+
+impl PartialOrd for Function {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Function {
+    fn cmp(&self, other: &Self) -> Ordering {
+        todo!()
     }
 }

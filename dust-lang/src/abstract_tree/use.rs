@@ -1,5 +1,5 @@
 use std::{
-    fmt::Display,
+    fmt::{self, Display, Formatter},
     fs::read_to_string,
     path::Path,
     sync::{Arc, RwLock},
@@ -93,8 +93,8 @@ impl AbstractNode for Use {
 }
 
 impl Display for Use {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "use {}", self.path)
     }
 }
 
