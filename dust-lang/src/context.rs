@@ -13,6 +13,7 @@ use crate::{
     error::{PoisonError, ValidationError},
     identifier::Identifier,
     standard_library::core_context,
+    value::ValueInner,
     Value,
 };
 
@@ -55,11 +56,37 @@ impl Context {
         if let (Ok(mut self_variables), Ok(other_variables)) =
             (get_self_variables, get_other_variables)
         {
-            self_variables.extend(other_variables.iter().map(|(identifier, data)| {
-                trace!("Inheriting {identifier}");
+            self_variables.extend(other_variables.iter().filter_map(
+                |(identifier, (variable, usage, position))| {
+                    trace!("Inheriting {identifier}");
 
-                (identifier.clone(), data.clone())
-            }));
+                    if let VariableData::Type(r#type) = variable {
+                        match r#type {
+                            Type::Enum { .. } | Type::Function { .. } | Type::Structure { .. } => {
+                                return Some((
+                                    identifier.clone(),
+                                    (variable.clone(), usage.clone(), *position),
+                                ))
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if let VariableData::Value(value) = variable {
+                        match value.inner().as_ref() {
+                            ValueInner::BuiltInFunction(_) | ValueInner::Function(_) => {
+                                return Some((
+                                    identifier.clone(),
+                                    (variable.clone(), usage.clone(), *position),
+                                ))
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    None
+                },
+            ));
         }
 
         Ok(())

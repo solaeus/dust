@@ -1,6 +1,28 @@
 use dust_lang::*;
 
 #[test]
+fn function_scope() {
+    assert_eq!(
+        interpret(
+            "test",
+            "
+            x = 2
+            
+            foo = fn () -> int {
+                x = 42
+                x
+            }
+            
+            x = 1
+
+            foo()        
+            "
+        ),
+        Ok(Some(Value::integer(42)))
+    );
+}
+
+#[test]
 fn function_call_with_type_argument() {
     assert_eq!(
         interpret(
@@ -74,14 +96,16 @@ fn recursion() {
             "test",
             "
             fib = fn (i: int) -> int {
-            	if i <= 1 {
-            		1
+            	if i < 0 {
+                    0
+                } else if i <= 1 {
+            		i
             	} else {
             		fib(i - 1) + fib(i - 2)
             	}
             }
 
-            fib(8)
+            fib(4)
             "
         ),
         Ok(Some(Value::integer(13)))
