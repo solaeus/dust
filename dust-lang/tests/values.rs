@@ -87,11 +87,11 @@ fn string() {
 #[test]
 fn list() {
     assert_eq!(
-        interpret("test", "[1, 2, 'foobar']"),
+        interpret("test", "[1, 2, 3]"),
         Ok(Some(Value::list(vec![
             Value::integer(1),
             Value::integer(2),
-            Value::string("foobar".to_string()),
+            Value::integer(3),
         ])))
     );
 }

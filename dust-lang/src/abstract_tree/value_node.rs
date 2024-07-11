@@ -67,7 +67,11 @@ impl AbstractNode for ValueNode {
     ) -> Result<(), ValidationError> {
         if let ValueNode::List(list) = self {
             let mut items = list.into_iter();
-            let first_item = items.next().unwrap();
+            let first_item = if let Some(item) = items.next() {
+                item
+            } else {
+                return Ok(());
+            };
             let first_item_type = if let Some(r#type) = first_item.expected_type(context)? {
                 r#type
             } else {
