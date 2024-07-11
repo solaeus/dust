@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    identifier::Identifier,
+    identifier::{self, Identifier},
     Value,
 };
 
@@ -111,12 +111,31 @@ impl AbstractNode for ValueNode {
                 }
             }
 
-            if let Some(Type::Enum { variants, .. }) = context.get_type(&type_name.node)? {
-                if variants
-                    .iter()
-                    .find(|(identifier, _)| identifier == &variant.node)
-                    .is_none()
-                {
+            if let Some(Type::Enum { name, variants, .. }) = context.get_type(&type_name.node)? {
+                let mut found = false;
+
+                for (identifier, content) in &variants {
+                    if identifier == &variant.node {
+                        found = true;
+                    }
+
+                    if let Some(content) = content {
+                        for r#type in content {
+                            if let Type::Generic {
+                                concrete_type: None,
+                                ..
+                            } = r#type
+                            {
+                                return Err(ValidationError::FullTypeNotKnown {
+                                    identifier: name,
+                                    position: variant.position,
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if !found {
                     return Err(ValidationError::EnumVariantNotFound {
                         identifier: variant.node.clone(),
                         position: variant.position,
