@@ -1,6 +1,5 @@
 use std::{
     fmt::{self, Display, Formatter},
-    fs::read_to_string,
     path::Path,
     sync::{Arc, RwLock},
 };
@@ -10,9 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     context::Context,
-    error::{DustError, RuntimeError, ValidationError},
-    lexer::lex,
-    parser,
+    error::{RuntimeError, ValidationError},
     standard_library::{std_fs_compiled, std_io_compiled, std_json_compiled, std_thread_compiled},
     Type,
 };
