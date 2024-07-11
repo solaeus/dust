@@ -743,7 +743,7 @@ impl Ord for ValueInner {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Function {
     type_parameters: Option<Vec<Identifier>>,
     value_parameters: Option<Vec<(Identifier, Type)>>,
@@ -821,9 +821,19 @@ impl Function {
         debug!("Calling function");
 
         self.body
-            .define_and_validate(&self.context, false, SourcePosition(0, usize::MAX))?;
-        self.body
             .evaluate(&self.context, false, SourcePosition(0, usize::MAX))
+    }
+}
+
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        Function {
+            type_parameters: self.type_parameters.clone(),
+            value_parameters: self.value_parameters.clone(),
+            return_type: self.return_type.clone(),
+            body: self.body.clone(),
+            context: Context::new(),
+        }
     }
 }
 

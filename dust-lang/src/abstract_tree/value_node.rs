@@ -53,6 +53,7 @@ impl ValueNode {
             value_parameters,
             return_type,
             body,
+            context: Context::new(),
         })
     }
 }
@@ -157,17 +158,20 @@ impl AbstractNode for ValueNode {
             body,
             type_parameters,
             value_parameters,
+            context: function_context,
         }) = self
         {
+            function_context.inherit_variables_from(context)?;
+
             if let Some(type_parameters) = type_parameters {
                 for identifier in type_parameters {
-                    context.set_type(
+                    function_context.set_type(
                         identifier.clone(),
                         Type::Generic {
                             identifier: identifier.clone(),
                             concrete_type: None,
                         },
-                        body.position,
+                        (0, usize::MAX).into(),
                     )?;
                 }
             }
@@ -176,15 +180,19 @@ impl AbstractNode for ValueNode {
                 for (identifier, type_constructor) in value_parameters {
                     let r#type = type_constructor.clone().construct(context)?;
 
-                    context.set_type(identifier.clone(), r#type, body.position)?;
+                    function_context.set_type(
+                        identifier.clone(),
+                        r#type,
+                        (0, usize::MAX).into(),
+                    )?;
                 }
             }
 
             body.node
-                .define_and_validate(context, _manage_memory, scope)?;
+                .define_and_validate(function_context, _manage_memory, scope)?;
 
             let ((expected_return, expected_position), actual_return) =
-                match (return_type, body.node.expected_type(context)?) {
+                match (return_type, body.node.expected_type(function_context)?) {
                     (Some(constructor), Some(r#type)) => (
                         (constructor.construct(context)?, constructor.position()),
                         r#type,
@@ -697,6 +705,7 @@ impl Display for ValueNode {
                 value_parameters,
                 return_type,
                 body,
+                ..
             }) => {
                 write!(f, "fn ")?;
 
@@ -730,12 +739,27 @@ impl Display for ValueNode {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FunctionNode {
     type_parameters: Option<Vec<Identifier>>,
     value_parameters: Option<Vec<(Identifier, TypeConstructor)>>,
     return_type: Option<TypeConstructor>,
     body: WithPosition<Block>,
+
+    #[serde(skip)]
+    context: Context,
+}
+
+impl Clone for FunctionNode {
+    fn clone(&self) -> Self {
+        FunctionNode {
+            type_parameters: self.type_parameters.clone(),
+            value_parameters: self.value_parameters.clone(),
+            return_type: self.return_type.clone(),
+            body: self.body.clone(),
+            context: Context::new(),
+        }
+    }
 }
 
 impl PartialEq for FunctionNode {

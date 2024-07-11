@@ -7,15 +7,15 @@ fn function_scope() {
             "test",
             "
             x = 2
-            
+
             foo = fn () -> int {
                 x = 42
                 x
             }
-            
+
             x = 1
 
-            foo()        
+            foo()
             "
         ),
         Ok(Some(Value::integer(42)))
@@ -96,16 +96,14 @@ fn recursion() {
             "test",
             "
             fib = fn (i: int) -> int {
-            	if i < 0 {
-                    0
-                } else if i <= 1 {
-            		i
-            	} else {
+            	if i <= 1 {
+                    i
+                } else {
             		fib(i - 1) + fib(i - 2)
             	}
             }
 
-            fib(8)
+            fib(7)
             "
         ),
         Ok(Some(Value::integer(13)))
