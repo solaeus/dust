@@ -105,7 +105,7 @@ fn recursion() {
             	}
             }
 
-            fib(4)
+            fib(8)
             "
         ),
         Ok(Some(Value::integer(13)))

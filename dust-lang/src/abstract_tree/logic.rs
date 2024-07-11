@@ -214,8 +214,8 @@ impl AbstractNode for Logic {
 
                 left_boolean || right_boolean
             }
-            Logic::Not(statement) => {
-                let boolean = run_and_expect_boolean(statement)?;
+            Logic::Not(expression) => {
+                let boolean = run_and_expect_boolean(expression)?;
 
                 !boolean
             }

@@ -821,6 +821,8 @@ impl Function {
         debug!("Calling function");
 
         self.body
+            .define_and_validate(&self.context, false, SourcePosition(0, usize::MAX))?;
+        self.body
             .evaluate(&self.context, false, SourcePosition(0, usize::MAX))
     }
 }
