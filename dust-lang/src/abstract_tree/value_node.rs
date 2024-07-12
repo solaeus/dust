@@ -122,34 +122,14 @@ impl AbstractNode for ValueNode {
                         return Err(ValidationError::WrongTypeArgumentsCount {
                             expected: parameters.len(),
                             actual: arguments.len(),
+                            position: arguments.last().unwrap().position(),
                         });
                     }
 
-                    let mut arguments = arguments.iter();
-                    let mut found = false;
-
-                    for (identifier, content) in variants {
-                        if identifier == variant.node {
-                            found = true;
-                        }
-
-                        if let Some(content) = content {
-                            for expected_type in &content {
-                                if let Type::Generic {
-                                    concrete_type: None,
-                                    ..
-                                } = expected_type
-                                {
-                                    arguments.next().ok_or_else(|| {
-                                        ValidationError::WrongTypeArgumentsCount {
-                                            expected: content.len(),
-                                            actual: arguments.len(),
-                                        }
-                                    })?;
-                                }
-                            }
-                        }
-                    }
+                    let found = variants
+                        .into_iter()
+                        .find(|(identifier, _)| identifier == &variant.node)
+                        .is_some();
 
                     if !found {
                         return Err(ValidationError::EnumVariantNotFound {

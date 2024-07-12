@@ -184,6 +184,7 @@ pub enum ValidationError {
     WrongTypeArgumentsCount {
         expected: usize,
         actual: usize,
+        position: SourcePosition,
     },
 }
 

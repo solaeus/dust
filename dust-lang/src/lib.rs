@@ -445,7 +445,19 @@ impl InterpreterError {
                         .add_label(Label::new((self.source_id.clone(), 0..0)).with_message(reason)),
                     ValidationError::CannotUsePath(_) => todo!(),
                     ValidationError::Uninitialized => todo!(),
-                    ValidationError::WrongTypeArgumentsCount { expected, actual } => todo!(),
+                    ValidationError::WrongTypeArgumentsCount {
+                        expected,
+                        actual,
+                        position,
+                    } => builder.add_label(
+                        Label::new((self.source_id.clone(), position.0..position.1)).with_message(
+                            format!(
+                                "Expected {} type arguments but got {}.",
+                                expected.fg(type_color),
+                                actual.fg(type_color)
+                            ),
+                        ),
+                    ),
                 }
             }
 
