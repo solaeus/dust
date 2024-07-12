@@ -41,11 +41,13 @@ impl Value {
 
     pub fn enum_instance(
         type_name: Identifier,
+        type_arguments: Option<Vec<Type>>,
         variant: Identifier,
-        content: Option<Vec<Value>>,
+        content: Option<Value>,
     ) -> Self {
         Value(Arc::new(ValueInner::EnumInstance {
             type_name,
+            type_arguments,
             variant,
             content,
         }))
@@ -128,20 +130,29 @@ impl Display for Value {
             ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
             ValueInner::EnumInstance {
                 type_name,
+                type_arguments,
                 variant,
                 content,
             } => {
-                if let Some(values) = content {
-                    write!(f, "{type_name}::{variant}(")?;
+                write!(f, "{type_name}::")?;
 
-                    for value in values {
-                        write!(f, "{value}")?;
+                if let Some(types) = type_arguments {
+                    write!(f, "::<")?;
+
+                    for r#type in types {
+                        write!(f, "{type}, ")?;
                     }
 
-                    write!(f, ")")
-                } else {
-                    write!(f, "{type_name}::{variant}")
+                    write!(f, ">")?;
                 }
+
+                write!(f, "::{variant}(")?;
+
+                if let Some(value) = content {
+                    write!(f, "{value}")?;
+                }
+
+                write!(f, ")")
             }
             ValueInner::Float(float) => {
                 write!(f, "{float}")?;
@@ -257,12 +268,14 @@ impl Serialize for Value {
             ValueInner::Boolean(boolean) => serializer.serialize_bool(*boolean),
             ValueInner::EnumInstance {
                 type_name,
+                type_arguments,
                 variant,
                 content,
             } => {
                 let mut struct_ser = serializer.serialize_struct("EnumInstance", 3)?;
 
                 struct_ser.serialize_field("type_name", type_name)?;
+                struct_ser.serialize_field("type_arguments", type_arguments)?;
                 struct_ser.serialize_field("variant", variant)?;
                 struct_ser.serialize_field("content", content)?;
 
@@ -574,8 +587,9 @@ pub enum ValueInner {
     BuiltInFunction(BuiltInFunction),
     EnumInstance {
         type_name: Identifier,
+        type_arguments: Option<Vec<Type>>,
         variant: Identifier,
-        content: Option<Vec<Value>>,
+        content: Option<Value>,
     },
     Float(f64),
     Function(Function),
@@ -691,11 +705,13 @@ impl Ord for ValueInner {
             (
                 EnumInstance {
                     type_name: left_name,
+                    type_arguments: left_arguments,
                     variant: left_variant,
                     content: left_content,
                 },
                 EnumInstance {
                     type_name: right_name,
+                    type_arguments: right_arguments,
                     variant: right_variant,
                     content: right_content,
                 },
@@ -703,12 +719,18 @@ impl Ord for ValueInner {
                 let name_cmp = left_name.cmp(right_name);
 
                 if name_cmp.is_eq() {
-                    let variant_cmp = left_variant.cmp(right_variant);
+                    let argument_cmp = left_arguments.cmp(right_arguments);
 
-                    if variant_cmp.is_eq() {
-                        left_content.cmp(right_content)
+                    if argument_cmp.is_eq() {
+                        let variant_cmp = left_variant.cmp(right_variant);
+
+                        if variant_cmp.is_eq() {
+                            left_content.cmp(right_content)
+                        } else {
+                            variant_cmp
+                        }
                     } else {
-                        variant_cmp
+                        argument_cmp
                     }
                 } else {
                     name_cmp

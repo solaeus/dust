@@ -16,6 +16,7 @@ fn simple_enum() {
         ),
         Ok(Some(Value::enum_instance(
             Identifier::new("FooBar"),
+            None,
             Identifier::new("Foo"),
             None
         )))
@@ -34,13 +35,14 @@ fn big_enum() {
                 Baz(V),
             }
 
-            FooBarBaz::Baz(42.0)
+            FooBarBaz::<int, str, float>::Baz(42.0)
             "
         ),
         Ok(Some(Value::enum_instance(
             Identifier::new("FooBarBaz"),
+            None,
             Identifier::new("Baz"),
-            Some(vec![Value::float(42.0)]),
+            Some(Value::float(42.0)),
         )))
     );
 }

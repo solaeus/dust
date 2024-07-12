@@ -49,10 +49,11 @@ fn type_invokation() {
                 Statement::Expression(Expression::Value(
                     ValueNode::EnumInstance {
                         type_name: Identifier::new("Foo").with_position((14, 17)),
+                        type_arguments: None,
                         variant: Identifier::new("Bar").with_position((19, 22)),
-                        content: Some(vec![Expression::Value(
+                        content: Some(Box::new(Expression::Value(
                             ValueNode::Integer(42).with_position((23, 25))
-                        )])
+                        )))
                     }
                     .with_position((14, 26))
                 ))
@@ -69,10 +70,11 @@ fn enum_instance() {
         Statement::Expression(Expression::Value(
             ValueNode::EnumInstance {
                 type_name: Identifier::new("Foo").with_position((0, 3)),
+                type_arguments: None,
                 variant: Identifier::new("Bar").with_position((5, 8)),
-                content: Some(vec![Expression::Value(
+                content: Some(Box::new(Expression::Value(
                     ValueNode::Integer(42).with_position((9, 11))
-                )])
+                )))
             }
             .with_position((0, 12))
         ))

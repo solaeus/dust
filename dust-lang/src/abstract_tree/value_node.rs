@@ -25,8 +25,9 @@ pub enum ValueNode {
     BuiltInFunction(BuiltInFunction),
     EnumInstance {
         type_name: WithPosition<Identifier>,
+        type_arguments: Option<Vec<TypeConstructor>>,
         variant: WithPosition<Identifier>,
-        content: Option<Vec<Expression>>,
+        content: Option<Box<Expression>>,
     },
     Float(f64),
     Integer(i64),
@@ -101,14 +102,13 @@ impl AbstractNode for ValueNode {
 
         if let ValueNode::EnumInstance {
             type_name,
+            type_arguments,
             variant,
             content,
         } = self
         {
-            if let Some(expressions) = content {
-                for expression in expressions {
-                    expression.define_and_validate(context, _manage_memory, scope)?;
-                }
+            if let Some(expression) = content {
+                expression.define_and_validate(context, _manage_memory, scope)?;
             }
 
             if let Some(Type::Enum { name, variants, .. }) = context.get_type(&type_name.node)? {
@@ -296,30 +296,39 @@ impl AbstractNode for ValueNode {
             ValueNode::Boolean(boolean) => Value::boolean(boolean),
             ValueNode::EnumInstance {
                 type_name,
+                type_arguments,
                 variant,
                 content: expressions,
             } => {
-                let content = if let Some(expressions) = expressions {
-                    let mut values = Vec::with_capacity(expressions.len());
+                let content = if let Some(expression) = expressions {
+                    let position = expression.position();
+                    let evaluation = expression.evaluate(context, manage_memory, scope)?;
 
-                    for expression in expressions {
-                        let position = expression.position();
-                        let evaluation = expression.evaluate(context, manage_memory, scope)?;
-
-                        if let Some(Evaluation::Return(value)) = evaluation {
-                            values.push(value);
-                        } else {
-                            return Err(RuntimeError::ValidationFailure(
-                                ValidationError::ExpectedValueStatement(position),
-                            ));
-                        }
+                    if let Some(Evaluation::Return(value)) = evaluation {
+                        Some(value)
+                    } else {
+                        return Err(RuntimeError::ValidationFailure(
+                            ValidationError::ExpectedValueStatement(position),
+                        ));
                     }
-                    Some(values)
+                } else {
+                    None
+                };
+                let type_arguments = if let Some(arguments) = type_arguments {
+                    let mut types = Vec::with_capacity(arguments.len());
+
+                    for constructor in arguments {
+                        let r#type = constructor.construct(context)?;
+
+                        types.push(r#type);
+                    }
+
+                    Some(types)
                 } else {
                     None
                 };
 
-                Value::enum_instance(type_name.node, variant.node, content)
+                Value::enum_instance(type_name.node, type_arguments, variant.node, content)
             }
             ValueNode::Float(float) => Value::float(float),
             ValueNode::Integer(integer) => Value::integer(integer),
@@ -577,11 +586,13 @@ impl Ord for ValueNode {
             (
                 EnumInstance {
                     type_name: left_name,
+                    type_arguments: left_type_args,
                     variant: left_variant,
                     content: left_content,
                 },
                 EnumInstance {
                     type_name: right_name,
+                    type_arguments: right_type_args,
                     variant: right_variant,
                     content: right_content,
                 },
@@ -589,12 +600,18 @@ impl Ord for ValueNode {
                 let name_cmp = left_name.cmp(right_name);
 
                 if name_cmp.is_eq() {
-                    let variant_cmp = left_variant.cmp(right_variant);
+                    let type_arg_cmp = left_type_args.cmp(right_type_args);
 
-                    if variant_cmp.is_eq() {
-                        left_content.cmp(right_content)
+                    if type_arg_cmp.is_eq() {
+                        let variant_cmp = left_variant.cmp(right_variant);
+
+                        if variant_cmp.is_eq() {
+                            left_content.cmp(right_content)
+                        } else {
+                            variant_cmp
+                        }
                     } else {
-                        variant_cmp
+                        type_arg_cmp
                     }
                 } else {
                     name_cmp
@@ -670,15 +687,14 @@ impl Display for ValueNode {
             ValueNode::BuiltInFunction(built_in_function) => write!(f, "{built_in_function}"),
             ValueNode::EnumInstance {
                 type_name,
+                type_arguments,
                 variant,
                 content,
             } => {
                 write!(f, "{}::{}", type_name.node, variant.node)?;
 
-                if let Some(content) = content {
-                    for expression in content {
-                        write!(f, "{expression}")?;
-                    }
+                if let Some(expression) = content {
+                    write!(f, "{expression}")?;
                 }
 
                 Ok(())

@@ -267,6 +267,18 @@ pub fn parser<'src>(
             type ValueParameters = Vec<(Identifier, TypeConstructor)>;
             type FunctionParameters = (Option<TypeParameters>, ValueParameters);
 
+            let turbofish = just(Token::Symbol(Symbol::DoubleColon)).ignore_then(
+                type_constructor
+                    .clone()
+                    .separated_by(just(Token::Symbol(Symbol::Comma)))
+                    .at_least(1)
+                    .collect()
+                    .delimited_by(
+                        just(Token::Symbol(Symbol::Less)),
+                        just(Token::Symbol(Symbol::Greater)),
+                    ),
+            );
+
             let function = just(Token::Keyword(Keyword::Fn))
                 .ignore_then(
                     identifier
@@ -323,25 +335,17 @@ pub fn parser<'src>(
                 );
 
             let enum_instance = positioned_identifier
+                .then(turbofish.clone().or_not())
                 .then_ignore(just(Token::Symbol(Symbol::DoubleColon)))
                 .then(positioned_identifier)
-                .then(
-                    expression
-                        .clone()
-                        .separated_by(just(Token::Symbol(Symbol::Comma)))
-                        .collect()
-                        .delimited_by(
-                            just(Token::Symbol(Symbol::ParenOpen)),
-                            just(Token::Symbol(Symbol::ParenClose)),
-                        )
-                        .or_not(),
-                )
-                .map_with(|((type_name, variant), content), state| {
+                .then(expression.clone().or_not())
+                .map_with(|(((type_name, type_arguments), variant), content), state| {
                     Expression::Value(
                         ValueNode::EnumInstance {
                             type_name,
+                            type_arguments,
                             variant,
-                            content,
+                            content: content.map(|expression| Box::new(expression)),
                         }
                         .with_position(state.span()),
                     )
@@ -402,18 +406,6 @@ pub fn parser<'src>(
 
                 expression
             });
-
-            let turbofish = just(Token::Symbol(Symbol::DoubleColon)).ignore_then(
-                type_constructor
-                    .clone()
-                    .separated_by(just(Token::Symbol(Symbol::Comma)))
-                    .at_least(1)
-                    .collect()
-                    .delimited_by(
-                        just(Token::Symbol(Symbol::Less)),
-                        just(Token::Symbol(Symbol::Greater)),
-                    ),
-            );
 
             let atom = choice((
                 built_in_function,
