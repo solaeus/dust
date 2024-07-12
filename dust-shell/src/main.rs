@@ -8,10 +8,10 @@ use colored::Colorize;
 use log::Level;
 
 use std::{
+    collections::hash_map,
     fs::read_to_string,
     io::{stderr, Write},
     sync::Arc,
-    vec,
 };
 
 use dust_lang::{context::Context, Interpreter};
@@ -81,7 +81,7 @@ fn main() {
                 for report in error.build_reports() {
                     report
                         .write_for_stdout(
-                            sources::<Arc<str>, Arc<str>, vec::IntoIter<(Arc<str>, Arc<str>)>>(
+                            sources::<Arc<str>, Arc<str>, hash_map::IntoIter<Arc<str>, Arc<str>>>(
                                 interpreter.sources(),
                             ),
                             stderr(),

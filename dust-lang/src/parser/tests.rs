@@ -64,6 +64,27 @@ fn type_invokation() {
 }
 
 #[test]
+fn enum_instance_with_type_arguments() {
+    assert_eq!(
+        parse(&lex("Foo::<int, str>::Bar(42)").unwrap()).unwrap()[0],
+        Statement::Expression(Expression::Value(
+            ValueNode::EnumInstance {
+                type_name: Identifier::new("Foo").with_position((0, 3)),
+                type_arguments: Some(vec![
+                    TypeConstructor::Raw(RawTypeConstructor::Integer.with_position((6, 9))),
+                    TypeConstructor::Raw(RawTypeConstructor::String.with_position((11, 14)))
+                ]),
+                variant: Identifier::new("Bar").with_position((17, 20)),
+                content: Some(Box::new(Expression::Value(
+                    ValueNode::Integer(42).with_position((21, 23))
+                )))
+            }
+            .with_position((0, 24))
+        ))
+    );
+}
+
+#[test]
 fn enum_instance() {
     assert_eq!(
         parse(&lex("Foo::Bar(42)").unwrap()).unwrap()[0],

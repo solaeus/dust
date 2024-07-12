@@ -111,35 +111,52 @@ impl AbstractNode for ValueNode {
                 expression.define_and_validate(context, _manage_memory, scope)?;
             }
 
-            if let Some(Type::Enum { name, variants, .. }) = context.get_type(&type_name.node)? {
-                let mut found = false;
-
-                for (identifier, content) in &variants {
-                    if identifier == &variant.node {
-                        found = true;
+            if let Some(Type::Enum {
+                variants,
+                type_parameters,
+                ..
+            }) = context.get_type(&type_name.node)?
+            {
+                if let (Some(parameters), Some(arguments)) = (type_parameters, type_arguments) {
+                    if arguments.len() != parameters.len() {
+                        return Err(ValidationError::WrongTypeArgumentsCount {
+                            expected: parameters.len(),
+                            actual: arguments.len(),
+                        });
                     }
 
-                    if let Some(content) = content {
-                        for r#type in content {
-                            if let Type::Generic {
-                                concrete_type: None,
-                                ..
-                            } = r#type
-                            {
-                                return Err(ValidationError::FullTypeNotKnown {
-                                    identifier: name,
-                                    position: variant.position,
-                                });
+                    let mut arguments = arguments.iter();
+                    let mut found = false;
+
+                    for (identifier, content) in variants {
+                        if identifier == variant.node {
+                            found = true;
+                        }
+
+                        if let Some(content) = content {
+                            for expected_type in &content {
+                                if let Type::Generic {
+                                    concrete_type: None,
+                                    ..
+                                } = expected_type
+                                {
+                                    arguments.next().ok_or_else(|| {
+                                        ValidationError::WrongTypeArgumentsCount {
+                                            expected: content.len(),
+                                            actual: arguments.len(),
+                                        }
+                                    })?;
+                                }
                             }
                         }
                     }
-                }
 
-                if !found {
-                    return Err(ValidationError::EnumVariantNotFound {
-                        identifier: variant.node.clone(),
-                        position: variant.position,
-                    });
+                    if !found {
+                        return Err(ValidationError::EnumVariantNotFound {
+                            identifier: variant.node.clone(),
+                            position: variant.position,
+                        });
+                    }
                 }
             } else {
                 return Err(ValidationError::EnumDefinitionNotFound {
@@ -691,10 +708,26 @@ impl Display for ValueNode {
                 variant,
                 content,
             } => {
-                write!(f, "{}::{}", type_name.node, variant.node)?;
+                write!(f, "{}", type_name.node)?;
+
+                if let Some(types) = type_arguments {
+                    write!(f, "::<")?;
+
+                    for (index, r#type) in types.iter().enumerate() {
+                        if index > 0 {
+                            write!(f, ", ")?;
+                        }
+
+                        write!(f, "{type}")?;
+                    }
+
+                    write!(f, ">")?;
+                }
+
+                write!(f, "::{}", variant.node)?;
 
                 if let Some(expression) = content {
-                    write!(f, "{expression}")?;
+                    write!(f, "({expression})")?;
                 }
 
                 Ok(())

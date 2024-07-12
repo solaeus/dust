@@ -8,9 +8,9 @@ pub mod standard_library;
 pub mod value;
 
 use std::{
+    collections::{hash_map, HashMap},
     ops::Range,
     sync::{Arc, RwLock},
-    vec,
 };
 
 pub use abstract_tree::Type;
@@ -29,21 +29,24 @@ pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, Interpr
     interpreter.run(Arc::from(source_id), Arc::from(source))
 }
 
-type Source = (Arc<str>, Arc<str>);
-
+/// Interpreter, lexer and parser for the Dust programming language.
+///
+/// You must provide the interpreter with an ID for each piece of code you pass to it. These are
+/// used to identify the source of errors and to provide more detailed error messages.
 pub struct Interpreter {
     context: Context,
-    sources: Arc<RwLock<Vec<Source>>>,
+    sources: Arc<RwLock<HashMap<Arc<str>, Arc<str>>>>,
 }
 
 impl Interpreter {
     pub fn new(context: Context) -> Self {
         Interpreter {
             context,
-            sources: Arc::new(RwLock::new(Vec::new())),
+            sources: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
+    /// Lexes the source code and returns a list of tokens.
     pub fn lex<'src>(
         &self,
         source_id: Arc<str>,
@@ -51,14 +54,14 @@ impl Interpreter {
     ) -> Result<Vec<Token<'src>>, InterpreterError> {
         let mut sources = self.sources.write().unwrap();
 
-        sources.clear();
-        sources.push((source_id.clone(), Arc::from(source)));
+        sources.insert(source_id.clone(), Arc::from(source));
 
         lex(source)
             .map(|tokens| tokens.into_iter().map(|(token, _)| token).collect())
             .map_err(|errors| InterpreterError { source_id, errors })
     }
 
+    /// Parses the source code and returns an abstract syntax tree.
     pub fn parse(
         &self,
         source_id: Arc<str>,
@@ -66,8 +69,7 @@ impl Interpreter {
     ) -> Result<AbstractTree, InterpreterError> {
         let mut sources = self.sources.write().unwrap();
 
-        sources.clear();
-        sources.push((source_id.clone(), Arc::from(source)));
+        sources.insert(source_id.clone(), Arc::from(source));
 
         parse(&lex(source).map_err(|errors| InterpreterError {
             source_id: source_id.clone(),
@@ -76,6 +78,7 @@ impl Interpreter {
         .map_err(|errors| InterpreterError { source_id, errors })
     }
 
+    /// Runs the source code and returns the result.
     pub fn run(
         &self,
         source_id: Arc<str>,
@@ -83,8 +86,7 @@ impl Interpreter {
     ) -> Result<Option<Value>, InterpreterError> {
         let mut sources = self.sources.write().unwrap();
 
-        sources.clear();
-        sources.push((source_id.clone(), source.clone()));
+        sources.insert(source_id.clone(), source.clone());
 
         let tokens = lex(source.as_ref()).map_err(|errors| InterpreterError {
             source_id: source_id.clone(),
@@ -101,12 +103,16 @@ impl Interpreter {
         Ok(value_option)
     }
 
-    pub fn sources(&self) -> vec::IntoIter<(Arc<str>, Arc<str>)> {
+    pub fn sources(&self) -> hash_map::IntoIter<Arc<str>, Arc<str>> {
         self.sources.read().unwrap().clone().into_iter()
     }
 }
 
 #[derive(Debug, PartialEq)]
+/// An error that occurred during the interpretation of a piece of code.
+///
+/// Each error has a source ID that identifies the piece of code that caused the error, and a list
+/// of errors that occurred during the interpretation of that code.
 pub struct InterpreterError {
     source_id: Arc<str>,
     errors: Vec<DustError>,
@@ -119,6 +125,7 @@ impl InterpreterError {
 }
 
 impl InterpreterError {
+    /// Converts the error into a list of user-friendly reports that can be printed to the console.
     pub fn build_reports<'a>(self) -> Vec<Report<'a, (Arc<str>, Range<usize>)>> {
         let token_color = Color::Yellow;
         let type_color = Color::Green;
@@ -281,23 +288,31 @@ impl InterpreterError {
                             builder = builder.with_help("Try specifying the type using turbofish.");
                         }
 
-                        if let Some(position) = expected_position {
+                        let actual_type_message = if let Some(position) = expected_position {
                             builder.add_label(
                                 Label::new((self.source_id.clone(), position.0..position.1))
                                     .with_message(format!(
                                         "Type {} established here.",
                                         expected.fg(type_color)
                                     )),
+                            );
+
+                            format!("Got type {} here.", actual.fg(type_color))
+                        } else {
+                            format!(
+                                "Got type {} but expected {}.",
+                                actual.fg(type_color),
+                                expected.fg(type_color)
                             )
-                        }
+                        };
 
                         builder.add_label(
                             Label::new((
                                 self.source_id.clone(),
                                 actual_position.0..actual_position.1,
                             ))
-                            .with_message(format!("Got type {} here.", actual.fg(type_color))),
-                        );
+                            .with_message(actual_type_message),
+                        )
                     }
                     ValidationError::VariableNotFound {
                         identifier,
@@ -430,6 +445,7 @@ impl InterpreterError {
                         .add_label(Label::new((self.source_id.clone(), 0..0)).with_message(reason)),
                     ValidationError::CannotUsePath(_) => todo!(),
                     ValidationError::Uninitialized => todo!(),
+                    ValidationError::WrongTypeArgumentsCount { expected, actual } => todo!(),
                 }
             }
 

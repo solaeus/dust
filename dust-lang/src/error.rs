@@ -181,6 +181,10 @@ pub enum ValidationError {
         identifier: Identifier,
         position: SourcePosition,
     },
+    WrongTypeArgumentsCount {
+        expected: usize,
+        actual: usize,
+    },
 }
 
 impl From<PoisonError> for ValidationError {

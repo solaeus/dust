@@ -73,6 +73,7 @@ impl AbstractNode for IfElse {
                             .map_err(|conflict| ValidationError::TypeCheck {
                                 conflict,
                                 actual_position: self.if_block.node.last_statement().position(),
+
                                 expected_position: Some(self.if_expression.position()),
                             })?;
                     }
