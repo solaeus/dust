@@ -81,10 +81,7 @@ impl AbstractNode for MapIndex {
         if let (ValueInner::Map(map), Expression::Identifier(index)) =
             (collection.inner().as_ref(), self.index)
         {
-            let eval_option = map
-                .get(&index.node)
-                .cloned()
-                .map(|value| Evaluation::Return(value));
+            let eval_option = map.get(&index.node).cloned().map(Evaluation::Return);
 
             Ok(eval_option)
         } else {
@@ -133,7 +130,7 @@ impl AbstractNode for MapIndex {
             for (property, constructor_option, expression) in properties {
                 if property == &index.node {
                     return if let Some(constructor) = constructor_option {
-                        let r#type = constructor.clone().construct(&context)?;
+                        let r#type = constructor.clone().construct(context)?;
 
                         Ok(Some(r#type))
                     } else {

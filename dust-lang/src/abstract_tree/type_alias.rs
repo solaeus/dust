@@ -32,7 +32,7 @@ impl AbstractNode for TypeAlias {
         _: bool,
         scope: SourcePosition,
     ) -> Result<(), ValidationError> {
-        let r#type = self.constructor.construct(&context)?;
+        let r#type = self.constructor.construct(context)?;
 
         context.set_type(self.identifier.node.clone(), r#type, scope)?;
 

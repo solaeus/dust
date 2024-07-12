@@ -73,7 +73,7 @@ impl AbstractNode for FunctionCall {
                     });
                 }
 
-                for (identifier, constructor) in parameters.into_iter().zip(arguments.into_iter()) {
+                for (identifier, constructor) in parameters.into_iter().zip(arguments.iter()) {
                     let r#type = constructor.construct(context)?;
 
                     context.set_type(identifier, r#type, self.function_expression.position())?;
@@ -82,9 +82,7 @@ impl AbstractNode for FunctionCall {
 
             match (value_parameters, &self.value_arguments) {
                 (Some(parameters), Some(arguments)) => {
-                    for ((identifier, _), expression) in
-                        parameters.iter().zip(arguments.into_iter())
-                    {
+                    for ((identifier, _), expression) in parameters.iter().zip(arguments.iter()) {
                         let r#type = if let Some(r#type) = expression.expected_type(context)? {
                             r#type
                         } else {
@@ -241,7 +239,7 @@ impl AbstractNode for FunctionCall {
 
             return function
                 .call(context, manage_memory)
-                .map(|option| option.map(|value| Evaluation::Return(value)));
+                .map(|option| option.map(Evaluation::Return));
         }
 
         Err(RuntimeError::ValidationFailure(
@@ -277,7 +275,7 @@ impl AbstractNode for FunctionCall {
         }) = return_type.clone().map(|r#box| *r#box)
         {
             if let (Some(parameters), Some(arguments)) = (type_parameters, &self.type_arguments) {
-                for (identifier, constructor) in parameters.into_iter().zip(arguments.into_iter()) {
+                for (identifier, constructor) in parameters.into_iter().zip(arguments.iter()) {
                     if identifier == return_identifier {
                         let r#type = constructor.construct(context)?;
 
@@ -347,6 +345,18 @@ impl PartialOrd for FunctionCall {
 
 impl Ord for FunctionCall {
     fn cmp(&self, other: &Self) -> Ordering {
-        todo!()
+        let expression_cmp = self.function_expression.cmp(&other.function_expression);
+
+        if expression_cmp.is_eq() {
+            let type_arg_cmp = self.type_arguments.cmp(&other.type_arguments);
+
+            if type_arg_cmp.is_eq() {
+                self.value_arguments.cmp(&other.value_arguments)
+            } else {
+                type_arg_cmp
+            }
+        } else {
+            expression_cmp
+        }
     }
 }

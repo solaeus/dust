@@ -63,7 +63,7 @@ impl Type {
                 },
             ) => match (left, right) {
                 (Some(left), Some(right)) => {
-                    if left.check(&right).is_ok() {
+                    if left.check(right).is_ok() {
                         return Ok(());
                     }
                 }
@@ -81,7 +81,7 @@ impl Type {
                 }
             }
             (Type::ListOf(left), Type::ListOf(right)) => {
-                if left.check(&right).is_ok() {
+                if left.check(right).is_ok() {
                     return Ok(());
                 }
             }
@@ -143,7 +143,7 @@ impl Type {
                 },
                 Type::ListOf(left_type),
             ) => {
-                if right_type.check(&left_type).is_err() {
+                if right_type.check(left_type).is_err() {
                     return Err(TypeConflict {
                         actual: other.clone(),
                         expected: self.clone(),
@@ -247,7 +247,7 @@ impl Display for Type {
             Type::Map(map) => {
                 write!(f, "{{ ")?;
 
-                for (index, (key, r#type)) in map.into_iter().enumerate() {
+                for (index, (key, r#type)) in map.iter().enumerate() {
                     write!(f, "{key}: {type}")?;
 
                     if index != map.len() - 1 {

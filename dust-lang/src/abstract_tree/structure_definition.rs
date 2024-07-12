@@ -32,7 +32,7 @@ impl AbstractNode for StructureDefinition {
         let mut fields = Vec::with_capacity(self.fields.len());
 
         for (identifier, constructor) in &self.fields {
-            let r#type = constructor.construct(&context)?;
+            let r#type = constructor.construct(context)?;
 
             fields.push((identifier.clone(), r#type));
         }
@@ -56,7 +56,7 @@ impl AbstractNode for StructureDefinition {
         let mut fields = Vec::with_capacity(self.fields.len());
 
         for (identifier, constructor) in self.fields {
-            let r#type = constructor.construct(&context)?;
+            let r#type = constructor.construct(context)?;
 
             fields.push((identifier, r#type));
         }

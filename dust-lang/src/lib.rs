@@ -29,9 +29,11 @@ pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, Interpr
     interpreter.run(Arc::from(source_id), Arc::from(source))
 }
 
+type Source = (Arc<str>, Arc<str>);
+
 pub struct Interpreter {
     context: Context,
-    sources: Arc<RwLock<Vec<(Arc<str>, Arc<str>)>>>,
+    sources: Arc<RwLock<Vec<Source>>>,
 }
 
 impl Interpreter {
@@ -52,15 +54,15 @@ impl Interpreter {
         sources.clear();
         sources.push((source_id.clone(), Arc::from(source)));
 
-        lex(source.as_ref())
+        lex(source)
             .map(|tokens| tokens.into_iter().map(|(token, _)| token).collect())
             .map_err(|errors| InterpreterError { source_id, errors })
     }
 
-    pub fn parse<'src>(
+    pub fn parse(
         &self,
         source_id: Arc<str>,
-        source: &'src str,
+        source: &str,
     ) -> Result<AbstractTree, InterpreterError> {
         let mut sources = self.sources.write().unwrap();
 
@@ -229,9 +231,9 @@ impl InterpreterError {
                     ValidationError::CannotAssignToNone(postion) => {
                         builder.add_label(
                             Label::new((self.source_id.clone(), postion.0..postion.1))
-                                .with_message(format!(
+                                .with_message(
                                     "This statement does not yield a value, you cannot assign a variable to it."
-                                )),
+                                ),
                         );
                     }
                     ValidationError::ExpectedBoolean { actual, position } => {

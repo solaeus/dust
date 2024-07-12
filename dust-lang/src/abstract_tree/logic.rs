@@ -126,7 +126,7 @@ impl AbstractNode for Logic {
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let run_and_expect_value = |expression: Expression| -> Result<Value, RuntimeError> {
             let expression_position = expression.position();
-            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory, scope)?;
+            let evaluation = expression.evaluate(context, _manage_memory, scope)?;
             let value = if let Some(Evaluation::Return(value)) = evaluation {
                 value
             } else {
@@ -140,7 +140,7 @@ impl AbstractNode for Logic {
 
         let run_and_expect_boolean = |expression: Expression| -> Result<bool, RuntimeError> {
             let expression_position = expression.position();
-            let evaluation = expression.evaluate(&mut context.clone(), _manage_memory, scope)?;
+            let evaluation = expression.evaluate(context, _manage_memory, scope)?;
             let value = if let Some(Evaluation::Return(value)) = evaluation {
                 value
             } else {
@@ -152,12 +152,12 @@ impl AbstractNode for Logic {
             if let ValueInner::Boolean(boolean) = value.inner().as_ref() {
                 Ok(*boolean)
             } else {
-                return Err(RuntimeError::ValidationFailure(
+                Err(RuntimeError::ValidationFailure(
                     ValidationError::ExpectedBoolean {
                         actual: value.r#type(context)?,
                         position: expression_position,
                     },
-                ));
+                ))
             }
         };
 

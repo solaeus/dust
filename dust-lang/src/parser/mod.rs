@@ -30,7 +30,7 @@ pub fn parse<'src>(
         .map_err(|errors| {
             errors
                 .into_iter()
-                .map(|error| DustError::from(error))
+                .map(DustError::from)
                 .collect::<Vec<DustError>>()
         })
 }
@@ -41,13 +41,13 @@ pub fn parser<'src>(
     let comment = select_ref! {
         Token::Comment(_) => {}
     };
+
     let identifier = select! {
         Token::Identifier(text) => Identifier::from(text),
     };
 
-    let positioned_identifier = identifier
-        .clone()
-        .map_with(|identifier, state| identifier.with_position(state.span()));
+    let positioned_identifier =
+        identifier.map_with(|identifier, state| identifier.with_position(state.span()));
 
     let basic_value = select! {
         Token::Boolean(boolean) => ValueNode::Boolean(boolean),
@@ -74,10 +74,13 @@ pub fn parser<'src>(
             TypeConstructor::Raw(raw_constructor.with_position(state.span()))
         });
 
+        type TypeParameters = Vec<WithPosition<Identifier>>;
+        type ValueParameters = Vec<(WithPosition<Identifier>, TypeConstructor)>;
+        type FunctionTypeParameters = (Option<TypeParameters>, ValueParameters);
+
         let function_type = just(Token::Keyword(Keyword::Fn))
             .ignore_then(
                 positioned_identifier
-                    .clone()
                     .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .at_least(1)
                     .collect()
@@ -89,7 +92,6 @@ pub fn parser<'src>(
             )
             .then(
                 positioned_identifier
-                    .clone()
                     .then_ignore(just(Token::Symbol(Symbol::Colon)))
                     .then(type_constructor.clone())
                     .separated_by(just(Token::Symbol(Symbol::Comma)))
@@ -106,10 +108,7 @@ pub fn parser<'src>(
             )
             .map_with(
                 |((type_parameters, value_parameters), return_type): (
-                    (
-                        Option<Vec<WithPosition<Identifier>>>,
-                        Vec<(WithPosition<Identifier>, TypeConstructor)>,
-                    ),
+                    FunctionTypeParameters,
                     Option<TypeConstructor>,
                 ),
                  state| {
@@ -123,7 +122,7 @@ pub fn parser<'src>(
                         FunctionTypeConstructor {
                             type_parameters,
                             value_parameters,
-                            return_type: return_type.map(|r#type| Box::new(r#type)),
+                            return_type: return_type.map(Box::new),
                         }
                         .with_position(state.span()),
                     )
@@ -133,7 +132,7 @@ pub fn parser<'src>(
         let list_type = type_constructor
             .clone()
             .then_ignore(just(Token::Symbol(Symbol::Semicolon)))
-            .then(raw_integer.clone())
+            .then(raw_integer)
             .delimited_by(
                 just(Token::Symbol(Symbol::SquareOpen)),
                 just(Token::Symbol(Symbol::SquareClose)),
@@ -159,7 +158,6 @@ pub fn parser<'src>(
             });
 
         let type_invokation = positioned_identifier
-            .clone()
             .then(
                 type_constructor
                     .clone()
@@ -181,7 +179,6 @@ pub fn parser<'src>(
             });
 
         let map_type = positioned_identifier
-            .clone()
             .then_ignore(just(Token::Symbol(Symbol::Colon)))
             .then(type_constructor.clone())
             .separated_by(just(Token::Symbol(Symbol::Comma)))
@@ -210,8 +207,6 @@ pub fn parser<'src>(
         just(Token::Symbol(Symbol::Colon)).ignore_then(type_constructor.clone());
 
     let statement = recursive(|statement| {
-        let allow_built_ins = allow_built_ins.clone();
-
         let block = statement
             .clone()
             .repeated()
@@ -224,14 +219,11 @@ pub fn parser<'src>(
             .map_with(|statements, state| Block::new(statements).with_position(state.span()));
 
         let expression = recursive(|expression| {
-            let allow_built_ins = allow_built_ins.clone();
-
-            let identifier_expression = identifier.clone().map_with(|identifier, state| {
+            let identifier_expression = identifier.map_with(|identifier, state| {
                 Expression::Identifier(identifier.with_position(state.span()))
             });
 
             let range = raw_integer
-                .clone()
                 .then_ignore(just(Token::Symbol(Symbol::DoubleDot)))
                 .then(raw_integer)
                 .map_with(|(start, end), state| {
@@ -252,7 +244,6 @@ pub fn parser<'src>(
                 });
 
             let map_fields = identifier
-                .clone()
                 .then(type_specification.clone().or_not())
                 .then_ignore(just(Token::Symbol(Symbol::Equal)))
                 .then(expression.clone())
@@ -272,10 +263,13 @@ pub fn parser<'src>(
                     )
                 });
 
+            type TypeParameters = Vec<Identifier>;
+            type ValueParameters = Vec<(Identifier, TypeConstructor)>;
+            type FunctionParameters = (Option<TypeParameters>, ValueParameters);
+
             let function = just(Token::Keyword(Keyword::Fn))
                 .ignore_then(
                     identifier
-                        .clone()
                         .separated_by(just(Token::Symbol(Symbol::Comma)))
                         .at_least(1)
                         .allow_trailing()
@@ -288,7 +282,6 @@ pub fn parser<'src>(
                 )
                 .then(
                     identifier
-                        .clone()
                         .then_ignore(just(Token::Symbol(Symbol::Colon)))
                         .then(type_constructor.clone())
                         .separated_by(just(Token::Symbol(Symbol::Comma)))
@@ -307,10 +300,7 @@ pub fn parser<'src>(
                 .then(block.clone())
                 .map_with(
                     |(((type_parameters, value_parameters), return_type), body): (
-                        (
-                            (Option<Vec<Identifier>>, Vec<(Identifier, TypeConstructor)>),
-                            Option<TypeConstructor>,
-                        ),
+                        (FunctionParameters, Option<TypeConstructor>),
                         WithPosition<Block>,
                     ),
                      state| {
@@ -333,9 +323,8 @@ pub fn parser<'src>(
                 );
 
             let enum_instance = positioned_identifier
-                .clone()
                 .then_ignore(just(Token::Symbol(Symbol::DoubleColon)))
-                .then(positioned_identifier.clone())
+                .then(positioned_identifier)
                 .then(
                     expression
                         .clone()
@@ -427,14 +416,14 @@ pub fn parser<'src>(
             );
 
             let atom = choice((
-                built_in_function.clone(),
+                built_in_function,
                 enum_instance.clone(),
-                range.clone(),
+                range,
                 function.clone(),
                 list.clone(),
                 map.clone(),
-                basic_value.clone(),
-                identifier_expression.clone(),
+                basic_value,
+                identifier_expression,
                 expression.clone().delimited_by(
                     just(Token::Symbol(Symbol::ParenOpen)),
                     just(Token::Symbol(Symbol::ParenClose)),
@@ -630,9 +619,7 @@ pub fn parser<'src>(
             ))
         });
 
-        let expression_statement = expression
-            .clone()
-            .map(|expression| Statement::Expression(expression));
+        let expression_statement = expression.clone().map(Statement::Expression);
 
         let async_block = just(Token::Keyword(Keyword::Async))
             .ignore_then(statement.clone().repeated().collect().delimited_by(
@@ -647,7 +634,6 @@ pub fn parser<'src>(
             .map_with(|_, state| Statement::Break(().with_position(state.span())));
 
         let assignment = positioned_identifier
-            .clone()
             .then(type_specification.clone().or_not())
             .then(choice((
                 just(Token::Symbol(Symbol::Equal)).to(AssignmentOperator::Assign),
@@ -662,7 +648,7 @@ pub fn parser<'src>(
                 )
             });
 
-        let block_statement = block.clone().map(|block| Statement::Block(block));
+        let block_statement = block.clone().map(Statement::Block);
 
         let r#loop = statement
             .clone()
@@ -715,7 +701,7 @@ pub fn parser<'src>(
             );
 
         let type_alias = just(Token::Keyword(Keyword::Type))
-            .ignore_then(positioned_identifier.clone())
+            .ignore_then(positioned_identifier)
             .then_ignore(just(Token::Symbol(Symbol::Equal)))
             .then(type_constructor.clone())
             .map_with(|(identifier, constructor), state| {
@@ -725,7 +711,6 @@ pub fn parser<'src>(
             });
 
         let enum_variant = positioned_identifier
-            .clone()
             .then(
                 type_constructor
                     .clone()
@@ -743,10 +728,9 @@ pub fn parser<'src>(
             });
 
         let enum_declaration = just(Token::Keyword(Keyword::Enum))
-            .ignore_then(positioned_identifier.clone())
+            .ignore_then(positioned_identifier)
             .then(
                 positioned_identifier
-                    .clone()
                     .separated_by(just(Token::Symbol(Symbol::Comma)))
                     .allow_trailing()
                     .collect()
@@ -801,8 +785,5 @@ pub fn parser<'src>(
         )))
     });
 
-    statement
-        .repeated()
-        .collect()
-        .map(|statements| AbstractTree::new(statements))
+    statement.repeated().collect().map(AbstractTree::new)
 }

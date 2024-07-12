@@ -51,10 +51,7 @@ impl AbstractNode for While {
     ) -> Result<Option<Evaluation>, RuntimeError> {
         let get_boolean = || -> Result<Value, RuntimeError> {
             let expression_position = self.expression.position();
-            let evaluation =
-                self.expression
-                    .clone()
-                    .evaluate(&mut _context.clone(), false, scope)?;
+            let evaluation = self.expression.clone().evaluate(_context, false, scope)?;
 
             if let Some(Evaluation::Return(value)) = evaluation {
                 Ok(value)
@@ -67,9 +64,7 @@ impl AbstractNode for While {
 
         while let ValueInner::Boolean(true) = get_boolean()?.inner().as_ref() {
             for statement in &self.statements {
-                let evaluation = statement
-                    .clone()
-                    .evaluate(&mut _context.clone(), false, scope)?;
+                let evaluation = statement.clone().evaluate(_context, false, scope)?;
 
                 if let Some(Evaluation::Break) = evaluation {
                     return Ok(evaluation);

@@ -1,7 +1,4 @@
-use std::{
-    f64::{INFINITY, NAN, NEG_INFINITY},
-    fmt::{self, Display, Formatter},
-};
+use std::fmt::{self, Display, Formatter};
 
 use chumsky::prelude::*;
 
@@ -176,7 +173,7 @@ impl Display for Symbol {
     }
 }
 
-pub fn lex<'src>(source: &'src str) -> Result<Vec<(Token<'src>, SimpleSpan)>, Vec<DustError>> {
+pub fn lex(source: &str) -> Result<Vec<(Token, SimpleSpan)>, Vec<DustError>> {
     lexer()
         .parse(source)
         .into_result()
@@ -222,9 +219,9 @@ pub fn lexer<'src>() -> impl Parser<
 
     let float = choice((
         float_numeric,
-        just("Infinity").to(Token::Float(INFINITY)),
-        just("-Infinity").to(Token::Float(NEG_INFINITY)),
-        just("NaN").to(Token::Float(NAN)),
+        just("Infinity").to(Token::Float(f64::INFINITY)),
+        just("-Infinity").to(Token::Float(f64::NEG_INFINITY)),
+        just("NaN").to(Token::Float(f64::NAN)),
     ));
 
     let integer = just('-')

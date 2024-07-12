@@ -86,7 +86,7 @@ impl TypeConstructor {
 
                 let type_parameters = declared_type_parameters.as_ref().map(|identifiers| {
                     identifiers
-                        .into_iter()
+                        .iter()
                         .map(|identifier| identifier.node.clone())
                         .collect()
                 });
@@ -95,7 +95,7 @@ impl TypeConstructor {
                         let mut parameters = Vec::with_capacity(declared_value_parameters.len());
 
                         for (identifier, constructor) in declared_value_parameters {
-                            let r#type = constructor.construct(&context)?;
+                            let r#type = constructor.construct(context)?;
 
                             parameters.push((identifier.node.clone(), r#type));
                         }
@@ -127,7 +127,7 @@ impl TypeConstructor {
                 }
             }
             TypeConstructor::ListOf(item_type) => {
-                let item_type = item_type.node.construct(&context)?;
+                let item_type = item_type.node.construct(context)?;
 
                 Type::ListOf(Box::new(item_type))
             }

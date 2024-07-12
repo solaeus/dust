@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use chumsky::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -99,18 +98,18 @@ impl Eq for Use {}
 
 impl PartialEq for Use {
     fn eq(&self, other: &Self) -> bool {
-        todo!()
+        self.path == other.path
     }
 }
 
 impl PartialOrd for Use {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        todo!()
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for Use {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        todo!()
+        self.path.cmp(&other.path)
     }
 }

@@ -16,8 +16,7 @@ use serde::{
 
 use crate::{
     abstract_tree::{
-        AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type,
-        WithPosition,
+        AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type, WithPosition,
     },
     context::Context,
     error::{RuntimeError, ValidationError},
@@ -157,7 +156,7 @@ impl Display for Value {
             ValueInner::List(list) => {
                 write!(f, "[")?;
 
-                for (index, value) in list.into_iter().enumerate() {
+                for (index, value) in list.iter().enumerate() {
                     if index == list.len() - 1 {
                         write!(f, "{}", value)?;
                     } else {
@@ -170,7 +169,7 @@ impl Display for Value {
             ValueInner::Map(map) => {
                 write!(f, "{{ ")?;
 
-                for (index, (key, value)) in map.into_iter().enumerate() {
+                for (index, (key, value)) in map.iter().enumerate() {
                     write!(f, "{key} = {value}")?;
 
                     if index != map.len() - 1 {
@@ -194,7 +193,7 @@ impl Display for Value {
                 if let Some(type_parameters) = type_parameters {
                     write!(f, "<")?;
 
-                    for (index, identifier) in type_parameters.into_iter().enumerate() {
+                    for (index, identifier) in type_parameters.iter().enumerate() {
                         if index == type_parameters.len() - 1 {
                             write!(f, "{}", identifier)?;
                         } else {
@@ -629,7 +628,7 @@ impl ValueInner {
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
             ValueInner::Function(function) => {
-                let return_type = function.return_type.clone().map(|r#type| Box::new(r#type));
+                let return_type = function.return_type.clone().map(Box::new);
 
                 Type::Function {
                     type_parameters: function.type_parameters().clone(),
@@ -856,6 +855,24 @@ impl PartialOrd for Function {
 
 impl Ord for Function {
     fn cmp(&self, other: &Self) -> Ordering {
-        todo!()
+        let type_param_cmp = self.type_parameters().cmp(&other.type_parameters);
+
+        if type_param_cmp.is_eq() {
+            let value_param_cmp = self.value_parameters.cmp(&other.value_parameters);
+
+            if value_param_cmp.is_eq() {
+                let return_type_cmp = self.return_type.cmp(&other.return_type);
+
+                if return_type_cmp.is_eq() {
+                    self.body.cmp(&other.body)
+                } else {
+                    return_type_cmp
+                }
+            } else {
+                value_param_cmp
+            }
+        } else {
+            type_param_cmp
+        }
     }
 }

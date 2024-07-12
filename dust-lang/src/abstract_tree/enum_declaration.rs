@@ -36,7 +36,7 @@ impl AbstractNode for EnumDeclaration {
         &self,
         context: &Context,
         _: bool,
-        scope: SourcePosition,
+        _scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         let EnumDeclaration {
             name,
@@ -60,7 +60,7 @@ impl AbstractNode for EnumDeclaration {
                 let mut types = Vec::with_capacity(content.len());
 
                 for constructor in content {
-                    let r#type = constructor.construct(&context)?;
+                    let r#type = constructor.construct(context)?;
 
                     types.push(r#type);
                 }
@@ -95,7 +95,7 @@ impl AbstractNode for EnumDeclaration {
         self,
         _: &Context,
         _: bool,
-        scope: SourcePosition,
+        _scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
         Ok(None)
     }

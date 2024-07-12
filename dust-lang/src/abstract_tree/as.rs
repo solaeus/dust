@@ -62,7 +62,7 @@ impl AbstractNode for As {
                 ValidationError::ExpectedValueStatement(expression_position),
             ));
         };
-        let r#type = self.constructor.construct(&context)?;
+        let r#type = self.constructor.construct(context)?;
         let (from_value, to_type): (&ValueInner, Type) = (value.inner().borrow(), r#type);
 
         let converted = match (from_value, to_type) {
@@ -74,9 +74,7 @@ impl AbstractNode for As {
     }
 
     fn expected_type(&self, context: &Context) -> Result<Option<Type>, ValidationError> {
-        self.constructor
-            .construct(&context)
-            .map(|r#type| Some(r#type))
+        self.constructor.construct(context).map(Some)
     }
 }
 

@@ -17,10 +17,12 @@ use crate::{
     Value,
 };
 
+type VariableInfo = (VariableData, UsageData, SourcePosition);
+
 #[derive(Clone, Debug)]
 pub struct Context {
     id: u32,
-    variables: Arc<RwLock<HashMap<Identifier, (VariableData, UsageData, SourcePosition)>>>,
+    variables: Arc<RwLock<HashMap<Identifier, VariableInfo>>>,
     is_clean: Arc<RwLock<bool>>,
 }
 
@@ -138,7 +140,7 @@ impl Context {
             usage_data.inner().write()?.actual += 1;
             *self.is_clean.write()? = false;
 
-            return Ok(Some(value.clone()));
+            Ok(Some(value.clone()))
         } else {
             Ok(None)
         }
@@ -202,7 +204,7 @@ impl Context {
         if let Some((_, usage_data, _)) = variables.get(identifier) {
             usage_data.inner().write()?.expected += 1;
 
-            return Ok(true);
+            Ok(true)
         } else {
             Ok(false)
         }
@@ -293,5 +295,11 @@ impl UsageData {
             actual: 0,
             expected: 0,
         })))
+    }
+}
+
+impl Default for UsageData {
+    fn default() -> Self {
+        UsageData::new()
     }
 }

@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     context::Context,
     error::{RuntimeError, ValidationError},
-    identifier::{self, Identifier},
+    identifier::Identifier,
     Value,
 };
 
@@ -66,7 +66,7 @@ impl AbstractNode for ValueNode {
         scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         if let ValueNode::List(list) = self {
-            let mut items = list.into_iter();
+            let mut items = list.iter();
             let first_item = if let Some(item) = items.next() {
                 item
             } else {
@@ -161,7 +161,7 @@ impl AbstractNode for ValueNode {
                             expression.position(),
                         ));
                     };
-                    let expected_type = constructor.clone().construct(&context)?;
+                    let expected_type = constructor.clone().construct(context)?;
 
                     expected_type.check(&actual_type).map_err(|conflict| {
                         ValidationError::TypeCheck {
@@ -375,7 +375,7 @@ impl AbstractNode for ValueNode {
                     let mut parameters = Vec::with_capacity(value_parameters.len());
 
                     for (identifier, constructor) in value_parameters {
-                        let r#type = constructor.construct(&outer_context)?;
+                        let r#type = constructor.construct(outer_context)?;
 
                         parameters.push((identifier, r#type));
                     }
@@ -385,7 +385,7 @@ impl AbstractNode for ValueNode {
                     None
                 };
                 let return_type = if let Some(constructor) = return_type {
-                    Some(constructor.construct(&outer_context)?)
+                    Some(constructor.construct(outer_context)?)
                 } else {
                     None
                 };
@@ -456,12 +456,10 @@ impl AbstractNode for ValueNode {
                 for (identifier, constructor_option, expression) in fields {
                     let r#type = if let Some(constructor) = constructor_option {
                         constructor.construct(context)?
+                    } else if let Some(r#type) = expression.expected_type(context)? {
+                        r#type
                     } else {
-                        if let Some(r#type) = expression.expected_type(context)? {
-                            r#type
-                        } else {
-                            return Err(ValidationError::CannotAssignToNone(expression.position()));
-                        }
+                        return Err(ValidationError::CannotAssignToNone(expression.position()));
                     };
 
                     field_types.insert(identifier.clone(), r#type);
@@ -481,7 +479,7 @@ impl AbstractNode for ValueNode {
                     let mut parameters = Vec::with_capacity(value_parameters.len());
 
                     for (identifier, type_constructor) in value_parameters {
-                        let r#type = type_constructor.clone().construct(&context)?;
+                        let r#type = type_constructor.clone().construct(context)?;
 
                         parameters.push((identifier.clone(), r#type));
                     }
@@ -490,12 +488,9 @@ impl AbstractNode for ValueNode {
                 } else {
                     None
                 };
-                let type_parameters = type_parameters.clone().map(|parameters| {
-                    parameters
-                        .iter()
-                        .map(|identifier| identifier.clone())
-                        .collect()
-                });
+                let type_parameters = type_parameters
+                    .clone()
+                    .map(|parameters| parameters.into_iter().collect());
                 let return_type = if let Some(constructor) = return_type {
                     Some(Box::new(constructor.construct(context)?))
                 } else {

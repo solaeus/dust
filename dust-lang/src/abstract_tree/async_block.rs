@@ -48,7 +48,7 @@ impl AbstractNode for AsyncBlock {
         let statement_count = self.statements.len();
         let error_option = self.statements.into_par_iter().enumerate().find_map_any(
             |(index, statement)| -> Option<RuntimeError> {
-                let result = statement.evaluate(&_context, false, scope);
+                let result = statement.evaluate(_context, false, scope);
 
                 if let Err(error) = result {
                     return Some(error);

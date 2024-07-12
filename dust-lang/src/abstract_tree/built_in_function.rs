@@ -300,6 +300,6 @@ impl FunctionLogic for JsonParse {
             Ok(value)
         }
 
-        parse_value(&input, target_type).map(|value| Some(value))
+        parse_value(input, target_type).map(Some)
     }
 }

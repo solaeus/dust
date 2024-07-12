@@ -25,7 +25,7 @@ impl AbstractNode for Math {
         &self,
         context: &Context,
         _manage_memory: bool,
-        scope: SourcePosition,
+        _scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         match self {
             Math::Add(left, right) => {
@@ -90,20 +90,19 @@ impl AbstractNode for Math {
         _manage_memory: bool,
         scope: SourcePosition,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        let run_and_expect_value = |position: SourcePosition,
-                                    expression: Expression|
-         -> Result<Value, RuntimeError> {
-            let evaluation = expression.evaluate(&mut _context.clone(), _manage_memory, scope)?;
-            let value = if let Some(Evaluation::Return(value)) = evaluation {
-                value
-            } else {
-                return Err(RuntimeError::ValidationFailure(
-                    ValidationError::ExpectedValueStatement(position),
-                ));
-            };
+        let run_and_expect_value =
+            |position: SourcePosition, expression: Expression| -> Result<Value, RuntimeError> {
+                let evaluation = expression.evaluate(_context, _manage_memory, scope)?;
+                let value = if let Some(Evaluation::Return(value)) = evaluation {
+                    value
+                } else {
+                    return Err(RuntimeError::ValidationFailure(
+                        ValidationError::ExpectedValueStatement(position),
+                    ));
+                };
 
-            Ok(value)
-        };
+                Ok(value)
+            };
 
         let value = match self {
             Math::Add(left, right) => {
@@ -220,7 +219,7 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right_position).into(),
+                            ValidationError::ExpectedIntegerOrFloat(right_position),
                         ))
                     }
                     _ => {
@@ -259,7 +258,7 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right_position).into(),
+                            ValidationError::ExpectedIntegerOrFloat(right_position),
                         ))
                     }
                     _ => {
@@ -298,7 +297,7 @@ impl AbstractNode for Math {
                     }
                     (ValueInner::Integer(_) | ValueInner::Float(_), _) => {
                         return Err(RuntimeError::ValidationFailure(
-                            ValidationError::ExpectedIntegerOrFloat(right_position).into(),
+                            ValidationError::ExpectedIntegerOrFloat(right_position),
                         ))
                     }
                     _ => {

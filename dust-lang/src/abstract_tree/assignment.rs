@@ -52,7 +52,7 @@ impl AbstractNode for Assignment {
         scope: SourcePosition,
     ) -> Result<(), ValidationError> {
         let r#type = if let Some(constructor) = &self.constructor {
-            constructor.construct(&context)?
+            constructor.construct(context)?
         } else if let Some(r#type) = self.statement.expected_type(context)? {
             r#type
         } else {
