@@ -40,7 +40,7 @@ fn big_enum() {
         ),
         Ok(Some(Value::enum_instance(
             Identifier::new("FooBarBaz"),
-            None,
+            Some(vec![Type::Integer, Type::String, Type::Float]),
             Identifier::new("Baz"),
             Some(Value::float(42.0)),
         )))
