@@ -245,7 +245,7 @@ impl FunctionLogic for JsonParse {
         };
 
         Type::Function {
-            type_parameters: None,
+            type_parameters: Some(vec![Identifier::from("T")]),
             value_parameters: Some(vec![(Identifier::from("input"), type_t.clone())]),
             return_type: Some(Box::new(type_t)),
         }

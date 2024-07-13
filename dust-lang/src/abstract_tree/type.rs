@@ -43,8 +43,20 @@ pub enum Type {
 }
 
 impl Type {
+    /// Returns a concrete type, either the type itself or the concrete type of a generic type.
+    pub fn concrete_type(&self) -> &Type {
+        match self {
+            Type::Generic {
+                concrete_type: Some(concrete_type),
+                ..
+            } => concrete_type.concrete_type(),
+            _ => self,
+        }
+    }
+
+    /// Checks that the type is compatible with another type.
     pub fn check(&self, other: &Type) -> Result<(), TypeConflict> {
-        match (self, other) {
+        match (self.concrete_type(), other.concrete_type()) {
             (Type::Any, _)
             | (_, Type::Any)
             | (Type::Boolean, Type::Boolean)

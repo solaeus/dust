@@ -124,6 +124,10 @@ pub struct InterpreterError {
 }
 
 impl InterpreterError {
+    pub fn new(source_id: Arc<str>, errors: Vec<DustError>) -> Self {
+        InterpreterError { source_id, errors }
+    }
+
     pub fn errors(&self) -> &Vec<DustError> {
         &self.errors
     }
@@ -477,6 +481,8 @@ impl InterpreterError {
 
 #[cfg(test)]
 mod tests {
+    use abstract_tree::{AbstractNode, SourcePosition};
+
     use self::standard_library::std_full_compiled;
 
     use super::*;
@@ -486,6 +492,9 @@ mod tests {
         let context = Context::new();
 
         for abstract_tree in std_full_compiled() {
+            abstract_tree
+                .define_and_validate(&context, true, SourcePosition(0, usize::MAX))
+                .unwrap();
             abstract_tree.run(&context, true).unwrap();
         }
     }

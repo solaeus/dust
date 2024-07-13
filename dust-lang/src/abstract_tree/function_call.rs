@@ -65,19 +65,38 @@ impl AbstractNode for FunctionCall {
             return_type: _,
         } = function_node_type
         {
-            if let (Some(parameters), Some(arguments)) = (type_parameters, &self.type_arguments) {
-                if parameters.len() != arguments.len() {
+            match (type_parameters, &self.type_arguments) {
+                (Some(parameters), Some(arguments)) => {
+                    if parameters.len() != arguments.len() {
+                        return Err(ValidationError::WrongTypeArguments {
+                            arguments: arguments.clone(),
+                            parameters: parameters.clone(),
+                        });
+                    }
+
+                    for (identifier, constructor) in parameters.into_iter().zip(arguments.iter()) {
+                        let r#type = constructor.construct(context)?;
+
+                        context.set_type(
+                            identifier,
+                            r#type,
+                            self.function_expression.position(),
+                        )?;
+                    }
+                }
+                (Some(parameters), None) => {
                     return Err(ValidationError::WrongTypeArguments {
-                        arguments: arguments.clone(),
+                        arguments: Vec::with_capacity(0),
                         parameters: parameters.clone(),
                     });
                 }
-
-                for (identifier, constructor) in parameters.into_iter().zip(arguments.iter()) {
-                    let r#type = constructor.construct(context)?;
-
-                    context.set_type(identifier, r#type, self.function_expression.position())?;
+                (None, Some(arguments)) => {
+                    return Err(ValidationError::WrongTypeArguments {
+                        arguments: arguments.clone(),
+                        parameters: Vec::with_capacity(0),
+                    });
                 }
+                (None, None) => {}
             }
 
             match (value_parameters, &self.value_arguments) {

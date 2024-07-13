@@ -1,4 +1,7 @@
+use abstract_tree::{Expression, ValueNode, WithPos};
 use dust_lang::*;
+use error::{DustError, ValidationError};
+use identifier::Identifier;
 
 #[test]
 fn function_scope() {
@@ -107,5 +110,56 @@ fn recursion() {
             "
         ),
         Ok(Some(Value::integer(13)))
+    );
+}
+
+#[test]
+fn value_argument_error() {
+    assert_eq!(
+        interpret(
+            "test",
+            "
+            foobar = fn (a: int, b: int) -> int { a + b }
+            foobar(1)
+            "
+        ),
+        Err(InterpreterError::new(
+            "test".into(),
+            vec![DustError::Validation {
+                error: ValidationError::WrongValueArguments {
+                    parameters: vec![
+                        (Identifier::new("a"), Type::Integer),
+                        (Identifier::new("b"), Type::Integer),
+                    ],
+                    arguments: vec![Expression::Value(
+                        ValueNode::Integer(1).with_position((78, 79)),
+                    )],
+                },
+                position: (71, 80).into()
+            }]
+        ))
+    );
+}
+
+#[test]
+fn type_argument_error() {
+    assert_eq!(
+        interpret(
+            "test",
+            "
+            foobar = fn <T> (a: T) -> T { a }
+            foobar(1)
+            "
+        ),
+        Err(InterpreterError::new(
+            "test".into(),
+            vec![DustError::Validation {
+                error: ValidationError::WrongTypeArguments {
+                    parameters: vec![Identifier::new("T")],
+                    arguments: vec![]
+                },
+                position: (59, 68).into()
+            }]
+        ))
     );
 }
