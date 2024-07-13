@@ -47,29 +47,34 @@ impl Interpreter {
     }
 
     /// Lexes the source code and returns a list of tokens.
-    pub fn lex<'src>(
+    pub fn lex<'id>(
         &self,
         source_id: Arc<str>,
-        source: &'src str,
-    ) -> Result<Vec<Token<'src>>, InterpreterError> {
-        let mut sources = self.sources.write().unwrap();
+        source: &'id Arc<str>,
+    ) -> Result<Vec<Token<'id>>, InterpreterError> {
+        self.sources
+            .write()
+            .unwrap()
+            .insert(source_id.clone(), source.clone());
 
-        sources.insert(source_id.clone(), Arc::from(source));
-
-        lex(source)
+        lex(source.as_ref())
             .map(|tokens| tokens.into_iter().map(|(token, _)| token).collect())
-            .map_err(|errors| InterpreterError { source_id, errors })
+            .map_err(|errors| InterpreterError {
+                source_id: source_id.clone(),
+                errors,
+            })
     }
 
     /// Parses the source code and returns an abstract syntax tree.
-    pub fn parse(
+    pub fn parse<'id>(
         &self,
         source_id: Arc<str>,
-        source: &str,
+        source: &'id Arc<str>,
     ) -> Result<AbstractTree, InterpreterError> {
-        let mut sources = self.sources.write().unwrap();
-
-        sources.insert(source_id.clone(), Arc::from(source));
+        self.sources
+            .write()
+            .unwrap()
+            .insert(source_id.clone(), source.clone());
 
         parse(&lex(source).map_err(|errors| InterpreterError {
             source_id: source_id.clone(),

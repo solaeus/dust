@@ -75,7 +75,7 @@ fn main() {
     };
 
     if args.lex {
-        match interpreter.lex(source_id, source.as_ref()) {
+        match interpreter.lex(source_id, &source) {
             Ok(tokens) => println!("{tokens:?}"),
             Err(error) => {
                 for report in error.build_reports() {
@@ -95,7 +95,7 @@ fn main() {
     }
 
     if args.parse {
-        match interpreter.parse(source_id, source.as_ref()) {
+        match interpreter.parse(source_id, &source) {
             Ok(abstract_tree) => println!("{abstract_tree:?}"),
             Err(error) => {
                 for report in error.build_reports() {
@@ -110,7 +110,7 @@ fn main() {
     }
 
     if args.compile {
-        match interpreter.parse(source_id, source.as_ref()) {
+        match interpreter.parse(source_id, &source) {
             Ok(abstract_tree) => {
                 let ron = ron::to_string(&abstract_tree).unwrap();
 
