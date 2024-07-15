@@ -1,7 +1,7 @@
 # Dust
 
 High-level programming language with effortless concurrency, automatic memory management, type
-safety and advanced error handling.
+safety and familiar syntax.
 
 ```dust
 io.write_line("Guess the number.")
