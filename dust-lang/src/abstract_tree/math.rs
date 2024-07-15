@@ -40,20 +40,24 @@ impl AbstractNode for Math {
                     return Err(ValidationError::ExpectedValueStatement(right.position()));
                 };
 
-                if let Type::Integer | Type::Float | Type::String = left_type {
-                    if let Type::Integer | Type::Float | Type::String = right_type {
-                        Ok(())
-                    } else {
-                        Err(ValidationError::ExpectedIntegerFloatOrString {
-                            actual: right_type,
-                            position: right.position(),
-                        })
+                match (&left_type, &right_type) {
+                    (Type::Integer, Type::Integer) => Ok(()),
+                    (Type::Float, Type::Float) => Ok(()),
+                    (Type::String, Type::String) => Ok(()),
+                    (Type::Integer, _) => {
+                        Err(ValidationError::ExpectedIntegerOrFloat(right.position()))
                     }
-                } else {
-                    Err(ValidationError::ExpectedIntegerFloatOrString {
-                        actual: left_type,
-                        position: left.position(),
-                    })
+                    (Type::Float, _) => {
+                        Err(ValidationError::ExpectedIntegerOrFloat(right.position()))
+                    }
+                    (Type::String, _) => Err(ValidationError::ExpectedString {
+                        actual: right_type,
+                        position: right.position(),
+                    }),
+                    (_, _) => Err(ValidationError::ExpectedIntegerFloatOrString {
+                        actual: right_type,
+                        position: right.position(),
+                    }),
                 }
             }
             Math::Subtract(left, right)
