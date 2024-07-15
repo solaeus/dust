@@ -1,3 +1,16 @@
+/**
+Description of a kind of value.
+
+Most types are concrete and specific, the exceptions are the Generic and Any types.
+
+Generic types are temporary placeholders that describe a type that will be defined later. The
+interpreter should use the validation phase to enforce that all Generic types have a concrete
+type assigned to them before the program is run.
+
+The Any type is used in cases where a value's type does not matter. For example, the standard
+library's "length" function does not care about the type of item in the list, only the list
+itself. So the input is defined as `[any]`, i.e. `Type::ListOf(Box::new(Type::Any))`.
+**/
 use std::{
     collections::BTreeMap,
     fmt::{self, Display, Formatter},
@@ -9,6 +22,9 @@ use serde::{Deserialize, Serialize};
 use crate::{error::TypeConflict, identifier::Identifier};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+/// Description of a kind of value.
+///
+/// See the [module documentation](index.html) for more information.
 pub enum Type {
     Any,
     Boolean,
