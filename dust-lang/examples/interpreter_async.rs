@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use context::Context;
 use dust_lang::*;
 
 fn run_fibnacci(interpreter: &Interpreter, i: u8) -> Value {
@@ -30,12 +29,14 @@ fn run_fibnacci(interpreter: &Interpreter, i: u8) -> Value {
 }
 
 fn main() {
-    let interpreter = Interpreter::new(Context::new());
+    let interpreter = Interpreter::new();
     let (tx, rx) = channel();
 
     for i in 1..10 {
         let interpreter = interpreter.clone();
         let tx = tx.clone();
+
+        println!("Spawning thread for fib({})", i);
 
         thread::spawn(move || {
             let value = run_fibnacci(&interpreter, i);

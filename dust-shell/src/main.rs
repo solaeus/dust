@@ -14,7 +14,7 @@ use std::{
     sync::Arc,
 };
 
-use dust_lang::{context::Context, Interpreter};
+use dust_lang::Interpreter;
 
 /// Command-line arguments to be parsed.
 #[derive(Parser, Debug)]
@@ -56,8 +56,7 @@ fn main() {
         .init();
 
     let args = Args::parse();
-    let context = Context::new_with_std_core().unwrap();
-    let interpreter = Interpreter::new(context.clone());
+    let interpreter = Interpreter::new();
 
     let (source_id, source): (Arc<str>, Arc<str>) = if let Some(path) = args.path {
         let source = read_to_string(&path).unwrap();
@@ -66,7 +65,7 @@ fn main() {
     } else if let Some(command) = args.command {
         (Arc::from("command"), Arc::from(command))
     } else {
-        match run_shell(context) {
+        match run_shell() {
             Ok(_) => {}
             Err(error) => eprintln!("{error}"),
         }

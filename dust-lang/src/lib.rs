@@ -23,6 +23,7 @@ use std::{
 };
 
 pub use abstract_tree::Type;
+use standard_library::core_context;
 pub use value::Value;
 
 use abstract_tree::AbstractTree;
@@ -33,7 +34,7 @@ use lexer::{lex, Token};
 use parser::{parse, parser};
 
 pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
-    let interpreter = Interpreter::new(Context::new());
+    let interpreter = Interpreter::new();
 
     interpreter.run(Arc::from(source_id), Arc::from(source))
 }
@@ -44,14 +45,14 @@ pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, Interpr
 /// used to identify the source of errors and to provide more detailed error messages.
 #[derive(Clone, Debug)]
 pub struct Interpreter {
-    context: Context,
+    contexts: Arc<RwLock<HashMap<Arc<str>, Context>>>,
     sources: Arc<RwLock<HashMap<Arc<str>, Arc<str>>>>,
 }
 
 impl Interpreter {
-    pub fn new(context: Context) -> Self {
+    pub fn new() -> Self {
         Interpreter {
-            context,
+            contexts: Arc::new(RwLock::new(HashMap::new())),
             sources: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -111,8 +112,9 @@ impl Interpreter {
             source_id: source_id.clone(),
             errors,
         })?;
+        let context = self.get_or_create_context(&source_id);
         let value_option = abstract_tree
-            .run(&self.context, true)
+            .run(&context, true)
             .map_err(|errors| InterpreterError { source_id, errors })?;
 
         Ok(value_option)
@@ -120,6 +122,20 @@ impl Interpreter {
 
     pub fn sources(&self) -> hash_map::IntoIter<Arc<str>, Arc<str>> {
         self.sources.read().unwrap().clone().into_iter()
+    }
+
+    fn get_or_create_context(&self, source_id: &Arc<str>) -> Context {
+        let mut contexts = self.contexts.write().unwrap();
+
+        if let Some(context) = contexts.get(source_id) {
+            context.clone()
+        } else {
+            let context = core_context().clone();
+
+            contexts.insert(source_id.clone(), context.clone());
+
+            context
+        }
     }
 }
 

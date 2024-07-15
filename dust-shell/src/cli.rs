@@ -7,7 +7,7 @@ use std::{
 };
 
 use ariadne::sources;
-use dust_lang::{context::Context, *};
+use dust_lang::*;
 use nu_ansi_term::{Color, Style};
 use reedline::{
     default_emacs_keybindings, ColumnarMenu, DefaultHinter, EditCommand, Emacs, KeyCode,
@@ -15,8 +15,8 @@ use reedline::{
     SqliteBackedHistory,
 };
 
-pub fn run_shell(context: Context) -> Result<(), io::Error> {
-    let interpreter = Interpreter::new(context.clone());
+pub fn run_shell() -> Result<(), io::Error> {
+    let interpreter = Interpreter::new();
     let mut keybindings = default_emacs_keybindings();
 
     keybindings.add_binding(
