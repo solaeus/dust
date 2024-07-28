@@ -15,9 +15,7 @@ use serde::{
 };
 
 use crate::{
-    abstract_tree::{
-        AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type, WithPosition,
-    },
+    abstract_tree::{AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type},
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
@@ -91,7 +89,7 @@ impl Value {
         ))))
     }
 
-    pub fn structure(name: WithPosition<Identifier>, fields: Vec<(Identifier, Value)>) -> Self {
+    pub fn structure(name: Identifier, fields: Vec<(Identifier, Value)>) -> Self {
         Value(Arc::new(ValueInner::Structure { name, fields }))
     }
 
@@ -232,10 +230,10 @@ impl Display for Value {
                 write!(f, " {body}")
             }
             ValueInner::Structure { name, fields } => {
-                write!(f, "{}\n{{", name.node)?;
+                write!(f, "{name} {{")?;
 
                 for (key, value) in fields {
-                    writeln!(f, "{key} = {value},")?;
+                    write!(f, "{key} = {value},")?;
                 }
 
                 write!(f, "}}")
@@ -599,7 +597,7 @@ pub enum ValueInner {
     Range(Range<i64>),
     String(String),
     Structure {
-        name: WithPosition<Identifier>,
+        name: Identifier,
         fields: Vec<(Identifier, Value)>,
     },
 }
@@ -651,12 +649,12 @@ impl ValueInner {
                 }
             }
             ValueInner::Structure { name, .. } => {
-                if let Some(r#type) = context.get_type(&name.node)? {
+                if let Some(r#type) = context.get_type(&name)? {
                     r#type
                 } else {
-                    return Err(ValidationError::VariableNotFound {
-                        identifier: name.node.clone(),
-                        position: name.position,
+                    return Err(ValidationError::StructDefinitionNotFound {
+                        identifier: name.clone(),
+                        position: None,
                     });
                 }
             }

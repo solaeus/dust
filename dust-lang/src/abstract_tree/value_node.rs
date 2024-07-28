@@ -418,7 +418,7 @@ impl AbstractNode for ValueNode {
                     fields.push((identifier.node, value));
                 }
 
-                Value::structure(name, fields)
+                Value::structure(name.node, fields)
             }
             ValueNode::BuiltInFunction(function) => Value::built_in_function(function),
         };

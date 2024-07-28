@@ -23,7 +23,6 @@ use std::{
 };
 
 pub use abstract_tree::Type;
-use standard_library::core_context;
 pub use value::Value;
 
 use abstract_tree::AbstractTree;
@@ -32,6 +31,7 @@ use context::Context;
 use error::{DustError, RuntimeError, TypeConflict, ValidationError};
 use lexer::{lex, Token};
 use parser::{parse, parser};
+use standard_library::core_context;
 
 pub fn interpret(source_id: &str, source: &str) -> Result<Option<Value>, InterpreterError> {
     let interpreter = Interpreter::new();
@@ -493,6 +493,10 @@ impl InterpreterError {
                             ),
                         ),
                     ),
+                    ValidationError::StructDefinitionNotFound {
+                        identifier,
+                        position,
+                    } => todo!(),
                 }
             }
 

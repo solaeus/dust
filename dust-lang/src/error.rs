@@ -186,6 +186,10 @@ pub enum ValidationError {
         actual: usize,
         position: SourcePosition,
     },
+    StructDefinitionNotFound {
+        identifier: Identifier,
+        position: Option<SourcePosition>,
+    },
 }
 
 impl From<PoisonError> for ValidationError {
