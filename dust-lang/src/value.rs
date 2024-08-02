@@ -15,10 +15,11 @@ use serde::{
 };
 
 use crate::{
-    abstract_tree::{AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition, Type},
+    abstract_tree::{AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition},
     context::Context,
     error::{RuntimeError, ValidationError},
     identifier::Identifier,
+    Type,
 };
 
 #[derive(Clone, Debug, PartialEq)]

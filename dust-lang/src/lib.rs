@@ -15,11 +15,12 @@ pub mod interpreter;
 pub mod lexer;
 pub mod parser;
 pub mod standard_library;
+pub mod r#type;
 pub mod value;
 
-pub use abstract_tree::Type;
 pub use context::Context;
 pub use interpreter::{interpret, Interpreter, InterpreterError};
 pub use lexer::{lex, lexer};
 pub use parser::{parse, parser};
+pub use r#type::Type;
 pub use value::Value;

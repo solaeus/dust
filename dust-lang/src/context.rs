@@ -9,12 +9,12 @@ use log::trace;
 use rand::random;
 
 use crate::{
-    abstract_tree::{SourcePosition, Type},
+    abstract_tree::SourcePosition,
     error::{PoisonError, ValidationError},
     identifier::Identifier,
     standard_library::core_context,
     value::ValueInner,
-    Value,
+    Type, Value,
 };
 
 type VariableInfo = (VariableData, UsageData, SourcePosition);

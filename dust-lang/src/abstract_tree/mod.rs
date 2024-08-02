@@ -14,7 +14,6 @@ pub mod map_index;
 pub mod math;
 pub mod statement;
 pub mod structure_definition;
-pub mod r#type;
 pub mod type_alias;
 pub mod type_constructor;
 pub mod r#use;
@@ -45,7 +44,6 @@ pub use self::{
     math::Math,
     r#as::As,
     r#loop::Loop,
-    r#type::Type,
     r#use::Use,
     r#while::While,
     statement::Statement,
@@ -58,6 +56,7 @@ pub use self::{
 use crate::{
     context::Context,
     error::{DustError, RuntimeError, ValidationError},
+    r#type::Type,
     Value,
 };
 

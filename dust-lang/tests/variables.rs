@@ -1,7 +1,7 @@
 use dust_lang::{
-    abstract_tree::{Block, Expression, Statement, Type, WithPos},
+    abstract_tree::{Block, Expression, Statement, WithPos},
     identifier::Identifier,
-    *,
+    Type, *,
 };
 
 #[test]

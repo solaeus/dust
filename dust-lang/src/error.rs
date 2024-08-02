@@ -3,9 +3,10 @@ use std::{io, sync::PoisonError as StdPoisonError};
 use chumsky::{prelude::Rich, span::Span};
 
 use crate::{
-    abstract_tree::{r#type::Type, Expression, SourcePosition, TypeConstructor},
+    abstract_tree::{Expression, SourcePosition, TypeConstructor},
     identifier::Identifier,
     lexer::Token,
+    Type,
 };
 
 #[derive(Debug, PartialEq)]
