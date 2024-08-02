@@ -345,7 +345,7 @@ pub fn parser<'src>(
                             type_name,
                             type_arguments,
                             variant,
-                            content: content.map(|expression| Box::new(expression)),
+                            content: content.map(Box::new),
                         }
                         .with_position(state.span()),
                     )

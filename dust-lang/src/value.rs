@@ -649,7 +649,7 @@ impl ValueInner {
                 }
             }
             ValueInner::Structure { name, .. } => {
-                if let Some(r#type) = context.get_type(&name)? {
+                if let Some(r#type) = context.get_type(name)? {
                     r#type
                 } else {
                     return Err(ValidationError::StructDefinitionNotFound {

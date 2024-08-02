@@ -258,7 +258,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -270,7 +270,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -282,7 +282,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -294,7 +294,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(43).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -306,7 +306,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(41).with_position((0, 0)))
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
 
@@ -315,7 +315,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
     }
@@ -327,7 +327,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(41).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
 
@@ -336,7 +336,7 @@ mod tests {
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
                 Expression::Value(ValueNode::Integer(42).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         );
     }
@@ -348,7 +348,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -360,7 +360,7 @@ mod tests {
                 Expression::Value(ValueNode::Boolean(true).with_position((0, 0))),
                 Expression::Value(ValueNode::Boolean(false).with_position((0, 0))),
             )
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }
@@ -371,7 +371,7 @@ mod tests {
             Logic::Not(Expression::Value(
                 ValueNode::Boolean(false).with_position((0, 0))
             ))
-            .evaluate(&mut Context::new(), true, SourcePosition(0, 0)),
+            .evaluate(&Context::new(), true, SourcePosition(0, 0)),
             Ok(Some(Evaluation::Return(Value::boolean(true))))
         )
     }

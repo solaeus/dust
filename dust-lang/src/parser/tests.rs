@@ -286,7 +286,7 @@ fn built_in_function() {
         .map_err(|errors| {
             errors
                 .into_iter()
-                .map(|error| DustError::from(error))
+                .map(DustError::from)
                 .collect::<Vec<DustError>>()
         })
         .unwrap();
@@ -308,7 +308,7 @@ fn built_in_function_with_arg() {
         .map_err(|errors| {
             errors
                 .into_iter()
-                .map(|error| DustError::from(error))
+                .map(DustError::from)
                 .collect::<Vec<DustError>>()
         })
         .unwrap();

@@ -128,8 +128,7 @@ impl AbstractNode for ValueNode {
 
                     let found = variants
                         .into_iter()
-                        .find(|(identifier, _)| identifier == &variant.node)
-                        .is_some();
+                        .any(|(identifier, _)| identifier == variant.node);
 
                     if !found {
                         return Err(ValidationError::EnumVariantNotFound {
