@@ -41,11 +41,11 @@ impl Interpreter {
     }
 
     /// Lexes the source code and returns a list of tokens.
-    pub fn lex<'id>(
+    pub fn lex<'src>(
         &self,
         source_id: Arc<str>,
-        source: &'id Arc<str>,
-    ) -> Result<Vec<Token<'id>>, InterpreterError> {
+        source: &'src Arc<str>,
+    ) -> Result<Vec<Token<'src>>, InterpreterError> {
         self.sources
             .write()
             .unwrap()
@@ -60,10 +60,10 @@ impl Interpreter {
     }
 
     /// Parses the source code and returns an abstract syntax tree.
-    pub fn parse<'id>(
+    pub fn parse(
         &self,
         source_id: Arc<str>,
-        source: &'id Arc<str>,
+        source: &Arc<str>,
     ) -> Result<AbstractTree, InterpreterError> {
         self.sources
             .write()
