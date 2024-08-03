@@ -8,6 +8,7 @@ interpret Dust code. The `interpret` function is a convenience function that cre
 `Interpreter` and runs the given source code.
 */
 pub mod abstract_tree;
+pub mod bytecode;
 pub mod context;
 pub mod error;
 pub mod identifier;
