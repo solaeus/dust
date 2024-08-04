@@ -19,7 +19,13 @@ use std::{
 use clap::error::Result;
 use serde::{Deserialize, Serialize};
 
-use crate::{error::TypeConflict, identifier::Identifier};
+use crate::identifier::Identifier;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TypeConflict {
+    pub expected: Type,
+    pub actual: Type,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 /// Description of a kind of value.

@@ -1,6 +1,5 @@
 [package]
 name = "dust-shell"
-description = "Command line shell for the Dust programming language"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
@@ -9,12 +8,3 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
-ariadne = "0.4.0"
-clap = { version = "4.5.3", features = ["derive"] }
-colored = "2.1.0"
-dust-lang = { path = "../dust-lang" }
-env_logger = "0.11.3"
-log = "0.4.21"
-nu-ansi-term = "0.50.0"
-reedline = { version = "0.30.0", features = ["sqlite", "system_clipboard"] }
-ron = "0.8.1"

@@ -7,20 +7,13 @@ use std::{
 };
 
 use chumsky::container::Container;
-use log::{debug, trace};
 use serde::{
     de::Visitor,
-    ser::{SerializeMap, SerializeSeq, SerializeStruct, SerializeTuple},
+    ser::{SerializeMap, SerializeSeq, SerializeTuple},
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{
-    abstract_tree::{AbstractNode, Block, BuiltInFunction, Evaluation, SourcePosition},
-    context::Context,
-    error::{RuntimeError, ValidationError},
-    identifier::Identifier,
-    Type,
-};
+use crate::{identifier::Identifier, Type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
@@ -32,24 +25,6 @@ impl Value {
 
     pub fn boolean(boolean: bool) -> Self {
         Value(Arc::new(ValueInner::Boolean(boolean)))
-    }
-
-    pub fn built_in_function(function: BuiltInFunction) -> Self {
-        Value(Arc::new(ValueInner::BuiltInFunction(function)))
-    }
-
-    pub fn enum_instance(
-        type_name: Identifier,
-        type_arguments: Option<Vec<Type>>,
-        variant: Identifier,
-        content: Option<Value>,
-    ) -> Self {
-        Value(Arc::new(ValueInner::EnumInstance {
-            type_name,
-            type_arguments,
-            variant,
-            content,
-        }))
     }
 
     pub fn float(float: f64) -> Self {
@@ -76,26 +51,8 @@ impl Value {
         Value(Arc::new(ValueInner::String(to_string.to_string())))
     }
 
-    pub fn function(
-        type_parameters: Option<Vec<Identifier>>,
-        value_parameters: Option<Vec<(Identifier, Type)>>,
-        return_type: Option<Type>,
-        body: Block,
-    ) -> Self {
-        Value(Arc::new(ValueInner::Function(Function::new(
-            type_parameters,
-            value_parameters,
-            return_type,
-            body,
-        ))))
-    }
-
-    pub fn structure(name: Identifier, fields: Vec<(Identifier, Value)>) -> Self {
-        Value(Arc::new(ValueInner::Structure { name, fields }))
-    }
-
-    pub fn r#type(&self, context: &Context) -> Result<Type, ValidationError> {
-        self.0.r#type(context)
+    pub fn r#type(&self) -> Type {
+        self.0.r#type()
     }
 
     pub fn as_boolean(&self) -> Option<bool> {
@@ -127,32 +84,6 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self.inner().as_ref() {
             ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
-            ValueInner::EnumInstance {
-                type_name,
-                type_arguments,
-                variant,
-                content,
-            } => {
-                write!(f, "{type_name}::")?;
-
-                if let Some(types) = type_arguments {
-                    write!(f, "::<")?;
-
-                    for r#type in types {
-                        write!(f, "{type}, ")?;
-                    }
-
-                    write!(f, ">")?;
-                }
-
-                write!(f, "::{variant}(")?;
-
-                if let Some(value) = content {
-                    write!(f, "{value}")?;
-                }
-
-                write!(f, ")")
-            }
             ValueInner::Float(float) => {
                 write!(f, "{float}")?;
 
@@ -191,55 +122,6 @@ impl Display for Value {
             }
             ValueInner::Range(range) => write!(f, "{}..{}", range.start, range.end),
             ValueInner::String(string) => write!(f, "{string}"),
-            ValueInner::Function(Function {
-                type_parameters,
-                value_parameters,
-                return_type,
-                body,
-                ..
-            }) => {
-                write!(f, "fn ")?;
-
-                if let Some(type_parameters) = type_parameters {
-                    write!(f, "<")?;
-
-                    for (index, identifier) in type_parameters.iter().enumerate() {
-                        if index == type_parameters.len() - 1 {
-                            write!(f, "{}", identifier)?;
-                        } else {
-                            write!(f, "{} ", identifier)?;
-                        }
-                    }
-
-                    write!(f, ">")?;
-                }
-
-                write!(f, "(")?;
-
-                if let Some(value_parameters) = value_parameters {
-                    for (identifier, r#type) in value_parameters {
-                        write!(f, "{identifier}: {}", r#type)?;
-                    }
-                }
-
-                write!(f, ")")?;
-
-                if let Some(return_type) = return_type {
-                    write!(f, " -> {return_type}")?
-                }
-
-                write!(f, " {body}")
-            }
-            ValueInner::Structure { name, fields } => {
-                write!(f, "{name} {{")?;
-
-                for (key, value) in fields {
-                    write!(f, "{key} = {value},")?;
-                }
-
-                write!(f, "}}")
-            }
-            ValueInner::BuiltInFunction(built_in_function) => write!(f, "{built_in_function}"),
         }
     }
 }
@@ -265,38 +147,7 @@ impl Serialize for Value {
     {
         match self.0.as_ref() {
             ValueInner::Boolean(boolean) => serializer.serialize_bool(*boolean),
-            ValueInner::EnumInstance {
-                type_name,
-                type_arguments,
-                variant,
-                content,
-            } => {
-                let mut struct_ser = serializer.serialize_struct("EnumInstance", 3)?;
-
-                struct_ser.serialize_field("type_name", type_name)?;
-                struct_ser.serialize_field("type_arguments", type_arguments)?;
-                struct_ser.serialize_field("variant", variant)?;
-                struct_ser.serialize_field("content", content)?;
-
-                struct_ser.end()
-            }
             ValueInner::Float(float) => serializer.serialize_f64(*float),
-            ValueInner::Function(Function {
-                type_parameters,
-                value_parameters,
-                return_type,
-                body,
-                ..
-            }) => {
-                let mut struct_ser = serializer.serialize_struct("Function", 4)?;
-
-                struct_ser.serialize_field("type_parameters", type_parameters)?;
-                struct_ser.serialize_field("value_parameters", value_parameters)?;
-                struct_ser.serialize_field("return_type", return_type)?;
-                struct_ser.serialize_field("body", body)?;
-
-                struct_ser.end()
-            }
             ValueInner::Integer(integer) => serializer.serialize_i64(*integer),
             ValueInner::List(list) => {
                 let mut list_ser = serializer.serialize_seq(Some(list.len()))?;
@@ -325,15 +176,6 @@ impl Serialize for Value {
                 tuple_ser.end()
             }
             ValueInner::String(string) => serializer.serialize_str(string),
-            ValueInner::Structure { name, fields } => {
-                let mut struct_ser = serializer.serialize_struct("Structure", 2)?;
-
-                struct_ser.serialize_field("name", name)?;
-                struct_ser.serialize_field("fields", fields)?;
-
-                struct_ser.end()
-            }
-            ValueInner::BuiltInFunction(_) => todo!(),
         }
     }
 }
@@ -583,44 +425,22 @@ impl<'de> Deserialize<'de> for Value {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ValueInner {
     Boolean(bool),
-    BuiltInFunction(BuiltInFunction),
-    EnumInstance {
-        type_name: Identifier,
-        type_arguments: Option<Vec<Type>>,
-        variant: Identifier,
-        content: Option<Value>,
-    },
     Float(f64),
-    Function(Function),
     Integer(i64),
     List(Vec<Value>),
     Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
-    Structure {
-        name: Identifier,
-        fields: Vec<(Identifier, Value)>,
-    },
 }
 
 impl ValueInner {
-    pub fn r#type(&self, context: &Context) -> Result<Type, ValidationError> {
-        let r#type = match self {
+    pub fn r#type(&self) -> Type {
+        match self {
             ValueInner::Boolean(_) => Type::Boolean,
-            ValueInner::EnumInstance { type_name, .. } => {
-                if let Some(r#type) = context.get_type(type_name)? {
-                    r#type
-                } else {
-                    return Err(ValidationError::EnumDefinitionNotFound {
-                        identifier: type_name.clone(),
-                        position: None,
-                    });
-                }
-            }
             ValueInner::Float(_) => Type::Float,
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
-                let item_type = values.first().unwrap().r#type(context)?;
+                let item_type = values.first().unwrap().r#type();
 
                 Type::List {
                     length: values.len(),
@@ -631,7 +451,7 @@ impl ValueInner {
                 let mut type_map = BTreeMap::with_capacity(value_map.len());
 
                 for (identifier, value) in value_map {
-                    let r#type = value.r#type(context)?;
+                    let r#type = value.r#type();
 
                     type_map.insert(identifier.clone(), r#type);
                 }
@@ -640,29 +460,7 @@ impl ValueInner {
             }
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
-            ValueInner::Function(function) => {
-                let return_type = function.return_type.clone().map(Box::new);
-
-                Type::Function {
-                    type_parameters: function.type_parameters().clone(),
-                    value_parameters: function.value_parameters().clone(),
-                    return_type,
-                }
-            }
-            ValueInner::Structure { name, .. } => {
-                if let Some(r#type) = context.get_type(name)? {
-                    r#type
-                } else {
-                    return Err(ValidationError::StructDefinitionNotFound {
-                        identifier: name.clone(),
-                        position: None,
-                    });
-                }
-            }
-            ValueInner::BuiltInFunction(function) => function.r#type(),
-        };
-
-        Ok(r#type)
+        }
     }
 }
 
@@ -701,199 +499,6 @@ impl Ord for ValueInner {
             (Range(_), _) => Ordering::Greater,
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
-            (
-                EnumInstance {
-                    type_name: left_name,
-                    type_arguments: left_arguments,
-                    variant: left_variant,
-                    content: left_content,
-                },
-                EnumInstance {
-                    type_name: right_name,
-                    type_arguments: right_arguments,
-                    variant: right_variant,
-                    content: right_content,
-                },
-            ) => {
-                let name_cmp = left_name.cmp(right_name);
-
-                if name_cmp.is_eq() {
-                    let argument_cmp = left_arguments.cmp(right_arguments);
-
-                    if argument_cmp.is_eq() {
-                        let variant_cmp = left_variant.cmp(right_variant);
-
-                        if variant_cmp.is_eq() {
-                            left_content.cmp(right_content)
-                        } else {
-                            variant_cmp
-                        }
-                    } else {
-                        argument_cmp
-                    }
-                } else {
-                    name_cmp
-                }
-            }
-            (EnumInstance { .. }, _) => Ordering::Greater,
-            (Function(left), Function(right)) => left.cmp(right),
-            (Function(_), _) => Ordering::Greater,
-            (
-                Structure {
-                    name: left_name,
-                    fields: left_fields,
-                },
-                Structure {
-                    name: right_name,
-                    fields: right_fields,
-                },
-            ) => {
-                let name_cmp = left_name.cmp(right_name);
-
-                if name_cmp.is_eq() {
-                    left_fields.cmp(right_fields)
-                } else {
-                    name_cmp
-                }
-            }
-            (Structure { .. }, _) => Ordering::Greater,
-            (BuiltInFunction(left), BuiltInFunction(right)) => left.cmp(right),
-            (BuiltInFunction(_), _) => Ordering::Greater,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Function {
-    type_parameters: Option<Vec<Identifier>>,
-    value_parameters: Option<Vec<(Identifier, Type)>>,
-    return_type: Option<Type>,
-    body: Block,
-    context: Context,
-}
-
-impl Function {
-    pub fn new(
-        type_parameters: Option<Vec<Identifier>>,
-        value_parameters: Option<Vec<(Identifier, Type)>>,
-        return_type: Option<Type>,
-        body: Block,
-    ) -> Self {
-        Self {
-            type_parameters,
-            value_parameters,
-            return_type,
-            body,
-            context: Context::new(),
-        }
-    }
-
-    pub fn type_parameters(&self) -> &Option<Vec<Identifier>> {
-        &self.type_parameters
-    }
-
-    pub fn value_parameters(&self) -> &Option<Vec<(Identifier, Type)>> {
-        &self.value_parameters
-    }
-
-    pub fn body(&self) -> &Block {
-        &self.body
-    }
-
-    pub fn call(
-        self,
-        outer_context: Option<&Context>,
-        type_arguments: Option<Vec<Type>>,
-        value_arguments: Option<Vec<Value>>,
-    ) -> Result<Option<Evaluation>, RuntimeError> {
-        trace!("Setting function call variables");
-
-        if let Some(outer_context) = outer_context {
-            if &self.context == outer_context {
-                log::debug!("Recursion detected");
-            }
-
-            self.context.inherit_variables_from(outer_context)?;
-        }
-
-        if let (Some(type_parameters), Some(type_arguments)) =
-            (self.type_parameters, type_arguments)
-        {
-            for (identifier, r#type) in type_parameters.into_iter().zip(type_arguments.into_iter())
-            {
-                self.context
-                    .set_type(identifier.clone(), r#type, SourcePosition(0, usize::MAX))?;
-            }
-        }
-
-        if let (Some(value_parameters), Some(value_arguments)) =
-            (self.value_parameters, value_arguments)
-        {
-            for ((identifier, _), value) in value_parameters
-                .into_iter()
-                .zip(value_arguments.into_iter())
-            {
-                self.context
-                    .set_value(identifier.clone(), value, SourcePosition(0, usize::MAX))?;
-            }
-        }
-
-        debug!("Calling function");
-
-        self.body
-            .evaluate(&self.context, false, SourcePosition(0, usize::MAX))
-    }
-}
-
-impl Clone for Function {
-    fn clone(&self) -> Self {
-        Function {
-            type_parameters: self.type_parameters.clone(),
-            value_parameters: self.value_parameters.clone(),
-            return_type: self.return_type.clone(),
-            body: self.body.clone(),
-            context: Context::new(),
-        }
-    }
-}
-
-impl Eq for Function {}
-
-impl PartialEq for Function {
-    fn eq(&self, other: &Self) -> bool {
-        self.type_parameters == other.type_parameters
-            && self.value_parameters == other.value_parameters
-            && self.return_type == other.return_type
-            && self.body == other.body
-    }
-}
-
-impl PartialOrd for Function {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Function {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let type_param_cmp = self.type_parameters().cmp(&other.type_parameters);
-
-        if type_param_cmp.is_eq() {
-            let value_param_cmp = self.value_parameters.cmp(&other.value_parameters);
-
-            if value_param_cmp.is_eq() {
-                let return_type_cmp = self.return_type.cmp(&other.return_type);
-
-                if return_type_cmp.is_eq() {
-                    self.body.cmp(&other.body)
-                } else {
-                    return_type_cmp
-                }
-            } else {
-                value_param_cmp
-            }
-        } else {
-            type_param_cmp
         }
     }
 }
