@@ -1,3 +1,5 @@
+use std::num::{ParseFloatError, ParseIntError};
+
 use crate::{Identifier, Span, Token};
 
 pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
@@ -88,8 +90,23 @@ impl<'a> Lexer<'a> {
 
     fn lex_number(&mut self) -> Result<(Token, Span), LexError> {
         let start_pos = self.position;
+        let mut is_float = false;
 
         while let Some(c) = self.peek_char() {
+            if c == '.' {
+                is_float = true;
+
+                self.next_char();
+
+                while let Some(c) = self.peek_char() {
+                    if c.is_ascii_digit() {
+                        self.next_char();
+                    } else {
+                        break;
+                    }
+                }
+            }
+
             if c.is_ascii_digit() {
                 self.next_char();
             } else {
@@ -97,9 +114,15 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        let integer = self.input[start_pos..self.position].parse::<i64>()?;
+        if is_float {
+            let float = self.input[start_pos..self.position].parse::<f64>()?;
 
-        Ok((Token::Number(integer), (start_pos, self.position)))
+            Ok((Token::Float(float), (start_pos, self.position)))
+        } else {
+            let integer = self.input[start_pos..self.position].parse::<i64>()?;
+
+            Ok((Token::Number(integer), (start_pos, self.position)))
+        }
     }
 
     fn lex_identifier(&mut self) -> Result<(Token, Span), LexError> {
@@ -122,18 +145,35 @@ impl<'a> Lexer<'a> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
-    IntegerParseError(std::num::ParseIntError),
+    FloatError(ParseFloatError),
+    IntegerError(ParseIntError),
 }
 
-impl From<std::num::ParseIntError> for LexError {
-    fn from(v: std::num::ParseIntError) -> Self {
-        Self::IntegerParseError(v)
+impl From<ParseFloatError> for LexError {
+    fn from(error: std::num::ParseFloatError) -> Self {
+        Self::FloatError(error)
+    }
+}
+
+impl From<ParseIntError> for LexError {
+    fn from(error: std::num::ParseIntError) -> Self {
+        Self::IntegerError(error)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn float() {
+        let input = "1.23";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Float(1.23), (0, 4)), (Token::Eof, (4, 4)),])
+        )
+    }
 
     #[test]
     fn add() {

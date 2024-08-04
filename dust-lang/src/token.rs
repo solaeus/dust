@@ -10,4 +10,5 @@ pub enum Token {
     Star,
     LeftParenthesis,
     RightParenthesis,
+    Float(f64),
 }
