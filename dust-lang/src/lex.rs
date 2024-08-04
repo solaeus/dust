@@ -1,16 +1,5 @@
 use crate::{Identifier, Span, Token};
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum LexError {
-    IntegerParseError(std::num::ParseIntError),
-}
-
-impl From<std::num::ParseIntError> for LexError {
-    fn from(v: std::num::ParseIntError) -> Self {
-        Self::IntegerParseError(v)
-    }
-}
-
 pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
     let mut lexer = Lexer::new(input);
     let mut tokens = Vec::new();
@@ -128,5 +117,87 @@ impl<'a> Lexer<'a> {
         let token = Token::Identifier(Identifier::new(identifier));
 
         Ok((token, (start_pos, self.position)))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum LexError {
+    IntegerParseError(std::num::ParseIntError),
+}
+
+impl From<std::num::ParseIntError> for LexError {
+    fn from(v: std::num::ParseIntError) -> Self {
+        Self::IntegerParseError(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add() {
+        let input = "1 + 2";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(1), (0, 1)),
+                (Token::Plus, (2, 3)),
+                (Token::Integer(2), (4, 5)),
+                (Token::Eof, (5, 5)),
+            ])
+        )
+    }
+
+    #[test]
+    fn multiply() {
+        let input = "1 * 2";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(1), (0, 1)),
+                (Token::Star, (2, 3)),
+                (Token::Integer(2), (4, 5)),
+                (Token::Eof, (5, 5)),
+            ])
+        )
+    }
+
+    #[test]
+    fn add_and_multiply() {
+        let input = "1 + 2 * 3";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(1), (0, 1)),
+                (Token::Plus, (2, 3)),
+                (Token::Integer(2), (4, 5)),
+                (Token::Star, (6, 7)),
+                (Token::Integer(3), (8, 9)),
+                (Token::Eof, (9, 9)),
+            ])
+        );
+    }
+
+    #[test]
+    fn assignment() {
+        let input = "a = 1 + 2 * 3";
+
+        assert_eq!(
+            lex(input,),
+            Ok(vec![
+                (Token::Identifier(Identifier::new("a")), (0, 1)),
+                (Token::Equal, (2, 3)),
+                (Token::Integer(1), (4, 5)),
+                (Token::Plus, (6, 7)),
+                (Token::Integer(2), (8, 9)),
+                (Token::Star, (10, 11)),
+                (Token::Integer(3), (12, 13)),
+                (Token::Eof, (13, 13)),
+            ])
+        );
     }
 }

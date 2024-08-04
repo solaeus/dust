@@ -4,6 +4,13 @@ use crate::{
     Span, Token, Value,
 };
 
+pub fn parse(input: &str) -> Result<(Instruction, Span), ParseError> {
+    let lexer = Lexer::new(input);
+    let mut parser = Parser::new(lexer);
+
+    parser.parse()
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Instruction {
     Add(Box<(Instruction, Instruction)>),
@@ -11,19 +18,6 @@ pub enum Instruction {
     Constant(Value),
     Identifier(Identifier),
     Multiply(Box<(Instruction, Instruction)>),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum ParseError {
-    LexError(LexError),
-    ExpectedClosingParenthesis,
-    UnexpectedToken(Token),
-}
-
-impl From<LexError> for ParseError {
-    fn from(v: LexError) -> Self {
-        Self::LexError(v)
-    }
 }
 
 pub struct Parser<'src> {
@@ -137,20 +131,30 @@ impl<'src> Parser<'src> {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum ParseError {
+    LexError(LexError),
+    ExpectedClosingParenthesis,
+    UnexpectedToken(Token),
+}
+
+impl From<LexError> for ParseError {
+    fn from(v: LexError) -> Self {
+        Self::LexError(v)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{identifier::Identifier, lex::lex, Value};
 
-    use super::{Instruction, Lexer, Parser, Token};
+    use super::*;
 
     #[test]
     fn add() {
         let input = "1 + 2";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
 
         assert_eq!(
-            parser.parse(),
+            parse(input),
             Ok((
                 Instruction::Add(Box::new((
                     Instruction::Constant(Value::integer(1)),
@@ -164,11 +168,9 @@ mod tests {
     #[test]
     fn multiply() {
         let input = "1 * 2";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
 
         assert_eq!(
-            parser.parse(),
+            parse(input),
             Ok((
                 Instruction::Multiply(Box::new((
                     Instruction::Constant(Value::integer(1)),
@@ -184,26 +186,7 @@ mod tests {
         let input = "1 + 2 * 3";
 
         assert_eq!(
-            lex(input),
-            Ok(vec![
-                (Token::Integer(1), (0, 1)),
-                (Token::Plus, (2, 3)),
-                (Token::Integer(2), (4, 5)),
-                (Token::Star, (6, 7)),
-                (Token::Integer(3), (8, 9)),
-                (Token::Eof, (9, 9)),
-            ])
-        );
-    }
-
-    #[test]
-    fn parser() {
-        let input = "1 + 2 * 3";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-
-        assert_eq!(
-            parser.parse(),
+            parse(input),
             Ok((
                 Instruction::Add(Box::new((
                     Instruction::Constant(Value::integer(1)),
@@ -220,11 +203,9 @@ mod tests {
     #[test]
     fn assignment() {
         let input = "a = 1 + 2 * 3";
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
 
         assert_eq!(
-            parser.parse(),
+            parse(input),
             Ok((
                 Instruction::Assign(Box::new((
                     Instruction::Identifier(Identifier::new("a")),
