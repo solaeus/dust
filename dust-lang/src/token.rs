@@ -5,7 +5,7 @@ pub enum Token {
     Eof,
     Equal,
     Identifier(Identifier),
-    Integer(i64),
+    Number(i64),
     Plus,
     Star,
     LeftParenthesis,

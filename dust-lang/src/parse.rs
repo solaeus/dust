@@ -96,7 +96,7 @@ impl<'src> Parser<'src> {
 
     fn parse_primary(&mut self) -> Result<(Instruction, Span), ParseError> {
         match self.current.clone() {
-            (Token::Integer(int), span) => {
+            (Token::Number(int), span) => {
                 self.next_token()?;
                 Ok((Instruction::Constant(Value::integer(int)), span))
             }
