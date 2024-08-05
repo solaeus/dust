@@ -1,9 +1,9 @@
 use crate::{
     lex::{LexError, Lexer},
-    Instruction, Operation, Span, Token, Value,
+    Node, Span, Statement, Token, Value,
 };
 
-pub fn parse(input: &str) -> Result<Vec<Instruction>, ParseError> {
+pub fn parse(input: &str) -> Result<Vec<Node>, ParseError> {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let mut instructions = Vec::new();
@@ -34,7 +34,7 @@ impl<'src> Parser<'src> {
         Parser { lexer, current }
     }
 
-    pub fn parse(&mut self) -> Result<Instruction, ParseError> {
+    pub fn parse(&mut self) -> Result<Node, ParseError> {
         self.parse_instruction(0)
     }
 
@@ -44,7 +44,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_instruction(&mut self, precedence: u8) -> Result<Instruction, ParseError> {
+    fn parse_instruction(&mut self, precedence: u8) -> Result<Node, ParseError> {
         let left_instruction = self.parse_primary()?;
         let left_start = left_instruction.span.0;
 
@@ -56,8 +56,8 @@ impl<'src> Parser<'src> {
                     let right_instruction = self.parse_instruction(self.current_precedence())?;
                     let right_end = right_instruction.span.1;
 
-                    return Ok(Instruction::new(
-                        Operation::Add(Box::new((left_instruction, right_instruction))),
+                    return Ok(Node::new(
+                        Statement::Add(Box::new((left_instruction, right_instruction))),
                         (left_start, right_end),
                     ));
                 }
@@ -67,8 +67,8 @@ impl<'src> Parser<'src> {
                     let right_instruction = self.parse_instruction(self.current_precedence())?;
                     let right_end = right_instruction.span.1;
 
-                    return Ok(Instruction::new(
-                        Operation::Multiply(Box::new((left_instruction, right_instruction))),
+                    return Ok(Node::new(
+                        Statement::Multiply(Box::new((left_instruction, right_instruction))),
                         (left_start, right_end),
                     ));
                 }
@@ -78,8 +78,8 @@ impl<'src> Parser<'src> {
                     let right_instruction = self.parse_instruction(self.current_precedence())?;
                     let right_end = right_instruction.span.1;
 
-                    return Ok(Instruction::new(
-                        Operation::Assign(Box::new((left_instruction, right_instruction))),
+                    return Ok(Node::new(
+                        Statement::Assign(Box::new((left_instruction, right_instruction))),
                         (left_start, right_end),
                     ));
                 }
@@ -90,28 +90,22 @@ impl<'src> Parser<'src> {
         Ok(left_instruction)
     }
 
-    fn parse_primary(&mut self) -> Result<Instruction, ParseError> {
+    fn parse_primary(&mut self) -> Result<Node, ParseError> {
         match self.current.clone() {
             (Token::Float(float), span) => {
                 self.next_token()?;
 
-                Ok(Instruction::new(
-                    Operation::Constant(Value::float(float)),
-                    span,
-                ))
+                Ok(Node::new(Statement::Constant(Value::float(float)), span))
             }
             (Token::Integer(int), span) => {
                 self.next_token()?;
 
-                Ok(Instruction::new(
-                    Operation::Constant(Value::integer(int)),
-                    span,
-                ))
+                Ok(Node::new(Statement::Constant(Value::integer(int)), span))
             }
             (Token::Identifier(identifier), span) => {
                 self.next_token()?;
 
-                Ok(Instruction::new(Operation::Identifier(identifier), span))
+                Ok(Node::new(Statement::Identifier(identifier), span))
             }
             (Token::LeftParenthesis, left_span) => {
                 self.next_token()?;
@@ -121,7 +115,7 @@ impl<'src> Parser<'src> {
                 if let (Token::RightParenthesis, right_span) = self.current {
                     self.next_token()?;
 
-                    Ok(Instruction::new(
+                    Ok(Node::new(
                         instruction.operation,
                         (left_span.0, right_span.1),
                     ))
@@ -141,8 +135,8 @@ impl<'src> Parser<'src> {
                     if let (Token::RightSquareBrace, right_span) = self.current {
                         self.next_token()?;
 
-                        return Ok(Instruction::new(
-                            Operation::List(instructions),
+                        return Ok(Node::new(
+                            Statement::List(instructions),
                             (left_span.0, right_span.1),
                         ));
                     }
@@ -203,29 +197,23 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(
-                Operation::List(vec![
-                    Instruction::new(Operation::Constant(Value::integer(1)), (1, 2)),
-                    Instruction::new(
-                        Operation::Add(Box::new((
-                            Instruction::new(Operation::Constant(Value::integer(1)), (4, 5)),
-                            Instruction::new(Operation::Constant(Value::integer(1)), (8, 9)),
+            Ok(vec![Node::new(
+                Statement::List(vec![
+                    Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                    Node::new(
+                        Statement::Add(Box::new((
+                            Node::new(Statement::Constant(Value::integer(1)), (4, 5)),
+                            Node::new(Statement::Constant(Value::integer(1)), (8, 9)),
                         ))),
                         (4, 9)
                     ),
-                    Instruction::new(
-                        Operation::Add(Box::new((
-                            Instruction::new(Operation::Constant(Value::integer(2)), (11, 12)),
-                            Instruction::new(
-                                Operation::Multiply(Box::new((
-                                    Instruction::new(
-                                        Operation::Constant(Value::integer(4)),
-                                        (16, 17)
-                                    ),
-                                    Instruction::new(
-                                        Operation::Constant(Value::integer(10)),
-                                        (20, 22)
-                                    ),
+                    Node::new(
+                        Statement::Add(Box::new((
+                            Node::new(Statement::Constant(Value::integer(2)), (11, 12)),
+                            Node::new(
+                                Statement::Multiply(Box::new((
+                                    Node::new(Statement::Constant(Value::integer(4)), (16, 17)),
+                                    Node::new(Statement::Constant(Value::integer(10)), (20, 22)),
                                 ))),
                                 (15, 23)
                             ),
@@ -244,10 +232,10 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(
-                Operation::List(vec![
-                    Instruction::new(Operation::Constant(Value::integer(1)), (1, 2)),
-                    Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
+            Ok(vec![Node::new(
+                Statement::List(vec![
+                    Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                    Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
                 ]),
                 (0, 6)
             )])
@@ -260,7 +248,7 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(Operation::List(vec![]), (0, 2))])
+            Ok(vec![Node::new(Statement::List(vec![]), (0, 2))])
         );
     }
 
@@ -270,8 +258,8 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(
-                Operation::Constant(Value::float(42.0)),
+            Ok(vec![Node::new(
+                Statement::Constant(Value::float(42.0)),
                 (0, 4)
             )])
         );
@@ -283,10 +271,10 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(
-                Operation::Add(Box::new((
-                    Instruction::new(Operation::Constant(Value::integer(1)), (0, 1)),
-                    Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
+            Ok(vec![Node::new(
+                Statement::Add(Box::new((
+                    Node::new(Statement::Constant(Value::integer(1)), (0, 1)),
+                    Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
                 ))),
                 (0, 5)
             )])
@@ -299,10 +287,10 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(
-                Operation::Multiply(Box::new((
-                    Instruction::new(Operation::Constant(Value::integer(1)), (0, 1)),
-                    Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
+            Ok(vec![Node::new(
+                Statement::Multiply(Box::new((
+                    Node::new(Statement::Constant(Value::integer(1)), (0, 1)),
+                    Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
                 ))),
                 (0, 5)
             )])
@@ -315,13 +303,13 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(
-                Operation::Add(Box::new((
-                    Instruction::new(Operation::Constant(Value::integer(1)), (0, 1)),
-                    Instruction::new(
-                        Operation::Multiply(Box::new((
-                            Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
-                            Instruction::new(Operation::Constant(Value::integer(3)), (8, 9)),
+            Ok(vec![Node::new(
+                Statement::Add(Box::new((
+                    Node::new(Statement::Constant(Value::integer(1)), (0, 1)),
+                    Node::new(
+                        Statement::Multiply(Box::new((
+                            Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
+                            Node::new(Statement::Constant(Value::integer(3)), (8, 9)),
                         ))),
                         (4, 9)
                     ),
@@ -337,22 +325,16 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(vec![Instruction::new(
-                Operation::Assign(Box::new((
-                    Instruction::new(Operation::Identifier(Identifier::new("a")), (0, 1)),
-                    Instruction::new(
-                        Operation::Add(Box::new((
-                            Instruction::new(Operation::Constant(Value::integer(1)), (4, 5)),
-                            Instruction::new(
-                                Operation::Multiply(Box::new((
-                                    Instruction::new(
-                                        Operation::Constant(Value::integer(2)),
-                                        (8, 9)
-                                    ),
-                                    Instruction::new(
-                                        Operation::Constant(Value::integer(3)),
-                                        (12, 13)
-                                    ),
+            Ok(vec![Node::new(
+                Statement::Assign(Box::new((
+                    Node::new(Statement::Identifier(Identifier::new("a")), (0, 1)),
+                    Node::new(
+                        Statement::Add(Box::new((
+                            Node::new(Statement::Constant(Value::integer(1)), (4, 5)),
+                            Node::new(
+                                Statement::Multiply(Box::new((
+                                    Node::new(Statement::Constant(Value::integer(2)), (8, 9)),
+                                    Node::new(Statement::Constant(Value::integer(3)), (12, 13)),
                                 ))),
                                 (8, 13)
                             ),

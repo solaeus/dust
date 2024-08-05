@@ -1,4 +1,4 @@
-use crate::{parse, Instruction, Operation, ParseError, Parser, Value, ValueError};
+use crate::{parse, Node, ParseError, Parser, Statement, Value, ValueError};
 
 pub fn run(input: &str) -> Result<Option<Value>, VmError> {
     let instructions = parse(input)?;
@@ -8,11 +8,11 @@ pub fn run(input: &str) -> Result<Option<Value>, VmError> {
 }
 
 pub struct Vm {
-    instructions: Vec<Instruction>,
+    instructions: Vec<Node>,
 }
 
 impl Vm {
-    pub fn new(instructions: Vec<Instruction>) -> Self {
+    pub fn new(instructions: Vec<Node>) -> Self {
         Vm { instructions }
     }
 
@@ -26,9 +26,9 @@ impl Vm {
         Ok(previous_value)
     }
 
-    fn run_instruction(&self, instruction: &Instruction) -> Result<Option<Value>, VmError> {
+    fn run_instruction(&self, instruction: &Node) -> Result<Option<Value>, VmError> {
         match &instruction.operation {
-            Operation::Add(instructions) => {
+            Statement::Add(instructions) => {
                 let left = if let Some(value) = self.run_instruction(&instructions.0)? {
                     value
                 } else {
@@ -43,19 +43,19 @@ impl Vm {
 
                 Ok(Some(sum))
             }
-            Operation::Assign(_) => todo!(),
-            Operation::Constant(value) => Ok(Some(value.clone())),
-            Operation::Identifier(_) => todo!(),
-            Operation::List(_) => todo!(),
-            Operation::Multiply(_) => todo!(),
+            Statement::Assign(_) => todo!(),
+            Statement::Constant(value) => Ok(Some(value.clone())),
+            Statement::Identifier(_) => todo!(),
+            Statement::List(_) => todo!(),
+            Statement::Multiply(_) => todo!(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
-    ExpectedValue(Operation),
-    InvalidOperation(Operation),
+    ExpectedValue(Statement),
+    InvalidOperation(Statement),
     ParseError(ParseError),
     ValueError(ValueError),
 }
@@ -81,5 +81,12 @@ mod tests {
         let input = "1 + 2";
 
         assert_eq!(run(input), Ok(Some(Value::integer(3))));
+    }
+
+    #[test]
+    fn add_multiple() {
+        let input = "(a + b = 1)";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(6))));
     }
 }

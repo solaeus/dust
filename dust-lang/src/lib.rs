@@ -7,8 +7,9 @@ The [interpreter] module contains the `Interpreter` struct, which is used to lex
 interpret Dust code. The `interpret` function is a convenience function that creates a new
 `Interpreter` and runs the given source code.
 */
+pub mod abstract_tree;
+pub mod analyzer;
 pub mod identifier;
-pub mod instruction;
 pub mod lex;
 pub mod parse;
 pub mod token;
@@ -16,8 +17,9 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
+pub use abstract_tree::{Node, Statement};
+pub use analyzer::Analyzer;
 pub use identifier::Identifier;
-pub use instruction::{Instruction, Operation};
 pub use lex::{lex, LexError, Lexer};
 pub use parse::{parse, ParseError, Parser};
 pub use r#type::Type;
