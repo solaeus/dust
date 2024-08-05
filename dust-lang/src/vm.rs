@@ -1,74 +1,128 @@
-use crate::{parse, Node, ParseError, Parser, Statement, Value, ValueError};
+use std::collections::{HashMap, VecDeque};
 
-pub fn run(input: &str) -> Result<Option<Value>, VmError> {
+use crate::{parse, Identifier, Node, ParseError, Span, Statement, Value, ValueError};
+
+pub fn run(
+    input: &str,
+    variables: &mut HashMap<Identifier, Value>,
+) -> Result<Option<Value>, VmError> {
     let instructions = parse(input)?;
-    let vm = Vm::new(instructions);
+    let mut vm = Vm::new(instructions);
 
-    vm.run()
+    vm.run(variables)
 }
 
 pub struct Vm {
-    instructions: Vec<Node>,
+    statement_nodes: VecDeque<Node>,
 }
 
 impl Vm {
-    pub fn new(instructions: Vec<Node>) -> Self {
-        Vm { instructions }
+    pub fn new(statement_nodes: VecDeque<Node>) -> Self {
+        Vm { statement_nodes }
     }
 
-    pub fn run(&self) -> Result<Option<Value>, VmError> {
+    pub fn run(
+        &mut self,
+        variables: &mut HashMap<Identifier, Value>,
+    ) -> Result<Option<Value>, VmError> {
         let mut previous_value = None;
 
-        for instruction in &self.instructions {
-            previous_value = self.run_instruction(instruction)?;
+        while let Some(node) = self.statement_nodes.pop_front() {
+            previous_value = self.run_node(node, variables)?;
         }
 
         Ok(previous_value)
     }
 
-    fn run_instruction(&self, instruction: &Node) -> Result<Option<Value>, VmError> {
-        match &instruction.operation {
-            Statement::Add(instructions) => {
-                let left = if let Some(value) = self.run_instruction(&instructions.0)? {
+    fn run_node(
+        &self,
+        node: Node,
+        variables: &mut HashMap<Identifier, Value>,
+    ) -> Result<Option<Value>, VmError> {
+        match node.statement {
+            Statement::Add(left, right) => {
+                let left_span = left.span;
+                let left = if let Some(value) = self.run_node(*left, variables)? {
                     value
                 } else {
-                    return Err(VmError::ExpectedValue(instructions.0.operation.clone()));
+                    return Err(VmError::ExpectedValue {
+                        position: left_span,
+                    });
                 };
-                let right = if let Some(value) = self.run_instruction(&instructions.1)? {
+                let right_span = right.span;
+                let right = if let Some(value) = self.run_node(*right, variables)? {
                     value
                 } else {
-                    return Err(VmError::ExpectedValue(instructions.1.operation.clone()));
+                    return Err(VmError::ExpectedValue {
+                        position: right_span,
+                    });
                 };
                 let sum = left.add(&right)?;
 
                 Ok(Some(sum))
             }
-            Statement::Assign(_) => todo!(),
+            Statement::Assign(left, right) => {
+                let identifier = if let Statement::Identifier(identifier) = &left.statement {
+                    identifier
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: left.span,
+                    });
+                };
+                let right_span = right.span;
+                let value = if let Some(value) = self.run_node(*right, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: right_span,
+                    });
+                };
+
+                variables.insert(identifier.clone(), value);
+
+                Ok(None)
+            }
             Statement::Constant(value) => Ok(Some(value.clone())),
-            Statement::Identifier(_) => todo!(),
-            Statement::List(_) => todo!(),
-            Statement::Multiply(_) => todo!(),
+            Statement::Identifier(_) => Ok(None),
+            Statement::List(nodes) => {
+                let values = nodes
+                    .into_iter()
+                    .map(|node| {
+                        let span = node.span;
+                        if let Some(value) = self.run_node(node, variables)? {
+                            Ok(value)
+                        } else {
+                            Err(VmError::ExpectedValue { position: span })
+                        }
+                    })
+                    .collect::<Result<Vec<Value>, VmError>>()?;
+
+                Ok(Some(Value::list(values)))
+            }
+            Statement::Multiply(_, _) => todo!(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
-    ExpectedValue(Statement),
-    InvalidOperation(Statement),
     ParseError(ParseError),
     ValueError(ValueError),
+
+    // Anaylsis Failures
+    // These should be prevented by running the analyzer before the VM
+    ExpectedValue { position: Span },
 }
 
 impl From<ParseError> for VmError {
-    fn from(v: ParseError) -> Self {
-        Self::ParseError(v)
+    fn from(error: ParseError) -> Self {
+        Self::ParseError(error)
     }
 }
 
 impl From<ValueError> for VmError {
-    fn from(v: ValueError) -> Self {
-        Self::ValueError(v)
+    fn from(error: ValueError) -> Self {
+        Self::ValueError(error)
     }
 }
 
@@ -80,13 +134,13 @@ mod tests {
     fn add() {
         let input = "1 + 2";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn add_multiple() {
-        let input = "(a + b = 1)";
+        let input = "1 + 2 + 3";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(6))));
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(6))));
     }
 }

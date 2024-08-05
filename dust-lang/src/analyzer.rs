@@ -1,5 +1,11 @@
 use crate::{Node, Span, Statement};
 
+pub fn analyze(abstract_tree: Vec<Node>) -> Result<(), AnalyzerError> {
+    let analyzer = Analyzer::new(abstract_tree);
+
+    analyzer.analyze()
+}
+
 pub struct Analyzer {
     abstract_tree: Vec<Node>,
 }
@@ -18,33 +24,36 @@ impl Analyzer {
     }
 
     fn analyze_node(&self, node: &Node) -> Result<(), AnalyzerError> {
-        match &node.operation {
-            Statement::Add(instructions) => {
-                self.analyze_node(&instructions.0)?;
-                self.analyze_node(&instructions.1)?;
+        match &node.statement {
+            Statement::Add(left, right) => {
+                self.analyze_node(&left)?;
+                self.analyze_node(&right)?;
             }
-            Statement::Assign(instructions) => {
-                if let Statement::Identifier(_) = &instructions.0.operation {
-                    // Identifier
+            Statement::Assign(left, right) => {
+                if let Statement::Identifier(_) = &left.statement {
+                    // Identifier is in the correct position
                 } else {
                     return Err(AnalyzerError::ExpectedIdentifier {
-                        actual: instructions.0.clone(),
+                        actual: left.as_ref().clone(),
                     });
                 }
 
-                self.analyze_node(&instructions.0)?;
-                self.analyze_node(&instructions.1)?;
+                self.analyze_node(&right)?;
             }
             Statement::Constant(_) => {}
-            Statement::Identifier(_) => {}
-            Statement::List(instructions) => {
-                for instruction in instructions {
-                    self.analyze_node(instruction)?;
+            Statement::Identifier(_) => {
+                return Err(AnalyzerError::UnexpectedIdentifier {
+                    identifier: node.clone(),
+                });
+            }
+            Statement::List(statements) => {
+                for statement in statements {
+                    self.analyze_node(statement)?;
                 }
             }
-            Statement::Multiply(instructions) => {
-                self.analyze_node(&instructions.0)?;
-                self.analyze_node(&instructions.1)?;
+            Statement::Multiply(left, right) => {
+                self.analyze_node(&left)?;
+                self.analyze_node(&right)?;
             }
         }
 
@@ -55,22 +64,23 @@ impl Analyzer {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
     ExpectedIdentifier { actual: Node },
+    UnexpectedIdentifier { identifier: Node },
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Value;
+    use crate::{Identifier, Value};
 
     use super::*;
 
     #[test]
-    fn analyze() {
+    fn assignment_expect_identifier() {
         let abstract_tree = vec![Node::new(
-            Statement::Assign(Box::new((
-                Node::new(Statement::Constant(Value::integer(1)), (0, 1)),
-                Node::new(Statement::Constant(Value::integer(2)), (1, 2)),
-            ))),
-            (0, 1),
+            Statement::Assign(
+                Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                Box::new(Node::new(Statement::Constant(Value::integer(2)), (1, 2))),
+            ),
+            (0, 2),
         )];
 
         let analyzer = Analyzer::new(abstract_tree);
@@ -79,6 +89,46 @@ mod tests {
             analyzer.analyze(),
             Err(AnalyzerError::ExpectedIdentifier {
                 actual: Node::new(Statement::Constant(Value::integer(1)), (0, 1))
+            })
+        )
+    }
+
+    #[test]
+    fn unexpected_identifier_simple() {
+        let abstract_tree = vec![Node::new(
+            Statement::Identifier(Identifier::new("x")),
+            (0, 1),
+        )];
+
+        let analyzer = Analyzer::new(abstract_tree);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::UnexpectedIdentifier {
+                identifier: Node::new(Statement::Identifier(Identifier::new("x")), (0, 1))
+            })
+        )
+    }
+
+    #[test]
+    fn unexpected_identifier_nested() {
+        let abstract_tree = vec![Node::new(
+            Statement::Add(
+                Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                Box::new(Node::new(
+                    Statement::Identifier(Identifier::new("x")),
+                    (1, 2),
+                )),
+            ),
+            (0, 1),
+        )];
+
+        let analyzer = Analyzer::new(abstract_tree);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::UnexpectedIdentifier {
+                identifier: Node::new(Statement::Identifier(Identifier::new("x")), (1, 2))
             })
         )
     }

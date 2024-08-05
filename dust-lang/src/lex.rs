@@ -22,17 +22,20 @@ pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
 
 #[derive(Debug, Clone)]
 pub struct Lexer<'a> {
-    input: &'a str,
+    source: &'a str,
     position: usize,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
-        Lexer { input, position: 0 }
+        Lexer {
+            source: input,
+            position: 0,
+        }
     }
 
     fn next_char(&mut self) -> Option<char> {
-        self.input[self.position..].chars().next().map(|c| {
+        self.source[self.position..].chars().next().map(|c| {
             self.position += c.len_utf8();
             c
         })
@@ -97,7 +100,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn peek_char(&self) -> Option<char> {
-        self.input[self.position..].chars().next()
+        self.source[self.position..].chars().next()
     }
 
     fn lex_number(&mut self) -> Result<(Token, Span), LexError> {
@@ -127,11 +130,11 @@ impl<'a> Lexer<'a> {
         }
 
         if is_float {
-            let float = self.input[start_pos..self.position].parse::<f64>()?;
+            let float = self.source[start_pos..self.position].parse::<f64>()?;
 
             Ok((Token::Float(float), (start_pos, self.position)))
         } else {
-            let integer = self.input[start_pos..self.position].parse::<i64>()?;
+            let integer = self.source[start_pos..self.position].parse::<i64>()?;
 
             Ok((Token::Integer(integer), (start_pos, self.position)))
         }
@@ -148,7 +151,7 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        let identifier = &self.input[start_pos..self.position];
+        let identifier = &self.source[start_pos..self.position];
         let token = Token::Identifier(Identifier::new(identifier));
 
         Ok((token, (start_pos, self.position)))
