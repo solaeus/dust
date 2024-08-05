@@ -1,12 +1,10 @@
-/**
-The Dust programming language.
-
-Dust is a statically typed, interpreted programming language.
-
-The [interpreter] module contains the `Interpreter` struct, which is used to lex, parse and/or
-interpret Dust code. The `interpret` function is a convenience function that creates a new
-`Interpreter` and runs the given source code.
-*/
+//! The Dust programming language.
+//!
+//! Dust is a statically typed, interpreted programming language.
+//!
+//! The [interpreter] module contains the `Interpreter` struct, which is used to lex, parse and/or
+//! interpret Dust code. The `interpret` function is a convenience function that creates a new
+//! `Interpreter` and runs the given source code.
 pub mod abstract_tree;
 pub mod analyzer;
 pub mod identifier;

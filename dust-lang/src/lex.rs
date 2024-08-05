@@ -1,7 +1,13 @@
+//! Lexing tools.
+//!
+//! This module provides two lexing options:
+//! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
+//! - [`Lexer`], which lexes the input a token at a time
 use std::num::{ParseFloatError, ParseIntError};
 
 use crate::{Identifier, Span, Token};
 
+/// Lex the input and return a vector of tokens and their positions.
 pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
     let mut lexer = Lexer::new(input);
     let mut tokens = Vec::new();
@@ -21,12 +27,14 @@ pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
 }
 
 #[derive(Debug, Clone)]
+/// Low-level tool for lexing a single token at a time.
 pub struct Lexer<'a> {
     source: &'a str,
     position: usize,
 }
 
 impl<'a> Lexer<'a> {
+    /// Create a new lexer for the given input.
     pub fn new(input: &'a str) -> Self {
         Lexer {
             source: input,
@@ -34,6 +42,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Progress to the next character.
     fn next_char(&mut self) -> Option<char> {
         self.source[self.position..].chars().next().map(|c| {
             self.position += c.len_utf8();
@@ -41,6 +50,7 @@ impl<'a> Lexer<'a> {
         })
     }
 
+    /// Produce the next token.
     pub fn next_token(&mut self) -> Result<(Token, Span), LexError> {
         self.skip_whitespace();
 
@@ -89,6 +99,7 @@ impl<'a> Lexer<'a> {
         Ok((token, span))
     }
 
+    /// Skip whitespace characters.
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.peek_char() {
             if c.is_whitespace() {
@@ -99,10 +110,12 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Peek at the next character without consuming it.
     fn peek_char(&self) -> Option<char> {
         self.source[self.position..].chars().next()
     }
 
+    /// Lex an integer or float token.
     fn lex_number(&mut self) -> Result<(Token, Span), LexError> {
         let start_pos = self.position;
         let mut is_float = false;
@@ -140,6 +153,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Lex an identifier token.
     fn lex_identifier(&mut self) -> Result<(Token, Span), LexError> {
         let start_pos = self.position;
 
