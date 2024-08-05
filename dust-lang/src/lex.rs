@@ -65,6 +65,18 @@ impl<'a> Lexer<'a> {
                     self.position += 1;
                     (Token::Equal, (self.position - 1, self.position))
                 }
+                '[' => {
+                    self.position += 1;
+                    (Token::LeftSquareBrace, (self.position - 1, self.position))
+                }
+                ']' => {
+                    self.position += 1;
+                    (Token::RightSquareBrace, (self.position - 1, self.position))
+                }
+                ',' => {
+                    self.position += 1;
+                    (Token::Comma, (self.position - 1, self.position))
+                }
                 _ => (Token::Eof, (self.position, self.position)),
             }
         } else {
@@ -164,6 +176,20 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn square_braces() {
+        let input = "[]";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::LeftSquareBrace, (0, 1)),
+                (Token::RightSquareBrace, (1, 2)),
+                (Token::Eof, (2, 2)),
+            ])
+        )
+    }
 
     #[test]
     fn small_float() {

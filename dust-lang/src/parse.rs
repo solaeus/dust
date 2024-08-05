@@ -29,6 +29,7 @@ pub enum Operation {
     Assign(Box<(Instruction, Instruction)>),
     Constant(Value),
     Identifier(Identifier),
+    List(Vec<Instruction>),
     Multiply(Box<(Instruction, Instruction)>),
 }
 
@@ -137,7 +138,41 @@ impl<'src> Parser<'src> {
                         (left_span.0, right_span.1),
                     ))
                 } else {
-                    Err(ParseError::ExpectedClosingParenthesis)
+                    Err(ParseError::ExpectedClosingParenthesis {
+                        actual: self.current.0.clone(),
+                        span: self.current.1,
+                    })
+                }
+            }
+            (Token::LeftSquareBrace, left_span) => {
+                self.next_token()?;
+
+                let mut instructions = Vec::new();
+
+                loop {
+                    if let (Token::RightSquareBrace, right_span) = self.current {
+                        self.next_token()?;
+
+                        return Ok(Instruction::new(
+                            Operation::List(instructions),
+                            (left_span.0, right_span.1),
+                        ));
+                    }
+
+                    if let (Token::Comma, _) = self.current {
+                        self.next_token()?;
+
+                        continue;
+                    }
+
+                    if let Ok(instruction) = self.parse_instruction(0) {
+                        instructions.push(instruction);
+                    } else {
+                        return Err(ParseError::ExpectedClosingSquareBrace {
+                            actual: self.current.0.clone(),
+                            span: self.current.1,
+                        });
+                    }
                 }
             }
             _ => Err(ParseError::UnexpectedToken(self.current.0.clone())),
@@ -145,10 +180,10 @@ impl<'src> Parser<'src> {
     }
 
     fn current_precedence(&self) -> u8 {
-        match self.current {
-            (Token::Equal, _) => 3,
-            (Token::Plus, _) => 1,
-            (Token::Star, _) => 2,
+        match self.current.0 {
+            Token::Equal => 3,
+            Token::Plus => 1,
+            Token::Star => 2,
             _ => 0,
         }
     }
@@ -156,8 +191,9 @@ impl<'src> Parser<'src> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
+    ExpectedClosingParenthesis { actual: Token, span: Span },
+    ExpectedClosingSquareBrace { actual: Token, span: Span },
     LexError(LexError),
-    ExpectedClosingParenthesis,
     UnexpectedToken(Token),
 }
 
@@ -171,6 +207,32 @@ impl From<LexError> for ParseError {
 mod tests {
 
     use super::*;
+
+    #[test]
+    fn list() {
+        let input = "[1, 2]";
+
+        assert_eq!(
+            parse(input),
+            Ok(Instruction::new(
+                Operation::List(vec![
+                    Instruction::new(Operation::Constant(Value::integer(1)), (1, 2)),
+                    Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
+                ]),
+                (0, 6)
+            ))
+        );
+    }
+
+    #[test]
+    fn empty_list() {
+        let input = "[]";
+
+        assert_eq!(
+            parse(input),
+            Ok(Instruction::new(Operation::List(vec![]), (0, 2)))
+        );
+    }
 
     #[test]
     fn float() {

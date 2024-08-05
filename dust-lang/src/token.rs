@@ -2,6 +2,7 @@ use crate::Identifier;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    Comma,
     Eof,
     Equal,
     Identifier(Identifier),
@@ -10,5 +11,7 @@ pub enum Token {
     Star,
     LeftParenthesis,
     RightParenthesis,
+    LeftSquareBrace,
+    RightSquareBrace,
     Float(f64),
 }
