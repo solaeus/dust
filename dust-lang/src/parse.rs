@@ -209,6 +209,47 @@ mod tests {
     use super::*;
 
     #[test]
+    fn complex_list() {
+        let input = "[1, 1 + 1, 2 + (4 * 10)]";
+
+        assert_eq!(
+            parse(input),
+            Ok(Instruction::new(
+                Operation::List(vec![
+                    Instruction::new(Operation::Constant(Value::integer(1)), (1, 2)),
+                    Instruction::new(
+                        Operation::Add(Box::new((
+                            Instruction::new(Operation::Constant(Value::integer(1)), (4, 5)),
+                            Instruction::new(Operation::Constant(Value::integer(1)), (8, 9)),
+                        ))),
+                        (4, 9)
+                    ),
+                    Instruction::new(
+                        Operation::Add(Box::new((
+                            Instruction::new(Operation::Constant(Value::integer(2)), (11, 12)),
+                            Instruction::new(
+                                Operation::Multiply(Box::new((
+                                    Instruction::new(
+                                        Operation::Constant(Value::integer(4)),
+                                        (16, 17)
+                                    ),
+                                    Instruction::new(
+                                        Operation::Constant(Value::integer(10)),
+                                        (20, 22)
+                                    ),
+                                ))),
+                                (15, 23)
+                            ),
+                        ))),
+                        (11, 23)
+                    )
+                ]),
+                (0, 24)
+            ))
+        );
+    }
+
+    #[test]
     fn list() {
         let input = "[1, 2]";
 
