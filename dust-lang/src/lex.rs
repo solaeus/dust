@@ -121,7 +121,7 @@ impl<'a> Lexer<'a> {
         } else {
             let integer = self.input[start_pos..self.position].parse::<i64>()?;
 
-            Ok((Token::Number(integer), (start_pos, self.position)))
+            Ok((Token::Integer(integer), (start_pos, self.position)))
         }
     }
 
@@ -166,12 +166,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn float() {
+    fn small_float() {
         let input = "1.23";
 
         assert_eq!(
             lex(input),
             Ok(vec![(Token::Float(1.23), (0, 4)), (Token::Eof, (4, 4)),])
+        )
+    }
+
+    #[test]
+    #[allow(clippy::excessive_precision)]
+    fn big_float() {
+        let input = "123456789.123456789";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Float(123456789.123456789), (0, 19)),
+                (Token::Eof, (19, 19)),
+            ])
         )
     }
 
@@ -182,9 +196,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Number(1), (0, 1)),
+                (Token::Integer(1), (0, 1)),
                 (Token::Plus, (2, 3)),
-                (Token::Number(2), (4, 5)),
+                (Token::Integer(2), (4, 5)),
                 (Token::Eof, (5, 5)),
             ])
         )
@@ -197,9 +211,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Number(1), (0, 1)),
+                (Token::Integer(1), (0, 1)),
                 (Token::Star, (2, 3)),
-                (Token::Number(2), (4, 5)),
+                (Token::Integer(2), (4, 5)),
                 (Token::Eof, (5, 5)),
             ])
         )
@@ -212,11 +226,11 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Number(1), (0, 1)),
+                (Token::Integer(1), (0, 1)),
                 (Token::Plus, (2, 3)),
-                (Token::Number(2), (4, 5)),
+                (Token::Integer(2), (4, 5)),
                 (Token::Star, (6, 7)),
-                (Token::Number(3), (8, 9)),
+                (Token::Integer(3), (8, 9)),
                 (Token::Eof, (9, 9)),
             ])
         );
@@ -231,11 +245,11 @@ mod tests {
             Ok(vec![
                 (Token::Identifier(Identifier::new("a")), (0, 1)),
                 (Token::Equal, (2, 3)),
-                (Token::Number(1), (4, 5)),
+                (Token::Integer(1), (4, 5)),
                 (Token::Plus, (6, 7)),
-                (Token::Number(2), (8, 9)),
+                (Token::Integer(2), (8, 9)),
                 (Token::Star, (10, 11)),
-                (Token::Number(3), (12, 13)),
+                (Token::Integer(3), (12, 13)),
                 (Token::Eof, (13, 13)),
             ])
         );
