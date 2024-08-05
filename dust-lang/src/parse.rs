@@ -206,6 +206,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn list_access() {
+        let input = "[1, 2, 3].0";
+
+        assert_eq!(
+            parse(input),
+            Ok([Node::new(
+                Statement::PropertyAccess(
+                    Box::new(Node::new(
+                        Statement::List(vec![
+                            Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                            Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
+                            Node::new(Statement::Constant(Value::integer(3)), (7, 8)),
+                        ]),
+                        (0, 9)
+                    )),
+                    Box::new(Node::new(Statement::Constant(Value::integer(0)), (10, 11))),
+                ),
+                (0, 11),
+            )]
+            .into())
+        );
+    }
+
+    #[test]
     fn property_access() {
         let input = "a.b";
 

@@ -110,17 +110,24 @@ impl Vm {
                     });
                 };
                 let right_span = right.span;
-                let right = if let Statement::Identifier(identifier) = &right.statement {
-                    identifier
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: right_span,
-                    });
-                };
 
-                let value = left.property_access(right)?;
+                if let Statement::Identifier(identifier) = &right.statement {
+                    let value = left.property_access(identifier)?;
 
-                Ok(Some(value))
+                    return Ok(Some(value));
+                }
+
+                if let Statement::Constant(value) = &right.statement {
+                    if let Some(index) = value.as_integer() {
+                        let value = left.list_access(index)?;
+
+                        return Ok(Some(value));
+                    }
+                }
+
+                Err(VmError::ExpectedIdentifierOrInteger {
+                    position: right_span,
+                })
             }
         }
     }
@@ -134,6 +141,7 @@ pub enum VmError {
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
     ExpectedValue { position: Span },
+    ExpectedIdentifierOrInteger { position: (usize, usize) },
 }
 
 impl From<ParseError> for VmError {
@@ -151,6 +159,13 @@ impl From<ValueError> for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_access() {
+        let input = "[1, 2, 3][1]";
+
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(2))));
+    }
 
     #[test]
     fn property_access() {

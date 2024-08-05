@@ -119,6 +119,29 @@ impl Value {
             _ => todo!(),
         }
     }
+
+    pub fn list_access(&self, index: i64) -> Result<Value, ValueError> {
+        match self.inner().as_ref() {
+            ValueInner::List(list) => {
+                if index < 0 {
+                    return Err(ValueError::IndexOutOfBounds {
+                        value: self.clone(),
+                        index,
+                    });
+                }
+
+                if let Some(value) = list.get(index as usize) {
+                    Ok(value.clone())
+                } else {
+                    Err(ValueError::IndexOutOfBounds {
+                        value: self.clone(),
+                        index,
+                    })
+                }
+            }
+            _ => Err(ValueError::ExpectedList(self.clone())),
+        }
+    }
 }
 
 impl Display for Value {
@@ -560,4 +583,6 @@ impl Ord for ValueInner {
 pub enum ValueError {
     CannotAdd(Value, Value),
     PropertyNotFound { value: Value, property: Identifier },
+    IndexOutOfBounds { value: Value, index: i64 },
+    ExpectedList(Value),
 }
