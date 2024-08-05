@@ -100,6 +100,28 @@ impl Vm {
                 Ok(Some(Value::list(values)))
             }
             Statement::Multiply(_, _) => todo!(),
+            Statement::PropertyAccess(left, right) => {
+                let left_span = left.span;
+                let left = if let Some(value) = self.run_node(*left, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: left_span,
+                    });
+                };
+                let right_span = right.span;
+                let right = if let Statement::Identifier(identifier) = &right.statement {
+                    identifier
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: right_span,
+                    });
+                };
+
+                let value = left.property_access(right)?;
+
+                Ok(Some(value))
+            }
         }
     }
 }
@@ -129,6 +151,13 @@ impl From<ValueError> for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn property_access() {
+        let input = "[1, 2, 3].length";
+
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(3))));
+    }
 
     #[test]
     fn add() {

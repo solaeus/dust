@@ -22,6 +22,7 @@ pub enum Statement {
 
     // Expressions
     Add(Box<Node>, Box<Node>),
+    PropertyAccess(Box<Node>, Box<Node>),
     List(Vec<Node>),
     Multiply(Box<Node>, Box<Node>),
 

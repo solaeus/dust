@@ -85,6 +85,17 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
+                (Token::Dot, _) => {
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.span.1;
+
+                    return Ok(Node::new(
+                        Statement::PropertyAccess(Box::new(left_node), Box::new(right_node)),
+                        (left_start, right_end),
+                    ));
+                }
                 _ => {}
             }
         }
@@ -165,6 +176,7 @@ impl<'src> Parser<'src> {
 
     fn current_precedence(&self) -> u8 {
         match self.current.0 {
+            Token::Dot => 4,
             Token::Equal => 3,
             Token::Plus => 1,
             Token::Star => 2,
@@ -192,6 +204,29 @@ mod tests {
     use crate::Identifier;
 
     use super::*;
+
+    #[test]
+    fn property_access() {
+        let input = "a.b";
+
+        assert_eq!(
+            parse(input),
+            Ok([Node::new(
+                Statement::PropertyAccess(
+                    Box::new(Node::new(
+                        Statement::Identifier(Identifier::new("a")),
+                        (0, 1)
+                    )),
+                    Box::new(Node::new(
+                        Statement::Identifier(Identifier::new("b")),
+                        (2, 3)
+                    )),
+                ),
+                (0, 3),
+            )]
+            .into())
+        );
+    }
 
     #[test]
     fn complex_list() {

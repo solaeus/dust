@@ -90,6 +90,10 @@ impl<'a> Lexer<'a> {
                     self.position += 1;
                     (Token::Comma, (self.position - 1, self.position))
                 }
+                '.' => {
+                    self.position += 1;
+                    (Token::Dot, (self.position - 1, self.position))
+                }
                 _ => (Token::Eof, (self.position, self.position)),
             }
         } else {
@@ -122,12 +126,12 @@ impl<'a> Lexer<'a> {
 
         while let Some(c) = self.peek_char() {
             if c == '.' {
-                is_float = true;
-
                 self.next_char();
 
                 while let Some(c) = self.peek_char() {
                     if c.is_ascii_digit() {
+                        is_float = true;
+
                         self.next_char();
                     } else {
                         break;

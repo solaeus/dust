@@ -3,6 +3,7 @@ use crate::Identifier;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Comma,
+    Dot,
     Eof,
     Equal,
     Identifier(Identifier),

@@ -1,4 +1,4 @@
-use crate::{Node, Span, Statement};
+use crate::{Node, Statement};
 
 pub fn analyze(abstract_tree: Vec<Node>) -> Result<(), AnalyzerError> {
     let analyzer = Analyzer::new(abstract_tree);
@@ -53,6 +53,17 @@ impl Analyzer {
             }
             Statement::Multiply(left, right) => {
                 self.analyze_node(&left)?;
+                self.analyze_node(&right)?;
+            }
+            Statement::PropertyAccess(left, right) => {
+                if let Statement::Identifier(_) = &left.statement {
+                    // Identifier is in the correct position
+                } else {
+                    return Err(AnalyzerError::ExpectedIdentifier {
+                        actual: left.as_ref().clone(),
+                    });
+                }
+
                 self.analyze_node(&right)?;
             }
         }
