@@ -8,8 +8,8 @@ pub fn run(
     input: &str,
     variables: &mut HashMap<Identifier, Value>,
 ) -> Result<Option<Value>, VmError> {
-    let instructions = parse(input)?;
-    let mut vm = Vm::new(instructions);
+    let abstract_syntax_tree = parse(input)?;
+    let mut vm = Vm::new(abstract_syntax_tree);
 
     vm.run(variables)
 }

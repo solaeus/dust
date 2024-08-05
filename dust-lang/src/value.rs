@@ -6,7 +6,6 @@ use std::{
     sync::Arc,
 };
 
-use chumsky::container::Container;
 use serde::{
     de::Visitor,
     ser::{SerializeMap, SerializeSeq, SerializeTuple},
@@ -402,7 +401,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         A: serde::de::MapAccess<'de>,
     {
-        let mut btree = BTreeMap::with_capacity(map.size_hint().unwrap_or(10));
+        let mut btree = BTreeMap::new();
 
         while let Some((key, value)) = map.next_entry()? {
             btree.insert(key, value);
@@ -458,7 +457,7 @@ impl ValueInner {
                 }
             }
             ValueInner::Map(value_map) => {
-                let mut type_map = BTreeMap::with_capacity(value_map.len());
+                let mut type_map = BTreeMap::new();
 
                 for (identifier, value) in value_map {
                     let r#type = value.r#type();

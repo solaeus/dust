@@ -16,7 +16,6 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use clap::error::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::identifier::Identifier;
