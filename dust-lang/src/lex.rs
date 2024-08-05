@@ -119,6 +119,11 @@ impl<'a> Lexer<'a> {
         self.source[self.position..].chars().next()
     }
 
+    /// Peek at the second-to-next character without consuming it.
+    fn peek_second_char(&self) -> Option<char> {
+        self.source[self.position..].chars().nth(1)
+    }
+
     /// Lex an integer or float token.
     fn lex_number(&mut self) -> Result<(Token, Span), LexError> {
         let start_pos = self.position;
@@ -126,16 +131,20 @@ impl<'a> Lexer<'a> {
 
         while let Some(c) = self.peek_char() {
             if c == '.' {
-                self.next_char();
-
-                while let Some(c) = self.peek_char() {
-                    if c.is_ascii_digit() {
-                        is_float = true;
-
+                if let Some('0'..='9') = self.peek_second_char() {
+                    if !is_float {
                         self.next_char();
-                    } else {
-                        break;
                     }
+
+                    self.next_char();
+
+                    while let Some('0'..='9') = self.peek_char() {
+                        self.next_char();
+                    }
+
+                    is_float = true;
+                } else {
+                    break;
                 }
             }
 
@@ -162,7 +171,7 @@ impl<'a> Lexer<'a> {
         let start_pos = self.position;
 
         while let Some(c) = self.peek_char() {
-            if c.is_ascii_alphanumeric() {
+            if c.is_ascii_alphanumeric() || c == '_' {
                 self.next_char();
             } else {
                 break;
@@ -171,6 +180,8 @@ impl<'a> Lexer<'a> {
 
         let string = &self.source[start_pos..self.position];
         let token = match string {
+            "is_even" => Token::ReservedIdentifier(ReservedIdentifier::IsEven),
+            "is_odd" => Token::ReservedIdentifier(ReservedIdentifier::IsOdd),
             "length" => Token::ReservedIdentifier(ReservedIdentifier::Length),
             _ => Token::Identifier(Identifier::new(string)),
         };
@@ -200,6 +211,31 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn integer_property_access() {
+        let input = "42.is_even";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(42), (0, 2)),
+                (Token::Dot, (2, 3)),
+                (
+                    Token::ReservedIdentifier(ReservedIdentifier::IsEven),
+                    (3, 10)
+                ),
+                (Token::Eof, (10, 10)),
+            ])
+        )
+    }
+
+    #[test]
+    fn empty() {
+        let input = "";
+
+        assert_eq!(lex(input), Ok(vec![(Token::Eof, (0, 0))]))
+    }
 
     #[test]
     fn reserved_identifier() {
