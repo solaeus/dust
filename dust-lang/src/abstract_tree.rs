@@ -1,4 +1,4 @@
-use crate::{Identifier, Span, Value};
+use crate::{Identifier, ReservedIdentifier, Span, Value};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Node {
@@ -29,4 +29,5 @@ pub enum Statement {
     // Hard-coded values
     Constant(Value),
     Identifier(Identifier),
+    ReservedIdentifier(ReservedIdentifier),
 }

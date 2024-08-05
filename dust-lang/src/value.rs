@@ -88,60 +88,6 @@ impl Value {
             _ => Err(ValueError::CannotAdd(self.clone(), other.clone())),
         }
     }
-
-    pub fn property_access(&self, property: &Identifier) -> Result<Value, ValueError> {
-        match self.inner().as_ref() {
-            ValueInner::Map(map) => {
-                if let Some(value) = map.get(property) {
-                    Ok(value.clone())
-                } else {
-                    Err(ValueError::PropertyNotFound {
-                        value: self.clone(),
-                        property: property.clone(),
-                    })
-                }
-            }
-            ValueInner::Integer(integer) => match property.as_str() {
-                "is_even" => Ok(Value::boolean(integer % 2 == 0)),
-                "to_string" => Ok(Value::string(integer.to_string())),
-                _ => Err(ValueError::PropertyNotFound {
-                    value: self.clone(),
-                    property: property.clone(),
-                }),
-            },
-            ValueInner::List(values) => match property.as_str() {
-                "length" => Ok(Value::integer(values.len() as i64)),
-                _ => Err(ValueError::PropertyNotFound {
-                    value: self.clone(),
-                    property: property.clone(),
-                }),
-            },
-            _ => todo!(),
-        }
-    }
-
-    pub fn list_access(&self, index: i64) -> Result<Value, ValueError> {
-        match self.inner().as_ref() {
-            ValueInner::List(list) => {
-                if index < 0 {
-                    return Err(ValueError::IndexOutOfBounds {
-                        value: self.clone(),
-                        index,
-                    });
-                }
-
-                if let Some(value) = list.get(index as usize) {
-                    Ok(value.clone())
-                } else {
-                    Err(ValueError::IndexOutOfBounds {
-                        value: self.clone(),
-                        index,
-                    })
-                }
-            }
-            _ => Err(ValueError::ExpectedList(self.clone())),
-        }
-    }
 }
 
 impl Display for Value {

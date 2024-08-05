@@ -5,7 +5,7 @@
 //! - [`Lexer`], which lexes the input a token at a time
 use std::num::{ParseFloatError, ParseIntError};
 
-use crate::{Identifier, Span, Token};
+use crate::{Identifier, ReservedIdentifier, Span, Token};
 
 /// Lex the input and return a vector of tokens and their positions.
 pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
@@ -169,8 +169,11 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        let identifier = &self.source[start_pos..self.position];
-        let token = Token::Identifier(Identifier::new(identifier));
+        let string = &self.source[start_pos..self.position];
+        let token = match string {
+            "length" => Token::ReservedIdentifier(ReservedIdentifier::Length),
+            _ => Token::Identifier(Identifier::new(string)),
+        };
 
         Ok((token, (start_pos, self.position)))
     }
@@ -197,6 +200,22 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reserved_identifier() {
+        let input = "length";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (
+                    Token::ReservedIdentifier(ReservedIdentifier::Length),
+                    (0, 6)
+                ),
+                (Token::Eof, (6, 6)),
+            ])
+        )
+    }
 
     #[test]
     fn square_braces() {

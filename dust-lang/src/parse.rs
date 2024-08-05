@@ -170,6 +170,14 @@ impl<'src> Parser<'src> {
                     }
                 }
             }
+            (Token::ReservedIdentifier(reserved), _) => {
+                self.next_token()?;
+
+                Ok(Node::new(
+                    Statement::ReservedIdentifier(reserved),
+                    self.current.1,
+                ))
+            }
             _ => Err(ParseError::UnexpectedToken(self.current.0.clone())),
         }
     }

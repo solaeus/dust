@@ -1,6 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::{parse, Identifier, Node, ParseError, Span, Statement, Value, ValueError};
+use crate::{
+    parse, Identifier, Node, ParseError, ReservedIdentifier, Span, Statement, Value, ValueError,
+};
 
 pub fn run(
     input: &str,
@@ -40,6 +42,9 @@ impl Vm {
         variables: &mut HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError> {
         match node.statement {
+            Statement::Constant(value) => Ok(Some(value.clone())),
+            Statement::Identifier(_) => Ok(None),
+            Statement::ReservedIdentifier(_) => Ok(None),
             Statement::Add(left, right) => {
                 let left_span = left.span;
                 let left = if let Some(value) = self.run_node(*left, variables)? {
@@ -82,8 +87,6 @@ impl Vm {
 
                 Ok(None)
             }
-            Statement::Constant(value) => Ok(Some(value.clone())),
-            Statement::Identifier(_) => Ok(None),
             Statement::List(nodes) => {
                 let values = nodes
                     .into_iter()
@@ -111,17 +114,44 @@ impl Vm {
                 };
                 let right_span = right.span;
 
-                if let Statement::Identifier(identifier) = &right.statement {
-                    let value = left.property_access(identifier)?;
-
-                    return Ok(Some(value));
+                if let Statement::ReservedIdentifier(reserved) = &right.statement {
+                    match reserved {
+                        ReservedIdentifier::IsEven => {
+                            if let Some(integer) = left.as_integer() {
+                                return Ok(Some(Value::boolean(integer % 2 == 0)));
+                            } else {
+                                return Err(VmError::ExpectedInteger {
+                                    position: right_span,
+                                });
+                            }
+                        }
+                        ReservedIdentifier::IsOdd => {
+                            if let Some(integer) = left.as_integer() {
+                                return Ok(Some(Value::boolean(integer % 2 != 0)));
+                            } else {
+                                return Err(VmError::ExpectedInteger {
+                                    position: right_span,
+                                });
+                            }
+                        }
+                        ReservedIdentifier::Length => {
+                            if let Some(list) = left.as_list() {
+                                return Ok(Some(Value::integer(list.len() as i64)));
+                            } else {
+                                return Err(VmError::ExpectedList {
+                                    position: right_span,
+                                });
+                            }
+                        }
+                    }
                 }
 
-                if let Statement::Constant(value) = &right.statement {
+                if let (Some(list), Statement::Constant(value)) = (left.as_list(), &right.statement)
+                {
                     if let Some(index) = value.as_integer() {
-                        let value = left.list_access(index)?;
+                        let value = list.get(index as usize).cloned();
 
-                        return Ok(Some(value));
+                        return Ok(value);
                     }
                 }
 
@@ -141,7 +171,9 @@ pub enum VmError {
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
     ExpectedValue { position: Span },
-    ExpectedIdentifierOrInteger { position: (usize, usize) },
+    ExpectedIdentifierOrInteger { position: Span },
+    ExpectedList { position: Span },
+    ExpectedInteger { position: Span },
 }
 
 impl From<ParseError> for VmError {
@@ -161,8 +193,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn is_even() {
+        let input = "42.is_even";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
+
+    #[test]
+    fn is_odd() {
+        let input = "42.is_odd";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(false)))
+        );
+    }
+
+    #[test]
     fn list_access() {
-        let input = "[1, 2, 3][1]";
+        let input = "[1, 2, 3].1";
 
         assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(2))));
     }

@@ -66,6 +66,7 @@ impl Analyzer {
 
                 self.analyze_node(&right)?;
             }
+            Statement::ReservedIdentifier(_) => {}
         }
 
         Ok(())
