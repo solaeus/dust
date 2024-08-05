@@ -78,6 +78,16 @@ impl Value {
             None
         }
     }
+
+    pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left + right)),
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                Ok(Value::integer(left + right))
+            }
+            _ => Err(ValueError::CannotAdd(self.clone(), other.clone())),
+        }
+    }
 }
 
 impl Display for Value {
@@ -501,4 +511,9 @@ impl Ord for ValueInner {
             (String(_), _) => Ordering::Greater,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueError {
+    CannotAdd(Value, Value),
 }

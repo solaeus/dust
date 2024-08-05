@@ -1,36 +1,24 @@
 use crate::{
-    identifier::Identifier,
     lex::{LexError, Lexer},
-    Span, Token, Value,
+    Instruction, Operation, Span, Token, Value,
 };
 
-pub fn parse(input: &str) -> Result<Instruction, ParseError> {
+pub fn parse(input: &str) -> Result<Vec<Instruction>, ParseError> {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
+    let mut instructions = Vec::new();
 
-    parser.parse()
-}
+    loop {
+        let instruction = parser.parse()?;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Instruction {
-    pub operation: Operation,
-    pub span: Span,
-}
+        instructions.push(instruction);
 
-impl Instruction {
-    pub fn new(operation: Operation, span: Span) -> Self {
-        Self { operation, span }
+        if let Token::Eof = parser.current.0 {
+            break;
+        }
     }
-}
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Operation {
-    Add(Box<(Instruction, Instruction)>),
-    Assign(Box<(Instruction, Instruction)>),
-    Constant(Value),
-    Identifier(Identifier),
-    List(Vec<Instruction>),
-    Multiply(Box<(Instruction, Instruction)>),
+    Ok(instructions)
 }
 
 pub struct Parser<'src> {
@@ -205,6 +193,7 @@ impl From<LexError> for ParseError {
 
 #[cfg(test)]
 mod tests {
+    use crate::Identifier;
 
     use super::*;
 
@@ -214,7 +203,7 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(
+            Ok(vec![Instruction::new(
                 Operation::List(vec![
                     Instruction::new(Operation::Constant(Value::integer(1)), (1, 2)),
                     Instruction::new(
@@ -245,7 +234,7 @@ mod tests {
                     )
                 ]),
                 (0, 24)
-            ))
+            )])
         );
     }
 
@@ -255,13 +244,13 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(
+            Ok(vec![Instruction::new(
                 Operation::List(vec![
                     Instruction::new(Operation::Constant(Value::integer(1)), (1, 2)),
                     Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
                 ]),
                 (0, 6)
-            ))
+            )])
         );
     }
 
@@ -271,7 +260,7 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(Operation::List(vec![]), (0, 2)))
+            Ok(vec![Instruction::new(Operation::List(vec![]), (0, 2))])
         );
     }
 
@@ -281,10 +270,10 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(
+            Ok(vec![Instruction::new(
                 Operation::Constant(Value::float(42.0)),
                 (0, 4)
-            ))
+            )])
         );
     }
 
@@ -294,13 +283,13 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(
+            Ok(vec![Instruction::new(
                 Operation::Add(Box::new((
                     Instruction::new(Operation::Constant(Value::integer(1)), (0, 1)),
                     Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
                 ))),
                 (0, 5)
-            ))
+            )])
         );
     }
 
@@ -310,13 +299,13 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(
+            Ok(vec![Instruction::new(
                 Operation::Multiply(Box::new((
                     Instruction::new(Operation::Constant(Value::integer(1)), (0, 1)),
                     Instruction::new(Operation::Constant(Value::integer(2)), (4, 5)),
                 ))),
                 (0, 5)
-            ))
+            )])
         );
     }
 
@@ -326,7 +315,7 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(
+            Ok(vec![Instruction::new(
                 Operation::Add(Box::new((
                     Instruction::new(Operation::Constant(Value::integer(1)), (0, 1)),
                     Instruction::new(
@@ -338,7 +327,7 @@ mod tests {
                     ),
                 ))),
                 (0, 9)
-            ))
+            )])
         );
     }
 
@@ -348,7 +337,7 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok(Instruction::new(
+            Ok(vec![Instruction::new(
                 Operation::Assign(Box::new((
                     Instruction::new(Operation::Identifier(Identifier::new("a")), (0, 1)),
                     Instruction::new(
@@ -372,7 +361,7 @@ mod tests {
                     ),
                 ))),
                 (0, 13)
-            ))
+            )])
         );
     }
 }
