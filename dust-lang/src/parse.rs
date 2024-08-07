@@ -283,6 +283,66 @@ impl<'src> Parser<'src> {
                     left_span,
                 ))
             }
+            (Token::IsOdd, left_span) => {
+                self.next_token()?;
+
+                if let (Token::LeftParenthesis, _) = self.current {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedOpeningParenthesis {
+                        actual: self.current.0.clone(),
+                        span: self.current.1,
+                    });
+                }
+
+                if let (Token::RightParenthesis, _) = self.current {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedClosingParenthesis {
+                        actual: self.current.0.clone(),
+                        span: self.current.1,
+                    });
+                }
+
+                Ok(Node::new(
+                    Statement::BuiltInFunctionCall {
+                        function: BuiltInFunction::IsOdd,
+                        type_arguments: None,
+                        value_arguments: None,
+                    },
+                    left_span,
+                ))
+            }
+            (Token::Length, left_span) => {
+                self.next_token()?;
+
+                if let (Token::LeftParenthesis, _) = self.current {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedOpeningParenthesis {
+                        actual: self.current.0.clone(),
+                        span: self.current.1,
+                    });
+                }
+
+                if let (Token::RightParenthesis, _) = self.current {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedClosingParenthesis {
+                        actual: self.current.0.clone(),
+                        span: self.current.1,
+                    });
+                }
+
+                Ok(Node::new(
+                    Statement::BuiltInFunctionCall {
+                        function: BuiltInFunction::Length,
+                        type_arguments: None,
+                        value_arguments: None,
+                    },
+                    left_span,
+                ))
+            }
             _ => Err(ParseError::UnexpectedToken(self.current.0.clone())),
         }
     }

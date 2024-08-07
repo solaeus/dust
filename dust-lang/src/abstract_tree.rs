@@ -207,8 +207,36 @@ impl BuiltInFunction {
                     Err(BuiltInFunctionError::WrongNumberOfValueArguments)
                 }
             }
-            BuiltInFunction::IsOdd => todo!(),
-            BuiltInFunction::Length => todo!(),
+            BuiltInFunction::IsOdd => {
+                if let Some(value_arguments) = value_arguments {
+                    if value_arguments.len() == 1 {
+                        if let Some(integer) = value_arguments[0].as_integer() {
+                            Ok(Value::boolean(integer % 2 != 0))
+                        } else {
+                            Err(BuiltInFunctionError::ExpectedInteger)
+                        }
+                    } else {
+                        Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                    }
+                } else {
+                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                }
+            }
+            BuiltInFunction::Length => {
+                if let Some(value_arguments) = value_arguments {
+                    if value_arguments.len() == 1 {
+                        if let Some(list) = value_arguments[0].as_list() {
+                            Ok(Value::integer(list.len() as i64))
+                        } else {
+                            Err(BuiltInFunctionError::ExpectedInteger)
+                        }
+                    } else {
+                        Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                    }
+                } else {
+                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                }
+            }
         }
     }
 
