@@ -6,7 +6,7 @@
 use std::collections::VecDeque;
 
 use crate::{
-    abstract_tree::BuiltInFunction, AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement,
+    built_in_function::BuiltInFunction, AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement,
     Token, Value,
 };
 

@@ -7,6 +7,7 @@
 //! `Interpreter` and runs the given source code.
 pub mod abstract_tree;
 pub mod analyzer;
+pub mod built_in_function;
 pub mod identifier;
 pub mod lex;
 pub mod parse;
@@ -15,8 +16,9 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use abstract_tree::{AbstractSyntaxTree, BuiltInFunction, Node, Statement};
+pub use abstract_tree::{AbstractSyntaxTree, Node, Statement};
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
+pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use identifier::Identifier;
 pub use lex::{lex, LexError, Lexer};
 pub use parse::{parse, ParseError, Parser};
