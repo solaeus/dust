@@ -1,3 +1,10 @@
+/// Tools for analyzing an abstract syntax tree and catch errors before running the virtual
+/// machine.
+///
+/// This module provides to anlysis options, both of which borrow an abstract syntax tree and a
+/// hash map of variables:
+/// - `analyze` convenience function
+/// - `Analyzer` struct
 use std::collections::HashMap;
 
 use crate::{AbstractSyntaxTree, Identifier, Node, Statement, Type, Value};
@@ -24,6 +31,19 @@ pub fn analyze(
     analyzer.analyze()
 }
 
+/// Static analyzer that checks for potential runtime errors.
+///
+/// # Examples
+/// ```
+/// # use std::collections::HashMap;
+/// # use dust_lang::*;
+/// let input = "x = 1 + false";
+/// let abstract_tree = parse(input).unwrap();
+/// let variables = HashMap::new();
+/// let analyzer = Analyzer::new(&abstract_tree, &variables);
+/// let result = analyzer.analyze();
+///
+/// assert!(result.is_err());
 pub struct Analyzer<'a> {
     abstract_tree: &'a AbstractSyntaxTree,
     variables: &'a HashMap<Identifier, Value>,

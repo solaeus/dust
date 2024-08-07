@@ -8,6 +8,25 @@ use std::num::{ParseFloatError, ParseIntError};
 use crate::{Identifier, ReservedIdentifier, Span, Token};
 
 /// Lex the input and return a vector of tokens and their positions.
+///
+/// # Examples
+/// ```
+/// # use dust_lang::*;
+/// let input = "x = 1 + 2";
+/// let tokens = lex(input).unwrap();
+///
+/// assert_eq!(
+///     tokens,
+///     [
+///         (Token::Identifier(Identifier::new("x")), (0, 1)),
+///         (Token::Equal, (2, 3)),
+///         (Token::Integer(1), (4, 5)),
+///         (Token::Plus, (6, 7)),
+///         (Token::Integer(2), (8, 9)),
+///         (Token::Eof, (9, 9)),
+///     ]
+/// );
+/// ```
 pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
     let mut lexer = Lexer::new(input);
     let mut tokens = Vec::new();
@@ -28,6 +47,37 @@ pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
 
 #[derive(Debug, Clone)]
 /// Low-level tool for lexing a single token at a time.
+///
+/// # Examples
+/// ```
+/// # use dust_lang::*;
+/// let input = "x = 1 + 2";
+/// let mut lexer = Lexer::new(input);
+/// let mut tokens = Vec::new();
+///
+/// loop {
+///     let (token, span) = lexer.next_token().unwrap();
+///     let is_eof = matches!(token, Token::Eof);
+///
+///     tokens.push((token, span));
+///
+///     if is_eof {
+///         break;
+///     }
+/// }
+///
+/// assert_eq!(
+///     tokens,
+///     [
+///         (Token::Identifier(Identifier::new("x")), (0, 1)),
+///         (Token::Equal, (2, 3)),
+///         (Token::Integer(1), (4, 5)),
+///         (Token::Plus, (6, 7)),
+///         (Token::Integer(2), (8, 9)),
+///         (Token::Eof, (9, 9)),
+///     ]
+/// )
+/// ```
 pub struct Lexer<'a> {
     source: &'a str,
     position: usize,
