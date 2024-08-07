@@ -94,7 +94,7 @@ impl<P: Copy> Vm<P> {
                 type_arguments: _,
                 value_arguments: value_nodes,
             } => {
-                let mut values = if let Some(nodes) = value_nodes {
+                let values = if let Some(nodes) = value_nodes {
                     let mut values = Vec::new();
 
                     for node in nodes {
@@ -119,7 +119,7 @@ impl<P: Copy> Vm<P> {
             Statement::Constant(value) => Ok(Some(value.clone())),
             Statement::FunctionCall {
                 function: function_node,
-                type_arguments: type_parameter_nodes,
+                type_arguments: _,
                 value_arguments: value_parameter_nodes,
             } => {
                 let function_position = function_node.position;
@@ -208,8 +208,8 @@ impl<P: Copy> Vm<P> {
                     value,
                     Statement::BuiltInFunctionCall {
                         function,
-                        type_arguments,
-                        value_arguments: mut value_argument_nodes,
+                        type_arguments: _,
+                        value_arguments: value_argument_nodes,
                     },
                 ) = (left_value, right.statement)
                 {

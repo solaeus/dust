@@ -557,7 +557,7 @@ pub struct Function {
 impl Function {
     pub fn call(
         self,
-        type_arguments: Option<Vec<Type>>,
+        _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
         variables: &HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError<()>> {
