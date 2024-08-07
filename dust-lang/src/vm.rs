@@ -47,7 +47,6 @@ impl<P: Copy> Vm<P> {
         variables: &mut HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError<P>> {
         match node.statement {
-            Statement::BuiltInValue(node) => self.run_node(*node, variables),
             Statement::Constant(value) => Ok(Some(value.clone())),
             Statement::Identifier(_) => Ok(None),
             Statement::ReservedIdentifier(_) => Ok(None),

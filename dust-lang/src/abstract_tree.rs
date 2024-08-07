@@ -40,7 +40,6 @@ pub enum Statement<P> {
 
     // Expressions
     Add(Box<Node<P>>, Box<Node<P>>),
-    BuiltInValue(Box<Node<P>>),
     PropertyAccess(Box<Node<P>>, Box<Node<P>>),
     List(Vec<Node<P>>),
     Multiply(Box<Node<P>>, Box<Node<P>>),
@@ -56,7 +55,6 @@ impl<P> Statement<P> {
         match self {
             Statement::Add(left, _) => left.statement.expected_type(variables),
             Statement::Assign(_, _) => None,
-            Statement::BuiltInValue(reserved) => reserved.statement.expected_type(variables),
             Statement::Constant(value) => Some(value.r#type(variables)),
             Statement::Identifier(identifier) => variables
                 .get(identifier)
@@ -77,7 +75,6 @@ impl<P> Display for Statement<P> {
         match self {
             Statement::Assign(left, right) => write!(f, "{left} = {right}"),
             Statement::Add(left, right) => write!(f, "{left} + {right}"),
-            Statement::BuiltInValue(reserved) => write!(f, "{reserved}"),
             Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
             Statement::List(nodes) => {
                 write!(f, "[")?;
