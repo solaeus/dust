@@ -213,13 +213,11 @@ impl<P: Copy> Vm<P> {
                     },
                 ) = (left_value, right.statement)
                 {
-                    if let Some(mut nodes) = value_argument_nodes.take() {
-                        nodes.insert(0, Node::new(Statement::Constant(value), right_span));
-                    }
+                    let mut value_arguments = Vec::new();
 
-                    let value_arguments = if let Some(value_nodes) = value_argument_nodes {
-                        let mut value_arguments = Vec::new();
+                    value_arguments.push(value);
 
+                    if let Some(value_nodes) = value_argument_nodes {
                         for node in value_nodes {
                             let position = node.position;
                             let value = if let Some(value) = self.run_node(node, variables)? {
@@ -230,13 +228,9 @@ impl<P: Copy> Vm<P> {
 
                             value_arguments.push(value);
                         }
+                    }
 
-                        Some(value_arguments)
-                    } else {
-                        None
-                    };
-
-                    let function_call_return = function.call(None, value_arguments)?;
+                    let function_call_return = function.call(None, Some(value_arguments))?;
 
                     return Ok(Some(function_call_return));
                 }

@@ -256,26 +256,8 @@ impl<'src> Parser<'src> {
             (Token::IsEven, left_span) => {
                 self.next_token()?;
 
-                let mut value_parameters = None;
-
                 if let (Token::LeftParenthesis, _) = self.current {
                     self.next_token()?;
-
-                    value_parameters = Some(vec![self.parse_node(0)?]);
-
-                    loop {
-                        self.next_token()?;
-
-                        if let (Token::RightParenthesis, _) = self.current {
-                            break;
-                        }
-
-                        if let (Token::Comma, _) = self.current {
-                            self.next_token()?;
-                        }
-
-                        value_parameters.as_mut().unwrap().push(self.parse_node(0)?);
-                    }
                 } else {
                     return Err(ParseError::ExpectedOpeningParenthesis {
                         actual: self.current.0.clone(),
@@ -296,7 +278,7 @@ impl<'src> Parser<'src> {
                     Statement::BuiltInFunctionCall {
                         function: BuiltInFunction::IsEven,
                         type_arguments: None,
-                        value_arguments: value_parameters,
+                        value_arguments: None,
                     },
                     left_span,
                 ))
