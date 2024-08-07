@@ -144,16 +144,6 @@ impl Vm {
                                 });
                             }
                         }
-                        _ => {
-                            return Err(VmError::ExpectedDifferentReservedIdentifier {
-                                position: right_span,
-                                expected: vec![
-                                    ReservedIdentifier::IsEven,
-                                    ReservedIdentifier::IsOdd,
-                                    ReservedIdentifier::Length,
-                                ],
-                            })
-                        }
                     }
                 }
 
@@ -181,25 +171,11 @@ pub enum VmError {
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
-    ExpectedIdentifier {
-        position: Span,
-    },
-    ExpectedIdentifierOrInteger {
-        position: Span,
-    },
-    ExpectedInteger {
-        position: Span,
-    },
-    ExpectedList {
-        position: Span,
-    },
-    ExpectedDifferentReservedIdentifier {
-        position: Span,
-        expected: Vec<ReservedIdentifier>,
-    },
-    ExpectedValue {
-        position: Span,
-    },
+    ExpectedIdentifier { position: Span },
+    ExpectedIdentifierOrInteger { position: Span },
+    ExpectedInteger { position: Span },
+    ExpectedList { position: Span },
+    ExpectedValue { position: Span },
 }
 
 impl From<ParseError> for VmError {
@@ -217,6 +193,16 @@ impl From<ValueError> for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn boolean() {
+        let input = "true";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
 
     #[test]
     fn is_even() {

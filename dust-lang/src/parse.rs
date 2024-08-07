@@ -105,6 +105,14 @@ impl<'src> Parser<'src> {
 
     fn parse_primary(&mut self) -> Result<Node, ParseError> {
         match self.current.clone() {
+            (Token::Boolean(boolean), span) => {
+                self.next_token()?;
+
+                Ok(Node::new(
+                    Statement::Constant(Value::boolean(boolean)),
+                    span,
+                ))
+            }
             (Token::Float(float), span) => {
                 self.next_token()?;
 
@@ -212,6 +220,16 @@ mod tests {
     use crate::Identifier;
 
     use super::*;
+
+    #[test]
+    fn boolean() {
+        let input = "true";
+
+        assert_eq!(
+            parse(input),
+            Ok([Node::new(Statement::Constant(Value::boolean(true)), (0, 4))].into())
+        );
+    }
 
     #[test]
     fn list_access() {

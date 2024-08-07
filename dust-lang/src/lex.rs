@@ -124,7 +124,7 @@ impl<'a> Lexer<'a> {
         self.source[self.position..].chars().nth(1)
     }
 
-    fn peek_until_whitespace(&self) -> Option<&str> {
+    fn _peek_until_whitespace(&self) -> Option<&str> {
         let start = self.position;
         let end = self.source[self.position..]
             .find(char::is_whitespace)
