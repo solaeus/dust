@@ -6,6 +6,7 @@ use crate::Identifier;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
+    Boolean(bool),
     Comma,
     Dot,
     Eof,
@@ -24,8 +25,11 @@ pub enum Token {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ReservedIdentifier {
+    // Number properties
     IsEven,
     IsOdd,
+
+    // List properties
     Length,
 }
 

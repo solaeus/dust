@@ -40,6 +40,9 @@ impl Analyzer {
 
                 self.analyze_node(right)?;
             }
+            Statement::BuiltInValue(node) => {
+                self.analyze_node(node)?;
+            }
             Statement::Constant(_) => {}
             Statement::Identifier(_) => {
                 return Err(AnalyzerError::UnexpectedIdentifier {

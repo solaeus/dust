@@ -35,6 +35,7 @@ pub enum Statement {
 
     // Expressions
     Add(Box<Node>, Box<Node>),
+    BuiltInValue(Box<Node>),
     PropertyAccess(Box<Node>, Box<Node>),
     List(Vec<Node>),
     Multiply(Box<Node>, Box<Node>),
@@ -50,6 +51,7 @@ impl Statement {
         match self {
             Statement::Add(left, _) => left.statement.expected_type(variables),
             Statement::Assign(_, _) => None,
+            Statement::BuiltInValue(reserved) => reserved.statement.expected_type(variables),
             Statement::Constant(value) => Some(value.r#type(variables)),
             Statement::Identifier(identifier) => variables
                 .get(identifier)
@@ -58,8 +60,7 @@ impl Statement {
             Statement::Multiply(left, _) => left.statement.expected_type(variables),
             Statement::PropertyAccess(_, _) => None,
             Statement::ReservedIdentifier(reserved) => match reserved {
-                ReservedIdentifier::IsEven => Some(Type::Boolean),
-                ReservedIdentifier::IsOdd => Some(Type::Boolean),
+                ReservedIdentifier::IsEven | ReservedIdentifier::IsOdd => Some(Type::Boolean),
                 ReservedIdentifier::Length => Some(Type::Integer),
             },
         }
@@ -69,23 +70,24 @@ impl Statement {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::Assign(left, right) => write!(f, "{} = {}", left, right),
-            Statement::Add(left, right) => write!(f, "{} + {}", left, right),
-            Statement::PropertyAccess(left, right) => write!(f, "{}.{}", left, right),
+            Statement::Assign(left, right) => write!(f, "{left} = {right}"),
+            Statement::Add(left, right) => write!(f, "{left} + {right}"),
+            Statement::BuiltInValue(reserved) => write!(f, "{reserved}"),
+            Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
             Statement::List(nodes) => {
                 write!(f, "[")?;
                 for (i, node) in nodes.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
-                    write!(f, "{}", node)?;
+                    write!(f, "{node}")?;
                 }
                 write!(f, "]")
             }
-            Statement::Multiply(left, right) => write!(f, "{} * {}", left, right),
-            Statement::Constant(value) => write!(f, "{}", value),
-            Statement::Identifier(identifier) => write!(f, "{}", identifier),
-            Statement::ReservedIdentifier(identifier) => write!(f, "{}", identifier),
+            Statement::Multiply(left, right) => write!(f, "{left} * {right}"),
+            Statement::Constant(value) => write!(f, "{value}"),
+            Statement::Identifier(identifier) => write!(f, "{identifier}"),
+            Statement::ReservedIdentifier(identifier) => write!(f, "{identifier}"),
         }
     }
 }

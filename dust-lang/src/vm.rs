@@ -42,6 +42,7 @@ impl Vm {
         variables: &mut HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError> {
         match node.statement {
+            Statement::BuiltInValue(node) => self.run_node(*node, variables),
             Statement::Constant(value) => Ok(Some(value.clone())),
             Statement::Identifier(_) => Ok(None),
             Statement::ReservedIdentifier(_) => Ok(None),
@@ -143,6 +144,16 @@ impl Vm {
                                 });
                             }
                         }
+                        _ => {
+                            return Err(VmError::ExpectedDifferentReservedIdentifier {
+                                position: right_span,
+                                expected: vec![
+                                    ReservedIdentifier::IsEven,
+                                    ReservedIdentifier::IsOdd,
+                                    ReservedIdentifier::Length,
+                                ],
+                            })
+                        }
                     }
                 }
 
@@ -170,11 +181,25 @@ pub enum VmError {
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
-    ExpectedIdentifier { position: Span },
-    ExpectedIdentifierOrInteger { position: Span },
-    ExpectedInteger { position: Span },
-    ExpectedList { position: Span },
-    ExpectedValue { position: Span },
+    ExpectedIdentifier {
+        position: Span,
+    },
+    ExpectedIdentifierOrInteger {
+        position: Span,
+    },
+    ExpectedInteger {
+        position: Span,
+    },
+    ExpectedList {
+        position: Span,
+    },
+    ExpectedDifferentReservedIdentifier {
+        position: Span,
+        expected: Vec<ReservedIdentifier>,
+    },
+    ExpectedValue {
+        position: Span,
+    },
 }
 
 impl From<ParseError> for VmError {

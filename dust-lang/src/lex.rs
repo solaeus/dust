@@ -57,7 +57,7 @@ impl<'a> Lexer<'a> {
         let (token, span) = if let Some(c) = self.peek_char() {
             match c {
                 '0'..='9' => self.lex_number()?,
-                'a'..='z' | 'A'..='Z' => self.lex_identifier()?,
+                'a'..='z' | 'A'..='Z' => self.lex_alphabetical()?,
                 '+' => {
                     self.position += 1;
                     (Token::Plus, (self.position - 1, self.position))
@@ -124,6 +124,19 @@ impl<'a> Lexer<'a> {
         self.source[self.position..].chars().nth(1)
     }
 
+    fn peek_until_whitespace(&self) -> Option<&str> {
+        let start = self.position;
+        let end = self.source[self.position..]
+            .find(char::is_whitespace)
+            .map(|i| i + start);
+
+        if let Some(end) = end {
+            Some(&self.source[start..end])
+        } else {
+            None
+        }
+    }
+
     /// Lex an integer or float token.
     fn lex_number(&mut self) -> Result<(Token, Span), LexError> {
         let start_pos = self.position;
@@ -167,7 +180,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Lex an identifier token.
-    fn lex_identifier(&mut self) -> Result<(Token, Span), LexError> {
+    fn lex_alphabetical(&mut self) -> Result<(Token, Span), LexError> {
         let start_pos = self.position;
 
         while let Some(c) = self.peek_char() {
@@ -180,6 +193,8 @@ impl<'a> Lexer<'a> {
 
         let string = &self.source[start_pos..self.position];
         let token = match string {
+            "true" => Token::Boolean(true),
+            "false" => Token::Boolean(false),
             "is_even" => Token::ReservedIdentifier(ReservedIdentifier::IsEven),
             "is_odd" => Token::ReservedIdentifier(ReservedIdentifier::IsOdd),
             "length" => Token::ReservedIdentifier(ReservedIdentifier::Length),
@@ -211,6 +226,26 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn r#true() {
+        let input = "true";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Boolean(true), (0, 4)), (Token::Eof, (4, 4)),])
+        )
+    }
+
+    #[test]
+    fn r#false() {
+        let input = "false";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Boolean(false), (0, 5)), (Token::Eof, (5, 5))])
+        )
+    }
 
     #[test]
     fn integer_property_access() {
