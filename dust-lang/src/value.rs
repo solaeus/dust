@@ -1,3 +1,4 @@
+/// Dust value representation
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
@@ -12,8 +13,41 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{identifier::Identifier, AbstractSyntaxTree, Span, Type, Vm, VmError};
+use crate::{identifier::Identifier, AbstractSyntaxTree, Type, Vm, VmError};
 
+/// Dust value representation
+///
+/// Each type of value has a corresponding constructor, here are some simple examples:
+///
+/// ```
+/// # use dust_lang::Value;
+/// let boolean = Value::boolean(true);
+/// let float = Value::float(3.14);
+/// let integer = Value::integer(42);
+/// let string = Value::string("Hello, world!");
+/// ```
+///
+/// Values can be combined into more complex values:
+///
+/// ```
+/// # use dust_lang::Value;
+/// let list = Value::list(vec![
+///     Value::integer(1),
+///     Value::integer(2),
+///     Value::integer(3),
+/// ]);
+/// ```
+///
+/// Values have a type, which can be retrieved using the `type` method:
+///
+/// ```
+/// # use std::collections::HashMap;
+/// # use dust_lang::{Type, Value};
+/// let variables = HashMap::new();
+/// let value = Value::integer(42);
+///
+/// assert_eq!(value.r#type(&variables), Type::Integer);
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
 
