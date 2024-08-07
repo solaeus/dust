@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     fmt::{self, Display, Formatter},
     ops::Range,
     sync::Arc,
@@ -12,7 +12,7 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{identifier::Identifier, Type};
+use crate::{identifier::Identifier, Statement, Type};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
@@ -50,8 +50,8 @@ impl Value {
         Value(Arc::new(ValueInner::String(to_string.to_string())))
     }
 
-    pub fn r#type(&self) -> Type {
-        self.0.r#type()
+    pub fn r#type(&self, variables: &HashMap<Identifier, Value>) -> Type {
+        self.0.r#type(variables)
     }
 
     pub fn as_boolean(&self) -> Option<bool> {
@@ -102,6 +102,7 @@ impl Display for Value {
 
                 Ok(())
             }
+            ValueInner::Function(function) => write!(f, "{function}"),
             ValueInner::Integer(integer) => write!(f, "{integer}"),
             ValueInner::List(list) => {
                 write!(f, "[")?;
@@ -157,6 +158,7 @@ impl Serialize for Value {
         match self.0.as_ref() {
             ValueInner::Boolean(boolean) => serializer.serialize_bool(*boolean),
             ValueInner::Float(float) => serializer.serialize_f64(*float),
+            ValueInner::Function(function) => function.serialize(serializer),
             ValueInner::Integer(integer) => serializer.serialize_i64(*integer),
             ValueInner::List(list) => {
                 let mut list_ser = serializer.serialize_seq(Some(list.len()))?;
@@ -435,6 +437,7 @@ impl<'de> Deserialize<'de> for Value {
 pub enum ValueInner {
     Boolean(bool),
     Float(f64),
+    Function(Function),
     Integer(i64),
     List(Vec<Value>),
     Map(BTreeMap<Identifier, Value>),
@@ -443,13 +446,18 @@ pub enum ValueInner {
 }
 
 impl ValueInner {
-    pub fn r#type(&self) -> Type {
+    pub fn r#type(&self, variables: &HashMap<Identifier, Value>) -> Type {
         match self {
             ValueInner::Boolean(_) => Type::Boolean,
             ValueInner::Float(_) => Type::Float,
+            ValueInner::Function(function) => Type::Function {
+                type_parameters: function.type_parameters.clone(),
+                value_parameters: function.value_parameters.clone(),
+                return_type: function.return_type(variables).map(Box::new),
+            },
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
-                let item_type = values.first().unwrap().r#type();
+                let item_type = values.first().unwrap().r#type(variables);
 
                 Type::List {
                     length: values.len(),
@@ -460,7 +468,7 @@ impl ValueInner {
                 let mut type_map = BTreeMap::new();
 
                 for (identifier, value) in value_map {
-                    let r#type = value.r#type();
+                    let r#type = value.r#type(variables);
 
                     type_map.insert(identifier.clone(), r#type);
                 }
@@ -502,6 +510,8 @@ impl Ord for ValueInner {
             (Boolean(_), _) => Ordering::Greater,
             (Float(left), Float(right)) => left.total_cmp(right),
             (Float(_), _) => Ordering::Greater,
+            (Function(left), Function(right)) => left.cmp(right),
+            (Function(_), _) => Ordering::Greater,
             (Integer(left), Integer(right)) => left.cmp(right),
             (Integer(_), _) => Ordering::Greater,
             (List(left), List(right)) => left.cmp(right),
@@ -524,7 +534,61 @@ impl Ord for ValueInner {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Function {
+    pub name: Identifier,
+    pub type_parameters: Option<Vec<Type>>,
+    pub value_parameters: Option<Vec<(Identifier, Type)>>,
+    pub body: Vec<Statement>,
+}
+
+impl Function {
+    pub fn return_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
+        self.body.last().unwrap().expected_type(variables)
+    }
+}
+
+impl Display for Function {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+
+        if let Some(type_parameters) = &self.type_parameters {
+            write!(f, "<")?;
+
+            for (index, type_parameter) in type_parameters.iter().enumerate() {
+                if index > 0 {
+                    write!(f, ", ")?;
+                }
+
+                write!(f, "{}", type_parameter)?;
+            }
+
+            write!(f, ">")?;
+        }
+
+        write!(f, "(")?;
+
+        if let Some(value_paramers) = &self.value_parameters {
+            for (index, (identifier, r#type)) in value_paramers.iter().enumerate() {
+                if index > 0 {
+                    write!(f, ", ")?;
+                }
+
+                write!(f, "{identifier}: {type}")?;
+            }
+        }
+
+        write!(f, ") {{")?;
+
+        for statement in &self.body {
+            write!(f, "{}", statement)?;
+        }
+
+        write!(f, "}}")
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueError {
     CannotAdd(Value, Value),
     PropertyNotFound { value: Value, property: Identifier },

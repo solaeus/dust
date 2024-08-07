@@ -40,7 +40,7 @@ pub enum Type {
     },
     Float,
     Function {
-        type_parameters: Option<Vec<Identifier>>,
+        type_parameters: Option<Vec<Type>>,
         value_parameters: Option<Vec<(Identifier, Type)>>,
         return_type: Option<Box<Type>>,
     },

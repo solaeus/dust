@@ -70,7 +70,7 @@ impl Vm {
                 let identifier = if let Statement::Identifier(identifier) = &left.statement {
                     identifier
                 } else {
-                    return Err(VmError::ExpectedValue {
+                    return Err(VmError::ExpectedIdentifier {
                         position: left.span,
                     });
                 };
@@ -170,10 +170,11 @@ pub enum VmError {
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
-    ExpectedValue { position: Span },
+    ExpectedIdentifier { position: Span },
     ExpectedIdentifierOrInteger { position: Span },
-    ExpectedList { position: Span },
     ExpectedInteger { position: Span },
+    ExpectedList { position: Span },
+    ExpectedValue { position: Span },
 }
 
 impl From<ParseError> for VmError {

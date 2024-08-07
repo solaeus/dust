@@ -26,8 +26,8 @@ impl Analyzer {
     fn analyze_node(&self, node: &Node) -> Result<(), AnalyzerError> {
         match &node.statement {
             Statement::Add(left, right) => {
-                self.analyze_node(&left)?;
-                self.analyze_node(&right)?;
+                self.analyze_node(left)?;
+                self.analyze_node(right)?;
             }
             Statement::Assign(left, right) => {
                 if let Statement::Identifier(_) = &left.statement {
@@ -38,7 +38,7 @@ impl Analyzer {
                     });
                 }
 
-                self.analyze_node(&right)?;
+                self.analyze_node(right)?;
             }
             Statement::Constant(_) => {}
             Statement::Identifier(_) => {
@@ -52,8 +52,8 @@ impl Analyzer {
                 }
             }
             Statement::Multiply(left, right) => {
-                self.analyze_node(&left)?;
-                self.analyze_node(&right)?;
+                self.analyze_node(left)?;
+                self.analyze_node(right)?;
             }
             Statement::PropertyAccess(left, right) => {
                 if let Statement::Identifier(_) = &left.statement {
@@ -64,7 +64,7 @@ impl Analyzer {
                     });
                 }
 
-                self.analyze_node(&right)?;
+                self.analyze_node(right)?;
             }
             Statement::ReservedIdentifier(_) => {}
         }
