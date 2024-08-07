@@ -8,7 +8,7 @@ use crate::{
 pub fn run(
     input: &str,
     variables: &mut HashMap<Identifier, Value>,
-) -> Result<Option<Value>, VmError<Span>> {
+) -> Result<Option<Value>, VmError> {
     let abstract_syntax_tree = parse(input)?;
     let analyzer = Analyzer::new(&abstract_syntax_tree, variables);
 
@@ -19,19 +19,19 @@ pub fn run(
     vm.run(variables)
 }
 
-pub struct Vm<P> {
-    abstract_tree: AbstractSyntaxTree<P>,
+pub struct Vm {
+    abstract_tree: AbstractSyntaxTree,
 }
 
-impl<P: Copy> Vm<P> {
-    pub fn new(abstract_tree: AbstractSyntaxTree<P>) -> Self {
+impl Vm {
+    pub fn new(abstract_tree: AbstractSyntaxTree) -> Self {
         Self { abstract_tree }
     }
 
     pub fn run(
         &mut self,
         variables: &mut HashMap<Identifier, Value>,
-    ) -> Result<Option<Value>, VmError<P>> {
+    ) -> Result<Option<Value>, VmError> {
         let mut previous_value = None;
 
         while let Some(node) = self.abstract_tree.nodes.pop_front() {
@@ -43,9 +43,9 @@ impl<P: Copy> Vm<P> {
 
     fn run_node(
         &self,
-        node: Node<P>,
+        node: Node,
         variables: &mut HashMap<Identifier, Value>,
-    ) -> Result<Option<Value>, VmError<P>> {
+    ) -> Result<Option<Value>, VmError> {
         match node.statement {
             Statement::Add(left, right) => {
                 let left_span = left.position;
@@ -158,13 +158,7 @@ impl<P: Copy> Vm<P> {
                     None
                 };
 
-                Ok(function
-                    .clone()
-                    .call(None, value_parameters, variables)
-                    .map_err(|error| VmError::FunctionCallFailed {
-                        error: Box::new(error),
-                        position: function_position,
-                    })?)
+                Ok(function.clone().call(None, value_parameters, variables)?)
             }
             Statement::Identifier(_) => Ok(None),
             Statement::List(nodes) => {
@@ -178,7 +172,7 @@ impl<P: Copy> Vm<P> {
                             Err(VmError::ExpectedValue { position: span })
                         }
                     })
-                    .collect::<Result<Vec<Value>, VmError<P>>>()?;
+                    .collect::<Result<Vec<Value>, VmError>>()?;
 
                 Ok(Some(Value::list(values)))
             }
@@ -244,54 +238,40 @@ impl<P: Copy> Vm<P> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum VmError<P> {
-    AnaylyzerError(AnalyzerError<P>),
+pub enum VmError {
+    AnaylyzerError(AnalyzerError),
     ParseError(ParseError),
     ValueError(ValueError),
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
     BuiltInFunctionCallFailed(BuiltInFunctionError),
-    ExpectedIdentifier {
-        position: P,
-    },
-    ExpectedIdentifierOrInteger {
-        position: P,
-    },
-    ExpectedInteger {
-        position: P,
-    },
-    ExpectedList {
-        position: P,
-    },
-    ExpectedValue {
-        position: P,
-    },
-    FunctionCallFailed {
-        error: Box<VmError<()>>,
-        position: P,
-    },
+    ExpectedIdentifier { position: Span },
+    ExpectedIdentifierOrInteger { position: Span },
+    ExpectedInteger { position: Span },
+    ExpectedList { position: Span },
+    ExpectedValue { position: Span },
 }
 
-impl<P> From<BuiltInFunctionError> for VmError<P> {
+impl From<BuiltInFunctionError> for VmError {
     fn from(v: BuiltInFunctionError) -> Self {
         Self::BuiltInFunctionCallFailed(v)
     }
 }
 
-impl<P> From<AnalyzerError<P>> for VmError<P> {
-    fn from(error: AnalyzerError<P>) -> Self {
+impl From<AnalyzerError> for VmError {
+    fn from(error: AnalyzerError) -> Self {
         Self::AnaylyzerError(error)
     }
 }
 
-impl<P> From<ParseError> for VmError<P> {
+impl From<ParseError> for VmError {
     fn from(error: ParseError) -> Self {
         Self::ParseError(error)
     }
 }
 
-impl<P> From<ValueError> for VmError<P> {
+impl From<ValueError> for VmError {
     fn from(error: ValueError) -> Self {
         Self::ValueError(error)
     }

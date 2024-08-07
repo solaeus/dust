@@ -5,21 +5,21 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Type, Value};
+use crate::{Identifier, Span, Type, Value};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct AbstractSyntaxTree<P> {
-    pub nodes: VecDeque<Node<P>>,
+pub struct AbstractSyntaxTree {
+    pub nodes: VecDeque<Node>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Node<P> {
-    pub statement: Statement<P>,
-    pub position: P,
+pub struct Node {
+    pub statement: Statement,
+    pub position: Span,
 }
 
-impl<P> Node<P> {
-    pub fn new(operation: Statement<P>, position: P) -> Self {
+impl Node {
+    pub fn new(operation: Statement, position: Span) -> Self {
         Self {
             statement: operation,
             position,
@@ -27,39 +27,39 @@ impl<P> Node<P> {
     }
 }
 
-impl<P> Display for Node<P> {
+impl Display for Node {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.statement)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Statement<P> {
+pub enum Statement {
     // Top-level statements
-    Assign(Box<Node<P>>, Box<Node<P>>),
+    Assign(Box<Node>, Box<Node>),
 
     // Expressions
-    Add(Box<Node<P>>, Box<Node<P>>),
+    Add(Box<Node>, Box<Node>),
     BuiltInFunctionCall {
         function: BuiltInFunction,
-        type_arguments: Option<Vec<Node<P>>>,
-        value_arguments: Option<Vec<Node<P>>>,
+        type_arguments: Option<Vec<Node>>,
+        value_arguments: Option<Vec<Node>>,
     },
     FunctionCall {
-        function: Box<Node<P>>,
-        type_arguments: Option<Vec<Node<P>>>,
-        value_arguments: Option<Vec<Node<P>>>,
+        function: Box<Node>,
+        type_arguments: Option<Vec<Node>>,
+        value_arguments: Option<Vec<Node>>,
     },
-    PropertyAccess(Box<Node<P>>, Box<Node<P>>),
-    List(Vec<Node<P>>),
-    Multiply(Box<Node<P>>, Box<Node<P>>),
+    PropertyAccess(Box<Node>, Box<Node>),
+    List(Vec<Node>),
+    Multiply(Box<Node>, Box<Node>),
 
     // Hard-coded values
     Constant(Value),
     Identifier(Identifier),
 }
 
-impl<P> Statement<P> {
+impl Statement {
     pub fn expected_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
         match self {
             Statement::Add(left, _) => left.statement.expected_type(variables),
@@ -77,7 +77,7 @@ impl<P> Statement<P> {
     }
 }
 
-impl<P> Display for Statement<P> {
+impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Statement::Assign(left, right) => write!(f, "{left} = {right}"),

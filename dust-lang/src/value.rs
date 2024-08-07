@@ -12,7 +12,7 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{identifier::Identifier, AbstractSyntaxTree, Type, Vm, VmError};
+use crate::{identifier::Identifier, AbstractSyntaxTree, Span, Type, Vm, VmError};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
@@ -551,7 +551,7 @@ pub struct Function {
     pub name: Identifier,
     pub type_parameters: Option<Vec<Type>>,
     pub value_parameters: Option<Vec<(Identifier, Type)>>,
-    pub body: AbstractSyntaxTree<()>,
+    pub body: AbstractSyntaxTree,
 }
 
 impl Function {
@@ -560,7 +560,7 @@ impl Function {
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
         variables: &HashMap<Identifier, Value>,
-    ) -> Result<Option<Value>, VmError<()>> {
+    ) -> Result<Option<Value>, VmError> {
         let mut new_variables = variables.clone();
 
         if let (Some(value_parameters), Some(value_arguments)) =

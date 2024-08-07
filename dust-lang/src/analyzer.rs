@@ -7,7 +7,7 @@
 /// - `Analyzer` struct
 use std::collections::HashMap;
 
-use crate::{AbstractSyntaxTree, Identifier, Node, Statement, Type, Value};
+use crate::{AbstractSyntaxTree, Identifier, Node, Span, Statement, Type, Value};
 
 /// Analyzes the abstract syntax tree for errors.
 ///
@@ -22,10 +22,10 @@ use crate::{AbstractSyntaxTree, Identifier, Node, Statement, Type, Value};
 ///
 /// assert!(result.is_err());
 /// ```
-pub fn analyze<P: Clone>(
-    abstract_tree: &AbstractSyntaxTree<P>,
+pub fn analyze(
+    abstract_tree: &AbstractSyntaxTree,
     variables: &HashMap<Identifier, Value>,
-) -> Result<(), AnalyzerError<P>> {
+) -> Result<(), AnalyzerError> {
     let analyzer = Analyzer::new(abstract_tree, variables);
 
     analyzer.analyze()
@@ -44,14 +44,14 @@ pub fn analyze<P: Clone>(
 /// let result = analyzer.analyze();
 ///
 /// assert!(result.is_err());
-pub struct Analyzer<'a, P> {
-    abstract_tree: &'a AbstractSyntaxTree<P>,
+pub struct Analyzer<'a> {
+    abstract_tree: &'a AbstractSyntaxTree,
     variables: &'a HashMap<Identifier, Value>,
 }
 
-impl<'a, P: Clone> Analyzer<'a, P> {
+impl<'a> Analyzer<'a> {
     pub fn new(
-        abstract_tree: &'a AbstractSyntaxTree<P>,
+        abstract_tree: &'a AbstractSyntaxTree,
         variables: &'a HashMap<Identifier, Value>,
     ) -> Self {
         Self {
@@ -60,7 +60,7 @@ impl<'a, P: Clone> Analyzer<'a, P> {
         }
     }
 
-    pub fn analyze(&self) -> Result<(), AnalyzerError<P>> {
+    pub fn analyze(&self) -> Result<(), AnalyzerError> {
         for node in &self.abstract_tree.nodes {
             self.analyze_node(node)?;
         }
@@ -68,7 +68,7 @@ impl<'a, P: Clone> Analyzer<'a, P> {
         Ok(())
     }
 
-    fn analyze_node(&self, node: &Node<P>) -> Result<(), AnalyzerError<P>> {
+    fn analyze_node(&self, node: &Node) -> Result<(), AnalyzerError> {
         match &node.statement {
             Statement::Add(left, right) => {
                 if let Some(Type::Integer) | Some(Type::Float) =
@@ -166,11 +166,11 @@ impl<'a, P: Clone> Analyzer<'a, P> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum AnalyzerError<P> {
-    ExpectedFunction { position: P },
-    ExpectedIdentifier { actual: Node<P> },
-    ExpectedIntegerOrFloat { actual: Node<P> },
-    UnexpectedIdentifier { identifier: Node<P> },
+pub enum AnalyzerError {
+    ExpectedFunction { position: Span },
+    ExpectedIdentifier { actual: Node },
+    ExpectedIntegerOrFloat { actual: Node },
+    UnexpectedIdentifier { identifier: Node },
 }
 
 #[cfg(test)]

@@ -13,8 +13,8 @@ important than safety and ease of use.
 ### Effortless Concurrency
 
 Rust promises *fearless* concurrency, and Dust takes it a step further by making concurrency as
-simple as possible. Dust is organized into **statements**, and any sequence of statements can be
-run concurrently by simply adding the `async` keyword before the block of statements.
+*effortless* as possible. Dust is organized into **statements**, and any sequence of statements can
+be run concurrently by simply adding the `async` keyword before the block of statements.
 
 ```dust
 # This function will count from 0 to 9, sleeping for an increasing amount of
@@ -28,7 +28,7 @@ count_slowly = fn (
 		sleep_time = i * multiplier;
 
 		thread.sleep(sleep_time)
-		thread.write_line(i as str)
+		io.write_line(i as str)
 
 		i += 1
 	}

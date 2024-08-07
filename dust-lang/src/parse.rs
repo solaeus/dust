@@ -39,7 +39,7 @@ use crate::{
 ///     }),
 /// );
 /// ```
-pub fn parse(input: &str) -> Result<AbstractSyntaxTree<Span>, ParseError> {
+pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let mut nodes = VecDeque::new();
@@ -80,7 +80,7 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree<Span>, ParseError> {
 ///
 /// assert_eq!(
 ///     nodes,
-///     Into::<VecDeque<Node<Span>>>::into([
+///     Into::<VecDeque<Node>>::into([
 ///         Node {
 ///             statement: Statement::Assign(
 ///                 Box::new(Node {
@@ -110,7 +110,7 @@ impl<'src> Parser<'src> {
         Parser { lexer, current }
     }
 
-    pub fn parse(&mut self) -> Result<Node<Span>, ParseError> {
+    pub fn parse(&mut self) -> Result<Node, ParseError> {
         self.parse_node(0)
     }
 
@@ -124,7 +124,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_node(&mut self, precedence: u8) -> Result<Node<Span>, ParseError> {
+    fn parse_node(&mut self, precedence: u8) -> Result<Node, ParseError> {
         let left_node = self.parse_primary()?;
         let left_start = left_node.position.0;
 
@@ -181,7 +181,7 @@ impl<'src> Parser<'src> {
         Ok(left_node)
     }
 
-    fn parse_primary(&mut self) -> Result<Node<Span>, ParseError> {
+    fn parse_primary(&mut self) -> Result<Node, ParseError> {
         match self.current.clone() {
             (Token::Boolean(boolean), span) => {
                 self.next_token()?;
