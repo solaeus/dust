@@ -7,7 +7,7 @@ use std::num::{ParseFloatError, ParseIntError};
 
 use crate::{Identifier, ReservedIdentifier, Span, Token};
 
-/// Lex the input and return a vector of tokens and their positions.
+/// Lexes the input and return a vector of tokens and their positions.
 ///
 /// # Examples
 /// ```

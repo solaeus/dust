@@ -1,7 +1,41 @@
+/// Parsing tools.
+///
+/// This module provides two parsing options:
+/// - `parse` convenience function
+/// - `Parser` struct, which parses the input a statement at a time
 use std::collections::VecDeque;
 
 use crate::{AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement, Token, Value};
 
+/// Parses the input into an abstract syntax tree.
+///
+/// # Examples
+/// ```
+/// # use dust_lang::*;
+/// let input = "x = 42";
+/// let result = parse(input);
+///
+/// assert_eq!(
+///     result,
+///     Ok(AbstractSyntaxTree {
+///         nodes: [
+///             Node {
+///                 statement: Statement::Assign(
+///                     Box::new(Node {
+///                         statement: Statement::Identifier("x".into()),
+///                         span: (0, 1),
+///                     }),
+///                     Box::new(Node {
+///                         statement: Statement::Constant(Value::integer(42)),
+///                         span: (4, 6),
+///                     })
+///                 ),
+///                 span: (0, 6),
+///             }
+///         ].into(),
+///     }),
+/// );
+/// ```
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
@@ -20,6 +54,46 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
     Ok(AbstractSyntaxTree { nodes })
 }
 
+/// Low-level tool for parsing the input a statement at a time.
+///
+/// # Examples
+/// ```
+/// # use std::collections::VecDeque;
+/// # use dust_lang::*;
+/// let input = "x = 42";
+/// let lexer = Lexer::new(input);
+/// let mut parser = Parser::new(lexer);
+/// let mut nodes = VecDeque::new();
+///
+/// loop {
+///     let node = parser.parse().unwrap();
+///
+///     nodes.push_back(node);
+///
+///     if let Token::Eof = parser.current().0 {
+///         break;
+///     }
+/// }
+///
+/// assert_eq!(
+///     nodes,
+///     Into::<VecDeque<Node>>::into([
+///         Node {
+///             statement: Statement::Assign(
+///                 Box::new(Node {
+///                     statement: Statement::Identifier("x".into()),
+///                     span: (0, 1),
+///                 }),
+///                 Box::new(Node {
+///                     statement: Statement::Constant(Value::integer(42)),
+///                     span: (4, 6),
+///                 })
+///             ),
+///             span: (0, 6),
+///         }
+///     ]),
+/// );
+/// ```
 pub struct Parser<'src> {
     lexer: Lexer<'src>,
     current: (Token, Span),
@@ -35,6 +109,10 @@ impl<'src> Parser<'src> {
 
     pub fn parse(&mut self) -> Result<Node, ParseError> {
         self.parse_node(0)
+    }
+
+    pub fn current(&self) -> &(Token, Span) {
+        &self.current
     }
 
     fn next_token(&mut self) -> Result<(), ParseError> {
