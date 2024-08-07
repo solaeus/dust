@@ -10,7 +10,7 @@ pub fn run(
     variables: &mut HashMap<Identifier, Value>,
 ) -> Result<Option<Value>, VmError> {
     let abstract_syntax_tree = parse(input)?;
-    let analyzer = Analyzer::new(&abstract_syntax_tree);
+    let analyzer = Analyzer::new(&abstract_syntax_tree, variables);
 
     analyzer.analyze()?;
 
