@@ -15,7 +15,7 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use abstract_tree::{Node, Statement};
+pub use abstract_tree::{AbstractSyntaxTree, Node, Statement};
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
 pub use identifier::Identifier;
 pub use lex::{lex, LexError, Lexer};

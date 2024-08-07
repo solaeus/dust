@@ -1,22 +1,22 @@
-use crate::{Node, Statement};
+use crate::{AbstractSyntaxTree, Node, Statement};
 
-pub fn analyze(abstract_tree: Vec<Node>) -> Result<(), AnalyzerError> {
+pub fn analyze(abstract_tree: &AbstractSyntaxTree) -> Result<(), AnalyzerError> {
     let analyzer = Analyzer::new(abstract_tree);
 
     analyzer.analyze()
 }
 
-pub struct Analyzer {
-    abstract_tree: Vec<Node>,
+pub struct Analyzer<'a> {
+    abstract_tree: &'a AbstractSyntaxTree,
 }
 
-impl Analyzer {
-    pub fn new(abstract_tree: Vec<Node>) -> Self {
+impl<'a> Analyzer<'a> {
+    pub fn new(abstract_tree: &'a AbstractSyntaxTree) -> Self {
         Analyzer { abstract_tree }
     }
 
     pub fn analyze(&self) -> Result<(), AnalyzerError> {
-        for node in &self.abstract_tree {
+        for node in &self.abstract_tree.nodes {
             self.analyze_node(node)?;
         }
 
@@ -90,15 +90,18 @@ mod tests {
 
     #[test]
     fn assignment_expect_identifier() {
-        let abstract_tree = vec![Node::new(
-            Statement::Assign(
-                Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                Box::new(Node::new(Statement::Constant(Value::integer(2)), (1, 2))),
-            ),
-            (0, 2),
-        )];
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::Assign(
+                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                    Box::new(Node::new(Statement::Constant(Value::integer(2)), (1, 2))),
+                ),
+                (0, 2),
+            )]
+            .into(),
+        };
 
-        let analyzer = Analyzer::new(abstract_tree);
+        let analyzer = Analyzer::new(&abstract_tree);
 
         assert_eq!(
             analyzer.analyze(),
@@ -110,12 +113,15 @@ mod tests {
 
     #[test]
     fn unexpected_identifier_simple() {
-        let abstract_tree = vec![Node::new(
-            Statement::Identifier(Identifier::new("x")),
-            (0, 1),
-        )];
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::Identifier(Identifier::new("x")),
+                (0, 1),
+            )]
+            .into(),
+        };
 
-        let analyzer = Analyzer::new(abstract_tree);
+        let analyzer = Analyzer::new(&abstract_tree);
 
         assert_eq!(
             analyzer.analyze(),
@@ -127,18 +133,21 @@ mod tests {
 
     #[test]
     fn unexpected_identifier_nested() {
-        let abstract_tree = vec![Node::new(
-            Statement::Add(
-                Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                Box::new(Node::new(
-                    Statement::Identifier(Identifier::new("x")),
-                    (1, 2),
-                )),
-            ),
-            (0, 1),
-        )];
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::Add(
+                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                    Box::new(Node::new(
+                        Statement::Identifier(Identifier::new("x")),
+                        (1, 2),
+                    )),
+                ),
+                (0, 1),
+            )]
+            .into(),
+        };
 
-        let analyzer = Analyzer::new(abstract_tree);
+        let analyzer = Analyzer::new(&abstract_tree);
 
         assert_eq!(
             analyzer.analyze(),

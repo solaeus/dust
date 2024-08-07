@@ -1,11 +1,16 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fmt::{self, Display, Formatter},
 };
 
 use serde::{Deserialize, Serialize};
 
 use crate::{Identifier, ReservedIdentifier, Span, Type, Value};
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct AbstractSyntaxTree {
+    pub nodes: VecDeque<Node>,
+}
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Node {

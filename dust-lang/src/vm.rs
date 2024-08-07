@@ -1,7 +1,8 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use crate::{
-    parse, Identifier, Node, ParseError, ReservedIdentifier, Span, Statement, Value, ValueError,
+    parse, AbstractSyntaxTree, Analyzer, AnalyzerError, Identifier, Node, ParseError,
+    ReservedIdentifier, Span, Statement, Value, ValueError,
 };
 
 pub fn run(
@@ -9,18 +10,22 @@ pub fn run(
     variables: &mut HashMap<Identifier, Value>,
 ) -> Result<Option<Value>, VmError> {
     let abstract_syntax_tree = parse(input)?;
+    let analyzer = Analyzer::new(&abstract_syntax_tree);
+
+    analyzer.analyze()?;
+
     let mut vm = Vm::new(abstract_syntax_tree);
 
     vm.run(variables)
 }
 
 pub struct Vm {
-    statement_nodes: VecDeque<Node>,
+    abstract_tree: AbstractSyntaxTree,
 }
 
 impl Vm {
-    pub fn new(statement_nodes: VecDeque<Node>) -> Self {
-        Vm { statement_nodes }
+    pub fn new(abstract_tree: AbstractSyntaxTree) -> Self {
+        Self { abstract_tree }
     }
 
     pub fn run(
@@ -29,7 +34,7 @@ impl Vm {
     ) -> Result<Option<Value>, VmError> {
         let mut previous_value = None;
 
-        while let Some(node) = self.statement_nodes.pop_front() {
+        while let Some(node) = self.abstract_tree.nodes.pop_front() {
             previous_value = self.run_node(node, variables)?;
         }
 
@@ -166,6 +171,7 @@ impl Vm {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
+    AnaylyzerError(AnalyzerError),
     ParseError(ParseError),
     ValueError(ValueError),
 
@@ -176,6 +182,12 @@ pub enum VmError {
     ExpectedInteger { position: Span },
     ExpectedList { position: Span },
     ExpectedValue { position: Span },
+}
+
+impl From<AnalyzerError> for VmError {
+    fn from(error: AnalyzerError) -> Self {
+        Self::AnaylyzerError(error)
+    }
 }
 
 impl From<ParseError> for VmError {

@@ -1,11 +1,8 @@
 use std::collections::VecDeque;
 
-use crate::{
-    lex::{LexError, Lexer},
-    Node, Span, Statement, Token, Value,
-};
+use crate::{AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement, Token, Value};
 
-pub fn parse(input: &str) -> Result<VecDeque<Node>, ParseError> {
+pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let mut nodes = VecDeque::new();
@@ -20,7 +17,7 @@ pub fn parse(input: &str) -> Result<VecDeque<Node>, ParseError> {
         }
     }
 
-    Ok(nodes)
+    Ok(AbstractSyntaxTree { nodes })
 }
 
 pub struct Parser<'src> {
@@ -227,7 +224,9 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(Statement::Constant(Value::boolean(true)), (0, 4))].into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(Statement::Constant(Value::boolean(true)), (0, 4))].into()
+            })
         );
     }
 
@@ -237,21 +236,23 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::PropertyAccess(
-                    Box::new(Node::new(
-                        Statement::List(vec![
-                            Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                            Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
-                            Node::new(Statement::Constant(Value::integer(3)), (7, 8)),
-                        ]),
-                        (0, 9)
-                    )),
-                    Box::new(Node::new(Statement::Constant(Value::integer(0)), (10, 11))),
-                ),
-                (0, 11),
-            )]
-            .into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::PropertyAccess(
+                        Box::new(Node::new(
+                            Statement::List(vec![
+                                Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                                Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
+                                Node::new(Statement::Constant(Value::integer(3)), (7, 8)),
+                            ]),
+                            (0, 9)
+                        )),
+                        Box::new(Node::new(Statement::Constant(Value::integer(0)), (10, 11))),
+                    ),
+                    (0, 11),
+                )]
+                .into()
+            })
         );
     }
 
@@ -261,20 +262,22 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::PropertyAccess(
-                    Box::new(Node::new(
-                        Statement::Identifier(Identifier::new("a")),
-                        (0, 1)
-                    )),
-                    Box::new(Node::new(
-                        Statement::Identifier(Identifier::new("b")),
-                        (2, 3)
-                    )),
-                ),
-                (0, 3),
-            )]
-            .into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::PropertyAccess(
+                        Box::new(Node::new(
+                            Statement::Identifier(Identifier::new("a")),
+                            (0, 1)
+                        )),
+                        Box::new(Node::new(
+                            Statement::Identifier(Identifier::new("b")),
+                            (2, 3)
+                        )),
+                    ),
+                    (0, 3),
+                )]
+                .into()
+            })
         );
     }
 
@@ -284,39 +287,44 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::List(vec![
-                    Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                    Node::new(
-                        Statement::Add(
-                            Box::new(Node::new(Statement::Constant(Value::integer(1)), (4, 5))),
-                            Box::new(Node::new(Statement::Constant(Value::integer(1)), (8, 9))),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::List(vec![
+                        Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                        Node::new(
+                            Statement::Add(
+                                Box::new(Node::new(Statement::Constant(Value::integer(1)), (4, 5))),
+                                Box::new(Node::new(Statement::Constant(Value::integer(1)), (8, 9))),
+                            ),
+                            (4, 9),
                         ),
-                        (4, 9),
-                    ),
-                    Node::new(
-                        Statement::Add(
-                            Box::new(Node::new(Statement::Constant(Value::integer(2)), (11, 12))),
-                            Box::new(Node::new(
-                                Statement::Multiply(
-                                    Box::new(Node::new(
-                                        Statement::Constant(Value::integer(4)),
-                                        (16, 17)
-                                    )),
-                                    Box::new(Node::new(
-                                        Statement::Constant(Value::integer(10)),
-                                        (20, 22)
-                                    )),
-                                ),
-                                (15, 23),
-                            ),),
+                        Node::new(
+                            Statement::Add(
+                                Box::new(Node::new(
+                                    Statement::Constant(Value::integer(2)),
+                                    (11, 12)
+                                )),
+                                Box::new(Node::new(
+                                    Statement::Multiply(
+                                        Box::new(Node::new(
+                                            Statement::Constant(Value::integer(4)),
+                                            (16, 17)
+                                        )),
+                                        Box::new(Node::new(
+                                            Statement::Constant(Value::integer(10)),
+                                            (20, 22)
+                                        )),
+                                    ),
+                                    (15, 23),
+                                ),),
+                            ),
+                            (11, 23),
                         ),
-                        (11, 23),
-                    ),
-                ]),
-                (0, 24),
-            )]
-            .into())
+                    ]),
+                    (0, 24),
+                )]
+                .into()
+            })
         );
     }
 
@@ -326,14 +334,16 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::List(vec![
-                    Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                    Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
-                ]),
-                (0, 6),
-            )]
-            .into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::List(vec![
+                        Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                        Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
+                    ]),
+                    (0, 6),
+                )]
+                .into()
+            })
         );
     }
 
@@ -343,7 +353,9 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(Statement::List(vec![]), (0, 2))].into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(Statement::List(vec![]), (0, 2))].into()
+            })
         );
     }
 
@@ -353,7 +365,9 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(Statement::Constant(Value::float(42.0)), (0, 4))].into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(Statement::Constant(Value::float(42.0)), (0, 4))].into()
+            })
         );
     }
 
@@ -363,14 +377,16 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::Add(
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                ),
-                (0, 5),
-            )]
-            .into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Add(
+                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
+                    ),
+                    (0, 5),
+                )]
+                .into()
+            })
         );
     }
 
@@ -380,14 +396,16 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::Multiply(
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                ),
-                (0, 5),
-            )]
-            .into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Multiply(
+                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
+                    ),
+                    (0, 5),
+                )]
+                .into()
+            })
         );
     }
 
@@ -397,20 +415,22 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::Add(
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    Box::new(Node::new(
-                        Statement::Multiply(
-                            Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                            Box::new(Node::new(Statement::Constant(Value::integer(3)), (8, 9))),
-                        ),
-                        (4, 9),
-                    )),
-                ),
-                (0, 9),
-            )]
-            .into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Add(
+                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        Box::new(Node::new(
+                            Statement::Multiply(
+                                Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
+                                Box::new(Node::new(Statement::Constant(Value::integer(3)), (8, 9))),
+                            ),
+                            (4, 9),
+                        )),
+                    ),
+                    (0, 9),
+                )]
+                .into()
+            })
         );
     }
 
@@ -420,35 +440,37 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Ok([Node::new(
-                Statement::Assign(
-                    Box::new(Node::new(
-                        Statement::Identifier(Identifier::new("a")),
-                        (0, 1)
-                    )),
-                    Box::new(Node::new(
-                        Statement::Add(
-                            Box::new(Node::new(Statement::Constant(Value::integer(1)), (4, 5))),
-                            Box::new(Node::new(
-                                Statement::Multiply(
-                                    Box::new(Node::new(
-                                        Statement::Constant(Value::integer(2)),
-                                        (8, 9)
-                                    )),
-                                    Box::new(Node::new(
-                                        Statement::Constant(Value::integer(3)),
-                                        (12, 13)
-                                    )),
-                                ),
-                                (8, 13),
-                            )),
-                        ),
-                        (4, 13),
-                    )),
-                ),
-                (0, 13),
-            )]
-            .into())
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Assign(
+                        Box::new(Node::new(
+                            Statement::Identifier(Identifier::new("a")),
+                            (0, 1)
+                        )),
+                        Box::new(Node::new(
+                            Statement::Add(
+                                Box::new(Node::new(Statement::Constant(Value::integer(1)), (4, 5))),
+                                Box::new(Node::new(
+                                    Statement::Multiply(
+                                        Box::new(Node::new(
+                                            Statement::Constant(Value::integer(2)),
+                                            (8, 9)
+                                        )),
+                                        Box::new(Node::new(
+                                            Statement::Constant(Value::integer(3)),
+                                            (12, 13)
+                                        )),
+                                    ),
+                                    (8, 13),
+                                )),
+                            ),
+                            (4, 13),
+                        )),
+                    ),
+                    (0, 13),
+                )]
+                .into()
+            })
         );
     }
 }
