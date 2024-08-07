@@ -103,7 +103,17 @@ impl<'a, P: Clone> Analyzer<'a, P> {
 
                 self.analyze_node(right)?;
             }
+            Statement::BuiltInFunctionCall { .. } => {}
             Statement::Constant(_) => {}
+            Statement::FunctionCall { function, .. } => {
+                if let Statement::Identifier(_) = &function.statement {
+                    // Function is in the correct position
+                } else {
+                    return Err(AnalyzerError::ExpectedIdentifier {
+                        actual: function.as_ref().clone(),
+                    });
+                }
+            }
             Statement::Identifier(_) => {
                 return Err(AnalyzerError::UnexpectedIdentifier {
                     identifier: node.clone(),
@@ -149,7 +159,6 @@ impl<'a, P: Clone> Analyzer<'a, P> {
 
                 self.analyze_node(right)?;
             }
-            Statement::ReservedIdentifier(_) => {}
         }
 
         Ok(())
@@ -158,6 +167,7 @@ impl<'a, P: Clone> Analyzer<'a, P> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError<P> {
+    ExpectedFunction { position: P },
     ExpectedIdentifier { actual: Node<P> },
     ExpectedIntegerOrFloat { actual: Node<P> },
     UnexpectedIdentifier { identifier: Node<P> },

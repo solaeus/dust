@@ -5,7 +5,7 @@
 //! - [`Lexer`], which lexes the input a token at a time
 use std::num::{ParseFloatError, ParseIntError};
 
-use crate::{Identifier, ReservedIdentifier, Span, Token};
+use crate::{Identifier, Span, Token};
 
 /// Lexes the input and return a vector of tokens and their positions.
 ///
@@ -245,9 +245,9 @@ impl<'a> Lexer<'a> {
         let token = match string {
             "true" => Token::Boolean(true),
             "false" => Token::Boolean(false),
-            "is_even" => Token::ReservedIdentifier(ReservedIdentifier::IsEven),
-            "is_odd" => Token::ReservedIdentifier(ReservedIdentifier::IsOdd),
-            "length" => Token::ReservedIdentifier(ReservedIdentifier::Length),
+            "is_even" => Token::IsEven,
+            "is_odd" => Token::IsOdd,
+            "length" => Token::Length,
             _ => Token::Identifier(Identifier::new(string)),
         };
 
@@ -298,19 +298,18 @@ mod tests {
     }
 
     #[test]
-    fn integer_property_access() {
-        let input = "42.is_even";
+    fn property_access_function_call() {
+        let input = "42.is_even()";
 
         assert_eq!(
             lex(input),
             Ok(vec![
                 (Token::Integer(42), (0, 2)),
                 (Token::Dot, (2, 3)),
-                (
-                    Token::ReservedIdentifier(ReservedIdentifier::IsEven),
-                    (3, 10)
-                ),
-                (Token::Eof, (10, 10)),
+                (Token::IsEven, (3, 10)),
+                (Token::LeftParenthesis, (10, 11)),
+                (Token::RightParenthesis, (11, 12)),
+                (Token::Eof, (12, 12)),
             ])
         )
     }
@@ -328,13 +327,7 @@ mod tests {
 
         assert_eq!(
             lex(input),
-            Ok(vec![
-                (
-                    Token::ReservedIdentifier(ReservedIdentifier::Length),
-                    (0, 6)
-                ),
-                (Token::Eof, (6, 6)),
-            ])
+            Ok(vec![(Token::Length, (0, 6)), (Token::Eof, (6, 6)),])
         )
     }
 

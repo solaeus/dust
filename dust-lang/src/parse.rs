@@ -5,7 +5,10 @@
 /// - `Parser` struct, which parses the input a statement at a time
 use std::collections::VecDeque;
 
-use crate::{AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement, Token, Value};
+use crate::{
+    abstract_tree::BuiltInFunction, AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement,
+    Token, Value,
+};
 
 /// Parses the input into an abstract syntax tree.
 ///
@@ -206,15 +209,12 @@ impl<'src> Parser<'src> {
             (Token::LeftParenthesis, left_span) => {
                 self.next_token()?;
 
-                let instruction = self.parse_node(0)?;
+                let node = self.parse_node(0)?;
 
                 if let (Token::RightParenthesis, right_span) = self.current {
                     self.next_token()?;
 
-                    Ok(Node::new(
-                        instruction.statement,
-                        (left_span.0, right_span.1),
-                    ))
+                    Ok(Node::new(node.statement, (left_span.0, right_span.1)))
                 } else {
                     Err(ParseError::ExpectedClosingParenthesis {
                         actual: self.current.0.clone(),
@@ -225,14 +225,14 @@ impl<'src> Parser<'src> {
             (Token::LeftSquareBrace, left_span) => {
                 self.next_token()?;
 
-                let mut instructions = Vec::new();
+                let mut nodes = Vec::new();
 
                 loop {
                     if let (Token::RightSquareBrace, right_span) = self.current {
                         self.next_token()?;
 
                         return Ok(Node::new(
-                            Statement::List(instructions),
+                            Statement::List(nodes),
                             (left_span.0, right_span.1),
                         ));
                     }
@@ -244,7 +244,7 @@ impl<'src> Parser<'src> {
                     }
 
                     if let Ok(instruction) = self.parse_node(0) {
-                        instructions.push(instruction);
+                        nodes.push(instruction);
                     } else {
                         return Err(ParseError::ExpectedClosingSquareBrace {
                             actual: self.current.0.clone(),
@@ -253,12 +253,52 @@ impl<'src> Parser<'src> {
                     }
                 }
             }
-            (Token::ReservedIdentifier(reserved), _) => {
+            (Token::IsEven, left_span) => {
                 self.next_token()?;
 
+                let mut value_parameters = None;
+
+                if let (Token::LeftParenthesis, _) = self.current {
+                    self.next_token()?;
+
+                    value_parameters = Some(vec![self.parse_node(0)?]);
+
+                    loop {
+                        self.next_token()?;
+
+                        if let (Token::RightParenthesis, _) = self.current {
+                            break;
+                        }
+
+                        if let (Token::Comma, _) = self.current {
+                            self.next_token()?;
+                        }
+
+                        value_parameters.as_mut().unwrap().push(self.parse_node(0)?);
+                    }
+                } else {
+                    return Err(ParseError::ExpectedOpeningParenthesis {
+                        actual: self.current.0.clone(),
+                        span: self.current.1,
+                    });
+                }
+
+                if let (Token::RightParenthesis, _) = self.current {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedClosingParenthesis {
+                        actual: self.current.0.clone(),
+                        span: self.current.1,
+                    });
+                }
+
                 Ok(Node::new(
-                    Statement::ReservedIdentifier(reserved),
-                    self.current.1,
+                    Statement::BuiltInFunctionCall {
+                        function: BuiltInFunction::IsEven,
+                        type_arguments: None,
+                        value_arguments: value_parameters,
+                    },
+                    left_span,
                 ))
             }
             _ => Err(ParseError::UnexpectedToken(self.current.0.clone())),
@@ -280,6 +320,7 @@ impl<'src> Parser<'src> {
 pub enum ParseError {
     ExpectedClosingParenthesis { actual: Token, span: Span },
     ExpectedClosingSquareBrace { actual: Token, span: Span },
+    ExpectedOpeningParenthesis { actual: Token, span: Span },
     LexError(LexError),
     UnexpectedToken(Token),
 }
@@ -304,6 +345,32 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(Statement::Constant(Value::boolean(true)), (0, 4))].into()
+            })
+        );
+    }
+
+    #[test]
+    fn property_access_function_call() {
+        let input = "42.is_even()";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::PropertyAccess(
+                        Box::new(Node::new(Statement::Constant(Value::integer(42)), (0, 2))),
+                        Box::new(Node::new(
+                            Statement::BuiltInFunctionCall {
+                                function: BuiltInFunction::IsEven,
+                                type_arguments: None,
+                                value_arguments: None
+                            },
+                            (3, 10)
+                        )),
+                    ),
+                    (0, 10),
+                )]
+                .into()
             })
         );
     }

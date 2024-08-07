@@ -12,7 +12,7 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{identifier::Identifier, Statement, Type};
+use crate::{identifier::Identifier, AbstractSyntaxTree, Type, Vm, VmError};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
@@ -28,6 +28,10 @@ impl Value {
 
     pub fn float(float: f64) -> Self {
         Value(Arc::new(ValueInner::Float(float)))
+    }
+
+    pub fn function(function: Function) -> Self {
+        Value(Arc::new(ValueInner::Function(function)))
     }
 
     pub fn integer(integer: i64) -> Self {
@@ -57,6 +61,14 @@ impl Value {
     pub fn as_boolean(&self) -> Option<bool> {
         if let ValueInner::Boolean(boolean) = self.0.as_ref() {
             Some(*boolean)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_function(&self) -> Option<&Function> {
+        if let ValueInner::Function(function) = self.0.as_ref() {
+            Some(function)
         } else {
             None
         }
@@ -539,12 +551,39 @@ pub struct Function {
     pub name: Identifier,
     pub type_parameters: Option<Vec<Type>>,
     pub value_parameters: Option<Vec<(Identifier, Type)>>,
-    pub body: Vec<Statement<()>>,
+    pub body: AbstractSyntaxTree<()>,
 }
 
 impl Function {
+    pub fn call(
+        self,
+        type_arguments: Option<Vec<Type>>,
+        value_arguments: Option<Vec<Value>>,
+        variables: &HashMap<Identifier, Value>,
+    ) -> Result<Option<Value>, VmError<()>> {
+        let mut new_variables = variables.clone();
+
+        if let (Some(value_parameters), Some(value_arguments)) =
+            (self.value_parameters, value_arguments)
+        {
+            for ((identifier, _), value) in value_parameters.into_iter().zip(value_arguments) {
+                new_variables.insert(identifier, value);
+            }
+        }
+
+        let mut vm = Vm::new(self.body);
+
+        vm.run(&mut new_variables)
+    }
+
     pub fn return_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
-        self.body.last().unwrap().expected_type(variables)
+        self.body
+            .nodes
+            .iter()
+            .last()
+            .unwrap()
+            .statement
+            .expected_type(variables)
     }
 }
 
@@ -580,7 +619,7 @@ impl Display for Function {
 
         write!(f, ") {{")?;
 
-        for statement in &self.body {
+        for statement in &self.body.nodes {
             write!(f, "{}", statement)?;
         }
 

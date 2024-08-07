@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    parse, AbstractSyntaxTree, Analyzer, AnalyzerError, Identifier, Node, ParseError,
-    ReservedIdentifier, Span, Statement, Value, ValueError,
+    abstract_tree::BuiltInFunctionError, parse, AbstractSyntaxTree, Analyzer, AnalyzerError,
+    Identifier, Node, ParseError, Span, Statement, Value, ValueError,
 };
 
 pub fn run(
@@ -47,9 +47,6 @@ impl<P: Copy> Vm<P> {
         variables: &mut HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError<P>> {
         match node.statement {
-            Statement::Constant(value) => Ok(Some(value.clone())),
-            Statement::Identifier(_) => Ok(None),
-            Statement::ReservedIdentifier(_) => Ok(None),
             Statement::Add(left, right) => {
                 let left_span = left.position;
                 let left = if let Some(value) = self.run_node(*left, variables)? {
@@ -92,6 +89,84 @@ impl<P: Copy> Vm<P> {
 
                 Ok(None)
             }
+            Statement::BuiltInFunctionCall {
+                function,
+                type_arguments: _,
+                value_arguments: value_nodes,
+            } => {
+                let mut values = if let Some(nodes) = value_nodes {
+                    let mut values = Vec::new();
+
+                    for node in nodes {
+                        let position = node.position;
+                        let value = if let Some(value) = self.run_node(node, variables)? {
+                            value
+                        } else {
+                            return Err(VmError::ExpectedValue { position });
+                        };
+
+                        values.push(value);
+                    }
+
+                    Some(values)
+                } else {
+                    None
+                };
+                let function_call_return = function.call(None, values)?;
+
+                Ok(Some(function_call_return))
+            }
+            Statement::Constant(value) => Ok(Some(value.clone())),
+            Statement::FunctionCall {
+                function: function_node,
+                type_arguments: type_parameter_nodes,
+                value_arguments: value_parameter_nodes,
+            } => {
+                let function_position = function_node.position;
+                let function_value =
+                    if let Some(value) = self.run_node(*function_node, variables)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: function_position,
+                        });
+                    };
+                let function = if let Some(function) = function_value.as_function() {
+                    function
+                } else {
+                    return Err(VmError::AnaylyzerError(AnalyzerError::ExpectedFunction {
+                        position: function_position,
+                    }));
+                };
+
+                let value_parameters = if let Some(value_nodes) = value_parameter_nodes {
+                    let mut value_parameters = Vec::new();
+
+                    for node in value_nodes {
+                        let position = node.position;
+                        let value = if let Some(value) = self.run_node(node, variables)? {
+                            value
+                        } else {
+                            return Err(VmError::ExpectedValue { position });
+                        };
+
+                        value_parameters.push(value);
+                    }
+
+                    Some(value_parameters)
+                } else {
+                    None
+                };
+
+                Ok(function
+                    .clone()
+                    .call(None, value_parameters, variables)
+                    .map_err(|error| VmError::FunctionCallFailed {
+                        error: Box::new(error),
+                        position: function_position,
+                    })?)
+            }
+            Statement::Identifier(_) => Ok(None),
             Statement::List(nodes) => {
                 let values = nodes
                     .into_iter()
@@ -110,7 +185,7 @@ impl<P: Copy> Vm<P> {
             Statement::Multiply(_, _) => todo!(),
             Statement::PropertyAccess(left, right) => {
                 let left_span = left.position;
-                let left = if let Some(value) = self.run_node(*left, variables)? {
+                let left_value = if let Some(value) = self.run_node(*left, variables)? {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -119,45 +194,51 @@ impl<P: Copy> Vm<P> {
                 };
                 let right_span = right.position;
 
-                if let Statement::ReservedIdentifier(reserved) = &right.statement {
-                    match reserved {
-                        ReservedIdentifier::IsEven => {
-                            if let Some(integer) = left.as_integer() {
-                                return Ok(Some(Value::boolean(integer % 2 == 0)));
-                            } else {
-                                return Err(VmError::ExpectedInteger {
-                                    position: right_span,
-                                });
-                            }
-                        }
-                        ReservedIdentifier::IsOdd => {
-                            if let Some(integer) = left.as_integer() {
-                                return Ok(Some(Value::boolean(integer % 2 != 0)));
-                            } else {
-                                return Err(VmError::ExpectedInteger {
-                                    position: right_span,
-                                });
-                            }
-                        }
-                        ReservedIdentifier::Length => {
-                            if let Some(list) = left.as_list() {
-                                return Ok(Some(Value::integer(list.len() as i64)));
-                            } else {
-                                return Err(VmError::ExpectedList {
-                                    position: right_span,
-                                });
-                            }
-                        }
-                    }
-                }
-
-                if let (Some(list), Statement::Constant(value)) = (left.as_list(), &right.statement)
+                if let (Some(list), Statement::Constant(value)) =
+                    (left_value.as_list(), &right.statement)
                 {
                     if let Some(index) = value.as_integer() {
                         let value = list.get(index as usize).cloned();
 
                         return Ok(value);
                     }
+                }
+
+                if let (
+                    value,
+                    Statement::BuiltInFunctionCall {
+                        function,
+                        type_arguments,
+                        value_arguments: mut value_argument_nodes,
+                    },
+                ) = (left_value, right.statement)
+                {
+                    if let Some(mut nodes) = value_argument_nodes.take() {
+                        nodes.insert(0, Node::new(Statement::Constant(value), right_span));
+                    }
+
+                    let value_arguments = if let Some(value_nodes) = value_argument_nodes {
+                        let mut value_arguments = Vec::new();
+
+                        for node in value_nodes {
+                            let position = node.position;
+                            let value = if let Some(value) = self.run_node(node, variables)? {
+                                value
+                            } else {
+                                return Err(VmError::ExpectedValue { position });
+                            };
+
+                            value_arguments.push(value);
+                        }
+
+                        Some(value_arguments)
+                    } else {
+                        None
+                    };
+
+                    let function_call_return = function.call(None, value_arguments)?;
+
+                    return Ok(Some(function_call_return));
                 }
 
                 Err(VmError::ExpectedIdentifierOrInteger {
@@ -176,11 +257,32 @@ pub enum VmError<P> {
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
-    ExpectedIdentifier { position: P },
-    ExpectedIdentifierOrInteger { position: P },
-    ExpectedInteger { position: P },
-    ExpectedList { position: P },
-    ExpectedValue { position: P },
+    BuiltInFunctionCallFailed(BuiltInFunctionError),
+    ExpectedIdentifier {
+        position: P,
+    },
+    ExpectedIdentifierOrInteger {
+        position: P,
+    },
+    ExpectedInteger {
+        position: P,
+    },
+    ExpectedList {
+        position: P,
+    },
+    ExpectedValue {
+        position: P,
+    },
+    FunctionCallFailed {
+        error: Box<VmError<()>>,
+        position: P,
+    },
+}
+
+impl<P> From<BuiltInFunctionError> for VmError<P> {
+    fn from(v: BuiltInFunctionError) -> Self {
+        Self::BuiltInFunctionCallFailed(v)
+    }
 }
 
 impl<P> From<AnalyzerError<P>> for VmError<P> {
@@ -217,7 +319,7 @@ mod tests {
 
     #[test]
     fn is_even() {
-        let input = "42.is_even";
+        let input = "42.is_even()";
 
         assert_eq!(
             run(input, &mut HashMap::new()),
@@ -227,7 +329,7 @@ mod tests {
 
     #[test]
     fn is_odd() {
-        let input = "42.is_odd";
+        let input = "42.is_odd()";
 
         assert_eq!(
             run(input, &mut HashMap::new()),
@@ -236,17 +338,17 @@ mod tests {
     }
 
     #[test]
+    fn length() {
+        let input = "[1, 2, 3].length()";
+
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(3))));
+    }
+
+    #[test]
     fn list_access() {
         let input = "[1, 2, 3].1";
 
         assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(2))));
-    }
-
-    #[test]
-    fn property_access() {
-        let input = "[1, 2, 3].length";
-
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(3))));
     }
 
     #[test]
