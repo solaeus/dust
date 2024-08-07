@@ -5,45 +5,45 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, ReservedIdentifier, Span, Type, Value};
+use crate::{Identifier, ReservedIdentifier, Type, Value};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct AbstractSyntaxTree {
-    pub nodes: VecDeque<Node>,
+pub struct AbstractSyntaxTree<P> {
+    pub nodes: VecDeque<Node<P>>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Node {
-    pub statement: Statement,
-    pub span: Span,
+pub struct Node<P> {
+    pub statement: Statement<P>,
+    pub position: P,
 }
 
-impl Node {
-    pub fn new(operation: Statement, span: Span) -> Self {
+impl<P> Node<P> {
+    pub fn new(operation: Statement<P>, position: P) -> Self {
         Self {
             statement: operation,
-            span,
+            position,
         }
     }
 }
 
-impl Display for Node {
+impl<P> Display for Node<P> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.statement)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Statement {
+pub enum Statement<P> {
     // Top-level statements
-    Assign(Box<Node>, Box<Node>),
+    Assign(Box<Node<P>>, Box<Node<P>>),
 
     // Expressions
-    Add(Box<Node>, Box<Node>),
-    BuiltInValue(Box<Node>),
-    PropertyAccess(Box<Node>, Box<Node>),
-    List(Vec<Node>),
-    Multiply(Box<Node>, Box<Node>),
+    Add(Box<Node<P>>, Box<Node<P>>),
+    BuiltInValue(Box<Node<P>>),
+    PropertyAccess(Box<Node<P>>, Box<Node<P>>),
+    List(Vec<Node<P>>),
+    Multiply(Box<Node<P>>, Box<Node<P>>),
 
     // Hard-coded values
     Constant(Value),
@@ -51,7 +51,7 @@ pub enum Statement {
     ReservedIdentifier(ReservedIdentifier),
 }
 
-impl Statement {
+impl<P> Statement<P> {
     pub fn expected_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
         match self {
             Statement::Add(left, _) => left.statement.expected_type(variables),
@@ -72,7 +72,7 @@ impl Statement {
     }
 }
 
-impl Display for Statement {
+impl<P> Display for Statement<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Statement::Assign(left, right) => write!(f, "{left} = {right}"),

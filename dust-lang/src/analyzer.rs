@@ -22,10 +22,10 @@ use crate::{AbstractSyntaxTree, Identifier, Node, Statement, Type, Value};
 ///
 /// assert!(result.is_err());
 /// ```
-pub fn analyze(
-    abstract_tree: &AbstractSyntaxTree,
+pub fn analyze<P: Clone>(
+    abstract_tree: &AbstractSyntaxTree<P>,
     variables: &HashMap<Identifier, Value>,
-) -> Result<(), AnalyzerError> {
+) -> Result<(), AnalyzerError<P>> {
     let analyzer = Analyzer::new(abstract_tree, variables);
 
     analyzer.analyze()
@@ -44,14 +44,14 @@ pub fn analyze(
 /// let result = analyzer.analyze();
 ///
 /// assert!(result.is_err());
-pub struct Analyzer<'a> {
-    abstract_tree: &'a AbstractSyntaxTree,
+pub struct Analyzer<'a, P> {
+    abstract_tree: &'a AbstractSyntaxTree<P>,
     variables: &'a HashMap<Identifier, Value>,
 }
 
-impl<'a> Analyzer<'a> {
+impl<'a, P: Clone> Analyzer<'a, P> {
     pub fn new(
-        abstract_tree: &'a AbstractSyntaxTree,
+        abstract_tree: &'a AbstractSyntaxTree<P>,
         variables: &'a HashMap<Identifier, Value>,
     ) -> Self {
         Self {
@@ -60,7 +60,7 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    pub fn analyze(&self) -> Result<(), AnalyzerError> {
+    pub fn analyze(&self) -> Result<(), AnalyzerError<P>> {
         for node in &self.abstract_tree.nodes {
             self.analyze_node(node)?;
         }
@@ -68,7 +68,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_node(&self, node: &Node) -> Result<(), AnalyzerError> {
+    fn analyze_node(&self, node: &Node<P>) -> Result<(), AnalyzerError<P>> {
         match &node.statement {
             Statement::Add(left, right) => {
                 if let Some(Type::Integer) | Some(Type::Float) =
@@ -160,10 +160,10 @@ impl<'a> Analyzer<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum AnalyzerError {
-    ExpectedIdentifier { actual: Node },
-    ExpectedIntegerOrFloat { actual: Node },
-    UnexpectedIdentifier { identifier: Node },
+pub enum AnalyzerError<P> {
+    ExpectedIdentifier { actual: Node<P> },
+    ExpectedIntegerOrFloat { actual: Node<P> },
+    UnexpectedIdentifier { identifier: Node<P> },
 }
 
 #[cfg(test)]

@@ -23,20 +23,20 @@ use crate::{AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement, Token, V
 ///                 statement: Statement::Assign(
 ///                     Box::new(Node {
 ///                         statement: Statement::Identifier("x".into()),
-///                         span: (0, 1),
+///                         position: (0, 1),
 ///                     }),
 ///                     Box::new(Node {
 ///                         statement: Statement::Constant(Value::integer(42)),
-///                         span: (4, 6),
+///                         position: (4, 6),
 ///                     })
 ///                 ),
-///                 span: (0, 6),
+///                 position: (0, 6),
 ///             }
 ///         ].into(),
 ///     }),
 /// );
 /// ```
-pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
+pub fn parse(input: &str) -> Result<AbstractSyntaxTree<Span>, ParseError> {
     let lexer = Lexer::new(input);
     let mut parser = Parser::new(lexer);
     let mut nodes = VecDeque::new();
@@ -77,19 +77,19 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
 ///
 /// assert_eq!(
 ///     nodes,
-///     Into::<VecDeque<Node>>::into([
+///     Into::<VecDeque<Node<Span>>>::into([
 ///         Node {
 ///             statement: Statement::Assign(
 ///                 Box::new(Node {
 ///                     statement: Statement::Identifier("x".into()),
-///                     span: (0, 1),
+///                     position: (0, 1),
 ///                 }),
 ///                 Box::new(Node {
 ///                     statement: Statement::Constant(Value::integer(42)),
-///                     span: (4, 6),
+///                     position: (4, 6),
 ///                 })
 ///             ),
-///             span: (0, 6),
+///             position: (0, 6),
 ///         }
 ///     ]),
 /// );
@@ -107,7 +107,7 @@ impl<'src> Parser<'src> {
         Parser { lexer, current }
     }
 
-    pub fn parse(&mut self) -> Result<Node, ParseError> {
+    pub fn parse(&mut self) -> Result<Node<Span>, ParseError> {
         self.parse_node(0)
     }
 
@@ -121,9 +121,9 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_node(&mut self, precedence: u8) -> Result<Node, ParseError> {
+    fn parse_node(&mut self, precedence: u8) -> Result<Node<Span>, ParseError> {
         let left_node = self.parse_primary()?;
-        let left_start = left_node.span.0;
+        let left_start = left_node.position.0;
 
         if precedence < self.current_precedence() {
             match &self.current {
@@ -131,7 +131,7 @@ impl<'src> Parser<'src> {
                     self.next_token()?;
 
                     let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.span.1;
+                    let right_end = right_node.position.1;
 
                     return Ok(Node::new(
                         Statement::Add(Box::new(left_node), Box::new(right_node)),
@@ -142,7 +142,7 @@ impl<'src> Parser<'src> {
                     self.next_token()?;
 
                     let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.span.1;
+                    let right_end = right_node.position.1;
 
                     return Ok(Node::new(
                         Statement::Multiply(Box::new(left_node), Box::new(right_node)),
@@ -153,7 +153,7 @@ impl<'src> Parser<'src> {
                     self.next_token()?;
 
                     let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.span.1;
+                    let right_end = right_node.position.1;
 
                     return Ok(Node::new(
                         Statement::Assign(Box::new(left_node), Box::new(right_node)),
@@ -164,7 +164,7 @@ impl<'src> Parser<'src> {
                     self.next_token()?;
 
                     let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.span.1;
+                    let right_end = right_node.position.1;
 
                     return Ok(Node::new(
                         Statement::PropertyAccess(Box::new(left_node), Box::new(right_node)),
@@ -178,7 +178,7 @@ impl<'src> Parser<'src> {
         Ok(left_node)
     }
 
-    fn parse_primary(&mut self) -> Result<Node, ParseError> {
+    fn parse_primary(&mut self) -> Result<Node<Span>, ParseError> {
         match self.current.clone() {
             (Token::Boolean(boolean), span) => {
                 self.next_token()?;

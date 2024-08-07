@@ -8,7 +8,7 @@ use crate::{
 pub fn run(
     input: &str,
     variables: &mut HashMap<Identifier, Value>,
-) -> Result<Option<Value>, VmError> {
+) -> Result<Option<Value>, VmError<Span>> {
     let abstract_syntax_tree = parse(input)?;
     let analyzer = Analyzer::new(&abstract_syntax_tree, variables);
 
@@ -19,19 +19,19 @@ pub fn run(
     vm.run(variables)
 }
 
-pub struct Vm {
-    abstract_tree: AbstractSyntaxTree,
+pub struct Vm<P> {
+    abstract_tree: AbstractSyntaxTree<P>,
 }
 
-impl Vm {
-    pub fn new(abstract_tree: AbstractSyntaxTree) -> Self {
+impl<P: Copy> Vm<P> {
+    pub fn new(abstract_tree: AbstractSyntaxTree<P>) -> Self {
         Self { abstract_tree }
     }
 
     pub fn run(
         &mut self,
         variables: &mut HashMap<Identifier, Value>,
-    ) -> Result<Option<Value>, VmError> {
+    ) -> Result<Option<Value>, VmError<P>> {
         let mut previous_value = None;
 
         while let Some(node) = self.abstract_tree.nodes.pop_front() {
@@ -43,16 +43,16 @@ impl Vm {
 
     fn run_node(
         &self,
-        node: Node,
+        node: Node<P>,
         variables: &mut HashMap<Identifier, Value>,
-    ) -> Result<Option<Value>, VmError> {
+    ) -> Result<Option<Value>, VmError<P>> {
         match node.statement {
             Statement::BuiltInValue(node) => self.run_node(*node, variables),
             Statement::Constant(value) => Ok(Some(value.clone())),
             Statement::Identifier(_) => Ok(None),
             Statement::ReservedIdentifier(_) => Ok(None),
             Statement::Add(left, right) => {
-                let left_span = left.span;
+                let left_span = left.position;
                 let left = if let Some(value) = self.run_node(*left, variables)? {
                     value
                 } else {
@@ -60,7 +60,7 @@ impl Vm {
                         position: left_span,
                     });
                 };
-                let right_span = right.span;
+                let right_span = right.position;
                 let right = if let Some(value) = self.run_node(*right, variables)? {
                     value
                 } else {
@@ -77,10 +77,10 @@ impl Vm {
                     identifier
                 } else {
                     return Err(VmError::ExpectedIdentifier {
-                        position: left.span,
+                        position: left.position,
                     });
                 };
-                let right_span = right.span;
+                let right_span = right.position;
                 let value = if let Some(value) = self.run_node(*right, variables)? {
                     value
                 } else {
@@ -97,20 +97,20 @@ impl Vm {
                 let values = nodes
                     .into_iter()
                     .map(|node| {
-                        let span = node.span;
+                        let span = node.position;
                         if let Some(value) = self.run_node(node, variables)? {
                             Ok(value)
                         } else {
                             Err(VmError::ExpectedValue { position: span })
                         }
                     })
-                    .collect::<Result<Vec<Value>, VmError>>()?;
+                    .collect::<Result<Vec<Value>, VmError<P>>>()?;
 
                 Ok(Some(Value::list(values)))
             }
             Statement::Multiply(_, _) => todo!(),
             Statement::PropertyAccess(left, right) => {
-                let left_span = left.span;
+                let left_span = left.position;
                 let left = if let Some(value) = self.run_node(*left, variables)? {
                     value
                 } else {
@@ -118,7 +118,7 @@ impl Vm {
                         position: left_span,
                     });
                 };
-                let right_span = right.span;
+                let right_span = right.position;
 
                 if let Statement::ReservedIdentifier(reserved) = &right.statement {
                     match reserved {
@@ -170,33 +170,33 @@ impl Vm {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum VmError {
-    AnaylyzerError(AnalyzerError),
+pub enum VmError<P> {
+    AnaylyzerError(AnalyzerError<P>),
     ParseError(ParseError),
     ValueError(ValueError),
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
-    ExpectedIdentifier { position: Span },
-    ExpectedIdentifierOrInteger { position: Span },
-    ExpectedInteger { position: Span },
-    ExpectedList { position: Span },
-    ExpectedValue { position: Span },
+    ExpectedIdentifier { position: P },
+    ExpectedIdentifierOrInteger { position: P },
+    ExpectedInteger { position: P },
+    ExpectedList { position: P },
+    ExpectedValue { position: P },
 }
 
-impl From<AnalyzerError> for VmError {
-    fn from(error: AnalyzerError) -> Self {
+impl<P> From<AnalyzerError<P>> for VmError<P> {
+    fn from(error: AnalyzerError<P>) -> Self {
         Self::AnaylyzerError(error)
     }
 }
 
-impl From<ParseError> for VmError {
+impl<P> From<ParseError> for VmError<P> {
     fn from(error: ParseError) -> Self {
         Self::ParseError(error)
     }
 }
 
-impl From<ValueError> for VmError {
+impl<P> From<ValueError> for VmError<P> {
     fn from(error: ValueError) -> Self {
         Self::ValueError(error)
     }

@@ -539,7 +539,7 @@ pub struct Function {
     pub name: Identifier,
     pub type_parameters: Option<Vec<Type>>,
     pub value_parameters: Option<Vec<(Identifier, Type)>>,
-    pub body: Vec<Statement>,
+    pub body: Vec<Statement<()>>,
 }
 
 impl Function {
