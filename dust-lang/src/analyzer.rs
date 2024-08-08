@@ -7,7 +7,7 @@
 /// - `Analyzer` struct
 use std::collections::HashMap;
 
-use crate::{AbstractSyntaxTree, Identifier, Node, Span, Statement, Type, Value};
+use crate::{AbstractSyntaxTree, BuiltInFunction, Identifier, Node, Span, Statement, Type, Value};
 
 /// Analyzes the abstract syntax tree for errors.
 ///
@@ -152,9 +152,20 @@ impl<'a> Analyzer<'a> {
                 {
                     // Left side is valid
                 } else {
-                    return Err(AnalyzerError::ExpectedIdentifier {
+                    return Err(AnalyzerError::ExpectedIdentifierOrValue {
                         actual: left.as_ref().clone(),
                     });
+                }
+
+                if let Statement::BuiltInFunctionCall { function, .. } = &right.statement {
+                    if function == &BuiltInFunction::IsEven || function == &BuiltInFunction::IsOdd {
+                        if let Some(Type::Integer) = left.statement.expected_type(self.variables) {
+                        } else {
+                            return Err(AnalyzerError::ExpectedIntegerOrFloat {
+                                actual: left.as_ref().clone(),
+                            });
+                        }
+                    }
                 }
 
                 self.analyze_node(right)?;
@@ -167,17 +178,78 @@ impl<'a> Analyzer<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
+    ExpectedBoolean { actual: Node },
     ExpectedFunction { position: Span },
     ExpectedIdentifier { actual: Node },
+    ExpectedIdentifierOrValue { actual: Node },
     ExpectedIntegerOrFloat { actual: Node },
     UnexpectedIdentifier { identifier: Node },
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Identifier, Value};
+    use crate::{BuiltInFunction, Identifier, Value};
 
     use super::*;
+
+    #[test]
+    fn is_even_expects_number() {
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::PropertyAccess(
+                    Box::new(Node::new(Statement::Constant(Value::boolean(true)), (0, 1))),
+                    Box::new(Node::new(
+                        Statement::BuiltInFunctionCall {
+                            function: BuiltInFunction::IsEven,
+                            type_arguments: None,
+                            value_arguments: None,
+                        },
+                        (1, 2),
+                    )),
+                ),
+                (0, 2),
+            )]
+            .into(),
+        };
+        let variables = HashMap::new();
+        let analyzer = Analyzer::new(&abstract_tree, &variables);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::ExpectedIntegerOrFloat {
+                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1))
+            })
+        )
+    }
+    #[test]
+    fn is_odd_expects_number() {
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::PropertyAccess(
+                    Box::new(Node::new(Statement::Constant(Value::boolean(true)), (0, 1))),
+                    Box::new(Node::new(
+                        Statement::BuiltInFunctionCall {
+                            function: BuiltInFunction::IsOdd,
+                            type_arguments: None,
+                            value_arguments: None,
+                        },
+                        (1, 2),
+                    )),
+                ),
+                (0, 2),
+            )]
+            .into(),
+        };
+        let variables = HashMap::new();
+        let analyzer = Analyzer::new(&abstract_tree, &variables);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::ExpectedIntegerOrFloat {
+                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1))
+            })
+        )
+    }
 
     #[test]
     fn multiply_expect_integer_or_float() {
