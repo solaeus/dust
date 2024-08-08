@@ -71,22 +71,23 @@ impl<'a> Analyzer<'a> {
     fn analyze_node(&self, node: &Node) -> Result<(), AnalyzerError> {
         match &node.statement {
             Statement::Add(left, right) => {
-                if let Some(Type::Integer) | Some(Type::Float) =
-                    left.statement.expected_type(self.variables)
-                {
-                } else {
-                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                        actual: left.as_ref().clone(),
-                    });
-                }
+                let left_type = left.statement.expected_type(self.variables);
+                let right_type = right.statement.expected_type(self.variables);
 
-                if let Some(Type::Integer) | Some(Type::Float) =
-                    right.statement.expected_type(self.variables)
-                {
-                } else {
-                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                        actual: right.as_ref().clone(),
-                    });
+                match (left_type, right_type) {
+                    (Some(Type::Integer), Some(Type::Integer)) => {}
+                    (Some(Type::Float), Some(Type::Float)) => {}
+                    (Some(Type::String), Some(Type::String)) => {}
+                    (Some(Type::Integer), _) | (Some(Type::Float), _) | (Some(Type::String), _) => {
+                        return Err(AnalyzerError::ExpectedIntegerFloatOrString {
+                            actual: right.as_ref().clone(),
+                        });
+                    }
+                    _ => {
+                        return Err(AnalyzerError::ExpectedIntegerFloatOrString {
+                            actual: left.as_ref().clone(),
+                        });
+                    }
                 }
 
                 self.analyze_node(left)?;
@@ -183,6 +184,7 @@ pub enum AnalyzerError {
     ExpectedIdentifier { actual: Node },
     ExpectedIdentifierOrValue { actual: Node },
     ExpectedIntegerOrFloat { actual: Node },
+    ExpectedIntegerFloatOrString { actual: Node },
     UnexpectedIdentifier { identifier: Node },
 }
 
@@ -191,6 +193,52 @@ mod tests {
     use crate::{BuiltInFunction, Identifier, Value};
 
     use super::*;
+
+    #[test]
+    fn add_expects_same_types() {
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::Add(
+                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                    Box::new(Node::new(Statement::Constant(Value::float(1.0)), (1, 2))),
+                ),
+                (0, 2),
+            )]
+            .into(),
+        };
+        let variables = HashMap::new();
+        let analyzer = Analyzer::new(&abstract_tree, &variables);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::ExpectedIntegerFloatOrString {
+                actual: Node::new(Statement::Constant(Value::float(1.0)), (1, 2))
+            })
+        )
+    }
+
+    #[test]
+    fn add_expects_integer_float_or_string() {
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::Add(
+                    Box::new(Node::new(Statement::Constant(Value::boolean(true)), (0, 1))),
+                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (1, 2))),
+                ),
+                (0, 2),
+            )]
+            .into(),
+        };
+        let variables = HashMap::new();
+        let analyzer = Analyzer::new(&abstract_tree, &variables);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::ExpectedIntegerFloatOrString {
+                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1))
+            })
+        )
+    }
 
     #[test]
     fn is_even_expects_number() {
@@ -256,32 +304,6 @@ mod tests {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(
                 Statement::Multiply(
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    Box::new(Node::new(
-                        Statement::Constant(Value::boolean(false)),
-                        (1, 2),
-                    )),
-                ),
-                (0, 2),
-            )]
-            .into(),
-        };
-        let variables = HashMap::new();
-        let analyzer = Analyzer::new(&abstract_tree, &variables);
-
-        assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::ExpectedIntegerOrFloat {
-                actual: Node::new(Statement::Constant(Value::boolean(false)), (1, 2))
-            })
-        )
-    }
-
-    #[test]
-    fn add_expect_integer_or_float() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::Add(
                     Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
                     Box::new(Node::new(
                         Statement::Constant(Value::boolean(false)),
