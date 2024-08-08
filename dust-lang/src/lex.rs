@@ -250,6 +250,8 @@ impl<'a> Lexer<'a> {
             "is_even" => Token::IsEven,
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
+            "read_line" => Token::ReadLine,
+            "write_line" => Token::WriteLine,
             _ => Token::Identifier(Identifier::new(string)),
         };
 

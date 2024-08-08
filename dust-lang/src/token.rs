@@ -20,17 +20,19 @@ pub enum Token {
     IsEven,
     IsOdd,
     Length,
+    ReadLine,
+    WriteLine,
 
     // Symbols
     Comma,
     Dot,
     Equal,
-    Plus,
-    Star,
     LeftParenthesis,
-    RightParenthesis,
     LeftSquareBrace,
+    Plus,
+    RightParenthesis,
     RightSquareBrace,
+    Star,
 }
 
 impl Display for Token {
@@ -45,6 +47,8 @@ impl Display for Token {
             Token::IsEven => write!(f, "is_even"),
             Token::IsOdd => write!(f, "is_odd"),
             Token::Length => write!(f, "length"),
+            Token::ReadLine => write!(f, "read_line"),
+            Token::WriteLine => write!(f, "write_line"),
             Token::Comma => write!(f, ","),
             Token::Dot => write!(f, "."),
             Token::Equal => write!(f, "="),

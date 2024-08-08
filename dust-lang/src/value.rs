@@ -527,18 +527,6 @@ impl ValueInner {
     }
 }
 
-pub trait ValueProperties<'a> {}
-
-pub struct IntegerProperties<'a>(&'a Value);
-
-impl<'a> IntegerProperties<'a> {
-    pub fn is_even(&self) -> bool {
-        self.0.as_integer().unwrap() % 2 == 0
-    }
-}
-
-impl<'a> ValueProperties<'a> for IntegerProperties<'a> {}
-
 impl Eq for ValueInner {}
 
 impl PartialOrd for ValueInner {

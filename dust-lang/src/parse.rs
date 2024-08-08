@@ -258,7 +258,19 @@ impl<'src> Parser<'src> {
                     }
                 }
             }
-            (Token::IsEven, left_span) => {
+            (
+                Token::IsEven | Token::IsOdd | Token::Length | Token::ReadLine | Token::WriteLine,
+                left_span,
+            ) => {
+                let function = match self.current.0 {
+                    Token::IsEven => BuiltInFunction::IsEven,
+                    Token::IsOdd => BuiltInFunction::IsOdd,
+                    Token::Length => BuiltInFunction::Length,
+                    Token::ReadLine => BuiltInFunction::ReadLine,
+                    Token::WriteLine => BuiltInFunction::WriteLine,
+                    _ => unreachable!(),
+                };
+
                 self.next_token()?;
 
                 if let (Token::LeftParenthesis, _) = self.current {
@@ -270,80 +282,38 @@ impl<'src> Parser<'src> {
                     });
                 }
 
-                if let (Token::RightParenthesis, _) = self.current {
-                    self.next_token()?;
-                } else {
-                    return Err(ParseError::ExpectedClosingParenthesis {
-                        actual: self.current.0.clone(),
-                        span: self.current.1,
-                    });
+                let mut value_arguments: Option<Vec<Node>> = None;
+
+                loop {
+                    if let (Token::RightParenthesis, _) = self.current {
+                        self.next_token()?;
+                        break;
+                    }
+
+                    if let (Token::Comma, _) = self.current {
+                        self.next_token()?;
+                        continue;
+                    }
+
+                    if let Ok(node) = self.parse_node(0) {
+                        if let Some(ref mut arguments) = value_arguments {
+                            arguments.push(node);
+                        } else {
+                            value_arguments = Some(vec![node]);
+                        }
+                    } else {
+                        return Err(ParseError::ExpectedClosingParenthesis {
+                            actual: self.current.0.clone(),
+                            span: self.current.1,
+                        });
+                    }
                 }
 
                 Ok(Node::new(
                     Statement::BuiltInFunctionCall {
-                        function: BuiltInFunction::IsEven,
+                        function,
                         type_arguments: None,
-                        value_arguments: None,
-                    },
-                    left_span,
-                ))
-            }
-            (Token::IsOdd, left_span) => {
-                self.next_token()?;
-
-                if let (Token::LeftParenthesis, _) = self.current {
-                    self.next_token()?;
-                } else {
-                    return Err(ParseError::ExpectedOpeningParenthesis {
-                        actual: self.current.0.clone(),
-                        span: self.current.1,
-                    });
-                }
-
-                if let (Token::RightParenthesis, _) = self.current {
-                    self.next_token()?;
-                } else {
-                    return Err(ParseError::ExpectedClosingParenthesis {
-                        actual: self.current.0.clone(),
-                        span: self.current.1,
-                    });
-                }
-
-                Ok(Node::new(
-                    Statement::BuiltInFunctionCall {
-                        function: BuiltInFunction::IsOdd,
-                        type_arguments: None,
-                        value_arguments: None,
-                    },
-                    left_span,
-                ))
-            }
-            (Token::Length, left_span) => {
-                self.next_token()?;
-
-                if let (Token::LeftParenthesis, _) = self.current {
-                    self.next_token()?;
-                } else {
-                    return Err(ParseError::ExpectedOpeningParenthesis {
-                        actual: self.current.0.clone(),
-                        span: self.current.1,
-                    });
-                }
-
-                if let (Token::RightParenthesis, _) = self.current {
-                    self.next_token()?;
-                } else {
-                    return Err(ParseError::ExpectedClosingParenthesis {
-                        actual: self.current.0.clone(),
-                        span: self.current.1,
-                    });
-                }
-
-                Ok(Node::new(
-                    Statement::BuiltInFunctionCall {
-                        function: BuiltInFunction::Length,
-                        type_arguments: None,
-                        value_arguments: None,
+                        value_arguments,
                     },
                     left_span,
                 ))

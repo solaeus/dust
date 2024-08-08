@@ -114,7 +114,7 @@ impl Vm {
                 };
                 let function_call_return = function.call(None, values)?;
 
-                Ok(Some(function_call_return))
+                Ok(function_call_return)
             }
             Statement::Constant(value) => Ok(Some(value.clone())),
             Statement::FunctionCall {
@@ -226,7 +226,7 @@ impl Vm {
 
                     let function_call_return = function.call(None, Some(value_arguments))?;
 
-                    return Ok(Some(function_call_return));
+                    return Ok(function_call_return);
                 }
 
                 Err(VmError::ExpectedIdentifierOrInteger {
