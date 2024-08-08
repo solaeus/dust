@@ -6,8 +6,8 @@
 use std::collections::VecDeque;
 
 use crate::{
-    built_in_function::BuiltInFunction, AbstractSyntaxTree, LexError, Lexer, Node, Span, Statement,
-    Token, Value,
+    built_in_function::BuiltInFunction, token::TokenOwned, AbstractSyntaxTree, Identifier,
+    LexError, Lexer, Node, Span, Statement, Token, Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -40,8 +40,8 @@ use crate::{
 /// );
 /// ```
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
-    let lexer = Lexer::new(input);
-    let mut parser = Parser::new(lexer);
+    let lexer = Lexer::new();
+    let mut parser = Parser::new(input, lexer);
     let mut nodes = VecDeque::new();
 
     loop {
@@ -64,8 +64,8 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
 /// # use std::collections::VecDeque;
 /// # use dust_lang::*;
 /// let input = "x = 42";
-/// let lexer = Lexer::new(input);
-/// let mut parser = Parser::new(lexer);
+/// let lexer = Lexer::new();
+/// let mut parser = Parser::new(input, lexer);
 /// let mut nodes = VecDeque::new();
 ///
 /// loop {
@@ -98,16 +98,21 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
 /// );
 /// ```
 pub struct Parser<'src> {
-    lexer: Lexer<'src>,
-    current: (Token, Span),
+    source: &'src str,
+    lexer: Lexer,
+    current: (Token<'src>, Span),
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(lexer: Lexer<'src>) -> Self {
+    pub fn new(source: &'src str, lexer: Lexer) -> Self {
         let mut lexer = lexer;
-        let current = lexer.next_token().unwrap_or((Token::Eof, (0, 0)));
+        let current = lexer.next_token(source).unwrap_or((Token::Eof, (0, 0)));
 
-        Parser { lexer, current }
+        Parser {
+            source,
+            lexer,
+            current,
+        }
     }
 
     pub fn parse(&mut self) -> Result<Node, ParseError> {
@@ -119,7 +124,7 @@ impl<'src> Parser<'src> {
     }
 
     fn next_token(&mut self) -> Result<(), ParseError> {
-        self.current = self.lexer.next_token()?;
+        self.current = self.lexer.next_token(self.source)?;
 
         Ok(())
     }
@@ -182,7 +187,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_primary(&mut self) -> Result<Node, ParseError> {
-        match self.current.clone() {
+        match self.current {
             (Token::Boolean(boolean), span) => {
                 self.next_token()?;
 
@@ -201,10 +206,13 @@ impl<'src> Parser<'src> {
 
                 Ok(Node::new(Statement::Constant(Value::integer(int)), span))
             }
-            (Token::Identifier(identifier), span) => {
+            (Token::Identifier(text), span) => {
                 self.next_token()?;
 
-                Ok(Node::new(Statement::Identifier(identifier), span))
+                Ok(Node::new(
+                    Statement::Identifier(Identifier::new(text)),
+                    span,
+                ))
             }
             (Token::String(string), span) => {
                 self.next_token()?;
@@ -222,7 +230,7 @@ impl<'src> Parser<'src> {
                     Ok(Node::new(node.statement, (left_span.0, right_span.1)))
                 } else {
                     Err(ParseError::ExpectedClosingParenthesis {
-                        actual: self.current.0.clone(),
+                        actual: TokenOwned::from(self.current.0),
                         span: self.current.1,
                     })
                 }
@@ -252,7 +260,7 @@ impl<'src> Parser<'src> {
                         nodes.push(instruction);
                     } else {
                         return Err(ParseError::ExpectedClosingSquareBrace {
-                            actual: self.current.0.clone(),
+                            actual: TokenOwned::from(self.current.0),
                             span: self.current.1,
                         });
                     }
@@ -277,7 +285,7 @@ impl<'src> Parser<'src> {
                     self.next_token()?;
                 } else {
                     return Err(ParseError::ExpectedOpeningParenthesis {
-                        actual: self.current.0.clone(),
+                        actual: TokenOwned::from(self.current.0),
                         span: self.current.1,
                     });
                 }
@@ -303,7 +311,7 @@ impl<'src> Parser<'src> {
                         }
                     } else {
                         return Err(ParseError::ExpectedClosingParenthesis {
-                            actual: self.current.0.clone(),
+                            actual: TokenOwned::from(self.current.0),
                             span: self.current.1,
                         });
                     }
@@ -318,7 +326,9 @@ impl<'src> Parser<'src> {
                     left_span,
                 ))
             }
-            _ => Err(ParseError::UnexpectedToken(self.current.0.clone())),
+            _ => Err(ParseError::UnexpectedToken(TokenOwned::from(
+                self.current.0,
+            ))),
         }
     }
 
@@ -335,11 +345,12 @@ impl<'src> Parser<'src> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
-    ExpectedClosingParenthesis { actual: Token, span: Span },
-    ExpectedClosingSquareBrace { actual: Token, span: Span },
-    ExpectedOpeningParenthesis { actual: Token, span: Span },
     LexError(LexError),
-    UnexpectedToken(Token),
+
+    ExpectedClosingParenthesis { actual: TokenOwned, span: Span },
+    ExpectedClosingSquareBrace { actual: TokenOwned, span: Span },
+    ExpectedOpeningParenthesis { actual: TokenOwned, span: Span },
+    UnexpectedToken(TokenOwned),
 }
 
 impl From<LexError> for ParseError {

@@ -5,7 +5,7 @@
 //! - [`Lexer`], which lexes the input a token at a time
 use std::num::{ParseFloatError, ParseIntError};
 
-use crate::{Identifier, Span, Token};
+use crate::{Span, Token};
 
 /// Lexes the input and return a vector of tokens and their positions.
 ///
@@ -18,7 +18,7 @@ use crate::{Identifier, Span, Token};
 /// assert_eq!(
 ///     tokens,
 ///     [
-///         (Token::Identifier(Identifier::new("x")), (0, 1)),
+///         (Token::Identifier("x"), (0, 1)),
 ///         (Token::Equal, (2, 3)),
 ///         (Token::Integer(1), (4, 5)),
 ///         (Token::Plus, (6, 7)),
@@ -27,12 +27,12 @@ use crate::{Identifier, Span, Token};
 ///     ]
 /// );
 /// ```
-pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
-    let mut lexer = Lexer::new(input);
+pub fn lex<'chars, 'src: 'chars>(input: &'src str) -> Result<Vec<(Token<'chars>, Span)>, LexError> {
+    let mut lexer = Lexer::new();
     let mut tokens = Vec::new();
 
     loop {
-        let (token, span) = lexer.next_token()?;
+        let (token, span) = lexer.next_token(input)?;
         let is_eof = matches!(token, Token::Eof);
 
         tokens.push((token, span));
@@ -52,11 +52,11 @@ pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
 /// ```
 /// # use dust_lang::*;
 /// let input = "x = 1 + 2";
-/// let mut lexer = Lexer::new(input);
+/// let mut lexer = Lexer::new();
 /// let mut tokens = Vec::new();
 ///
 /// loop {
-///     let (token, span) = lexer.next_token().unwrap();
+///     let (token, span) = lexer.next_token(input).unwrap();
 ///     let is_eof = matches!(token, Token::Eof);
 ///
 ///     tokens.push((token, span));
@@ -69,7 +69,7 @@ pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
 /// assert_eq!(
 ///     tokens,
 ///     [
-///         (Token::Identifier(Identifier::new("x")), (0, 1)),
+///         (Token::Identifier("x"), (0, 1)),
 ///         (Token::Equal, (2, 3)),
 ///         (Token::Integer(1), (4, 5)),
 ///         (Token::Plus, (6, 7)),
@@ -78,38 +78,26 @@ pub fn lex(input: &str) -> Result<Vec<(Token, Span)>, LexError> {
 ///     ]
 /// )
 /// ```
-pub struct Lexer<'a> {
-    source: &'a str,
+pub struct Lexer {
     position: usize,
 }
 
-impl<'a> Lexer<'a> {
+impl Lexer {
     /// Create a new lexer for the given input.
-    pub fn new(input: &'a str) -> Self {
-        Lexer {
-            source: input,
-            position: 0,
-        }
-    }
-
-    /// Progress to the next character.
-    fn next_char(&mut self) -> Option<char> {
-        self.source[self.position..].chars().next().map(|c| {
-            self.position += c.len_utf8();
-            c
-        })
+    pub fn new() -> Self {
+        Lexer { position: 0 }
     }
 
     /// Produce the next token.
-    pub fn next_token(&mut self) -> Result<(Token, Span), LexError> {
-        self.skip_whitespace();
+    pub fn next_token<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
+        self.skip_whitespace(source);
 
-        let (token, span) = if let Some(c) = self.peek_char() {
+        let (token, span) = if let Some(c) = self.peek_char(source) {
             match c {
-                '0'..='9' => self.lex_number()?,
-                'a'..='z' | 'A'..='Z' => self.lex_alphabetical()?,
-                '"' => self.lex_string('"')?,
-                '\'' => self.lex_string('\'')?,
+                '0'..='9' => self.lex_number(source)?,
+                'a'..='z' | 'A'..='Z' => self.lex_alphabetical(source)?,
+                '"' => self.lex_string('"', source)?,
+                '\'' => self.lex_string('\'', source)?,
                 '+' => {
                     self.position += 1;
                     (Token::Plus, (self.position - 1, self.position))
@@ -155,11 +143,19 @@ impl<'a> Lexer<'a> {
         Ok((token, span))
     }
 
+    /// Progress to the next character.
+    fn next_char(&mut self, source: &str) -> Option<char> {
+        source[self.position..].chars().next().map(|c| {
+            self.position += c.len_utf8();
+            c
+        })
+    }
+
     /// Skip whitespace characters.
-    fn skip_whitespace(&mut self) {
-        while let Some(c) = self.peek_char() {
+    fn skip_whitespace(&mut self, source: &str) {
+        while let Some(c) = self.peek_char(source) {
             if c.is_whitespace() {
-                self.next_char();
+                self.next_char(source);
             } else {
                 break;
             }
@@ -167,44 +163,31 @@ impl<'a> Lexer<'a> {
     }
 
     /// Peek at the next character without consuming it.
-    fn peek_char(&self) -> Option<char> {
-        self.source[self.position..].chars().next()
+    fn peek_char(&self, source: &str) -> Option<char> {
+        source[self.position..].chars().next()
     }
 
     /// Peek at the second-to-next character without consuming it.
-    fn peek_second_char(&self) -> Option<char> {
-        self.source[self.position..].chars().nth(1)
-    }
-
-    fn _peek_until_whitespace(&self) -> Option<&str> {
-        let start = self.position;
-        let end = self.source[self.position..]
-            .find(char::is_whitespace)
-            .map(|i| i + start);
-
-        if let Some(end) = end {
-            Some(&self.source[start..end])
-        } else {
-            None
-        }
+    fn peek_second_char(&self, source: &str) -> Option<char> {
+        source[self.position..].chars().nth(1)
     }
 
     /// Lex an integer or float token.
-    fn lex_number(&mut self) -> Result<(Token, Span), LexError> {
+    fn lex_number<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
         let mut is_float = false;
 
-        while let Some(c) = self.peek_char() {
+        while let Some(c) = self.peek_char(source) {
             if c == '.' {
-                if let Some('0'..='9') = self.peek_second_char() {
+                if let Some('0'..='9') = self.peek_second_char(source) {
                     if !is_float {
-                        self.next_char();
+                        self.next_char(source);
                     }
 
-                    self.next_char();
+                    self.next_char(source);
 
-                    while let Some('0'..='9') = self.peek_char() {
-                        self.next_char();
+                    while let Some('0'..='9') = self.peek_char(source) {
+                        self.next_char(source);
                     }
 
                     is_float = true;
@@ -214,36 +197,39 @@ impl<'a> Lexer<'a> {
             }
 
             if c.is_ascii_digit() {
-                self.next_char();
+                self.next_char(source);
             } else {
                 break;
             }
         }
 
         if is_float {
-            let float = self.source[start_pos..self.position].parse::<f64>()?;
+            let float = source[start_pos..self.position].parse::<f64>()?;
 
             Ok((Token::Float(float), (start_pos, self.position)))
         } else {
-            let integer = self.source[start_pos..self.position].parse::<i64>()?;
+            let integer = source[start_pos..self.position].parse::<i64>()?;
 
             Ok((Token::Integer(integer), (start_pos, self.position)))
         }
     }
 
     /// Lex an identifier token.
-    fn lex_alphabetical(&mut self) -> Result<(Token, Span), LexError> {
+    fn lex_alphabetical<'src>(
+        &mut self,
+        source: &'src str,
+    ) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
 
-        while let Some(c) = self.peek_char() {
+        while let Some(c) = self.peek_char(source) {
             if c.is_ascii_alphanumeric() || c == '_' {
-                self.next_char();
+                self.next_char(source);
             } else {
                 break;
             }
         }
 
-        let string = &self.source[start_pos..self.position];
+        let string = &source[start_pos..self.position];
         let token = match string {
             "true" => Token::Boolean(true),
             "false" => Token::Boolean(false),
@@ -252,31 +238,39 @@ impl<'a> Lexer<'a> {
             "length" => Token::Length,
             "read_line" => Token::ReadLine,
             "write_line" => Token::WriteLine,
-            _ => Token::Identifier(Identifier::new(string)),
+            _ => Token::Identifier(string),
         };
 
         Ok((token, (start_pos, self.position)))
     }
 
-    fn lex_string(&mut self, delimiter: char) -> Result<(Token, Span), LexError> {
+    fn lex_string<'src>(
+        &mut self,
+        delimiter: char,
+        source: &'src str,
+    ) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
 
-        self.next_char();
+        self.next_char(source);
 
-        while let Some(c) = self.peek_char() {
+        while let Some(c) = self.peek_char(source) {
             if c == delimiter {
-                self.next_char();
+                self.next_char(source);
                 break;
             } else {
-                self.next_char();
+                self.next_char(source);
             }
         }
 
-        let string = &self.source[start_pos + 1..self.position - 1];
-        Ok((
-            Token::String(string.to_string()),
-            (start_pos, self.position),
-        ))
+        let text = &source[start_pos + 1..self.position - 1];
+
+        Ok((Token::String(text), (start_pos, self.position)))
+    }
+}
+
+impl Default for Lexer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -326,7 +320,7 @@ mod tests {
             Ok(vec![
                 (Token::WriteLine, (0, 10)),
                 (Token::LeftParenthesis, (10, 11)),
-                (Token::String("Hello, world!".to_string()), (11, 26)),
+                (Token::String("Hello, world!"), (11, 26)),
                 (Token::RightParenthesis, (26, 27)),
                 (Token::Eof, (27, 27)),
             ])
@@ -340,9 +334,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::String("Hello, ".to_string()), (0, 9)),
+                (Token::String("Hello, "), (0, 9)),
                 (Token::Plus, (10, 11)),
-                (Token::String("world!".to_string()), (12, 20)),
+                (Token::String("world!"), (12, 20)),
                 (Token::Eof, (20, 20)),
             ])
         )
@@ -355,7 +349,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::String("Hello, world!".to_string()), (0, 15)),
+                (Token::String("Hello, world!"), (0, 15)),
                 (Token::Eof, (15, 15)),
             ])
         )
@@ -507,7 +501,7 @@ mod tests {
         assert_eq!(
             lex(input,),
             Ok(vec![
-                (Token::Identifier(Identifier::new("a")), (0, 1)),
+                (Token::Identifier("a"), (0, 1)),
                 (Token::Equal, (2, 3)),
                 (Token::Integer(1), (4, 5)),
                 (Token::Plus, (6, 7)),
