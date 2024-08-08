@@ -206,6 +206,11 @@ impl<'src> Parser<'src> {
 
                 Ok(Node::new(Statement::Identifier(identifier), span))
             }
+            (Token::String(string), span) => {
+                self.next_token()?;
+
+                Ok(Node::new(Statement::Constant(Value::string(string)), span))
+            }
             (Token::LeftParenthesis, left_span) => {
                 self.next_token()?;
 
@@ -378,6 +383,47 @@ mod tests {
     use crate::Identifier;
 
     use super::*;
+
+    #[test]
+    fn string_concatenation() {
+        let input = "\"Hello, \" + \"World!\"";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Add(
+                        Box::new(Node::new(
+                            Statement::Constant(Value::string("Hello, ")),
+                            (0, 9)
+                        )),
+                        Box::new(Node::new(
+                            Statement::Constant(Value::string("World!")),
+                            (12, 20)
+                        ))
+                    ),
+                    (0, 20)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn string() {
+        let input = "\"Hello, World!\"";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Constant(Value::string("Hello, World!")),
+                    (0, 15)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn boolean() {
