@@ -108,6 +108,8 @@ impl<'a> Lexer<'a> {
             match c {
                 '0'..='9' => self.lex_number()?,
                 'a'..='z' | 'A'..='Z' => self.lex_alphabetical()?,
+                '"' => self.lex_string('"')?,
+                '\'' => self.lex_string('\'')?,
                 '+' => {
                     self.position += 1;
                     (Token::Plus, (self.position - 1, self.position))
@@ -253,6 +255,27 @@ impl<'a> Lexer<'a> {
 
         Ok((token, (start_pos, self.position)))
     }
+
+    fn lex_string(&mut self, delimiter: char) -> Result<(Token, Span), LexError> {
+        let start_pos = self.position;
+
+        self.next_char();
+
+        while let Some(c) = self.peek_char() {
+            if c == delimiter {
+                self.next_char();
+                break;
+            } else {
+                self.next_char();
+            }
+        }
+
+        let string = &self.source[start_pos + 1..self.position - 1];
+        Ok((
+            Token::String(string.to_string()),
+            (start_pos, self.position),
+        ))
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -276,6 +299,34 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn string_concatenation() {
+        let input = "'Hello, ' + 'world!'";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::String("Hello, ".to_string()), (0, 9)),
+                (Token::Plus, (10, 11)),
+                (Token::String("world!".to_string()), (12, 20)),
+                (Token::Eof, (20, 20)),
+            ])
+        )
+    }
+
+    #[test]
+    fn string() {
+        let input = "'Hello, world!'";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::String("Hello, world!".to_string()), (0, 15)),
+                (Token::Eof, (15, 15)),
+            ])
+        )
+    }
 
     #[test]
     fn r#true() {

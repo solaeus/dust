@@ -14,6 +14,7 @@ pub enum Token {
     Boolean(bool),
     Float(f64),
     Integer(i64),
+    String(String),
 
     // Keywords
     IsEven,
@@ -40,6 +41,7 @@ impl Display for Token {
             Token::Boolean(boolean) => write!(f, "{boolean}"),
             Token::Float(float) => write!(f, "{float}"),
             Token::Integer(integer) => write!(f, "{integer}"),
+            Token::String(string) => write!(f, "{string}"),
             Token::IsEven => write!(f, "is_even"),
             Token::IsOdd => write!(f, "is_odd"),
             Token::Length => write!(f, "length"),
