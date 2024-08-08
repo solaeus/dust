@@ -303,6 +303,37 @@ mod tests {
     use super::*;
 
     #[test]
+    fn read_line() {
+        let input = "read_line()";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::ReadLine, (0, 9)),
+                (Token::LeftParenthesis, (9, 10)),
+                (Token::RightParenthesis, (10, 11)),
+                (Token::Eof, (11, 11)),
+            ])
+        )
+    }
+
+    #[test]
+    fn write_line() {
+        let input = "write_line('Hello, world!')";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::WriteLine, (0, 10)),
+                (Token::LeftParenthesis, (10, 11)),
+                (Token::String("Hello, world!".to_string()), (11, 26)),
+                (Token::RightParenthesis, (26, 27)),
+                (Token::Eof, (27, 27)),
+            ])
+        )
+    }
+
+    #[test]
     fn string_concatenation() {
         let input = "'Hello, ' + 'world!'";
 
