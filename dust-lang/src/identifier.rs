@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::HashSet,
     fmt::{self, Display, Formatter},
     hash::Hash,
     sync::{Arc, OnceLock, RwLock},
@@ -7,26 +7,26 @@ use std::{
 
 use serde::{de::Visitor, Deserialize, Serialize};
 
-static IDENTIFIER_CACHE: OnceLock<RwLock<HashMap<String, Identifier>>> = OnceLock::new();
+static IDENTIFIER_CACHE: OnceLock<RwLock<HashSet<Identifier>>> = OnceLock::new();
 
-fn identifier_cache<'a>() -> &'a RwLock<HashMap<String, Identifier>> {
-    IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
+fn identifier_cache<'a>() -> &'a RwLock<HashSet<Identifier>> {
+    IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashSet::new()))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier(Arc<String>);
 
 impl Identifier {
-    pub fn new(text: &str) -> Self {
+    pub fn new<T: ToString>(text: T) -> Self {
         let cache = identifier_cache();
-
-        if let Some(identifier) = cache.read().unwrap().get(text).cloned() {
-            return identifier;
-        }
 
         let new = Identifier(Arc::new(text.to_string()));
 
-        cache.write().unwrap().insert(text.to_string(), new.clone());
+        if let Some(identifier) = cache.read().unwrap().get(&new).cloned() {
+            return identifier;
+        }
+
+        cache.write().unwrap().insert(new.clone());
 
         new
     }
