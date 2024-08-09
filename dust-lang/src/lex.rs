@@ -6,7 +6,6 @@
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
-    num::{ParseFloatError, ParseIntError},
 };
 
 use crate::{Span, Token};
@@ -24,9 +23,9 @@ use crate::{Span, Token};
 ///     [
 ///         (Token::Identifier("x"), (0, 1)),
 ///         (Token::Equal, (2, 3)),
-///         (Token::Integer(1), (4, 5)),
+///         (Token::Integer("1"), (4, 5)),
 ///         (Token::Plus, (6, 7)),
-///         (Token::Integer(2), (8, 9)),
+///         (Token::Integer("2"), (8, 9)),
 ///         (Token::Eof, (9, 9)),
 ///     ]
 /// );
@@ -77,9 +76,9 @@ pub fn lex<'chars, 'src: 'chars>(input: &'src str) -> Result<Vec<(Token<'chars>,
 ///     [
 ///         (Token::Identifier("x"), (0, 1)),
 ///         (Token::Equal, (2, 3)),
-///         (Token::Integer(1), (4, 5)),
+///         (Token::Integer("1"), (4, 5)),
 ///         (Token::Plus, (6, 7)),
-///         (Token::Integer(2), (8, 9)),
+///         (Token::Integer("2"), (8, 9)),
 ///         (Token::Eof, (9, 9)),
 ///     ]
 /// )
@@ -110,7 +109,7 @@ impl Lexer {
                         self.position += 9;
 
                         (
-                            Token::Float(f64::NEG_INFINITY),
+                            Token::Float("-Infinity"),
                             (self.position - 9, self.position),
                         )
                     } else {
@@ -231,6 +230,17 @@ impl Lexer {
 
                     (Token::Semicolon, (self.position - 1, self.position))
                 }
+                '|' => {
+                    if let Some('|') = self.peek_second_char(source) {
+                        self.position += 2;
+
+                        (Token::DoublePipe, (self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        return Err(LexError::UnexpectedCharacter(c));
+                    }
+                }
                 _ => {
                     self.position += 1;
 
@@ -242,6 +252,15 @@ impl Lexer {
         };
 
         Ok((token, span))
+    }
+
+    /// Peek at the next token without consuming the source.
+    pub fn peek_token<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
+        let token = self.next_token(source)?;
+
+        self.position -= token.0.as_str().len();
+
+        Ok(token)
     }
 
     /// Progress to the next character.
@@ -335,14 +354,12 @@ impl Lexer {
             }
         }
 
+        let text = &source[start_pos..self.position];
+
         if is_float {
-            let float = source[start_pos..self.position].parse::<f64>()?;
-
-            Ok((Token::Float(float), (start_pos, self.position)))
+            Ok((Token::Float(text), (start_pos, self.position)))
         } else {
-            let integer = source[start_pos..self.position].parse::<i64>()?;
-
-            Ok((Token::Integer(integer), (start_pos, self.position)))
+            Ok((Token::Integer(text), (start_pos, self.position)))
         }
     }
 
@@ -363,13 +380,13 @@ impl Lexer {
 
         let string = &source[start_pos..self.position];
         let token = match string {
-            "true" => Token::Boolean(true),
-            "false" => Token::Boolean(false),
-            "Infinity" => Token::Float(f64::INFINITY),
+            "true" => Token::Boolean("true"),
+            "false" => Token::Boolean("false"),
+            "Infinity" => Token::Float("Infinity"),
             "is_even" => Token::IsEven,
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
-            "NaN" => Token::Float(f64::NAN),
+            "NaN" => Token::Float("NaN"),
             "read_line" => Token::ReadLine,
             "write_line" => Token::WriteLine,
             _ => Token::Identifier(string),
@@ -410,16 +427,12 @@ impl Default for Lexer {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
-    FloatError(ParseFloatError),
-    IntegerError(ParseIntError),
     UnexpectedCharacter(char),
 }
 
 impl Error for LexError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::FloatError(parse_float_error) => Some(parse_float_error),
-            Self::IntegerError(parse_int_error) => Some(parse_int_error),
             Self::UnexpectedCharacter(_) => None,
         }
     }
@@ -428,12 +441,6 @@ impl Error for LexError {
 impl Display for LexError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::FloatError(parse_float_error) => {
-                write!(f, "Failed to parse float: {}", parse_float_error)
-            }
-            Self::IntegerError(parse_int_error) => {
-                write!(f, "Failed to parse integer: {}", parse_int_error)
-            }
             Self::UnexpectedCharacter(character) => {
                 write!(f, "Unexpected character: '{}'", character)
             }
@@ -441,21 +448,24 @@ impl Display for LexError {
     }
 }
 
-impl From<ParseFloatError> for LexError {
-    fn from(error: std::num::ParseFloatError) -> Self {
-        Self::FloatError(error)
-    }
-}
-
-impl From<ParseIntError> for LexError {
-    fn from(error: std::num::ParseIntError) -> Self {
-        Self::IntegerError(error)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn or() {
+        let input = "true || false";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Boolean("true"), (0, 4)),
+                (Token::DoublePipe, (5, 7)),
+                (Token::Boolean("false"), (8, 13)),
+                (Token::Eof, (13, 13)),
+            ])
+        )
+    }
 
     #[test]
     fn block() {
@@ -467,7 +477,7 @@ mod tests {
                 (Token::LeftCurlyBrace, (0, 1)),
                 (Token::Identifier("x"), (2, 3)),
                 (Token::Equal, (4, 5)),
-                (Token::Integer(42), (6, 8)),
+                (Token::Integer("42"), (6, 8)),
                 (Token::Semicolon, (8, 9)),
                 (Token::Identifier("y"), (10, 11)),
                 (Token::Equal, (12, 13)),
@@ -485,9 +495,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(42), (0, 2)),
+                (Token::Integer("42"), (0, 2)),
                 (Token::DoubleEqual, (3, 5)),
-                (Token::Integer(42), (6, 8)),
+                (Token::Integer("42"), (6, 8)),
                 (Token::Eof, (8, 8)),
             ])
         )
@@ -500,9 +510,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(42), (0, 2)),
+                (Token::Integer("42"), (0, 2)),
                 (Token::Percent, (3, 4)),
-                (Token::Integer(2), (5, 6)),
+                (Token::Integer("2"), (5, 6)),
                 (Token::Eof, (6, 6)),
             ])
         )
@@ -515,9 +525,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(42), (0, 2)),
+                (Token::Integer("42"), (0, 2)),
                 (Token::Slash, (3, 4)),
-                (Token::Integer(2), (5, 6)),
+                (Token::Integer("2"), (5, 6)),
                 (Token::Eof, (6, 6)),
             ])
         )
@@ -533,7 +543,7 @@ mod tests {
                 (Token::LeftCurlyBrace, (0, 1)),
                 (Token::Identifier("x"), (2, 3)),
                 (Token::Equal, (4, 5)),
-                (Token::Integer(42), (6, 8)),
+                (Token::Integer("42"), (6, 8)),
                 (Token::Comma, (8, 9)),
                 (Token::Identifier("y"), (10, 11)),
                 (Token::Equal, (12, 13)),
@@ -591,7 +601,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Float(f64::INFINITY), (0, 8)),
+                (Token::Float("Infinity"), (0, 8)),
                 (Token::Eof, (8, 8)),
             ])
         )
@@ -604,7 +614,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Float(f64::NEG_INFINITY), (0, 9)),
+                (Token::Float("-Infinity"), (0, 9)),
                 (Token::Eof, (9, 9)),
             ])
         )
@@ -614,7 +624,7 @@ mod tests {
     fn nan() {
         let input = "NaN";
 
-        assert!(lex(input).is_ok_and(|tokens| tokens[0].0 == Token::Float(f64::NAN)));
+        assert!(lex(input).is_ok_and(|tokens| tokens[0].0 == Token::Float("NaN")));
     }
 
     #[test]
@@ -623,7 +633,10 @@ mod tests {
 
         assert_eq!(
             lex(input),
-            Ok(vec![(Token::Float(42.42e42), (0, 8)), (Token::Eof, (8, 8)),])
+            Ok(vec![
+                (Token::Float("42.42e42"), (0, 8)),
+                (Token::Eof, (8, 8)),
+            ])
         )
     }
 
@@ -634,7 +647,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(i64::MAX), (0, 19)),
+                (Token::Integer("9223372036854775807"), (0, 19)),
                 (Token::Eof, (19, 19)),
             ])
         )
@@ -647,7 +660,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(i64::MIN), (0, 20)),
+                (Token::Integer("-9223372036854775808"), (0, 20)),
                 (Token::Eof, (20, 20)),
             ])
         )
@@ -660,9 +673,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(-42), (0, 3)),
+                (Token::Integer("-42"), (0, 3)),
                 (Token::Minus, (4, 5)),
-                (Token::Integer(-42), (6, 9)),
+                (Token::Integer("-42"), (6, 9)),
                 (Token::Eof, (9, 9)),
             ])
         )
@@ -674,7 +687,7 @@ mod tests {
 
         assert_eq!(
             lex(input),
-            Ok(vec![(Token::Integer(-42), (0, 3)), (Token::Eof, (3, 3))])
+            Ok(vec![(Token::Integer("-42"), (0, 3)), (Token::Eof, (3, 3))])
         )
     }
 
@@ -743,7 +756,7 @@ mod tests {
 
         assert_eq!(
             lex(input),
-            Ok(vec![(Token::Boolean(true), (0, 4)), (Token::Eof, (4, 4)),])
+            Ok(vec![(Token::Boolean("true"), (0, 4)), (Token::Eof, (4, 4)),])
         )
     }
 
@@ -753,7 +766,10 @@ mod tests {
 
         assert_eq!(
             lex(input),
-            Ok(vec![(Token::Boolean(false), (0, 5)), (Token::Eof, (5, 5))])
+            Ok(vec![
+                (Token::Boolean("false"), (0, 5)),
+                (Token::Eof, (5, 5))
+            ])
         )
     }
 
@@ -764,7 +780,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(42), (0, 2)),
+                (Token::Integer("42"), (0, 2)),
                 (Token::Dot, (2, 3)),
                 (Token::IsEven, (3, 10)),
                 (Token::LeftParenthesis, (10, 11)),
@@ -811,7 +827,7 @@ mod tests {
 
         assert_eq!(
             lex(input),
-            Ok(vec![(Token::Float(1.23), (0, 4)), (Token::Eof, (4, 4)),])
+            Ok(vec![(Token::Float("1.23"), (0, 4)), (Token::Eof, (4, 4)),])
         )
     }
 
@@ -823,7 +839,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Float(123456789.123456789), (0, 19)),
+                (Token::Float("123456789.123456789"), (0, 19)),
                 (Token::Eof, (19, 19)),
             ])
         )
@@ -836,9 +852,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(1), (0, 1)),
+                (Token::Integer("1"), (0, 1)),
                 (Token::Plus, (2, 3)),
-                (Token::Integer(2), (4, 5)),
+                (Token::Integer("2"), (4, 5)),
                 (Token::Eof, (5, 5)),
             ])
         )
@@ -851,9 +867,9 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(1), (0, 1)),
+                (Token::Integer("1"), (0, 1)),
                 (Token::Star, (2, 3)),
-                (Token::Integer(2), (4, 5)),
+                (Token::Integer("2"), (4, 5)),
                 (Token::Eof, (5, 5)),
             ])
         )
@@ -866,11 +882,11 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Integer(1), (0, 1)),
+                (Token::Integer("1"), (0, 1)),
                 (Token::Plus, (2, 3)),
-                (Token::Integer(2), (4, 5)),
+                (Token::Integer("2"), (4, 5)),
                 (Token::Star, (6, 7)),
-                (Token::Integer(3), (8, 9)),
+                (Token::Integer("3"), (8, 9)),
                 (Token::Eof, (9, 9)),
             ])
         );
@@ -885,11 +901,11 @@ mod tests {
             Ok(vec![
                 (Token::Identifier("a"), (0, 1)),
                 (Token::Equal, (2, 3)),
-                (Token::Integer(1), (4, 5)),
+                (Token::Integer("1"), (4, 5)),
                 (Token::Plus, (6, 7)),
-                (Token::Integer(2), (8, 9)),
+                (Token::Integer("2"), (8, 9)),
                 (Token::Star, (10, 11)),
-                (Token::Integer(3), (12, 13)),
+                (Token::Integer("3"), (12, 13)),
                 (Token::Eof, (13, 13)),
             ])
         );

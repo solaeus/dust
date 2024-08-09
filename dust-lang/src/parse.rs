@@ -7,6 +7,8 @@ use std::{
     collections::VecDeque,
     error::Error,
     fmt::{self, Display, Formatter},
+    num::{ParseFloatError, ParseIntError},
+    str::ParseBoolError,
 };
 
 use crate::{
@@ -150,243 +152,54 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_node(&mut self, precedence: u8) -> Result<Node<Statement>, ParseError> {
-        let left_node = self.parse_primary()?;
-        let left_start = left_node.position.0;
+        let left = self.parse_primary()?;
 
         if precedence < self.current_precedence() {
-            match &self.current {
-                (Token::Dot, _) => {
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::PropertyAccess(Box::new(left_node), Box::new(right_node)),
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::DoubleAmpersand, _) => {
-                    let operator = Node::new(BinaryOperator::And, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::DoubleEqual, _) => {
-                    let operator = Node::new(BinaryOperator::Equal, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Greater, _) => {
-                    let operator = Node::new(BinaryOperator::Greater, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::GreaterEqual, _) => {
-                    let operator = Node::new(BinaryOperator::GreaterOrEqual, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Less, _) => {
-                    let operator = Node::new(BinaryOperator::Less, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::LessEqual, _) => {
-                    let operator = Node::new(BinaryOperator::LessOrEqual, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Minus, _) => {
-                    let operator = Node::new(BinaryOperator::Subtract, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Plus, _) => {
-                    let operator = Node::new(BinaryOperator::Add, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Semicolon, (_, right_end)) => {
-                    return Ok(Node::new(
-                        Statement::Nil(Box::new(left_node)),
-                        (left_start, *right_end),
-                    ))
-                }
-                (Token::Star, _) => {
-                    let operator = Node::new(BinaryOperator::Multiply, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Slash, _) => {
-                    let operator = Node::new(BinaryOperator::Divide, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Percent, _) => {
-                    let operator = Node::new(BinaryOperator::Modulo, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
-                _ => {}
-            }
+            self.parse_infix(left)
+        } else {
+            Ok(left)
         }
-
-        Ok(left_node)
     }
 
     fn parse_primary(&mut self) -> Result<Node<Statement>, ParseError> {
         match self.current {
-            (Token::Boolean(boolean), span) => {
+            (Token::Boolean(text), position) => {
                 self.next_token()?;
+
+                let boolean = text
+                    .parse()
+                    .map_err(|error| ParseError::BooleanError { error, position })?;
 
                 Ok(Node::new(
                     Statement::Constant(Value::boolean(boolean)),
-                    span,
+                    position,
                 ))
             }
-            (Token::Float(float), span) => {
+            (Token::Float(text), position) => {
                 self.next_token()?;
 
-                Ok(Node::new(Statement::Constant(Value::float(float)), span))
+                let float = text
+                    .parse()
+                    .map_err(|error| ParseError::FloatError { error, position })?;
+
+                Ok(Node::new(
+                    Statement::Constant(Value::float(float)),
+                    position,
+                ))
             }
-            (Token::Integer(int), span) => {
+            (Token::Integer(text), position) => {
                 self.next_token()?;
 
-                Ok(Node::new(Statement::Constant(Value::integer(int)), span))
+                let integer = text
+                    .parse()
+                    .map_err(|error| ParseError::IntegerError { error, position })?;
+
+                Ok(Node::new(
+                    Statement::Constant(Value::integer(integer)),
+                    position,
+                ))
             }
-            (Token::Identifier(text), span) => {
+            (Token::Identifier(text), position) => {
                 self.next_token()?;
 
                 if let (Token::Equal, _) = self.current {
@@ -397,33 +210,36 @@ impl<'src> Parser<'src> {
 
                     Ok(Node::new(
                         Statement::Assignment {
-                            identifier: Node::new(Identifier::new(text), span),
+                            identifier: Node::new(Identifier::new(text), position),
                             value_node: Box::new(value_node),
                         },
-                        (span.0, right_end),
+                        (position.0, right_end),
                     ))
                 } else {
                     Ok(Node::new(
                         Statement::Identifier(Identifier::new(text)),
-                        span,
+                        position,
                     ))
                 }
             }
-            (Token::String(string), span) => {
+            (Token::String(string), position) => {
                 self.next_token()?;
 
-                Ok(Node::new(Statement::Constant(Value::string(string)), span))
+                Ok(Node::new(
+                    Statement::Constant(Value::string(string)),
+                    position,
+                ))
             }
-            (Token::LeftCurlyBrace, left_span) => {
+            (Token::LeftCurlyBrace, left_position) => {
                 self.next_token()?;
 
                 // If the next token is a right curly brace, this is an empty map
-                if let (Token::RightCurlyBrace, right_span) = self.current {
+                if let (Token::RightCurlyBrace, right_position) = self.current {
                     self.next_token()?;
 
                     return Ok(Node::new(
                         Statement::Map(Vec::new()),
-                        (left_span.0, right_span.1),
+                        (left_position.0, right_position.1),
                     ));
                 }
 
@@ -431,10 +247,13 @@ impl<'src> Parser<'src> {
 
                 loop {
                     // If a closing brace is found, return the new statement
-                    if let (Token::RightCurlyBrace, right_span) = self.current {
+                    if let (Token::RightCurlyBrace, right_position) = self.current {
                         self.next_token()?;
 
-                        return Ok(Node::new(statement.unwrap(), (left_span.0, right_span.1)));
+                        return Ok(Node::new(
+                            statement.unwrap(),
+                            (left_position.0, right_position.1),
+                        ));
                     }
 
                     let next_node = self.parse_node(0)?;
@@ -503,15 +322,15 @@ impl<'src> Parser<'src> {
                     }
                 }
             }
-            (Token::LeftParenthesis, left_span) => {
+            (Token::LeftParenthesis, left_position) => {
                 self.next_token()?;
 
                 let node = self.parse_node(0)?;
 
-                if let (Token::RightParenthesis, right_span) = self.current {
+                if let (Token::RightParenthesis, right_position) = self.current {
                     self.next_token()?;
 
-                    Ok(Node::new(node.inner, (left_span.0, right_span.1)))
+                    Ok(Node::new(node.inner, (left_position.0, right_position.1)))
                 } else {
                     Err(ParseError::ExpectedToken {
                         expected: TokenOwned::RightParenthesis,
@@ -520,18 +339,18 @@ impl<'src> Parser<'src> {
                     })
                 }
             }
-            (Token::LeftSquareBrace, left_span) => {
+            (Token::LeftSquareBrace, left_position) => {
                 self.next_token()?;
 
                 let mut nodes = Vec::new();
 
                 loop {
-                    if let (Token::RightSquareBrace, right_span) = self.current {
+                    if let (Token::RightSquareBrace, right_position) = self.current {
                         self.next_token()?;
 
                         return Ok(Node::new(
                             Statement::List(nodes),
-                            (left_span.0, right_span.1),
+                            (left_position.0, right_position.1),
                         ));
                     }
 
@@ -554,7 +373,7 @@ impl<'src> Parser<'src> {
             }
             (
                 Token::IsEven | Token::IsOdd | Token::Length | Token::ReadLine | Token::WriteLine,
-                left_span,
+                left_position,
             ) => {
                 let function = match self.current.0 {
                     Token::IsEven => BuiltInFunction::IsEven,
@@ -611,7 +430,7 @@ impl<'src> Parser<'src> {
                         type_arguments: None,
                         value_arguments,
                     },
-                    left_span,
+                    left_position,
                 ))
             }
             _ => Err(ParseError::UnexpectedToken {
@@ -621,10 +440,62 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_infix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
+        let left_start = left.position.0;
+
+        let binary_operator = match &self.current {
+            (Token::Dot, _) => {
+                self.next_token()?;
+
+                let right_node = self.parse_node(0)?;
+                let right_end = right_node.position.1;
+
+                return Ok(Node::new(
+                    Statement::PropertyAccess(Box::new(left), Box::new(right_node)),
+                    (left_start, right_end),
+                ));
+            }
+            (Token::DoubleAmpersand, _) => Node::new(BinaryOperator::And, self.current.1),
+            (Token::DoubleEqual, _) => Node::new(BinaryOperator::Equal, self.current.1),
+            (Token::DoublePipe, _) => Node::new(BinaryOperator::Or, self.current.1),
+            (Token::Greater, _) => Node::new(BinaryOperator::Greater, self.current.1),
+            (Token::GreaterEqual, _) => Node::new(BinaryOperator::GreaterOrEqual, self.current.1),
+            (Token::Less, _) => Node::new(BinaryOperator::Less, self.current.1),
+            (Token::LessEqual, _) => Node::new(BinaryOperator::LessOrEqual, self.current.1),
+            (Token::Minus, _) => Node::new(BinaryOperator::Subtract, self.current.1),
+            (Token::Plus, _) => Node::new(BinaryOperator::Add, self.current.1),
+            (Token::Star, _) => Node::new(BinaryOperator::Multiply, self.current.1),
+            (Token::Slash, _) => Node::new(BinaryOperator::Divide, self.current.1),
+            (Token::Percent, _) => Node::new(BinaryOperator::Modulo, self.current.1),
+            _ => {
+                self.next_token()?;
+
+                return Err(ParseError::UnexpectedToken {
+                    actual: self.current.0.to_owned(),
+                    position: self.current.1,
+                });
+            }
+        };
+
+        self.next_token()?;
+
+        let right = self.parse_node(0)?;
+        let right_end = right.position.1;
+
+        Ok(Node::new(
+            Statement::BinaryOperation {
+                left: Box::new(left),
+                operator: binary_operator,
+                right: Box::new(right),
+            },
+            (left_start, right_end),
+        ))
+    }
+
     fn current_precedence(&self) -> u8 {
         match self.current.0 {
             Token::DoubleEqual => 7,
-            Token::DoubleAmpersand => 6,
+            Token::DoubleAmpersand | Token::DoublePipe => 6,
             Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual => 5,
             Token::Dot => 4,
             Token::Percent => 3,
@@ -639,6 +510,10 @@ impl<'src> Parser<'src> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
+    BooleanError {
+        error: ParseBoolError,
+        position: Span,
+    },
     LexError {
         error: LexError,
         position: Span,
@@ -656,15 +531,26 @@ pub enum ParseError {
         actual: TokenOwned,
         position: Span,
     },
+    FloatError {
+        error: ParseFloatError,
+        position: Span,
+    },
+    IntegerError {
+        error: ParseIntError,
+        position: Span,
+    },
 }
 
 impl ParseError {
     pub fn position(&self) -> Span {
         match self {
-            Self::LexError { position, .. } => *position,
-            Self::ExpectedIdentifier { position, .. } => *position,
-            Self::ExpectedToken { position, .. } => *position,
-            Self::UnexpectedToken { position, .. } => *position,
+            ParseError::BooleanError { position, .. } => *position,
+            ParseError::ExpectedIdentifier { position, .. } => *position,
+            ParseError::ExpectedToken { position, .. } => *position,
+            ParseError::FloatError { position, .. } => *position,
+            ParseError::IntegerError { position, .. } => *position,
+            ParseError::LexError { position, .. } => *position,
+            ParseError::UnexpectedToken { position, .. } => *position,
         }
     }
 }
@@ -681,13 +567,16 @@ impl Error for ParseError {
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::LexError { error, .. } => write!(f, "{}", error),
+            Self::BooleanError { error, .. } => write!(f, "{}", error),
             Self::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {actual}")
             }
             Self::ExpectedToken {
                 expected, actual, ..
             } => write!(f, "Expected token {expected}, found {actual}"),
+            Self::FloatError { error, .. } => write!(f, "{}", error),
+            Self::IntegerError { error, .. } => write!(f, "{}", error),
+            Self::LexError { error, .. } => write!(f, "{}", error),
             Self::UnexpectedToken { actual, .. } => write!(f, "Unexpected token {actual}"),
         }
     }
@@ -698,6 +587,32 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn or() {
+        let input = "true || false";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(
+                            Statement::Constant(Value::boolean(true)),
+                            (0, 4)
+                        )),
+                        operator: Node::new(BinaryOperator::Or, (5, 7)),
+                        right: Box::new(Node::new(
+                            Statement::Constant(Value::boolean(false)),
+                            (8, 13)
+                        )),
+                    },
+                    (0, 13)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn misplaced_semicolon() {

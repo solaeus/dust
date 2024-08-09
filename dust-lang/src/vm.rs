@@ -449,6 +449,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn or() {
+        let input = "true || false";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
+
+    #[test]
     fn map_equal() {
         let input = "{ y = 'foo', } == { y = 'foo', }";
 

@@ -11,9 +11,9 @@ pub enum Token<'src> {
     Identifier(&'src str),
 
     // Hard-coded values
-    Boolean(bool),
-    Float(f64),
-    Integer(i64),
+    Boolean(&'src str),
+    Float(&'src str),
+    Integer(&'src str),
     String(&'src str),
 
     // Keywords
@@ -51,7 +51,7 @@ pub enum Token<'src> {
 impl<'src> Token<'src> {
     pub fn to_owned(&self) -> TokenOwned {
         match self {
-            Token::Boolean(boolean) => TokenOwned::Boolean(*boolean),
+            Token::Boolean(boolean) => TokenOwned::Boolean(boolean.to_string()),
             Token::Comma => TokenOwned::Comma,
             Token::Dot => TokenOwned::Dot,
             Token::DoubleAmpersand => TokenOwned::DoubleAmpersand,
@@ -59,11 +59,11 @@ impl<'src> Token<'src> {
             Token::DoublePipe => TokenOwned::DoublePipe,
             Token::Eof => TokenOwned::Eof,
             Token::Equal => TokenOwned::Equal,
-            Token::Float(float) => TokenOwned::Float(*float),
+            Token::Float(float) => TokenOwned::Float(float.to_string()),
             Token::Greater => TokenOwned::Greater,
             Token::GreaterEqual => TokenOwned::GreaterOrEqual,
             Token::Identifier(text) => TokenOwned::Identifier(text.to_string()),
-            Token::Integer(integer) => TokenOwned::Integer(*integer),
+            Token::Integer(integer) => TokenOwned::Integer(integer.to_string()),
             Token::IsEven => TokenOwned::IsEven,
             Token::IsOdd => TokenOwned::IsOdd,
             Token::LeftCurlyBrace => TokenOwned::LeftCurlyBrace,
@@ -87,9 +87,11 @@ impl<'src> Token<'src> {
         }
     }
 
-    pub fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &str {
         match self {
-            Token::Boolean(_) => "boolean",
+            Token::Boolean(boolean_text) => boolean_text,
+            Token::Identifier(text) => text,
+            Token::Integer(integer_text) => integer_text,
             Token::Comma => ",",
             Token::Dot => ".",
             Token::DoubleAmpersand => "&&",
@@ -100,8 +102,6 @@ impl<'src> Token<'src> {
             Token::Float(_) => "float",
             Token::Greater => ">",
             Token::GreaterEqual => ">=",
-            Token::Identifier(_) => "identifier",
-            Token::Integer(_) => "integer",
             Token::IsEven => "is_even",
             Token::IsOdd => "is_odd",
             Token::LeftCurlyBrace => "{",
@@ -128,17 +128,13 @@ impl<'src> Token<'src> {
 
 impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str(self.as_str())
+        write!(f, "{}", self.as_str())
     }
 }
 
 impl<'src> PartialEq for Token<'src> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            // Floats are compared by their bit representation.
-            (Token::Float(left), Token::Float(right)) => left.to_bits() == right.to_bits(),
-
-            // Compare all other variants normally.
             (Token::Boolean(left), Token::Boolean(right)) => left == right,
             (Token::Comma, Token::Comma) => true,
             (Token::Dot, Token::Dot) => true,
@@ -147,6 +143,7 @@ impl<'src> PartialEq for Token<'src> {
             (Token::DoublePipe, Token::DoublePipe) => true,
             (Token::Eof, Token::Eof) => true,
             (Token::Equal, Token::Equal) => true,
+            (Token::Float(left), Token::Float(right)) => left == right,
             (Token::Greater, Token::Greater) => true,
             (Token::GreaterEqual, Token::GreaterEqual) => true,
             (Token::Identifier(left), Token::Identifier(right)) => left == right,
@@ -186,9 +183,9 @@ pub enum TokenOwned {
     Identifier(String),
 
     // Hard-coded values
-    Boolean(bool),
-    Float(f64),
-    Integer(i64),
+    Boolean(String),
+    Float(String),
+    Integer(String),
     String(String),
 
     // Keywords
