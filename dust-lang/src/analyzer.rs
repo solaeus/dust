@@ -1,10 +1,10 @@
-/// Tools for analyzing an abstract syntax tree and catch errors before running the virtual
-/// machine.
-///
-/// This module provides to anlysis options, both of which borrow an abstract syntax tree and a
-/// hash map of variables:
-/// - `analyze` convenience function
-/// - `Analyzer` struct
+//! Tools for analyzing an abstract syntax tree and catch errors before running the virtual
+//! machine.
+//!
+//! This module provides to anlysis options, both of which borrow an abstract syntax tree and a
+//! hash map of variables:
+//! - `analyze` convenience function
+//! - `Analyzer` struct
 use std::{
     collections::HashMap,
     error::Error,
