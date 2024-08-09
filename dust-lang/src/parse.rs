@@ -10,8 +10,8 @@ use std::{
 };
 
 use crate::{
-    built_in_function::BuiltInFunction, token::TokenOwned, AbstractSyntaxTree, Identifier,
-    LexError, Lexer, Node, Span, Statement, Token, Value,
+    abstract_tree::ComparisonOperator, built_in_function::BuiltInFunction, token::TokenOwned,
+    AbstractSyntaxTree, Identifier, LexError, Lexer, Node, Span, Statement, Token, Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -27,13 +27,13 @@ use crate::{
 ///     Ok(AbstractSyntaxTree {
 ///         nodes: [
 ///             Node {
-///                 statement: Statement::Assign(
+///                 inner: Statement::Assign(
 ///                     Box::new(Node {
-///                         statement: Statement::Identifier("x".into()),
+///                         inner: Statement::Identifier("x".into()),
 ///                         position: (0, 1),
 ///                     }),
 ///                     Box::new(Node {
-///                         statement: Statement::Constant(Value::integer(42)),
+///                         inner: Statement::Constant(Value::integer(42)),
 ///                         position: (4, 6),
 ///                     })
 ///                 ),
@@ -84,15 +84,15 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
 ///
 /// assert_eq!(
 ///     nodes,
-///     Into::<VecDeque<Node>>::into([
+///     Into::<VecDeque<Node<Statement>>>::into([
 ///         Node {
-///             statement: Statement::Assign(
+///             inner: Statement::Assign(
 ///                 Box::new(Node {
-///                     statement: Statement::Identifier("x".into()),
+///                     inner: Statement::Identifier("x".into()),
 ///                     position: (0, 1),
 ///                 }),
 ///                 Box::new(Node {
-///                     statement: Statement::Constant(Value::integer(42)),
+///                     inner: Statement::Constant(Value::integer(42)),
 ///                     position: (4, 6),
 ///                 })
 ///             ),
@@ -119,7 +119,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Node, ParseError> {
+    pub fn parse(&mut self) -> Result<Node<Statement>, ParseError> {
         self.parse_node(0)
     }
 
@@ -149,12 +149,113 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_node(&mut self, precedence: u8) -> Result<Node, ParseError> {
+    fn parse_node(&mut self, precedence: u8) -> Result<Node<Statement>, ParseError> {
         let left_node = self.parse_primary()?;
         let left_start = left_node.position.0;
 
         if precedence < self.current_precedence() {
             match &self.current {
+                (Token::Dot, _) => {
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::PropertyAccess(Box::new(left_node), Box::new(right_node)),
+                        (left_start, right_end),
+                    ));
+                }
+                (Token::Equal, _) => {
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::Assign(Box::new(left_node), Box::new(right_node)),
+                        (left_start, right_end),
+                    ));
+                }
+                (Token::Greater, _) => {
+                    let operator_position = self.current.1;
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::Comparison(
+                            Box::new(left_node),
+                            Node::new(ComparisonOperator::GreaterThan, operator_position),
+                            Box::new(right_node),
+                        ),
+                        (left_start, right_end),
+                    ));
+                }
+                (Token::GreaterEqual, _) => {
+                    let operator_position = self.current.1;
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::Comparison(
+                            Box::new(left_node),
+                            Node::new(ComparisonOperator::GreaterThanOrEqual, operator_position),
+                            Box::new(right_node),
+                        ),
+                        (left_start, right_end),
+                    ));
+                }
+                (Token::Less, _) => {
+                    let operator_position = self.current.1;
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::Comparison(
+                            Box::new(left_node),
+                            Node::new(ComparisonOperator::LessThan, operator_position),
+                            Box::new(right_node),
+                        ),
+                        (left_start, right_end),
+                    ));
+                }
+                (Token::LessEqual, _) => {
+                    let operator_position = self.current.1;
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::Comparison(
+                            Box::new(left_node),
+                            Node::new(ComparisonOperator::LessThanOrEqual, operator_position),
+                            Box::new(right_node),
+                        ),
+                        (left_start, right_end),
+                    ));
+                }
+                (Token::Minus, _) => {
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::Subtract(Box::new(left_node), Box::new(right_node)),
+                        (left_start, right_end),
+                    ));
+                }
                 (Token::Plus, _) => {
                     self.next_token()?;
 
@@ -177,39 +278,6 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
-                (Token::Equal, _) => {
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::Assign(Box::new(left_node), Box::new(right_node)),
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Dot, _) => {
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::PropertyAccess(Box::new(left_node), Box::new(right_node)),
-                        (left_start, right_end),
-                    ));
-                }
-                (Token::Minus, _) => {
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::Subtract(Box::new(left_node), Box::new(right_node)),
-                        (left_start, right_end),
-                    ));
-                }
                 _ => {}
             }
         }
@@ -217,7 +285,7 @@ impl<'src> Parser<'src> {
         Ok(left_node)
     }
 
-    fn parse_primary(&mut self) -> Result<Node, ParseError> {
+    fn parse_primary(&mut self) -> Result<Node<Statement>, ParseError> {
         match self.current {
             (Token::Boolean(boolean), span) => {
                 self.next_token()?;
@@ -258,7 +326,7 @@ impl<'src> Parser<'src> {
                 if let (Token::RightParenthesis, right_span) = self.current {
                     self.next_token()?;
 
-                    Ok(Node::new(node.statement, (left_span.0, right_span.1)))
+                    Ok(Node::new(node.inner, (left_span.0, right_span.1)))
                 } else {
                     Err(ParseError::ExpectedClosingParenthesis {
                         actual: self.current.0.to_owned(),
@@ -321,7 +389,7 @@ impl<'src> Parser<'src> {
                     });
                 }
 
-                let mut value_arguments: Option<Vec<Node>> = None;
+                let mut value_arguments: Option<Vec<Node<Statement>>> = None;
 
                 loop {
                     if let (Token::RightParenthesis, _) = self.current {
@@ -366,6 +434,7 @@ impl<'src> Parser<'src> {
 
     fn current_precedence(&self) -> u8 {
         match self.current.0 {
+            Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual => 5,
             Token::Dot => 4,
             Token::Equal => 3,
             Token::Star => 2,
@@ -427,9 +496,89 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::Identifier;
+    use crate::{abstract_tree::ComparisonOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn less_than() {
+        let input = "1 < 2";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Comparison(
+                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        Node::new(ComparisonOperator::LessThan, (2, 3)),
+                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)))
+                    ),
+                    (0, 5)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn less_than_or_equal() {
+        let input = "1 <= 2";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Comparison(
+                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        Node::new(ComparisonOperator::LessThanOrEqual, (2, 4)),
+                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6)))
+                    ),
+                    (0, 6)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn greater_than_or_equal() {
+        let input = "1 >= 2";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Comparison(
+                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        Node::new(ComparisonOperator::GreaterThanOrEqual, (2, 4)),
+                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6)))
+                    ),
+                    (0, 6)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn greater_than() {
+        let input = "1 > 2";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Comparison(
+                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        Node::new(ComparisonOperator::GreaterThan, (2, 3)),
+                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)))
+                    ),
+                    (0, 5)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn subtract_negative_integers() {

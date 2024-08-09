@@ -72,14 +72,14 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_node(&self, node: &Node) -> Result<(), AnalyzerError> {
-        match &node.statement {
+    fn analyze_node(&self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
+        match &node.inner {
             Statement::Add(left, right) => {
                 self.analyze_node(left)?;
                 self.analyze_node(right)?;
 
-                let left_type = left.statement.expected_type(self.variables);
-                let right_type = right.statement.expected_type(self.variables);
+                let left_type = left.inner.expected_type(self.variables);
+                let right_type = right.inner.expected_type(self.variables);
 
                 match (left_type, right_type) {
                     (Some(Type::Integer), Some(Type::Integer)) => {}
@@ -100,7 +100,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Assign(left, right) => {
-                if let Statement::Identifier(_) = &left.statement {
+                if let Statement::Identifier(_) = &left.inner {
                     // Identifier is in the correct position
                 } else {
                     return Err(AnalyzerError::ExpectedIdentifier {
@@ -112,9 +112,33 @@ impl<'a> Analyzer<'a> {
                 self.analyze_node(right)?;
             }
             Statement::BuiltInFunctionCall { .. } => {}
+            Statement::Comparison(left, _, right) => {
+                self.analyze_node(left)?;
+                self.analyze_node(right)?;
+
+                if let Some(Type::Integer) | Some(Type::Float) =
+                    left.inner.expected_type(self.variables)
+                {
+                } else {
+                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
+                        actual: left.as_ref().clone(),
+                        position: left.position,
+                    });
+                }
+
+                if let Some(Type::Integer) | Some(Type::Float) =
+                    right.inner.expected_type(self.variables)
+                {
+                } else {
+                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
+                        actual: right.as_ref().clone(),
+                        position: right.position,
+                    });
+                }
+            }
             Statement::Constant(_) => {}
             Statement::FunctionCall { function, .. } => {
-                if let Statement::Identifier(_) = &function.statement {
+                if let Statement::Identifier(_) = &function.inner {
                     // Function is in the correct position
                 } else {
                     return Err(AnalyzerError::ExpectedIdentifier {
@@ -139,7 +163,7 @@ impl<'a> Analyzer<'a> {
                 self.analyze_node(right)?;
 
                 if let Some(Type::Integer) | Some(Type::Float) =
-                    left.statement.expected_type(self.variables)
+                    left.inner.expected_type(self.variables)
                 {
                 } else {
                     return Err(AnalyzerError::ExpectedIntegerOrFloat {
@@ -149,7 +173,7 @@ impl<'a> Analyzer<'a> {
                 }
 
                 if let Some(Type::Integer) | Some(Type::Float) =
-                    right.statement.expected_type(self.variables)
+                    right.inner.expected_type(self.variables)
                 {
                 } else {
                     return Err(AnalyzerError::ExpectedIntegerOrFloat {
@@ -160,7 +184,7 @@ impl<'a> Analyzer<'a> {
             }
             Statement::PropertyAccess(left, right) => {
                 if let Statement::Identifier(_) | Statement::Constant(_) | Statement::List(_) =
-                    &left.statement
+                    &left.inner
                 {
                     // Left side is valid
                 } else {
@@ -170,9 +194,9 @@ impl<'a> Analyzer<'a> {
                     });
                 }
 
-                if let Statement::BuiltInFunctionCall { function, .. } = &right.statement {
+                if let Statement::BuiltInFunctionCall { function, .. } = &right.inner {
                     if function == &BuiltInFunction::IsEven || function == &BuiltInFunction::IsOdd {
-                        if let Some(Type::Integer) = left.statement.expected_type(self.variables) {
+                        if let Some(Type::Integer) = left.inner.expected_type(self.variables) {
                         } else {
                             return Err(AnalyzerError::ExpectedIntegerOrFloat {
                                 actual: left.as_ref().clone(),
@@ -188,8 +212,8 @@ impl<'a> Analyzer<'a> {
                 self.analyze_node(left)?;
                 self.analyze_node(right)?;
 
-                let left_type = left.statement.expected_type(self.variables);
-                let right_type = right.statement.expected_type(self.variables);
+                let left_type = left.inner.expected_type(self.variables);
+                let right_type = right.inner.expected_type(self.variables);
 
                 match (left_type, right_type) {
                     (Some(Type::Integer), Some(Type::Integer)) => {}
@@ -216,13 +240,34 @@ impl<'a> Analyzer<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
-    ExpectedBoolean { actual: Node, position: Span },
-    ExpectedFunction { actual: Node, position: Span },
-    ExpectedIdentifier { actual: Node, position: Span },
-    ExpectedIdentifierOrValue { actual: Node, position: Span },
-    ExpectedIntegerOrFloat { actual: Node, position: Span },
-    ExpectedIntegerFloatOrString { actual: Node, position: Span },
-    UnexpectedIdentifier { identifier: Node, position: Span },
+    ExpectedBoolean {
+        actual: Node<Statement>,
+        position: Span,
+    },
+    ExpectedFunction {
+        actual: Node<Statement>,
+        position: Span,
+    },
+    ExpectedIdentifier {
+        actual: Node<Statement>,
+        position: Span,
+    },
+    ExpectedIdentifierOrValue {
+        actual: Node<Statement>,
+        position: Span,
+    },
+    ExpectedIntegerOrFloat {
+        actual: Node<Statement>,
+        position: Span,
+    },
+    ExpectedIntegerFloatOrString {
+        actual: Node<Statement>,
+        position: Span,
+    },
+    UnexpectedIdentifier {
+        identifier: Node<Statement>,
+        position: Span,
+    },
 }
 
 impl AnalyzerError {

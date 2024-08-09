@@ -11,51 +11,61 @@ use crate::{BuiltInFunction, Identifier, Span, Type, Value};
 /// In-memory representation of a Dust program.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AbstractSyntaxTree {
-    pub nodes: VecDeque<Node>,
+    pub nodes: VecDeque<Node<Statement>>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Node {
-    pub statement: Statement,
+pub struct Node<T> {
+    pub inner: T,
     pub position: Span,
 }
 
-impl Node {
-    pub fn new(operation: Statement, position: Span) -> Self {
-        Self {
-            statement: operation,
-            position,
-        }
+impl<T> Node<T> {
+    pub fn new(inner: T, position: Span) -> Self {
+        Self { inner, position }
     }
 }
 
-impl Display for Node {
+impl<T: Display> Display for Node<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.statement)
+        write!(f, "{}", self.inner)
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
     // Top-level statements
-    Assign(Box<Node>, Box<Node>),
+    Assign(Box<Node<Statement>>, Box<Node<Statement>>),
 
-    // Expressions
-    Add(Box<Node>, Box<Node>),
+    // Math expressions
+    Add(Box<Node<Statement>>, Box<Node<Statement>>),
+    Subtract(Box<Node<Statement>>, Box<Node<Statement>>),
+    Multiply(Box<Node<Statement>>, Box<Node<Statement>>),
+
+    // Function calls
     BuiltInFunctionCall {
         function: BuiltInFunction,
-        type_arguments: Option<Vec<Node>>,
-        value_arguments: Option<Vec<Node>>,
+        type_arguments: Option<Vec<Node<Statement>>>,
+        value_arguments: Option<Vec<Node<Statement>>>,
     },
     FunctionCall {
-        function: Box<Node>,
-        type_arguments: Option<Vec<Node>>,
-        value_arguments: Option<Vec<Node>>,
+        function: Box<Node<Statement>>,
+        type_arguments: Option<Vec<Node<Statement>>>,
+        value_arguments: Option<Vec<Node<Statement>>>,
     },
-    PropertyAccess(Box<Node>, Box<Node>),
-    Subtract(Box<Node>, Box<Node>),
-    List(Vec<Node>),
-    Multiply(Box<Node>, Box<Node>),
+
+    // Comparison expressions
+    Comparison(
+        Box<Node<Statement>>,
+        Node<ComparisonOperator>,
+        Box<Node<Statement>>,
+    ),
+
+    // Property access
+    PropertyAccess(Box<Node<Statement>>, Box<Node<Statement>>),
+
+    // Value collections
+    List(Vec<Node<Statement>>),
 
     // Hard-coded values
     Constant(Value),
@@ -65,18 +75,22 @@ pub enum Statement {
 impl Statement {
     pub fn expected_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
         match self {
-            Statement::Add(left, _) => left.statement.expected_type(variables),
+            Statement::Add(left, _) => left.inner.expected_type(variables),
             Statement::Assign(_, _) => None,
             Statement::BuiltInFunctionCall { function, .. } => function.expected_type(),
+            Statement::Comparison(_, _, _) => Some(Type::Boolean),
             Statement::Constant(value) => Some(value.r#type(variables)),
-            Statement::FunctionCall { function, .. } => function.statement.expected_type(variables),
+            Statement::FunctionCall { function, .. } => function.inner.expected_type(variables),
             Statement::Identifier(identifier) => variables
                 .get(identifier)
                 .map(|value| value.r#type(variables)),
-            Statement::List(_) => None,
-            Statement::Multiply(left, _) => left.statement.expected_type(variables),
+            Statement::List(nodes) => nodes
+                .first()
+                .map(|node| node.inner.expected_type(variables))
+                .flatten(),
+            Statement::Multiply(left, _) => left.inner.expected_type(variables),
             Statement::PropertyAccess(_, _) => None,
-            Statement::Subtract(left, _) => left.statement.expected_type(variables),
+            Statement::Subtract(left, _) => left.inner.expected_type(variables),
         }
     }
 }
@@ -121,6 +135,8 @@ impl Display for Statement {
 
                 write!(f, ")")
             }
+            Statement::Comparison(left, operator, right) => write!(f, "{left} {operator} {right}"),
+            Statement::Constant(value) => write!(f, "{value}"),
             Statement::FunctionCall {
                 function,
                 type_arguments: type_parameters,
@@ -156,6 +172,7 @@ impl Display for Statement {
 
                 write!(f, ")")
             }
+            Statement::Identifier(identifier) => write!(f, "{identifier}"),
             Statement::List(nodes) => {
                 write!(f, "[")?;
                 for (i, node) in nodes.iter().enumerate() {
@@ -166,11 +183,28 @@ impl Display for Statement {
                 }
                 write!(f, "]")
             }
-            Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
             Statement::Multiply(left, right) => write!(f, "{left} * {right}"),
-            Statement::Constant(value) => write!(f, "{value}"),
-            Statement::Identifier(identifier) => write!(f, "{identifier}"),
+            Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
             Statement::Subtract(left, right) => write!(f, "{left} - {right}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum ComparisonOperator {
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+}
+
+impl Display for ComparisonOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ComparisonOperator::GreaterThan => write!(f, ">"),
+            ComparisonOperator::GreaterThanOrEqual => write!(f, ">="),
+            ComparisonOperator::LessThan => write!(f, "<"),
+            ComparisonOperator::LessThanOrEqual => write!(f, "<="),
         }
     }
 }

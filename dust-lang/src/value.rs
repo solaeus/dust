@@ -157,6 +157,56 @@ impl Value {
             _ => Err(ValueError::CannotMultiply(self.clone(), other.clone())),
         }
     }
+
+    pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::boolean(left < right)),
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                Ok(Value::boolean(left < right))
+            }
+            _ => Err(ValueError::CannotLessThan(self.clone(), other.clone())),
+        }
+    }
+
+    pub fn less_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => {
+                Ok(Value::boolean(left <= right))
+            }
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                Ok(Value::boolean(left <= right))
+            }
+            _ => Err(ValueError::CannotLessThanOrEqual(
+                self.clone(),
+                other.clone(),
+            )),
+        }
+    }
+
+    pub fn greater_than(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::boolean(left > right)),
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                Ok(Value::boolean(left > right))
+            }
+            _ => Err(ValueError::CannotGreaterThan(self.clone(), other.clone())),
+        }
+    }
+
+    pub fn greater_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => {
+                Ok(Value::boolean(left >= right))
+            }
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                Ok(Value::boolean(left >= right))
+            }
+            _ => Err(ValueError::CannotGreaterThanOrEqual(
+                self.clone(),
+                other.clone(),
+            )),
+        }
+    }
 }
 
 impl Display for Value {
@@ -636,7 +686,7 @@ impl Function {
             .iter()
             .last()
             .unwrap()
-            .statement
+            .inner
             .expected_type(variables)
     }
 }
@@ -686,9 +736,13 @@ pub enum ValueError {
     CannotAdd(Value, Value),
     CannotMultiply(Value, Value),
     CannotSubtract(Value, Value),
-    PropertyNotFound { value: Value, property: Identifier },
-    IndexOutOfBounds { value: Value, index: i64 },
+    CannotLessThan(Value, Value),
+    CannotLessThanOrEqual(Value, Value),
+    CannotGreaterThan(Value, Value),
+    CannotGreaterThanOrEqual(Value, Value),
     ExpectedList(Value),
+    IndexOutOfBounds { value: Value, index: i64 },
+    PropertyNotFound { value: Value, property: Identifier },
 }
 
 impl Error for ValueError {}
@@ -702,6 +756,12 @@ impl Display for ValueError {
             }
             ValueError::CannotSubtract(left, right) => {
                 write!(f, "Cannot subtract {} and {}", left, right)
+            }
+            ValueError::CannotLessThan(left, right)
+            | ValueError::CannotLessThanOrEqual(left, right)
+            | ValueError::CannotGreaterThan(left, right)
+            | ValueError::CannotGreaterThanOrEqual(left, right) => {
+                write!(f, "Cannot compare {} and {}", left, right)
             }
             ValueError::PropertyNotFound { value, property } => {
                 write!(f, "{} does not have a property named {}", value, property)

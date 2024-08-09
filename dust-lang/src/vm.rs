@@ -6,8 +6,8 @@ use std::{
 };
 
 use crate::{
-    parse, AbstractSyntaxTree, Analyzer, AnalyzerError, BuiltInFunctionError, Identifier, Node,
-    ParseError, Span, Statement, Value, ValueError,
+    abstract_tree::ComparisonOperator, parse, AbstractSyntaxTree, Analyzer, AnalyzerError,
+    BuiltInFunctionError, Identifier, Node, ParseError, Span, Statement, Value, ValueError,
 };
 
 pub fn run(
@@ -48,10 +48,10 @@ impl Vm {
 
     fn run_node(
         &self,
-        node: Node,
+        node: Node<Statement>,
         variables: &mut HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError> {
-        match node.statement {
+        match node.inner {
             Statement::Add(left, right) => {
                 let left_span = left.position;
                 let left = if let Some(value) = self.run_node(*left, variables)? {
@@ -79,7 +79,7 @@ impl Vm {
                 Ok(Some(sum))
             }
             Statement::Assign(left, right) => {
-                let identifier = if let Statement::Identifier(identifier) = &left.statement {
+                let identifier = if let Statement::Identifier(identifier) = &left.inner {
                     identifier
                 } else {
                     return Err(VmError::ExpectedIdentifier {
@@ -131,6 +131,54 @@ impl Vm {
                         })?;
 
                 Ok(function_call_return)
+            }
+            Statement::Comparison(left, operator, right) => {
+                let left_span = left.position;
+                let left = if let Some(value) = self.run_node(*left, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: left_span,
+                    });
+                };
+                let right_span = right.position;
+                let right = if let Some(value) = self.run_node(*right, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: right_span,
+                    });
+                };
+                let comparison = match operator.inner {
+                    ComparisonOperator::GreaterThan => {
+                        left.greater_than(&right)
+                            .map_err(|value_error| VmError::ValueError {
+                                error: value_error,
+                                position: (left_span.0, right_span.1),
+                            })?
+                    }
+                    ComparisonOperator::GreaterThanOrEqual => left
+                        .greater_than_or_equal(&right)
+                        .map_err(|value_error| VmError::ValueError {
+                            error: value_error,
+                            position: (left_span.0, right_span.1),
+                        })?,
+                    ComparisonOperator::LessThan => {
+                        left.less_than(&right)
+                            .map_err(|value_error| VmError::ValueError {
+                                error: value_error,
+                                position: (left_span.0, right_span.1),
+                            })?
+                    }
+                    ComparisonOperator::LessThanOrEqual => left
+                        .less_than_or_equal(&right)
+                        .map_err(|value_error| VmError::ValueError {
+                            error: value_error,
+                            position: (left_span.0, right_span.1),
+                        })?,
+                };
+
+                Ok(Some(comparison))
             }
             Statement::Constant(value) => Ok(Some(value.clone())),
             Statement::FunctionCall {
@@ -240,7 +288,7 @@ impl Vm {
                 let right_span = right.position;
 
                 if let (Some(list), Statement::Constant(value)) =
-                    (left_value.as_list(), &right.statement)
+                    (left_value.as_list(), &right.inner)
                 {
                     if let Some(index) = value.as_integer() {
                         let value = list.get(index as usize).cloned();
@@ -256,7 +304,7 @@ impl Vm {
                         type_arguments: _,
                         value_arguments: value_argument_nodes,
                     },
-                ) = (left_value, right.statement)
+                ) = (left_value, right.inner)
                 {
                     let mut value_arguments = Vec::new();
 
@@ -453,6 +501,46 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn less_than() {
+        let input = "2 < 3";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
+
+    #[test]
+    fn less_than_or_equal() {
+        let input = "42 <= 42";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
+
+    #[test]
+    fn greater_than() {
+        let input = "2 > 3";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(false)))
+        );
+    }
+
+    #[test]
+    fn greater_than_or_equal() {
+        let input = "42 >= 42";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
 
     #[test]
     fn integer_saturating_add() {

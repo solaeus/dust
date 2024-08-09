@@ -167,6 +167,28 @@ impl Lexer {
 
                     (Token::Dot, (self.position - 1, self.position))
                 }
+                '>' => {
+                    if let Some('=') = self.peek_second_char(source) {
+                        self.position += 2;
+
+                        (Token::GreaterEqual, (self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        (Token::Greater, (self.position - 1, self.position))
+                    }
+                }
+                '<' => {
+                    if let Some('=') = self.peek_second_char(source) {
+                        self.position += 2;
+
+                        (Token::LessEqual, (self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        (Token::Less, (self.position - 1, self.position))
+                    }
+                }
                 _ => {
                     self.position += 1;
 
@@ -392,6 +414,46 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn greater_than() {
+        let input = ">";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Greater, (0, 1)), (Token::Eof, (1, 1))])
+        )
+    }
+
+    #[test]
+    fn greater_than_or_equal() {
+        let input = ">=";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::GreaterEqual, (0, 2)), (Token::Eof, (2, 2))])
+        )
+    }
+
+    #[test]
+    fn less_than() {
+        let input = "<";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Less, (0, 1)), (Token::Eof, (1, 1))])
+        )
+    }
+
+    #[test]
+    fn less_than_or_equal() {
+        let input = "<=";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::LessEqual, (0, 2)), (Token::Eof, (2, 2))])
+        )
+    }
 
     #[test]
     fn infinity() {
