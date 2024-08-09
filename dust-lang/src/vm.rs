@@ -96,6 +96,7 @@ impl Vm {
                     BinaryOperator::Add => left_value.add(&right_value),
                     BinaryOperator::And => left_value.and(&right_value),
                     BinaryOperator::Divide => left_value.divide(&right_value),
+                    BinaryOperator::Equal => Ok(Value::boolean(left_value == right_value)),
                     BinaryOperator::Greater => left_value.greater_than(&right_value),
                     BinaryOperator::GreaterOrEqual => {
                         left_value.greater_than_or_equal(&right_value)
@@ -432,6 +433,26 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn map_equal() {
+        let input = "{ y = 'foo' } == { y = 'foo' }";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
+
+    #[test]
+    fn integer_equal() {
+        let input = "42 == 42";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::boolean(true)))
+        );
+    }
 
     #[test]
     fn modulo() {

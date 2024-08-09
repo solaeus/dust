@@ -238,6 +238,7 @@ pub enum BinaryOperator {
     Subtract,
 
     // Comparison
+    Equal,
     Greater,
     GreaterOrEqual,
     Less,
@@ -254,6 +255,7 @@ impl Display for BinaryOperator {
             BinaryOperator::Add => write!(f, "+"),
             BinaryOperator::And => write!(f, "&&"),
             BinaryOperator::Divide => write!(f, "/"),
+            BinaryOperator::Equal => write!(f, "=="),
             BinaryOperator::Greater => write!(f, ">"),
             BinaryOperator::GreaterOrEqual => write!(f, ">="),
             BinaryOperator::Less => write!(f, "<"),

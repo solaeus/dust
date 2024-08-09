@@ -143,9 +143,15 @@ impl Lexer {
                     (Token::RightParenthesis, (self.position - 1, self.position))
                 }
                 '=' => {
-                    self.position += 1;
+                    if let Some('=') = self.peek_second_char(source) {
+                        self.position += 2;
 
-                    (Token::Equal, (self.position - 1, self.position))
+                        (Token::DoubleEqual, (self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        (Token::Equal, (self.position - 1, self.position))
+                    }
                 }
                 '[' => {
                     self.position += 1;
@@ -434,6 +440,21 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn equal() {
+        let input = "42 == 42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(42), (0, 2)),
+                (Token::DoubleEqual, (3, 5)),
+                (Token::Integer(42), (6, 8)),
+                (Token::Eof, (8, 8)),
+            ])
+        )
+    }
 
     #[test]
     fn modulo() {

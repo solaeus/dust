@@ -319,6 +319,23 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
+                (Token::DoubleEqual, _) => {
+                    let operator = Node::new(BinaryOperator::Equal, self.current.1);
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
+                        (left_start, right_end),
+                    ));
+                }
                 _ => {}
             }
         }
@@ -539,6 +556,7 @@ impl<'src> Parser<'src> {
 
     fn current_precedence(&self) -> u8 {
         match self.current.0 {
+            Token::DoubleEqual => 6,
             Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual => 5,
             Token::Dot => 4,
             Token::Percent => 3,
@@ -612,6 +630,26 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn equal() {
+        let input = "42 == 42";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(42)), (0, 2))),
+                        operator: Node::new(BinaryOperator::Equal, (3, 5)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(42)), (6, 8)))
+                    },
+                    (0, 8)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn modulo() {
