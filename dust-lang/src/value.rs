@@ -161,6 +161,14 @@ impl Display for Value {
         match self.inner().as_ref() {
             ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
             ValueInner::Float(float) => {
+                if float == &f64::INFINITY {
+                    return write!(f, "Infinity");
+                }
+
+                if float == &f64::NEG_INFINITY {
+                    return write!(f, "-Infinity");
+                }
+
                 write!(f, "{float}")?;
 
                 if &float.floor() == float {

@@ -69,7 +69,12 @@ impl Vm {
                         position: right_span,
                     });
                 };
-                let sum = left.add(&right)?;
+                let sum = left
+                    .add(&right)
+                    .map_err(|value_error| VmError::ValueError {
+                        error: value_error,
+                        position: (left_span.0, right_span.1),
+                    })?;
 
                 Ok(Some(sum))
             }
@@ -199,7 +204,12 @@ impl Vm {
                         position: right_span,
                     });
                 };
-                let product = left.multiply(&right)?;
+                let product = left
+                    .multiply(&right)
+                    .map_err(|value_error| VmError::ValueError {
+                        error: value_error,
+                        position: (left_span.0, right_span.1),
+                    })?;
 
                 Ok(Some(product))
             }
@@ -276,7 +286,12 @@ impl Vm {
                         position: right_span,
                     });
                 };
-                let difference = left.subtract(&right)?;
+                let difference =
+                    left.subtract(&right)
+                        .map_err(|value_error| VmError::ValueError {
+                            error: value_error,
+                            position: (left_span.0, right_span.1),
+                        })?;
 
                 Ok(Some(difference))
             }
@@ -288,7 +303,7 @@ impl Vm {
 pub enum VmError {
     AnaylyzerError(AnalyzerError),
     ParseError(ParseError),
-    ValueError(ValueError),
+    ValueError { error: ValueError, position: Span },
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
@@ -319,18 +334,12 @@ impl From<ParseError> for VmError {
     }
 }
 
-impl From<ValueError> for VmError {
-    fn from(error: ValueError) -> Self {
-        Self::ValueError(error)
-    }
-}
-
 impl Error for VmError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::AnaylyzerError(analyzer_error) => Some(analyzer_error),
             Self::ParseError(parse_error) => Some(parse_error),
-            Self::ValueError(value_error) => Some(value_error),
+            Self::ValueError { error, .. } => Some(error),
             Self::BuiltInFunctionCallError(built_in_function_error) => {
                 Some(built_in_function_error)
             }
@@ -344,7 +353,7 @@ impl Display for VmError {
         match self {
             Self::AnaylyzerError(analyzer_error) => write!(f, "{}", analyzer_error),
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
-            Self::ValueError(value_error) => write!(f, "{}", value_error),
+            Self::ValueError { error, .. } => write!(f, "{}", error),
             Self::BuiltInFunctionCallError(built_in_function_error) => {
                 write!(f, "{}", built_in_function_error)
             }

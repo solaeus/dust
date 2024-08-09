@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 /// Source code token.
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Token<'src> {
     Eof,
 
@@ -88,6 +88,17 @@ impl<'src> Display for Token<'src> {
             Token::LeftSquareBrace => write!(f, "["),
             Token::RightSquareBrace => write!(f, "]"),
             Token::Minus => write!(f, "-"),
+        }
+    }
+}
+
+impl<'src> PartialEq for Token<'src> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Token::Float(left), Token::Float(right)) => left.to_bits() == right.to_bits(),
+            _ => {
+                matches!(self, other)
+            }
         }
     }
 }

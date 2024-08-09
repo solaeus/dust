@@ -106,6 +106,12 @@ impl Lexer {
                 '-' => {
                     if let Some('0'..='9') = self.peek_second_char(source) {
                         self.lex_number(source)?
+                    } else if "-Infinity" == self.peek_chars(source, 9) {
+                        self.position += 9;
+                        (
+                            Token::Float(f64::NEG_INFINITY),
+                            (self.position - 9, self.position),
+                        )
                     } else {
                         self.position += 1;
                         (Token::Minus, (self.position - 1, self.position))
@@ -150,7 +156,7 @@ impl Lexer {
                     self.position += 1;
                     (Token::Dot, (self.position - 1, self.position))
                 }
-                _ => (Token::Eof, (self.position, self.position)),
+                _ => return Err(LexError::UnexpectedCharacter(c)),
             }
         } else {
             (Token::Eof, (self.position, self.position))
@@ -188,6 +194,17 @@ impl Lexer {
         source[self.position..].chars().nth(1)
     }
 
+    /// Peek the next `n` characters without consuming them.
+    fn peek_chars<'src>(&self, source: &'src str, n: usize) -> &'src str {
+        let remaining_source = &source[self.position..];
+
+        if remaining_source.len() < n {
+            remaining_source
+        } else {
+            &remaining_source[..n]
+        }
+    }
+
     /// Lex an integer or float token.
     fn lex_number<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
@@ -206,8 +223,21 @@ impl Lexer {
 
                     self.next_char(source);
 
-                    while let Some('0'..='9') = self.peek_char(source) {
-                        self.next_char(source);
+                    loop {
+                        let peek_char = self.peek_char(source);
+
+                        if let Some('0'..='9') = peek_char {
+                            self.next_char(source);
+                        } else if let Some('e') = peek_char {
+                            if let Some('0'..='9') = self.peek_second_char(source) {
+                                self.next_char(source);
+                                self.next_char(source);
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
                     }
 
                     is_float = true;
@@ -242,7 +272,7 @@ impl Lexer {
         let start_pos = self.position;
 
         while let Some(c) = self.peek_char(source) {
-            if c.is_ascii_alphanumeric() || c == '_' {
+            if c.is_ascii_alphabetic() || c == '_' {
                 self.next_char(source);
             } else {
                 break;
@@ -253,9 +283,11 @@ impl Lexer {
         let token = match string {
             "true" => Token::Boolean(true),
             "false" => Token::Boolean(false),
+            "Infinity" => Token::Float(f64::INFINITY),
             "is_even" => Token::IsEven,
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
+            "NaN" => Token::Float(f64::NAN),
             "read_line" => Token::ReadLine,
             "write_line" => Token::WriteLine,
             _ => Token::Identifier(string),
@@ -298,6 +330,7 @@ impl Default for Lexer {
 pub enum LexError {
     FloatError(ParseFloatError),
     IntegerError(ParseIntError),
+    UnexpectedCharacter(char),
 }
 
 impl Error for LexError {
@@ -305,6 +338,7 @@ impl Error for LexError {
         match self {
             Self::FloatError(parse_float_error) => Some(parse_float_error),
             Self::IntegerError(parse_int_error) => Some(parse_int_error),
+            Self::UnexpectedCharacter(_) => None,
         }
     }
 }
@@ -317,6 +351,9 @@ impl Display for LexError {
             }
             Self::IntegerError(parse_int_error) => {
                 write!(f, "Failed to parse integer: {}", parse_int_error)
+            }
+            Self::UnexpectedCharacter(character) => {
+                write!(f, "Unexpected character: '{}'", character)
             }
         }
     }
@@ -336,8 +373,50 @@ impl From<ParseIntError> for LexError {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+
+    #[test]
+    fn infinity() {
+        let input = "Infinity";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Float(f64::INFINITY), (0, 8)),
+                (Token::Eof, (8, 8)),
+            ])
+        )
+    }
+
+    #[test]
+    fn negative_infinity() {
+        let input = "-Infinity";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Float(f64::NEG_INFINITY), (0, 9)),
+                (Token::Eof, (9, 9)),
+            ])
+        )
+    }
+
+    #[test]
+    fn nan() {
+        let input = "NaN";
+
+        assert!(lex(input).is_ok_and(|tokens| tokens[0].0 == Token::Float(f64::NAN)));
+    }
+
+    #[test]
+    fn complex_float() {
+        let input = "42.42e42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Float(42.42e42), (0, 8)), (Token::Eof, (8, 8)),])
+        )
+    }
 
     #[test]
     fn max_integer() {

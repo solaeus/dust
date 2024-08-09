@@ -21,7 +21,7 @@ impl<'src> DustError<'src> {
         let title = match &self.vm_error {
             VmError::AnaylyzerError(_) => "Analyzer error",
             VmError::ParseError(_) => "Parse error",
-            VmError::ValueError(_) => "Value error",
+            VmError::ValueError { .. } => "Value error",
             VmError::BuiltInFunctionCallError(_) => "Runtime error",
             _ => "Analysis Failure",
         };
@@ -36,7 +36,7 @@ impl<'src> DustError<'src> {
                 AnalyzerError::UnexpectedIdentifier { position, .. } => position,
             },
             VmError::ParseError(_) => todo!(),
-            VmError::ValueError(_) => todo!(),
+            VmError::ValueError { position, .. } => position,
             VmError::BuiltInFunctionCallError(_) => todo!(),
             VmError::ExpectedIdentifier { position } => position,
             VmError::ExpectedIdentifierOrInteger { position } => position,
