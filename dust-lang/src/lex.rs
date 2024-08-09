@@ -3,7 +3,11 @@
 //! This module provides two lexing options:
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
-use std::num::{ParseFloatError, ParseIntError};
+use std::{
+    error::Error,
+    fmt::{self, Display, Formatter},
+    num::{ParseFloatError, ParseIntError},
+};
 
 use crate::{Span, Token};
 
@@ -282,6 +286,28 @@ impl Default for Lexer {
 pub enum LexError {
     FloatError(ParseFloatError),
     IntegerError(ParseIntError),
+}
+
+impl Error for LexError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::FloatError(parse_float_error) => Some(parse_float_error),
+            Self::IntegerError(parse_int_error) => Some(parse_int_error),
+        }
+    }
+}
+
+impl Display for LexError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::FloatError(parse_float_error) => {
+                write!(f, "Failed to parse float: {}", parse_float_error)
+            }
+            Self::IntegerError(parse_int_error) => {
+                write!(f, "Failed to parse integer: {}", parse_int_error)
+            }
+        }
+    }
 }
 
 impl From<ParseFloatError> for LexError {

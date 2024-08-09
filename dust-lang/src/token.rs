@@ -121,3 +121,30 @@ pub enum TokenOwned {
     RightSquareBrace,
     Star,
 }
+
+impl Display for TokenOwned {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenOwned::Eof => write!(f, "EOF"),
+            TokenOwned::Identifier(text) => write!(f, "{text}"),
+            TokenOwned::Boolean(boolean) => write!(f, "{boolean}"),
+            TokenOwned::Float(float) => write!(f, "{float}"),
+            TokenOwned::Integer(integer) => write!(f, "{integer}"),
+            TokenOwned::String(string) => write!(f, "{string}"),
+            TokenOwned::IsEven => write!(f, "is_even"),
+            TokenOwned::IsOdd => write!(f, "is_odd"),
+            TokenOwned::Length => write!(f, "length"),
+            TokenOwned::ReadLine => write!(f, "read_line"),
+            TokenOwned::WriteLine => write!(f, "write_line"),
+            TokenOwned::Comma => write!(f, ","),
+            TokenOwned::Dot => write!(f, "."),
+            TokenOwned::Equal => write!(f, "="),
+            TokenOwned::Plus => write!(f, "+"),
+            TokenOwned::Star => write!(f, "*"),
+            TokenOwned::LeftParenthesis => write!(f, "("),
+            TokenOwned::RightParenthesis => write!(f, ")"),
+            TokenOwned::LeftSquareBrace => write!(f, "["),
+            TokenOwned::RightSquareBrace => write!(f, "]"),
+        }
+    }
+}

@@ -8,3 +8,5 @@ readme.workspace = true
 repository.workspace = true
 
 [dependencies]
+clap = { version = "4.5.14", features = ["derive"] }
+dust-lang = { path = "../dust-lang" }

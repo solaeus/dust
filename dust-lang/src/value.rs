@@ -2,6 +2,7 @@
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
+    error::Error,
     fmt::{self, Display, Formatter},
     ops::Range,
     sync::Arc,
@@ -655,4 +656,21 @@ pub enum ValueError {
     PropertyNotFound { value: Value, property: Identifier },
     IndexOutOfBounds { value: Value, index: i64 },
     ExpectedList(Value),
+}
+
+impl Error for ValueError {}
+
+impl Display for ValueError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ValueError::CannotAdd(left, right) => write!(f, "Cannot add {} and {}", left, right),
+            ValueError::PropertyNotFound { value, property } => {
+                write!(f, "{} does not have a property named {}", value, property)
+            }
+            ValueError::IndexOutOfBounds { value, index } => {
+                write!(f, "{} does not have an index of {}", value, index)
+            }
+            ValueError::ExpectedList(value) => write!(f, "{} is not a list", value),
+        }
+    }
 }

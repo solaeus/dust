@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::{
     parse, AbstractSyntaxTree, Analyzer, AnalyzerError, BuiltInFunctionError, Identifier, Node,
@@ -134,9 +138,10 @@ impl Vm {
                 let function = if let Some(function) = function_value.as_function() {
                     function
                 } else {
-                    return Err(VmError::AnaylyzerError(AnalyzerError::ExpectedFunction {
+                    return Err(VmError::ExpectedFunction {
+                        actual: function_value,
                         position: function_position,
-                    }));
+                    });
                 };
 
                 let value_parameters = if let Some(value_nodes) = value_parameter_nodes {
@@ -249,6 +254,7 @@ pub enum VmError {
     ExpectedIdentifier { position: Span },
     ExpectedIdentifierOrInteger { position: Span },
     ExpectedInteger { position: Span },
+    ExpectedFunction { actual: Value, position: Span },
     ExpectedList { position: Span },
     ExpectedValue { position: Span },
 }
@@ -274,6 +280,59 @@ impl From<ParseError> for VmError {
 impl From<ValueError> for VmError {
     fn from(error: ValueError) -> Self {
         Self::ValueError(error)
+    }
+}
+
+impl Error for VmError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::AnaylyzerError(analyzer_error) => Some(analyzer_error),
+            Self::ParseError(parse_error) => Some(parse_error),
+            Self::ValueError(value_error) => Some(value_error),
+            Self::BuiltInFunctionCallFailed(built_in_function_error) => {
+                Some(built_in_function_error)
+            }
+            _ => None,
+        }
+    }
+}
+
+impl Display for VmError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::AnaylyzerError(analyzer_error) => write!(f, "{}", analyzer_error),
+            Self::ParseError(parse_error) => write!(f, "{}", parse_error),
+            Self::ValueError(value_error) => write!(f, "{}", value_error),
+            Self::BuiltInFunctionCallFailed(built_in_function_error) => {
+                write!(f, "{}", built_in_function_error)
+            }
+            Self::ExpectedFunction { actual, position } => {
+                write!(
+                    f,
+                    "Expected a function, but got: {} at position: {:?}",
+                    actual, position
+                )
+            }
+            Self::ExpectedIdentifier { position } => {
+                write!(f, "Expected an identifier at position: {:?}", position)
+            }
+            Self::ExpectedIdentifierOrInteger { position } => {
+                write!(
+                    f,
+                    "Expected an identifier or integer at position: {:?}",
+                    position
+                )
+            }
+            Self::ExpectedInteger { position } => {
+                write!(f, "Expected an integer at position: {:?}", position)
+            }
+            Self::ExpectedList { position } => {
+                write!(f, "Expected a list at position: {:?}", position)
+            }
+            Self::ExpectedValue { position } => {
+                write!(f, "Expected a value at position: {:?}", position)
+            }
+        }
     }
 }
 

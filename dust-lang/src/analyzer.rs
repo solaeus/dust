@@ -5,7 +5,11 @@
 /// hash map of variables:
 /// - `analyze` convenience function
 /// - `Analyzer` struct
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    error::Error,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::{AbstractSyntaxTree, BuiltInFunction, Identifier, Node, Span, Statement, Type, Value};
 
@@ -180,12 +184,42 @@ impl<'a> Analyzer<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
     ExpectedBoolean { actual: Node },
-    ExpectedFunction { position: Span },
+    ExpectedFunction { actual: Node },
     ExpectedIdentifier { actual: Node },
     ExpectedIdentifierOrValue { actual: Node },
     ExpectedIntegerOrFloat { actual: Node },
     ExpectedIntegerFloatOrString { actual: Node },
     UnexpectedIdentifier { identifier: Node },
+}
+
+impl Error for AnalyzerError {}
+
+impl Display for AnalyzerError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            AnalyzerError::ExpectedBoolean { actual } => {
+                write!(f, "Expected boolean, found {}", actual)
+            }
+            AnalyzerError::ExpectedFunction { actual } => {
+                write!(f, "Expected function, found {}", actual)
+            }
+            AnalyzerError::ExpectedIdentifier { actual } => {
+                write!(f, "Expected identifier, found {}", actual)
+            }
+            AnalyzerError::ExpectedIdentifierOrValue { actual } => {
+                write!(f, "Expected identifier or value, found {}", actual)
+            }
+            AnalyzerError::ExpectedIntegerOrFloat { actual } => {
+                write!(f, "Expected integer or float, found {}", actual)
+            }
+            AnalyzerError::ExpectedIntegerFloatOrString { actual } => {
+                write!(f, "Expected integer, float, or string, found {}", actual)
+            }
+            AnalyzerError::UnexpectedIdentifier { identifier } => {
+                write!(f, "Unexpected identifier {}", identifier)
+            }
+        }
+    }
 }
 
 #[cfg(test)]

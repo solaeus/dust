@@ -3,7 +3,11 @@
 /// This module provides two parsing options:
 /// - `parse` convenience function
 /// - `Parser` struct, which parses the input a statement at a time
-use std::collections::VecDeque;
+use std::{
+    collections::VecDeque,
+    error::Error,
+    fmt::{self, Display, Formatter},
+};
 
 use crate::{
     built_in_function::BuiltInFunction, token::TokenOwned, AbstractSyntaxTree, Identifier,
@@ -349,6 +353,39 @@ pub enum ParseError {
     ExpectedClosingSquareBrace { actual: TokenOwned, span: Span },
     ExpectedOpeningParenthesis { actual: TokenOwned, span: Span },
     UnexpectedToken(TokenOwned),
+}
+
+impl Error for ParseError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::LexError(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::LexError(error) => write!(f, "{}", error),
+            Self::ExpectedClosingParenthesis { actual, span } => write!(
+                f,
+                "Expected closing parenthesis, found {} at {:?}",
+                actual, span
+            ),
+            Self::ExpectedClosingSquareBrace { actual, span } => write!(
+                f,
+                "Expected closing square brace, found {:?} at {:?}",
+                actual, span
+            ),
+            Self::ExpectedOpeningParenthesis { actual, span } => write!(
+                f,
+                "Expected opening parenthesis, found {:?} at {:?}",
+                actual, span
+            ),
+            Self::UnexpectedToken(actual) => write!(f, "Unexpected token {:?}", actual),
+        }
+    }
 }
 
 impl From<LexError> for ParseError {

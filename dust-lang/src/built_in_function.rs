@@ -1,4 +1,5 @@
 use std::{
+    error::Error,
     fmt::{self, Display, Formatter},
     io::{self, stdin},
 };
@@ -137,5 +138,19 @@ pub enum BuiltInFunctionError {
 impl From<io::Error> for BuiltInFunctionError {
     fn from(error: io::Error) -> Self {
         Self::Io(error.kind())
+    }
+}
+
+impl Error for BuiltInFunctionError {}
+
+impl Display for BuiltInFunctionError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BuiltInFunctionError::ExpectedInteger => write!(f, "Expected an integer"),
+            BuiltInFunctionError::Io(error_kind) => write!(f, "I/O error: {}", error_kind),
+            BuiltInFunctionError::WrongNumberOfValueArguments => {
+                write!(f, "Wrong number of value arguments")
+            }
+        }
     }
 }

@@ -8,6 +8,7 @@
 pub mod abstract_tree;
 pub mod analyzer;
 pub mod built_in_function;
+pub mod dust_error;
 pub mod identifier;
 pub mod lex;
 pub mod parse;
