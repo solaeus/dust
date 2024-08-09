@@ -233,6 +233,7 @@ pub enum BinaryOperator {
     // Math
     Add,
     Divide,
+    Modulo,
     Multiply,
     Subtract,
 
@@ -257,6 +258,7 @@ impl Display for BinaryOperator {
             BinaryOperator::GreaterOrEqual => write!(f, ">="),
             BinaryOperator::Less => write!(f, "<"),
             BinaryOperator::LessOrEqual => write!(f, "<="),
+            BinaryOperator::Modulo => write!(f, "%"),
             BinaryOperator::Multiply => write!(f, "*"),
             BinaryOperator::Or => write!(f, "||"),
             BinaryOperator::Subtract => write!(f, "-"),

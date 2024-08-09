@@ -1,5 +1,0 @@
-thread = {
-	sleep = fn (milliseconds: int) {
-		__SLEEP__(milliseconds)
-	}
-}

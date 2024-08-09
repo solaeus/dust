@@ -102,6 +102,7 @@ impl Vm {
                     }
                     BinaryOperator::Less => left_value.less_than(&right_value),
                     BinaryOperator::LessOrEqual => left_value.less_than_or_equal(&right_value),
+                    BinaryOperator::Modulo => left_value.modulo(&right_value),
                     BinaryOperator::Multiply => left_value.multiply(&right_value),
                     BinaryOperator::Or => left_value.or(&right_value),
                     BinaryOperator::Subtract => left_value.subtract(&right_value),
@@ -431,6 +432,13 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn modulo() {
+        let input = "42 % 2";
+
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(0))));
+    }
 
     #[test]
     fn divide() {

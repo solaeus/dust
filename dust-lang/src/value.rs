@@ -178,6 +178,20 @@ impl Value {
         }
     }
 
+    pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left % right)),
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                if right == &0 {
+                    Err(ValueError::DivisionByZero)
+                } else {
+                    Ok(Value::integer(left % right))
+                }
+            }
+            _ => Err(ValueError::CannotModulo(self.clone(), other.clone())),
+        }
+    }
+
     pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
         match (self.inner().as_ref(), other.inner().as_ref()) {
             (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::boolean(left < right)),
@@ -778,6 +792,7 @@ pub enum ValueError {
     CannotGreaterThanOrEqual(Value, Value),
     CannotLessThan(Value, Value),
     CannotLessThanOrEqual(Value, Value),
+    CannotModulo(Value, Value),
     CannotMultiply(Value, Value),
     CannotSubtract(Value, Value),
     CannotOr(Value, Value),
@@ -799,6 +814,9 @@ impl Display for ValueError {
             ),
             ValueError::CannotDivide(left, right) => {
                 write!(f, "Cannot divide {} by {}", left, right)
+            }
+            ValueError::CannotModulo(left, right) => {
+                write!(f, "Cannot modulo {} by {}", left, right)
             }
             ValueError::CannotMultiply(left, right) => {
                 write!(f, "Cannot multiply {} and {}", left, right)

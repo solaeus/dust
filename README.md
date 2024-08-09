@@ -36,7 +36,7 @@ count_slowly = fn (
 
 async {
 	count_slowly(200) # Finishes last
-	count_slowly(100) # Finishes seconds
+	count_slowly(100) # Finishes second
 	count_slowly(50)  # Finishes first
 }
 ```

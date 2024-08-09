@@ -1,5 +1,0 @@
-json = {
-	parse = fn <T> (input: str) -> T {
-		__JSON_PARSE__::<T>(input)
-	}
-}

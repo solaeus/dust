@@ -119,7 +119,7 @@ impl Lexer {
                         (Token::Minus, (self.position - 1, self.position))
                     }
                 }
-                'a'..='z' | 'A'..='Z' => self.lex_alphabetical(source)?,
+                'a'..='z' | 'A'..='Z' => self.lex_alphanumeric(source)?,
                 '"' => self.lex_string('"', source)?,
                 '\'' => self.lex_string('\'', source)?,
                 '+' => {
@@ -203,6 +203,11 @@ impl Lexer {
                     self.position += 1;
 
                     (Token::Slash, (self.position - 1, self.position))
+                }
+                '%' => {
+                    self.position += 1;
+
+                    (Token::Percent, (self.position - 1, self.position))
                 }
                 _ => {
                     self.position += 1;
@@ -320,14 +325,14 @@ impl Lexer {
     }
 
     /// Lex an identifier token.
-    fn lex_alphabetical<'src>(
+    fn lex_alphanumeric<'src>(
         &mut self,
         source: &'src str,
     ) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
 
         while let Some(c) = self.peek_char(source) {
-            if c.is_ascii_alphabetic() || c == '_' {
+            if c.is_ascii_alphanumeric() || c == '_' {
                 self.next_char(source);
             } else {
                 break;
@@ -429,6 +434,21 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn modulo() {
+        let input = "42 % 2";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(42), (0, 2)),
+                (Token::Percent, (3, 4)),
+                (Token::Integer(2), (5, 6)),
+                (Token::Eof, (6, 6)),
+            ])
+        )
+    }
 
     #[test]
     fn divide() {
