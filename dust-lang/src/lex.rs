@@ -103,6 +103,14 @@ impl Lexer {
         let (token, span) = if let Some(c) = self.peek_char(source) {
             match c {
                 '0'..='9' => self.lex_number(source)?,
+                '-' => {
+                    if let Some('0'..='9') = self.peek_second_char(source) {
+                        self.lex_number(source)?
+                    } else {
+                        self.position += 1;
+                        (Token::Minus, (self.position - 1, self.position))
+                    }
+                }
                 'a'..='z' | 'A'..='Z' => self.lex_alphabetical(source)?,
                 '"' => self.lex_string('"', source)?,
                 '\'' => self.lex_string('\'', source)?,
@@ -184,6 +192,10 @@ impl Lexer {
     fn lex_number<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
         let mut is_float = false;
+
+        if let Some('-') = self.peek_char(source) {
+            self.next_char(source);
+        }
 
         while let Some(c) = self.peek_char(source) {
             if c == '.' {
@@ -324,7 +336,59 @@ impl From<ParseIntError> for LexError {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+
+    #[test]
+    fn max_integer() {
+        let input = "9223372036854775807";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(i64::MAX), (0, 19)),
+                (Token::Eof, (19, 19)),
+            ])
+        )
+    }
+
+    #[test]
+    fn min_integer() {
+        let input = "-9223372036854775808";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(i64::MIN), (0, 20)),
+                (Token::Eof, (20, 20)),
+            ])
+        )
+    }
+
+    #[test]
+    fn subtract_negative_integers() {
+        let input = "-42 - -42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(-42), (0, 3)),
+                (Token::Minus, (4, 5)),
+                (Token::Integer(-42), (6, 9)),
+                (Token::Eof, (9, 9)),
+            ])
+        )
+    }
+
+    #[test]
+    fn negative_integer() {
+        let input = "-42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Integer(-42), (0, 3)), (Token::Eof, (3, 3))])
+        )
+    }
 
     #[test]
     fn read_line() {

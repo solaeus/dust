@@ -75,6 +75,9 @@ impl<'a> Analyzer<'a> {
     fn analyze_node(&self, node: &Node) -> Result<(), AnalyzerError> {
         match &node.statement {
             Statement::Add(left, right) => {
+                self.analyze_node(left)?;
+                self.analyze_node(right)?;
+
                 let left_type = left.statement.expected_type(self.variables);
                 let right_type = right.statement.expected_type(self.variables);
 
@@ -95,9 +98,6 @@ impl<'a> Analyzer<'a> {
                         });
                     }
                 }
-
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
             }
             Statement::Assign(left, right) => {
                 if let Statement::Identifier(_) = &left.statement {
@@ -135,6 +135,9 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Multiply(left, right) => {
+                self.analyze_node(left)?;
+                self.analyze_node(right)?;
+
                 if let Some(Type::Integer) | Some(Type::Float) =
                     left.statement.expected_type(self.variables)
                 {
@@ -154,9 +157,6 @@ impl<'a> Analyzer<'a> {
                         position: right.position,
                     });
                 }
-
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
             }
             Statement::PropertyAccess(left, right) => {
                 if let Statement::Identifier(_) | Statement::Constant(_) | Statement::List(_) =
@@ -183,6 +183,30 @@ impl<'a> Analyzer<'a> {
                 }
 
                 self.analyze_node(right)?;
+            }
+            Statement::Subtract(left, right) => {
+                self.analyze_node(left)?;
+                self.analyze_node(right)?;
+
+                let left_type = left.statement.expected_type(self.variables);
+                let right_type = right.statement.expected_type(self.variables);
+
+                match (left_type, right_type) {
+                    (Some(Type::Integer), Some(Type::Integer)) => {}
+                    (Some(Type::Float), Some(Type::Float)) => {}
+                    (Some(Type::Integer), _) | (Some(Type::Float), _) => {
+                        return Err(AnalyzerError::ExpectedIntegerOrFloat {
+                            actual: right.as_ref().clone(),
+                            position: right.position,
+                        });
+                    }
+                    _ => {
+                        return Err(AnalyzerError::ExpectedIntegerOrFloat {
+                            actual: left.as_ref().clone(),
+                            position: left.position,
+                        });
+                    }
+                }
             }
         }
 

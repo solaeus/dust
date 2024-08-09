@@ -183,6 +183,17 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
+                (Token::Minus, _) => {
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::Subtract(Box::new(left_node), Box::new(right_node)),
+                        (left_start, right_end),
+                    ));
+                }
                 _ => {}
             }
         }
@@ -338,8 +349,9 @@ impl<'src> Parser<'src> {
         match self.current.0 {
             Token::Dot => 4,
             Token::Equal => 3,
-            Token::Plus => 1,
             Token::Star => 2,
+            Token::Plus => 1,
+            Token::Minus => 1,
             _ => 0,
         }
     }
@@ -393,6 +405,25 @@ mod tests {
     use crate::Identifier;
 
     use super::*;
+
+    #[test]
+    fn subtract_negative_integers() {
+        let input = "-1 - -2";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Subtract(
+                        Box::new(Node::new(Statement::Constant(Value::integer(-1)), (0, 2))),
+                        Box::new(Node::new(Statement::Constant(Value::integer(-2)), (5, 7)))
+                    ),
+                    (0, 7)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn string_concatenation() {

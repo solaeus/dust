@@ -53,6 +53,7 @@ pub enum Statement {
         value_arguments: Option<Vec<Node>>,
     },
     PropertyAccess(Box<Node>, Box<Node>),
+    Subtract(Box<Node>, Box<Node>),
     List(Vec<Node>),
     Multiply(Box<Node>, Box<Node>),
 
@@ -75,6 +76,7 @@ impl Statement {
             Statement::List(_) => None,
             Statement::Multiply(left, _) => left.statement.expected_type(variables),
             Statement::PropertyAccess(_, _) => None,
+            Statement::Subtract(left, _) => left.statement.expected_type(variables),
         }
     }
 }
@@ -154,7 +156,6 @@ impl Display for Statement {
 
                 write!(f, ")")
             }
-            Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
             Statement::List(nodes) => {
                 write!(f, "[")?;
                 for (i, node) in nodes.iter().enumerate() {
@@ -165,9 +166,11 @@ impl Display for Statement {
                 }
                 write!(f, "]")
             }
+            Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
             Statement::Multiply(left, right) => write!(f, "{left} * {right}"),
             Statement::Constant(value) => write!(f, "{value}"),
             Statement::Identifier(identifier) => write!(f, "{identifier}"),
+            Statement::Subtract(left, right) => write!(f, "{left} - {right}"),
         }
     }
 }

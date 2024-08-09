@@ -29,6 +29,7 @@ pub enum Token<'src> {
     Equal,
     LeftParenthesis,
     LeftSquareBrace,
+    Minus,
     Plus,
     RightParenthesis,
     RightSquareBrace,
@@ -58,6 +59,7 @@ impl<'src> Token<'src> {
             Token::RightParenthesis => TokenOwned::RightParenthesis,
             Token::LeftSquareBrace => TokenOwned::LeftSquareBrace,
             Token::RightSquareBrace => TokenOwned::RightSquareBrace,
+            Token::Minus => TokenOwned::Minus,
         }
     }
 }
@@ -85,6 +87,7 @@ impl<'src> Display for Token<'src> {
             Token::RightParenthesis => write!(f, ")"),
             Token::LeftSquareBrace => write!(f, "["),
             Token::RightSquareBrace => write!(f, "]"),
+            Token::Minus => write!(f, "-"),
         }
     }
 }
@@ -117,6 +120,7 @@ pub enum TokenOwned {
     Equal,
     LeftParenthesis,
     LeftSquareBrace,
+    Minus,
     Plus,
     RightParenthesis,
     RightSquareBrace,
@@ -146,6 +150,7 @@ impl Display for TokenOwned {
             TokenOwned::RightParenthesis => write!(f, ")"),
             TokenOwned::LeftSquareBrace => write!(f, "["),
             TokenOwned::RightSquareBrace => write!(f, "]"),
+            TokenOwned::Minus => write!(f, "-"),
         }
     }
 }

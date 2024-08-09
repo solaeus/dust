@@ -129,9 +129,29 @@ impl Value {
         match (self.inner().as_ref(), other.inner().as_ref()) {
             (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left + right)),
             (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::integer(left + right))
+                Ok(Value::integer(left.saturating_add(*right)))
             }
             _ => Err(ValueError::CannotAdd(self.clone(), other.clone())),
+        }
+    }
+
+    pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left - right)),
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                Ok(Value::integer(left.saturating_sub(*right)))
+            }
+            _ => Err(ValueError::CannotSubtract(self.clone(), other.clone())),
+        }
+    }
+
+    pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left * right)),
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                Ok(Value::integer(left * right))
+            }
+            _ => Err(ValueError::CannotMultiply(self.clone(), other.clone())),
         }
     }
 }
@@ -653,6 +673,8 @@ impl Display for Function {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueError {
     CannotAdd(Value, Value),
+    CannotMultiply(Value, Value),
+    CannotSubtract(Value, Value),
     PropertyNotFound { value: Value, property: Identifier },
     IndexOutOfBounds { value: Value, index: i64 },
     ExpectedList(Value),
@@ -664,6 +686,12 @@ impl Display for ValueError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ValueError::CannotAdd(left, right) => write!(f, "Cannot add {} and {}", left, right),
+            ValueError::CannotMultiply(left, right) => {
+                write!(f, "Cannot multiply {} and {}", left, right)
+            }
+            ValueError::CannotSubtract(left, right) => {
+                write!(f, "Cannot subtract {} and {}", left, right)
+            }
             ValueError::PropertyNotFound { value, property } => {
                 write!(f, "{} does not have a property named {}", value, property)
             }

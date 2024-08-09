@@ -182,7 +182,27 @@ impl Vm {
 
                 Ok(Some(Value::list(values)))
             }
-            Statement::Multiply(_, _) => todo!(),
+            Statement::Multiply(left, right) => {
+                let left_span = left.position;
+                let left = if let Some(value) = self.run_node(*left, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: left_span,
+                    });
+                };
+                let right_span = right.position;
+                let right = if let Some(value) = self.run_node(*right, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: right_span,
+                    });
+                };
+                let product = left.multiply(&right)?;
+
+                Ok(Some(product))
+            }
             Statement::PropertyAccess(left, right) => {
                 let left_span = left.position;
                 let left_value = if let Some(value) = self.run_node(*left, variables)? {
@@ -238,6 +258,27 @@ impl Vm {
                 Err(VmError::ExpectedIdentifierOrInteger {
                     position: right_span,
                 })
+            }
+            Statement::Subtract(left, right) => {
+                let left_span = left.position;
+                let left = if let Some(value) = self.run_node(*left, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: left_span,
+                    });
+                };
+                let right_span = right.position;
+                let right = if let Some(value) = self.run_node(*right, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: right_span,
+                    });
+                };
+                let difference = left.subtract(&right)?;
+
+                Ok(Some(difference))
             }
         }
     }
@@ -340,6 +381,33 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn integer_saturating_add() {
+        let input = "9223372036854775807 + 1";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::integer(i64::MAX)))
+        );
+    }
+
+    #[test]
+    fn integer_saturating_sub() {
+        let input = "-9223372036854775808 - 1";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::integer(i64::MIN)))
+        );
+    }
+
+    #[test]
+    fn multiply() {
+        let input = "2 * 3";
+
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(6))));
+    }
 
     #[test]
     fn boolean() {
