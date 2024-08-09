@@ -85,11 +85,13 @@ impl<'a> Analyzer<'a> {
                     (Some(Type::Integer), _) | (Some(Type::Float), _) | (Some(Type::String), _) => {
                         return Err(AnalyzerError::ExpectedIntegerFloatOrString {
                             actual: right.as_ref().clone(),
+                            position: right.position,
                         });
                     }
                     _ => {
                         return Err(AnalyzerError::ExpectedIntegerFloatOrString {
                             actual: left.as_ref().clone(),
+                            position: left.position,
                         });
                     }
                 }
@@ -103,6 +105,7 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedIdentifier {
                         actual: left.as_ref().clone(),
+                        position: left.position,
                     });
                 }
 
@@ -116,12 +119,14 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedIdentifier {
                         actual: function.as_ref().clone(),
+                        position: function.position,
                     });
                 }
             }
             Statement::Identifier(_) => {
                 return Err(AnalyzerError::UnexpectedIdentifier {
                     identifier: node.clone(),
+                    position: node.position,
                 });
             }
             Statement::List(statements) => {
@@ -136,6 +141,7 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedIntegerOrFloat {
                         actual: left.as_ref().clone(),
+                        position: left.position,
                     });
                 }
 
@@ -145,6 +151,7 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedIntegerOrFloat {
                         actual: right.as_ref().clone(),
+                        position: right.position,
                     });
                 }
 
@@ -159,6 +166,7 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedIdentifierOrValue {
                         actual: left.as_ref().clone(),
+                        position: left.position,
                     });
                 }
 
@@ -168,6 +176,7 @@ impl<'a> Analyzer<'a> {
                         } else {
                             return Err(AnalyzerError::ExpectedIntegerOrFloat {
                                 actual: left.as_ref().clone(),
+                                position: left.position,
                             });
                         }
                     }
@@ -183,13 +192,13 @@ impl<'a> Analyzer<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
-    ExpectedBoolean { actual: Node },
-    ExpectedFunction { actual: Node },
-    ExpectedIdentifier { actual: Node },
-    ExpectedIdentifierOrValue { actual: Node },
-    ExpectedIntegerOrFloat { actual: Node },
-    ExpectedIntegerFloatOrString { actual: Node },
-    UnexpectedIdentifier { identifier: Node },
+    ExpectedBoolean { actual: Node, position: Span },
+    ExpectedFunction { actual: Node, position: Span },
+    ExpectedIdentifier { actual: Node, position: Span },
+    ExpectedIdentifierOrValue { actual: Node, position: Span },
+    ExpectedIntegerOrFloat { actual: Node, position: Span },
+    ExpectedIntegerFloatOrString { actual: Node, position: Span },
+    UnexpectedIdentifier { identifier: Node, position: Span },
 }
 
 impl Error for AnalyzerError {}
@@ -197,25 +206,25 @@ impl Error for AnalyzerError {}
 impl Display for AnalyzerError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            AnalyzerError::ExpectedBoolean { actual } => {
+            AnalyzerError::ExpectedBoolean { actual, .. } => {
                 write!(f, "Expected boolean, found {}", actual)
             }
-            AnalyzerError::ExpectedFunction { actual } => {
+            AnalyzerError::ExpectedFunction { actual, .. } => {
                 write!(f, "Expected function, found {}", actual)
             }
-            AnalyzerError::ExpectedIdentifier { actual } => {
+            AnalyzerError::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {}", actual)
             }
-            AnalyzerError::ExpectedIdentifierOrValue { actual } => {
+            AnalyzerError::ExpectedIdentifierOrValue { actual, .. } => {
                 write!(f, "Expected identifier or value, found {}", actual)
             }
-            AnalyzerError::ExpectedIntegerOrFloat { actual } => {
+            AnalyzerError::ExpectedIntegerOrFloat { actual, .. } => {
                 write!(f, "Expected integer or float, found {}", actual)
             }
-            AnalyzerError::ExpectedIntegerFloatOrString { actual } => {
+            AnalyzerError::ExpectedIntegerFloatOrString { actual, .. } => {
                 write!(f, "Expected integer, float, or string, found {}", actual)
             }
-            AnalyzerError::UnexpectedIdentifier { identifier } => {
+            AnalyzerError::UnexpectedIdentifier { identifier, .. } => {
                 write!(f, "Unexpected identifier {}", identifier)
             }
         }
@@ -246,7 +255,8 @@ mod tests {
         assert_eq!(
             analyzer.analyze(),
             Err(AnalyzerError::ExpectedIntegerFloatOrString {
-                actual: Node::new(Statement::Constant(Value::float(1.0)), (1, 2))
+                actual: Node::new(Statement::Constant(Value::float(1.0)), (1, 2)),
+                position: (1, 2)
             })
         )
     }
@@ -269,7 +279,8 @@ mod tests {
         assert_eq!(
             analyzer.analyze(),
             Err(AnalyzerError::ExpectedIntegerFloatOrString {
-                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1))
+                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1)),
+                position: (0, 1)
             })
         )
     }
@@ -299,7 +310,8 @@ mod tests {
         assert_eq!(
             analyzer.analyze(),
             Err(AnalyzerError::ExpectedIntegerOrFloat {
-                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1))
+                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1)),
+                position: (0, 1)
             })
         )
     }
@@ -328,7 +340,8 @@ mod tests {
         assert_eq!(
             analyzer.analyze(),
             Err(AnalyzerError::ExpectedIntegerOrFloat {
-                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1))
+                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1)),
+                position: (0, 1)
             })
         )
     }
@@ -354,7 +367,8 @@ mod tests {
         assert_eq!(
             analyzer.analyze(),
             Err(AnalyzerError::ExpectedIntegerOrFloat {
-                actual: Node::new(Statement::Constant(Value::boolean(false)), (1, 2))
+                actual: Node::new(Statement::Constant(Value::boolean(false)), (1, 2)),
+                position: (1, 2)
             })
         )
     }
@@ -377,7 +391,8 @@ mod tests {
         assert_eq!(
             analyzer.analyze(),
             Err(AnalyzerError::ExpectedIdentifier {
-                actual: Node::new(Statement::Constant(Value::integer(1)), (0, 1))
+                actual: Node::new(Statement::Constant(Value::integer(1)), (0, 1)),
+                position: (0, 1)
             })
         )
     }
@@ -397,7 +412,8 @@ mod tests {
         assert_eq!(
             analyzer.analyze(),
             Err(AnalyzerError::UnexpectedIdentifier {
-                identifier: Node::new(Statement::Identifier(Identifier::new("x")), (0, 1))
+                identifier: Node::new(Statement::Identifier(Identifier::new("x")), (0, 1)),
+                position: (0, 1)
             })
         )
     }

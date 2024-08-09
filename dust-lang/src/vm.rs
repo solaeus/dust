@@ -250,7 +250,7 @@ pub enum VmError {
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
-    BuiltInFunctionCallFailed(BuiltInFunctionError),
+    BuiltInFunctionCallError(BuiltInFunctionError),
     ExpectedIdentifier { position: Span },
     ExpectedIdentifierOrInteger { position: Span },
     ExpectedInteger { position: Span },
@@ -261,7 +261,7 @@ pub enum VmError {
 
 impl From<BuiltInFunctionError> for VmError {
     fn from(v: BuiltInFunctionError) -> Self {
-        Self::BuiltInFunctionCallFailed(v)
+        Self::BuiltInFunctionCallError(v)
     }
 }
 
@@ -289,7 +289,7 @@ impl Error for VmError {
             Self::AnaylyzerError(analyzer_error) => Some(analyzer_error),
             Self::ParseError(parse_error) => Some(parse_error),
             Self::ValueError(value_error) => Some(value_error),
-            Self::BuiltInFunctionCallFailed(built_in_function_error) => {
+            Self::BuiltInFunctionCallError(built_in_function_error) => {
                 Some(built_in_function_error)
             }
             _ => None,
@@ -303,7 +303,7 @@ impl Display for VmError {
             Self::AnaylyzerError(analyzer_error) => write!(f, "{}", analyzer_error),
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
             Self::ValueError(value_error) => write!(f, "{}", value_error),
-            Self::BuiltInFunctionCallFailed(built_in_function_error) => {
+            Self::BuiltInFunctionCallError(built_in_function_error) => {
                 write!(f, "{}", built_in_function_error)
             }
             Self::ExpectedFunction { actual, position } => {

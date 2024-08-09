@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fs::read_to_string};
 
 use clap::Parser;
-use dust_lang::run;
+use dust_lang::{run, DustError, Identifier, Value};
 
 #[derive(Parser)]
 struct Cli {
@@ -15,22 +15,24 @@ fn main() {
     let args = Cli::parse();
     let mut variables = HashMap::new();
 
-    let result = if let Some(command) = &args.command {
-        run(command, &mut variables)
+    if let Some(command) = &args.command {
+        run_and_display_errors(command, &mut variables);
     } else if let Some(path) = &args.path {
-        let content = read_to_string(path).unwrap();
+        let source = read_to_string(path).expect("Failed to read file");
 
-        run(&content, &mut variables)
+        run_and_display_errors(&source, &mut variables)
     } else {
         panic!("No command or path provided");
     };
+}
 
-    match result {
+fn run_and_display_errors(source: &str, variables: &mut HashMap<Identifier, Value>) {
+    match run(source, variables) {
         Ok(return_value) => {
             if let Some(value) = return_value {
                 println!("{}", value);
             }
         }
-        Err(error) => eprintln!("{}", error),
+        Err(error) => eprintln!("{}", DustError::new(error, source).report()),
     }
 }

@@ -20,6 +20,7 @@ pub mod vm;
 pub use abstract_tree::{AbstractSyntaxTree, Node, Statement};
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
+pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use lex::{lex, LexError, Lexer};
 pub use parse::{parse, ParseError, Parser};

@@ -235,7 +235,7 @@ impl<'src> Parser<'src> {
                 } else {
                     Err(ParseError::ExpectedClosingParenthesis {
                         actual: self.current.0.to_owned(),
-                        span: self.current.1,
+                        position: self.current.1,
                     })
                 }
             }
@@ -265,7 +265,7 @@ impl<'src> Parser<'src> {
                     } else {
                         return Err(ParseError::ExpectedClosingSquareBrace {
                             actual: self.current.0.to_owned(),
-                            span: self.current.1,
+                            position: self.current.1,
                         });
                     }
                 }
@@ -290,7 +290,7 @@ impl<'src> Parser<'src> {
                 } else {
                     return Err(ParseError::ExpectedOpeningParenthesis {
                         actual: self.current.0.to_owned(),
-                        span: self.current.1,
+                        position: self.current.1,
                     });
                 }
 
@@ -316,7 +316,7 @@ impl<'src> Parser<'src> {
                     } else {
                         return Err(ParseError::ExpectedClosingParenthesis {
                             actual: self.current.0.to_owned(),
-                            span: self.current.1,
+                            position: self.current.1,
                         });
                     }
                 }
@@ -349,9 +349,9 @@ impl<'src> Parser<'src> {
 pub enum ParseError {
     LexError(LexError),
 
-    ExpectedClosingParenthesis { actual: TokenOwned, span: Span },
-    ExpectedClosingSquareBrace { actual: TokenOwned, span: Span },
-    ExpectedOpeningParenthesis { actual: TokenOwned, span: Span },
+    ExpectedClosingParenthesis { actual: TokenOwned, position: Span },
+    ExpectedClosingSquareBrace { actual: TokenOwned, position: Span },
+    ExpectedOpeningParenthesis { actual: TokenOwned, position: Span },
     UnexpectedToken(TokenOwned),
 }
 
@@ -368,22 +368,16 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::LexError(error) => write!(f, "{}", error),
-            Self::ExpectedClosingParenthesis { actual, span } => write!(
-                f,
-                "Expected closing parenthesis, found {} at {:?}",
-                actual, span
-            ),
-            Self::ExpectedClosingSquareBrace { actual, span } => write!(
-                f,
-                "Expected closing square brace, found {:?} at {:?}",
-                actual, span
-            ),
-            Self::ExpectedOpeningParenthesis { actual, span } => write!(
-                f,
-                "Expected opening parenthesis, found {:?} at {:?}",
-                actual, span
-            ),
-            Self::UnexpectedToken(actual) => write!(f, "Unexpected token {:?}", actual),
+            Self::ExpectedClosingParenthesis { actual, .. } => {
+                write!(f, "Expected closing parenthesis, found {actual}",)
+            }
+            Self::ExpectedClosingSquareBrace { actual, .. } => {
+                write!(f, "Expected closing square brace, found {actual}",)
+            }
+            Self::ExpectedOpeningParenthesis { actual, .. } => {
+                write!(f, "Expected opening parenthesis, found {actual}",)
+            }
+            Self::UnexpectedToken(actual) => write!(f, "Unexpected token {actual}"),
         }
     }
 }
