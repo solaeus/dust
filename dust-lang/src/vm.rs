@@ -94,6 +94,7 @@ impl Vm {
 
                 let result = match operator.inner {
                     BinaryOperator::Add => left_value.add(&right_value),
+                    BinaryOperator::And => left_value.and(&right_value),
                     BinaryOperator::Divide => todo!(),
                     BinaryOperator::Greater => left_value.greater_than(&right_value),
                     BinaryOperator::GreaterOrEqual => {
@@ -102,6 +103,7 @@ impl Vm {
                     BinaryOperator::Less => left_value.less_than(&right_value),
                     BinaryOperator::LessOrEqual => left_value.less_than_or_equal(&right_value),
                     BinaryOperator::Multiply => left_value.multiply(&right_value),
+                    BinaryOperator::Or => left_value.or(&right_value),
                     BinaryOperator::Subtract => left_value.subtract(&right_value),
                 }
                 .map_err(|value_error| VmError::ValueError {

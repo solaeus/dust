@@ -85,8 +85,7 @@ impl Statement {
                 .map(|value| value.r#type(variables)),
             Statement::List(nodes) => nodes
                 .first()
-                .map(|node| node.inner.expected_type(variables))
-                .flatten(),
+                .and_then(|node| node.inner.expected_type(variables)),
             Statement::PropertyAccess(_, _) => None,
         }
     }
@@ -197,26 +196,35 @@ impl Display for Statement {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BinaryOperator {
+    // Math
     Add,
     Divide,
+    Multiply,
+    Subtract,
+
+    // Comparison
     Greater,
     GreaterOrEqual,
     Less,
     LessOrEqual,
-    Multiply,
-    Subtract,
+
+    // Logic
+    And,
+    Or,
 }
 
 impl Display for BinaryOperator {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             BinaryOperator::Add => write!(f, "+"),
+            BinaryOperator::And => write!(f, "&&"),
             BinaryOperator::Divide => write!(f, "/"),
             BinaryOperator::Greater => write!(f, ">"),
             BinaryOperator::GreaterOrEqual => write!(f, ">="),
             BinaryOperator::Less => write!(f, "<"),
             BinaryOperator::LessOrEqual => write!(f, "<="),
             BinaryOperator::Multiply => write!(f, "*"),
+            BinaryOperator::Or => write!(f, "||"),
             BinaryOperator::Subtract => write!(f, "-"),
         }
     }

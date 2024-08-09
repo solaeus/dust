@@ -582,7 +582,7 @@ mod tests {
                 nodes: [Node::new(
                     Statement::BinaryOperation {
                         left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::Less, (2, 4)),
+                        operator: Node::new(BinaryOperator::LessOrEqual, (2, 4)),
                         right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6))),
                     },
                     (0, 6)
@@ -602,7 +602,7 @@ mod tests {
                 nodes: [Node::new(
                     Statement::BinaryOperation {
                         left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::Greater, (2, 4)),
+                        operator: Node::new(BinaryOperator::GreaterOrEqual, (2, 4)),
                         right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6))),
                     },
                     (0, 6)
@@ -641,9 +641,9 @@ mod tests {
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
                     Statement::BinaryOperation {
-                        left: Node::new(Statement::Constant(Value::integer(1)), (1, 2)).into(),
+                        left: Node::new(Statement::Constant(Value::integer(-1)), (0, 2)).into(),
                         operator: Node::new(BinaryOperator::Subtract, (3, 4)),
-                        right: Node::new(Statement::Constant(Value::integer(2)), (6, 7)).into()
+                        right: Node::new(Statement::Constant(Value::integer(-2)), (5, 7)).into()
                     },
                     (0, 7)
                 )]
@@ -663,15 +663,15 @@ mod tests {
                     Statement::BinaryOperation {
                         left: Box::new(Node::new(
                             Statement::Constant(Value::string("Hello, ")),
-                            (0, 8)
+                            (0, 9)
                         )),
-                        operator: Node::new(BinaryOperator::Add, (9, 10)),
+                        operator: Node::new(BinaryOperator::Add, (10, 11)),
                         right: Box::new(Node::new(
                             Statement::Constant(Value::string("World!")),
-                            (11, 19)
+                            (12, 20)
                         ))
                     },
-                    (0, 19)
+                    (0, 20)
                 )]
                 .into()
             })

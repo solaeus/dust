@@ -207,6 +207,24 @@ impl Value {
             )),
         }
     }
+
+    pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Boolean(left), ValueInner::Boolean(right)) => {
+                Ok(Value::boolean(*left && *right))
+            }
+            _ => Err(ValueError::CannotAnd(self.clone(), other.clone())),
+        }
+    }
+
+    pub fn or(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Boolean(left), ValueInner::Boolean(right)) => {
+                Ok(Value::boolean(*left || *right))
+            }
+            _ => Err(ValueError::CannotOr(self.clone(), other.clone())),
+        }
+    }
 }
 
 impl Display for Value {
@@ -734,15 +752,16 @@ impl Display for Function {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ValueError {
     CannotAdd(Value, Value),
-    CannotMultiply(Value, Value),
-    CannotSubtract(Value, Value),
-    CannotLessThan(Value, Value),
-    CannotLessThanOrEqual(Value, Value),
+    CannotAnd(Value, Value),
     CannotGreaterThan(Value, Value),
     CannotGreaterThanOrEqual(Value, Value),
+    CannotLessThan(Value, Value),
+    CannotLessThanOrEqual(Value, Value),
+    CannotMultiply(Value, Value),
+    CannotSubtract(Value, Value),
+    CannotOr(Value, Value),
     ExpectedList(Value),
     IndexOutOfBounds { value: Value, index: i64 },
-    PropertyNotFound { value: Value, property: Identifier },
 }
 
 impl Error for ValueError {}
@@ -751,6 +770,11 @@ impl Display for ValueError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ValueError::CannotAdd(left, right) => write!(f, "Cannot add {} and {}", left, right),
+            ValueError::CannotAnd(left, right) => write!(
+                f,
+                "Cannot use logical and operation on {} and {}",
+                left, right
+            ),
             ValueError::CannotMultiply(left, right) => {
                 write!(f, "Cannot multiply {} and {}", left, right)
             }
@@ -763,8 +787,12 @@ impl Display for ValueError {
             | ValueError::CannotGreaterThanOrEqual(left, right) => {
                 write!(f, "Cannot compare {} and {}", left, right)
             }
-            ValueError::PropertyNotFound { value, property } => {
-                write!(f, "{} does not have a property named {}", value, property)
+            ValueError::CannotOr(left, right) => {
+                write!(
+                    f,
+                    "Cannot use logical or operation on {} and {}",
+                    left, right
+                )
             }
             ValueError::IndexOutOfBounds { value, index } => {
                 write!(f, "{} does not have an index of {}", value, index)
