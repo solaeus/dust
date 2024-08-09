@@ -27,16 +27,16 @@ use crate::{
 ///     Ok(AbstractSyntaxTree {
 ///         nodes: [
 ///             Node {
-///                 inner: Statement::Assign(
-///                     Box::new(Node {
-///                         inner: Statement::Identifier("x".into()),
+///                 inner: Statement::Assignment {
+///                     identifier: Node {
+///                         inner: Identifier::new("x"),
 ///                         position: (0, 1),
-///                     }),
-///                     Box::new(Node {
+///                     },
+///                     value_node: Box::new(Node {
 ///                         inner: Statement::Constant(Value::integer(42)),
 ///                         position: (4, 6),
 ///                     })
-///                 ),
+///                 },
 ///                 position: (0, 6),
 ///             }
 ///         ].into(),
@@ -86,16 +86,16 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
 ///     nodes,
 ///     Into::<VecDeque<Node<Statement>>>::into([
 ///         Node {
-///             inner: Statement::Assign(
-///                 Box::new(Node {
-///                     inner: Statement::Identifier("x".into()),
+///             inner: Statement::Assignment {
+///                 identifier: Node {
+///                     inner: Identifier::new("x"),
 ///                     position: (0, 1),
-///                 }),
-///                 Box::new(Node {
+///                 },
+///                 value_node: Box::new(Node {
 ///                     inner: Statement::Constant(Value::integer(42)),
 ///                     position: (4, 6),
-///                 })
-///             ),
+///                 }),
+///             },
 ///             position: (0, 6),
 ///         }
 ///     ]),
@@ -182,7 +182,7 @@ impl<'src> Parser<'src> {
 
                     return Ok(Node::new(
                         Statement::Assignment {
-                            identifier,
+                            identifier: Node::new(identifier, left_node.position),
                             value_node: Box::new(right_node),
                         },
                         (left_start, right_end),
@@ -964,7 +964,7 @@ mod tests {
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
                     Statement::Assignment {
-                        identifier: Identifier::new("a"),
+                        identifier: Node::new(Identifier::new("a"), (0, 1)),
                         value_node: Box::new(Node::new(
                             Statement::BinaryOperation {
                                 left: Box::new(Node::new(

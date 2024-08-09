@@ -189,6 +189,16 @@ impl Lexer {
                         (Token::Less, (self.position - 1, self.position))
                     }
                 }
+                '{' => {
+                    self.position += 1;
+
+                    (Token::LeftCurlyBrace, (self.position - 1, self.position))
+                }
+                '}' => {
+                    self.position += 1;
+
+                    (Token::RightCurlyBrace, (self.position - 1, self.position))
+                }
                 _ => {
                     self.position += 1;
 
@@ -414,6 +424,27 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn map() {
+        let input = "{ x = 42, y = 'foobar' }";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::LeftCurlyBrace, (0, 1)),
+                (Token::Identifier("x"), (2, 3)),
+                (Token::Equal, (4, 5)),
+                (Token::Integer(42), (6, 8)),
+                (Token::Comma, (8, 9)),
+                (Token::Identifier("y"), (10, 11)),
+                (Token::Equal, (12, 13)),
+                (Token::String("foobar"), (14, 22)),
+                (Token::RightCurlyBrace, (23, 24)),
+                (Token::Eof, (24, 24)),
+            ])
+        )
+    }
 
     #[test]
     fn greater_than() {

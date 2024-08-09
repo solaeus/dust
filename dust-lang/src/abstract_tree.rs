@@ -36,7 +36,7 @@ impl<T: Display> Display for Node<T> {
 pub enum Statement {
     // Top-level statements
     Assignment {
-        identifier: Identifier,
+        identifier: Node<Identifier>,
         value_node: Box<Node<Statement>>,
     },
 

@@ -80,7 +80,9 @@ impl<'a> Analyzer<'a> {
             Statement::Assignment {
                 value_node: value, ..
             } => {
-                if let None = value.inner.expected_type(self.variables) {
+                self.analyze_node(value)?;
+
+                if value.inner.expected_type(self.variables).is_none() {
                     return Err(AnalyzerError::ExpectedValue {
                         actual: value.as_ref().clone(),
                         position: value.position,

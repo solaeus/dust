@@ -65,7 +65,7 @@ impl Vm {
                     });
                 };
 
-                variables.insert(identifier, value);
+                variables.insert(identifier.inner, value);
 
                 Ok(None)
             }
