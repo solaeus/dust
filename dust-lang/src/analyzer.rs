@@ -163,6 +163,11 @@ impl<'a> Analyzer<'a> {
                     self.analyze_node(statement)?;
                 }
             }
+            Statement::Map(properties) => {
+                for (_key, value_node) in properties {
+                    self.analyze_node(value_node)?;
+                }
+            }
             Statement::PropertyAccess(left, right) => {
                 if let Statement::Identifier(_) | Statement::Constant(_) | Statement::List(_) =
                     &left.inner

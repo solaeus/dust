@@ -4,7 +4,7 @@
 //! - `parse` convenience function
 //! - `Parser` struct, which parses the input a statement at a time
 use std::{
-    collections::VecDeque,
+    collections::{BTreeMap, VecDeque},
     error::Error,
     fmt::{self, Display, Formatter},
 };
@@ -172,10 +172,7 @@ impl<'src> Parser<'src> {
                     let identifier = if let Statement::Identifier(identifier) = left_node.inner {
                         identifier
                     } else {
-                        return Err(ParseError::ExpectedIdentifier {
-                            actual: left_node.inner,
-                            position: left_node.position,
-                        });
+                        todo!()
                     };
                     let right_node = self.parse_node(self.current_precedence())?;
                     let right_end = right_node.position.1;
@@ -347,6 +344,51 @@ impl<'src> Parser<'src> {
 
                 Ok(Node::new(Statement::Constant(Value::string(string)), span))
             }
+            (Token::LeftCurlyBrace, left_span) => {
+                self.next_token()?;
+
+                let mut nodes = Vec::new();
+
+                loop {
+                    if let (Token::RightCurlyBrace, right_span) = self.current {
+                        self.next_token()?;
+
+                        return Ok(Node::new(
+                            Statement::Map(nodes),
+                            (left_span.0, right_span.1),
+                        ));
+                    }
+
+                    let identifier = if let (Token::Identifier(text), right_span) = self.current {
+                        self.next_token()?;
+
+                        Node::new(Identifier::new(text), right_span)
+                    } else {
+                        return Err(ParseError::ExpectedIdentifier {
+                            actual: self.current.0.to_owned(),
+                            position: self.current.1,
+                        });
+                    };
+
+                    if let Token::Equal = self.current.0 {
+                        self.next_token()?;
+                    } else {
+                        return Err(ParseError::ExpectedToken {
+                            expected: TokenOwned::Equal,
+                            actual: self.current.0.to_owned(),
+                            position: self.current.1,
+                        });
+                    }
+
+                    let current_value_node = self.parse_node(0)?;
+
+                    nodes.push((identifier, current_value_node));
+
+                    if let Token::Comma = self.current.0 {
+                        self.next_token()?;
+                    }
+                }
+            }
             (Token::LeftParenthesis, left_span) => {
                 self.next_token()?;
 
@@ -357,7 +399,8 @@ impl<'src> Parser<'src> {
 
                     Ok(Node::new(node.inner, (left_span.0, right_span.1)))
                 } else {
-                    Err(ParseError::ExpectedClosingParenthesis {
+                    Err(ParseError::ExpectedToken {
+                        expected: TokenOwned::RightParenthesis,
                         actual: self.current.0.to_owned(),
                         position: self.current.1,
                     })
@@ -387,7 +430,8 @@ impl<'src> Parser<'src> {
                     if let Ok(instruction) = self.parse_node(0) {
                         nodes.push(instruction);
                     } else {
-                        return Err(ParseError::ExpectedClosingSquareBrace {
+                        return Err(ParseError::ExpectedToken {
+                            expected: TokenOwned::RightSquareBrace,
                             actual: self.current.0.to_owned(),
                             position: self.current.1,
                         });
@@ -412,7 +456,8 @@ impl<'src> Parser<'src> {
                 if let (Token::LeftParenthesis, _) = self.current {
                     self.next_token()?;
                 } else {
-                    return Err(ParseError::ExpectedOpeningParenthesis {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenOwned::LeftParenthesis,
                         actual: self.current.0.to_owned(),
                         position: self.current.1,
                     });
@@ -438,7 +483,8 @@ impl<'src> Parser<'src> {
                             value_arguments = Some(vec![node]);
                         }
                     } else {
-                        return Err(ParseError::ExpectedClosingParenthesis {
+                        return Err(ParseError::ExpectedToken {
+                            expected: TokenOwned::RightParenthesis,
                             actual: self.current.0.to_owned(),
                             position: self.current.1,
                         });
@@ -480,20 +526,12 @@ pub enum ParseError {
         error: LexError,
         position: Span,
     },
-
-    ExpectedClosingParenthesis {
-        actual: TokenOwned,
-        position: Span,
-    },
-    ExpectedClosingSquareBrace {
-        actual: TokenOwned,
-        position: Span,
-    },
     ExpectedIdentifier {
-        actual: Statement,
+        actual: TokenOwned,
         position: (usize, usize),
     },
-    ExpectedOpeningParenthesis {
+    ExpectedToken {
+        expected: TokenOwned,
         actual: TokenOwned,
         position: Span,
     },
@@ -507,10 +545,8 @@ impl ParseError {
     pub fn position(&self) -> Span {
         match self {
             Self::LexError { position, .. } => *position,
-            Self::ExpectedClosingParenthesis { position, .. } => *position,
-            Self::ExpectedClosingSquareBrace { position, .. } => *position,
             Self::ExpectedIdentifier { position, .. } => *position,
-            Self::ExpectedOpeningParenthesis { position, .. } => *position,
+            Self::ExpectedToken { position, .. } => *position,
             Self::UnexpectedToken { position, .. } => *position,
         }
     }
@@ -529,18 +565,12 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::LexError { error, .. } => write!(f, "{}", error),
-            Self::ExpectedClosingParenthesis { actual, .. } => {
-                write!(f, "Expected closing parenthesis, found {actual}",)
-            }
-            Self::ExpectedClosingSquareBrace { actual, .. } => {
-                write!(f, "Expected closing square brace, found {actual}",)
-            }
             Self::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {actual}")
             }
-            Self::ExpectedOpeningParenthesis { actual, .. } => {
-                write!(f, "Expected opening parenthesis, found {actual}",)
-            }
+            Self::ExpectedToken {
+                expected, actual, ..
+            } => write!(f, "Expected token {expected}, found {actual}"),
             Self::UnexpectedToken { actual, .. } => write!(f, "Unexpected token {actual}"),
         }
     }
@@ -548,9 +578,35 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
+
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn map() {
+        let input = "{ x = 42, y = 'foobar' }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Map(vec![
+                        (
+                            Node::new(Identifier::new("x"), (2, 3)),
+                            Node::new(Statement::Constant(Value::integer(42)), (6, 8))
+                        ),
+                        (
+                            Node::new(Identifier::new("y"), (10, 11)),
+                            Node::new(Statement::Constant(Value::string("foobar")), (14, 22))
+                        )
+                    ]),
+                    (0, 24)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn less_than() {

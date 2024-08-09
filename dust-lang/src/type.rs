@@ -51,7 +51,6 @@ pub enum Type {
         length: usize,
         item_type: Box<Type>,
     },
-    ListOf(Box<Type>),
     Map(BTreeMap<Identifier, Type>),
     Range,
     String,
@@ -111,11 +110,6 @@ impl Type {
                     }
                 }
             }
-            (Type::ListOf(left), Type::ListOf(right)) => {
-                if left.check(right).is_ok() {
-                    return Ok(());
-                }
-            }
             (
                 Type::Structure {
                     name: left_name,
@@ -159,29 +153,6 @@ impl Type {
                 }
 
                 return Ok(());
-            }
-            (
-                Type::ListOf(left_type),
-                Type::List {
-                    item_type: right_type,
-                    ..
-                },
-            )
-            | (
-                Type::List {
-                    item_type: right_type,
-                    ..
-                },
-                Type::ListOf(left_type),
-            ) => {
-                if right_type.check(left_type).is_err() {
-                    return Err(TypeConflict {
-                        actual: other.clone(),
-                        expected: self.clone(),
-                    });
-                } else {
-                    return Ok(());
-                }
             }
             (
                 Type::Function {
@@ -274,7 +245,6 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
-            Type::ListOf(item_type) => write!(f, "[{}]", item_type),
             Type::Map(map) => {
                 write!(f, "{{ ")?;
 
@@ -349,10 +319,6 @@ mod tests {
             }),
             Ok(())
         );
-        assert_eq!(
-            Type::ListOf(Box::new(Type::Integer)).check(&Type::ListOf(Box::new(Type::Integer))),
-            Ok(())
-        );
 
         let mut map = BTreeMap::new();
 
@@ -393,7 +359,6 @@ mod tests {
                 length: 10,
                 item_type: Box::new(Type::Integer),
             },
-            Type::ListOf(Box::new(Type::Boolean)),
             Type::Map(BTreeMap::new()),
             Type::Range,
             Type::String,
@@ -414,17 +379,5 @@ mod tests {
                 );
             }
         }
-    }
-
-    #[test]
-    fn check_list_types() {
-        let list = Type::List {
-            length: 42,
-            item_type: Box::new(Type::Integer),
-        };
-        let list_of = Type::ListOf(Box::new(Type::Integer));
-
-        assert_eq!(list.check(&list_of), Ok(()));
-        assert_eq!(list_of.check(&list), Ok(()));
     }
 }

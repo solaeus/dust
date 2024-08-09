@@ -1,6 +1,6 @@
 //! In-memory representation of a Dust program.
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt::{self, Display, Formatter},
 };
 
@@ -67,6 +67,7 @@ pub enum Statement {
 
     // Value collection expressions
     List(Vec<Node<Statement>>),
+    Map(Vec<(Node<Identifier>, Node<Statement>)>),
 
     // Hard-coded values
     Constant(Value),
@@ -83,9 +84,26 @@ impl Statement {
             Statement::Identifier(identifier) => variables
                 .get(identifier)
                 .map(|value| value.r#type(variables)),
-            Statement::List(nodes) => nodes
-                .first()
-                .and_then(|node| node.inner.expected_type(variables)),
+            Statement::List(nodes) => {
+                let item_type = nodes.first().unwrap().inner.expected_type(variables)?;
+
+                Some(Type::List {
+                    length: nodes.len(),
+                    item_type: Box::new(item_type),
+                })
+            }
+            Statement::Map(nodes) => {
+                let mut types = BTreeMap::new();
+
+                for (identifier, item) in nodes {
+                    types.insert(
+                        identifier.inner.clone(),
+                        item.inner.expected_type(variables)?,
+                    );
+                }
+
+                Some(Type::Map(types))
+            }
             Statement::PropertyAccess(_, _) => None,
         }
     }
@@ -181,13 +199,29 @@ impl Display for Statement {
             Statement::Identifier(identifier) => write!(f, "{identifier}"),
             Statement::List(nodes) => {
                 write!(f, "[")?;
+
                 for (i, node) in nodes.iter().enumerate() {
                     if i > 0 {
                         write!(f, ", ")?;
                     }
+
                     write!(f, "{node}")?;
                 }
+
                 write!(f, "]")
+            }
+            Statement::Map(nodes) => {
+                write!(f, "{{")?;
+
+                for (i, (identifier, node)) in nodes.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{identifier} = {node}")?;
+                }
+
+                write!(f, "}}")
             }
             Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
         }

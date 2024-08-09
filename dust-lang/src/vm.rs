@@ -1,6 +1,6 @@
 //! Virtual machine for running the abstract syntax tree.
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     error::Error,
     fmt::{self, Display, Formatter},
 };
@@ -215,6 +215,22 @@ impl Vm {
                     .collect::<Result<Vec<Value>, VmError>>()?;
 
                 Ok(Some(Value::list(values)))
+            }
+            Statement::Map(nodes) => {
+                let mut values = BTreeMap::new();
+
+                for (identifier, value_node) in nodes {
+                    let position = value_node.position;
+                    let value = if let Some(value) = self.run_node(value_node, variables)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue { position });
+                    };
+
+                    values.insert(identifier.inner, value);
+                }
+
+                Ok(Some(Value::map(values)))
             }
             Statement::PropertyAccess(left, right) => {
                 let left_span = left.position;
