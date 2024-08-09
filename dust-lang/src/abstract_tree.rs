@@ -34,12 +34,6 @@ impl<T: Display> Display for Node<T> {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
-    // Variable assignment
-    Assignment {
-        identifier: Node<Identifier>,
-        value_node: Box<Node<Statement>>,
-    },
-
     // A sequence of statements
     Block(Vec<Node<Statement>>),
 
@@ -70,7 +64,7 @@ pub enum Statement {
 
     // Value collection expressions
     List(Vec<Node<Statement>>),
-    Map(Vec<(Node<Identifier>, Node<Statement>)>),
+    Map(Vec<(Node<Statement>, Node<Statement>)>),
 
     // Hard-coded value
     Constant(Value),
@@ -83,7 +77,6 @@ pub enum Statement {
 impl Statement {
     pub fn expected_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
         match self {
-            Statement::Assignment { .. } => None,
             Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(variables),
             Statement::BinaryOperation { left, .. } => left.inner.expected_type(variables),
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
@@ -104,10 +97,9 @@ impl Statement {
                 let mut types = BTreeMap::new();
 
                 for (identifier, item) in nodes {
-                    types.insert(
-                        identifier.inner.clone(),
-                        item.inner.expected_type(variables)?,
-                    );
+                    if let Statement::Identifier(identifier) = &identifier.inner {
+                        types.insert(identifier.clone(), item.inner.expected_type(variables)?);
+                    }
                 }
 
                 Some(Type::Map(types))
@@ -121,12 +113,6 @@ impl Statement {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::Assignment {
-                identifier,
-                value_node: value,
-            } => {
-                write!(f, "{identifier} = {value}")
-            }
             Statement::Block(statements) => {
                 write!(f, "{{ ")?;
 
@@ -270,12 +256,18 @@ pub enum BinaryOperator {
     // Logic
     And,
     Or,
+
+    // Assignment
+    Assign,
+    AddAssign,
 }
 
 impl Display for BinaryOperator {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             BinaryOperator::Add => write!(f, "+"),
+            BinaryOperator::AddAssign => write!(f, "+="),
+            BinaryOperator::Assign => write!(f, "="),
             BinaryOperator::And => write!(f, "&&"),
             BinaryOperator::Divide => write!(f, "/"),
             BinaryOperator::Equal => write!(f, "=="),

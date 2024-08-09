@@ -122,9 +122,15 @@ impl Lexer {
                 '"' => self.lex_string('"', source)?,
                 '\'' => self.lex_string('\'', source)?,
                 '+' => {
-                    self.position += 1;
+                    if let Some('=') = self.peek_second_char(source) {
+                        self.position += 2;
 
-                    (Token::Plus, (self.position - 1, self.position))
+                        (Token::PlusEqual, (self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        (Token::Plus, (self.position - 1, self.position))
+                    }
                 }
                 '*' => {
                     self.position += 1;
@@ -451,6 +457,21 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn add_assign() {
+        let input = "x += 42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Identifier("x"), (0, 1)),
+                (Token::PlusEqual, (2, 4)),
+                (Token::Integer("42"), (5, 7)),
+                (Token::Eof, (7, 7)),
+            ])
+        )
+    }
 
     #[test]
     fn or() {

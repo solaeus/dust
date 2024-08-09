@@ -77,18 +77,6 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_node(&self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
         match &node.inner {
-            Statement::Assignment {
-                value_node: value, ..
-            } => {
-                self.analyze_node(value)?;
-
-                if value.inner.expected_type(self.variables).is_none() {
-                    return Err(AnalyzerError::ExpectedValue {
-                        actual: value.as_ref().clone(),
-                        position: value.position,
-                    });
-                }
-            }
             Statement::BinaryOperation {
                 left,
                 operator,
@@ -96,6 +84,12 @@ impl<'a> Analyzer<'a> {
             } => {
                 self.analyze_node(left)?;
                 self.analyze_node(right)?;
+
+                if let BinaryOperator::AddAssign | BinaryOperator::Assign = operator.inner {
+                    if let Statement::Identifier(_) = left.inner {
+                        return Ok(());
+                    }
+                }
 
                 let left_type = left.inner.expected_type(self.variables);
                 let right_type = right.inner.expected_type(self.variables);
@@ -157,11 +151,12 @@ impl<'a> Analyzer<'a> {
                     });
                 }
             }
-            Statement::Identifier(_) => {
-                return Err(AnalyzerError::UnexpectedIdentifier {
-                    identifier: node.clone(),
-                    position: node.position,
-                });
+            Statement::Identifier(identifier) => {
+                if !self.variables.contains_key(identifier) {
+                    return Err(AnalyzerError::UndefinedVariable {
+                        identifier: node.clone(),
+                    });
+                }
             }
             Statement::List(statements) => {
                 for statement in statements {
@@ -251,6 +246,9 @@ pub enum AnalyzerError {
         actual: Node<Statement>,
         position: Span,
     },
+    UndefinedVariable {
+        identifier: Node<Statement>,
+    },
     UnexpectedIdentifier {
         identifier: Node<Statement>,
         position: Span,
@@ -274,6 +272,7 @@ impl AnalyzerError {
             AnalyzerError::ExpectedIntegerFloatOrString { position, .. } => *position,
             AnalyzerError::ExpectedSameType { position, .. } => *position,
             AnalyzerError::ExpectedString { position, .. } => *position,
+            AnalyzerError::UndefinedVariable { identifier } => identifier.position,
             AnalyzerError::UnexpectedIdentifier { position, .. } => *position,
             AnalyzerError::UnexectedString { position, .. } => *position,
         }
@@ -314,6 +313,9 @@ impl Display for AnalyzerError {
             }
             AnalyzerError::ExpectedValue { actual, .. } => {
                 write!(f, "Expected value, found {}", actual)
+            }
+            AnalyzerError::UndefinedVariable { identifier } => {
+                write!(f, "Undefined variable {}", identifier)
             }
             AnalyzerError::UnexpectedIdentifier { identifier, .. } => {
                 write!(f, "Unexpected identifier {}", identifier)
@@ -443,7 +445,7 @@ mod tests {
     }
 
     #[test]
-    fn unexpected_identifier() {
+    fn undefined_variable() {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(
                 Statement::Identifier(Identifier::new("x")),
@@ -456,9 +458,8 @@ mod tests {
 
         assert_eq!(
             analyzer.analyze(),
-            Err(AnalyzerError::UnexpectedIdentifier {
-                identifier: Node::new(Statement::Identifier(Identifier::new("x")), (0, 1)),
-                position: (0, 1)
+            Err(AnalyzerError::UndefinedVariable {
+                identifier: Node::new(Statement::Identifier(Identifier::new("x")), (0, 1))
             })
         )
     }

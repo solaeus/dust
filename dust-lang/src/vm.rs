@@ -52,28 +52,74 @@ impl Vm {
         variables: &mut HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError> {
         match node.inner {
-            Statement::Assignment {
-                identifier,
-                value_node,
-            } => {
-                let value_node_position = value_node.position;
-                let value = if let Some(value) = self.run_node(*value_node, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: value_node_position,
-                    });
-                };
-
-                variables.insert(identifier.inner, value);
-
-                Ok(None)
-            }
             Statement::BinaryOperation {
                 left,
                 operator,
                 right,
             } => {
+                let right_position = right.position;
+
+                if let BinaryOperator::Assign = operator.inner {
+                    let identifier = if let Statement::Identifier(identifier) = left.inner {
+                        identifier
+                    } else {
+                        return Err(VmError::ExpectedIdentifier {
+                            position: left.position,
+                        });
+                    };
+
+                    let value = if let Some(value) = self.run_node(*right, variables)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: right_position,
+                        });
+                    };
+
+                    variables.insert(identifier, value.clone());
+
+                    return Ok(Some(value));
+                }
+
+                if let BinaryOperator::AddAssign = operator.inner {
+                    let identifier = if let Statement::Identifier(identifier) = left.inner {
+                        identifier
+                    } else {
+                        return Err(VmError::ExpectedIdentifier {
+                            position: left.position,
+                        });
+                    };
+
+                    let right_value = if let Some(value) = self.run_node(*right, variables)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: right_position,
+                        });
+                    };
+
+                    let left_value =
+                        variables
+                            .get(&identifier)
+                            .ok_or_else(|| VmError::UndefinedVariable {
+                                identifier: Node::new(
+                                    Statement::Identifier(identifier.clone()),
+                                    left.position,
+                                ),
+                            })?;
+
+                    let new_value = left_value.add(&right_value).map_err(|value_error| {
+                        VmError::ValueError {
+                            error: value_error,
+                            position: right_position,
+                        }
+                    })?;
+
+                    variables.insert(identifier, new_value.clone());
+
+                    return Ok(Some(new_value));
+                }
+
                 let left_position = left.position;
                 let left_value = if let Some(value) = self.run_node(*left, variables)? {
                     value
@@ -83,7 +129,6 @@ impl Vm {
                     });
                 };
 
-                let right_position = right.position;
                 let right_value = if let Some(value) = self.run_node(*right, variables)? {
                     value
                 } else {
@@ -92,7 +137,7 @@ impl Vm {
                     });
                 };
 
-                let result = match operator.inner {
+                match operator.inner {
                     BinaryOperator::Add => left_value.add(&right_value),
                     BinaryOperator::And => left_value.and(&right_value),
                     BinaryOperator::Divide => left_value.divide(&right_value),
@@ -107,13 +152,13 @@ impl Vm {
                     BinaryOperator::Multiply => left_value.multiply(&right_value),
                     BinaryOperator::Or => left_value.or(&right_value),
                     BinaryOperator::Subtract => left_value.subtract(&right_value),
+                    _ => unreachable!(),
                 }
+                .map(Some)
                 .map_err(|value_error| VmError::ValueError {
                     error: value_error,
                     position: node.position,
-                })?;
-
-                Ok(Some(result))
+                })
             }
             Statement::Block(statements) => {
                 let mut previous_value = None;
@@ -206,9 +251,8 @@ impl Vm {
                 if let Some(value) = variables.get(&identifier) {
                     Ok(Some(value.clone()))
                 } else {
-                    Err(VmError::UndefinedIdentifier {
-                        identifier,
-                        position: node.position,
+                    Err(VmError::UndefinedVariable {
+                        identifier: Node::new(Statement::Identifier(identifier), node.position),
                     })
                 }
             }
@@ -231,6 +275,13 @@ impl Vm {
                 let mut values = BTreeMap::new();
 
                 for (identifier, value_node) in nodes {
+                    let identifier = if let Statement::Identifier(identifier) = identifier.inner {
+                        identifier
+                    } else {
+                        return Err(VmError::ExpectedIdentifier {
+                            position: identifier.position,
+                        });
+                    };
                     let position = value_node.position;
                     let value = if let Some(value) = self.run_node(value_node, variables)? {
                         value
@@ -238,7 +289,7 @@ impl Vm {
                         return Err(VmError::ExpectedValue { position });
                     };
 
-                    values.insert(identifier.inner, value);
+                    values.insert(identifier, value);
                 }
 
                 Ok(Some(Value::map(values)))
@@ -347,9 +398,8 @@ pub enum VmError {
     ExpectedValue {
         position: Span,
     },
-    UndefinedIdentifier {
-        identifier: Identifier,
-        position: Span,
+    UndefinedVariable {
+        identifier: Node<Statement>,
     },
 }
 
@@ -366,7 +416,7 @@ impl VmError {
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedList { position } => *position,
             Self::ExpectedValue { position } => *position,
-            Self::UndefinedIdentifier { position, .. } => *position,
+            Self::UndefinedVariable { identifier } => identifier.position,
         }
     }
 }
@@ -430,15 +480,8 @@ impl Display for VmError {
             Self::ExpectedValue { position } => {
                 write!(f, "Expected a value at position: {:?}", position)
             }
-            Self::UndefinedIdentifier {
-                identifier,
-                position,
-            } => {
-                write!(
-                    f,
-                    "Undefined identifier: {} at position: {:?}",
-                    identifier, position
-                )
+            Self::UndefinedVariable { identifier } => {
+                write!(f, "Undefined identifier: {}", identifier)
             }
         }
     }
@@ -447,6 +490,13 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn add_assign() {
+        let input = "x = 1; x += 1; x";
+
+        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(2))));
+    }
 
     #[test]
     fn or() {

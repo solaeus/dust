@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 /// Source code token.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Token<'src> {
+    // End of file
     Eof,
-
-    Identifier(&'src str),
 
     // Hard-coded values
     Boolean(&'src str),
     Float(&'src str),
+    Identifier(&'src str),
     Integer(&'src str),
     String(&'src str),
 
@@ -40,6 +40,7 @@ pub enum Token<'src> {
     Minus,
     Percent,
     Plus,
+    PlusEqual,
     RightCurlyBrace,
     RightParenthesis,
     RightSquareBrace,
@@ -75,6 +76,7 @@ impl<'src> Token<'src> {
             Token::Minus => TokenOwned::Minus,
             Token::Percent => TokenOwned::Percent,
             Token::Plus => TokenOwned::Plus,
+            Token::PlusEqual => TokenOwned::PlusEqual,
             Token::ReadLine => TokenOwned::ReadLine,
             Token::RightCurlyBrace => TokenOwned::RightCurlyBrace,
             Token::RightParenthesis => TokenOwned::RightParenthesis,
@@ -113,6 +115,7 @@ impl<'src> Token<'src> {
             Token::Minus => "-",
             Token::Percent => "%",
             Token::Plus => "+",
+            Token::PlusEqual => "+=",
             Token::ReadLine => "read_line",
             Token::RightCurlyBrace => "}",
             Token::RightParenthesis => ")",
@@ -159,6 +162,7 @@ impl<'src> PartialEq for Token<'src> {
             (Token::Minus, Token::Minus) => true,
             (Token::Percent, Token::Percent) => true,
             (Token::Plus, Token::Plus) => true,
+            (Token::PlusEqual, Token::PlusEqual) => true,
             (Token::ReadLine, Token::ReadLine) => true,
             (Token::RightCurlyBrace, Token::RightCurlyBrace) => true,
             (Token::RightParenthesis, Token::RightParenthesis) => true,
@@ -212,6 +216,7 @@ pub enum TokenOwned {
     Minus,
     Percent,
     Plus,
+    PlusEqual,
     RightCurlyBrace,
     RightParenthesis,
     RightSquareBrace,
@@ -247,6 +252,7 @@ impl Display for TokenOwned {
             TokenOwned::Minus => Token::Minus.fmt(f),
             TokenOwned::Percent => Token::Percent.fmt(f),
             TokenOwned::Plus => Token::Plus.fmt(f),
+            TokenOwned::PlusEqual => Token::PlusEqual.fmt(f),
             TokenOwned::ReadLine => Token::ReadLine.fmt(f),
             TokenOwned::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
             TokenOwned::RightParenthesis => Token::RightParenthesis.fmt(f),
