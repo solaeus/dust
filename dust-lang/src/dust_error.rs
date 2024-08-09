@@ -1,8 +1,11 @@
+//! Top-level error handling for the Dust language.
 use annotate_snippets::{Level, Renderer, Snippet};
 use std::{error::Error, fmt::Display};
 
 use crate::{AnalyzerError, VmError};
 
+/// An error that occurred during the execution of the Dust language and its
+/// corresponding source code.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DustError<'src> {
     vm_error: VmError,
@@ -43,11 +46,9 @@ impl<'src> DustError<'src> {
             VmError::ExpectedValue { position } => position,
         };
         let label = self.vm_error.to_string();
-
         let message = Level::Error.title(title).snippet(
             Snippet::source(self.source).annotation(Level::Info.span(span.0..span.1).label(&label)),
         );
-
         let renderer = Renderer::styled();
 
         format!("{}", renderer.render(message))

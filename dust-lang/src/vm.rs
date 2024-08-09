@@ -1,3 +1,4 @@
+//! Virtual machine for running the abstract syntax tree.
 use std::{
     collections::HashMap,
     error::Error,

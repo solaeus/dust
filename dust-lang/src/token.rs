@@ -1,3 +1,4 @@
+//! Token and TokenOwned types.
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};

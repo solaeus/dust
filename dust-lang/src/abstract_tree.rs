@@ -1,3 +1,4 @@
+//! In-memory representation of a Dust program.
 use std::{
     collections::{HashMap, VecDeque},
     fmt::{self, Display, Formatter},
@@ -7,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{BuiltInFunction, Identifier, Span, Type, Value};
 
+/// In-memory representation of a Dust program.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct AbstractSyntaxTree {
     pub nodes: VecDeque<Node>,

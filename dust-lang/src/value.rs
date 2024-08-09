@@ -1,4 +1,4 @@
-/// Dust value representation
+//! Dust value representation
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap},

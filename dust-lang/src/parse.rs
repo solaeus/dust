@@ -1,8 +1,8 @@
-/// Parsing tools.
-///
-/// This module provides two parsing options:
-/// - `parse` convenience function
-/// - `Parser` struct, which parses the input a statement at a time
+//! Parsing tools.
+//!
+//! This module provides two parsing options:
+//! - `parse` convenience function
+//! - `Parser` struct, which parses the input a statement at a time
 use std::{
     collections::VecDeque,
     error::Error,

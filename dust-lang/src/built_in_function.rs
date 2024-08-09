@@ -1,3 +1,4 @@
+//! Integrated functions that can be called from Dust code.
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Type, Value};
 
+/// Integrated function that can be called from Dust code.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunction {
     // Integer and float tools

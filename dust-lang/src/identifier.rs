@@ -1,3 +1,4 @@
+//! Key used to identify a value or type.
 use std::{
     collections::HashSet,
     fmt::{self, Display, Formatter},
@@ -13,6 +14,7 @@ fn identifier_cache<'a>() -> &'a RwLock<HashSet<Identifier>> {
     IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashSet::new()))
 }
 
+/// Key used to identify a value or type.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier(Arc<String>);
 
