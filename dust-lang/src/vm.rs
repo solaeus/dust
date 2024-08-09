@@ -95,7 +95,7 @@ impl Vm {
                 let result = match operator.inner {
                     BinaryOperator::Add => left_value.add(&right_value),
                     BinaryOperator::And => left_value.and(&right_value),
-                    BinaryOperator::Divide => todo!(),
+                    BinaryOperator::Divide => left_value.divide(&right_value),
                     BinaryOperator::Greater => left_value.greater_than(&right_value),
                     BinaryOperator::GreaterOrEqual => {
                         left_value.greater_than_or_equal(&right_value)
@@ -431,6 +431,16 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn divide() {
+        let input = "42 / 2";
+
+        assert_eq!(
+            run(input, &mut HashMap::new()),
+            Ok(Some(Value::integer(21)))
+        );
+    }
 
     #[test]
     fn less_than() {

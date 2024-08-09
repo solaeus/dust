@@ -41,6 +41,7 @@ pub enum Token<'src> {
     RightCurlyBrace,
     RightParenthesis,
     RightSquareBrace,
+    Slash,
     Star,
 }
 
@@ -74,6 +75,7 @@ impl<'src> Token<'src> {
             Token::RightParenthesis => TokenOwned::RightParenthesis,
             Token::RightSquareBrace => TokenOwned::RightSquareBrace,
             Token::Star => TokenOwned::Star,
+            Token::Slash => TokenOwned::Slash,
             Token::String(text) => TokenOwned::String(text.to_string()),
             Token::WriteLine => TokenOwned::WriteLine,
         }
@@ -109,6 +111,7 @@ impl<'src> Token<'src> {
             Token::RightSquareBrace => "]",
             Token::Star => "*",
             Token::String(_) => "string",
+            Token::Slash => "/",
             Token::WriteLine => "write_line",
         }
     }
@@ -151,6 +154,7 @@ impl<'src> PartialEq for Token<'src> {
             (Token::RightParenthesis, Token::RightParenthesis) => true,
             (Token::RightSquareBrace, Token::RightSquareBrace) => true,
             (Token::Star, Token::Star) => true,
+            (Token::Slash, Token::Slash) => true,
             (Token::String(left), Token::String(right)) => left == right,
             (Token::WriteLine, Token::WriteLine) => true,
             _ => false,
@@ -199,6 +203,7 @@ pub enum TokenOwned {
     RightParenthesis,
     RightSquareBrace,
     Star,
+    Slash,
 }
 
 impl Display for TokenOwned {
@@ -231,6 +236,7 @@ impl Display for TokenOwned {
             TokenOwned::RightParenthesis => Token::RightParenthesis.fmt(f),
             TokenOwned::RightSquareBrace => Token::RightSquareBrace.fmt(f),
             TokenOwned::Star => Token::Star.fmt(f),
+            TokenOwned::Slash => Token::Slash.fmt(f),
             TokenOwned::String(string) => write!(f, "{string}"),
             TokenOwned::WriteLine => Token::WriteLine.fmt(f),
         }

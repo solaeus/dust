@@ -158,6 +158,26 @@ impl Value {
         }
     }
 
+    pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
+        match (self.inner().as_ref(), other.inner().as_ref()) {
+            (ValueInner::Float(left), ValueInner::Float(right)) => {
+                if right == &0.0 {
+                    Err(ValueError::DivisionByZero)
+                } else {
+                    Ok(Value::float(left / right))
+                }
+            }
+            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
+                if right == &0 {
+                    Err(ValueError::DivisionByZero)
+                } else {
+                    Ok(Value::integer(left / right))
+                }
+            }
+            _ => Err(ValueError::CannotDivide(self.clone(), other.clone())),
+        }
+    }
+
     pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
         match (self.inner().as_ref(), other.inner().as_ref()) {
             (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::boolean(left < right)),
@@ -753,6 +773,7 @@ impl Display for Function {
 pub enum ValueError {
     CannotAdd(Value, Value),
     CannotAnd(Value, Value),
+    CannotDivide(Value, Value),
     CannotGreaterThan(Value, Value),
     CannotGreaterThanOrEqual(Value, Value),
     CannotLessThan(Value, Value),
@@ -760,6 +781,7 @@ pub enum ValueError {
     CannotMultiply(Value, Value),
     CannotSubtract(Value, Value),
     CannotOr(Value, Value),
+    DivisionByZero,
     ExpectedList(Value),
     IndexOutOfBounds { value: Value, index: i64 },
 }
@@ -775,6 +797,9 @@ impl Display for ValueError {
                 "Cannot use logical and operation on {} and {}",
                 left, right
             ),
+            ValueError::CannotDivide(left, right) => {
+                write!(f, "Cannot divide {} by {}", left, right)
+            }
             ValueError::CannotMultiply(left, right) => {
                 write!(f, "Cannot multiply {} and {}", left, right)
             }
@@ -794,6 +819,7 @@ impl Display for ValueError {
                     left, right
                 )
             }
+            ValueError::DivisionByZero => write!(f, "Division by zero"),
             ValueError::IndexOutOfBounds { value, index } => {
                 write!(f, "{} does not have an index of {}", value, index)
             }

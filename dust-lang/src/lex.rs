@@ -199,6 +199,11 @@ impl Lexer {
 
                     (Token::RightCurlyBrace, (self.position - 1, self.position))
                 }
+                '/' => {
+                    self.position += 1;
+
+                    (Token::Slash, (self.position - 1, self.position))
+                }
                 _ => {
                     self.position += 1;
 
@@ -424,6 +429,21 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn divide() {
+        let input = "42 / 2";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer(42), (0, 2)),
+                (Token::Slash, (3, 4)),
+                (Token::Integer(2), (5, 6)),
+                (Token::Eof, (6, 6)),
+            ])
+        )
+    }
 
     #[test]
     fn map() {

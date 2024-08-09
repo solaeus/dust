@@ -285,6 +285,23 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
+                (Token::Slash, _) => {
+                    let operator = Node::new(BinaryOperator::Divide, self.current.1);
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
+                        (left_start, right_end),
+                    ));
+                }
                 _ => {}
             }
         }
@@ -508,6 +525,7 @@ impl<'src> Parser<'src> {
             Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual => 5,
             Token::Dot => 4,
             Token::Star => 2,
+            Token::Slash => 2,
             Token::Plus => 1,
             Token::Minus => 1,
             _ => 0,
@@ -576,6 +594,26 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn divide() {
+        let input = "42 / 2";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(42)), (0, 2))),
+                        operator: Node::new(BinaryOperator::Divide, (3, 4)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6)))
+                    },
+                    (0, 6)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn malformed_assignment() {
