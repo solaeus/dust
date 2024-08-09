@@ -215,6 +215,22 @@ impl Lexer {
 
                     (Token::Percent, (self.position - 1, self.position))
                 }
+                '&' => {
+                    if let Some('&') = self.peek_second_char(source) {
+                        self.position += 2;
+
+                        (Token::DoubleAmpersand, (self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        return Err(LexError::UnexpectedCharacter(c));
+                    }
+                }
+                ';' => {
+                    self.position += 1;
+
+                    (Token::Semicolon, (self.position - 1, self.position))
+                }
                 _ => {
                     self.position += 1;
 
@@ -440,6 +456,27 @@ impl From<ParseIntError> for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn block() {
+        let input = "{ x = 42; y = 'foobar' }";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::LeftCurlyBrace, (0, 1)),
+                (Token::Identifier("x"), (2, 3)),
+                (Token::Equal, (4, 5)),
+                (Token::Integer(42), (6, 8)),
+                (Token::Semicolon, (8, 9)),
+                (Token::Identifier("y"), (10, 11)),
+                (Token::Equal, (12, 13)),
+                (Token::String("foobar"), (14, 22)),
+                (Token::RightCurlyBrace, (23, 24)),
+                (Token::Eof, (24, 24)),
+            ])
+        )
+    }
 
     #[test]
     fn equal() {

@@ -1,4 +1,17 @@
 //! Key used to identify a value or type.
+//!
+//! Identifiers are used to uniquely identify values and types in Dust programs. They are
+//! cached to avoid duplication. This means that two identifiers with the same text are the same
+//! object in memory.
+//!
+//! # Examples
+//! ```
+//! # use dust_lang::Identifier;
+//! let foo = Identifier::new("foo");
+//! let also_foo = Identifier::new("foo");
+//!
+//! assert_eq!(foo.hard_count(), 2);
+//! ```
 use std::{
     collections::HashSet,
     fmt::{self, Display, Formatter},
@@ -8,20 +21,24 @@ use std::{
 
 use serde::{de::Visitor, Deserialize, Serialize};
 
+/// In-use identifiers.
 static IDENTIFIER_CACHE: OnceLock<RwLock<HashSet<Identifier>>> = OnceLock::new();
 
+/// Returns the identifier cache.
 fn identifier_cache<'a>() -> &'a RwLock<HashSet<Identifier>> {
     IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashSet::new()))
 }
 
 /// Key used to identify a value or type.
+///
+/// See the [module-level documentation](index.html) for more information.
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Identifier(Arc<String>);
 
 impl Identifier {
+    /// Creates a new identifier or returns a clone of an existing one from a cache.
     pub fn new<T: ToString>(text: T) -> Self {
         let cache = identifier_cache().read().unwrap();
-
         let new = Identifier(Arc::new(text.to_string()));
 
         if cache.contains(&new) {
@@ -37,6 +54,10 @@ impl Identifier {
 
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    pub fn hard_count(&self) -> usize {
+        Arc::strong_count(&self.0)
     }
 }
 

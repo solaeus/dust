@@ -34,11 +34,14 @@ impl<T: Display> Display for Node<T> {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
-    // Top-level statements
+    // Variable assignment
     Assignment {
         identifier: Node<Identifier>,
         value_node: Box<Node<Statement>>,
     },
+
+    // A sequence of statements
+    Block(Vec<Node<Statement>>),
 
     // Logic, math and comparison expressions
     BinaryOperation {
@@ -69,14 +72,19 @@ pub enum Statement {
     List(Vec<Node<Statement>>),
     Map(Vec<(Node<Identifier>, Node<Statement>)>),
 
-    // Hard-coded values
+    // Hard-coded value
     Constant(Value),
+
+    // A statement that always returns None. Created with a semicolon, it causes the preceding
+    // statement to return None. This is analagous to the semicolon or unit type in Rust.
+    Nil(Box<Node<Statement>>),
 }
 
 impl Statement {
     pub fn expected_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
         match self {
             Statement::Assignment { .. } => None,
+            Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(variables),
             Statement::BinaryOperation { left, .. } => left.inner.expected_type(variables),
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type(variables)),
@@ -105,6 +113,7 @@ impl Statement {
                 Some(Type::Map(types))
             }
             Statement::PropertyAccess(_, _) => None,
+            Statement::Nil(_) => None,
         }
     }
 }
@@ -117,6 +126,19 @@ impl Display for Statement {
                 value_node: value,
             } => {
                 write!(f, "{identifier} = {value}")
+            }
+            Statement::Block(statements) => {
+                write!(f, "{{ ")?;
+
+                for (i, statement) in statements.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+
+                    write!(f, "{statement}")?;
+                }
+
+                write!(f, " }}")
             }
             Statement::BinaryOperation {
                 left,
@@ -223,6 +245,7 @@ impl Display for Statement {
 
                 write!(f, "}}")
             }
+            Statement::Nil(node) => write!(f, "{node};"),
             Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
         }
     }

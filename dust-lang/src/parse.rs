@@ -166,6 +166,40 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
+                (Token::DoubleAmpersand, _) => {
+                    let operator = Node::new(BinaryOperator::And, self.current.1);
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
+                        (left_start, right_end),
+                    ));
+                }
+                (Token::DoubleEqual, _) => {
+                    let operator = Node::new(BinaryOperator::Equal, self.current.1);
+
+                    self.next_token()?;
+
+                    let right_node = self.parse_node(self.current_precedence())?;
+                    let right_end = right_node.position.1;
+
+                    return Ok(Node::new(
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
+                        (left_start, right_end),
+                    ));
+                }
                 (Token::Greater, _) => {
                     let operator = Node::new(BinaryOperator::Greater, self.current.1);
 
@@ -268,6 +302,12 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
+                (Token::Semicolon, (_, right_end)) => {
+                    return Ok(Node::new(
+                        Statement::Nil(Box::new(left_node)),
+                        (left_start, *right_end),
+                    ))
+                }
                 (Token::Star, _) => {
                     let operator = Node::new(BinaryOperator::Multiply, self.current.1);
 
@@ -319,23 +359,6 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
-                (Token::DoubleEqual, _) => {
-                    let operator = Node::new(BinaryOperator::Equal, self.current.1);
-
-                    self.next_token()?;
-
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(left_node),
-                            operator,
-                            right: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
                 _ => {}
             }
         }
@@ -369,13 +392,13 @@ impl<'src> Parser<'src> {
                 if let (Token::Equal, _) = self.current {
                     self.next_token()?;
 
-                    let value = self.parse_node(0)?;
-                    let right_end = value.position.1;
+                    let value_node = self.parse_node(0)?;
+                    let right_end = value_node.position.1;
 
                     Ok(Node::new(
                         Statement::Assignment {
                             identifier: Node::new(Identifier::new(text), span),
-                            value_node: Box::new(value),
+                            value_node: Box::new(value_node),
                         },
                         (span.0, right_end),
                     ))
@@ -394,45 +417,89 @@ impl<'src> Parser<'src> {
             (Token::LeftCurlyBrace, left_span) => {
                 self.next_token()?;
 
-                let mut nodes = Vec::new();
+                // If the next token is a right curly brace, this is an empty map
+                if let (Token::RightCurlyBrace, right_span) = self.current {
+                    self.next_token()?;
+
+                    return Ok(Node::new(
+                        Statement::Map(Vec::new()),
+                        (left_span.0, right_span.1),
+                    ));
+                }
+
+                let mut statement = None;
 
                 loop {
+                    // If a closing brace is found, return the new statement
                     if let (Token::RightCurlyBrace, right_span) = self.current {
                         self.next_token()?;
 
-                        return Ok(Node::new(
-                            Statement::Map(nodes),
-                            (left_span.0, right_span.1),
-                        ));
+                        return Ok(Node::new(statement.unwrap(), (left_span.0, right_span.1)));
                     }
 
-                    let identifier = if let (Token::Identifier(text), right_span) = self.current {
-                        self.next_token()?;
+                    let next_node = self.parse_node(0)?;
 
-                        Node::new(Identifier::new(text), right_span)
-                    } else {
-                        return Err(ParseError::ExpectedIdentifier {
-                            actual: self.current.0.to_owned(),
-                            position: self.current.1,
-                        });
-                    };
+                    // If the next node is an assignment, this might be a map
+                    if let Statement::Assignment {
+                        identifier,
+                        value_node,
+                    } = next_node.inner
+                    {
+                        // If the current token is a comma, right curly brace, or the new
+                        // statement is already a map
+                        if self.current.0 == Token::Comma
+                            || statement
+                                .as_ref()
+                                .is_some_and(|statement| matches!(statement, Statement::Map(_)))
+                        {
+                            // The new statement is a map
+                            if let Statement::Map(map_properties) =
+                                statement.get_or_insert_with(|| Statement::Map(Vec::new()))
+                            {
+                                // Ignore commas after properties
+                                if let Token::Comma = self.current.0 {
+                                    self.next_token()?;
+                                }
 
-                    if let Token::Equal = self.current.0 {
-                        self.next_token()?;
-                    } else {
-                        return Err(ParseError::ExpectedToken {
-                            expected: TokenOwned::Equal,
-                            actual: self.current.0.to_owned(),
-                            position: self.current.1,
-                        });
-                    }
+                                // Add the new property to the map
+                                map_properties.push((identifier, *value_node));
+                            }
+                        // Otherwise, the new statement is a block
+                        } else if let Statement::Block(statements) =
+                            statement.get_or_insert_with(|| Statement::Block(Vec::new()))
+                        {
+                            if self.current.0 == Token::Semicolon {
+                                self.next_token()?;
 
-                    let current_value_node = self.parse_node(0)?;
+                                statements.push(Node::new(
+                                    Statement::Nil(Box::new(Node::new(
+                                        Statement::Assignment {
+                                            identifier,
+                                            value_node,
+                                        },
+                                        next_node.position,
+                                    ))),
+                                    (next_node.position.0, self.current.1 .1),
+                                ));
 
-                    nodes.push((identifier, current_value_node));
+                                continue;
+                            } else {
+                                statements.push(Node::new(
+                                    Statement::Assignment {
+                                        identifier,
+                                        value_node,
+                                    },
+                                    next_node.position,
+                                ));
 
-                    if let Token::Comma = self.current.0 {
-                        self.next_token()?;
+                                continue;
+                            }
+                        }
+                    } else if let Statement::Block(statements) =
+                        statement.get_or_insert_with(|| Statement::Block(Vec::new()))
+                    {
+                        // Add the assignment statement to the block
+                        statements.push(next_node);
                     }
                 }
             }
@@ -556,7 +623,8 @@ impl<'src> Parser<'src> {
 
     fn current_precedence(&self) -> u8 {
         match self.current.0 {
-            Token::DoubleEqual => 6,
+            Token::DoubleEqual => 7,
+            Token::DoubleAmpersand => 6,
             Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual => 5,
             Token::Dot => 4,
             Token::Percent => 3,
@@ -577,7 +645,7 @@ pub enum ParseError {
     },
     ExpectedIdentifier {
         actual: TokenOwned,
-        position: (usize, usize),
+        position: Span,
     },
     ExpectedToken {
         expected: TokenOwned,
@@ -630,6 +698,186 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn misplaced_semicolon() {
+        let input = ";";
+
+        assert_eq!(
+            parse(input),
+            Err(ParseError::UnexpectedToken {
+                actual: TokenOwned::Semicolon,
+                position: (0, 1)
+            })
+        );
+    }
+
+    #[test]
+    fn block_with_one_statement() {
+        let input = "{ 40 + 2 }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Block(vec![Node::new(
+                        Statement::BinaryOperation {
+                            left: Box::new(Node::new(
+                                Statement::Constant(Value::integer(40)),
+                                (2, 4)
+                            )),
+                            operator: Node::new(BinaryOperator::Add, (5, 6)),
+                            right: Box::new(Node::new(
+                                Statement::Constant(Value::integer(2)),
+                                (7, 8)
+                            )),
+                        },
+                        (2, 8)
+                    )]),
+                    (0, 10)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn block_with_assignment() {
+        let input = "{ foo = 42; bar = 42; baz = '42' }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Block(vec![
+                        Node::new(
+                            Statement::Nil(Box::new(Node::new(
+                                Statement::Assignment {
+                                    identifier: Node::new(Identifier::new("foo"), (2, 5)),
+                                    value_node: Box::new(Node::new(
+                                        Statement::Constant(Value::integer(42)),
+                                        (8, 10)
+                                    ))
+                                },
+                                (2, 10)
+                            ),)),
+                            (2, 15)
+                        ),
+                        Node::new(
+                            Statement::Nil(Box::new(Node::new(
+                                Statement::Assignment {
+                                    identifier: Node::new(Identifier::new("bar"), (12, 15)),
+                                    value_node: Box::new(Node::new(
+                                        Statement::Constant(Value::integer(42)),
+                                        (18, 20)
+                                    ))
+                                },
+                                (12, 20)
+                            ),)),
+                            (12, 25)
+                        ),
+                        Node::new(
+                            Statement::Assignment {
+                                identifier: Node::new(Identifier::new("baz"), (22, 25)),
+                                value_node: Box::new(Node::new(
+                                    Statement::Constant(Value::string("42")),
+                                    (28, 32)
+                                ))
+                            },
+                            (22, 32)
+                        )
+                    ]),
+                    (0, 34)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn empty_map() {
+        let input = "{}";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(Statement::Map(vec![]), (0, 2))].into()
+            })
+        );
+    }
+
+    #[test]
+    fn map_with_trailing_comma() {
+        let input = "{ foo = 42, bar = 42, baz = '42', }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Map(vec![
+                        (
+                            Node::new(Identifier::new("foo"), (2, 5)),
+                            Node::new(Statement::Constant(Value::integer(42)), (8, 10))
+                        ),
+                        (
+                            Node::new(Identifier::new("bar"), (12, 15)),
+                            Node::new(Statement::Constant(Value::integer(42)), (18, 20))
+                        ),
+                        (
+                            Node::new(Identifier::new("baz"), (22, 25)),
+                            Node::new(Statement::Constant(Value::string("42")), (28, 32))
+                        ),
+                    ]),
+                    (0, 35)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn map_with_two_properties() {
+        let input = "{ x = 42, y = 'foobar' }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Map(vec![
+                        (
+                            Node::new(Identifier::new("x"), (2, 3)),
+                            Node::new(Statement::Constant(Value::integer(42)), (6, 8))
+                        ),
+                        (
+                            Node::new(Identifier::new("y"), (10, 11)),
+                            Node::new(Statement::Constant(Value::string("foobar")), (14, 22))
+                        )
+                    ]),
+                    (0, 24)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn map_with_one_property() {
+        let input = "{ x = 42, }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Map(vec![(
+                        Node::new(Identifier::new("x"), (2, 3)),
+                        Node::new(Statement::Constant(Value::integer(42)), (6, 8))
+                    )]),
+                    (0, 11)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn equal() {
@@ -700,31 +948,6 @@ mod tests {
             Err(ParseError::UnexpectedToken {
                 actual: TokenOwned::Equal,
                 position: (6, 7)
-            })
-        );
-    }
-
-    #[test]
-    fn map() {
-        let input = "{ x = 42, y = 'foobar' }";
-
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                nodes: [Node::new(
-                    Statement::Map(vec![
-                        (
-                            Node::new(Identifier::new("x"), (2, 3)),
-                            Node::new(Statement::Constant(Value::integer(42)), (6, 8))
-                        ),
-                        (
-                            Node::new(Identifier::new("y"), (10, 11)),
-                            Node::new(Statement::Constant(Value::string("foobar")), (14, 22))
-                        )
-                    ]),
-                    (0, 24)
-                )]
-                .into()
             })
         );
     }

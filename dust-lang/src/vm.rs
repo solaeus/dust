@@ -115,6 +115,15 @@ impl Vm {
 
                 Ok(Some(result))
             }
+            Statement::Block(statements) => {
+                let mut previous_value = None;
+
+                for statement in statements {
+                    previous_value = self.run_node(statement, variables)?;
+                }
+
+                Ok(previous_value)
+            }
             Statement::BuiltInFunctionCall {
                 function,
                 type_arguments: _,
@@ -233,6 +242,11 @@ impl Vm {
                 }
 
                 Ok(Some(Value::map(values)))
+            }
+            Statement::Nil(node) => {
+                let _return = self.run_node(*node, variables)?;
+
+                Ok(None)
             }
             Statement::PropertyAccess(left, right) => {
                 let left_span = left.position;
@@ -436,7 +450,7 @@ mod tests {
 
     #[test]
     fn map_equal() {
-        let input = "{ y = 'foo' } == { y = 'foo' }";
+        let input = "{ y = 'foo', } == { y = 'foo', }";
 
         assert_eq!(
             run(input, &mut HashMap::new()),

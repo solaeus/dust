@@ -140,6 +140,11 @@ impl<'a> Analyzer<'a> {
                     }
                 }
             }
+            Statement::Block(statements) => {
+                for statement in statements {
+                    self.analyze_node(statement)?;
+                }
+            }
             Statement::BuiltInFunctionCall { .. } => {}
             Statement::Constant(_) => {}
             Statement::FunctionCall { function, .. } => {
@@ -193,6 +198,9 @@ impl<'a> Analyzer<'a> {
                 }
 
                 self.analyze_node(right)?;
+            }
+            Statement::Nil(node) => {
+                self.analyze_node(node)?;
             }
         }
 
