@@ -2,7 +2,7 @@
 use annotate_snippets::{Level, Renderer, Snippet};
 use std::{error::Error, fmt::Display};
 
-use crate::{AnalyzerError, VmError};
+use crate::VmError;
 
 /// An error that occurred during the execution of the Dust language and its
 /// corresponding source code.

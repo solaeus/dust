@@ -182,10 +182,13 @@ impl Lexer {
 
     /// Progress to the next character.
     fn next_char(&mut self, source: &str) -> Option<char> {
-        source[self.position..].chars().next().map(|c| {
+        if let Some(c) = source[self.position..].chars().next() {
             self.position += c.len_utf8();
-            c
-        })
+
+            Some(c)
+        } else {
+            None
+        }
     }
 
     /// Skip whitespace characters.
