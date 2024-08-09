@@ -230,7 +230,7 @@ impl<'src> Parser<'src> {
                     Ok(Node::new(node.statement, (left_span.0, right_span.1)))
                 } else {
                     Err(ParseError::ExpectedClosingParenthesis {
-                        actual: TokenOwned::from(self.current.0),
+                        actual: self.current.0.to_owned(),
                         span: self.current.1,
                     })
                 }
@@ -260,7 +260,7 @@ impl<'src> Parser<'src> {
                         nodes.push(instruction);
                     } else {
                         return Err(ParseError::ExpectedClosingSquareBrace {
-                            actual: TokenOwned::from(self.current.0),
+                            actual: self.current.0.to_owned(),
                             span: self.current.1,
                         });
                     }
@@ -285,7 +285,7 @@ impl<'src> Parser<'src> {
                     self.next_token()?;
                 } else {
                     return Err(ParseError::ExpectedOpeningParenthesis {
-                        actual: TokenOwned::from(self.current.0),
+                        actual: self.current.0.to_owned(),
                         span: self.current.1,
                     });
                 }
@@ -311,7 +311,7 @@ impl<'src> Parser<'src> {
                         }
                     } else {
                         return Err(ParseError::ExpectedClosingParenthesis {
-                            actual: TokenOwned::from(self.current.0),
+                            actual: self.current.0.to_owned(),
                             span: self.current.1,
                         });
                     }
@@ -326,9 +326,7 @@ impl<'src> Parser<'src> {
                     left_span,
                 ))
             }
-            _ => Err(ParseError::UnexpectedToken(TokenOwned::from(
-                self.current.0,
-            ))),
+            _ => Err(ParseError::UnexpectedToken(self.current.0.to_owned())),
         }
     }
 

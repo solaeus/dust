@@ -2,7 +2,8 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+/// Source code token.
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub enum Token<'src> {
     Eof,
 
@@ -33,6 +34,33 @@ pub enum Token<'src> {
     Star,
 }
 
+impl<'src> Token<'src> {
+    pub fn to_owned(&self) -> TokenOwned {
+        match self {
+            Token::Eof => TokenOwned::Eof,
+            Token::Identifier(text) => TokenOwned::Identifier(text.to_string()),
+            Token::Boolean(boolean) => TokenOwned::Boolean(*boolean),
+            Token::Float(float) => TokenOwned::Float(*float),
+            Token::Integer(integer) => TokenOwned::Integer(*integer),
+            Token::String(text) => TokenOwned::String(text.to_string()),
+            Token::IsEven => TokenOwned::IsEven,
+            Token::IsOdd => TokenOwned::IsOdd,
+            Token::Length => TokenOwned::Length,
+            Token::ReadLine => TokenOwned::ReadLine,
+            Token::WriteLine => TokenOwned::WriteLine,
+            Token::Comma => TokenOwned::Comma,
+            Token::Dot => TokenOwned::Dot,
+            Token::Equal => TokenOwned::Equal,
+            Token::Plus => TokenOwned::Plus,
+            Token::Star => TokenOwned::Star,
+            Token::LeftParenthesis => TokenOwned::LeftParenthesis,
+            Token::RightParenthesis => TokenOwned::RightParenthesis,
+            Token::LeftSquareBrace => TokenOwned::LeftSquareBrace,
+            Token::RightSquareBrace => TokenOwned::RightSquareBrace,
+        }
+    }
+}
+
 impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -60,6 +88,9 @@ impl<'src> Display for Token<'src> {
     }
 }
 
+/// Owned version of `Token`, which owns all the strings.
+///
+/// This is used for errors.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum TokenOwned {
     Eof,
@@ -89,31 +120,4 @@ pub enum TokenOwned {
     RightParenthesis,
     RightSquareBrace,
     Star,
-}
-
-impl<'str> From<Token<'str>> for TokenOwned {
-    fn from(token: Token<'str>) -> Self {
-        match token {
-            Token::Eof => TokenOwned::Eof,
-            Token::Identifier(text) => TokenOwned::Identifier(text.to_string()),
-            Token::Boolean(boolean) => TokenOwned::Boolean(boolean),
-            Token::Float(float) => TokenOwned::Float(float),
-            Token::Integer(integer) => TokenOwned::Integer(integer),
-            Token::String(text) => TokenOwned::String(text.to_string()),
-            Token::IsEven => TokenOwned::IsEven,
-            Token::IsOdd => TokenOwned::IsOdd,
-            Token::Length => TokenOwned::Length,
-            Token::ReadLine => TokenOwned::ReadLine,
-            Token::WriteLine => TokenOwned::WriteLine,
-            Token::Comma => TokenOwned::Comma,
-            Token::Dot => TokenOwned::Dot,
-            Token::Equal => TokenOwned::Equal,
-            Token::Plus => TokenOwned::Plus,
-            Token::Star => TokenOwned::Star,
-            Token::LeftParenthesis => TokenOwned::LeftParenthesis,
-            Token::RightParenthesis => TokenOwned::RightParenthesis,
-            Token::LeftSquareBrace => TokenOwned::LeftSquareBrace,
-            Token::RightSquareBrace => TokenOwned::RightSquareBrace,
-        }
-    }
 }
