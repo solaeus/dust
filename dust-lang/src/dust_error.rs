@@ -35,7 +35,7 @@ impl<'src> DustError<'src> {
                 AnalyzerError::ExpectedIntegerFloatOrString { position, .. } => position,
                 AnalyzerError::UnexpectedIdentifier { position, .. } => position,
             },
-            VmError::ParseError(_) => todo!(),
+            VmError::ParseError(parse_error) => &parse_error.position(),
             VmError::ValueError { position, .. } => position,
             VmError::BuiltInFunctionCallError(_) => todo!(),
             VmError::ExpectedIdentifier { position } => position,
@@ -44,6 +44,7 @@ impl<'src> DustError<'src> {
             VmError::ExpectedFunction { position, .. } => position,
             VmError::ExpectedList { position } => position,
             VmError::ExpectedValue { position } => position,
+            VmError::UndefinedIdentifier { position, .. } => position,
         };
         let label = self.vm_error.to_string();
         let message = Level::Error.title(title).snippet(

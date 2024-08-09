@@ -131,6 +131,9 @@ impl Value {
             (ValueInner::Integer(left), ValueInner::Integer(right)) => {
                 Ok(Value::integer(left.saturating_add(*right)))
             }
+            (ValueInner::String(left), ValueInner::String(right)) => {
+                Ok(Value::string(left.to_string() + right))
+            }
             _ => Err(ValueError::CannotAdd(self.clone(), other.clone())),
         }
     }

@@ -92,7 +92,7 @@ impl BuiltInFunction {
 
                     stdin().read_line(&mut input)?;
 
-                    Ok(Some(Value::string(input)))
+                    Ok(Some(Value::string(input.trim_end_matches('\n'))))
                 } else {
                     Err(BuiltInFunctionError::WrongNumberOfValueArguments)
                 }

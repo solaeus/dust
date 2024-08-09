@@ -171,7 +171,16 @@ impl Vm {
 
                 Ok(function.clone().call(None, value_parameters, variables)?)
             }
-            Statement::Identifier(_) => Ok(None),
+            Statement::Identifier(identifier) => {
+                if let Some(value) = variables.get(&identifier) {
+                    Ok(Some(value.clone()))
+                } else {
+                    Err(VmError::UndefinedIdentifier {
+                        identifier,
+                        position: node.position,
+                    })
+                }
+            }
             Statement::List(nodes) => {
                 let values = nodes
                     .into_iter()
@@ -303,17 +312,37 @@ impl Vm {
 pub enum VmError {
     AnaylyzerError(AnalyzerError),
     ParseError(ParseError),
-    ValueError { error: ValueError, position: Span },
+    ValueError {
+        error: ValueError,
+        position: Span,
+    },
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
     BuiltInFunctionCallError(BuiltInFunctionError),
-    ExpectedIdentifier { position: Span },
-    ExpectedIdentifierOrInteger { position: Span },
-    ExpectedInteger { position: Span },
-    ExpectedFunction { actual: Value, position: Span },
-    ExpectedList { position: Span },
-    ExpectedValue { position: Span },
+    ExpectedIdentifier {
+        position: Span,
+    },
+    ExpectedIdentifierOrInteger {
+        position: Span,
+    },
+    ExpectedInteger {
+        position: Span,
+    },
+    ExpectedFunction {
+        actual: Value,
+        position: Span,
+    },
+    ExpectedList {
+        position: Span,
+    },
+    ExpectedValue {
+        position: Span,
+    },
+    UndefinedIdentifier {
+        identifier: Identifier,
+        position: Span,
+    },
 }
 
 impl From<BuiltInFunctionError> for VmError {
@@ -382,6 +411,16 @@ impl Display for VmError {
             }
             Self::ExpectedValue { position } => {
                 write!(f, "Expected a value at position: {:?}", position)
+            }
+            Self::UndefinedIdentifier {
+                identifier,
+                position,
+            } => {
+                write!(
+                    f,
+                    "Undefined identifier: {} at position: {:?}",
+                    identifier, position
+                )
             }
         }
     }
