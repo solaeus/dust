@@ -4,7 +4,7 @@
 //! - `parse` convenience function
 //! - `Parser` struct, which parses the input a statement at a time
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::VecDeque,
     error::Error,
     fmt::{self, Display, Formatter},
 };
@@ -166,25 +166,6 @@ impl<'src> Parser<'src> {
                         (left_start, right_end),
                     ));
                 }
-                (Token::Equal, _) => {
-                    self.next_token()?;
-
-                    let identifier = if let Statement::Identifier(identifier) = left_node.inner {
-                        identifier
-                    } else {
-                        todo!()
-                    };
-                    let right_node = self.parse_node(self.current_precedence())?;
-                    let right_end = right_node.position.1;
-
-                    return Ok(Node::new(
-                        Statement::Assignment {
-                            identifier: Node::new(identifier, left_node.position),
-                            value_node: Box::new(right_node),
-                        },
-                        (left_start, right_end),
-                    ));
-                }
                 (Token::Greater, _) => {
                     let operator = Node::new(BinaryOperator::Greater, self.current.1);
 
@@ -334,10 +315,25 @@ impl<'src> Parser<'src> {
             (Token::Identifier(text), span) => {
                 self.next_token()?;
 
-                Ok(Node::new(
-                    Statement::Identifier(Identifier::new(text)),
-                    span,
-                ))
+                if let (Token::Equal, _) = self.current {
+                    self.next_token()?;
+
+                    let value = self.parse_node(0)?;
+                    let right_end = value.position.1;
+
+                    Ok(Node::new(
+                        Statement::Assignment {
+                            identifier: Node::new(Identifier::new(text), span),
+                            value_node: Box::new(value),
+                        },
+                        (span.0, right_end),
+                    ))
+                } else {
+                    Ok(Node::new(
+                        Statement::Identifier(Identifier::new(text)),
+                        span,
+                    ))
+                }
             }
             (Token::String(string), span) => {
                 self.next_token()?;
@@ -511,7 +507,6 @@ impl<'src> Parser<'src> {
         match self.current.0 {
             Token::Greater | Token::GreaterEqual | Token::Less | Token::LessEqual => 5,
             Token::Dot => 4,
-            Token::Equal => 3,
             Token::Star => 2,
             Token::Plus => 1,
             Token::Minus => 1,
@@ -578,10 +573,22 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn malformed_assignment() {
+        let input = "false = 1";
+
+        assert_eq!(
+            parse(input),
+            Err(ParseError::UnexpectedToken {
+                actual: TokenOwned::Equal,
+                position: (6, 7)
+            })
+        );
+    }
 
     #[test]
     fn map() {
