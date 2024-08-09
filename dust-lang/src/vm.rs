@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::ComparisonOperator, parse, AbstractSyntaxTree, Analyzer, AnalyzerError,
+    abstract_tree::BinaryOperator, parse, AbstractSyntaxTree, Analyzer, AnalyzerError,
     BuiltInFunctionError, Identifier, Node, ParseError, Span, Statement, Value, ValueError,
 };
 
@@ -52,52 +52,64 @@ impl Vm {
         variables: &mut HashMap<Identifier, Value>,
     ) -> Result<Option<Value>, VmError> {
         match node.inner {
-            Statement::Add(left, right) => {
-                let left_span = left.position;
-                let left = if let Some(value) = self.run_node(*left, variables)? {
+            Statement::Assignment {
+                identifier,
+                value_node,
+            } => {
+                let value_node_position = value_node.position;
+                let value = if let Some(value) = self.run_node(*value_node, variables)? {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
-                        position: left_span,
-                    });
-                };
-                let right_span = right.position;
-                let right = if let Some(value) = self.run_node(*right, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: right_span,
-                    });
-                };
-                let sum = left
-                    .add(&right)
-                    .map_err(|value_error| VmError::ValueError {
-                        error: value_error,
-                        position: (left_span.0, right_span.1),
-                    })?;
-
-                Ok(Some(sum))
-            }
-            Statement::Assign(left, right) => {
-                let identifier = if let Statement::Identifier(identifier) = &left.inner {
-                    identifier
-                } else {
-                    return Err(VmError::ExpectedIdentifier {
-                        position: left.position,
-                    });
-                };
-                let right_span = right.position;
-                let value = if let Some(value) = self.run_node(*right, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: right_span,
+                        position: value_node_position,
                     });
                 };
 
-                variables.insert(identifier.clone(), value);
+                variables.insert(identifier, value);
 
                 Ok(None)
+            }
+            Statement::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
+                let left_position = left.position;
+                let left_value = if let Some(value) = self.run_node(*left, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: left_position,
+                    });
+                };
+
+                let right_position = right.position;
+                let right_value = if let Some(value) = self.run_node(*right, variables)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: right_position,
+                    });
+                };
+
+                let result = match operator.inner {
+                    BinaryOperator::Add => left_value.add(&right_value),
+                    BinaryOperator::Divide => todo!(),
+                    BinaryOperator::Greater => left_value.greater_than(&right_value),
+                    BinaryOperator::GreaterOrEqual => {
+                        left_value.greater_than_or_equal(&right_value)
+                    }
+                    BinaryOperator::Less => left_value.less_than(&right_value),
+                    BinaryOperator::LessOrEqual => left_value.less_than_or_equal(&right_value),
+                    BinaryOperator::Multiply => left_value.multiply(&right_value),
+                    BinaryOperator::Subtract => left_value.subtract(&right_value),
+                }
+                .map_err(|value_error| VmError::ValueError {
+                    error: value_error,
+                    position: node.position,
+                })?;
+
+                Ok(Some(result))
             }
             Statement::BuiltInFunctionCall {
                 function,
@@ -131,54 +143,6 @@ impl Vm {
                         })?;
 
                 Ok(function_call_return)
-            }
-            Statement::Comparison(left, operator, right) => {
-                let left_span = left.position;
-                let left = if let Some(value) = self.run_node(*left, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: left_span,
-                    });
-                };
-                let right_span = right.position;
-                let right = if let Some(value) = self.run_node(*right, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: right_span,
-                    });
-                };
-                let comparison = match operator.inner {
-                    ComparisonOperator::GreaterThan => {
-                        left.greater_than(&right)
-                            .map_err(|value_error| VmError::ValueError {
-                                error: value_error,
-                                position: (left_span.0, right_span.1),
-                            })?
-                    }
-                    ComparisonOperator::GreaterThanOrEqual => left
-                        .greater_than_or_equal(&right)
-                        .map_err(|value_error| VmError::ValueError {
-                            error: value_error,
-                            position: (left_span.0, right_span.1),
-                        })?,
-                    ComparisonOperator::LessThan => {
-                        left.less_than(&right)
-                            .map_err(|value_error| VmError::ValueError {
-                                error: value_error,
-                                position: (left_span.0, right_span.1),
-                            })?
-                    }
-                    ComparisonOperator::LessThanOrEqual => left
-                        .less_than_or_equal(&right)
-                        .map_err(|value_error| VmError::ValueError {
-                            error: value_error,
-                            position: (left_span.0, right_span.1),
-                        })?,
-                };
-
-                Ok(Some(comparison))
             }
             Statement::Constant(value) => Ok(Some(value.clone())),
             Statement::FunctionCall {
@@ -250,32 +214,6 @@ impl Vm {
 
                 Ok(Some(Value::list(values)))
             }
-            Statement::Multiply(left, right) => {
-                let left_span = left.position;
-                let left = if let Some(value) = self.run_node(*left, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: left_span,
-                    });
-                };
-                let right_span = right.position;
-                let right = if let Some(value) = self.run_node(*right, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: right_span,
-                    });
-                };
-                let product = left
-                    .multiply(&right)
-                    .map_err(|value_error| VmError::ValueError {
-                        error: value_error,
-                        position: (left_span.0, right_span.1),
-                    })?;
-
-                Ok(Some(product))
-            }
             Statement::PropertyAccess(left, right) => {
                 let left_span = left.position;
                 let left_value = if let Some(value) = self.run_node(*left, variables)? {
@@ -336,32 +274,6 @@ impl Vm {
                 Err(VmError::ExpectedIdentifierOrInteger {
                     position: right_span,
                 })
-            }
-            Statement::Subtract(left, right) => {
-                let left_span = left.position;
-                let left = if let Some(value) = self.run_node(*left, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: left_span,
-                    });
-                };
-                let right_span = right.position;
-                let right = if let Some(value) = self.run_node(*right, variables)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: right_span,
-                    });
-                };
-                let difference =
-                    left.subtract(&right)
-                        .map_err(|value_error| VmError::ValueError {
-                            error: value_error,
-                            position: (left_span.0, right_span.1),
-                        })?;
-
-                Ok(Some(difference))
             }
         }
     }

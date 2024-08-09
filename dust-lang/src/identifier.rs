@@ -20,15 +20,17 @@ pub struct Identifier(Arc<String>);
 
 impl Identifier {
     pub fn new<T: ToString>(text: T) -> Self {
-        let cache = identifier_cache();
+        let cache = identifier_cache().read().unwrap();
 
         let new = Identifier(Arc::new(text.to_string()));
 
-        if let Some(identifier) = cache.read().unwrap().get(&new).cloned() {
-            return identifier;
+        if cache.contains(&new) {
+            return new;
         }
 
-        cache.write().unwrap().insert(new.clone());
+        drop(cache);
+
+        identifier_cache().write().unwrap().insert(new.clone());
 
         new
     }

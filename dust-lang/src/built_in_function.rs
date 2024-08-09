@@ -113,7 +113,7 @@ impl BuiltInFunction {
         }
     }
 
-    pub fn expected_type(&self) -> Option<Type> {
+    pub fn expected_return_type(&self) -> Option<Type> {
         match self {
             BuiltInFunction::IsEven => Some(Type::Boolean),
             BuiltInFunction::IsOdd => Some(Type::Boolean),

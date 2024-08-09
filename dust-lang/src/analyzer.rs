@@ -11,7 +11,10 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{AbstractSyntaxTree, BuiltInFunction, Identifier, Node, Span, Statement, Type, Value};
+use crate::{
+    abstract_tree::BinaryOperator, AbstractSyntaxTree, BuiltInFunction, Identifier, Node, Span,
+    Statement, Type, Value,
+};
 
 /// Analyzes the abstract syntax tree for errors.
 ///
@@ -74,68 +77,26 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_node(&self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
         match &node.inner {
-            Statement::Add(left, right) => {
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
-
-                let left_type = left.inner.expected_type(self.variables);
-                let right_type = right.inner.expected_type(self.variables);
-
-                match (left_type, right_type) {
-                    (Some(Type::Integer), Some(Type::Integer)) => {}
-                    (Some(Type::Float), Some(Type::Float)) => {}
-                    (Some(Type::String), Some(Type::String)) => {}
-                    (Some(Type::Integer), _) | (Some(Type::Float), _) | (Some(Type::String), _) => {
-                        return Err(AnalyzerError::ExpectedIntegerFloatOrString {
-                            actual: right.as_ref().clone(),
-                            position: right.position,
-                        });
-                    }
-                    _ => {
-                        return Err(AnalyzerError::ExpectedIntegerFloatOrString {
-                            actual: left.as_ref().clone(),
-                            position: left.position,
-                        });
-                    }
-                }
-            }
-            Statement::Assign(left, right) => {
-                if let Statement::Identifier(_) = &left.inner {
-                    // Identifier is in the correct position
-                } else {
-                    return Err(AnalyzerError::ExpectedIdentifier {
-                        actual: left.as_ref().clone(),
-                        position: left.position,
+            Statement::Assignment {
+                identifier,
+                value_node: value,
+            } => {
+                if let None = value.inner.expected_type(self.variables) {
+                    return Err(AnalyzerError::ExpectedValue {
+                        actual: value.as_ref().clone(),
+                        position: value.position,
                     });
                 }
-
+            }
+            Statement::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
+                self.analyze_node(left)?;
                 self.analyze_node(right)?;
             }
             Statement::BuiltInFunctionCall { .. } => {}
-            Statement::Comparison(left, _, right) => {
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
-
-                if let Some(Type::Integer) | Some(Type::Float) =
-                    left.inner.expected_type(self.variables)
-                {
-                } else {
-                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                        actual: left.as_ref().clone(),
-                        position: left.position,
-                    });
-                }
-
-                if let Some(Type::Integer) | Some(Type::Float) =
-                    right.inner.expected_type(self.variables)
-                {
-                } else {
-                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                        actual: right.as_ref().clone(),
-                        position: right.position,
-                    });
-                }
-            }
             Statement::Constant(_) => {}
             Statement::FunctionCall { function, .. } => {
                 if let Statement::Identifier(_) = &function.inner {
@@ -158,37 +119,13 @@ impl<'a> Analyzer<'a> {
                     self.analyze_node(statement)?;
                 }
             }
-            Statement::Multiply(left, right) => {
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
-
-                if let Some(Type::Integer) | Some(Type::Float) =
-                    left.inner.expected_type(self.variables)
-                {
-                } else {
-                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                        actual: left.as_ref().clone(),
-                        position: left.position,
-                    });
-                }
-
-                if let Some(Type::Integer) | Some(Type::Float) =
-                    right.inner.expected_type(self.variables)
-                {
-                } else {
-                    return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                        actual: right.as_ref().clone(),
-                        position: right.position,
-                    });
-                }
-            }
             Statement::PropertyAccess(left, right) => {
                 if let Statement::Identifier(_) | Statement::Constant(_) | Statement::List(_) =
                     &left.inner
                 {
                     // Left side is valid
                 } else {
-                    return Err(AnalyzerError::ExpectedIdentifierOrValue {
+                    return Err(AnalyzerError::ExpectedValue {
                         actual: left.as_ref().clone(),
                         position: left.position,
                     });
@@ -208,30 +145,6 @@ impl<'a> Analyzer<'a> {
 
                 self.analyze_node(right)?;
             }
-            Statement::Subtract(left, right) => {
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
-
-                let left_type = left.inner.expected_type(self.variables);
-                let right_type = right.inner.expected_type(self.variables);
-
-                match (left_type, right_type) {
-                    (Some(Type::Integer), Some(Type::Integer)) => {}
-                    (Some(Type::Float), Some(Type::Float)) => {}
-                    (Some(Type::Integer), _) | (Some(Type::Float), _) => {
-                        return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                            actual: right.as_ref().clone(),
-                            position: right.position,
-                        });
-                    }
-                    _ => {
-                        return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                            actual: left.as_ref().clone(),
-                            position: left.position,
-                        });
-                    }
-                }
-            }
         }
 
         Ok(())
@@ -244,6 +157,10 @@ pub enum AnalyzerError {
         actual: Node<Statement>,
         position: Span,
     },
+    ExpectedFloat {
+        actual: Node<Statement>,
+        position: (usize, usize),
+    },
     ExpectedFunction {
         actual: Node<Statement>,
         position: Span,
@@ -252,7 +169,7 @@ pub enum AnalyzerError {
         actual: Node<Statement>,
         position: Span,
     },
-    ExpectedIdentifierOrValue {
+    ExpectedInteger {
         actual: Node<Statement>,
         position: Span,
     },
@@ -264,9 +181,21 @@ pub enum AnalyzerError {
         actual: Node<Statement>,
         position: Span,
     },
+    ExpectedString {
+        actual: Node<Statement>,
+        position: (usize, usize),
+    },
+    ExpectedValue {
+        actual: Node<Statement>,
+        position: Span,
+    },
     UnexpectedIdentifier {
         identifier: Node<Statement>,
         position: Span,
+    },
+    UnexectedString {
+        actual: Node<Statement>,
+        position: (usize, usize),
     },
 }
 
@@ -274,12 +203,16 @@ impl AnalyzerError {
     pub fn position(&self) -> Span {
         match self {
             AnalyzerError::ExpectedBoolean { position, .. } => *position,
+            AnalyzerError::ExpectedFloat { position, .. } => *position,
             AnalyzerError::ExpectedFunction { position, .. } => *position,
             AnalyzerError::ExpectedIdentifier { position, .. } => *position,
-            AnalyzerError::ExpectedIdentifierOrValue { position, .. } => *position,
+            AnalyzerError::ExpectedValue { position, .. } => *position,
+            AnalyzerError::ExpectedInteger { position, .. } => *position,
             AnalyzerError::ExpectedIntegerOrFloat { position, .. } => *position,
             AnalyzerError::ExpectedIntegerFloatOrString { position, .. } => *position,
+            AnalyzerError::ExpectedString { position, .. } => *position,
             AnalyzerError::UnexpectedIdentifier { position, .. } => *position,
+            AnalyzerError::UnexectedString { position, .. } => *position,
         }
     }
 }
@@ -295,11 +228,14 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedFunction { actual, .. } => {
                 write!(f, "Expected function, found {}", actual)
             }
+            AnalyzerError::ExpectedFloat { actual, .. } => {
+                write!(f, "Expected float, found {}", actual)
+            }
             AnalyzerError::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {}", actual)
             }
-            AnalyzerError::ExpectedIdentifierOrValue { actual, .. } => {
-                write!(f, "Expected identifier or value, found {}", actual)
+            AnalyzerError::ExpectedInteger { actual, .. } => {
+                write!(f, "Expected integer, found {}", actual)
             }
             AnalyzerError::ExpectedIntegerOrFloat { actual, .. } => {
                 write!(f, "Expected integer or float, found {}", actual)
@@ -307,8 +243,17 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedIntegerFloatOrString { actual, .. } => {
                 write!(f, "Expected integer, float, or string, found {}", actual)
             }
+            AnalyzerError::ExpectedString { actual, .. } => {
+                write!(f, "Expected string, found {}", actual)
+            }
+            AnalyzerError::ExpectedValue { actual, .. } => {
+                write!(f, "Expected value, found {}", actual)
+            }
             AnalyzerError::UnexpectedIdentifier { identifier, .. } => {
                 write!(f, "Unexpected identifier {}", identifier)
+            }
+            AnalyzerError::UnexectedString { actual, .. } => {
+                write!(f, "Unexpected string {}", actual)
             }
         }
     }
@@ -324,11 +269,12 @@ mod tests {
     fn add_expects_same_types() {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(
-                Statement::Add(
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    Box::new(Node::new(Statement::Constant(Value::float(1.0)), (1, 2))),
-                ),
-                (0, 2),
+                Statement::BinaryOperation {
+                    left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                    operator: Node::new(BinaryOperator::Add, (1, 2)),
+                    right: Box::new(Node::new(Statement::Constant(Value::float(1.0)), (3, 4))),
+                },
+                (0, 4),
             )]
             .into(),
         };
@@ -348,10 +294,11 @@ mod tests {
     fn add_expects_integer_float_or_string() {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(
-                Statement::Add(
-                    Box::new(Node::new(Statement::Constant(Value::boolean(true)), (0, 1))),
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (1, 2))),
-                ),
+                Statement::BinaryOperation {
+                    left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                    operator: Node::new(BinaryOperator::Add, (1, 2)),
+                    right: Box::new(Node::new(Statement::Constant(Value::boolean(true)), (3, 4))),
+                },
                 (0, 2),
             )]
             .into(),
@@ -433,13 +380,14 @@ mod tests {
     fn multiply_expect_integer_or_float() {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(
-                Statement::Multiply(
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    Box::new(Node::new(
+                Statement::BinaryOperation {
+                    left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                    operator: Node::new(BinaryOperator::Multiply, (1, 2)),
+                    right: Box::new(Node::new(
                         Statement::Constant(Value::boolean(false)),
-                        (1, 2),
+                        (3, 4),
                     )),
-                ),
+                },
                 (0, 2),
             )]
             .into(),
@@ -460,10 +408,10 @@ mod tests {
     fn assignment_expect_identifier() {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(
-                Statement::Assign(
-                    Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    Box::new(Node::new(Statement::Constant(Value::integer(2)), (1, 2))),
-                ),
+                Statement::Assignment {
+                    identifier: Identifier::new("x"),
+                    value_node: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                },
                 (0, 2),
             )]
             .into(),

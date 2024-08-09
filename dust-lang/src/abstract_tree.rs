@@ -35,12 +35,17 @@ impl<T: Display> Display for Node<T> {
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
     // Top-level statements
-    Assign(Box<Node<Statement>>, Box<Node<Statement>>),
+    Assignment {
+        identifier: Identifier,
+        value_node: Box<Node<Statement>>,
+    },
 
-    // Math expressions
-    Add(Box<Node<Statement>>, Box<Node<Statement>>),
-    Subtract(Box<Node<Statement>>, Box<Node<Statement>>),
-    Multiply(Box<Node<Statement>>, Box<Node<Statement>>),
+    // Logic, math and comparison expressions
+    BinaryOperation {
+        left: Box<Node<Statement>>,
+        operator: Node<BinaryOperator>,
+        right: Box<Node<Statement>>,
+    },
 
     // Function calls
     BuiltInFunctionCall {
@@ -54,31 +59,25 @@ pub enum Statement {
         value_arguments: Option<Vec<Node<Statement>>>,
     },
 
-    // Comparison expressions
-    Comparison(
-        Box<Node<Statement>>,
-        Node<ComparisonOperator>,
-        Box<Node<Statement>>,
-    ),
-
-    // Property access
+    // Property access expression
     PropertyAccess(Box<Node<Statement>>, Box<Node<Statement>>),
 
-    // Value collections
+    // Identifier expression
+    Identifier(Identifier),
+
+    // Value collection expressions
     List(Vec<Node<Statement>>),
 
     // Hard-coded values
     Constant(Value),
-    Identifier(Identifier),
 }
 
 impl Statement {
     pub fn expected_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
         match self {
-            Statement::Add(left, _) => left.inner.expected_type(variables),
-            Statement::Assign(_, _) => None,
-            Statement::BuiltInFunctionCall { function, .. } => function.expected_type(),
-            Statement::Comparison(_, _, _) => Some(Type::Boolean),
+            Statement::Assignment { .. } => None,
+            Statement::BinaryOperation { left, .. } => left.inner.expected_type(variables),
+            Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type(variables)),
             Statement::FunctionCall { function, .. } => function.inner.expected_type(variables),
             Statement::Identifier(identifier) => variables
@@ -88,9 +87,7 @@ impl Statement {
                 .first()
                 .map(|node| node.inner.expected_type(variables))
                 .flatten(),
-            Statement::Multiply(left, _) => left.inner.expected_type(variables),
             Statement::PropertyAccess(_, _) => None,
-            Statement::Subtract(left, _) => left.inner.expected_type(variables),
         }
     }
 }
@@ -98,8 +95,19 @@ impl Statement {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Statement::Assign(left, right) => write!(f, "{left} = {right}"),
-            Statement::Add(left, right) => write!(f, "{left} + {right}"),
+            Statement::Assignment {
+                identifier,
+                value_node: value,
+            } => {
+                write!(f, "{identifier} = {value}")
+            }
+            Statement::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => {
+                write!(f, "{left} {operator} {right}")
+            }
             Statement::BuiltInFunctionCall {
                 function,
                 type_arguments: type_parameters,
@@ -135,7 +143,6 @@ impl Display for Statement {
 
                 write!(f, ")")
             }
-            Statement::Comparison(left, operator, right) => write!(f, "{left} {operator} {right}"),
             Statement::Constant(value) => write!(f, "{value}"),
             Statement::FunctionCall {
                 function,
@@ -183,28 +190,34 @@ impl Display for Statement {
                 }
                 write!(f, "]")
             }
-            Statement::Multiply(left, right) => write!(f, "{left} * {right}"),
             Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
-            Statement::Subtract(left, right) => write!(f, "{left} - {right}"),
         }
     }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum ComparisonOperator {
-    GreaterThan,
-    GreaterThanOrEqual,
-    LessThan,
-    LessThanOrEqual,
+pub enum BinaryOperator {
+    Add,
+    Divide,
+    Greater,
+    GreaterOrEqual,
+    Less,
+    LessOrEqual,
+    Multiply,
+    Subtract,
 }
 
-impl Display for ComparisonOperator {
+impl Display for BinaryOperator {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ComparisonOperator::GreaterThan => write!(f, ">"),
-            ComparisonOperator::GreaterThanOrEqual => write!(f, ">="),
-            ComparisonOperator::LessThan => write!(f, "<"),
-            ComparisonOperator::LessThanOrEqual => write!(f, "<="),
+            BinaryOperator::Add => write!(f, "+"),
+            BinaryOperator::Divide => write!(f, "/"),
+            BinaryOperator::Greater => write!(f, ">"),
+            BinaryOperator::GreaterOrEqual => write!(f, ">="),
+            BinaryOperator::Less => write!(f, "<"),
+            BinaryOperator::LessOrEqual => write!(f, "<="),
+            BinaryOperator::Multiply => write!(f, "*"),
+            BinaryOperator::Subtract => write!(f, "-"),
         }
     }
 }

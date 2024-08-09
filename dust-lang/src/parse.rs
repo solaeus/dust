@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::ComparisonOperator, built_in_function::BuiltInFunction, token::TokenOwned,
+    abstract_tree::BinaryOperator, built_in_function::BuiltInFunction, token::TokenOwned,
     AbstractSyntaxTree, Identifier, LexError, Lexer, Node, Span, Statement, Token, Value,
 };
 
@@ -169,16 +169,27 @@ impl<'src> Parser<'src> {
                 (Token::Equal, _) => {
                     self.next_token()?;
 
+                    let identifier = if let Statement::Identifier(identifier) = left_node.inner {
+                        identifier
+                    } else {
+                        return Err(ParseError::ExpectedIdentifier {
+                            actual: left_node.inner,
+                            position: left_node.position,
+                        });
+                    };
                     let right_node = self.parse_node(self.current_precedence())?;
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Assign(Box::new(left_node), Box::new(right_node)),
+                        Statement::Assignment {
+                            identifier,
+                            value_node: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
                 (Token::Greater, _) => {
-                    let operator_position = self.current.1;
+                    let operator = Node::new(BinaryOperator::Greater, self.current.1);
 
                     self.next_token()?;
 
@@ -186,16 +197,16 @@ impl<'src> Parser<'src> {
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Comparison(
-                            Box::new(left_node),
-                            Node::new(ComparisonOperator::GreaterThan, operator_position),
-                            Box::new(right_node),
-                        ),
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
                 (Token::GreaterEqual, _) => {
-                    let operator_position = self.current.1;
+                    let operator = Node::new(BinaryOperator::GreaterOrEqual, self.current.1);
 
                     self.next_token()?;
 
@@ -203,16 +214,16 @@ impl<'src> Parser<'src> {
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Comparison(
-                            Box::new(left_node),
-                            Node::new(ComparisonOperator::GreaterThanOrEqual, operator_position),
-                            Box::new(right_node),
-                        ),
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
                 (Token::Less, _) => {
-                    let operator_position = self.current.1;
+                    let operator = Node::new(BinaryOperator::Less, self.current.1);
 
                     self.next_token()?;
 
@@ -220,16 +231,16 @@ impl<'src> Parser<'src> {
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Comparison(
-                            Box::new(left_node),
-                            Node::new(ComparisonOperator::LessThan, operator_position),
-                            Box::new(right_node),
-                        ),
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
                 (Token::LessEqual, _) => {
-                    let operator_position = self.current.1;
+                    let operator = Node::new(BinaryOperator::LessOrEqual, self.current.1);
 
                     self.next_token()?;
 
@@ -237,44 +248,62 @@ impl<'src> Parser<'src> {
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Comparison(
-                            Box::new(left_node),
-                            Node::new(ComparisonOperator::LessThanOrEqual, operator_position),
-                            Box::new(right_node),
-                        ),
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
                 (Token::Minus, _) => {
+                    let operator = Node::new(BinaryOperator::Subtract, self.current.1);
+
                     self.next_token()?;
 
                     let right_node = self.parse_node(self.current_precedence())?;
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Subtract(Box::new(left_node), Box::new(right_node)),
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
                 (Token::Plus, _) => {
+                    let operator = Node::new(BinaryOperator::Add, self.current.1);
+
                     self.next_token()?;
 
                     let right_node = self.parse_node(self.current_precedence())?;
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Add(Box::new(left_node), Box::new(right_node)),
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
                 (Token::Star, _) => {
+                    let operator = Node::new(BinaryOperator::Multiply, self.current.1);
+
                     self.next_token()?;
 
                     let right_node = self.parse_node(self.current_precedence())?;
                     let right_end = right_node.position.1;
 
                     return Ok(Node::new(
-                        Statement::Multiply(Box::new(left_node), Box::new(right_node)),
+                        Statement::BinaryOperation {
+                            left: Box::new(left_node),
+                            operator,
+                            right: Box::new(right_node),
+                        },
                         (left_start, right_end),
                     ));
                 }
@@ -447,12 +476,31 @@ impl<'src> Parser<'src> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
-    LexError { error: LexError, position: Span },
+    LexError {
+        error: LexError,
+        position: Span,
+    },
 
-    ExpectedClosingParenthesis { actual: TokenOwned, position: Span },
-    ExpectedClosingSquareBrace { actual: TokenOwned, position: Span },
-    ExpectedOpeningParenthesis { actual: TokenOwned, position: Span },
-    UnexpectedToken { actual: TokenOwned, position: Span },
+    ExpectedClosingParenthesis {
+        actual: TokenOwned,
+        position: Span,
+    },
+    ExpectedClosingSquareBrace {
+        actual: TokenOwned,
+        position: Span,
+    },
+    ExpectedIdentifier {
+        actual: Statement,
+        position: (usize, usize),
+    },
+    ExpectedOpeningParenthesis {
+        actual: TokenOwned,
+        position: Span,
+    },
+    UnexpectedToken {
+        actual: TokenOwned,
+        position: Span,
+    },
 }
 
 impl ParseError {
@@ -461,6 +509,7 @@ impl ParseError {
             Self::LexError { position, .. } => *position,
             Self::ExpectedClosingParenthesis { position, .. } => *position,
             Self::ExpectedClosingSquareBrace { position, .. } => *position,
+            Self::ExpectedIdentifier { position, .. } => *position,
             Self::ExpectedOpeningParenthesis { position, .. } => *position,
             Self::UnexpectedToken { position, .. } => *position,
         }
@@ -486,6 +535,9 @@ impl Display for ParseError {
             Self::ExpectedClosingSquareBrace { actual, .. } => {
                 write!(f, "Expected closing square brace, found {actual}",)
             }
+            Self::ExpectedIdentifier { actual, .. } => {
+                write!(f, "Expected identifier, found {actual}")
+            }
             Self::ExpectedOpeningParenthesis { actual, .. } => {
                 write!(f, "Expected opening parenthesis, found {actual}",)
             }
@@ -496,7 +548,7 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{abstract_tree::ComparisonOperator, Identifier};
+    use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
 
@@ -508,11 +560,11 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Comparison(
-                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        Node::new(ComparisonOperator::LessThan, (2, 3)),
-                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)))
-                    ),
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        operator: Node::new(BinaryOperator::Less, (2, 3)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
+                    },
                     (0, 5)
                 )]
                 .into()
@@ -528,11 +580,11 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Comparison(
-                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        Node::new(ComparisonOperator::LessThanOrEqual, (2, 4)),
-                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6)))
-                    ),
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        operator: Node::new(BinaryOperator::Less, (2, 4)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6))),
+                    },
                     (0, 6)
                 )]
                 .into()
@@ -548,11 +600,11 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Comparison(
-                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        Node::new(ComparisonOperator::GreaterThanOrEqual, (2, 4)),
-                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6)))
-                    ),
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        operator: Node::new(BinaryOperator::Greater, (2, 4)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6))),
+                    },
                     (0, 6)
                 )]
                 .into()
@@ -568,11 +620,11 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Comparison(
-                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        Node::new(ComparisonOperator::GreaterThan, (2, 3)),
-                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)))
-                    ),
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        operator: Node::new(BinaryOperator::Greater, (2, 3)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
+                    },
                     (0, 5)
                 )]
                 .into()
@@ -588,10 +640,11 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Subtract(
-                        Box::new(Node::new(Statement::Constant(Value::integer(-1)), (0, 2))),
-                        Box::new(Node::new(Statement::Constant(Value::integer(-2)), (5, 7)))
-                    ),
+                    Statement::BinaryOperation {
+                        left: Node::new(Statement::Constant(Value::integer(1)), (1, 2)).into(),
+                        operator: Node::new(BinaryOperator::Subtract, (3, 4)),
+                        right: Node::new(Statement::Constant(Value::integer(2)), (6, 7)).into()
+                    },
                     (0, 7)
                 )]
                 .into()
@@ -607,17 +660,18 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Add(
-                        Box::new(Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(
                             Statement::Constant(Value::string("Hello, ")),
-                            (0, 9)
+                            (0, 8)
                         )),
-                        Box::new(Node::new(
+                        operator: Node::new(BinaryOperator::Add, (9, 10)),
+                        right: Box::new(Node::new(
                             Statement::Constant(Value::string("World!")),
-                            (12, 20)
+                            (11, 19)
                         ))
-                    ),
-                    (0, 20)
+                    },
+                    (0, 19)
                 )]
                 .into()
             })
@@ -740,33 +794,42 @@ mod tests {
                     Statement::List(vec![
                         Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
                         Node::new(
-                            Statement::Add(
-                                Box::new(Node::new(Statement::Constant(Value::integer(1)), (4, 5))),
-                                Box::new(Node::new(Statement::Constant(Value::integer(1)), (8, 9))),
-                            ),
-                            (4, 9),
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (4, 5)
+                                )),
+                                operator: Node::new(BinaryOperator::Add, (6, 7)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (8, 9)
+                                ))
+                            },
+                            (4, 9)
                         ),
                         Node::new(
-                            Statement::Add(
-                                Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
                                     Statement::Constant(Value::integer(2)),
                                     (11, 12)
                                 )),
-                                Box::new(Node::new(
-                                    Statement::Multiply(
-                                        Box::new(Node::new(
+                                operator: Node::new(BinaryOperator::Add, (13, 14)),
+                                right: Box::new(Node::new(
+                                    Statement::BinaryOperation {
+                                        left: Box::new(Node::new(
                                             Statement::Constant(Value::integer(4)),
                                             (16, 17)
                                         )),
-                                        Box::new(Node::new(
+                                        operator: Node::new(BinaryOperator::Multiply, (18, 19)),
+                                        right: Box::new(Node::new(
                                             Statement::Constant(Value::integer(10)),
                                             (20, 22)
-                                        )),
-                                    ),
-                                    (15, 23),
-                                ),),
-                            ),
-                            (11, 23),
+                                        ))
+                                    },
+                                    (15, 23)
+                                ))
+                            },
+                            (11, 23)
                         ),
                     ]),
                     (0, 24),
@@ -827,10 +890,11 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Add(
-                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                    ),
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        operator: Node::new(BinaryOperator::Add, (2, 3)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)),)
+                    },
                     (0, 5),
                 )]
                 .into()
@@ -846,10 +910,11 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Multiply(
-                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                    ),
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        operator: Node::new(BinaryOperator::Multiply, (2, 3)),
+                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)),)
+                    },
                     (0, 5),
                 )]
                 .into()
@@ -865,16 +930,24 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Add(
-                        Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        Box::new(Node::new(
-                            Statement::Multiply(
-                                Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                                Box::new(Node::new(Statement::Constant(Value::integer(3)), (8, 9))),
-                            ),
-                            (4, 9),
-                        )),
-                    ),
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                        operator: Node::new(BinaryOperator::Add, (2, 3)),
+                        right: Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(2)),
+                                    (4, 5)
+                                )),
+                                operator: Node::new(BinaryOperator::Multiply, (6, 7)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(3)),
+                                    (8, 9)
+                                ),)
+                            },
+                            (4, 9)
+                        ),)
+                    },
                     (0, 9),
                 )]
                 .into()
@@ -890,31 +963,33 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Assign(
-                        Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("a")),
-                            (0, 1)
-                        )),
-                        Box::new(Node::new(
-                            Statement::Add(
-                                Box::new(Node::new(Statement::Constant(Value::integer(1)), (4, 5))),
-                                Box::new(Node::new(
-                                    Statement::Multiply(
-                                        Box::new(Node::new(
+                    Statement::Assignment {
+                        identifier: Identifier::new("a"),
+                        value_node: Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (4, 5)
+                                )),
+                                operator: Node::new(BinaryOperator::Add, (6, 7)),
+                                right: Box::new(Node::new(
+                                    Statement::BinaryOperation {
+                                        left: Box::new(Node::new(
                                             Statement::Constant(Value::integer(2)),
                                             (8, 9)
                                         )),
-                                        Box::new(Node::new(
+                                        operator: Node::new(BinaryOperator::Multiply, (10, 11)),
+                                        right: Box::new(Node::new(
                                             Statement::Constant(Value::integer(3)),
                                             (12, 13)
-                                        )),
-                                    ),
-                                    (8, 13),
-                                )),
-                            ),
-                            (4, 13),
-                        )),
-                    ),
+                                        ),)
+                                    },
+                                    (8, 13)
+                                ),)
+                            },
+                            (4, 13)
+                        ),)
+                    },
                     (0, 13),
                 )]
                 .into()
