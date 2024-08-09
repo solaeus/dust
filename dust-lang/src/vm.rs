@@ -122,7 +122,13 @@ impl Vm {
                 } else {
                     None
                 };
-                let function_call_return = function.call(None, values)?;
+                let function_call_return =
+                    function
+                        .call(None, values)
+                        .map_err(|built_in_function_error| VmError::BuiltInFunctionError {
+                            error: built_in_function_error,
+                            position: node.position,
+                        })?;
 
                 Ok(function_call_return)
             }
@@ -269,7 +275,12 @@ impl Vm {
                         }
                     }
 
-                    let function_call_return = function.call(None, Some(value_arguments))?;
+                    let function_call_return = function.call(None, Some(value_arguments)).map_err(
+                        |built_in_function_error| VmError::BuiltInFunctionError {
+                            error: built_in_function_error,
+                            position: right_span,
+                        },
+                    )?;
 
                     return Ok(function_call_return);
                 }
@@ -319,7 +330,10 @@ pub enum VmError {
 
     // Anaylsis Failures
     // These should be prevented by running the analyzer before the VM
-    BuiltInFunctionCallError(BuiltInFunctionError),
+    BuiltInFunctionError {
+        error: BuiltInFunctionError,
+        position: Span,
+    },
     ExpectedIdentifier {
         position: Span,
     },
@@ -345,9 +359,21 @@ pub enum VmError {
     },
 }
 
-impl From<BuiltInFunctionError> for VmError {
-    fn from(v: BuiltInFunctionError) -> Self {
-        Self::BuiltInFunctionCallError(v)
+impl VmError {
+    pub fn position(&self) -> Span {
+        match self {
+            Self::AnaylyzerError(analyzer_error) => analyzer_error.position(),
+            Self::ParseError(parse_error) => parse_error.position(),
+            Self::ValueError { position, .. } => *position,
+            Self::BuiltInFunctionError { position, .. } => *position,
+            Self::ExpectedIdentifier { position } => *position,
+            Self::ExpectedIdentifierOrInteger { position } => *position,
+            Self::ExpectedInteger { position } => *position,
+            Self::ExpectedFunction { position, .. } => *position,
+            Self::ExpectedList { position } => *position,
+            Self::ExpectedValue { position } => *position,
+            Self::UndefinedIdentifier { position, .. } => *position,
+        }
     }
 }
 
@@ -369,9 +395,7 @@ impl Error for VmError {
             Self::AnaylyzerError(analyzer_error) => Some(analyzer_error),
             Self::ParseError(parse_error) => Some(parse_error),
             Self::ValueError { error, .. } => Some(error),
-            Self::BuiltInFunctionCallError(built_in_function_error) => {
-                Some(built_in_function_error)
-            }
+            Self::BuiltInFunctionError { error, .. } => Some(error),
             _ => None,
         }
     }
@@ -383,8 +407,8 @@ impl Display for VmError {
             Self::AnaylyzerError(analyzer_error) => write!(f, "{}", analyzer_error),
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
             Self::ValueError { error, .. } => write!(f, "{}", error),
-            Self::BuiltInFunctionCallError(built_in_function_error) => {
-                write!(f, "{}", built_in_function_error)
+            Self::BuiltInFunctionError { error, .. } => {
+                write!(f, "{}", error)
             }
             Self::ExpectedFunction { actual, position } => {
                 write!(

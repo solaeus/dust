@@ -108,12 +108,14 @@ impl Lexer {
                         self.lex_number(source)?
                     } else if "-Infinity" == self.peek_chars(source, 9) {
                         self.position += 9;
+
                         (
                             Token::Float(f64::NEG_INFINITY),
                             (self.position - 9, self.position),
                         )
                     } else {
                         self.position += 1;
+
                         (Token::Minus, (self.position - 1, self.position))
                     }
                 }
@@ -122,41 +124,54 @@ impl Lexer {
                 '\'' => self.lex_string('\'', source)?,
                 '+' => {
                     self.position += 1;
+
                     (Token::Plus, (self.position - 1, self.position))
                 }
                 '*' => {
                     self.position += 1;
+
                     (Token::Star, (self.position - 1, self.position))
                 }
                 '(' => {
                     self.position += 1;
+
                     (Token::LeftParenthesis, (self.position - 1, self.position))
                 }
                 ')' => {
                     self.position += 1;
+
                     (Token::RightParenthesis, (self.position - 1, self.position))
                 }
                 '=' => {
                     self.position += 1;
+
                     (Token::Equal, (self.position - 1, self.position))
                 }
                 '[' => {
                     self.position += 1;
+
                     (Token::LeftSquareBrace, (self.position - 1, self.position))
                 }
                 ']' => {
                     self.position += 1;
+
                     (Token::RightSquareBrace, (self.position - 1, self.position))
                 }
                 ',' => {
                     self.position += 1;
+
                     (Token::Comma, (self.position - 1, self.position))
                 }
                 '.' => {
                     self.position += 1;
+
                     (Token::Dot, (self.position - 1, self.position))
                 }
-                _ => return Err(LexError::UnexpectedCharacter(c)),
+                _ => {
+                    self.position += 1;
+
+                    return Err(LexError::UnexpectedCharacter(c));
+                }
             }
         } else {
             (Token::Eof, (self.position, self.position))

@@ -225,6 +225,20 @@ pub enum AnalyzerError {
     UnexpectedIdentifier { identifier: Node, position: Span },
 }
 
+impl AnalyzerError {
+    pub fn position(&self) -> Span {
+        match self {
+            AnalyzerError::ExpectedBoolean { position, .. } => *position,
+            AnalyzerError::ExpectedFunction { position, .. } => *position,
+            AnalyzerError::ExpectedIdentifier { position, .. } => *position,
+            AnalyzerError::ExpectedIdentifierOrValue { position, .. } => *position,
+            AnalyzerError::ExpectedIntegerOrFloat { position, .. } => *position,
+            AnalyzerError::ExpectedIntegerFloatOrString { position, .. } => *position,
+            AnalyzerError::UnexpectedIdentifier { position, .. } => *position,
+        }
+    }
+}
+
 impl Error for AnalyzerError {}
 
 impl Display for AnalyzerError {

@@ -128,13 +128,23 @@ impl<'src> Parser<'src> {
     }
 
     fn next_token(&mut self) -> Result<(), ParseError> {
-        self.current =
-            self.lexer
-                .next_token(self.source)
-                .map_err(|lex_error| ParseError::LexError {
+        let next = self.lexer.next_token(self.source);
+
+        self.current = match next {
+            Ok((token, position)) => (token, position),
+            Err(lex_error) => {
+                let position = {
+                    self.next_token()?;
+
+                    self.current.1
+                };
+
+                return Err(ParseError::LexError {
                     error: lex_error,
-                    position: self.current.1,
-                })?;
+                    position,
+                });
+            }
+        };
 
         Ok(())
     }
