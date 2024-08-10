@@ -160,7 +160,9 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Identifier(identifier) => {
-                if !self.context.contains(identifier) {
+                let exists = self.context.add_allowed_use(identifier);
+
+                if !exists {
                     return Err(AnalyzerError::UndefinedVariable {
                         identifier: node.clone(),
                     });
@@ -241,11 +243,6 @@ pub enum AnalyzerError {
         actual: Node<Statement>,
         position: Span,
     },
-    ExpectedSameType {
-        left: Node<Statement>,
-        right: Node<Statement>,
-        position: Span,
-    },
     ExpectedString {
         actual: Node<Statement>,
         position: (usize, usize),
@@ -278,7 +275,6 @@ impl AnalyzerError {
             AnalyzerError::ExpectedInteger { position, .. } => *position,
             AnalyzerError::ExpectedIntegerOrFloat { position, .. } => *position,
             AnalyzerError::ExpectedIntegerFloatOrString { position, .. } => *position,
-            AnalyzerError::ExpectedSameType { position, .. } => *position,
             AnalyzerError::ExpectedString { position, .. } => *position,
             AnalyzerError::UndefinedVariable { identifier } => identifier.position,
             AnalyzerError::UnexpectedIdentifier { position, .. } => *position,
@@ -313,9 +309,6 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedIntegerFloatOrString { actual, .. } => {
                 write!(f, "Expected integer, float, or string, found {}", actual)
             }
-            AnalyzerError::ExpectedSameType { left, right, .. } => {
-                write!(f, "Expected same type, found {} and {}", left, right)
-            }
             AnalyzerError::ExpectedString { actual, .. } => {
                 write!(f, "Expected string, found {}", actual)
             }
@@ -340,6 +333,31 @@ mod tests {
     use crate::{BuiltInFunction, Identifier, Value};
 
     use super::*;
+
+    #[test]
+    fn math_requires_same_types() {
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::BinaryOperation {
+                    left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
+                    operator: Node::new(BinaryOperator::Add, (1, 2)),
+                    right: Box::new(Node::new(Statement::Constant(Value::float(1.0)), (3, 4))),
+                },
+                (0, 2),
+            )]
+            .into(),
+        };
+        let mut context = Context::new();
+        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::ExpectedInteger {
+                actual: Node::new(Statement::Constant(Value::float(1.0)), (3, 4)),
+                position: (3, 4)
+            })
+        )
+    }
 
     #[test]
     fn float_plus_integer() {

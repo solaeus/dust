@@ -90,7 +90,7 @@ impl Vm {
                             position: right_position,
                         });
                     };
-                    let left_value = context.get_value(&identifier).ok_or_else(|| {
+                    let left_value = context.use_value(&identifier).ok_or_else(|| {
                         VmError::UndefinedVariable {
                             identifier: Node::new(
                                 Statement::Identifier(identifier.clone()),
@@ -236,7 +236,7 @@ impl Vm {
                 Ok(function.clone().call(None, value_parameters, context)?)
             }
             Statement::Identifier(identifier) => {
-                if let Some(value) = context.get_value(&identifier) {
+                if let Some(value) = context.use_value(&identifier) {
                     Ok(Some(value.clone()))
                 } else {
                     Err(VmError::UndefinedVariable {

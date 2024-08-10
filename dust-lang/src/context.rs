@@ -31,9 +31,13 @@ impl Context {
         }
     }
 
-    pub fn get_value(&self, identifier: &Identifier) -> Option<&Value> {
-        match self.variables.get(identifier) {
-            Some((VariableData::Value(value), _)) => Some(value),
+    pub fn use_value(&mut self, identifier: &Identifier) -> Option<&Value> {
+        match self.variables.get_mut(identifier) {
+            Some((VariableData::Value(value), usage_data)) => {
+                usage_data.used += 1;
+
+                Some(value)
+            }
             _ => None,
         }
     }
@@ -62,6 +66,16 @@ impl Context {
     pub fn collect_garbage(&mut self) {
         self.variables
             .retain(|_, (_, usage_data)| usage_data.used < usage_data.allowed_uses);
+    }
+
+    pub fn add_allowed_use(&mut self, identifier: &Identifier) -> bool {
+        if let Some((_, usage_data)) = self.variables.get_mut(identifier) {
+            usage_data.allowed_uses += 1;
+
+            true
+        } else {
+            false
+        }
     }
 }
 
