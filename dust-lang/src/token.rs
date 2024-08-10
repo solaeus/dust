@@ -127,6 +127,40 @@ impl<'src> Token<'src> {
             Token::WriteLine => "write_line",
         }
     }
+
+    pub fn is_eof(&self) -> bool {
+        matches!(self, Token::Eof)
+    }
+
+    pub fn precedence(&self) -> u8 {
+        match self {
+            Token::Equal | Token::PlusEqual => 8,
+            Token::Semicolon => 7,
+            Token::DoubleAmpersand | Token::DoublePipe => 6,
+            Token::Greater
+            | Token::GreaterEqual
+            | Token::Less
+            | Token::LessEqual
+            | Token::DoubleEqual => 5,
+            Token::Dot => 4,
+            Token::Percent => 3,
+            Token::Star | Token::Slash => 2,
+            Token::Plus | Token::Minus => 1,
+            _ => 0,
+        }
+    }
+
+    pub fn is_left_associative(&self) -> bool {
+        !self.is_right_associative()
+    }
+
+    pub fn is_right_associative(&self) -> bool {
+        matches!(self, Token::Semicolon)
+    }
+
+    pub fn is_postfix(&self) -> bool {
+        matches!(self, Token::Semicolon)
+    }
 }
 
 impl<'src> Display for Token<'src> {

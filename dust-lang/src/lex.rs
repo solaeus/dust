@@ -228,7 +228,10 @@ impl Lexer {
                     } else {
                         self.position += 1;
 
-                        return Err(LexError::UnexpectedCharacter(c));
+                        return Err(LexError::UnexpectedCharacter {
+                            character: c,
+                            position: self.position,
+                        });
                     }
                 }
                 ';' => {
@@ -244,13 +247,19 @@ impl Lexer {
                     } else {
                         self.position += 1;
 
-                        return Err(LexError::UnexpectedCharacter(c));
+                        return Err(LexError::UnexpectedCharacter {
+                            character: c,
+                            position: self.position,
+                        });
                     }
                 }
                 _ => {
                     self.position += 1;
 
-                    return Err(LexError::UnexpectedCharacter(c));
+                    return Err(LexError::UnexpectedCharacter {
+                        character: c,
+                        position: self.position,
+                    });
                 }
             }
         } else {
@@ -433,13 +442,21 @@ impl Default for Lexer {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
-    UnexpectedCharacter(char),
+    UnexpectedCharacter { character: char, position: usize },
+}
+
+impl LexError {
+    pub fn position(&self) -> Span {
+        match self {
+            Self::UnexpectedCharacter { position, .. } => (*position, *position),
+        }
+    }
 }
 
 impl Error for LexError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            Self::UnexpectedCharacter(_) => None,
+            Self::UnexpectedCharacter { .. } => None,
         }
     }
 }
@@ -447,7 +464,7 @@ impl Error for LexError {
 impl Display for LexError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::UnexpectedCharacter(character) => {
+            Self::UnexpectedCharacter { character, .. } => {
                 write!(f, "Unexpected character: '{}'", character)
             }
         }
