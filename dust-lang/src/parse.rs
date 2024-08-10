@@ -21,28 +21,31 @@ use crate::{
 /// # Examples
 /// ```
 /// # use dust_lang::*;
-/// let input = "x = 42";
-/// let result = parse(input);
+/// let tree = parse("x = 42").unwrap();
 ///
 /// assert_eq!(
-///     result,
-///     Ok(AbstractSyntaxTree {
+///     tree,
+///     AbstractSyntaxTree {
 ///         nodes: [
-///             Node {
-///                 inner: Statement::Assignment {
-///                     identifier: Node {
-///                         inner: Identifier::new("x"),
-///                         position: (0, 1),
-///                     },
-///                     value_node: Box::new(Node {
-///                         inner: Statement::Constant(Value::integer(42)),
-///                         position: (4, 6),
-///                     })
+///             Node::new(
+///                 Statement::BinaryOperation {
+///                     left: Box::new(Node::new(
+///                         Statement::Identifier(Identifier::new("x")),
+///                         (0, 1),
+///                     )),
+///                     operator: Node::new(
+///                         BinaryOperator::Assign,
+///                         (2, 3)
+///                     ),
+///                     right: Box::new(Node::new(
+///                         Statement::Constant(Value::integer(42)),
+///                         (4, 6),
+///                     ))
 ///                 },
-///                 position: (0, 6),
-///             }
+///                 (0, 6),
+///             )
 ///         ].into(),
-///     }),
+///     },
 /// );
 /// ```
 pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
@@ -87,19 +90,23 @@ pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
 /// assert_eq!(
 ///     nodes,
 ///     Into::<VecDeque<Node<Statement>>>::into([
-///         Node {
-///             inner: Statement::Assignment {
-///                 identifier: Node {
-///                     inner: Identifier::new("x"),
-///                     position: (0, 1),
-///                 },
-///                 value_node: Box::new(Node {
-///                     inner: Statement::Constant(Value::integer(42)),
-///                     position: (4, 6),
-///                 }),
+///         Node::new(
+///             Statement::BinaryOperation {
+///                 left: Box::new(Node::new(
+///                     Statement::Identifier(Identifier::new("x")),
+///                     (0, 1),
+///                 )),
+///                 operator: Node::new(
+///                     BinaryOperator::Assign,
+///                     (2, 3),
+///                 ),
+///                 right: Box::new(Node::new(
+///                     Statement::Constant(Value::integer(42)),
+///                     (4, 6),
+///                 )),
 ///             },
-///             position: (0, 6),
-///         }
+///             (0, 6),
+///         )
 ///     ]),
 /// );
 /// ```
@@ -231,13 +238,23 @@ impl<'src> Parser<'src> {
 
                     let next_node = self.parse_statement(0)?;
 
+                    // If the new statement is already a block, add the next node to it
+                    if statement
+                        .as_ref()
+                        .is_some_and(|statement| matches!(statement, Statement::Block(_)))
+                    {
+                        if let Statement::Block(block) =
+                            statement.get_or_insert_with(|| Statement::Block(Vec::new()))
+                        {
+                            block.push(next_node);
+                        }
                     // If the next node is an assignment, this might be a map
-                    if let Statement::BinaryOperation {
+                    } else if let Statement::BinaryOperation {
                         left,
                         operator:
                             Node {
                                 inner: BinaryOperator::Assign,
-                                ..
+                                position: operator_position,
                             },
                         right,
                     } = next_node.inner
@@ -256,9 +273,27 @@ impl<'src> Parser<'src> {
                                 map_properties.push((*left, *right));
                             }
 
-                            // Ignore commas after properties
+                            // Allow commas after properties
                             if let Token::Comma = self.current.0 {
                                 self.next_token()?;
+                            }
+                        } else {
+                            // Otherwise, the new statement is a block
+                            if let Statement::Block(statements) =
+                                statement.get_or_insert_with(|| Statement::Block(Vec::new()))
+                            {
+                                // Add the statement to the block
+                                statements.push(Node::new(
+                                    Statement::BinaryOperation {
+                                        left,
+                                        operator: Node::new(
+                                            BinaryOperator::Assign,
+                                            operator_position,
+                                        ),
+                                        right,
+                                    },
+                                    next_node.position,
+                                ));
                             }
                         }
                     // Otherwise, the new statement is a block
@@ -655,13 +690,13 @@ mod tests {
                                         Statement::Identifier(Identifier::new("foo")),
                                         (2, 5)
                                     )),
-                                    operator: Node::new(BinaryOperator::Assign, (6, 8)),
+                                    operator: Node::new(BinaryOperator::Assign, (6, 7)),
                                     right: Box::new(Node::new(
                                         Statement::Constant(Value::integer(42)),
-                                        (9, 11)
+                                        (8, 10)
                                     )),
                                 },
-                                (2, 11)
+                                (2, 10)
                             ),)),
                             (2, 15)
                         ),
@@ -670,12 +705,12 @@ mod tests {
                                 Statement::BinaryOperation {
                                     left: Box::new(Node::new(
                                         Statement::Identifier(Identifier::new("bar")),
-                                        (16, 19)
+                                        (12, 15)
                                     )),
-                                    operator: Node::new(BinaryOperator::Assign, (20, 22)),
+                                    operator: Node::new(BinaryOperator::Assign, (16, 17)),
                                     right: Box::new(Node::new(
                                         Statement::Constant(Value::integer(42)),
-                                        (23, 25)
+                                        (18, 20)
                                     )),
                                 },
                                 (12, 20)
@@ -686,12 +721,12 @@ mod tests {
                             Statement::BinaryOperation {
                                 left: Box::new(Node::new(
                                     Statement::Identifier(Identifier::new("baz")),
-                                    (26, 29)
+                                    (22, 25)
                                 )),
-                                operator: Node::new(BinaryOperator::Assign, (30, 32)),
+                                operator: Node::new(BinaryOperator::Assign, (26, 27)),
                                 right: Box::new(Node::new(
                                     Statement::Constant(Value::string("42")),
-                                    (22, 32)
+                                    (28, 32)
                                 )),
                             },
                             (22, 32)
