@@ -14,7 +14,7 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{identifier::Identifier, AbstractSyntaxTree, Type, Vm, VmError};
+use crate::{identifier::Identifier, AbstractSyntaxTree, Context, Type, Vm, VmError};
 
 /// Dust value representation
 ///
@@ -89,8 +89,8 @@ impl Value {
         Value(Arc::new(ValueInner::String(to_string.to_string())))
     }
 
-    pub fn r#type(&self, variables: &HashMap<Identifier, Value>) -> Type {
-        self.0.r#type(variables)
+    pub fn r#type(&self, context: &Context) -> Type {
+        self.0.r#type(context)
     }
 
     pub fn as_boolean(&self) -> Option<bool> {
@@ -626,18 +626,18 @@ pub enum ValueInner {
 }
 
 impl ValueInner {
-    pub fn r#type(&self, variables: &HashMap<Identifier, Value>) -> Type {
+    pub fn r#type(&self, context: &Context) -> Type {
         match self {
             ValueInner::Boolean(_) => Type::Boolean,
             ValueInner::Float(_) => Type::Float,
             ValueInner::Function(function) => Type::Function {
                 type_parameters: function.type_parameters.clone(),
                 value_parameters: function.value_parameters.clone(),
-                return_type: function.return_type(variables).map(Box::new),
+                return_type: function.return_type(context).map(Box::new),
             },
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
-                let item_type = values.first().unwrap().r#type(variables);
+                let item_type = values.first().unwrap().r#type(context);
 
                 Type::List {
                     length: values.len(),
@@ -648,7 +648,7 @@ impl ValueInner {
                 let mut type_map = BTreeMap::new();
 
                 for (identifier, value) in value_map {
-                    let r#type = value.r#type(variables);
+                    let r#type = value.r#type(context);
 
                     type_map.insert(identifier.clone(), r#type);
                 }
@@ -732,7 +732,7 @@ impl Function {
         vm.run(&mut new_variables)
     }
 
-    pub fn return_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
+    pub fn return_type(&self, variables: &Context) -> Option<Type> {
         self.body
             .nodes
             .iter()

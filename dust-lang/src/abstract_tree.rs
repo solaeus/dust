@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{BuiltInFunction, Identifier, Span, Type, Value};
+use crate::{BuiltInFunction, Context, Identifier, Span, Type, Value};
 
 /// In-memory representation of a Dust program.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -75,18 +75,16 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn expected_type(&self, variables: &HashMap<Identifier, Value>) -> Option<Type> {
+    pub fn expected_type(&self, context: &Context) -> Option<Type> {
         match self {
-            Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(variables),
-            Statement::BinaryOperation { left, .. } => left.inner.expected_type(variables),
+            Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(context),
+            Statement::BinaryOperation { left, .. } => left.inner.expected_type(context),
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
-            Statement::Constant(value) => Some(value.r#type(variables)),
-            Statement::FunctionCall { function, .. } => function.inner.expected_type(variables),
-            Statement::Identifier(identifier) => variables
-                .get(identifier)
-                .map(|value| value.r#type(variables)),
+            Statement::Constant(value) => Some(value.r#type(context)),
+            Statement::FunctionCall { function, .. } => function.inner.expected_type(context),
+            Statement::Identifier(identifier) => context.get_type(identifier).cloned(),
             Statement::List(nodes) => {
-                let item_type = nodes.first().unwrap().inner.expected_type(variables)?;
+                let item_type = nodes.first().unwrap().inner.expected_type(context)?;
 
                 Some(Type::List {
                     length: nodes.len(),
@@ -98,7 +96,7 @@ impl Statement {
 
                 for (identifier, item) in nodes {
                     if let Statement::Identifier(identifier) = &identifier.inner {
-                        types.insert(identifier.clone(), item.inner.expected_type(variables)?);
+                        types.insert(identifier.clone(), item.inner.expected_type(context)?);
                     }
                 }
 
