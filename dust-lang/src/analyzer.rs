@@ -6,14 +6,13 @@
 //! - `analyze` convenience function
 //! - `Analyzer` struct
 use std::{
-    collections::HashMap,
     error::Error,
     fmt::{self, Display, Formatter},
 };
 
 use crate::{
-    abstract_tree::BinaryOperator, AbstractSyntaxTree, BuiltInFunction, Identifier, Node, Span,
-    Statement, Type, Value,
+    abstract_tree::BinaryOperator, AbstractSyntaxTree, BuiltInFunction, Context, Node, Span,
+    Statement, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -31,9 +30,9 @@ use crate::{
 /// ```
 pub fn analyze(
     abstract_tree: &AbstractSyntaxTree,
-    variables: &HashMap<Identifier, Value>,
+    context: &mut Context,
 ) -> Result<(), AnalyzerError> {
-    let analyzer = Analyzer::new(abstract_tree, variables);
+    let mut analyzer = Analyzer::new(abstract_tree, context);
 
     analyzer.analyze()
 }
@@ -53,21 +52,18 @@ pub fn analyze(
 /// assert!(result.is_err());
 pub struct Analyzer<'a> {
     abstract_tree: &'a AbstractSyntaxTree,
-    variables: &'a HashMap<Identifier, Value>,
+    context: &'a mut Context,
 }
 
 impl<'a> Analyzer<'a> {
-    pub fn new(
-        abstract_tree: &'a AbstractSyntaxTree,
-        variables: &'a HashMap<Identifier, Value>,
-    ) -> Self {
+    pub fn new(abstract_tree: &'a AbstractSyntaxTree, context: &'a mut Context) -> Self {
         Self {
             abstract_tree,
-            variables,
+            context,
         }
     }
 
-    pub fn analyze(&self) -> Result<(), AnalyzerError> {
+    pub fn analyze(&mut self) -> Result<(), AnalyzerError> {
         for node in &self.abstract_tree.nodes {
             self.analyze_node(node)?;
         }
@@ -75,16 +71,26 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_node(&self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
+    fn analyze_node(&mut self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
         match &node.inner {
             Statement::BinaryOperation {
                 left,
                 operator,
                 right,
             } => {
-                if let BinaryOperator::AddAssign | BinaryOperator::Assign = operator.inner {
-                    if let Statement::Identifier(_) = left.inner {
+                if let BinaryOperator::Assign = operator.inner {
+                    if let Statement::Identifier(identifier) = &left.inner {
                         self.analyze_node(right)?;
+
+                        let right_type = right.inner.expected_type(self.context);
+
+                        self.context.set_type(
+                            identifier.clone(),
+                            right_type.ok_or(AnalyzerError::ExpectedValue {
+                                actual: right.as_ref().clone(),
+                                position: right.position,
+                            })?,
+                        );
 
                         return Ok(());
                     }
@@ -93,8 +99,8 @@ impl<'a> Analyzer<'a> {
                 self.analyze_node(left)?;
                 self.analyze_node(right)?;
 
-                let left_type = left.inner.expected_type(self.variables);
-                let right_type = right.inner.expected_type(self.variables);
+                let left_type = left.inner.expected_type(self.context);
+                let right_type = right.inner.expected_type(self.context);
 
                 if let BinaryOperator::Add
                 | BinaryOperator::Subtract
@@ -154,7 +160,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Identifier(identifier) => {
-                if !self.variables.contains_key(identifier) {
+                if !self.context.contains(identifier) {
                     return Err(AnalyzerError::UndefinedVariable {
                         identifier: node.clone(),
                     });
@@ -184,7 +190,7 @@ impl<'a> Analyzer<'a> {
 
                 if let Statement::BuiltInFunctionCall { function, .. } = &right.inner {
                     if function == &BuiltInFunction::IsEven || function == &BuiltInFunction::IsOdd {
-                        if let Some(Type::Integer) = left.inner.expected_type(self.variables) {
+                        if let Some(Type::Integer) = left.inner.expected_type(self.context) {
                         } else {
                             return Err(AnalyzerError::ExpectedIntegerOrFloat {
                                 actual: left.as_ref().clone(),
@@ -348,8 +354,8 @@ mod tests {
             )]
             .into(),
         };
-        let variables = HashMap::new();
-        let analyzer = Analyzer::new(&abstract_tree, &variables);
+        let mut context = Context::new();
+        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
 
         assert_eq!(
             analyzer.analyze(),
@@ -373,8 +379,8 @@ mod tests {
             )]
             .into(),
         };
-        let variables = HashMap::new();
-        let analyzer = Analyzer::new(&abstract_tree, &variables);
+        let mut context = Context::new();
+        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
 
         assert_eq!(
             analyzer.analyze(),
@@ -404,8 +410,8 @@ mod tests {
             )]
             .into(),
         };
-        let variables = HashMap::new();
-        let analyzer = Analyzer::new(&abstract_tree, &variables);
+        let mut context = Context::new();
+        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
 
         assert_eq!(
             analyzer.analyze(),
@@ -434,8 +440,8 @@ mod tests {
             )]
             .into(),
         };
-        let variables = HashMap::new();
-        let analyzer = Analyzer::new(&abstract_tree, &variables);
+        let mut context = Context::new();
+        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
 
         assert_eq!(
             analyzer.analyze(),
@@ -455,8 +461,8 @@ mod tests {
             )]
             .into(),
         };
-        let variables = HashMap::new();
-        let analyzer = Analyzer::new(&abstract_tree, &variables);
+        let mut context = Context::new();
+        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
 
         assert_eq!(
             analyzer.analyze(),

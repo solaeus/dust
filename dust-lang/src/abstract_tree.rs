@@ -1,6 +1,6 @@
 //! In-memory representation of a Dust program.
 use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
+    collections::{BTreeMap, VecDeque},
     fmt::{self, Display, Formatter},
 };
 

@@ -1,7 +1,7 @@
 //! Dust value representation
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     error::Error,
     fmt::{self, Display, Formatter},
     ops::Range,
@@ -715,21 +715,21 @@ impl Function {
         self,
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
-        variables: &HashMap<Identifier, Value>,
+        context: &mut Context,
     ) -> Result<Option<Value>, VmError> {
-        let mut new_variables = variables.clone();
+        let mut new_context = context.clone();
 
         if let (Some(value_parameters), Some(value_arguments)) =
             (self.value_parameters, value_arguments)
         {
             for ((identifier, _), value) in value_parameters.into_iter().zip(value_arguments) {
-                new_variables.insert(identifier, value);
+                new_context.set_value(identifier, value);
             }
         }
 
         let mut vm = Vm::new(self.body);
 
-        vm.run(&mut new_variables)
+        vm.run(&mut new_context)
     }
 
     pub fn return_type(&self, variables: &Context) -> Option<Type> {

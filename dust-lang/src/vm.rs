@@ -1,27 +1,24 @@
 //! Virtual machine for running the abstract syntax tree.
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     error::Error,
     fmt::{self, Display, Formatter},
 };
 
 use crate::{
     abstract_tree::BinaryOperator, parse, AbstractSyntaxTree, Analyzer, AnalyzerError,
-    BuiltInFunctionError, Identifier, Node, ParseError, Span, Statement, Value, ValueError,
+    BuiltInFunctionError, Context, Node, ParseError, Span, Statement, Value, ValueError,
 };
 
-pub fn run(
-    input: &str,
-    variables: &mut HashMap<Identifier, Value>,
-) -> Result<Option<Value>, VmError> {
+pub fn run(input: &str, context: &mut Context) -> Result<Option<Value>, VmError> {
     let abstract_syntax_tree = parse(input)?;
-    let analyzer = Analyzer::new(&abstract_syntax_tree, variables);
+    let mut analyzer = Analyzer::new(&abstract_syntax_tree, context);
 
     analyzer.analyze()?;
 
     let mut vm = Vm::new(abstract_syntax_tree);
 
-    vm.run(variables)
+    vm.run(context)
 }
 
 pub struct Vm {
@@ -33,14 +30,11 @@ impl Vm {
         Self { abstract_tree }
     }
 
-    pub fn run(
-        &mut self,
-        variables: &mut HashMap<Identifier, Value>,
-    ) -> Result<Option<Value>, VmError> {
+    pub fn run(&mut self, context: &mut Context) -> Result<Option<Value>, VmError> {
         let mut previous_value = None;
 
         while let Some(node) = self.abstract_tree.nodes.pop_front() {
-            previous_value = self.run_node(node, variables)?;
+            previous_value = self.run_node(node, context)?;
         }
 
         Ok(previous_value)
@@ -49,7 +43,7 @@ impl Vm {
     fn run_node(
         &self,
         node: Node<Statement>,
-        variables: &mut HashMap<Identifier, Value>,
+        context: &mut Context,
     ) -> Result<Option<Value>, VmError> {
         match node.inner {
             Statement::BinaryOperation {
@@ -68,7 +62,7 @@ impl Vm {
                         });
                     };
 
-                    let value = if let Some(value) = self.run_node(*right, variables)? {
+                    let value = if let Some(value) = self.run_node(*right, context)? {
                         value
                     } else {
                         return Err(VmError::ExpectedValue {
@@ -76,9 +70,9 @@ impl Vm {
                         });
                     };
 
-                    variables.insert(identifier, value.clone());
+                    context.set_value(identifier, value);
 
-                    return Ok(Some(value));
+                    return Ok(None);
                 }
 
                 if let BinaryOperator::AddAssign = operator.inner {
@@ -89,25 +83,21 @@ impl Vm {
                             position: left.position,
                         });
                     };
-
-                    let right_value = if let Some(value) = self.run_node(*right, variables)? {
+                    let right_value = if let Some(value) = self.run_node(*right, context)? {
                         value
                     } else {
                         return Err(VmError::ExpectedValue {
                             position: right_position,
                         });
                     };
-
-                    let left_value =
-                        variables
-                            .get(&identifier)
-                            .ok_or_else(|| VmError::UndefinedVariable {
-                                identifier: Node::new(
-                                    Statement::Identifier(identifier.clone()),
-                                    left.position,
-                                ),
-                            })?;
-
+                    let left_value = context.get_value(&identifier).ok_or_else(|| {
+                        VmError::UndefinedVariable {
+                            identifier: Node::new(
+                                Statement::Identifier(identifier.clone()),
+                                left.position,
+                            ),
+                        }
+                    })?;
                     let new_value = left_value.add(&right_value).map_err(|value_error| {
                         VmError::ValueError {
                             error: value_error,
@@ -115,21 +105,20 @@ impl Vm {
                         }
                     })?;
 
-                    variables.insert(identifier, new_value.clone());
+                    context.set_value(identifier, new_value);
 
-                    return Ok(Some(new_value));
+                    return Ok(None);
                 }
 
                 let left_position = left.position;
-                let left_value = if let Some(value) = self.run_node(*left, variables)? {
+                let left_value = if let Some(value) = self.run_node(*left, context)? {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
                         position: left_position,
                     });
                 };
-
-                let right_value = if let Some(value) = self.run_node(*right, variables)? {
+                let right_value = if let Some(value) = self.run_node(*right, context)? {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -164,7 +153,7 @@ impl Vm {
                 let mut previous_value = None;
 
                 for statement in statements {
-                    previous_value = self.run_node(statement, variables)?;
+                    previous_value = self.run_node(statement, context)?;
                 }
 
                 Ok(previous_value)
@@ -179,7 +168,7 @@ impl Vm {
 
                     for node in nodes {
                         let position = node.position;
-                        let value = if let Some(value) = self.run_node(node, variables)? {
+                        let value = if let Some(value) = self.run_node(node, context)? {
                             value
                         } else {
                             return Err(VmError::ExpectedValue { position });
@@ -209,14 +198,13 @@ impl Vm {
                 value_arguments: value_parameter_nodes,
             } => {
                 let function_position = function_node.position;
-                let function_value =
-                    if let Some(value) = self.run_node(*function_node, variables)? {
-                        value
-                    } else {
-                        return Err(VmError::ExpectedValue {
-                            position: function_position,
-                        });
-                    };
+                let function_value = if let Some(value) = self.run_node(*function_node, context)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: function_position,
+                    });
+                };
                 let function = if let Some(function) = function_value.as_function() {
                     function
                 } else {
@@ -231,7 +219,7 @@ impl Vm {
 
                     for node in value_nodes {
                         let position = node.position;
-                        let value = if let Some(value) = self.run_node(node, variables)? {
+                        let value = if let Some(value) = self.run_node(node, context)? {
                             value
                         } else {
                             return Err(VmError::ExpectedValue { position });
@@ -245,10 +233,10 @@ impl Vm {
                     None
                 };
 
-                Ok(function.clone().call(None, value_parameters, variables)?)
+                Ok(function.clone().call(None, value_parameters, context)?)
             }
             Statement::Identifier(identifier) => {
-                if let Some(value) = variables.get(&identifier) {
+                if let Some(value) = context.get_value(&identifier) {
                     Ok(Some(value.clone()))
                 } else {
                     Err(VmError::UndefinedVariable {
@@ -261,7 +249,7 @@ impl Vm {
                     .into_iter()
                     .map(|node| {
                         let span = node.position;
-                        if let Some(value) = self.run_node(node, variables)? {
+                        if let Some(value) = self.run_node(node, context)? {
                             Ok(value)
                         } else {
                             Err(VmError::ExpectedValue { position: span })
@@ -283,7 +271,7 @@ impl Vm {
                         });
                     };
                     let position = value_node.position;
-                    let value = if let Some(value) = self.run_node(value_node, variables)? {
+                    let value = if let Some(value) = self.run_node(value_node, context)? {
                         value
                     } else {
                         return Err(VmError::ExpectedValue { position });
@@ -295,13 +283,13 @@ impl Vm {
                 Ok(Some(Value::map(values)))
             }
             Statement::Nil(node) => {
-                let _return = self.run_node(*node, variables)?;
+                let _return = self.run_node(*node, context)?;
 
                 Ok(None)
             }
             Statement::PropertyAccess(left, right) => {
                 let left_span = left.position;
-                let left_value = if let Some(value) = self.run_node(*left, variables)? {
+                let left_value = if let Some(value) = self.run_node(*left, context)? {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -336,7 +324,7 @@ impl Vm {
                     if let Some(value_nodes) = value_argument_nodes {
                         for node in value_nodes {
                             let position = node.position;
-                            let value = if let Some(value) = self.run_node(node, variables)? {
+                            let value = if let Some(value) = self.run_node(node, context)? {
                                 value
                             } else {
                                 return Err(VmError::ExpectedValue { position });
@@ -495,7 +483,7 @@ mod tests {
     fn add_assign() {
         let input = "x = 1; x += 1; x";
 
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(2))));
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(2))));
     }
 
     #[test]
@@ -503,7 +491,7 @@ mod tests {
         let input = "true || false";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -513,7 +501,7 @@ mod tests {
         let input = "{ y = 'foo', } == { y = 'foo', }";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -523,7 +511,7 @@ mod tests {
         let input = "42 == 42";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -532,7 +520,7 @@ mod tests {
     fn modulo() {
         let input = "42 % 2";
 
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(0))));
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(0))));
     }
 
     #[test]
@@ -540,7 +528,7 @@ mod tests {
         let input = "42 / 2";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::integer(21)))
         );
     }
@@ -550,7 +538,7 @@ mod tests {
         let input = "2 < 3";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -560,7 +548,7 @@ mod tests {
         let input = "42 <= 42";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -570,7 +558,7 @@ mod tests {
         let input = "2 > 3";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(false)))
         );
     }
@@ -580,7 +568,7 @@ mod tests {
         let input = "42 >= 42";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -590,7 +578,7 @@ mod tests {
         let input = "9223372036854775807 + 1";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::integer(i64::MAX)))
         );
     }
@@ -600,7 +588,7 @@ mod tests {
         let input = "-9223372036854775808 - 1";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::integer(i64::MIN)))
         );
     }
@@ -609,7 +597,7 @@ mod tests {
     fn multiply() {
         let input = "2 * 3";
 
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(6))));
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(6))));
     }
 
     #[test]
@@ -617,7 +605,7 @@ mod tests {
         let input = "true";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -627,7 +615,7 @@ mod tests {
         let input = "42.is_even()";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(true)))
         );
     }
@@ -637,7 +625,7 @@ mod tests {
         let input = "42.is_odd()";
 
         assert_eq!(
-            run(input, &mut HashMap::new()),
+            run(input, &mut Context::new()),
             Ok(Some(Value::boolean(false)))
         );
     }
@@ -646,27 +634,27 @@ mod tests {
     fn length() {
         let input = "[1, 2, 3].length()";
 
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn list_access() {
         let input = "[1, 2, 3].1";
 
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(2))));
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(2))));
     }
 
     #[test]
     fn add() {
         let input = "1 + 2";
 
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn add_multiple() {
         let input = "1 + 2 + 3";
 
-        assert_eq!(run(input, &mut HashMap::new()), Ok(Some(Value::integer(6))));
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(6))));
     }
 }

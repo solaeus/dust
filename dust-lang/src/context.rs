@@ -1,7 +1,10 @@
+//! Garbage-collecting context for variables.
 use std::collections::HashMap;
 
 use crate::{Identifier, Type, Value};
 
+/// Garbage-collecting context for variables.
+#[derive(Debug, Clone)]
 pub struct Context {
     pub variables: HashMap<Identifier, (VariableData, UsageData)>,
 }
@@ -68,12 +71,13 @@ impl Default for Context {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum VariableData {
     Value(Value),
     Type(Type),
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub struct UsageData {
     pub allowed_uses: u16,
     pub used: u16,
