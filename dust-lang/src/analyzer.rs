@@ -23,8 +23,8 @@ use crate::{
 /// # use dust_lang::*;
 /// let input = "x = 1 + false";
 /// let abstract_tree = parse(input).unwrap();
-/// let variables = HashMap::new();
-/// let result = analyze(&abstract_tree, &variables);
+/// let mut context = Context::new();
+/// let result = analyze(&abstract_tree, &mut context);
 ///
 /// assert!(result.is_err());
 /// ```
@@ -45,8 +45,8 @@ pub fn analyze(
 /// # use dust_lang::*;
 /// let input = "x = 1 + false";
 /// let abstract_tree = parse(input).unwrap();
-/// let variables = HashMap::new();
-/// let analyzer = Analyzer::new(&abstract_tree, &variables);
+/// let mut context = Context::new();
+/// let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
 /// let result = analyzer.analyze();
 ///
 /// assert!(result.is_err());

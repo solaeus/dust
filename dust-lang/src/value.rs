@@ -43,11 +43,11 @@ use crate::{identifier::Identifier, AbstractSyntaxTree, Context, Type, Vm, VmErr
 ///
 /// ```
 /// # use std::collections::HashMap;
-/// # use dust_lang::{Type, Value};
-/// let variables = HashMap::new();
+/// # use dust_lang::*;
+/// let context = Context::new();
 /// let value = Value::integer(42);
 ///
-/// assert_eq!(value.r#type(&variables), Type::Integer);
+/// assert_eq!(value.r#type(&context), Type::Integer);
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
