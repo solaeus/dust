@@ -134,18 +134,18 @@ impl<'src> Token<'src> {
 
     pub fn precedence(&self) -> u8 {
         match self {
-            Token::Equal | Token::PlusEqual => 8,
-            Token::Semicolon => 7,
-            Token::DoubleAmpersand | Token::DoublePipe => 6,
-            Token::Greater
-            | Token::GreaterEqual
+            Token::Dot => 12,
+            Token::Star | Token::Slash | Token::Percent => 10,
+            Token::Plus | Token::Minus => 9,
+            Token::DoubleEqual
             | Token::Less
             | Token::LessEqual
-            | Token::DoubleEqual => 5,
-            Token::Dot => 4,
-            Token::Percent => 3,
-            Token::Star | Token::Slash => 2,
-            Token::Plus | Token::Minus => 1,
+            | Token::Greater
+            | Token::GreaterEqual => 8,
+            Token::DoubleAmpersand => 7,
+            Token::DoublePipe => 6,
+            Token::Equal | Token::PlusEqual => 5,
+            Token::Semicolon => 4,
             _ => 0,
         }
     }
