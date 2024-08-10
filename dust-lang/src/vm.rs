@@ -6,8 +6,9 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::BinaryOperator, parse, AbstractSyntaxTree, Analyzer, AnalyzerError,
-    BuiltInFunctionError, Context, Node, ParseError, Span, Statement, Value, ValueError,
+    abstract_tree::BinaryOperator, parse, value::ValueInner, AbstractSyntaxTree, Analyzer,
+    AnalyzerError, BuiltInFunctionError, Context, Node, ParseError, Span, Statement, Value,
+    ValueError,
 };
 
 pub fn run(input: &str, context: &mut Context) -> Result<Option<Value>, VmError> {
@@ -348,6 +349,31 @@ impl Vm {
                     position: right_span,
                 })
             }
+            Statement::While { condition, body } => {
+                let mut return_value = None;
+
+                let condition_position = condition.position;
+
+                while let Some(condition_value) = self.run_node(*condition.clone(), context)? {
+                    if let ValueInner::Boolean(condition_value) = condition_value.inner().as_ref() {
+                        if !condition_value {
+                            break;
+                        }
+                    } else {
+                        return Err(VmError::ExpectedBoolean {
+                            position: condition_position,
+                        });
+                    }
+
+                    return_value = self.run_node(*body.clone(), context)?;
+
+                    if return_value.is_some() {
+                        break;
+                    }
+                }
+
+                Ok(return_value)
+            }
         }
     }
 }
@@ -365,6 +391,9 @@ pub enum VmError {
     // These should be prevented by running the analyzer before the VM
     BuiltInFunctionError {
         error: BuiltInFunctionError,
+        position: Span,
+    },
+    ExpectedBoolean {
         position: Span,
     },
     ExpectedIdentifier {
@@ -398,6 +427,7 @@ impl VmError {
             Self::ParseError(parse_error) => parse_error.position(),
             Self::ValueError { position, .. } => *position,
             Self::BuiltInFunctionError { position, .. } => *position,
+            Self::ExpectedBoolean { position } => *position,
             Self::ExpectedIdentifier { position } => *position,
             Self::ExpectedIdentifierOrInteger { position } => *position,
             Self::ExpectedInteger { position } => *position,
@@ -442,6 +472,9 @@ impl Display for VmError {
             Self::BuiltInFunctionError { error, .. } => {
                 write!(f, "{}", error)
             }
+            Self::ExpectedBoolean { position } => {
+                write!(f, "Expected a boolean at position: {:?}", position)
+            }
             Self::ExpectedFunction { actual, position } => {
                 write!(
                     f,
@@ -478,6 +511,13 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn while_loop() {
+        let input = "x = 0; while x < 5 { x += 1; } x";
+
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(5))));
+    }
 
     #[test]
     fn add_assign() {

@@ -178,6 +178,9 @@ impl<'a> Analyzer<'a> {
                     self.analyze_node(value_node)?;
                 }
             }
+            Statement::Nil(node) => {
+                self.analyze_node(node)?;
+            }
             Statement::PropertyAccess(left, right) => {
                 if let Statement::Identifier(_) | Statement::Constant(_) | Statement::List(_) =
                     &left.inner
@@ -204,8 +207,17 @@ impl<'a> Analyzer<'a> {
 
                 self.analyze_node(right)?;
             }
-            Statement::Nil(node) => {
-                self.analyze_node(node)?;
+            Statement::While { condition, body } => {
+                self.analyze_node(condition)?;
+                self.analyze_node(body)?;
+
+                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
+                } else {
+                    return Err(AnalyzerError::ExpectedBoolean {
+                        actual: condition.as_ref().clone(),
+                        position: condition.position,
+                    });
+                }
             }
         }
 

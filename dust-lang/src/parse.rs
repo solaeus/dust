@@ -416,6 +416,31 @@ impl<'src> Parser<'src> {
                     left_position,
                 ))
             }
+            (Token::While, left_position) => {
+                self.next_token()?;
+
+                let condition = self.parse_statement(0)?;
+
+                if let Token::LeftCurlyBrace = self.current.0 {
+                } else {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenOwned::LeftCurlyBrace,
+                        actual: self.current.0.to_owned(),
+                        position: self.current.1,
+                    });
+                }
+
+                let body = self.parse_block()?;
+                let body_end = body.position.1;
+
+                Ok(Node::new(
+                    Statement::While {
+                        condition: Box::new(condition),
+                        body: Box::new(body),
+                    },
+                    (left_position.0, body_end),
+                ))
+            }
             _ => Err(ParseError::UnexpectedToken {
                 actual: self.current.0.to_owned(),
                 position: self.current.1,
@@ -496,6 +521,39 @@ impl<'src> Parser<'src> {
             ))
         } else {
             Ok(left)
+        }
+    }
+
+    fn parse_block(&mut self) -> Result<Node<Statement>, ParseError> {
+        let left_start = self.current.1 .0;
+
+        if let Token::LeftCurlyBrace = self.current.0 {
+            self.next_token()?;
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenOwned::LeftCurlyBrace,
+                actual: self.current.0.to_owned(),
+                position: self.current.1,
+            });
+        }
+
+        let mut statements = Vec::new();
+
+        loop {
+            if let Token::RightCurlyBrace = self.current.0 {
+                let right_end = self.current.1 .1;
+
+                self.next_token()?;
+
+                return Ok(Node::new(
+                    Statement::Block(statements),
+                    (left_start, right_end),
+                ));
+            }
+
+            let statement = self.parse_statement(0)?;
+
+            statements.push(statement);
         }
     }
 }
@@ -582,6 +640,54 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn while_loop() {
+        let input = "while x < 10 { x += 1 }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::While {
+                        condition: Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Identifier(Identifier::new("x")),
+                                    (6, 7)
+                                )),
+                                operator: Node::new(BinaryOperator::Less, (8, 9)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(10)),
+                                    (10, 12)
+                                )),
+                            },
+                            (6, 12)
+                        )),
+                        body: Box::new(Node::new(
+                            Statement::Block(vec![Node::new(
+                                Statement::BinaryOperation {
+                                    left: Box::new(Node::new(
+                                        Statement::Identifier(Identifier::new("x")),
+                                        (15, 16)
+                                    )),
+                                    operator: Node::new(BinaryOperator::AddAssign, (17, 19)),
+                                    right: Box::new(Node::new(
+                                        Statement::Constant(Value::integer(1)),
+                                        (20, 21)
+                                    )),
+                                },
+                                (15, 21)
+                            )]),
+                            (13, 23)
+                        )),
+                    },
+                    (0, 23)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn add_assign() {

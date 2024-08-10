@@ -21,6 +21,7 @@ pub enum Token<'src> {
     IsOdd,
     Length,
     ReadLine,
+    While,
     WriteLine,
 
     // Symbols
@@ -85,6 +86,7 @@ impl<'src> Token<'src> {
             Token::Star => TokenOwned::Star,
             Token::Slash => TokenOwned::Slash,
             Token::String(text) => TokenOwned::String(text.to_string()),
+            Token::While => TokenOwned::While,
             Token::WriteLine => TokenOwned::WriteLine,
         }
     }
@@ -124,6 +126,7 @@ impl<'src> Token<'src> {
             Token::Star => "*",
             Token::String(_) => "string",
             Token::Slash => "/",
+            Token::While => "while",
             Token::WriteLine => "write_line",
         }
     }
@@ -205,6 +208,7 @@ impl<'src> PartialEq for Token<'src> {
             (Token::Star, Token::Star) => true,
             (Token::Slash, Token::Slash) => true,
             (Token::String(left), Token::String(right)) => left == right,
+            (Token::While, Token::While) => true,
             (Token::WriteLine, Token::WriteLine) => true,
             _ => false,
         }
@@ -231,6 +235,7 @@ pub enum TokenOwned {
     IsOdd,
     Length,
     ReadLine,
+    While,
     WriteLine,
 
     // Symbols
@@ -295,6 +300,7 @@ impl Display for TokenOwned {
             TokenOwned::Star => Token::Star.fmt(f),
             TokenOwned::Slash => Token::Slash.fmt(f),
             TokenOwned::String(string) => write!(f, "{string}"),
+            TokenOwned::While => Token::While.fmt(f),
             TokenOwned::WriteLine => Token::WriteLine.fmt(f),
         }
     }

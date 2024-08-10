@@ -403,6 +403,7 @@ impl Lexer {
             "length" => Token::Length,
             "NaN" => Token::Float("NaN"),
             "read_line" => Token::ReadLine,
+            "while" => Token::While,
             "write_line" => Token::WriteLine,
             _ => Token::Identifier(string),
         };
@@ -474,6 +475,27 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn while_loop() {
+        let input = "while x < 10 { x += 1 }";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::While, (0, 5)),
+                (Token::Identifier("x"), (6, 7)),
+                (Token::Less, (8, 9)),
+                (Token::Integer("10"), (10, 12)),
+                (Token::LeftCurlyBrace, (13, 14)),
+                (Token::Identifier("x"), (15, 16)),
+                (Token::PlusEqual, (17, 19)),
+                (Token::Integer("1"), (20, 21)),
+                (Token::RightCurlyBrace, (22, 23)),
+                (Token::Eof, (23, 23)),
+            ])
+        )
+    }
 
     #[test]
     fn add_assign() {

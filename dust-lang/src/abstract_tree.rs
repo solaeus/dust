@@ -57,7 +57,14 @@ pub enum Statement {
     },
 
     // Property access expression
+    // TODO: This should be a binary operation
     PropertyAccess(Box<Node<Statement>>, Box<Node<Statement>>),
+
+    // Loops
+    While {
+        condition: Box<Node<Statement>>,
+        body: Box<Node<Statement>>,
+    },
 
     // Identifier expression
     Identifier(Identifier),
@@ -78,7 +85,27 @@ impl Statement {
     pub fn expected_type(&self, context: &Context) -> Option<Type> {
         match self {
             Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(context),
-            Statement::BinaryOperation { left, .. } => left.inner.expected_type(context),
+            Statement::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => match operator.inner {
+                BinaryOperator::Add
+                | BinaryOperator::Divide
+                | BinaryOperator::Modulo
+                | BinaryOperator::Multiply
+                | BinaryOperator::Subtract => Some(left.inner.expected_type(context)?),
+
+                BinaryOperator::Equal
+                | BinaryOperator::Greater
+                | BinaryOperator::GreaterOrEqual
+                | BinaryOperator::Less
+                | BinaryOperator::LessOrEqual
+                | BinaryOperator::And
+                | BinaryOperator::Or => Some(Type::Boolean),
+
+                BinaryOperator::Assign | BinaryOperator::AddAssign => None,
+            },
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type(context)),
             Statement::FunctionCall { function, .. } => function.inner.expected_type(context),
@@ -102,8 +129,9 @@ impl Statement {
 
                 Some(Type::Map(types))
             }
-            Statement::PropertyAccess(_, _) => None,
             Statement::Nil(_) => None,
+            Statement::PropertyAccess(_, _) => None,
+            Statement::While { .. } => None,
         }
     }
 }
@@ -231,6 +259,9 @@ impl Display for Statement {
             }
             Statement::Nil(node) => write!(f, "{node};"),
             Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
+            Statement::While { condition, body } => {
+                write!(f, "while {condition} {body}")
+            }
         }
     }
 }
