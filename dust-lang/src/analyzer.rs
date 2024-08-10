@@ -82,14 +82,16 @@ impl<'a> Analyzer<'a> {
                 operator,
                 right,
             } => {
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
-
                 if let BinaryOperator::AddAssign | BinaryOperator::Assign = operator.inner {
                     if let Statement::Identifier(_) = left.inner {
+                        self.analyze_node(right)?;
+
                         return Ok(());
                     }
                 }
+
+                self.analyze_node(left)?;
+                self.analyze_node(right)?;
 
                 let left_type = left.inner.expected_type(self.variables);
                 let right_type = right.inner.expected_type(self.variables);

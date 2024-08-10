@@ -272,8 +272,8 @@ impl<'src> Parser<'src> {
                                 // Add the new property to the map
                                 map_properties.push((*left, *right));
                             }
-                            // Otherwise, the new statement is a block
                         }
+                    // Otherwise, the new statement is a block
                     } else if let Statement::Block(statements) =
                         statement.get_or_insert_with(|| Statement::Block(Vec::new()))
                     {
