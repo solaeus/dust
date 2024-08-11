@@ -404,6 +404,7 @@ impl Lexer {
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
             "read_line" => Token::ReadLine,
+            "to_string" => Token::ToString,
             "true" => Token::Boolean("true"),
             "while" => Token::While,
             "write_line" => Token::WriteLine,

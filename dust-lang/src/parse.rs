@@ -476,7 +476,12 @@ impl<'src> Parser<'src> {
                 }
             }
             (
-                Token::IsEven | Token::IsOdd | Token::Length | Token::ReadLine | Token::WriteLine,
+                Token::IsEven
+                | Token::IsOdd
+                | Token::Length
+                | Token::ReadLine
+                | Token::ToString
+                | Token::WriteLine,
                 left_position,
             ) => {
                 let function = match self.current.0 {
@@ -484,6 +489,7 @@ impl<'src> Parser<'src> {
                     Token::IsOdd => BuiltInFunction::IsOdd,
                     Token::Length => BuiltInFunction::Length,
                     Token::ReadLine => BuiltInFunction::ReadLine,
+                    Token::ToString => BuiltInFunction::ToString,
                     Token::WriteLine => BuiltInFunction::WriteLine,
                     _ => unreachable!(),
                 };

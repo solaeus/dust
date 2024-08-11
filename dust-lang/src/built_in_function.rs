@@ -12,6 +12,9 @@ use crate::{Type, Value};
 /// Integrated function that can be called from Dust code.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunction {
+    // String tools
+    ToString,
+
     // Integer and float tools
     IsEven,
     IsOdd,
@@ -31,6 +34,7 @@ impl BuiltInFunction {
             BuiltInFunction::IsOdd => "is_odd",
             BuiltInFunction::Length => "length",
             BuiltInFunction::ReadLine => "read_line",
+            BuiltInFunction::ToString => "to_string",
             BuiltInFunction::WriteLine => "write_line",
         }
     }
@@ -41,6 +45,17 @@ impl BuiltInFunction {
         value_arguments: Option<Vec<Value>>,
     ) -> Result<Option<Value>, BuiltInFunctionError> {
         match self {
+            BuiltInFunction::ToString => {
+                if let Some(value_arguments) = value_arguments {
+                    if value_arguments.len() == 1 {
+                        Ok(Some(Value::string(value_arguments[0].to_string())))
+                    } else {
+                        Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                    }
+                } else {
+                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                }
+            }
             BuiltInFunction::IsEven => {
                 if let Some(value_arguments) = value_arguments {
                     if value_arguments.len() == 1 {
@@ -115,6 +130,7 @@ impl BuiltInFunction {
 
     pub fn expected_return_type(&self) -> Option<Type> {
         match self {
+            BuiltInFunction::ToString => Some(Type::String),
             BuiltInFunction::IsEven => Some(Type::Boolean),
             BuiltInFunction::IsOdd => Some(Type::Boolean),
             BuiltInFunction::Length => Some(Type::Integer),

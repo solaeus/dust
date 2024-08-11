@@ -23,6 +23,7 @@ pub enum Token<'src> {
     IsOdd,
     Length,
     ReadLine,
+    ToString,
     While,
     WriteLine,
 
@@ -90,6 +91,7 @@ impl<'src> Token<'src> {
             Token::Star => TokenOwned::Star,
             Token::Slash => TokenOwned::Slash,
             Token::String(text) => TokenOwned::String(text.to_string()),
+            Token::ToString => TokenOwned::ToString,
             Token::While => TokenOwned::While,
             Token::WriteLine => TokenOwned::WriteLine,
         }
@@ -133,6 +135,7 @@ impl<'src> Token<'src> {
             Token::Semicolon => ";",
             Token::Star => "*",
             Token::Slash => "/",
+            Token::ToString => "to_string",
             Token::While => "while",
             Token::WriteLine => "write_line",
         }
@@ -246,6 +249,7 @@ pub enum TokenOwned {
     IsOdd,
     Length,
     ReadLine,
+    ToString,
     While,
     WriteLine,
 
@@ -284,14 +288,14 @@ impl Display for TokenOwned {
             TokenOwned::DoubleAmpersand => Token::DoubleAmpersand.fmt(f),
             TokenOwned::DoubleEqual => Token::DoubleEqual.fmt(f),
             TokenOwned::DoublePipe => Token::DoublePipe.fmt(f),
-            TokenOwned::Else => write!(f, "else"),
+            TokenOwned::Else => Token::Else.fmt(f),
             TokenOwned::Eof => Token::Eof.fmt(f),
             TokenOwned::Equal => Token::Equal.fmt(f),
             TokenOwned::Float(float) => write!(f, "{float}"),
             TokenOwned::Greater => Token::Greater.fmt(f),
             TokenOwned::GreaterOrEqual => Token::GreaterEqual.fmt(f),
             TokenOwned::Identifier(text) => write!(f, "{text}"),
-            TokenOwned::If => write!(f, "if"),
+            TokenOwned::If => Token::If.fmt(f),
             TokenOwned::Integer(integer) => write!(f, "{integer}"),
             TokenOwned::IsEven => Token::IsEven.fmt(f),
             TokenOwned::IsOdd => Token::IsOdd.fmt(f),
@@ -313,6 +317,7 @@ impl Display for TokenOwned {
             TokenOwned::Star => Token::Star.fmt(f),
             TokenOwned::Slash => Token::Slash.fmt(f),
             TokenOwned::String(string) => write!(f, "{string}"),
+            TokenOwned::ToString => Token::ToString.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
             TokenOwned::WriteLine => Token::WriteLine.fmt(f),
         }

@@ -661,6 +661,16 @@ mod tests {
     use super::*;
 
     #[test]
+    fn to_string() {
+        let input = "42.to_string()";
+
+        assert_eq!(
+            run(input, &mut Context::new()),
+            Ok(Some(Value::string("42".to_string())))
+        );
+    }
+
+    #[test]
     fn r#if() {
         let input = "if true { 1 }";
 
