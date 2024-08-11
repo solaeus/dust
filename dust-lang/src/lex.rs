@@ -395,14 +395,16 @@ impl Lexer {
 
         let string = &source[start_pos..self.position];
         let token = match string {
-            "true" => Token::Boolean("true"),
-            "false" => Token::Boolean("false"),
             "Infinity" => Token::Float("Infinity"),
+            "NaN" => Token::Float("NaN"),
+            "else" => Token::Else,
+            "false" => Token::Boolean("false"),
+            "if" => Token::If,
             "is_even" => Token::IsEven,
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
-            "NaN" => Token::Float("NaN"),
             "read_line" => Token::ReadLine,
+            "true" => Token::Boolean("true"),
             "while" => Token::While,
             "write_line" => Token::WriteLine,
             _ => Token::Identifier(string),
@@ -475,6 +477,31 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn if_else() {
+        let input = "if x < 10 { x + 1 } else { x }";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::If, (0, 2)),
+                (Token::Identifier("x"), (3, 4)),
+                (Token::Less, (5, 6)),
+                (Token::Integer("10"), (7, 9)),
+                (Token::LeftCurlyBrace, (10, 11)),
+                (Token::Identifier("x"), (12, 13)),
+                (Token::Plus, (14, 15)),
+                (Token::Integer("1"), (16, 17)),
+                (Token::RightCurlyBrace, (18, 19)),
+                (Token::Else, (20, 24)),
+                (Token::LeftCurlyBrace, (25, 26)),
+                (Token::Identifier("x"), (27, 28)),
+                (Token::RightCurlyBrace, (29, 30)),
+                (Token::Eof, (30, 30)),
+            ])
+        )
+    }
 
     #[test]
     fn while_loop() {

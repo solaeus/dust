@@ -168,6 +168,108 @@ impl<'a> Analyzer<'a> {
                     });
                 }
             }
+            Statement::If { condition, body } => {
+                self.analyze_node(condition)?;
+
+                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
+                    // Condition is valid
+                } else {
+                    return Err(AnalyzerError::ExpectedBoolean {
+                        actual: condition.as_ref().clone(),
+                        position: condition.position,
+                    });
+                }
+
+                self.analyze_node(body)?;
+            }
+            Statement::IfElse {
+                condition,
+                if_body,
+                else_body,
+            } => {
+                self.analyze_node(condition)?;
+
+                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
+                    // Condition is valid
+                } else {
+                    return Err(AnalyzerError::ExpectedBoolean {
+                        actual: condition.as_ref().clone(),
+                        position: condition.position,
+                    });
+                }
+
+                self.analyze_node(if_body)?;
+                self.analyze_node(else_body)?;
+            }
+            Statement::IfElseIf {
+                condition,
+                if_body,
+                else_ifs,
+            } => {
+                self.analyze_node(condition)?;
+
+                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
+                    // Condition is valid
+                } else {
+                    return Err(AnalyzerError::ExpectedBoolean {
+                        actual: condition.as_ref().clone(),
+                        position: condition.position,
+                    });
+                }
+
+                self.analyze_node(if_body)?;
+
+                for (condition, body) in else_ifs {
+                    self.analyze_node(condition)?;
+
+                    if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
+                        // Condition is valid
+                    } else {
+                        return Err(AnalyzerError::ExpectedBoolean {
+                            actual: condition.clone(),
+                            position: condition.position,
+                        });
+                    }
+
+                    self.analyze_node(body)?;
+                }
+            }
+            Statement::IfElseIfElse {
+                condition,
+                if_body,
+                else_ifs,
+                else_body,
+            } => {
+                self.analyze_node(condition)?;
+
+                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
+                    // Condition is valid
+                } else {
+                    return Err(AnalyzerError::ExpectedBoolean {
+                        actual: condition.as_ref().clone(),
+                        position: condition.position,
+                    });
+                }
+
+                self.analyze_node(if_body)?;
+
+                for (condition, body) in else_ifs {
+                    self.analyze_node(condition)?;
+
+                    if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
+                        // Condition is valid
+                    } else {
+                        return Err(AnalyzerError::ExpectedBoolean {
+                            actual: condition.clone(),
+                            position: condition.position,
+                        });
+                    }
+
+                    self.analyze_node(body)?;
+                }
+
+                self.analyze_node(else_body)?;
+            }
             Statement::List(statements) => {
                 for statement in statements {
                     self.analyze_node(statement)?;

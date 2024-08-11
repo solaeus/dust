@@ -245,6 +245,151 @@ impl Vm {
                     })
                 }
             }
+            Statement::If { condition, body } => {
+                let condition_position = condition.position;
+                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: condition_position,
+                    });
+                };
+
+                if let Some(condition) = condition_value.as_boolean() {
+                    if condition {
+                        return self.run_node(*body, context);
+                    }
+                } else {
+                    return Err(VmError::ExpectedBoolean {
+                        position: condition_position,
+                    });
+                }
+
+                Ok(None)
+            }
+            Statement::IfElse {
+                condition,
+                if_body,
+                else_body,
+            } => {
+                let condition_position = condition.position;
+                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: condition_position,
+                    });
+                };
+
+                if let Some(condition) = condition_value.as_boolean() {
+                    if condition {
+                        self.run_node(*if_body, context)
+                    } else {
+                        self.run_node(*else_body, context)
+                    }
+                } else {
+                    Err(VmError::ExpectedBoolean {
+                        position: condition_position,
+                    })
+                }
+            }
+            Statement::IfElseIf {
+                condition,
+                if_body,
+                else_ifs,
+            } => {
+                let condition_position = condition.position;
+                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: condition_position,
+                    });
+                };
+
+                if let Some(condition) = condition_value.as_boolean() {
+                    if condition {
+                        self.run_node(*if_body, context)
+                    } else {
+                        for (condition, body) in else_ifs {
+                            let condition_position = condition.position;
+                            let condition_value =
+                                if let Some(value) = self.run_node(condition, context)? {
+                                    value
+                                } else {
+                                    return Err(VmError::ExpectedValue {
+                                        position: condition_position,
+                                    });
+                                };
+
+                            if let Some(condition) = condition_value.as_boolean() {
+                                if condition {
+                                    return self.run_node(body, context);
+                                }
+                            } else {
+                                return Err(VmError::ExpectedBoolean {
+                                    position: condition_position,
+                                });
+                            }
+                        }
+
+                        Ok(None)
+                    }
+                } else {
+                    Err(VmError::ExpectedBoolean {
+                        position: condition_position,
+                    })
+                }
+            }
+            Statement::IfElseIfElse {
+                condition,
+                if_body,
+                else_ifs,
+                else_body,
+            } => {
+                let condition_position = condition.position;
+                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: condition_position,
+                    });
+                };
+
+                if let Some(condition) = condition_value.as_boolean() {
+                    if condition {
+                        self.run_node(*if_body, context)
+                    } else {
+                        for (condition, body) in else_ifs {
+                            let condition_position = condition.position;
+                            let condition_value =
+                                if let Some(value) = self.run_node(condition, context)? {
+                                    value
+                                } else {
+                                    return Err(VmError::ExpectedValue {
+                                        position: condition_position,
+                                    });
+                                };
+
+                            if let Some(condition) = condition_value.as_boolean() {
+                                if condition {
+                                    return self.run_node(body, context);
+                                }
+                            } else {
+                                return Err(VmError::ExpectedBoolean {
+                                    position: condition_position,
+                                });
+                            }
+                        }
+
+                        self.run_node(*else_body, context)
+                    }
+                } else {
+                    Err(VmError::ExpectedBoolean {
+                        position: condition_position,
+                    })
+                }
+            }
             Statement::List(nodes) => {
                 let values = nodes
                     .into_iter()

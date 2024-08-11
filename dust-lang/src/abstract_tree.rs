@@ -66,6 +66,28 @@ pub enum Statement {
         body: Box<Node<Statement>>,
     },
 
+    // Control flow
+    If {
+        condition: Box<Node<Statement>>,
+        body: Box<Node<Statement>>,
+    },
+    IfElse {
+        condition: Box<Node<Statement>>,
+        if_body: Box<Node<Statement>>,
+        else_body: Box<Node<Statement>>,
+    },
+    IfElseIf {
+        condition: Box<Node<Statement>>,
+        if_body: Box<Node<Statement>>,
+        else_ifs: Vec<(Node<Statement>, Node<Statement>)>,
+    },
+    IfElseIfElse {
+        condition: Box<Node<Statement>>,
+        if_body: Box<Node<Statement>>,
+        else_ifs: Vec<(Node<Statement>, Node<Statement>)>,
+        else_body: Box<Node<Statement>>,
+    },
+
     // Identifier expression
     Identifier(Identifier),
 
@@ -106,6 +128,10 @@ impl Statement {
             Statement::Constant(value) => Some(value.r#type(context)),
             Statement::FunctionCall { function, .. } => function.inner.expected_type(context),
             Statement::Identifier(identifier) => context.get_type(identifier).cloned(),
+            Statement::If { .. } => None,
+            Statement::IfElse { if_body, .. } => if_body.inner.expected_type(context),
+            Statement::IfElseIf { .. } => None,
+            Statement::IfElseIfElse { if_body, .. } => if_body.inner.expected_type(context),
             Statement::List(nodes) => {
                 let item_type = nodes.first().unwrap().inner.expected_type(context)?;
 
@@ -227,6 +253,43 @@ impl Display for Statement {
                 write!(f, ")")
             }
             Statement::Identifier(identifier) => write!(f, "{identifier}"),
+            Statement::If { condition, body } => {
+                write!(f, "if {condition} {body}")
+            }
+            Statement::IfElse {
+                condition,
+                if_body,
+                else_body,
+            } => {
+                write!(f, "if {condition} {if_body} else {else_body}")
+            }
+            Statement::IfElseIf {
+                condition,
+                if_body,
+                else_ifs,
+            } => {
+                write!(f, "if {condition} {if_body}")?;
+
+                for (condition, body) in else_ifs {
+                    write!(f, " else if {condition} {body}")?;
+                }
+
+                Ok(())
+            }
+            Statement::IfElseIfElse {
+                condition,
+                if_body,
+                else_ifs,
+                else_body,
+            } => {
+                write!(f, "if {condition} {if_body}")?;
+
+                for (condition, body) in else_ifs {
+                    write!(f, " else if {condition} {body}")?;
+                }
+
+                write!(f, " else {else_body}")
+            }
             Statement::List(nodes) => {
                 write!(f, "[")?;
 

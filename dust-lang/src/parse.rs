@@ -202,6 +202,98 @@ impl<'src> Parser<'src> {
                     position,
                 ))
             }
+            (Token::If, position) => {
+                self.next_token()?;
+
+                let condition = Box::new(self.parse_statement(0)?);
+                let if_body = Box::new(self.parse_statement(0)?);
+
+                if let Statement::Block(_) = if_body.inner {
+                } else {
+                    return Err(ParseError::ExpectedBlock { actual: *if_body });
+                }
+
+                if let Token::Else = self.current.0 {
+                    self.next_token()?;
+
+                    if let Token::If = self.current.0 {
+                        self.next_token()?;
+
+                        let first_else_if = (self.parse_statement(0)?, self.parse_statement(0)?);
+                        let mut else_ifs = vec![first_else_if];
+
+                        loop {
+                            if let Token::Else = self.current.0 {
+                                self.next_token()?;
+                            } else {
+                                let else_if_end = self.current.1;
+
+                                return Ok(Node::new(
+                                    Statement::IfElseIf {
+                                        condition,
+                                        if_body,
+                                        else_ifs,
+                                    },
+                                    position,
+                                ));
+                            }
+
+                            if let Token::If = self.current.0 {
+                                self.next_token()?;
+
+                                let else_if = (self.parse_statement(0)?, self.parse_statement(0)?);
+
+                                else_ifs.push(else_if);
+                            } else {
+                                let else_body = Box::new(self.parse_statement(0)?);
+                                let else_end = else_body.position.1;
+
+                                if let Statement::Block(_) = else_body.inner {
+                                } else {
+                                    return Err(ParseError::ExpectedBlock { actual: *else_body });
+                                }
+
+                                return Ok(Node::new(
+                                    Statement::IfElseIfElse {
+                                        condition,
+                                        if_body,
+                                        else_ifs,
+                                        else_body,
+                                    },
+                                    (position.0, else_end),
+                                ));
+                            }
+                        }
+                    } else {
+                        let else_body = Box::new(self.parse_statement(0)?);
+                        let else_end = else_body.position.1;
+
+                        if let Statement::Block(_) = else_body.inner {
+                        } else {
+                            return Err(ParseError::ExpectedBlock { actual: *else_body });
+                        }
+
+                        Ok(Node::new(
+                            Statement::IfElse {
+                                condition,
+                                if_body,
+                                else_body,
+                            },
+                            (position.0, else_end),
+                        ))
+                    }
+                } else {
+                    let if_end = if_body.position.1;
+
+                    Ok(Node::new(
+                        Statement::If {
+                            condition,
+                            body: if_body,
+                        },
+                        (position.0, if_end),
+                    ))
+                }
+            }
             (Token::String(string), position) => {
                 self.next_token()?;
 
@@ -599,6 +691,9 @@ pub enum ParseError {
     ExpectedAssignment {
         actual: Node<Statement>,
     },
+    ExpectedBlock {
+        actual: Node<Statement>,
+    },
     ExpectedIdentifier {
         actual: TokenOwned,
         position: Span,
@@ -633,6 +728,7 @@ impl ParseError {
         match self {
             ParseError::BooleanError { position, .. } => *position,
             ParseError::ExpectedAssignment { actual } => actual.position,
+            ParseError::ExpectedBlock { actual } => actual.position,
             ParseError::ExpectedIdentifier { position, .. } => *position,
             ParseError::ExpectedToken { position, .. } => *position,
             ParseError::FloatError { position, .. } => *position,
@@ -657,6 +753,7 @@ impl Display for ParseError {
         match self {
             Self::BooleanError { error, .. } => write!(f, "{}", error),
             Self::ExpectedAssignment { .. } => write!(f, "Expected assignment"),
+            Self::ExpectedBlock { .. } => write!(f, "Expected block"),
             Self::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {actual}")
             }
@@ -676,6 +773,114 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn r#if() {
+        let input = "if x { y }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::If {
+                        condition: Box::new(Node::new(
+                            Statement::Identifier(Identifier::new("x")),
+                            (3, 4)
+                        )),
+                        body: Box::new(Node::new(
+                            Statement::Block(vec![Node::new(
+                                Statement::Identifier(Identifier::new("y")),
+                                (7, 8)
+                            )]),
+                            (5, 10)
+                        )),
+                    },
+                    (0, 10)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn if_else() {
+        let input = "if x { y } else { z }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::IfElse {
+                        condition: Box::new(Node::new(
+                            Statement::Identifier(Identifier::new("x")),
+                            (3, 4)
+                        )),
+                        if_body: Box::new(Node::new(
+                            Statement::Block(vec![Node::new(
+                                Statement::Identifier(Identifier::new("y")),
+                                (7, 8)
+                            )]),
+                            (5, 10)
+                        )),
+                        else_body: Box::new(Node::new(
+                            Statement::Block(vec![Node::new(
+                                Statement::Identifier(Identifier::new("z")),
+                                (18, 19)
+                            )]),
+                            (16, 21)
+                        )),
+                    },
+                    (0, 21)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn if_else_if_else() {
+        let input = "if x { y } else if z { a } else { b }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::IfElseIfElse {
+                        condition: Box::new(Node::new(
+                            Statement::Identifier(Identifier::new("x")),
+                            (3, 4)
+                        )),
+                        if_body: Box::new(Node::new(
+                            Statement::Block(vec![Node::new(
+                                Statement::Identifier(Identifier::new("y")),
+                                (7, 8)
+                            )]),
+                            (5, 10)
+                        )),
+                        else_ifs: vec![(
+                            Node::new(Statement::Identifier(Identifier::new("z")), (19, 20)),
+                            Node::new(
+                                Statement::Block(vec![Node::new(
+                                    Statement::Identifier(Identifier::new("a")),
+                                    (23, 24)
+                                )]),
+                                (21, 26)
+                            ),
+                        )],
+                        else_body: Box::new(Node::new(
+                            Statement::Block(vec![Node::new(
+                                Statement::Identifier(Identifier::new("b")),
+                                (34, 35)
+                            )]),
+                            (32, 37)
+                        )),
+                    },
+                    (0, 37)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn malformed_map() {
