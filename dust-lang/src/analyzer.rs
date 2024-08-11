@@ -22,9 +22,8 @@ use crate::{
 /// # use std::collections::HashMap;
 /// # use dust_lang::*;
 /// let input = "x = 1 + false";
-/// let abstract_tree = parse(input).unwrap();
 /// let mut context = Context::new();
-/// let result = analyze(&abstract_tree, &mut context);
+/// let result = analyze(input, &mut context);
 ///
 /// assert!(result.is_err());
 /// ```
@@ -150,7 +149,27 @@ impl<'a> Analyzer<'a> {
                     self.analyze_node(statement)?;
                 }
             }
-            Statement::BuiltInFunctionCall { .. } => {}
+            Statement::BuiltInFunctionCall {
+                function,
+                value_arguments,
+                ..
+            } => {
+                let value_parameters = function.value_parameters();
+
+                if let Some(arguments) = value_arguments {
+                    for argument in arguments {
+                        self.analyze_node(argument)?;
+                    }
+
+                    if arguments.len() != value_parameters.len() {
+                        return Err(AnalyzerError::ExpectedValueArgumentCount {
+                            expected: value_parameters.len(),
+                            actual: arguments.len(),
+                            position: node.position,
+                        });
+                    }
+                }
+            }
             Statement::Constant(_) => {}
             Statement::FunctionCall { function, .. } => {
                 if let Statement::Identifier(_) = &function.inner {
@@ -368,6 +387,11 @@ pub enum AnalyzerError {
         actual: Node<Statement>,
         position: Span,
     },
+    ExpectedValueArgumentCount {
+        expected: usize,
+        actual: usize,
+        position: Span,
+    },
     UndefinedVariable {
         identifier: Node<Statement>,
     },
@@ -393,6 +417,7 @@ impl AnalyzerError {
             AnalyzerError::ExpectedIntegerOrFloat { position, .. } => *position,
             AnalyzerError::ExpectedIntegerFloatOrString { position, .. } => *position,
             AnalyzerError::ExpectedString { position, .. } => *position,
+            AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalyzerError::UndefinedVariable { identifier } => identifier.position,
             AnalyzerError::UnexpectedIdentifier { position, .. } => *position,
             AnalyzerError::UnexectedString { position, .. } => *position,
@@ -432,6 +457,9 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedValue { actual, .. } => {
                 write!(f, "Expected value, found {}", actual)
             }
+            AnalyzerError::ExpectedValueArgumentCount {
+                expected, actual, ..
+            } => write!(f, "Expected {} value arguments, found {}", expected, actual),
             AnalyzerError::UndefinedVariable { identifier } => {
                 write!(f, "Undefined variable {}", identifier)
             }
@@ -452,16 +480,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn write_line_wrong_arguments() {
+    fn length_no_arguments() {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(
                 Statement::BuiltInFunctionCall {
-                    function: BuiltInFunction::WriteLine,
+                    function: BuiltInFunction::Length,
                     type_arguments: None,
-                    value_arguments: Some(vec![Node::new(
-                        Statement::Constant(Value::integer(1)),
-                        (0, 1),
-                    )]),
+                    value_arguments: Some(vec![]),
                 },
                 (0, 1),
             )]
@@ -472,8 +497,9 @@ mod tests {
 
         assert_eq!(
             analyzer.analyze(),
-            Err(AnalyzerError::ExpectedString {
-                actual: Node::new(Statement::Constant(Value::integer(1)), (0, 1)),
+            Err(AnalyzerError::ExpectedValueArgumentCount {
+                expected: 1,
+                actual: 0,
                 position: (0, 1)
             })
         )
