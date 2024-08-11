@@ -42,8 +42,8 @@ impl BuiltInFunction {
     pub fn value_parameters(&self) -> Vec<(Identifier, Type)> {
         match self {
             BuiltInFunction::ToString => vec![("value".into(), Type::Any)],
-            BuiltInFunction::IsEven => vec![("value".into(), Type::Integer)],
-            BuiltInFunction::IsOdd => vec![("value".into(), Type::Integer)],
+            BuiltInFunction::IsEven => vec![("value".into(), Type::Number)],
+            BuiltInFunction::IsOdd => vec![("value".into(), Type::Number)],
             BuiltInFunction::Length => {
                 vec![(
                     "value".into(),

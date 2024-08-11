@@ -52,6 +52,7 @@ pub enum Type {
         item_type: Box<Type>,
     },
     Map(BTreeMap<Identifier, Type>),
+    Number,
     Range,
     String,
     Structure {
@@ -199,6 +200,10 @@ impl Type {
                     return Ok(());
                 }
             }
+            (Type::Number, Type::Number | Type::Integer | Type::Float)
+            | (Type::Integer | Type::Float, Type::Number) => {
+                return Ok(());
+            }
             _ => {}
         }
 
@@ -258,6 +263,7 @@ impl Display for Type {
 
                 write!(f, " }}")
             }
+            Type::Number => write!(f, "num"),
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),
             Type::Function {

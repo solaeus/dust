@@ -11,8 +11,8 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::BinaryOperator, parse, AbstractSyntaxTree, BuiltInFunction, Context, DustError,
-    Node, Span, Statement, Type,
+    abstract_tree::BinaryOperator, parse, AbstractSyntaxTree, Context, DustError, Node, Span,
+    Statement, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -22,14 +22,14 @@ use crate::{
 /// # use std::collections::HashMap;
 /// # use dust_lang::*;
 /// let input = "x = 1 + false";
-/// let mut context = Context::new();
-/// let result = analyze(input, &mut context);
+/// let result = analyze(input);
 ///
 /// assert!(result.is_err());
 /// ```
-pub fn analyze<'src>(source: &'src str, context: &mut Context) -> Result<(), DustError<'src>> {
+pub fn analyze(source: &str) -> Result<(), DustError> {
     let abstract_tree = parse(source)?;
-    let mut analyzer = Analyzer::new(&abstract_tree, context);
+    let mut context = Context::new();
+    let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
 
     analyzer
         .analyze()
@@ -90,7 +90,6 @@ impl<'a> Analyzer<'a> {
                             identifier.clone(),
                             right_type.ok_or(AnalyzerError::ExpectedValue {
                                 actual: right.as_ref().clone(),
-                                position: right.position,
                             })?,
                         );
 
@@ -113,33 +112,19 @@ impl<'a> Analyzer<'a> {
                 | BinaryOperator::Less
                 | BinaryOperator::LessOrEqual = operator.inner
                 {
-                    match (left_type, right_type) {
-                        (Some(Type::Integer), Some(Type::Integer)) => {}
-                        (Some(Type::Float), Some(Type::Float)) => {}
-                        (Some(Type::String), Some(Type::String)) => {}
-                        (Some(Type::Integer), _) => {
-                            return Err(AnalyzerError::ExpectedInteger {
+                    if let Some(expected_type) = left_type {
+                        if let Some(actual_type) = right_type {
+                            expected_type.check(&actual_type).map_err(|conflict| {
+                                AnalyzerError::TypeConflict {
+                                    actual_statement: right.as_ref().clone(),
+                                    actual_type: conflict.actual,
+                                    expected: conflict.expected,
+                                }
+                            })?;
+                        } else {
+                            return Err(AnalyzerError::ExpectedValue {
                                 actual: right.as_ref().clone(),
-                                position: right.position,
                             });
-                        }
-                        (Some(Type::Float), _) => {
-                            return Err(AnalyzerError::ExpectedFloat {
-                                actual: right.as_ref().clone(),
-                                position: right.position,
-                            });
-                        }
-                        (Some(Type::String), _) => {
-                            return Err(AnalyzerError::ExpectedString {
-                                actual: right.as_ref().clone(),
-                                position: right.position,
-                            });
-                        }
-                        (_, _) => {
-                            return Err(AnalyzerError::ExpectedIntegerFloatOrString {
-                                actual: right.as_ref().clone(),
-                                position: right.position,
-                            })
                         }
                     }
                 }
@@ -168,6 +153,40 @@ impl<'a> Analyzer<'a> {
                             position: node.position,
                         });
                     }
+
+                    for ((_identifier, parameter_type), argument) in
+                        value_parameters.iter().zip(arguments)
+                    {
+                        let argument_type_option = argument.inner.expected_type(self.context);
+
+                        if let Some(argument_type) = argument_type_option {
+                            parameter_type.check(&argument_type).map_err(|conflict| {
+                                AnalyzerError::TypeConflict {
+                                    actual_statement: argument.clone(),
+                                    actual_type: conflict.actual,
+                                    expected: parameter_type.clone(),
+                                }
+                            })?;
+                        } else {
+                            return Err(AnalyzerError::ExpectedValue {
+                                actual: argument.clone(),
+                            });
+                        }
+                    }
+
+                    if arguments.is_empty() && !value_parameters.is_empty() {
+                        return Err(AnalyzerError::ExpectedValueArgumentCount {
+                            expected: value_parameters.len(),
+                            actual: 0,
+                            position: node.position,
+                        });
+                    }
+                } else if !value_parameters.is_empty() {
+                    return Err(AnalyzerError::ExpectedValueArgumentCount {
+                        expected: value_parameters.len(),
+                        actual: 0,
+                        position: node.position,
+                    });
                 }
             }
             Statement::Constant(_) => {}
@@ -313,22 +332,10 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedValue {
                         actual: left.as_ref().clone(),
-                        position: left.position,
                     });
                 }
 
-                if let Statement::BuiltInFunctionCall { function, .. } = &right.inner {
-                    if function == &BuiltInFunction::IsEven || function == &BuiltInFunction::IsOdd {
-                        if let Some(Type::Integer) = left.inner.expected_type(self.context) {
-                        } else {
-                            return Err(AnalyzerError::ExpectedIntegerOrFloat {
-                                actual: left.as_ref().clone(),
-                                position: left.position,
-                            });
-                        }
-                    }
-                }
-
+                self.analyze_node(left)?;
                 self.analyze_node(right)?;
             }
             Statement::While { condition, body } => {
@@ -371,11 +378,11 @@ pub enum AnalyzerError {
         actual: Node<Statement>,
         position: Span,
     },
-    ExpectedIntegerOrFloat {
+    ExpectedNumber {
         actual: Node<Statement>,
         position: Span,
     },
-    ExpectedIntegerFloatOrString {
+    ExpectedNumberOrString {
         actual: Node<Statement>,
         position: Span,
     },
@@ -385,23 +392,25 @@ pub enum AnalyzerError {
     },
     ExpectedValue {
         actual: Node<Statement>,
-        position: Span,
     },
     ExpectedValueArgumentCount {
         expected: usize,
         actual: usize,
         position: Span,
     },
+    TypeConflict {
+        actual_statement: Node<Statement>,
+        actual_type: Type,
+        expected: Type,
+    },
     UndefinedVariable {
         identifier: Node<Statement>,
     },
     UnexpectedIdentifier {
         identifier: Node<Statement>,
-        position: Span,
     },
     UnexectedString {
         actual: Node<Statement>,
-        position: (usize, usize),
     },
 }
 
@@ -412,15 +421,18 @@ impl AnalyzerError {
             AnalyzerError::ExpectedFloat { position, .. } => *position,
             AnalyzerError::ExpectedFunction { position, .. } => *position,
             AnalyzerError::ExpectedIdentifier { position, .. } => *position,
-            AnalyzerError::ExpectedValue { position, .. } => *position,
+            AnalyzerError::ExpectedValue { actual } => actual.position,
             AnalyzerError::ExpectedInteger { position, .. } => *position,
-            AnalyzerError::ExpectedIntegerOrFloat { position, .. } => *position,
-            AnalyzerError::ExpectedIntegerFloatOrString { position, .. } => *position,
+            AnalyzerError::ExpectedNumber { position, .. } => *position,
+            AnalyzerError::ExpectedNumberOrString { position, .. } => *position,
             AnalyzerError::ExpectedString { position, .. } => *position,
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
+            AnalyzerError::TypeConflict {
+                actual_statement, ..
+            } => actual_statement.position,
             AnalyzerError::UndefinedVariable { identifier } => identifier.position,
-            AnalyzerError::UnexpectedIdentifier { position, .. } => *position,
-            AnalyzerError::UnexectedString { position, .. } => *position,
+            AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position,
+            AnalyzerError::UnexectedString { actual } => actual.position,
         }
     }
 }
@@ -445,10 +457,10 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedInteger { actual, .. } => {
                 write!(f, "Expected integer, found {}", actual)
             }
-            AnalyzerError::ExpectedIntegerOrFloat { actual, .. } => {
+            AnalyzerError::ExpectedNumber { actual, .. } => {
                 write!(f, "Expected integer or float, found {}", actual)
             }
-            AnalyzerError::ExpectedIntegerFloatOrString { actual, .. } => {
+            AnalyzerError::ExpectedNumberOrString { actual, .. } => {
                 write!(f, "Expected integer, float, or string, found {}", actual)
             }
             AnalyzerError::ExpectedString { actual, .. } => {
@@ -460,6 +472,17 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedValueArgumentCount {
                 expected, actual, ..
             } => write!(f, "Expected {} value arguments, found {}", expected, actual),
+            AnalyzerError::TypeConflict {
+                actual_statement,
+                actual_type,
+                expected,
+            } => {
+                write!(
+                    f,
+                    "Expected type {}, found {}, which has type {}",
+                    expected, actual_statement, actual_type
+                )
+            }
             AnalyzerError::UndefinedVariable { identifier } => {
                 write!(f, "Undefined variable {}", identifier)
             }
@@ -480,52 +503,51 @@ mod tests {
     use super::*;
 
     #[test]
-    fn length_no_arguments() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::BuiltInFunctionCall {
-                    function: BuiltInFunction::Length,
-                    type_arguments: None,
-                    value_arguments: Some(vec![]),
-                },
-                (0, 1),
-            )]
-            .into(),
-        };
-        let mut context = Context::new();
-        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+    fn is_even_wrong_type() {
+        let source = "is_even('hello')";
 
         assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::ExpectedValueArgumentCount {
-                expected: 1,
-                actual: 0,
-                position: (0, 1)
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::ExpectedInteger {
+                    actual: Node::new(Statement::Constant(Value::string("hello")), (1, 1)),
+                    position: (1, 1)
+                },
+                source
             })
-        )
+        );
+    }
+
+    #[test]
+    fn length_no_arguments() {
+        let source = "length()";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::ExpectedValueArgumentCount {
+                    expected: 1,
+                    actual: 0,
+                    position: (0, 6)
+                },
+                source
+            })
+        );
     }
 
     #[test]
     fn float_plus_integer() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::BinaryOperation {
-                    left: Box::new(Node::new(Statement::Constant(Value::float(1.0)), (0, 1))),
-                    operator: Node::new(BinaryOperator::Add, (1, 2)),
-                    right: Box::new(Node::new(Statement::Constant(Value::integer(1)), (3, 4))),
-                },
-                (0, 2),
-            )]
-            .into(),
-        };
-        let mut context = Context::new();
-        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+        let source = "42.0 + 2";
 
         assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::ExpectedFloat {
-                actual: Node::new(Statement::Constant(Value::integer(1)), (3, 4)),
-                position: (3, 4)
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::TypeConflict {
+                    actual_statement: Node::new(Statement::Constant(Value::integer(2)), (7, 8)),
+                    actual_type: Type::Integer,
+                    expected: Type::Float,
+                },
+                source
             })
         )
     }
@@ -579,7 +601,7 @@ mod tests {
 
         assert_eq!(
             analyzer.analyze(),
-            Err(AnalyzerError::ExpectedIntegerOrFloat {
+            Err(AnalyzerError::ExpectedNumber {
                 actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1)),
                 position: (0, 1)
             })
@@ -609,7 +631,7 @@ mod tests {
 
         assert_eq!(
             analyzer.analyze(),
-            Err(AnalyzerError::ExpectedIntegerOrFloat {
+            Err(AnalyzerError::ExpectedNumber {
                 actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1)),
                 position: (0, 1)
             })
