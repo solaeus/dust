@@ -7,7 +7,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Type, Value};
+use crate::{Identifier, Type, Value};
 
 /// Integrated function that can be called from Dust code.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -36,6 +36,25 @@ impl BuiltInFunction {
             BuiltInFunction::ReadLine => "read_line",
             BuiltInFunction::ToString => "to_string",
             BuiltInFunction::WriteLine => "write_line",
+        }
+    }
+
+    pub fn value_parameters(&self) -> Vec<(Identifier, Type)> {
+        match self {
+            BuiltInFunction::ToString => vec![("value".into(), Type::Any)],
+            BuiltInFunction::IsEven => vec![("value".into(), Type::Integer)],
+            BuiltInFunction::IsOdd => vec![("value".into(), Type::Integer)],
+            BuiltInFunction::Length => {
+                vec![(
+                    "value".into(),
+                    Type::List {
+                        item_type: Box::new(Type::Any),
+                        length: 1,
+                    },
+                )]
+            }
+            BuiltInFunction::ReadLine => vec![],
+            BuiltInFunction::WriteLine => vec![("output".into(), Type::Any)],
         }
     }
 

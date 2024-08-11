@@ -12,8 +12,8 @@ use std::{
 };
 
 use crate::{
-    AbstractSyntaxTree, BinaryOperator, BuiltInFunction, Identifier, LexError, Lexer, Node, Span,
-    Statement, Token, TokenOwned, Value,
+    AbstractSyntaxTree, BinaryOperator, BuiltInFunction, DustError, Identifier, LexError, Lexer,
+    Node, Span, Statement, Token, TokenOwned, Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -48,13 +48,18 @@ use crate::{
 ///     },
 /// );
 /// ```
-pub fn parse(input: &str) -> Result<AbstractSyntaxTree, ParseError> {
+pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
     let lexer = Lexer::new();
-    let mut parser = Parser::new(input, lexer);
+    let mut parser = Parser::new(source, lexer);
     let mut nodes = VecDeque::new();
 
     loop {
-        let node = parser.parse()?;
+        let node = parser
+            .parse()
+            .map_err(|parse_error| DustError::ParseError {
+                parse_error,
+                source,
+            })?;
 
         nodes.push_back(node);
 
@@ -864,24 +869,27 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Err(ParseError::ExpectedAssignment {
-                actual: Node::new(
-                    Statement::Nil(Box::new(Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(Node::new(
-                                Statement::Identifier(Identifier::new("z")),
-                                (16, 17)
-                            )),
-                            operator: Node::new(BinaryOperator::Assign, (18, 19)),
-                            right: Box::new(Node::new(
-                                Statement::Constant(Value::integer(3)),
-                                (20, 21)
-                            )),
-                        },
-                        (16, 21)
-                    ))),
-                    (16, 24)
-                )
+            Err(DustError::ParseError {
+                source: input,
+                parse_error: ParseError::ExpectedAssignment {
+                    actual: Node::new(
+                        Statement::Nil(Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Identifier(Identifier::new("z")),
+                                    (16, 17)
+                                )),
+                                operator: Node::new(BinaryOperator::Assign, (18, 19)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(3)),
+                                    (20, 21)
+                                )),
+                            },
+                            (16, 21)
+                        ))),
+                        (16, 24)
+                    ),
+                }
             })
         );
     }
@@ -989,9 +997,12 @@ mod tests {
 
         assert_eq!(
             parse(input),
-            Err(ParseError::UnexpectedToken {
-                actual: TokenOwned::Semicolon,
-                position: (0, 1)
+            Err(DustError::ParseError {
+                source: input,
+                parse_error: ParseError::UnexpectedToken {
+                    actual: TokenOwned::Semicolon,
+                    position: (0, 1)
+                }
             })
         );
     }

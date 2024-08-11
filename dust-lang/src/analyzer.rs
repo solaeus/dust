@@ -11,8 +11,8 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::BinaryOperator, AbstractSyntaxTree, BuiltInFunction, Context, Node, Span,
-    Statement, Type,
+    abstract_tree::BinaryOperator, parse, AbstractSyntaxTree, BuiltInFunction, Context, DustError,
+    Node, Span, Statement, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -28,13 +28,16 @@ use crate::{
 ///
 /// assert!(result.is_err());
 /// ```
-pub fn analyze(
-    abstract_tree: &AbstractSyntaxTree,
-    context: &mut Context,
-) -> Result<(), AnalyzerError> {
-    let mut analyzer = Analyzer::new(abstract_tree, context);
+pub fn analyze<'src>(source: &'src str, context: &mut Context) -> Result<(), DustError<'src>> {
+    let abstract_tree = parse(source)?;
+    let mut analyzer = Analyzer::new(&abstract_tree, context);
 
-    analyzer.analyze()
+    analyzer
+        .analyze()
+        .map_err(|analyzer_error| DustError::AnalyzerError {
+            analyzer_error,
+            source,
+        })
 }
 
 /// Static analyzer that checks for potential runtime errors.
@@ -447,6 +450,34 @@ mod tests {
     use crate::{BuiltInFunction, Identifier, Value};
 
     use super::*;
+
+    #[test]
+    fn write_line_wrong_arguments() {
+        let abstract_tree = AbstractSyntaxTree {
+            nodes: [Node::new(
+                Statement::BuiltInFunctionCall {
+                    function: BuiltInFunction::WriteLine,
+                    type_arguments: None,
+                    value_arguments: Some(vec![Node::new(
+                        Statement::Constant(Value::integer(1)),
+                        (0, 1),
+                    )]),
+                },
+                (0, 1),
+            )]
+            .into(),
+        };
+        let mut context = Context::new();
+        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+
+        assert_eq!(
+            analyzer.analyze(),
+            Err(AnalyzerError::ExpectedString {
+                actual: Node::new(Statement::Constant(Value::integer(1)), (0, 1)),
+                position: (0, 1)
+            })
+        )
+    }
 
     #[test]
     fn float_plus_integer() {

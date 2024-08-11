@@ -1,7 +1,7 @@
 use std::fs::read_to_string;
 
 use clap::Parser;
-use dust_lang::{run, Context, DustError};
+use dust_lang::{run, Context};
 
 #[derive(Parser)]
 struct Cli {
@@ -33,6 +33,6 @@ fn run_and_display_errors(source: &str, variables: &mut Context) {
                 println!("{}", value);
             }
         }
-        Err(error) => eprintln!("{}", DustError::new(error, source).report()),
+        Err(error) => eprintln!("{}", error.report()),
     }
 }

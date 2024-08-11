@@ -1,25 +1,32 @@
 //! Virtual machine for running the abstract syntax tree.
 use std::{
     collections::BTreeMap,
-    error::Error,
     fmt::{self, Display, Formatter},
 };
 
 use crate::{
     abstract_tree::BinaryOperator, parse, value::ValueInner, AbstractSyntaxTree, Analyzer,
-    AnalyzerError, BuiltInFunctionError, Context, Node, ParseError, Span, Statement, Value,
-    ValueError,
+    BuiltInFunctionError, Context, DustError, Node, ParseError, Span, Statement, Value, ValueError,
 };
 
-pub fn run(input: &str, context: &mut Context) -> Result<Option<Value>, VmError> {
-    let abstract_syntax_tree = parse(input)?;
+pub fn run<'src>(
+    source: &'src str,
+    context: &mut Context,
+) -> Result<Option<Value>, DustError<'src>> {
+    let abstract_syntax_tree = parse(source)?;
     let mut analyzer = Analyzer::new(&abstract_syntax_tree, context);
 
-    analyzer.analyze()?;
+    analyzer
+        .analyze()
+        .map_err(|analyzer_error| DustError::AnalyzerError {
+            analyzer_error,
+            source,
+        })?;
 
     let mut vm = Vm::new(abstract_syntax_tree);
 
     vm.run(context)
+        .map_err(|vm_error| DustError::VmError { vm_error, source })
 }
 
 pub struct Vm {
@@ -528,7 +535,6 @@ impl Vm {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
-    AnaylyzerError(AnalyzerError),
     ParseError(ParseError),
     ValueError {
         error: ValueError,
@@ -571,7 +577,6 @@ pub enum VmError {
 impl VmError {
     pub fn position(&self) -> Span {
         match self {
-            Self::AnaylyzerError(analyzer_error) => analyzer_error.position(),
             Self::ParseError(parse_error) => parse_error.position(),
             Self::ValueError { position, .. } => *position,
             Self::BuiltInFunctionError { position, .. } => *position,
@@ -587,34 +592,15 @@ impl VmError {
     }
 }
 
-impl From<AnalyzerError> for VmError {
-    fn from(error: AnalyzerError) -> Self {
-        Self::AnaylyzerError(error)
-    }
-}
-
 impl From<ParseError> for VmError {
     fn from(error: ParseError) -> Self {
         Self::ParseError(error)
     }
 }
 
-impl Error for VmError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::AnaylyzerError(analyzer_error) => Some(analyzer_error),
-            Self::ParseError(parse_error) => Some(parse_error),
-            Self::ValueError { error, .. } => Some(error),
-            Self::BuiltInFunctionError { error, .. } => Some(error),
-            _ => None,
-        }
-    }
-}
-
 impl Display for VmError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::AnaylyzerError(analyzer_error) => write!(f, "{}", analyzer_error),
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
             Self::ValueError { error, .. } => write!(f, "{}", error),
             Self::BuiltInFunctionError { error, .. } => {
