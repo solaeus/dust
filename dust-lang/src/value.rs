@@ -640,7 +640,6 @@ impl ValueInner {
                 let item_type = values.first().unwrap().r#type(context);
 
                 Type::List {
-                    length: values.len(),
                     item_type: Box::new(item_type),
                 }
             }

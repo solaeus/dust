@@ -49,7 +49,6 @@ impl BuiltInFunction {
                     "value".into(),
                     Type::List {
                         item_type: Box::new(Type::Any),
-                        length: 1,
                     },
                 )]
             }

@@ -464,42 +464,6 @@ impl Vm {
                     }
                 }
 
-                if let (
-                    value,
-                    Statement::BuiltInFunctionCall {
-                        function,
-                        type_arguments: _,
-                        value_arguments: value_argument_nodes,
-                    },
-                ) = (left_value, right.inner)
-                {
-                    let mut value_arguments = Vec::new();
-
-                    value_arguments.push(value);
-
-                    if let Some(value_nodes) = value_argument_nodes {
-                        for node in value_nodes {
-                            let position = node.position;
-                            let value = if let Some(value) = self.run_node(node, context)? {
-                                value
-                            } else {
-                                return Err(VmError::ExpectedValue { position });
-                            };
-
-                            value_arguments.push(value);
-                        }
-                    }
-
-                    let function_call_return = function.call(None, Some(value_arguments)).map_err(
-                        |built_in_function_error| VmError::BuiltInFunctionError {
-                            error: built_in_function_error,
-                            position: right_span,
-                        },
-                    )?;
-
-                    return Ok(function_call_return);
-                }
-
                 Err(VmError::ExpectedIdentifierOrInteger {
                     position: right_span,
                 })
@@ -648,7 +612,7 @@ mod tests {
 
     #[test]
     fn to_string() {
-        let input = "42.to_string()";
+        let input = "to_string(42)";
 
         assert_eq!(
             run(input, &mut Context::new()),
@@ -824,7 +788,7 @@ mod tests {
 
     #[test]
     fn is_even() {
-        let input = "42.is_even()";
+        let input = "is_even(42)";
 
         assert_eq!(
             run(input, &mut Context::new()),
@@ -834,7 +798,7 @@ mod tests {
 
     #[test]
     fn is_odd() {
-        let input = "42.is_odd()";
+        let input = "is_odd(42)";
 
         assert_eq!(
             run(input, &mut Context::new()),
@@ -844,7 +808,7 @@ mod tests {
 
     #[test]
     fn length() {
-        let input = "[1, 2, 3].length()";
+        let input = "length([1, 2, 3])";
 
         assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(3))));
     }

@@ -358,37 +358,13 @@ impl<'a> Analyzer<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
-    ExpectedBoolean {
-        actual: Node<Statement>,
-        position: Span,
-    },
-    ExpectedFloat {
-        actual: Node<Statement>,
-        position: (usize, usize),
-    },
-    ExpectedFunction {
-        actual: Node<Statement>,
-        position: Span,
-    },
     ExpectedIdentifier {
         actual: Node<Statement>,
         position: Span,
     },
-    ExpectedInteger {
+    ExpectedBoolean {
         actual: Node<Statement>,
         position: Span,
-    },
-    ExpectedNumber {
-        actual: Node<Statement>,
-        position: Span,
-    },
-    ExpectedNumberOrString {
-        actual: Node<Statement>,
-        position: Span,
-    },
-    ExpectedString {
-        actual: Node<Statement>,
-        position: (usize, usize),
     },
     ExpectedValue {
         actual: Node<Statement>,
@@ -418,14 +394,8 @@ impl AnalyzerError {
     pub fn position(&self) -> Span {
         match self {
             AnalyzerError::ExpectedBoolean { position, .. } => *position,
-            AnalyzerError::ExpectedFloat { position, .. } => *position,
-            AnalyzerError::ExpectedFunction { position, .. } => *position,
             AnalyzerError::ExpectedIdentifier { position, .. } => *position,
             AnalyzerError::ExpectedValue { actual } => actual.position,
-            AnalyzerError::ExpectedInteger { position, .. } => *position,
-            AnalyzerError::ExpectedNumber { position, .. } => *position,
-            AnalyzerError::ExpectedNumberOrString { position, .. } => *position,
-            AnalyzerError::ExpectedString { position, .. } => *position,
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalyzerError::TypeConflict {
                 actual_statement, ..
@@ -445,26 +415,8 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedBoolean { actual, .. } => {
                 write!(f, "Expected boolean, found {}", actual)
             }
-            AnalyzerError::ExpectedFunction { actual, .. } => {
-                write!(f, "Expected function, found {}", actual)
-            }
-            AnalyzerError::ExpectedFloat { actual, .. } => {
-                write!(f, "Expected float, found {}", actual)
-            }
             AnalyzerError::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {}", actual)
-            }
-            AnalyzerError::ExpectedInteger { actual, .. } => {
-                write!(f, "Expected integer, found {}", actual)
-            }
-            AnalyzerError::ExpectedNumber { actual, .. } => {
-                write!(f, "Expected integer or float, found {}", actual)
-            }
-            AnalyzerError::ExpectedNumberOrString { actual, .. } => {
-                write!(f, "Expected integer, float, or string, found {}", actual)
-            }
-            AnalyzerError::ExpectedString { actual, .. } => {
-                write!(f, "Expected string, found {}", actual)
             }
             AnalyzerError::ExpectedValue { actual, .. } => {
                 write!(f, "Expected value, found {}", actual)
@@ -498,25 +450,9 @@ impl Display for AnalyzerError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BuiltInFunction, Identifier, Value};
+    use crate::{Identifier, Value};
 
     use super::*;
-
-    #[test]
-    fn is_even_wrong_type() {
-        let source = "is_even('hello')";
-
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::ExpectedInteger {
-                    actual: Node::new(Statement::Constant(Value::string("hello")), (1, 1)),
-                    position: (1, 1)
-                },
-                source
-            })
-        );
-    }
 
     #[test]
     fn length_no_arguments() {
@@ -554,107 +490,73 @@ mod tests {
 
     #[test]
     fn integer_plus_boolean() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::BinaryOperation {
-                    left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    operator: Node::new(BinaryOperator::Add, (1, 2)),
-                    right: Box::new(Node::new(Statement::Constant(Value::boolean(true)), (3, 4))),
-                },
-                (0, 2),
-            )]
-            .into(),
-        };
-        let mut context = Context::new();
-        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+        let source = "42 + true";
 
         assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::ExpectedInteger {
-                actual: Node::new(Statement::Constant(Value::boolean(true)), (3, 4)),
-                position: (3, 4)
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::TypeConflict {
+                    actual_statement: Node::new(Statement::Constant(Value::boolean(true)), (5, 9)),
+                    actual_type: Type::Boolean,
+                    expected: Type::Integer,
+                },
+                source
             })
         )
     }
 
     #[test]
     fn is_even_expects_number() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::PropertyAccess(
-                    Box::new(Node::new(Statement::Constant(Value::boolean(true)), (0, 1))),
-                    Box::new(Node::new(
-                        Statement::BuiltInFunctionCall {
-                            function: BuiltInFunction::IsEven,
-                            type_arguments: None,
-                            value_arguments: None,
-                        },
-                        (1, 2),
-                    )),
-                ),
-                (0, 2),
-            )]
-            .into(),
-        };
-        let mut context = Context::new();
-        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+        let source = "is_even('hello')";
 
         assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::ExpectedNumber {
-                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1)),
-                position: (0, 1)
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::TypeConflict {
+                    actual_statement: Node::new(
+                        Statement::Constant(Value::string("hello")),
+                        (8, 15)
+                    ),
+                    actual_type: Type::String,
+                    expected: Type::Number,
+                },
+                source
             })
-        )
+        );
     }
+
     #[test]
     fn is_odd_expects_number() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::PropertyAccess(
-                    Box::new(Node::new(Statement::Constant(Value::boolean(true)), (0, 1))),
-                    Box::new(Node::new(
-                        Statement::BuiltInFunctionCall {
-                            function: BuiltInFunction::IsOdd,
-                            type_arguments: None,
-                            value_arguments: None,
-                        },
-                        (1, 2),
-                    )),
-                ),
-                (0, 2),
-            )]
-            .into(),
-        };
-        let mut context = Context::new();
-        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+        let source = "is_odd('hello')";
 
         assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::ExpectedNumber {
-                actual: Node::new(Statement::Constant(Value::boolean(true)), (0, 1)),
-                position: (0, 1)
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::TypeConflict {
+                    actual_statement: Node::new(
+                        Statement::Constant(Value::string("hello")),
+                        (7, 14)
+                    ),
+                    actual_type: Type::String,
+                    expected: Type::Number,
+                },
+                source
             })
-        )
+        );
     }
 
     #[test]
     fn undefined_variable() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::Identifier(Identifier::new("x")),
-                (0, 1),
-            )]
-            .into(),
-        };
-        let mut context = Context::new();
-        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+        let source = "foo";
 
         assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::UndefinedVariable {
-                identifier: Node::new(Statement::Identifier(Identifier::new("x")), (0, 1))
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::UndefinedVariable {
+                    identifier: Node::new(Statement::Identifier(Identifier::new("foo")), (0, 3)),
+                },
+                source
             })
-        )
+        );
     }
 }

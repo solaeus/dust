@@ -136,7 +136,6 @@ impl Statement {
                 let item_type = nodes.first().unwrap().inner.expected_type(context)?;
 
                 Some(Type::List {
-                    length: nodes.len(),
                     item_type: Box::new(item_type),
                 })
             }

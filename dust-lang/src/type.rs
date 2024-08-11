@@ -48,7 +48,6 @@ pub enum Type {
     },
     Integer,
     List {
-        length: usize,
         item_type: Box<Type>,
     },
     Map(BTreeMap<Identifier, Type>),
@@ -138,15 +137,13 @@ impl Type {
             }
             (
                 Type::List {
-                    length: left_length,
                     item_type: left_type,
                 },
                 Type::List {
-                    length: right_length,
                     item_type: right_type,
                 },
             ) => {
-                if left_length != right_length || left_type != right_type {
+                if left_type.check(right_type).is_err() {
                     return Err(TypeConflict {
                         actual: other.clone(),
                         expected: self.clone(),
@@ -249,7 +246,7 @@ impl Display for Type {
                 }
             }
             Type::Integer => write!(f, "int"),
-            Type::List { length, item_type } => write!(f, "[{length}; {}]", item_type),
+            Type::List { item_type } => write!(f, "[{item_type}]"),
             Type::Map(map) => {
                 write!(f, "{{ ")?;
 
@@ -316,11 +313,9 @@ mod tests {
         assert_eq!(Type::Integer.check(&Type::Integer), Ok(()));
         assert_eq!(
             Type::List {
-                length: 4,
                 item_type: Box::new(Type::Boolean),
             }
             .check(&Type::List {
-                length: 4,
                 item_type: Box::new(Type::Boolean),
             }),
             Ok(())
@@ -362,7 +357,6 @@ mod tests {
             Type::Float,
             Type::Integer,
             Type::List {
-                length: 10,
                 item_type: Box::new(Type::Integer),
             },
             Type::Map(BTreeMap::new()),
