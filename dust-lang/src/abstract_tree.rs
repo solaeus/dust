@@ -156,6 +156,20 @@ impl Statement {
             Statement::While { .. } => None,
         }
     }
+
+    pub fn block_statements_mut(&mut self) -> Option<&mut Vec<Node<Statement>>> {
+        match self {
+            Statement::Block(statements) => Some(statements),
+            _ => None,
+        }
+    }
+
+    pub fn map_properties_mut(&mut self) -> Option<&mut Vec<(Node<Statement>, Node<Statement>)>> {
+        match self {
+            Statement::Map(properties) => Some(properties),
+            _ => None,
+        }
+    }
 }
 
 impl Display for Statement {

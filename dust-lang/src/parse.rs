@@ -313,41 +313,66 @@ impl<'src> Parser<'src> {
                     ));
                 }
 
-                let mut statement = None;
+                let first_node = self.parse_statement(0)?;
+
+                // Determine whether the new statement is a block or a map
+                //
+                // If the first node is an assignment, this might be a map
+                let mut statement = if let Statement::BinaryOperation {
+                    left,
+                    operator:
+                        Node {
+                            inner: BinaryOperator::Assign,
+                            ..
+                        },
+                    right,
+                } = first_node.inner
+                {
+                    // If the current token is a comma or closing brace
+                    if self.current.0 == Token::Comma || self.current.0 == Token::RightCurlyBrace {
+                        // Allow commas after properties
+                        if let Token::Comma = self.current.0 {
+                            self.next_token()?;
+                        }
+
+                        // The new statement is a map
+                        Statement::Map(vec![(*left, *right)])
+                    } else {
+                        // Otherwise, the new statement is a block
+                        Statement::Block(vec![Node::new(
+                            Statement::BinaryOperation {
+                                left,
+                                operator: Node::new(BinaryOperator::Assign, (0, 0)),
+                                right,
+                            },
+                            first_node.position,
+                        )])
+                    }
+                // If the next node is not an assignment, the new statement is a block
+                } else {
+                    Statement::Block(vec![first_node])
+                };
 
                 loop {
                     // If a closing brace is found, return the new statement
                     if let (Token::RightCurlyBrace, right_position) = self.current {
                         self.next_token()?;
 
-                        return Ok(Node::new(
-                            statement.unwrap(),
-                            (left_position.0, right_position.1),
-                        ));
+                        return Ok(Node::new(statement, (left_position.0, right_position.1)));
                     }
 
                     let next_node = self.parse_statement(0)?;
 
                     // If the new statement is already a block, add the next node to it
-                    if statement
-                        .as_ref()
-                        .is_some_and(|statement| matches!(statement, Statement::Block(_)))
-                    {
-                        if let Statement::Block(block) =
-                            statement.get_or_insert_with(|| Statement::Block(Vec::new()))
-                        {
-                            block.push(next_node);
+                    if let Some(block_statements) = statement.block_statements_mut() {
+                        block_statements.push(next_node);
 
-                            continue;
-                        }
+                        continue;
                     }
 
-                    // If the new statement is already a map, expect the next node to be an
-                    // assignment
-                    if statement
-                        .as_ref()
-                        .is_some_and(|statement| matches!(statement, Statement::Map(_)))
-                    {
+                    // If the new statement is already a map
+                    if let Some(map_properties) = statement.map_properties_mut() {
+                        // Expect the next node to be an assignment
                         if let Statement::BinaryOperation {
                             left,
                             operator:
@@ -358,12 +383,10 @@ impl<'src> Parser<'src> {
                             right,
                         } = next_node.inner
                         {
-                            if let Statement::Map(map_properties) =
-                                statement.get_or_insert_with(|| Statement::Map(Vec::new()))
-                            {
-                                map_properties.push((*left, *right));
-                            }
+                            // Add the new property to the map
+                            map_properties.push((*left, *right));
 
+                            // Allow commas after properties
                             if let Token::Comma = self.current.0 {
                                 self.next_token()?;
                             }
@@ -372,57 +395,6 @@ impl<'src> Parser<'src> {
                         } else {
                             return Err(ParseError::ExpectedAssignment { actual: next_node });
                         }
-                    }
-
-                    // If the next node is an assignment, this might be a map
-                    if let Statement::BinaryOperation {
-                        left,
-                        operator:
-                            Node {
-                                inner: BinaryOperator::Assign,
-                                ..
-                            },
-                        right,
-                    } = next_node.inner
-                    {
-                        // If the current token is a comma or closing brace
-                        if self.current.0 == Token::Comma
-                            || self.current.0 == Token::RightCurlyBrace
-                        {
-                            // The new statement is a map
-                            if let Statement::Map(map_properties) =
-                                statement.get_or_insert_with(|| Statement::Map(Vec::new()))
-                            {
-                                // Add the new property to the map
-                                map_properties.push((*left, *right));
-                            }
-
-                            // Allow commas after properties
-                            if let Token::Comma = self.current.0 {
-                                self.next_token()?;
-                            }
-                        } else {
-                            // Otherwise, the new statement is a block
-                            if let Statement::Block(statements) =
-                                statement.get_or_insert_with(|| Statement::Block(Vec::new()))
-                            {
-                                // Add the assignment statement to the block
-                                statements.push(Node::new(
-                                    Statement::BinaryOperation {
-                                        left,
-                                        operator: Node::new(BinaryOperator::Assign, left_position),
-                                        right,
-                                    },
-                                    next_node.position,
-                                ));
-                            }
-                        }
-                    // Otherwise, the new statement is a block
-                    } else if let Statement::Block(statements) =
-                        statement.get_or_insert_with(|| Statement::Block(Vec::new()))
-                    {
-                        // Add the statement to the block
-                        statements.push(next_node);
                     }
                 }
             }
