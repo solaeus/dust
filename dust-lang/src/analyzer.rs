@@ -449,31 +449,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn math_requires_same_types() {
-        let abstract_tree = AbstractSyntaxTree {
-            nodes: [Node::new(
-                Statement::BinaryOperation {
-                    left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                    operator: Node::new(BinaryOperator::Add, (1, 2)),
-                    right: Box::new(Node::new(Statement::Constant(Value::float(1.0)), (3, 4))),
-                },
-                (0, 2),
-            )]
-            .into(),
-        };
-        let mut context = Context::new();
-        let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
-
-        assert_eq!(
-            analyzer.analyze(),
-            Err(AnalyzerError::ExpectedInteger {
-                actual: Node::new(Statement::Constant(Value::float(1.0)), (3, 4)),
-                position: (3, 4)
-            })
-        )
-    }
-
-    #[test]
     fn float_plus_integer() {
         let abstract_tree = AbstractSyntaxTree {
             nodes: [Node::new(

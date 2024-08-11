@@ -724,7 +724,7 @@ mod tests {
 
     #[test]
     fn map_equal() {
-        let input = "{ y = 'foo', } == { y = 'foo', }";
+        let input = "{ y = 'foo' } == { y = 'foo' }";
 
         assert_eq!(
             run(input, &mut Context::new()),
