@@ -247,23 +247,57 @@ impl<'src> Parser<'src> {
                             statement.get_or_insert_with(|| Statement::Block(Vec::new()))
                         {
                             block.push(next_node);
+
+                            continue;
                         }
+                    }
+
+                    // If the new statement is already a map, expect the next node to be an
+                    // assignment
+                    if statement
+                        .as_ref()
+                        .is_some_and(|statement| matches!(statement, Statement::Map(_)))
+                    {
+                        if let Statement::BinaryOperation {
+                            left,
+                            operator:
+                                Node {
+                                    inner: BinaryOperator::Assign,
+                                    ..
+                                },
+                            right,
+                        } = next_node.inner
+                        {
+                            if let Statement::Map(map_properties) =
+                                statement.get_or_insert_with(|| Statement::Map(Vec::new()))
+                            {
+                                map_properties.push((*left, *right));
+                            }
+
+                            if let Token::Comma = self.current.0 {
+                                self.next_token()?;
+                            }
+
+                            continue;
+                        } else {
+                            return Err(ParseError::ExpectedAssignment { actual: next_node });
+                        }
+                    }
+
                     // If the next node is an assignment, this might be a map
-                    } else if let Statement::BinaryOperation {
+                    if let Statement::BinaryOperation {
                         left,
                         operator:
                             Node {
                                 inner: BinaryOperator::Assign,
-                                position: operator_position,
+                                ..
                             },
                         right,
                     } = next_node.inner
                     {
-                        // If the current token is a comma, or the new statement is already a map
+                        // If the current token is a comma or closing brace
                         if self.current.0 == Token::Comma
-                            || statement
-                                .as_ref()
-                                .is_some_and(|statement| matches!(statement, Statement::Map(_)))
+                            || self.current.0 == Token::RightCurlyBrace
                         {
                             // The new statement is a map
                             if let Statement::Map(map_properties) =
@@ -282,14 +316,11 @@ impl<'src> Parser<'src> {
                             if let Statement::Block(statements) =
                                 statement.get_or_insert_with(|| Statement::Block(Vec::new()))
                             {
-                                // Add the statement to the block
+                                // Add the assignment statement to the block
                                 statements.push(Node::new(
                                     Statement::BinaryOperation {
                                         left,
-                                        operator: Node::new(
-                                            BinaryOperator::Assign,
-                                            operator_position,
-                                        ),
+                                        operator: Node::new(BinaryOperator::Assign, left_position),
                                         right,
                                     },
                                     next_node.position,
@@ -565,6 +596,9 @@ pub enum ParseError {
         position: Span,
     },
     LexError(LexError),
+    ExpectedAssignment {
+        actual: Node<Statement>,
+    },
     ExpectedIdentifier {
         actual: TokenOwned,
         position: Span,
@@ -598,6 +632,7 @@ impl ParseError {
     pub fn position(&self) -> Span {
         match self {
             ParseError::BooleanError { position, .. } => *position,
+            ParseError::ExpectedAssignment { actual } => actual.position,
             ParseError::ExpectedIdentifier { position, .. } => *position,
             ParseError::ExpectedToken { position, .. } => *position,
             ParseError::FloatError { position, .. } => *position,
@@ -621,6 +656,7 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::BooleanError { error, .. } => write!(f, "{}", error),
+            Self::ExpectedAssignment { .. } => write!(f, "Expected assignment"),
             Self::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {actual}")
             }
@@ -640,6 +676,34 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier};
 
     use super::*;
+
+    #[test]
+    fn malformed_map() {
+        let input = "{ x = 1, y = 2, z = 3; }";
+
+        assert_eq!(
+            parse(input),
+            Err(ParseError::ExpectedAssignment {
+                actual: Node::new(
+                    Statement::Nil(Box::new(Node::new(
+                        Statement::BinaryOperation {
+                            left: Box::new(Node::new(
+                                Statement::Identifier(Identifier::new("z")),
+                                (16, 17)
+                            )),
+                            operator: Node::new(BinaryOperator::Assign, (18, 19)),
+                            right: Box::new(Node::new(
+                                Statement::Constant(Value::integer(3)),
+                                (20, 21)
+                            )),
+                        },
+                        (16, 21)
+                    ))),
+                    (16, 24)
+                )
+            })
+        );
+    }
 
     #[test]
     fn while_loop() {

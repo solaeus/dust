@@ -85,11 +85,7 @@ impl Statement {
     pub fn expected_type(&self, context: &Context) -> Option<Type> {
         match self {
             Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(context),
-            Statement::BinaryOperation {
-                left,
-                operator,
-                right,
-            } => match operator.inner {
+            Statement::BinaryOperation { left, operator, .. } => match operator.inner {
                 BinaryOperator::Add
                 | BinaryOperator::Divide
                 | BinaryOperator::Modulo
