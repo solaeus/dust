@@ -226,8 +226,6 @@ impl<'src> Parser<'src> {
                             if let Token::Else = self.current.0 {
                                 self.next_token()?;
                             } else {
-                                let else_if_end = self.current.1;
-
                                 return Ok(Node::new(
                                     Statement::IfElseIf {
                                         condition,

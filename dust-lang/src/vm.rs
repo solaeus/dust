@@ -254,15 +254,16 @@ impl Vm {
                         position: condition_position,
                     });
                 };
-
-                if let Some(condition) = condition_value.as_boolean() {
-                    if condition {
-                        return self.run_node(*body, context);
-                    }
+                let condition = if let Some(condition) = condition_value.as_boolean() {
+                    condition
                 } else {
                     return Err(VmError::ExpectedBoolean {
                         position: condition_position,
                     });
+                };
+
+                if condition {
+                    self.run_node(*body, context)?;
                 }
 
                 Ok(None)
@@ -321,15 +322,16 @@ impl Vm {
                                         position: condition_position,
                                     });
                                 };
-
-                            if let Some(condition) = condition_value.as_boolean() {
-                                if condition {
-                                    return self.run_node(body, context);
-                                }
+                            let condition = if let Some(condition) = condition_value.as_boolean() {
+                                condition
                             } else {
                                 return Err(VmError::ExpectedBoolean {
                                     position: condition_position,
                                 });
+                            };
+
+                            if condition {
+                                self.run_node(body, context)?;
                             }
                         }
 
@@ -370,15 +372,16 @@ impl Vm {
                                         position: condition_position,
                                     });
                                 };
-
-                            if let Some(condition) = condition_value.as_boolean() {
-                                if condition {
-                                    return self.run_node(body, context);
-                                }
+                            let condition = if let Some(condition) = condition_value.as_boolean() {
+                                condition
                             } else {
                                 return Err(VmError::ExpectedBoolean {
                                     position: condition_position,
                                 });
+                            };
+
+                            if condition {
+                                return self.run_node(body, context);
                             }
                         }
 
@@ -656,6 +659,34 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn r#if() {
+        let input = "if true { 1 }";
+
+        assert_eq!(run(input, &mut Context::new()), Ok(None));
+    }
+
+    #[test]
+    fn if_else() {
+        let input = "if false { 1 } else { 2 }";
+
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(2))));
+    }
+
+    #[test]
+    fn if_else_if() {
+        let input = "if false { 1 } else if true { 2 }";
+
+        assert_eq!(run(input, &mut Context::new()), Ok(None));
+    }
+
+    #[test]
+    fn if_else_if_else() {
+        let input = "if false { 1 } else if false { 2 } else { 3 }";
+
+        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(3))));
+    }
 
     #[test]
     fn while_loop() {
