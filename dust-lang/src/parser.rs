@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     AbstractSyntaxTree, BinaryOperator, BuiltInFunction, DustError, Identifier, LexError, Lexer,
-    Node, Span, Statement, Token, TokenOwned, UnaryOperator, Value,
+    Node, Span, Statement, Token, TokenKind, TokenOwned, UnaryOperator, Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -225,13 +225,36 @@ impl<'src> Parser<'src> {
                 self.next_token()?;
 
                 let integer = text
-                    .parse()
+                    .parse::<i64>()
                     .map_err(|error| ParseError::IntegerError { error, position })?;
 
-                Ok(Node::new(
-                    Statement::Constant(Value::integer(integer)),
-                    position,
-                ))
+                if let Token::DoubleDot = self.current.0 {
+                    self.next_token()?;
+
+                    if let Token::Integer(range_end) = self.current.0 {
+                        self.next_token()?;
+
+                        let range_end = range_end
+                            .parse::<i64>()
+                            .map_err(|error| ParseError::IntegerError { error, position })?;
+
+                        Ok(Node::new(
+                            Statement::Constant(Value::range(integer..range_end)),
+                            (position.0, self.current.1 .1),
+                        ))
+                    } else {
+                        Err(ParseError::ExpectedToken {
+                            expected: TokenKind::Integer,
+                            actual: self.current.0.to_owned(),
+                            position: (position.0, self.current.1 .1),
+                        })
+                    }
+                } else {
+                    Ok(Node::new(
+                        Statement::Constant(Value::integer(integer)),
+                        position,
+                    ))
+                }
             }
             (Token::Identifier(text), position) => {
                 self.next_token()?;
@@ -433,7 +456,7 @@ impl<'src> Parser<'src> {
                     Ok(Node::new(node.inner, (left_position.0, right_position.1)))
                 } else {
                     Err(ParseError::ExpectedToken {
-                        expected: TokenOwned::RightParenthesis,
+                        expected: TokenKind::RightParenthesis,
                         actual: self.current.0.to_owned(),
                         position: self.current.1,
                     })
@@ -464,7 +487,7 @@ impl<'src> Parser<'src> {
                         nodes.push(instruction);
                     } else {
                         return Err(ParseError::ExpectedToken {
-                            expected: TokenOwned::RightSquareBrace,
+                            expected: TokenKind::RightSquareBrace,
                             actual: self.current.0.to_owned(),
                             position: self.current.1,
                         });
@@ -496,7 +519,7 @@ impl<'src> Parser<'src> {
                     self.next_token()?;
                 } else {
                     return Err(ParseError::ExpectedToken {
-                        expected: TokenOwned::LeftParenthesis,
+                        expected: TokenKind::LeftParenthesis,
                         actual: self.current.0.to_owned(),
                         position: self.current.1,
                     });
@@ -523,7 +546,7 @@ impl<'src> Parser<'src> {
                         }
                     } else {
                         return Err(ParseError::ExpectedToken {
-                            expected: TokenOwned::RightParenthesis,
+                            expected: TokenKind::RightParenthesis,
                             actual: self.current.0.to_owned(),
                             position: self.current.1,
                         });
@@ -547,7 +570,7 @@ impl<'src> Parser<'src> {
                 if let Token::LeftCurlyBrace = self.current.0 {
                 } else {
                     return Err(ParseError::ExpectedToken {
-                        expected: TokenOwned::LeftCurlyBrace,
+                        expected: TokenKind::LeftCurlyBrace,
                         actual: self.current.0.to_owned(),
                         position: self.current.1,
                     });
@@ -707,7 +730,7 @@ impl<'src> Parser<'src> {
             self.next_token()?;
         } else {
             return Err(ParseError::ExpectedToken {
-                expected: TokenOwned::LeftCurlyBrace,
+                expected: TokenKind::LeftCurlyBrace,
                 actual: self.current.0.to_owned(),
                 position: self.current.1,
             });
@@ -749,7 +772,7 @@ pub enum ParseError {
         position: Span,
     },
     ExpectedToken {
-        expected: TokenOwned,
+        expected: TokenKind,
         actual: TokenOwned,
         position: Span,
     },
@@ -821,6 +844,18 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn range() {
+        let input = "0..42";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(Statement::Constant(Value::range(0..42)), (0, 5))].into()
+            })
+        );
+    }
 
     #[test]
     fn negate_variable() {

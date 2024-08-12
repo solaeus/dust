@@ -174,9 +174,15 @@ impl Lexer {
                     (Token::Comma, (self.position - 1, self.position))
                 }
                 '.' => {
-                    self.position += 1;
+                    if let Some('.') = self.peek_second_char(source) {
+                        self.position += 2;
 
-                    (Token::Dot, (self.position - 1, self.position))
+                        (Token::DoubleDot, (self.position - 2, self.position))
+                    } else {
+                        self.position += 1;
+
+                        (Token::Dot, (self.position - 1, self.position))
+                    }
                 }
                 '>' => {
                     if let Some('=') = self.peek_second_char(source) {
@@ -483,6 +489,21 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn range() {
+        let input = "0..42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Integer("0"), (0, 1)),
+                (Token::DoubleDot, (1, 3)),
+                (Token::Integer("42"), (3, 5)),
+                (Token::Eof, (5, 5))
+            ])
+        );
+    }
 
     #[test]
     fn negate_expression() {

@@ -23,7 +23,7 @@ pub use identifier::Identifier;
 pub use lexer::{lex, LexError, Lexer};
 pub use parser::{parse, ParseError, Parser};
 pub use r#type::Type;
-pub use token::{Token, TokenOwned};
+pub use token::{Token, TokenKind, TokenOwned};
 pub use value::{Value, ValueError};
 pub use vm::{run, Vm, VmError};
 

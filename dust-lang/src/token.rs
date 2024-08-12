@@ -32,6 +32,7 @@ pub enum Token<'src> {
     Comma,
     Dot,
     DoubleAmpersand,
+    DoubleDot,
     DoubleEqual,
     DoublePipe,
     Equal,
@@ -62,6 +63,7 @@ impl<'src> Token<'src> {
             Token::Comma => TokenOwned::Comma,
             Token::Dot => TokenOwned::Dot,
             Token::DoubleAmpersand => TokenOwned::DoubleAmpersand,
+            Token::DoubleDot => TokenOwned::DoubleDot,
             Token::DoubleEqual => TokenOwned::DoubleEqual,
             Token::DoublePipe => TokenOwned::DoublePipe,
             Token::Else => TokenOwned::Else,
@@ -110,6 +112,7 @@ impl<'src> Token<'src> {
             Token::Comma => ",",
             Token::Dot => ".",
             Token::DoubleAmpersand => "&&",
+            Token::DoubleDot => "..",
             Token::DoubleEqual => "==",
             Token::DoublePipe => "||",
             Token::Else => "else",
@@ -144,6 +147,51 @@ impl<'src> Token<'src> {
         }
     }
 
+    pub fn kind(&self) -> TokenKind {
+        match self {
+            Token::Bang => TokenKind::Bang,
+            Token::Boolean(_) => TokenKind::Boolean,
+            Token::Comma => TokenKind::Comma,
+            Token::Dot => TokenKind::Dot,
+            Token::DoubleAmpersand => TokenKind::DoubleAmpersand,
+            Token::DoubleDot => TokenKind::DoubleDot,
+            Token::DoubleEqual => TokenKind::DoubleEqual,
+            Token::DoublePipe => TokenKind::DoublePipe,
+            Token::Else => TokenKind::Else,
+            Token::Eof => TokenKind::Eof,
+            Token::Equal => TokenKind::Equal,
+            Token::Float(_) => TokenKind::Float,
+            Token::Greater => TokenKind::Greater,
+            Token::GreaterEqual => TokenKind::GreaterOrEqual,
+            Token::Identifier(_) => TokenKind::Identifier,
+            Token::If => TokenKind::If,
+            Token::Integer(_) => TokenKind::Integer,
+            Token::IsEven => TokenKind::IsEven,
+            Token::IsOdd => TokenKind::IsOdd,
+            Token::LeftCurlyBrace => TokenKind::LeftCurlyBrace,
+            Token::LeftParenthesis => TokenKind::LeftParenthesis,
+            Token::LeftSquareBrace => TokenKind::LeftSquareBrace,
+            Token::Length => TokenKind::Length,
+            Token::Less => TokenKind::Less,
+            Token::LessEqual => TokenKind::LessOrEqual,
+            Token::Minus => TokenKind::Minus,
+            Token::Percent => TokenKind::Percent,
+            Token::Plus => TokenKind::Plus,
+            Token::PlusEqual => TokenKind::PlusEqual,
+            Token::ReadLine => TokenKind::ReadLine,
+            Token::RightCurlyBrace => TokenKind::RightCurlyBrace,
+            Token::RightParenthesis => TokenKind::RightParenthesis,
+            Token::RightSquareBrace => TokenKind::RightSquareBrace,
+            Token::Semicolon => TokenKind::Semicolon,
+            Token::Star => TokenKind::Star,
+            Token::Slash => TokenKind::Slash,
+            Token::String(_) => TokenKind::String,
+            Token::ToString => TokenKind::ToString,
+            Token::While => TokenKind::While,
+            Token::WriteLine => TokenKind::WriteLine,
+        }
+    }
+
     pub fn is_eof(&self) -> bool {
         matches!(self, Token::Eof)
     }
@@ -162,7 +210,7 @@ impl<'src> Token<'src> {
             Token::DoubleAmpersand => 4,
             Token::DoublePipe => 3,
             Token::Equal | Token::PlusEqual => 2,
-            Token::Semicolon => 1,
+            Token::DoubleDot | Token::Semicolon => 1,
             _ => 0,
         }
     }
@@ -198,6 +246,7 @@ impl<'src> PartialEq for Token<'src> {
             (Token::Comma, Token::Comma) => true,
             (Token::Dot, Token::Dot) => true,
             (Token::DoubleAmpersand, Token::DoubleAmpersand) => true,
+            (Token::DoubleDot, Token::DoubleDot) => true,
             (Token::DoubleEqual, Token::DoubleEqual) => true,
             (Token::DoublePipe, Token::DoublePipe) => true,
             (Token::Else, Token::Else) => true,
@@ -267,6 +316,7 @@ pub enum TokenOwned {
     Comma,
     Dot,
     DoubleAmpersand,
+    DoubleDot,
     DoubleEqual,
     DoublePipe,
     Equal,
@@ -297,6 +347,7 @@ impl Display for TokenOwned {
             TokenOwned::Comma => Token::Comma.fmt(f),
             TokenOwned::Dot => Token::Dot.fmt(f),
             TokenOwned::DoubleAmpersand => Token::DoubleAmpersand.fmt(f),
+            TokenOwned::DoubleDot => Token::DoubleDot.fmt(f),
             TokenOwned::DoubleEqual => Token::DoubleEqual.fmt(f),
             TokenOwned::DoublePipe => Token::DoublePipe.fmt(f),
             TokenOwned::Else => Token::Else.fmt(f),
@@ -331,6 +382,105 @@ impl Display for TokenOwned {
             TokenOwned::ToString => Token::ToString.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
             TokenOwned::WriteLine => Token::WriteLine.fmt(f),
+        }
+    }
+}
+
+/// Token representation that holds no data.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum TokenKind {
+    Eof,
+
+    Identifier,
+
+    // Hard-coded values
+    Boolean,
+    Float,
+    Integer,
+    String,
+
+    // Keywords
+    Else,
+    If,
+    IsEven,
+    IsOdd,
+    Length,
+    ReadLine,
+    ToString,
+    While,
+    WriteLine,
+
+    // Symbols
+    Bang,
+    Comma,
+    Dot,
+    DoubleAmpersand,
+    DoubleDot,
+    DoubleEqual,
+    DoublePipe,
+    Equal,
+    Greater,
+    GreaterOrEqual,
+    LeftCurlyBrace,
+    LeftParenthesis,
+    LeftSquareBrace,
+    Less,
+    LessOrEqual,
+    Minus,
+    Percent,
+    Plus,
+    PlusEqual,
+    RightCurlyBrace,
+    RightParenthesis,
+    RightSquareBrace,
+    Semicolon,
+    Star,
+    Slash,
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            TokenKind::Bang => Token::Bang.fmt(f),
+            TokenKind::Boolean => write!(f, "boolean"),
+            TokenKind::Comma => Token::Comma.fmt(f),
+            TokenKind::Dot => Token::Dot.fmt(f),
+            TokenKind::DoubleAmpersand => Token::DoubleAmpersand.fmt(f),
+            TokenKind::DoubleDot => Token::DoubleDot.fmt(f),
+            TokenKind::DoubleEqual => Token::DoubleEqual.fmt(f),
+            TokenKind::DoublePipe => Token::DoublePipe.fmt(f),
+            TokenKind::Else => Token::Else.fmt(f),
+            TokenKind::Eof => Token::Eof.fmt(f),
+            TokenKind::Equal => Token::Equal.fmt(f),
+            TokenKind::Float => write!(f, "float"),
+            TokenKind::Greater => Token::Greater.fmt(f),
+            TokenKind::GreaterOrEqual => Token::GreaterEqual.fmt(f),
+            TokenKind::Identifier => write!(f, "identifier"),
+            TokenKind::If => Token::If.fmt(f),
+            TokenKind::Integer => write!(f, "integer"),
+            TokenKind::IsEven => Token::IsEven.fmt(f),
+            TokenKind::IsOdd => Token::IsOdd.fmt(f),
+            TokenKind::LeftCurlyBrace => Token::LeftCurlyBrace.fmt(f),
+            TokenKind::LeftParenthesis => Token::LeftParenthesis.fmt(f),
+            TokenKind::LeftSquareBrace => Token::LeftSquareBrace.fmt(f),
+            TokenKind::Length => Token::Length.fmt(f),
+            TokenKind::Less => Token::Less.fmt(f),
+            TokenKind::LessOrEqual => Token::LessEqual.fmt(f),
+            TokenKind::Minus => Token::Minus.fmt(f),
+            TokenKind::Percent => Token::Percent.fmt(f),
+            TokenKind::Plus => Token::Plus.fmt(f),
+            TokenKind::PlusEqual => Token::PlusEqual.fmt(f),
+            TokenKind::ReadLine => Token::ReadLine.fmt(f),
+            TokenKind::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
+            TokenKind::RightParenthesis => Token::RightParenthesis.fmt(f),
+            TokenKind::RightSquareBrace => Token::RightSquareBrace.fmt(f),
+            TokenKind::Semicolon => Token::Semicolon.fmt(f),
+            TokenKind::Star => Token::Star.fmt(f),
+            TokenKind::Slash => Token::Slash.fmt(f),
+            TokenKind::String => write!(f, "string"),
+            TokenKind::ToString => Token::ToString.fmt(f),
+            TokenKind::While => Token::While.fmt(f),
+            TokenKind::WriteLine => Token::WriteLine.fmt(f),
         }
     }
 }
