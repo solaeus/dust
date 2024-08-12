@@ -67,38 +67,38 @@ impl<'a> Analyzer<'a> {
 
     pub fn analyze(&mut self) -> Result<(), AnalyzerError> {
         for node in &self.abstract_tree.nodes {
-            self.analyze_node(node)?;
+            self.analyze_statement(node)?;
         }
 
         Ok(())
     }
 
-    fn analyze_node(&mut self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
+    fn analyze_statement(&mut self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
         match &node.inner {
             Statement::BinaryOperation {
                 left,
                 operator,
                 right,
             } => {
-                if let BinaryOperator::Assign = operator.inner {
+                if let BinaryOperator::Assign | BinaryOperator::AddAssign = operator.inner {
+                    self.analyze_statement(right)?;
+
                     if let Statement::Identifier(identifier) = &left.inner {
-                        self.analyze_node(right)?;
-
-                        let right_type = right.inner.expected_type(self.context);
-
-                        self.context.set_type(
-                            identifier.clone(),
-                            right_type.ok_or(AnalyzerError::ExpectedValue {
+                        let right_type = right.inner.expected_type(self.context).ok_or(
+                            AnalyzerError::ExpectedValue {
                                 actual: right.as_ref().clone(),
-                            })?,
-                        );
+                            },
+                        )?;
+
+                        self.context
+                            .set_type(identifier.clone(), right_type, left.position);
 
                         return Ok(());
                     }
                 }
 
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
+                self.analyze_statement(left)?;
+                self.analyze_statement(right)?;
 
                 let left_type = left.inner.expected_type(self.context);
                 let right_type = right.inner.expected_type(self.context);
@@ -131,7 +131,7 @@ impl<'a> Analyzer<'a> {
             }
             Statement::Block(statements) => {
                 for statement in statements {
-                    self.analyze_node(statement)?;
+                    self.analyze_statement(statement)?;
                 }
             }
             Statement::BuiltInFunctionCall {
@@ -143,7 +143,7 @@ impl<'a> Analyzer<'a> {
 
                 if let Some(arguments) = value_arguments {
                     for argument in arguments {
-                        self.analyze_node(argument)?;
+                        self.analyze_statement(argument)?;
                     }
 
                     if arguments.len() != value_parameters.len() {
@@ -195,16 +195,16 @@ impl<'a> Analyzer<'a> {
                 value_arguments,
                 ..
             } => {
-                self.analyze_node(function)?;
+                self.analyze_statement(function)?;
 
                 if let Some(arguments) = value_arguments {
                     for argument in arguments {
-                        self.analyze_node(argument)?;
+                        self.analyze_statement(argument)?;
                     }
                 }
             }
             Statement::Identifier(identifier) => {
-                let exists = self.context.add_allowed_use(identifier);
+                let exists = self.context.update_last_position(identifier, node.position);
 
                 if !exists {
                     return Err(AnalyzerError::UndefinedVariable {
@@ -213,7 +213,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::If { condition, body } => {
-                self.analyze_node(condition)?;
+                self.analyze_statement(condition)?;
 
                 if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
                     // Condition is valid
@@ -223,14 +223,14 @@ impl<'a> Analyzer<'a> {
                     });
                 }
 
-                self.analyze_node(body)?;
+                self.analyze_statement(body)?;
             }
             Statement::IfElse {
                 condition,
                 if_body,
                 else_body,
             } => {
-                self.analyze_node(condition)?;
+                self.analyze_statement(condition)?;
 
                 if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
                     // Condition is valid
@@ -240,15 +240,15 @@ impl<'a> Analyzer<'a> {
                     });
                 }
 
-                self.analyze_node(if_body)?;
-                self.analyze_node(else_body)?;
+                self.analyze_statement(if_body)?;
+                self.analyze_statement(else_body)?;
             }
             Statement::IfElseIf {
                 condition,
                 if_body,
                 else_ifs,
             } => {
-                self.analyze_node(condition)?;
+                self.analyze_statement(condition)?;
 
                 if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
                     // Condition is valid
@@ -258,10 +258,10 @@ impl<'a> Analyzer<'a> {
                     });
                 }
 
-                self.analyze_node(if_body)?;
+                self.analyze_statement(if_body)?;
 
                 for (condition, body) in else_ifs {
-                    self.analyze_node(condition)?;
+                    self.analyze_statement(condition)?;
 
                     if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
                         // Condition is valid
@@ -271,7 +271,7 @@ impl<'a> Analyzer<'a> {
                         });
                     }
 
-                    self.analyze_node(body)?;
+                    self.analyze_statement(body)?;
                 }
             }
             Statement::IfElseIfElse {
@@ -280,7 +280,7 @@ impl<'a> Analyzer<'a> {
                 else_ifs,
                 else_body,
             } => {
-                self.analyze_node(condition)?;
+                self.analyze_statement(condition)?;
 
                 if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
                     // Condition is valid
@@ -290,10 +290,10 @@ impl<'a> Analyzer<'a> {
                     });
                 }
 
-                self.analyze_node(if_body)?;
+                self.analyze_statement(if_body)?;
 
                 for (condition, body) in else_ifs {
-                    self.analyze_node(condition)?;
+                    self.analyze_statement(condition)?;
 
                     if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
                         // Condition is valid
@@ -303,31 +303,31 @@ impl<'a> Analyzer<'a> {
                         });
                     }
 
-                    self.analyze_node(body)?;
+                    self.analyze_statement(body)?;
                 }
 
-                self.analyze_node(else_body)?;
+                self.analyze_statement(else_body)?;
             }
             Statement::List(statements) => {
                 for statement in statements {
-                    self.analyze_node(statement)?;
+                    self.analyze_statement(statement)?;
                 }
             }
             Statement::Map(properties) => {
                 for (_key, value_node) in properties {
-                    self.analyze_node(value_node)?;
+                    self.analyze_statement(value_node)?;
                 }
             }
             Statement::Nil(node) => {
-                self.analyze_node(node)?;
+                self.analyze_statement(node)?;
             }
             Statement::PropertyAccess(left, right) => {
-                self.analyze_node(left)?;
+                self.analyze_statement(left)?;
 
                 if let Statement::Identifier(_) = right.inner {
                     // Do not expect a value for property accessors
                 } else {
-                    self.analyze_node(right)?;
+                    self.analyze_statement(right)?;
                 }
 
                 if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
@@ -353,8 +353,8 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::While { condition, body } => {
-                self.analyze_node(condition)?;
-                self.analyze_node(body)?;
+                self.analyze_statement(condition)?;
+                self.analyze_statement(body)?;
 
                 if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
                 } else {

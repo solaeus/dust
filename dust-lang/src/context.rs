@@ -1,94 +1,111 @@
 //! Garbage-collecting context for variables.
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{Arc, RwLock},
+};
 
-use crate::{Identifier, Type, Value};
+use crate::{Identifier, Span, Type, Value};
 
 /// Garbage-collecting context for variables.
 #[derive(Debug, Clone)]
 pub struct Context {
-    variables: HashMap<Identifier, (VariableData, UsageData)>,
-    is_garbage_collected: bool,
+    variables: Arc<RwLock<HashMap<Identifier, (VariableData, Span)>>>,
+    is_garbage_collected_to: Arc<RwLock<usize>>,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
-            variables: HashMap::new(),
-            is_garbage_collected: true,
+            variables: Arc::new(RwLock::new(HashMap::new())),
+            is_garbage_collected_to: Arc::new(RwLock::new(0)),
         }
+    }
+
+    pub fn variable_count(&self) -> usize {
+        self.variables.read().unwrap().len()
     }
 
     pub fn contains(&self, identifier: &Identifier) -> bool {
-        self.variables.contains_key(identifier)
+        self.variables.read().unwrap().contains_key(identifier)
     }
 
-    pub fn get(&self, identifier: &Identifier) -> Option<&(VariableData, UsageData)> {
-        self.variables.get(identifier)
+    pub fn get(&self, identifier: &Identifier) -> Option<(VariableData, Span)> {
+        self.variables.read().unwrap().get(identifier).cloned()
     }
 
-    pub fn get_type(&self, identifier: &Identifier) -> Option<&Type> {
-        match self.variables.get(identifier) {
-            Some((VariableData::Type(r#type), _)) => Some(r#type),
+    pub fn get_type(&self, identifier: &Identifier) -> Option<Type> {
+        match self.variables.read().unwrap().get(identifier) {
+            Some((VariableData::Type(r#type), _)) => Some(r#type.clone()),
             _ => None,
         }
     }
 
-    pub fn get_variable_data(&self, identifier: &Identifier) -> Option<&VariableData> {
-        match self.variables.get(identifier) {
-            Some((variable_data, _)) => Some(variable_data),
+    pub fn get_variable_data(&self, identifier: &Identifier) -> Option<VariableData> {
+        match self.variables.read().unwrap().get(identifier) {
+            Some((variable_data, _)) => Some(variable_data.clone()),
             _ => None,
         }
     }
 
-    pub fn get_value(&self, identifier: &Identifier) -> Option<&Value> {
-        match self.variables.get(identifier) {
-            Some((VariableData::Value(value), _)) => Some(value),
+    pub fn get_value(&self, identifier: &Identifier) -> Option<Value> {
+        match self.variables.read().unwrap().get(identifier) {
+            Some((VariableData::Value(value), _)) => Some(value.clone()),
             _ => None,
         }
     }
 
-    pub fn use_value(&mut self, identifier: &Identifier) -> Option<&Value> {
-        self.is_garbage_collected = false;
+    pub fn set_type(&mut self, identifier: Identifier, r#type: Type, position: Span) {
+        log::trace!("Setting {identifier} to type {type} at {position:?}");
 
-        match self.variables.get_mut(identifier) {
-            Some((VariableData::Value(value), usage_data)) => {
-                usage_data.used += 1;
-
-                Some(value)
-            }
-            _ => None,
-        }
-    }
-
-    pub fn set_type(&mut self, identifier: Identifier, r#type: Type) {
-        self.is_garbage_collected = false;
-
-        self.variables.insert(
-            identifier,
-            (VariableData::Type(r#type), UsageData::default()),
-        );
+        self.variables
+            .write()
+            .unwrap()
+            .insert(identifier, (VariableData::Type(r#type), position));
     }
 
     pub fn set_value(&mut self, identifier: Identifier, value: Value) {
-        self.is_garbage_collected = false;
+        log::trace!("Setting {identifier} to value {value}");
 
-        self.variables.insert(
-            identifier,
-            (VariableData::Value(value), UsageData::default()),
-        );
+        let mut variables = self.variables.write().unwrap();
+
+        let last_position = variables
+            .get(&identifier)
+            .map(|(_, last_position)| *last_position)
+            .unwrap_or_default();
+
+        variables.insert(identifier, (VariableData::Value(value), last_position));
     }
 
-    pub fn collect_garbage(&mut self) {
-        if !self.is_garbage_collected {
-            self.variables
-                .retain(|_, (_, usage_data)| usage_data.used < usage_data.allowed_uses);
-            self.variables.shrink_to_fit();
+    pub fn collect_garbage(&mut self, current_position: usize) {
+        log::trace!("Collecting garbage up to {current_position}");
+
+        let mut is_garbage_collected_to = self.is_garbage_collected_to.write().unwrap();
+
+        if current_position < *is_garbage_collected_to {
+            return;
         }
+
+        let mut variables = self.variables.write().unwrap();
+
+        variables.retain(|identifier, (_, last_used)| {
+            let should_drop = current_position >= last_used.1;
+
+            if should_drop {
+                log::trace!("Removing {identifier}");
+            }
+
+            !should_drop
+        });
+        variables.shrink_to_fit();
+
+        *is_garbage_collected_to = current_position;
     }
 
-    pub fn add_allowed_use(&mut self, identifier: &Identifier) -> bool {
-        if let Some((_, usage_data)) = self.variables.get_mut(identifier) {
-            usage_data.allowed_uses += 1;
+    pub fn update_last_position(&mut self, identifier: &Identifier, position: Span) -> bool {
+        if let Some((_, last_position)) = self.variables.write().unwrap().get_mut(identifier) {
+            *last_position = position;
+
+            log::trace!("Updating {identifier}'s last position to {position:?}");
 
             true
         } else {
@@ -109,21 +126,6 @@ pub enum VariableData {
     Type(Type),
 }
 
-#[derive(Debug, Clone)]
-pub struct UsageData {
-    pub allowed_uses: u16,
-    pub used: u16,
-}
-
-impl Default for UsageData {
-    fn default() -> Self {
-        Self {
-            allowed_uses: 1,
-            used: 0,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::vm::run_with_context;
@@ -131,21 +133,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn context_removes_unused_variables() {
-        let source = "
-            x = 5
-            y = 10
-            z = x + y
-        ";
-        let mut context = Context::new();
-
-        run_with_context(source, &mut context).unwrap();
-
-        assert_eq!(context.variables.len(), 1);
-    }
-
-    #[test]
     fn context_removes_used_variables() {
+        env_logger::builder().is_test(true).try_init().unwrap();
+
         let source = "
             x = 5
             y = 10
@@ -156,41 +146,22 @@ mod tests {
 
         run_with_context(source, &mut context).unwrap();
 
-        assert_eq!(context.variables.len(), 0);
+        assert_eq!(context.variable_count(), 0);
     }
 
     #[test]
-    fn context_does_not_remove_variables_during_loop() {
+    fn context_removes_variables_after_loop() {
         let source = "
-            x = 5
-            y = 10
-            z = x + y
+            y = 1
+            z = 0
             while z < 10 {
-                z = z + 1
+                z = z + y
             }
         ";
         let mut context = Context::new();
 
         run_with_context(source, &mut context).unwrap();
 
-        assert_eq!(context.variables.len(), 1);
-    }
-
-    #[test]
-    fn context_removes_variables_after_loop() {
-        let source = "
-                x = 5
-                y = 10
-                z = x + y
-                while z < 10 {
-                    z = z + 1
-                }
-                z
-            ";
-        let mut context = Context::new();
-
-        run_with_context(source, &mut context).unwrap();
-
-        assert_eq!(context.variables.len(), 0);
+        assert_eq!(context.variable_count(), 0);
     }
 }

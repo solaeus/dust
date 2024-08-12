@@ -17,7 +17,7 @@ pub mod vm;
 pub use abstract_tree::{AbstractSyntaxTree, BinaryOperator, Node, Statement};
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
-pub use context::{Context, UsageData, VariableData};
+pub use context::{Context, VariableData};
 pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use lexer::{lex, LexError, Lexer};

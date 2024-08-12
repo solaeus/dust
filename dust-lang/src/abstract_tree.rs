@@ -127,7 +127,7 @@ impl Statement {
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type(context)),
             Statement::FunctionCall { function, .. } => function.inner.expected_type(context),
-            Statement::Identifier(identifier) => context.get_type(identifier).cloned(),
+            Statement::Identifier(identifier) => context.get_type(identifier),
             Statement::If { .. } => None,
             Statement::IfElse { if_body, .. } => if_body.inner.expected_type(context),
             Statement::IfElseIf { .. } => None,
