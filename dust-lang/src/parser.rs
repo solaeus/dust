@@ -148,7 +148,7 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_statement(&mut self, precedence: u8) -> Result<Node<Statement>, ParseError> {
-        let mut left = self.parse_primary()?;
+        let mut left = self.parse_prefix()?;
 
         while precedence < self.current.0.precedence() {
             if self.current.0.is_postfix() {
@@ -161,7 +161,7 @@ impl<'src> Parser<'src> {
         Ok(left)
     }
 
-    fn parse_primary(&mut self) -> Result<Node<Statement>, ParseError> {
+    fn parse_prefix(&mut self) -> Result<Node<Statement>, ParseError> {
         match self.current {
             (Token::Bang, position) => {
                 self.next_token()?;
@@ -700,7 +700,10 @@ impl<'src> Parser<'src> {
                 (left_start, operator_end),
             ))
         } else {
-            Ok(left)
+            Err(ParseError::UnexpectedToken {
+                actual: self.current.0.to_owned(),
+                position: self.current.1,
+            })
         }
     }
 
@@ -840,31 +843,28 @@ mod tests {
             Ok(AbstractSyntaxTree {
                 nodes: [
                     Node::new(
-                        Statement::Nil(Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("a")),
-                                    (0, 1)
-                                )),
-                                operator: Node::new(BinaryOperator::Assign, (2, 3)),
-                                right: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (4, 5)
-                                )),
-                            },
-                            (0, 5)
-                        ))),
-                        (0, 5)
+                        Statement::BinaryOperation {
+                            left: Box::new(Node::new(
+                                Statement::Identifier(Identifier::new("a")),
+                                (0, 1)
+                            )),
+                            operator: Node::new(BinaryOperator::Assign, (2, 3)),
+                            right: Box::new(Node::new(
+                                Statement::Constant(Value::integer(1)),
+                                (4, 5)
+                            )),
+                        },
+                        (6, 7)
                     ),
                     Node::new(
                         Statement::UnaryOperation {
                             operator: Node::new(UnaryOperator::Negate, (0, 1)),
                             operand: Box::new(Node::new(
                                 Statement::Identifier(Identifier::new("a")),
-                                (1, 2)
+                                (7, 8)
                             )),
                         },
-                        (0, 2)
+                        (4, 8)
                     )
                 ]
                 .into()
@@ -899,6 +899,79 @@ mod tests {
                     },
                     (0, 8)
                 )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn not_expression() {
+        let input = "!(1 > 42)";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::UnaryOperation {
+                        operator: Node::new(UnaryOperator::Not, (0, 1)),
+                        operand: Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (2, 3)
+                                )),
+                                operator: Node::new(BinaryOperator::Greater, (4, 5)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(42)),
+                                    (6, 8)
+                                )),
+                            },
+                            (1, 9)
+                        )),
+                    },
+                    (0, 9)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn not_variable() {
+        let input = "a = false; !a";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [
+                    Node::new(
+                        Statement::Nil(Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Identifier(Identifier::new("a")),
+                                    (0, 1)
+                                )),
+                                operator: Node::new(BinaryOperator::Assign, (2, 3)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::boolean(false)),
+                                    (4, 9)
+                                )),
+                            },
+                            (0, 9)
+                        ))),
+                        (0, 12)
+                    ),
+                    Node::new(
+                        Statement::UnaryOperation {
+                            operator: Node::new(UnaryOperator::Not, (11, 12)),
+                            operand: Box::new(Node::new(
+                                Statement::Identifier(Identifier::new("a")),
+                                (12, 13)
+                            )),
+                        },
+                        (11, 13)
+                    )
+                ]
                 .into()
             })
         );
