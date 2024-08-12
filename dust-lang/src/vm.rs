@@ -694,6 +694,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn range() {
+        let input = "1..5";
+
+        assert_eq!(run(input), Ok(Some(Value::range(1..5))));
+    }
+
+    #[test]
     fn negate_expression() {
         let input = "x = -42; -x";
 

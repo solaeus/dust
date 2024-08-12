@@ -10,23 +10,18 @@ use crate::{Identifier, Span, Type, Value};
 #[derive(Debug, Clone)]
 pub struct Context {
     variables: Arc<RwLock<HashMap<Identifier, (VariableData, Span)>>>,
-    is_garbage_collected_to: Arc<RwLock<usize>>,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
             variables: Arc::new(RwLock::new(HashMap::new())),
-            is_garbage_collected_to: Arc::new(RwLock::new(0)),
         }
     }
 
     pub fn with_variables_from(other: &Self) -> Self {
         Self {
             variables: Arc::new(RwLock::new(other.variables.read().unwrap().clone())),
-            is_garbage_collected_to: Arc::new(RwLock::new(
-                *other.is_garbage_collected_to.read().unwrap(),
-            )),
         }
     }
 
@@ -88,12 +83,6 @@ impl Context {
     pub fn collect_garbage(&self, current_position: usize) {
         log::trace!("Collecting garbage up to {current_position}");
 
-        let mut is_garbage_collected_to = self.is_garbage_collected_to.write().unwrap();
-
-        if current_position < *is_garbage_collected_to {
-            return;
-        }
-
         let mut variables = self.variables.write().unwrap();
 
         variables.retain(|identifier, (_, last_used)| {
@@ -106,8 +95,6 @@ impl Context {
             !should_drop
         });
         variables.shrink_to_fit();
-
-        *is_garbage_collected_to = current_position;
     }
 
     pub fn update_last_position(&self, identifier: &Identifier, position: Span) -> bool {
