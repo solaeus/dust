@@ -126,6 +126,10 @@ impl<'a> Analyzer<'a> {
                                 actual: right.as_ref().clone(),
                             });
                         }
+                    } else {
+                        return Err(AnalyzerError::ExpectedValue {
+                            actual: left.as_ref().clone(),
+                        });
                     }
                 }
             }

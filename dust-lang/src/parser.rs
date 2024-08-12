@@ -147,13 +147,19 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_statement(&mut self, precedence: u8) -> Result<Node<Statement>, ParseError> {
+    fn parse_statement(&mut self, mut precedence: u8) -> Result<Node<Statement>, ParseError> {
+        // Parse a statement starting from the current node.
         let mut left = self.parse_prefix()?;
 
+        // While the current token has a higher precedence than the given precedence
         while precedence < self.current.0.precedence() {
+            // Give precedence to postfix operations
             if self.current.0.is_postfix() {
-                left = self.parse_postfix(left)?;
+                // Replace the left-hand side with the postfix operation and use the postfix
+                // operator's precedence to determine if the loop should continue
+                (left, precedence) = self.parse_postfix(left)?;
             } else {
+                // Replace the left-hand side with the infix operation
                 left = self.parse_infix(left)?;
             }
         }
@@ -586,7 +592,7 @@ impl<'src> Parser<'src> {
         if let Token::Dot = &self.current.0 {
             self.next_token()?;
 
-            let right = self.parse_statement(Token::Dot.precedence() + 1)?;
+            let right = self.parse_statement(0)?;
             let right_end = right.position.1;
 
             if let Statement::BuiltInFunctionCall {
@@ -688,17 +694,18 @@ impl<'src> Parser<'src> {
         ))
     }
 
-    fn parse_postfix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
+    fn parse_postfix(
+        &mut self,
+        left: Node<Statement>,
+    ) -> Result<(Node<Statement>, u8), ParseError> {
         if let Token::Semicolon = &self.current.0 {
             self.next_token()?;
 
             let left_start = left.position.0;
             let operator_end = self.current.1 .1;
+            let node = Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end));
 
-            Ok(Node::new(
-                Statement::Nil(Box::new(left)),
-                (left_start, operator_end),
-            ))
+            Ok((node, self.current.0.precedence()))
         } else {
             Err(ParseError::UnexpectedToken {
                 actual: self.current.0.to_owned(),
@@ -843,28 +850,31 @@ mod tests {
             Ok(AbstractSyntaxTree {
                 nodes: [
                     Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(Node::new(
-                                Statement::Identifier(Identifier::new("a")),
-                                (0, 1)
-                            )),
-                            operator: Node::new(BinaryOperator::Assign, (2, 3)),
-                            right: Box::new(Node::new(
-                                Statement::Constant(Value::integer(1)),
-                                (4, 5)
-                            )),
-                        },
-                        (6, 7)
+                        Statement::Nil(Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Identifier(Identifier::new("a")),
+                                    (0, 1)
+                                )),
+                                operator: Node::new(BinaryOperator::Assign, (2, 3)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (4, 5)
+                                )),
+                            },
+                            (0, 5)
+                        ))),
+                        (0, 8)
                     ),
                     Node::new(
                         Statement::UnaryOperation {
-                            operator: Node::new(UnaryOperator::Negate, (0, 1)),
+                            operator: Node::new(UnaryOperator::Negate, (7, 8)),
                             operand: Box::new(Node::new(
                                 Statement::Identifier(Identifier::new("a")),
-                                (7, 8)
+                                (8, 9)
                             )),
                         },
-                        (4, 8)
+                        (7, 9)
                     )
                 ]
                 .into()
