@@ -1,10 +1,9 @@
 //! Tools for analyzing an abstract syntax tree and catch errors before running the virtual
 //! machine.
 //!
-//! This module provides to anlysis options, both of which borrow an abstract syntax tree and a
-//! hash map of variables:
-//! - `analyze` convenience function
-//! - `Analyzer` struct
+//! This module provides two anlysis options:
+//! - `analyze` convenience function, which takes a string input
+//! - `Analyzer` struct, which borrows an abstract syntax tree and a context
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
@@ -28,8 +27,8 @@ use crate::{
 /// ```
 pub fn analyze(source: &str) -> Result<(), DustError> {
     let abstract_tree = parse(source)?;
-    let mut context = Context::new();
-    let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+    let context = Context::new();
+    let mut analyzer = Analyzer::new(&abstract_tree, &context);
 
     analyzer
         .analyze()
@@ -54,11 +53,11 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 /// assert!(result.is_err());
 pub struct Analyzer<'a> {
     abstract_tree: &'a AbstractSyntaxTree,
-    context: &'a mut Context,
+    context: &'a Context,
 }
 
 impl<'a> Analyzer<'a> {
-    pub fn new(abstract_tree: &'a AbstractSyntaxTree, context: &'a mut Context) -> Self {
+    pub fn new(abstract_tree: &'a AbstractSyntaxTree, context: &'a Context) -> Self {
         Self {
             abstract_tree,
             context,

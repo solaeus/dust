@@ -21,6 +21,15 @@ impl Context {
         }
     }
 
+    pub fn with_variables_from(other: &Self) -> Self {
+        Self {
+            variables: Arc::new(RwLock::new(other.variables.read().unwrap().clone())),
+            is_garbage_collected_to: Arc::new(RwLock::new(
+                *other.is_garbage_collected_to.read().unwrap(),
+            )),
+        }
+    }
+
     pub fn variable_count(&self) -> usize {
         self.variables.read().unwrap().len()
     }
@@ -54,7 +63,7 @@ impl Context {
         }
     }
 
-    pub fn set_type(&mut self, identifier: Identifier, r#type: Type, position: Span) {
+    pub fn set_type(&self, identifier: Identifier, r#type: Type, position: Span) {
         log::trace!("Setting {identifier} to type {type} at {position:?}");
 
         self.variables
@@ -63,7 +72,7 @@ impl Context {
             .insert(identifier, (VariableData::Type(r#type), position));
     }
 
-    pub fn set_value(&mut self, identifier: Identifier, value: Value) {
+    pub fn set_value(&self, identifier: Identifier, value: Value) {
         log::trace!("Setting {identifier} to value {value}");
 
         let mut variables = self.variables.write().unwrap();
@@ -76,7 +85,7 @@ impl Context {
         variables.insert(identifier, (VariableData::Value(value), last_position));
     }
 
-    pub fn collect_garbage(&mut self, current_position: usize) {
+    pub fn collect_garbage(&self, current_position: usize) {
         log::trace!("Collecting garbage up to {current_position}");
 
         let mut is_garbage_collected_to = self.is_garbage_collected_to.write().unwrap();
@@ -101,7 +110,7 @@ impl Context {
         *is_garbage_collected_to = current_position;
     }
 
-    pub fn update_last_position(&mut self, identifier: &Identifier, position: Span) -> bool {
+    pub fn update_last_position(&self, identifier: &Identifier, position: Span) -> bool {
         if let Some((_, last_position)) = self.variables.write().unwrap().get_mut(identifier) {
             *last_position = position;
 
@@ -142,9 +151,9 @@ mod tests {
             z = x + y
             z
         ";
-        let mut context = Context::new();
+        let context = Context::new();
 
-        run_with_context(source, &mut context).unwrap();
+        run_with_context(source, context.clone()).unwrap();
 
         assert_eq!(context.variable_count(), 0);
     }
@@ -158,9 +167,9 @@ mod tests {
                 z = z + y
             }
         ";
-        let mut context = Context::new();
+        let context = Context::new();
 
-        run_with_context(source, &mut context).unwrap();
+        run_with_context(source, context.clone()).unwrap();
 
         assert_eq!(context.variable_count(), 0);
     }
