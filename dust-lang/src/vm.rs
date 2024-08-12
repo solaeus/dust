@@ -463,6 +463,14 @@ impl Vm {
                     }
                 }
 
+                if let (Some(map), Statement::Identifier(identifier)) =
+                    (left_value.as_map(), &right.inner)
+                {
+                    let value = map.get(identifier).cloned();
+
+                    return Ok(value);
+                }
+
                 Err(VmError::ExpectedIdentifierOrInteger {
                     position: right_span,
                 })
@@ -622,6 +630,27 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_index() {
+        let input = "[1, 42, 3].1";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
+    fn map_property_access() {
+        let input = "{ a = 42 }.a";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
+    fn built_in_function_dot_notation() {
+        let input = "42.to_string()";
+
+        assert_eq!(run(input), Ok(Some(Value::string("42"))));
+    }
 
     #[test]
     fn to_string() {

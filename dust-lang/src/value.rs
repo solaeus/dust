@@ -121,6 +121,14 @@ impl Value {
         }
     }
 
+    pub fn as_map(&self) -> Option<&BTreeMap<Identifier, Value>> {
+        if let ValueInner::Map(map) = self.inner().as_ref() {
+            Some(map)
+        } else {
+            None
+        }
+    }
+
     pub fn as_integer(&self) -> Option<i64> {
         if let ValueInner::Integer(integer) = self.inner().as_ref() {
             Some(*integer)

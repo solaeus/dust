@@ -220,7 +220,6 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedBoolean {
                         actual: condition.as_ref().clone(),
-                        position: condition.position,
                     });
                 }
 
@@ -238,7 +237,6 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedBoolean {
                         actual: condition.as_ref().clone(),
-                        position: condition.position,
                     });
                 }
 
@@ -257,7 +255,6 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedBoolean {
                         actual: condition.as_ref().clone(),
-                        position: condition.position,
                     });
                 }
 
@@ -271,7 +268,6 @@ impl<'a> Analyzer<'a> {
                     } else {
                         return Err(AnalyzerError::ExpectedBoolean {
                             actual: condition.clone(),
-                            position: condition.position,
                         });
                     }
 
@@ -291,7 +287,6 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedBoolean {
                         actual: condition.as_ref().clone(),
-                        position: condition.position,
                     });
                 }
 
@@ -305,7 +300,6 @@ impl<'a> Analyzer<'a> {
                     } else {
                         return Err(AnalyzerError::ExpectedBoolean {
                             actual: condition.clone(),
-                            position: condition.position,
                         });
                     }
 
@@ -328,13 +322,20 @@ impl<'a> Analyzer<'a> {
                 self.analyze_node(node)?;
             }
             Statement::PropertyAccess(left, right) => {
+                self.analyze_node(left)?;
+
+                if let Statement::Identifier(_) = right.inner {
+                    // Do not expect a value for property accessors
+                } else {
+                    self.analyze_node(right)?;
+                }
+
                 if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
                     if let Some(Type::Integer) = right.inner.expected_type(self.context) {
                         // Allow indexing lists with integers
                     } else {
                         return Err(AnalyzerError::ExpectedInteger {
                             actual: right.as_ref().clone(),
-                            position: right.position,
                         });
                     }
                 }
@@ -350,9 +351,6 @@ impl<'a> Analyzer<'a> {
                         });
                     }
                 }
-
-                self.analyze_node(left)?;
-                self.analyze_node(right)?;
             }
             Statement::While { condition, body } => {
                 self.analyze_node(condition)?;
@@ -362,7 +360,6 @@ impl<'a> Analyzer<'a> {
                 } else {
                     return Err(AnalyzerError::ExpectedBoolean {
                         actual: condition.as_ref().clone(),
-                        position: condition.position,
                     });
                 }
             }
@@ -376,18 +373,15 @@ impl<'a> Analyzer<'a> {
 pub enum AnalyzerError {
     ExpectedBoolean {
         actual: Node<Statement>,
-        position: Span,
     },
     ExpectedIdentifier {
         actual: Node<Statement>,
-        position: Span,
     },
     ExpectedIdentifierOrString {
         actual: Node<Statement>,
     },
     ExpectedInteger {
         actual: Node<Statement>,
-        position: Span,
     },
     ExpectedValue {
         actual: Node<Statement>,
@@ -416,10 +410,10 @@ pub enum AnalyzerError {
 impl AnalyzerError {
     pub fn position(&self) -> Span {
         match self {
-            AnalyzerError::ExpectedBoolean { position, .. } => *position,
-            AnalyzerError::ExpectedIdentifier { position, .. } => *position,
+            AnalyzerError::ExpectedBoolean { actual, .. } => actual.position,
+            AnalyzerError::ExpectedIdentifier { actual, .. } => actual.position,
             AnalyzerError::ExpectedIdentifierOrString { actual } => actual.position,
-            AnalyzerError::ExpectedInteger { position, .. } => *position,
+            AnalyzerError::ExpectedInteger { actual, .. } => actual.position,
             AnalyzerError::ExpectedValue { actual } => actual.position,
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalyzerError::TypeConflict {
@@ -484,6 +478,36 @@ mod tests {
     use crate::{Identifier, Value};
 
     use super::*;
+
+    #[test]
+    fn malformed_list_index() {
+        let source = "[1, 2, 3].foo";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::ExpectedInteger {
+                    actual: Node::new(Statement::Identifier(Identifier::new("foo")), (10, 13)),
+                },
+                source
+            })
+        );
+    }
+
+    #[test]
+    fn malformed_property_access() {
+        let source = "{ x = 1 }.0";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::ExpectedIdentifierOrString {
+                    actual: Node::new(Statement::Constant(Value::integer(0)), (10, 11)),
+                },
+                source
+            })
+        );
+    }
 
     #[test]
     fn length_no_arguments() {
