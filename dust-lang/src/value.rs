@@ -105,6 +105,14 @@ impl Value {
         }
     }
 
+    pub fn as_float(&self) -> Option<f64> {
+        if let ValueInner::Float(float) = self.0.as_ref() {
+            Some(*float)
+        } else {
+            None
+        }
+    }
+
     pub fn as_function(&self) -> Option<&Function> {
         if let ValueInner::Function(function) = self.0.as_ref() {
             Some(function)

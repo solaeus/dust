@@ -11,8 +11,8 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::BinaryOperator, parse, AbstractSyntaxTree, Context, DustError, Node, Span,
-    Statement, Type,
+    abstract_tree::{BinaryOperator, UnaryOperator},
+    parse, AbstractSyntaxTree, Context, DustError, Node, Span, Statement, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -348,6 +348,31 @@ impl<'a> Analyzer<'a> {
                     } else {
                         return Err(AnalyzerError::ExpectedIdentifierOrString {
                             actual: right.as_ref().clone(),
+                        });
+                    }
+                }
+            }
+            Statement::UnaryOperation { operator, operand } => {
+                self.analyze_statement(operand)?;
+
+                if let UnaryOperator::Negate = operator.inner {
+                    if let Some(Type::Integer | Type::Float | Type::Number) =
+                        operand.inner.expected_type(self.context)
+                    {
+                        // Operand is valid
+                    } else {
+                        return Err(AnalyzerError::ExpectedBoolean {
+                            actual: operand.as_ref().clone(),
+                        });
+                    }
+                }
+
+                if let UnaryOperator::Not = operator.inner {
+                    if let Some(Type::Boolean) = operand.inner.expected_type(self.context) {
+                        // Operand is valid
+                    } else {
+                        return Err(AnalyzerError::ExpectedBoolean {
+                            actual: operand.as_ref().clone(),
                         });
                     }
                 }

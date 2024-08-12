@@ -28,6 +28,7 @@ pub enum Token<'src> {
     WriteLine,
 
     // Symbols
+    Bang,
     Comma,
     Dot,
     DoubleAmpersand,
@@ -56,6 +57,7 @@ pub enum Token<'src> {
 impl<'src> Token<'src> {
     pub fn to_owned(&self) -> TokenOwned {
         match self {
+            Token::Bang => TokenOwned::Bang,
             Token::Boolean(boolean) => TokenOwned::Boolean(boolean.to_string()),
             Token::Comma => TokenOwned::Comma,
             Token::Dot => TokenOwned::Dot,
@@ -104,6 +106,7 @@ impl<'src> Token<'src> {
             Token::Integer(integer_text) => integer_text,
             Token::String(text) => text,
 
+            Token::Bang => "!",
             Token::Comma => ",",
             Token::Dot => ".",
             Token::DoubleAmpersand => "&&",
@@ -147,18 +150,19 @@ impl<'src> Token<'src> {
 
     pub fn precedence(&self) -> u8 {
         match self {
-            Token::Dot => 12,
-            Token::Star | Token::Slash | Token::Percent => 10,
-            Token::Plus | Token::Minus => 9,
+            Token::Dot => 9,
+            Token::Star | Token::Slash | Token::Percent => 8,
+            Token::Minus => 7,
+            Token::Plus => 6,
             Token::DoubleEqual
             | Token::Less
             | Token::LessEqual
             | Token::Greater
-            | Token::GreaterEqual => 8,
-            Token::DoubleAmpersand => 7,
-            Token::DoublePipe => 6,
-            Token::Equal | Token::PlusEqual => 5,
-            Token::Semicolon => 4,
+            | Token::GreaterEqual => 5,
+            Token::DoubleAmpersand => 4,
+            Token::DoublePipe => 3,
+            Token::Equal | Token::PlusEqual => 2,
+            Token::Semicolon => 1,
             _ => 0,
         }
     }
@@ -168,7 +172,11 @@ impl<'src> Token<'src> {
     }
 
     pub fn is_right_associative(&self) -> bool {
-        matches!(self, Token::Semicolon)
+        matches!(self, Token::Equal | Token::PlusEqual)
+    }
+
+    pub fn is_prefix(&self) -> bool {
+        matches!(self, Token::Bang | Token::Minus)
     }
 
     pub fn is_postfix(&self) -> bool {
@@ -185,6 +193,7 @@ impl<'src> Display for Token<'src> {
 impl<'src> PartialEq for Token<'src> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Token::Bang, Token::Bang) => true,
             (Token::Boolean(left), Token::Boolean(right)) => left == right,
             (Token::Comma, Token::Comma) => true,
             (Token::Dot, Token::Dot) => true,
@@ -254,6 +263,7 @@ pub enum TokenOwned {
     WriteLine,
 
     // Symbols
+    Bang,
     Comma,
     Dot,
     DoubleAmpersand,
@@ -282,6 +292,7 @@ pub enum TokenOwned {
 impl Display for TokenOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            TokenOwned::Bang => Token::Bang.fmt(f),
             TokenOwned::Boolean(boolean) => write!(f, "{boolean}"),
             TokenOwned::Comma => Token::Comma.fmt(f),
             TokenOwned::Dot => Token::Dot.fmt(f),

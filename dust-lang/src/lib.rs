@@ -14,7 +14,7 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use abstract_tree::{AbstractSyntaxTree, BinaryOperator, Node, Statement};
+pub use abstract_tree::{AbstractSyntaxTree, BinaryOperator, Node, Statement, UnaryOperator};
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use context::{Context, VariableData};

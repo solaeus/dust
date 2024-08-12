@@ -37,11 +37,17 @@ pub enum Statement {
     // A sequence of statements
     Block(Vec<Node<Statement>>),
 
-    // Logic, math and comparison expressions
+    // Assignment, logic, math and comparison expressions with two operands
     BinaryOperation {
         left: Box<Node<Statement>>,
         operator: Node<BinaryOperator>,
         right: Box<Node<Statement>>,
+    },
+
+    // Logic and math expressions with one operand
+    UnaryOperation {
+        operator: Node<UnaryOperator>,
+        operand: Box<Node<Statement>>,
     },
 
     // Function calls
@@ -152,6 +158,10 @@ impl Statement {
             }
             Statement::Nil(_) => None,
             Statement::PropertyAccess(_, _) => None,
+            Statement::UnaryOperation { operator, operand } => match operator.inner {
+                UnaryOperator::Negate => Some(operand.inner.expected_type(context)?),
+                UnaryOperator::Not => Some(Type::Boolean),
+            },
             Statement::While { .. } => None,
         }
     }
@@ -331,6 +341,9 @@ impl Display for Statement {
             }
             Statement::Nil(node) => write!(f, "{node};"),
             Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
+            Statement::UnaryOperation { operator, operand } => {
+                write!(f, "{operator}{operand}")
+            }
             Statement::While { condition, body } => {
                 write!(f, "while {condition} {body}")
             }
@@ -380,6 +393,21 @@ impl Display for BinaryOperator {
             BinaryOperator::Multiply => write!(f, "*"),
             BinaryOperator::Or => write!(f, "||"),
             BinaryOperator::Subtract => write!(f, "-"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum UnaryOperator {
+    Negate,
+    Not,
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            UnaryOperator::Negate => write!(f, "-"),
+            UnaryOperator::Not => write!(f, "!"),
         }
     }
 }

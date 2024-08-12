@@ -6,8 +6,8 @@ use std::{
 
 use crate::{
     abstract_tree::BinaryOperator, parse, value::ValueInner, AbstractSyntaxTree, Analyzer,
-    BuiltInFunctionError, Context, DustError, Identifier, Node, ParseError, Span, Statement, Value,
-    ValueError,
+    BuiltInFunctionError, Context, DustError, Identifier, Node, ParseError, Span, Statement,
+    UnaryOperator, Value, ValueError,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -500,6 +500,33 @@ impl Vm {
                     position: right_span,
                 })
             }
+            Statement::UnaryOperation { operator, operand } => {
+                let position = operand.position;
+                let value = if let Some(value) = self.run_statement(*operand, context)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue { position });
+                };
+
+                match operator.inner {
+                    UnaryOperator::Negate => {
+                        if let Some(value) = value.as_integer() {
+                            Ok(Some(Value::integer(-value)))
+                        } else if let Some(value) = value.as_float() {
+                            Ok(Some(Value::float(-value)))
+                        } else {
+                            Err(VmError::ExpectedNumber { position })
+                        }
+                    }
+                    UnaryOperator::Not => {
+                        if let Some(value) = value.as_boolean() {
+                            Ok(Some(Value::boolean(!value)))
+                        } else {
+                            Err(VmError::ExpectedBoolean { position })
+                        }
+                    }
+                }
+            }
             Statement::While { condition, body } => {
                 let mut return_value = None;
 
@@ -555,6 +582,9 @@ pub enum VmError {
     ExpectedInteger {
         position: Span,
     },
+    ExpectedNumber {
+        position: Span,
+    },
     ExpectedFunction {
         actual: Value,
         position: Span,
@@ -588,6 +618,7 @@ impl VmError {
             Self::ExpectedInteger { position } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedList { position } => *position,
+            Self::ExpectedNumber { position } => *position,
             Self::ExpectedValue { position } => *position,
             Self::UndefinedVariable { identifier } => identifier.position,
             Self::UndefinedProperty {
@@ -637,6 +668,13 @@ impl Display for VmError {
             Self::ExpectedList { position } => {
                 write!(f, "Expected a list at position: {:?}", position)
             }
+            Self::ExpectedNumber { position } => {
+                write!(
+                    f,
+                    "Expected an integer or float at position: {:?}",
+                    position
+                )
+            }
             Self::ExpectedValue { position } => {
                 write!(f, "Expected a value at position: {:?}", position)
             }
@@ -655,6 +693,20 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn negate_expression() {
+        let input = "x = -42; -x";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
+    fn not_expression() {
+        let input = "!(1 == 2 || 3 == 4 || 5 == 6)";
+
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+    }
 
     #[test]
     fn list_index() {

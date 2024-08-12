@@ -253,6 +253,11 @@ impl Lexer {
                         });
                     }
                 }
+                '!' => {
+                    self.position += 1;
+
+                    (Token::Bang, (self.position - 1, self.position))
+                }
                 _ => {
                     self.position += 1;
 
@@ -478,6 +483,41 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn negate_expression() {
+        let input = "x = -42; -x";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Identifier("x"), (0, 1)),
+                (Token::Equal, (2, 3)),
+                (Token::Integer("-42"), (4, 7)),
+                (Token::Semicolon, (7, 8)),
+                (Token::Minus, (9, 10)),
+                (Token::Identifier("x"), (10, 11)),
+                (Token::Eof, (11, 11))
+            ])
+        );
+    }
+
+    #[test]
+    fn not_expression() {
+        let input = "!true; !false";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Bang, (0, 1)),
+                (Token::Boolean("true"), (1, 5)),
+                (Token::Semicolon, (5, 6)),
+                (Token::Bang, (7, 8)),
+                (Token::Boolean("false"), (8, 13)),
+                (Token::Eof, (13, 13))
+            ])
+        );
+    }
 
     #[test]
     fn if_else() {

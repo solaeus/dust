@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     AbstractSyntaxTree, BinaryOperator, BuiltInFunction, DustError, Identifier, LexError, Lexer,
-    Node, Span, Statement, Token, TokenOwned, Value,
+    Node, Span, Statement, Token, TokenOwned, UnaryOperator, Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -163,6 +163,34 @@ impl<'src> Parser<'src> {
 
     fn parse_primary(&mut self) -> Result<Node<Statement>, ParseError> {
         match self.current {
+            (Token::Bang, position) => {
+                self.next_token()?;
+
+                let operand = Box::new(self.parse_statement(0)?);
+                let operand_end = operand.position.1;
+
+                Ok(Node::new(
+                    Statement::UnaryOperation {
+                        operator: Node::new(UnaryOperator::Not, position),
+                        operand,
+                    },
+                    (position.0, operand_end),
+                ))
+            }
+            (Token::Minus, position) => {
+                self.next_token()?;
+
+                let operand = Box::new(self.parse_statement(0)?);
+                let operand_end = operand.position.1;
+
+                Ok(Node::new(
+                    Statement::UnaryOperation {
+                        operator: Node::new(UnaryOperator::Negate, position),
+                        operand,
+                    },
+                    (position.0, operand_end),
+                ))
+            }
             (Token::Boolean(text), position) => {
                 self.next_token()?;
 
@@ -799,9 +827,82 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{abstract_tree::BinaryOperator, Identifier};
+    use crate::{abstract_tree::BinaryOperator, Identifier, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn negate_variable() {
+        let input = "a = 1; -a";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [
+                    Node::new(
+                        Statement::Nil(Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Identifier(Identifier::new("a")),
+                                    (0, 1)
+                                )),
+                                operator: Node::new(BinaryOperator::Assign, (2, 3)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (4, 5)
+                                )),
+                            },
+                            (0, 5)
+                        ))),
+                        (0, 5)
+                    ),
+                    Node::new(
+                        Statement::UnaryOperation {
+                            operator: Node::new(UnaryOperator::Negate, (0, 1)),
+                            operand: Box::new(Node::new(
+                                Statement::Identifier(Identifier::new("a")),
+                                (1, 2)
+                            )),
+                        },
+                        (0, 2)
+                    )
+                ]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn negate_expression() {
+        let input = "-(1 + 1)";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::UnaryOperation {
+                        operator: Node::new(UnaryOperator::Negate, (0, 1)),
+                        operand: Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (2, 3)
+                                )),
+                                operator: Node::new(BinaryOperator::Add, (4, 5)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (6, 7)
+                                )),
+                            },
+                            (1, 8)
+                        )),
+                    },
+                    (0, 8)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn r#if() {

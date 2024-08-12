@@ -133,7 +133,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn context_removes_used_variables() {
+    fn context_removes_variables() {
         env_logger::builder().is_test(true).try_init().unwrap();
 
         let source = "
@@ -150,7 +150,7 @@ mod tests {
     }
 
     #[test]
-    fn context_removes_variables_after_loop() {
+    fn garbage_collector_does_not_break_loops() {
         let source = "
             y = 1
             z = 0
