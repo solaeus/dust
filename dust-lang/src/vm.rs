@@ -10,12 +10,10 @@ use crate::{
     ValueError,
 };
 
-pub fn run<'src>(
-    source: &'src str,
-    context: &mut Context,
-) -> Result<Option<Value>, DustError<'src>> {
+pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
-    let mut analyzer = Analyzer::new(&abstract_syntax_tree, context);
+    let mut context = Context::new();
+    let mut analyzer = Analyzer::new(&abstract_syntax_tree, &mut context);
 
     analyzer
         .analyze()
@@ -26,7 +24,7 @@ pub fn run<'src>(
 
     let mut vm = Vm::new(abstract_syntax_tree);
 
-    vm.run(context)
+    vm.run(&mut context)
         .map_err(|vm_error| DustError::VmError { vm_error, source })
 }
 
@@ -629,223 +627,181 @@ mod tests {
     fn to_string() {
         let input = "to_string(42)";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::string("42".to_string())))
-        );
+        assert_eq!(run(input), Ok(Some(Value::string("42".to_string()))));
     }
 
     #[test]
     fn r#if() {
         let input = "if true { 1 }";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(None));
+        assert_eq!(run(input), Ok(None));
     }
 
     #[test]
     fn if_else() {
         let input = "if false { 1 } else { 2 }";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(2))));
+        assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
 
     #[test]
     fn if_else_if() {
         let input = "if false { 1 } else if true { 2 }";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(None));
+        assert_eq!(run(input), Ok(None));
     }
 
     #[test]
     fn if_else_if_else() {
         let input = "if false { 1 } else if false { 2 } else { 3 }";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn while_loop() {
         let input = "x = 0; while x < 5 { x += 1; } x";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(5))));
+        assert_eq!(run(input), Ok(Some(Value::integer(5))));
     }
 
     #[test]
     fn add_assign() {
         let input = "x = 1; x += 1; x";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(2))));
+        assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
 
     #[test]
     fn or() {
         let input = "true || false";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn map_equal() {
         let input = "{ y = 'foo' } == { y = 'foo' }";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn integer_equal() {
         let input = "42 == 42";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn modulo() {
         let input = "42 % 2";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(0))));
+        assert_eq!(run(input), Ok(Some(Value::integer(0))));
     }
 
     #[test]
     fn divide() {
         let input = "42 / 2";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::integer(21)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::integer(21))));
     }
 
     #[test]
     fn less_than() {
         let input = "2 < 3";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn less_than_or_equal() {
         let input = "42 <= 42";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn greater_than() {
         let input = "2 > 3";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(false)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(false))));
     }
 
     #[test]
     fn greater_than_or_equal() {
         let input = "42 >= 42";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn integer_saturating_add() {
         let input = "9223372036854775807 + 1";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::integer(i64::MAX)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::integer(i64::MAX))));
     }
 
     #[test]
     fn integer_saturating_sub() {
         let input = "-9223372036854775808 - 1";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::integer(i64::MIN)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::integer(i64::MIN))));
     }
 
     #[test]
     fn multiply() {
         let input = "2 * 3";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(6))));
+        assert_eq!(run(input), Ok(Some(Value::integer(6))));
     }
 
     #[test]
     fn boolean() {
         let input = "true";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn is_even() {
         let input = "is_even(42)";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(true)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn is_odd() {
         let input = "is_odd(42)";
 
-        assert_eq!(
-            run(input, &mut Context::new()),
-            Ok(Some(Value::boolean(false)))
-        );
+        assert_eq!(run(input), Ok(Some(Value::boolean(false))));
     }
 
     #[test]
     fn length() {
         let input = "length([1, 2, 3])";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn list_access() {
         let input = "[1, 2, 3].1";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(2))));
+        assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
 
     #[test]
     fn add() {
         let input = "1 + 2";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn add_multiple() {
         let input = "1 + 2 + 3";
 
-        assert_eq!(run(input, &mut Context::new()), Ok(Some(Value::integer(6))));
+        assert_eq!(run(input), Ok(Some(Value::integer(6))));
     }
 }
