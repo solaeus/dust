@@ -28,6 +28,26 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
         .map_err(|vm_error| DustError::VmError { vm_error, source })
 }
 
+pub fn run_with_context<'src>(
+    source: &'src str,
+    context: &mut Context,
+) -> Result<Option<Value>, DustError<'src>> {
+    let abstract_syntax_tree = parse(source)?;
+    let mut analyzer = Analyzer::new(&abstract_syntax_tree, context);
+
+    analyzer
+        .analyze()
+        .map_err(|analyzer_error| DustError::AnalyzerError {
+            analyzer_error,
+            source,
+        })?;
+
+    let mut vm = Vm::new(abstract_syntax_tree);
+
+    vm.run(context)
+        .map_err(|vm_error| DustError::VmError { vm_error, source })
+}
+
 pub struct Vm {
     abstract_tree: AbstractSyntaxTree,
 }
@@ -40,17 +60,20 @@ impl Vm {
     pub fn run(&mut self, context: &mut Context) -> Result<Option<Value>, VmError> {
         let mut previous_value = None;
 
-        while let Some(node) = self.abstract_tree.nodes.pop_front() {
-            previous_value = self.run_node(node, context)?;
+        while let Some(statement) = self.abstract_tree.nodes.pop_front() {
+            previous_value = self.run_statement(statement, context, true)?;
+
+            context.collect_garbage();
         }
 
         Ok(previous_value)
     }
 
-    fn run_node(
+    fn run_statement(
         &self,
         node: Node<Statement>,
         context: &mut Context,
+        collect_garbage: bool,
     ) -> Result<Option<Value>, VmError> {
         match node.inner {
             Statement::BinaryOperation {
@@ -69,7 +92,9 @@ impl Vm {
                         });
                     };
 
-                    let value = if let Some(value) = self.run_node(*right, context)? {
+                    let value = if let Some(value) =
+                        self.run_statement(*right, context, collect_garbage)?
+                    {
                         value
                     } else {
                         return Err(VmError::ExpectedValue {
@@ -90,7 +115,9 @@ impl Vm {
                             position: left.position,
                         });
                     };
-                    let right_value = if let Some(value) = self.run_node(*right, context)? {
+                    let right_value = if let Some(value) =
+                        self.run_statement(*right, context, collect_garbage)?
+                    {
                         value
                     } else {
                         return Err(VmError::ExpectedValue {
@@ -118,20 +145,22 @@ impl Vm {
                 }
 
                 let left_position = left.position;
-                let left_value = if let Some(value) = self.run_node(*left, context)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: left_position,
-                    });
-                };
-                let right_value = if let Some(value) = self.run_node(*right, context)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: right_position,
-                    });
-                };
+                let left_value =
+                    if let Some(value) = self.run_statement(*left, context, collect_garbage)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: left_position,
+                        });
+                    };
+                let right_value =
+                    if let Some(value) = self.run_statement(*right, context, collect_garbage)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: right_position,
+                        });
+                    };
 
                 match operator.inner {
                     BinaryOperator::Add => left_value.add(&right_value),
@@ -160,7 +189,7 @@ impl Vm {
                 let mut previous_value = None;
 
                 for statement in statements {
-                    previous_value = self.run_node(statement, context)?;
+                    previous_value = self.run_statement(statement, context, collect_garbage)?;
                 }
 
                 Ok(previous_value)
@@ -175,7 +204,9 @@ impl Vm {
 
                     for node in nodes {
                         let position = node.position;
-                        let value = if let Some(value) = self.run_node(node, context)? {
+                        let value = if let Some(value) =
+                            self.run_statement(node, context, collect_garbage)?
+                        {
                             value
                         } else {
                             return Err(VmError::ExpectedValue { position });
@@ -205,7 +236,9 @@ impl Vm {
                 value_arguments: value_parameter_nodes,
             } => {
                 let function_position = function_node.position;
-                let function_value = if let Some(value) = self.run_node(*function_node, context)? {
+                let function_value = if let Some(value) =
+                    self.run_statement(*function_node, context, collect_garbage)?
+                {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -226,7 +259,9 @@ impl Vm {
 
                     for node in value_nodes {
                         let position = node.position;
-                        let value = if let Some(value) = self.run_node(node, context)? {
+                        let value = if let Some(value) =
+                            self.run_statement(node, context, collect_garbage)?
+                        {
                             value
                         } else {
                             return Err(VmError::ExpectedValue { position });
@@ -243,7 +278,13 @@ impl Vm {
                 Ok(function.clone().call(None, value_parameters, context)?)
             }
             Statement::Identifier(identifier) => {
-                if let Some(value) = context.use_value(&identifier) {
+                let value_option = if collect_garbage {
+                    context.use_value(&identifier)
+                } else {
+                    context.get_value(&identifier)
+                };
+
+                if let Some(value) = value_option {
                     Ok(Some(value.clone()))
                 } else {
                     Err(VmError::UndefinedVariable {
@@ -253,7 +294,9 @@ impl Vm {
             }
             Statement::If { condition, body } => {
                 let condition_position = condition.position;
-                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                let condition_value = if let Some(value) =
+                    self.run_statement(*condition, context, collect_garbage)?
+                {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -269,7 +312,7 @@ impl Vm {
                 };
 
                 if condition {
-                    self.run_node(*body, context)?;
+                    self.run_statement(*body, context, collect_garbage)?;
                 }
 
                 Ok(None)
@@ -280,7 +323,9 @@ impl Vm {
                 else_body,
             } => {
                 let condition_position = condition.position;
-                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                let condition_value = if let Some(value) =
+                    self.run_statement(*condition, context, collect_garbage)?
+                {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -290,9 +335,9 @@ impl Vm {
 
                 if let Some(condition) = condition_value.as_boolean() {
                     if condition {
-                        self.run_node(*if_body, context)
+                        self.run_statement(*if_body, context, collect_garbage)
                     } else {
-                        self.run_node(*else_body, context)
+                        self.run_statement(*else_body, context, collect_garbage)
                     }
                 } else {
                     Err(VmError::ExpectedBoolean {
@@ -306,7 +351,9 @@ impl Vm {
                 else_ifs,
             } => {
                 let condition_position = condition.position;
-                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                let condition_value = if let Some(value) =
+                    self.run_statement(*condition, context, collect_garbage)?
+                {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -316,18 +363,19 @@ impl Vm {
 
                 if let Some(condition) = condition_value.as_boolean() {
                     if condition {
-                        self.run_node(*if_body, context)
+                        self.run_statement(*if_body, context, collect_garbage)
                     } else {
                         for (condition, body) in else_ifs {
                             let condition_position = condition.position;
-                            let condition_value =
-                                if let Some(value) = self.run_node(condition, context)? {
-                                    value
-                                } else {
-                                    return Err(VmError::ExpectedValue {
-                                        position: condition_position,
-                                    });
-                                };
+                            let condition_value = if let Some(value) =
+                                self.run_statement(condition, context, collect_garbage)?
+                            {
+                                value
+                            } else {
+                                return Err(VmError::ExpectedValue {
+                                    position: condition_position,
+                                });
+                            };
                             let condition = if let Some(condition) = condition_value.as_boolean() {
                                 condition
                             } else {
@@ -337,7 +385,7 @@ impl Vm {
                             };
 
                             if condition {
-                                self.run_node(body, context)?;
+                                self.run_statement(body, context, collect_garbage)?;
                             }
                         }
 
@@ -356,7 +404,9 @@ impl Vm {
                 else_body,
             } => {
                 let condition_position = condition.position;
-                let condition_value = if let Some(value) = self.run_node(*condition, context)? {
+                let condition_value = if let Some(value) =
+                    self.run_statement(*condition, context, collect_garbage)?
+                {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
@@ -366,18 +416,19 @@ impl Vm {
 
                 if let Some(condition) = condition_value.as_boolean() {
                     if condition {
-                        self.run_node(*if_body, context)
+                        self.run_statement(*if_body, context, collect_garbage)
                     } else {
                         for (condition, body) in else_ifs {
                             let condition_position = condition.position;
-                            let condition_value =
-                                if let Some(value) = self.run_node(condition, context)? {
-                                    value
-                                } else {
-                                    return Err(VmError::ExpectedValue {
-                                        position: condition_position,
-                                    });
-                                };
+                            let condition_value = if let Some(value) =
+                                self.run_statement(condition, context, collect_garbage)?
+                            {
+                                value
+                            } else {
+                                return Err(VmError::ExpectedValue {
+                                    position: condition_position,
+                                });
+                            };
                             let condition = if let Some(condition) = condition_value.as_boolean() {
                                 condition
                             } else {
@@ -387,11 +438,11 @@ impl Vm {
                             };
 
                             if condition {
-                                return self.run_node(body, context);
+                                return self.run_statement(body, context, collect_garbage);
                             }
                         }
 
-                        self.run_node(*else_body, context)
+                        self.run_statement(*else_body, context, collect_garbage)
                     }
                 } else {
                     Err(VmError::ExpectedBoolean {
@@ -404,7 +455,7 @@ impl Vm {
                     .into_iter()
                     .map(|node| {
                         let span = node.position;
-                        if let Some(value) = self.run_node(node, context)? {
+                        if let Some(value) = self.run_statement(node, context, collect_garbage)? {
                             Ok(value)
                         } else {
                             Err(VmError::ExpectedValue { position: span })
@@ -426,7 +477,9 @@ impl Vm {
                         });
                     };
                     let position = value_node.position;
-                    let value = if let Some(value) = self.run_node(value_node, context)? {
+                    let value = if let Some(value) =
+                        self.run_statement(value_node, context, collect_garbage)?
+                    {
                         value
                     } else {
                         return Err(VmError::ExpectedValue { position });
@@ -438,19 +491,20 @@ impl Vm {
                 Ok(Some(Value::map(values)))
             }
             Statement::Nil(node) => {
-                let _return = self.run_node(*node, context)?;
+                let _return = self.run_statement(*node, context, collect_garbage)?;
 
                 Ok(None)
             }
             Statement::PropertyAccess(left, right) => {
                 let left_span = left.position;
-                let left_value = if let Some(value) = self.run_node(*left, context)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: left_span,
-                    });
-                };
+                let left_value =
+                    if let Some(value) = self.run_statement(*left, context, collect_garbage)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: left_span,
+                        });
+                    };
                 let right_span = right.position;
 
                 if let (Some(list), Statement::Constant(value)) =
@@ -480,7 +534,9 @@ impl Vm {
 
                 let condition_position = condition.position;
 
-                while let Some(condition_value) = self.run_node(*condition.clone(), context)? {
+                while let Some(condition_value) =
+                    self.run_statement(*condition.clone(), context, false)?
+                {
                     if let ValueInner::Boolean(condition_value) = condition_value.inner().as_ref() {
                         if !condition_value {
                             break;
@@ -491,7 +547,7 @@ impl Vm {
                         });
                     }
 
-                    return_value = self.run_node(*body.clone(), context)?;
+                    return_value = self.run_statement(*body.clone(), context, false)?;
 
                     if return_value.is_some() {
                         break;
