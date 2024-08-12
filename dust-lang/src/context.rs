@@ -143,4 +143,54 @@ mod tests {
 
         assert_eq!(context.variables.len(), 1);
     }
+
+    #[test]
+    fn context_removes_used_variables() {
+        let source = "
+            x = 5
+            y = 10
+            z = x + y
+            z
+        ";
+        let mut context = Context::new();
+
+        run_with_context(source, &mut context).unwrap();
+
+        assert_eq!(context.variables.len(), 0);
+    }
+
+    #[test]
+    fn context_does_not_remove_variables_during_loop() {
+        let source = "
+            x = 5
+            y = 10
+            z = x + y
+            while z < 10 {
+                z = z + 1
+            }
+        ";
+        let mut context = Context::new();
+
+        run_with_context(source, &mut context).unwrap();
+
+        assert_eq!(context.variables.len(), 1);
+    }
+
+    #[test]
+    fn context_removes_variables_after_loop() {
+        let source = "
+                x = 5
+                y = 10
+                z = x + y
+                while z < 10 {
+                    z = z + 1
+                }
+                z
+            ";
+        let mut context = Context::new();
+
+        run_with_context(source, &mut context).unwrap();
+
+        assert_eq!(context.variables.len(), 0);
+    }
 }
