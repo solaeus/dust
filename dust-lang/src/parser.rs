@@ -149,19 +149,26 @@ impl<'src> Parser<'src> {
 
     fn parse_statement(&mut self, mut precedence: u8) -> Result<Node<Statement>, ParseError> {
         // Parse a statement starting from the current node.
-        let mut left = self.parse_prefix()?;
+        let mut left = if self.current.0.is_prefix() {
+            self.parse_prefix()?
+        } else {
+            self.parse_primary()?
+        };
 
         // While the current token has a higher precedence than the given precedence
         while precedence < self.current.0.precedence() {
             // Give precedence to postfix operations
-            if self.current.0.is_postfix() {
-                // Replace the left-hand side with the postfix operation and use the postfix
-                // operator's precedence to determine if the loop should continue
-                (left, precedence) = self.parse_postfix(left)?;
+            left = if self.current.0.is_postfix() {
+                // Replace the left-hand side with the postfix operation
+                let statement = self.parse_postfix(left)?;
+
+                precedence = self.current.0.precedence();
+
+                statement
             } else {
                 // Replace the left-hand side with the infix operation
-                left = self.parse_infix(left)?;
-            }
+                self.parse_infix(left)?
+            };
         }
 
         Ok(left)
@@ -197,6 +204,15 @@ impl<'src> Parser<'src> {
                     (position.0, operand_end),
                 ))
             }
+            _ => Err(ParseError::UnexpectedToken {
+                actual: self.current.0.to_owned(),
+                position: self.current.1,
+            }),
+        }
+    }
+
+    fn parse_primary(&mut self) -> Result<Node<Statement>, ParseError> {
+        match self.current {
             (Token::Boolean(text), position) => {
                 self.next_token()?;
 
@@ -589,13 +605,13 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_infix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
-        let left_start = left.position.0;
         let operator_precedence = self.current.0.precedence()
             - if self.current.0.is_right_associative() {
                 1
             } else {
                 0
             };
+        let left_start = left.position.0;
 
         if let Token::Dot = &self.current.0 {
             let operator_position = self.current.1;
@@ -702,55 +718,58 @@ impl<'src> Parser<'src> {
         ))
     }
 
-    fn parse_postfix(
-        &mut self,
-        left: Node<Statement>,
-    ) -> Result<(Node<Statement>, u8), ParseError> {
-        let node = match &self.current.0 {
-            Token::LeftSquareBrace => {
-                self.next_token()?;
+    fn parse_postfix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
+        let left_start = left.position.0;
 
-                let index = self.parse_statement(0)?;
+        let statement = if let Token::LeftSquareBrace = &self.current.0 {
+            let operator_start = self.current.1 .0;
 
-                if let Token::RightSquareBrace = self.current.0 {
-                    self.next_token()?;
-                } else {
-                    return Err(ParseError::ExpectedToken {
-                        expected: TokenKind::RightSquareBrace,
-                        actual: self.current.0.to_owned(),
-                        position: self.current.1,
-                    });
-                }
+            self.next_token()?;
 
-                let left_start = left.position.0;
-                let right_end = self.current.1 .1;
+            let index = self.parse_statement(0)?;
 
-                Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(left),
-                        operator: Node::new(BinaryOperator::ListIndex, self.current.1),
-                        right: Box::new(index),
-                    },
-                    (left_start, right_end),
-                )
-            }
-            Token::Semicolon => {
-                let left_start = left.position.0;
-                let operator_end = self.current.1 .1;
+            let operator_end = if let Token::RightSquareBrace = self.current.0 {
+                let end = self.current.1 .1;
 
                 self.next_token()?;
 
-                Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end))
-            }
-            _ => {
-                return Err(ParseError::UnexpectedToken {
+                end
+            } else {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::RightSquareBrace,
                     actual: self.current.0.to_owned(),
                     position: self.current.1,
                 });
-            }
+            };
+
+            let right_end = self.current.1 .1;
+
+            Node::new(
+                Statement::BinaryOperation {
+                    left: Box::new(left),
+                    operator: Node::new(BinaryOperator::ListIndex, (operator_start, operator_end)),
+                    right: Box::new(index),
+                },
+                (left_start, right_end),
+            )
+        } else if let Token::Semicolon = &self.current.0 {
+            let operator_end = self.current.1 .1;
+
+            self.next_token()?;
+
+            Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end))
+        } else {
+            return Err(ParseError::UnexpectedToken {
+                actual: self.current.0.to_owned(),
+                position: self.current.1,
+            });
         };
 
-        Ok((node, self.current.0.precedence()))
+        if self.current.0.is_postfix() {
+            self.parse_postfix(statement)
+        } else {
+            Ok(statement)
+        }
     }
 
     fn parse_block(&mut self) -> Result<Node<Statement>, ParseError> {
@@ -900,21 +919,21 @@ mod tests {
                                     ]),
                                     (0, 11)
                                 )),
-                                operator: Node::new(BinaryOperator::ListIndex, (0, 0)),
+                                operator: Node::new(BinaryOperator::ListIndex, (11, 14)),
                                 right: Box::new(Node::new(
                                     Statement::Constant(Value::integer(1)),
                                     (12, 13)
                                 ))
                             },
-                            (0, 0)
+                            (0, 15)
                         )),
-                        operator: Node::new(BinaryOperator::ListIndex, (0, 0)),
+                        operator: Node::new(BinaryOperator::ListIndex, (14, 17)),
                         right: Box::new(Node::new(
                             Statement::Constant(Value::integer(0)),
                             (15, 16)
                         ))
                     },
-                    (0, 0)
+                    (0, 17)
                 ),]
                 .into()
             })
@@ -1818,7 +1837,7 @@ mod tests {
                             ]),
                             (0, 9)
                         )),
-                        operator: Node::new(BinaryOperator::ListIndex, (12, 12)),
+                        operator: Node::new(BinaryOperator::ListIndex, (9, 12)),
                         right: Box::new(Node::new(
                             Statement::Constant(Value::integer(0)),
                             (10, 11)

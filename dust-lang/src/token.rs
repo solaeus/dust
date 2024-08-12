@@ -225,8 +225,7 @@ impl<'src> Token<'src> {
             Token::Dot => 10,
             Token::LeftSquareBrace => 9,
             Token::Star | Token::Slash | Token::Percent => 8,
-            Token::Minus => 7,
-            Token::Plus => 6,
+            Token::Minus | Token::Plus => 6,
             Token::DoubleEqual
             | Token::Less
             | Token::LessEqual
