@@ -445,6 +445,12 @@ pub enum AnalyzerError {
         actual: usize,
         position: Span,
     },
+    IndexOutOfBounds {
+        list: Node<Statement>,
+        index: Node<Statement>,
+        index_value: usize,
+        length: usize,
+    },
     TypeConflict {
         actual_statement: Node<Statement>,
         actual_type: Type,
@@ -472,6 +478,9 @@ impl AnalyzerError {
             AnalyzerError::ExpectedMap { actual } => actual.position,
             AnalyzerError::ExpectedValue { actual } => actual.position,
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
+            AnalyzerError::IndexOutOfBounds { list, index, .. } => {
+                (list.position.0, index.position.1)
+            }
             AnalyzerError::TypeConflict {
                 actual_statement, ..
             } => actual_statement.position,
@@ -507,6 +516,16 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedValueArgumentCount {
                 expected, actual, ..
             } => write!(f, "Expected {} value arguments, found {}", expected, actual),
+            AnalyzerError::IndexOutOfBounds {
+                list,
+                index,
+                index_value,
+                length,
+            } => write!(
+                f,
+                "Index {} out of bounds for list {} with length {}",
+                index_value, list, length
+            ),
             AnalyzerError::TypeConflict {
                 actual_statement,
                 actual_type,
@@ -538,6 +557,46 @@ mod tests {
     use super::*;
 
     #[test]
+    fn constant_list_index_out_of_bounds() {
+        let source = "[1, 2, 3][3]";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::IndexOutOfBounds {
+                    list: Node::new(
+                        Statement::List(vec![
+                            Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                            Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
+                            Node::new(Statement::Constant(Value::integer(3)), (7, 8)),
+                        ]),
+                        (0, 9)
+                    ),
+                    index: Node::new(Statement::Constant(Value::integer(3)), (10, 11)),
+                    index_value: 3,
+                    length: 3
+                },
+                source
+            })
+        );
+    }
+
+    #[test]
+    fn nonexistant_field() {
+        let source = "{ x = 1 }.y";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::UndefinedVariable {
+                    identifier: Node::new(Statement::Identifier(Identifier::new("y")), (10, 11)),
+                },
+                source
+            })
+        );
+    }
+
+    #[test]
     fn malformed_list_index() {
         let source = "[1, 2, 3]['foo']";
 
@@ -553,7 +612,7 @@ mod tests {
     }
 
     #[test]
-    fn malformed_property_access() {
+    fn malformed_field_access() {
         let source = "{ x = 1 }.0";
 
         assert_eq!(
