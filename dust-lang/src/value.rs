@@ -145,6 +145,14 @@ impl Value {
         }
     }
 
+    pub fn as_range(&self) -> Option<&Range<i64>> {
+        if let ValueInner::Range(range) = self.inner().as_ref() {
+            Some(range)
+        } else {
+            None
+        }
+    }
+
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
         match (self.inner().as_ref(), other.inner().as_ref()) {
             (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left + right)),

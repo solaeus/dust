@@ -334,10 +334,14 @@ impl<'a> Analyzer<'a> {
                 }
 
                 if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
-                    if let Some(Type::Integer) = right.inner.expected_type(self.context) {
+                    let right_type = right.inner.expected_type(self.context);
+
+                    if let Some(Type::Integer) = right_type {
                         // Allow indexing lists with integers
+                    } else if let Some(Type::Range) = right_type {
+                        // Allow indexing lists with ranges
                     } else {
-                        return Err(AnalyzerError::ExpectedInteger {
+                        return Err(AnalyzerError::ExpectedIntegerOrRange {
                             actual: right.as_ref().clone(),
                         });
                     }
@@ -408,7 +412,7 @@ pub enum AnalyzerError {
     ExpectedIdentifierOrString {
         actual: Node<Statement>,
     },
-    ExpectedInteger {
+    ExpectedIntegerOrRange {
         actual: Node<Statement>,
     },
     ExpectedValue {
@@ -441,7 +445,7 @@ impl AnalyzerError {
             AnalyzerError::ExpectedBoolean { actual, .. } => actual.position,
             AnalyzerError::ExpectedIdentifier { actual, .. } => actual.position,
             AnalyzerError::ExpectedIdentifierOrString { actual } => actual.position,
-            AnalyzerError::ExpectedInteger { actual, .. } => actual.position,
+            AnalyzerError::ExpectedIntegerOrRange { actual, .. } => actual.position,
             AnalyzerError::ExpectedValue { actual } => actual.position,
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalyzerError::TypeConflict {
@@ -468,8 +472,8 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedIdentifierOrString { actual } => {
                 write!(f, "Expected identifier or string, found {}", actual)
             }
-            AnalyzerError::ExpectedInteger { actual, .. } => {
-                write!(f, "Expected integer, found {}", actual)
+            AnalyzerError::ExpectedIntegerOrRange { actual, .. } => {
+                write!(f, "Expected integer or range, found {}", actual)
             }
             AnalyzerError::ExpectedValue { actual, .. } => {
                 write!(f, "Expected value, found {}", actual)
@@ -514,7 +518,7 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::ExpectedInteger {
+                analyzer_error: AnalyzerError::ExpectedIntegerOrRange {
                     actual: Node::new(Statement::Identifier(Identifier::new("foo")), (10, 13)),
                 },
                 source

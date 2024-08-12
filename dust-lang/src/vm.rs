@@ -485,6 +485,14 @@ impl Vm {
 
                         return Ok(value);
                     }
+
+                    if let Some(range) = value.as_range() {
+                        let range = range.start as usize..range.end as usize;
+
+                        if let Some(items) = list.get(range) {
+                            return Ok(Some(Value::list(items.to_vec())));
+                        }
+                    }
                 }
 
                 if let (Some(map), Statement::Identifier(identifier)) =
@@ -495,7 +503,7 @@ impl Vm {
                     return Ok(value);
                 }
 
-                Err(VmError::ExpectedIdentifierOrInteger {
+                Err(VmError::ExpectedIdentifierIntegerOrRange {
                     position: right_span,
                 })
             }
@@ -575,7 +583,7 @@ pub enum VmError {
     ExpectedIdentifier {
         position: Span,
     },
-    ExpectedIdentifierOrInteger {
+    ExpectedIdentifierIntegerOrRange {
         position: Span,
     },
     ExpectedInteger {
@@ -613,7 +621,7 @@ impl VmError {
             Self::BuiltInFunctionError { position, .. } => *position,
             Self::ExpectedBoolean { position } => *position,
             Self::ExpectedIdentifier { position } => *position,
-            Self::ExpectedIdentifierOrInteger { position } => *position,
+            Self::ExpectedIdentifierIntegerOrRange { position } => *position,
             Self::ExpectedInteger { position } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedList { position } => *position,
@@ -654,10 +662,10 @@ impl Display for VmError {
             Self::ExpectedIdentifier { position } => {
                 write!(f, "Expected an identifier at position: {:?}", position)
             }
-            Self::ExpectedIdentifierOrInteger { position } => {
+            Self::ExpectedIdentifierIntegerOrRange { position } => {
                 write!(
                     f,
-                    "Expected an identifier or integer at position: {:?}",
+                    "Expected an identifier, integer, or range at position: {:?}",
                     position
                 )
             }
@@ -692,6 +700,19 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_index_range() {
+        let input = "[1, 2, 3, 4, 5].1..3";
+
+        assert_eq!(
+            run(input),
+            Ok(Some(Value::list(vec![
+                Value::integer(2),
+                Value::integer(3)
+            ])))
+        );
+    }
 
     #[test]
     fn range() {
