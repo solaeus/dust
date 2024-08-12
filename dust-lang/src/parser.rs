@@ -483,15 +483,9 @@ impl<'src> Parser<'src> {
                         continue;
                     }
 
-                    if let Ok(instruction) = self.parse_statement(0) {
-                        nodes.push(instruction);
-                    } else {
-                        return Err(ParseError::ExpectedToken {
-                            expected: TokenKind::RightSquareBrace,
-                            actual: self.current.0.to_owned(),
-                            position: self.current.1,
-                        });
-                    }
+                    let statement = self.parse_statement(0)?;
+
+                    nodes.push(statement);
                 }
             }
             (
@@ -712,18 +706,48 @@ impl<'src> Parser<'src> {
         &mut self,
         left: Node<Statement>,
     ) -> Result<(Node<Statement>, u8), ParseError> {
-        let node = if let Token::Semicolon = &self.current.0 {
-            self.next_token()?;
+        let node = match &self.current.0 {
+            Token::LeftSquareBrace => {
+                self.next_token()?;
 
-            let left_start = left.position.0;
-            let operator_end = self.current.1 .1;
+                let index = self.parse_statement(0)?;
 
-            Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end))
-        } else {
-            return Err(ParseError::UnexpectedToken {
-                actual: self.current.0.to_owned(),
-                position: self.current.1,
-            });
+                if let Token::RightSquareBrace = self.current.0 {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenKind::RightSquareBrace,
+                        actual: self.current.0.to_owned(),
+                        position: self.current.1,
+                    });
+                }
+
+                let left_start = left.position.0;
+                let right_end = self.current.1 .1;
+
+                Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(left),
+                        operator: Node::new(BinaryOperator::ListIndex, self.current.1),
+                        right: Box::new(index),
+                    },
+                    (left_start, right_end),
+                )
+            }
+            Token::Semicolon => {
+                let left_start = left.position.0;
+                let operator_end = self.current.1 .1;
+
+                self.next_token()?;
+
+                Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end))
+            }
+            _ => {
+                return Err(ParseError::UnexpectedToken {
+                    actual: self.current.0.to_owned(),
+                    position: self.current.1,
+                });
+            }
         };
 
         Ok((node, self.current.0.precedence()))
@@ -852,6 +876,52 @@ mod tests {
     use super::*;
 
     #[test]
+    fn list_index_nested() {
+        let input = "[1, [2], 3][1][0]";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::List(vec![
+                                        Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
+                                        Node::new(
+                                            Statement::List(vec![Node::new(
+                                                Statement::Constant(Value::integer(2)),
+                                                (5, 6)
+                                            )]),
+                                            (4, 7)
+                                        ),
+                                        Node::new(Statement::Constant(Value::integer(3)), (9, 10))
+                                    ]),
+                                    (0, 11)
+                                )),
+                                operator: Node::new(BinaryOperator::ListIndex, (0, 0)),
+                                right: Box::new(Node::new(
+                                    Statement::Constant(Value::integer(1)),
+                                    (12, 13)
+                                ))
+                            },
+                            (0, 0)
+                        )),
+                        operator: Node::new(BinaryOperator::ListIndex, (0, 0)),
+                        right: Box::new(Node::new(
+                            Statement::Constant(Value::integer(0)),
+                            (15, 16)
+                        ))
+                    },
+                    (0, 0)
+                ),]
+                .into()
+            })
+        );
+    }
+
+    #[test]
     fn map_property_nested() {
         let input = "{ x = { y = 42 } }.x.y";
 
@@ -940,7 +1010,7 @@ mod tests {
                             },
                             (0, 5)
                         ))),
-                        (0, 8)
+                        (0, 6)
                     ),
                     Node::new(
                         Statement::UnaryOperation {
@@ -1045,7 +1115,7 @@ mod tests {
                             },
                             (0, 9)
                         ))),
-                        (0, 12)
+                        (0, 10)
                     ),
                     Node::new(
                         Statement::UnaryOperation {
@@ -1195,7 +1265,7 @@ mod tests {
                             },
                             (16, 21)
                         ))),
-                        (16, 24)
+                        (16, 22)
                     ),
                 }
             })
@@ -1368,7 +1438,7 @@ mod tests {
                                 },
                                 (2, 10)
                             ),)),
-                            (2, 15)
+                            (2, 11)
                         ),
                         Node::new(
                             Statement::Nil(Box::new(Node::new(
@@ -1385,7 +1455,7 @@ mod tests {
                                 },
                                 (12, 20)
                             ),)),
-                            (12, 25)
+                            (12, 21)
                         ),
                         Node::new(
                             Statement::BinaryOperation {
@@ -1732,8 +1802,8 @@ mod tests {
     }
 
     #[test]
-    fn list_access() {
-        let input = "[1, 2, 3].0";
+    fn list_index() {
+        let input = "[1, 2, 3][0]";
 
         assert_eq!(
             parse(input),
@@ -1748,13 +1818,13 @@ mod tests {
                             ]),
                             (0, 9)
                         )),
-                        operator: Node::new(BinaryOperator::FieldAccess, (9, 10)),
+                        operator: Node::new(BinaryOperator::ListIndex, (12, 12)),
                         right: Box::new(Node::new(
                             Statement::Constant(Value::integer(0)),
                             (10, 11)
                         )),
                     },
-                    (0, 11),
+                    (0, 12),
                 )]
                 .into()
             })

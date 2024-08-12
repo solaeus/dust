@@ -500,6 +500,73 @@ mod tests {
     use super::*;
 
     #[test]
+    fn list_index() {
+        let input = "[1, 2, 3][1]";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::LeftSquareBrace, (0, 1)),
+                (Token::Integer("1"), (1, 2)),
+                (Token::Comma, (2, 3)),
+                (Token::Integer("2"), (4, 5)),
+                (Token::Comma, (5, 6)),
+                (Token::Integer("3"), (7, 8)),
+                (Token::RightSquareBrace, (8, 9)),
+                (Token::LeftSquareBrace, (9, 10)),
+                (Token::Integer("1"), (10, 11)),
+                (Token::RightSquareBrace, (11, 12)),
+                (Token::Eof, (12, 12)),
+            ])
+        )
+    }
+
+    #[test]
+    fn list() {
+        let input = "[1, 2, 3]";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::LeftSquareBrace, (0, 1)),
+                (Token::Integer("1"), (1, 2)),
+                (Token::Comma, (2, 3)),
+                (Token::Integer("2"), (4, 5)),
+                (Token::Comma, (5, 6)),
+                (Token::Integer("3"), (7, 8)),
+                (Token::RightSquareBrace, (8, 9)),
+                (Token::Eof, (9, 9)),
+            ])
+        )
+    }
+
+    #[test]
+    fn map_field_access() {
+        let input = "{a = 1, b = 2, c = 3}.c";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::LeftCurlyBrace, (0, 1)),
+                (Token::Identifier("a"), (1, 2)),
+                (Token::Equal, (3, 4)),
+                (Token::Integer("1"), (5, 6)),
+                (Token::Comma, (6, 7)),
+                (Token::Identifier("b"), (8, 9)),
+                (Token::Equal, (10, 11)),
+                (Token::Integer("2"), (12, 13)),
+                (Token::Comma, (13, 14)),
+                (Token::Identifier("c"), (15, 16)),
+                (Token::Equal, (17, 18)),
+                (Token::Integer("3"), (19, 20)),
+                (Token::RightCurlyBrace, (20, 21)),
+                (Token::Dot, (21, 22)),
+                (Token::Identifier("c"), (22, 23)),
+                (Token::Eof, (23, 23)),
+            ])
+        )
+    }
+    #[test]
     fn range() {
         let input = "0..42";
 

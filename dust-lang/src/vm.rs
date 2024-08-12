@@ -148,24 +148,6 @@ impl Vm {
                     };
                     let right_span = right.position;
 
-                    if let (Some(list), Statement::Constant(value)) =
-                        (left_value.as_list(), &right.inner)
-                    {
-                        if let Some(index) = value.as_integer() {
-                            let value = list.get(index as usize).cloned();
-
-                            return Ok(value);
-                        }
-
-                        if let Some(range) = value.as_range() {
-                            let range = range.start as usize..range.end as usize;
-
-                            if let Some(items) = list.get(range) {
-                                return Ok(Some(Value::list(items.to_vec())));
-                            }
-                        }
-                    }
-
                     if let Some(map) = left_value.as_map() {
                         if let Statement::Identifier(identifier) = right.inner {
                             let value = map.get(&identifier).cloned();
@@ -182,10 +164,62 @@ impl Vm {
                                 return Ok(value);
                             }
                         }
+
+                        return Err(VmError::ExpectedIdentifierOrString {
+                            position: right_span,
+                        });
+                    } else {
+                        return Err(VmError::ExpectedMap {
+                            position: left_span,
+                        });
+                    }
+                }
+
+                if let BinaryOperator::ListIndex = operator.inner {
+                    let list_position = left.position;
+                    let list_value = if let Some(value) = self.run_statement(*left)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: list_position,
+                        });
+                    };
+                    let list = if let Some(list) = list_value.as_list() {
+                        list
+                    } else {
+                        return Err(VmError::ExpectedList {
+                            position: list_position,
+                        });
+                    };
+                    let index_position = right.position;
+                    let index_value = if let Some(value) = self.run_statement(*right)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: index_position,
+                        });
+                    };
+
+                    if let Some(index) = index_value.as_integer() {
+                        return if let Some(value) = list.get(index as usize) {
+                            Ok(Some(value.clone()))
+                        } else {
+                            Ok(None)
+                        };
                     }
 
-                    return Err(VmError::ExpectedIdentifierIntegerOrRange {
-                        position: right_span,
+                    if let Some(range) = index_value.as_range() {
+                        let range = range.start as usize..range.end as usize;
+
+                        return if let Some(list) = list.get(range) {
+                            Ok(Some(Value::list(list.to_vec())))
+                        } else {
+                            Ok(None)
+                        };
+                    }
+
+                    return Err(VmError::ExpectedIntegerOrRange {
+                        position: index_position,
                     });
                 }
 
@@ -594,13 +628,19 @@ pub enum VmError {
     ExpectedIdentifier {
         position: Span,
     },
-    ExpectedIdentifierIntegerOrRange {
+    ExpectedIntegerOrRange {
+        position: Span,
+    },
+    ExpectedIdentifierOrString {
         position: Span,
     },
     ExpectedInteger {
         position: Span,
     },
     ExpectedNumber {
+        position: Span,
+    },
+    ExpectedMap {
         position: Span,
     },
     ExpectedFunction {
@@ -632,10 +672,12 @@ impl VmError {
             Self::BuiltInFunctionError { position, .. } => *position,
             Self::ExpectedBoolean { position } => *position,
             Self::ExpectedIdentifier { position } => *position,
-            Self::ExpectedIdentifierIntegerOrRange { position } => *position,
+            Self::ExpectedIdentifierOrString { position } => *position,
+            Self::ExpectedIntegerOrRange { position } => *position,
             Self::ExpectedInteger { position } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedList { position } => *position,
+            Self::ExpectedMap { position } => *position,
             Self::ExpectedNumber { position } => *position,
             Self::ExpectedValue { position } => *position,
             Self::UndefinedVariable { identifier } => identifier.position,
@@ -673,7 +715,14 @@ impl Display for VmError {
             Self::ExpectedIdentifier { position } => {
                 write!(f, "Expected an identifier at position: {:?}", position)
             }
-            Self::ExpectedIdentifierIntegerOrRange { position } => {
+            Self::ExpectedIdentifierOrString { position } => {
+                write!(
+                    f,
+                    "Expected an identifier or string at position: {:?}",
+                    position
+                )
+            }
+            Self::ExpectedIntegerOrRange { position } => {
                 write!(
                     f,
                     "Expected an identifier, integer, or range at position: {:?}",
@@ -685,6 +734,9 @@ impl Display for VmError {
             }
             Self::ExpectedList { position } => {
                 write!(f, "Expected a list at position: {:?}", position)
+            }
+            Self::ExpectedMap { position } => {
+                write!(f, "Expected a map at position: {:?}", position)
             }
             Self::ExpectedNumber { position } => {
                 write!(
@@ -713,6 +765,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn list_index_nested() {
+        let input = "[[1, 2], [42, 4], [5, 6]][1][0]";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
     fn map_property() {
         let input = "{ x = 42 }.x";
 
@@ -735,7 +794,7 @@ mod tests {
 
     #[test]
     fn list_index_range() {
-        let input = "[1, 2, 3, 4, 5].1..3";
+        let input = "[1, 2, 3, 4, 5][1..3]";
 
         assert_eq!(
             run(input),
@@ -769,7 +828,7 @@ mod tests {
 
     #[test]
     fn list_index() {
-        let input = "[1, 42, 3].1";
+        let input = "[1, 42, 3][1]";
 
         assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }
@@ -947,13 +1006,6 @@ mod tests {
         let input = "length([1, 2, 3])";
 
         assert_eq!(run(input), Ok(Some(Value::integer(3))));
-    }
-
-    #[test]
-    fn list_access() {
-        let input = "[1, 2, 3].1";
-
-        assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
 
     #[test]

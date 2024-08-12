@@ -105,20 +105,6 @@ impl<'a> Analyzer<'a> {
                         self.analyze_statement(right)?;
                     }
 
-                    if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
-                        let right_type = right.inner.expected_type(self.context);
-
-                        if let Some(Type::Integer) = right_type {
-                            // Allow indexing lists with integers
-                        } else if let Some(Type::Range) = right_type {
-                            // Allow indexing lists with ranges
-                        } else {
-                            return Err(AnalyzerError::ExpectedIntegerOrRange {
-                                actual: right.as_ref().clone(),
-                            });
-                        }
-                    }
-
                     if let Some(Type::Map { .. }) = left.inner.expected_type(self.context) {
                         if let Some(Type::String) = right.inner.expected_type(self.context) {
                             // Allow indexing maps with strings
@@ -129,6 +115,33 @@ impl<'a> Analyzer<'a> {
                                 actual: right.as_ref().clone(),
                             });
                         }
+                    } else {
+                        return Err(AnalyzerError::ExpectedMap {
+                            actual: left.as_ref().clone(),
+                        });
+                    }
+
+                    return Ok(());
+                }
+
+                if let BinaryOperator::ListIndex = operator.inner {
+                    self.analyze_statement(left)?;
+                    self.analyze_statement(right)?;
+
+                    if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
+                        let index_type = right.inner.expected_type(self.context);
+
+                        if let Some(Type::Integer | Type::Range) = index_type {
+                            // List and index are valid
+                        } else {
+                            return Err(AnalyzerError::ExpectedIntegerOrRange {
+                                actual: right.as_ref().clone(),
+                            });
+                        }
+                    } else {
+                        return Err(AnalyzerError::ExpectedList {
+                            actual: left.as_ref().clone(),
+                        });
                     }
 
                     return Ok(());
@@ -418,6 +431,12 @@ pub enum AnalyzerError {
     ExpectedIntegerOrRange {
         actual: Node<Statement>,
     },
+    ExpectedList {
+        actual: Node<Statement>,
+    },
+    ExpectedMap {
+        actual: Node<Statement>,
+    },
     ExpectedValue {
         actual: Node<Statement>,
     },
@@ -449,6 +468,8 @@ impl AnalyzerError {
             AnalyzerError::ExpectedIdentifier { actual, .. } => actual.position,
             AnalyzerError::ExpectedIdentifierOrString { actual } => actual.position,
             AnalyzerError::ExpectedIntegerOrRange { actual, .. } => actual.position,
+            AnalyzerError::ExpectedList { actual } => actual.position,
+            AnalyzerError::ExpectedMap { actual } => actual.position,
             AnalyzerError::ExpectedValue { actual } => actual.position,
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalyzerError::TypeConflict {
@@ -478,6 +499,8 @@ impl Display for AnalyzerError {
             AnalyzerError::ExpectedIntegerOrRange { actual, .. } => {
                 write!(f, "Expected integer or range, found {}", actual)
             }
+            AnalyzerError::ExpectedList { actual } => write!(f, "Expected list, found {}", actual),
+            AnalyzerError::ExpectedMap { actual } => write!(f, "Expected map, found {}", actual),
             AnalyzerError::ExpectedValue { actual, .. } => {
                 write!(f, "Expected value, found {}", actual)
             }
@@ -516,13 +539,13 @@ mod tests {
 
     #[test]
     fn malformed_list_index() {
-        let source = "[1, 2, 3].foo";
+        let source = "[1, 2, 3]['foo']";
 
         assert_eq!(
             analyze(source),
             Err(DustError::AnalyzerError {
                 analyzer_error: AnalyzerError::ExpectedIntegerOrRange {
-                    actual: Node::new(Statement::Identifier(Identifier::new("foo")), (10, 13)),
+                    actual: Node::new(Statement::Constant(Value::string("foo")), (10, 15)),
                 },
                 source
             })

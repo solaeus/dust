@@ -144,6 +144,15 @@ impl Statement {
                         None
                     }
                 }
+                BinaryOperator::ListIndex => {
+                    let left_type = left.inner.expected_type(context)?;
+
+                    if let Type::List { item_type } = left_type {
+                        Some(*item_type)
+                    } else {
+                        None
+                    }
+                }
             },
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type(context)),
@@ -216,11 +225,26 @@ impl Display for Statement {
                 operator,
                 right,
             } => {
-                if let BinaryOperator::FieldAccess = operator.inner {
-                    write!(f, "{left}{operator}{right}")
-                } else {
-                    write!(f, "{left} {operator} {right}")
-                }
+                let operator = match operator.inner {
+                    BinaryOperator::FieldAccess => return write!(f, "{left}.{right}"),
+                    BinaryOperator::ListIndex => return write!(f, "{left}[{right}]"),
+                    BinaryOperator::Add => "+",
+                    BinaryOperator::AddAssign => "+=",
+                    BinaryOperator::Assign => "=",
+                    BinaryOperator::Divide => "/",
+                    BinaryOperator::Equal => "==",
+                    BinaryOperator::Greater => ">",
+                    BinaryOperator::GreaterOrEqual => ">=",
+                    BinaryOperator::Less => "<",
+                    BinaryOperator::LessOrEqual => "<=",
+                    BinaryOperator::Modulo => "%",
+                    BinaryOperator::Multiply => "*",
+                    BinaryOperator::Subtract => "-",
+                    BinaryOperator::And => "&&",
+                    BinaryOperator::Or => "||",
+                };
+
+                write!(f, "{left} {operator} {right}")
             }
             Statement::BuiltInFunctionCall {
                 function,
@@ -359,6 +383,11 @@ impl Display for Statement {
             }
             Statement::Nil(node) => write!(f, "{node};"),
             Statement::UnaryOperation { operator, operand } => {
+                let operator = match operator.inner {
+                    UnaryOperator::Negate => "-",
+                    UnaryOperator::Not => "!",
+                };
+
                 write!(f, "{operator}{operand}")
             }
             Statement::While { condition, body } => {
@@ -370,7 +399,9 @@ impl Display for Statement {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BinaryOperator {
+    // Accessors
     FieldAccess,
+    ListIndex,
 
     // Math
     Add,
@@ -395,39 +426,8 @@ pub enum BinaryOperator {
     AddAssign,
 }
 
-impl Display for BinaryOperator {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            BinaryOperator::Add => write!(f, "+"),
-            BinaryOperator::AddAssign => write!(f, "+="),
-            BinaryOperator::Assign => write!(f, "="),
-            BinaryOperator::And => write!(f, "&&"),
-            BinaryOperator::Divide => write!(f, "/"),
-            BinaryOperator::Equal => write!(f, "=="),
-            BinaryOperator::FieldAccess => write!(f, "."),
-            BinaryOperator::Greater => write!(f, ">"),
-            BinaryOperator::GreaterOrEqual => write!(f, ">="),
-            BinaryOperator::Less => write!(f, "<"),
-            BinaryOperator::LessOrEqual => write!(f, "<="),
-            BinaryOperator::Modulo => write!(f, "%"),
-            BinaryOperator::Multiply => write!(f, "*"),
-            BinaryOperator::Or => write!(f, "||"),
-            BinaryOperator::Subtract => write!(f, "-"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum UnaryOperator {
     Negate,
     Not,
-}
-
-impl Display for UnaryOperator {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            UnaryOperator::Negate => write!(f, "-"),
-            UnaryOperator::Not => write!(f, "!"),
-        }
-    }
 }
