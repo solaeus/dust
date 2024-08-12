@@ -245,12 +245,7 @@ impl<'src> Parser<'src> {
                 self.next_token()?;
 
                 let condition = Box::new(self.parse_statement(0)?);
-                let if_body = Box::new(self.parse_statement(0)?);
-
-                if let Statement::Block(_) = if_body.inner {
-                } else {
-                    return Err(ParseError::ExpectedBlock { actual: *if_body });
-                }
+                let if_body = Box::new(self.parse_block()?);
 
                 if let Token::Else = self.current.0 {
                     self.next_token()?;
@@ -282,13 +277,8 @@ impl<'src> Parser<'src> {
 
                                 else_ifs.push(else_if);
                             } else {
-                                let else_body = Box::new(self.parse_statement(0)?);
+                                let else_body = Box::new(self.parse_block()?);
                                 let else_end = else_body.position.1;
-
-                                if let Statement::Block(_) = else_body.inner {
-                                } else {
-                                    return Err(ParseError::ExpectedBlock { actual: *else_body });
-                                }
 
                                 return Ok(Node::new(
                                     Statement::IfElseIfElse {
@@ -302,13 +292,8 @@ impl<'src> Parser<'src> {
                             }
                         }
                     } else {
-                        let else_body = Box::new(self.parse_statement(0)?);
+                        let else_body = Box::new(self.parse_block()?);
                         let else_end = else_body.position.1;
-
-                        if let Statement::Block(_) = else_body.inner {
-                        } else {
-                            return Err(ParseError::ExpectedBlock { actual: *else_body });
-                        }
 
                         Ok(Node::new(
                             Statement::IfElse {
@@ -698,20 +683,21 @@ impl<'src> Parser<'src> {
         &mut self,
         left: Node<Statement>,
     ) -> Result<(Node<Statement>, u8), ParseError> {
-        if let Token::Semicolon = &self.current.0 {
+        let node = if let Token::Semicolon = &self.current.0 {
             self.next_token()?;
 
             let left_start = left.position.0;
             let operator_end = self.current.1 .1;
-            let node = Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end));
 
-            Ok((node, self.current.0.precedence()))
+            Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end))
         } else {
-            Err(ParseError::UnexpectedToken {
+            return Err(ParseError::UnexpectedToken {
                 actual: self.current.0.to_owned(),
                 position: self.current.1,
-            })
-        }
+            });
+        };
+
+        Ok((node, self.current.0.precedence()))
     }
 
     fn parse_block(&mut self) -> Result<Node<Statement>, ParseError> {
@@ -758,9 +744,6 @@ pub enum ParseError {
     ExpectedAssignment {
         actual: Node<Statement>,
     },
-    ExpectedBlock {
-        actual: Node<Statement>,
-    },
     ExpectedIdentifier {
         actual: TokenOwned,
         position: Span,
@@ -795,7 +778,6 @@ impl ParseError {
         match self {
             ParseError::BooleanError { position, .. } => *position,
             ParseError::ExpectedAssignment { actual } => actual.position,
-            ParseError::ExpectedBlock { actual } => actual.position,
             ParseError::ExpectedIdentifier { position, .. } => *position,
             ParseError::ExpectedToken { position, .. } => *position,
             ParseError::FloatError { position, .. } => *position,
@@ -820,7 +802,6 @@ impl Display for ParseError {
         match self {
             Self::BooleanError { error, .. } => write!(f, "{}", error),
             Self::ExpectedAssignment { .. } => write!(f, "Expected assignment"),
-            Self::ExpectedBlock { .. } => write!(f, "Expected block"),
             Self::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {actual}")
             }
