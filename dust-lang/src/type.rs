@@ -31,6 +31,7 @@ pub struct TypeConflict {
 pub enum Type {
     Any,
     Boolean,
+    Defined(Identifier),
     Enum {
         name: Identifier,
         type_parameters: Option<Vec<Type>>,
@@ -216,6 +217,7 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
+            Type::Defined(identifier) => write!(f, "{identifier}"),
             Type::Enum { variants, .. } => {
                 write!(f, "enum ")?;
 

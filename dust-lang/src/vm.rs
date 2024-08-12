@@ -137,6 +137,58 @@ impl Vm {
                     return Ok(None);
                 }
 
+                if let BinaryOperator::FieldAccess = operator.inner {
+                    let left_span = left.position;
+                    let left_value = if let Some(value) = self.run_statement(*left)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: left_span,
+                        });
+                    };
+                    let right_span = right.position;
+
+                    if let (Some(list), Statement::Constant(value)) =
+                        (left_value.as_list(), &right.inner)
+                    {
+                        if let Some(index) = value.as_integer() {
+                            let value = list.get(index as usize).cloned();
+
+                            return Ok(value);
+                        }
+
+                        if let Some(range) = value.as_range() {
+                            let range = range.start as usize..range.end as usize;
+
+                            if let Some(items) = list.get(range) {
+                                return Ok(Some(Value::list(items.to_vec())));
+                            }
+                        }
+                    }
+
+                    if let Some(map) = left_value.as_map() {
+                        if let Statement::Identifier(identifier) = right.inner {
+                            let value = map.get(&identifier).cloned();
+
+                            return Ok(value);
+                        }
+
+                        if let Some(value) = self.run_statement(*right)? {
+                            if let Some(string) = value.as_string() {
+                                let identifier = Identifier::new(string);
+
+                                let value = map.get(&identifier).cloned();
+
+                                return Ok(value);
+                            }
+                        }
+                    }
+
+                    return Err(VmError::ExpectedIdentifierIntegerOrRange {
+                        position: right_span,
+                    });
+                }
+
                 let left_position = left.position;
                 let left_value = if let Some(value) = self.run_statement(*left)? {
                     value
@@ -465,57 +517,6 @@ impl Vm {
                 let _return = self.run_statement(*node)?;
 
                 Ok(None)
-            }
-            Statement::PropertyAccess(left, right) => {
-                let left_span = left.position;
-                let left_value = if let Some(value) = self.run_statement(*left)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: left_span,
-                    });
-                };
-                let right_span = right.position;
-
-                if let (Some(list), Statement::Constant(value)) =
-                    (left_value.as_list(), &right.inner)
-                {
-                    if let Some(index) = value.as_integer() {
-                        let value = list.get(index as usize).cloned();
-
-                        return Ok(value);
-                    }
-
-                    if let Some(range) = value.as_range() {
-                        let range = range.start as usize..range.end as usize;
-
-                        if let Some(items) = list.get(range) {
-                            return Ok(Some(Value::list(items.to_vec())));
-                        }
-                    }
-                }
-
-                if let Some(map) = left_value.as_map() {
-                    if let Statement::Identifier(identifier) = right.inner {
-                        let value = map.get(&identifier).cloned();
-
-                        return Ok(value);
-                    }
-
-                    if let Some(value) = self.run_statement(*right)? {
-                        if let Some(string) = value.as_string() {
-                            let identifier = Identifier::new(string);
-
-                            let value = map.get(&identifier).cloned();
-
-                            return Ok(value);
-                        }
-                    }
-                }
-
-                Err(VmError::ExpectedIdentifierIntegerOrRange {
-                    position: right_span,
-                })
             }
             Statement::UnaryOperation { operator, operand } => {
                 let position = operand.position;

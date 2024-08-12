@@ -604,6 +604,8 @@ impl<'src> Parser<'src> {
             };
 
         if let Token::Dot = &self.current.0 {
+            let operator_position = self.current.1;
+
             self.next_token()?;
 
             let right = self.parse_statement(operator_precedence)?;
@@ -658,7 +660,11 @@ impl<'src> Parser<'src> {
             }
 
             return Ok(Node::new(
-                Statement::PropertyAccess(Box::new(left), Box::new(right)),
+                Statement::BinaryOperation {
+                    left: Box::new(left),
+                    operator: Node::new(BinaryOperator::FieldAccess, operator_position),
+                    right: Box::new(right),
+                },
                 (left_start, right_end),
             ));
         }
@@ -852,47 +858,48 @@ mod tests {
         assert_eq!(
             parse(input),
             Ok(AbstractSyntaxTree {
-                nodes: [Node {
-                    inner: Statement::PropertyAccess(
-                        Box::new(Node {
-                            inner: Statement::Map(vec![(
-                                Node {
-                                    inner: Statement::Identifier(Identifier::new("x")),
-                                    position: (2, 3)
-                                },
-                                Node {
-                                    inner: Statement::Map(vec![(
-                                        Node {
-                                            inner: Statement::Identifier(Identifier::new("y")),
-                                            position: (8, 9)
-                                        },
-                                        Node {
-                                            inner: Statement::Constant(Value::integer(42)),
-                                            position: (12, 14)
-                                        }
+                nodes: [Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(
+                            Statement::BinaryOperation {
+                                left: Box::new(Node::new(
+                                    Statement::Map(vec![(
+                                        Node::new(
+                                            Statement::Identifier(Identifier::new("x")),
+                                            (2, 3)
+                                        ),
+                                        Node::new(
+                                            Statement::Map(vec![(
+                                                Node::new(
+                                                    Statement::Identifier(Identifier::new("y")),
+                                                    (8, 9)
+                                                ),
+                                                Node::new(
+                                                    Statement::Constant(Value::integer(42)),
+                                                    (12, 14)
+                                                )
+                                            )]),
+                                            (6, 16)
+                                        )
                                     )]),
-                                    position: (6, 16)
-                                }
-                            )]),
-                            position: (0, 18)
-                        }),
-                        Box::new(Node {
-                            inner: Statement::PropertyAccess(
-                                Box::new(Node {
-                                    inner: Statement::Identifier(Identifier::new("x")),
-                                    position: (19, 20)
-                                }),
-                                Box::new(Node {
-                                    inner: Statement::Identifier(Identifier::new("y")),
-
-                                    position: (21, 22)
-                                })
-                            ),
-                            position: (19, 22)
-                        })
-                    ),
-                    position: (0, 22)
-                }]
+                                    (0, 18)
+                                )),
+                                operator: Node::new(BinaryOperator::FieldAccess, (18, 19)),
+                                right: Box::new(Node::new(
+                                    Statement::Identifier(Identifier::new("x")),
+                                    (19, 20)
+                                ))
+                            },
+                            (0, 20)
+                        )),
+                        operator: Node::new(BinaryOperator::FieldAccess, (20, 21)),
+                        right: Box::new(Node::new(
+                            Statement::Identifier(Identifier::new("y")),
+                            (21, 22)
+                        ))
+                    },
+                    (0, 22)
+                )]
                 .into()
             })
         )
@@ -1444,7 +1451,7 @@ mod tests {
     }
 
     #[test]
-    fn map_with_two_properties() {
+    fn map_with_two_fields() {
         let input = "{ x = 42, y = 'foobar' }";
 
         assert_eq!(
@@ -1469,8 +1476,8 @@ mod tests {
     }
 
     #[test]
-    fn map_with_one_property() {
-        let input = "{ x = 42, }";
+    fn map_with_one_field() {
+        let input = "{ x = 42 }";
 
         assert_eq!(
             parse(input),
@@ -1480,7 +1487,7 @@ mod tests {
                         Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
                         Node::new(Statement::Constant(Value::integer(42)), (6, 8))
                     )]),
-                    (0, 11)
+                    (0, 10)
                 )]
                 .into()
             })
@@ -1732,8 +1739,8 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::PropertyAccess(
-                        Box::new(Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(
                             Statement::List(vec![
                                 Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
                                 Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
@@ -1741,8 +1748,12 @@ mod tests {
                             ]),
                             (0, 9)
                         )),
-                        Box::new(Node::new(Statement::Constant(Value::integer(0)), (10, 11))),
-                    ),
+                        operator: Node::new(BinaryOperator::FieldAccess, (9, 10)),
+                        right: Box::new(Node::new(
+                            Statement::Constant(Value::integer(0)),
+                            (10, 11)
+                        )),
+                    },
                     (0, 11),
                 )]
                 .into()
@@ -1758,16 +1769,17 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::PropertyAccess(
-                        Box::new(Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(
                             Statement::Identifier(Identifier::new("a")),
                             (0, 1)
                         )),
-                        Box::new(Node::new(
+                        operator: Node::new(BinaryOperator::FieldAccess, (1, 2)),
+                        right: Box::new(Node::new(
                             Statement::Identifier(Identifier::new("b")),
                             (2, 3)
                         )),
-                    ),
+                    },
                     (0, 3),
                 )]
                 .into()

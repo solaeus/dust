@@ -264,6 +264,11 @@ impl Lexer {
 
                     (Token::Bang, (self.position - 1, self.position))
                 }
+                ':' => {
+                    self.position += 1;
+
+                    (Token::Colon, (self.position - 1, self.position))
+                }
                 _ => {
                     self.position += 1;
 
@@ -408,13 +413,17 @@ impl Lexer {
         let token = match string {
             "Infinity" => Token::Float("Infinity"),
             "NaN" => Token::Float("NaN"),
+            "bool" => Token::Bool,
             "else" => Token::Else,
             "false" => Token::Boolean("false"),
+            "float" => Token::FloatKeyword,
             "if" => Token::If,
+            "int" => Token::Int,
             "is_even" => Token::IsEven,
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
             "read_line" => Token::ReadLine,
+            "struct" => Token::Struct,
             "to_string" => Token::ToString,
             "true" => Token::Boolean("true"),
             "while" => Token::While,

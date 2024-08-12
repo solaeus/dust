@@ -62,10 +62,6 @@ pub enum Statement {
         value_arguments: Option<Vec<Node<Statement>>>,
     },
 
-    // Property access expression
-    // TODO: This should be a binary operation
-    PropertyAccess(Box<Node<Statement>>, Box<Node<Statement>>),
-
     // Loops
     While {
         condition: Box<Node<Statement>>,
@@ -113,7 +109,11 @@ impl Statement {
     pub fn expected_type(&self, context: &Context) -> Option<Type> {
         match self {
             Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(context),
-            Statement::BinaryOperation { left, operator, .. } => match operator.inner {
+            Statement::BinaryOperation {
+                left,
+                operator,
+                right,
+            } => match operator.inner {
                 BinaryOperator::Add
                 | BinaryOperator::Divide
                 | BinaryOperator::Modulo
@@ -129,6 +129,21 @@ impl Statement {
                 | BinaryOperator::Or => Some(Type::Boolean),
 
                 BinaryOperator::Assign | BinaryOperator::AddAssign => None,
+
+                BinaryOperator::FieldAccess => {
+                    let left_type = left.inner.expected_type(context)?;
+
+                    if let Type::Map(properties) = left_type {
+                        let key = match &right.inner {
+                            Statement::Identifier(identifier) => identifier,
+                            _ => return None,
+                        };
+
+                        properties.get(key).cloned()
+                    } else {
+                        None
+                    }
+                }
             },
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type(context)),
@@ -157,7 +172,6 @@ impl Statement {
                 Some(Type::Map(types))
             }
             Statement::Nil(_) => None,
-            Statement::PropertyAccess(_, _) => None,
             Statement::UnaryOperation { operator, operand } => match operator.inner {
                 UnaryOperator::Negate => Some(operand.inner.expected_type(context)?),
                 UnaryOperator::Not => Some(Type::Boolean),
@@ -202,7 +216,11 @@ impl Display for Statement {
                 operator,
                 right,
             } => {
-                write!(f, "{left} {operator} {right}")
+                if let BinaryOperator::FieldAccess = operator.inner {
+                    write!(f, "{left}{operator}{right}")
+                } else {
+                    write!(f, "{left} {operator} {right}")
+                }
             }
             Statement::BuiltInFunctionCall {
                 function,
@@ -340,7 +358,6 @@ impl Display for Statement {
                 write!(f, "}}")
             }
             Statement::Nil(node) => write!(f, "{node};"),
-            Statement::PropertyAccess(left, right) => write!(f, "{left}.{right}"),
             Statement::UnaryOperation { operator, operand } => {
                 write!(f, "{operator}{operand}")
             }
@@ -353,6 +370,8 @@ impl Display for Statement {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BinaryOperator {
+    FieldAccess,
+
     // Math
     Add,
     Divide,
@@ -385,6 +404,7 @@ impl Display for BinaryOperator {
             BinaryOperator::And => write!(f, "&&"),
             BinaryOperator::Divide => write!(f, "/"),
             BinaryOperator::Equal => write!(f, "=="),
+            BinaryOperator::FieldAccess => write!(f, "."),
             BinaryOperator::Greater => write!(f, ">"),
             BinaryOperator::GreaterOrEqual => write!(f, ">="),
             BinaryOperator::Less => write!(f, "<"),

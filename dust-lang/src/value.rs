@@ -348,6 +348,7 @@ impl Display for Value {
             }
             ValueInner::Range(range) => write!(f, "{}..{}", range.start, range.end),
             ValueInner::String(string) => write!(f, "{string}"),
+            ValueInner::Struct(r#struct) => write!(f, "{struct}"),
         }
     }
 }
@@ -403,6 +404,7 @@ impl Serialize for Value {
                 tuple_ser.end()
             }
             ValueInner::String(string) => serializer.serialize_str(string),
+            ValueInner::Struct(r#struct) => r#struct.serialize(serializer),
         }
     }
 }
@@ -659,6 +661,7 @@ pub enum ValueInner {
     Map(BTreeMap<Identifier, Value>),
     Range(Range<i64>),
     String(String),
+    Struct(Struct),
 }
 
 impl ValueInner {
@@ -692,6 +695,7 @@ impl ValueInner {
             }
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
+            ValueInner::Struct(r#struct) => Type::Defined(r#struct.name().clone()),
         }
     }
 
@@ -747,6 +751,8 @@ impl Ord for ValueInner {
             (Range(_), _) => Ordering::Greater,
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
+            (Struct(left), Struct(right)) => left.cmp(right),
+            (Struct(_), _) => Ordering::Greater,
         }
     }
 }
@@ -829,6 +835,65 @@ impl Display for Function {
         }
 
         write!(f, "}}")
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum Struct {
+    Unit {
+        name: Identifier,
+    },
+    Tuple {
+        name: Identifier,
+        fields: Vec<Value>,
+    },
+    Fields {
+        name: Identifier,
+        fields: Vec<(Identifier, Value)>,
+    },
+}
+
+impl Struct {
+    pub fn name(&self) -> &Identifier {
+        match self {
+            Struct::Unit { name } => name,
+            Struct::Tuple { name, .. } => name,
+            Struct::Fields { name, .. } => name,
+        }
+    }
+}
+
+impl Display for Struct {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Struct::Unit { name } => write!(f, "{}", name),
+            Struct::Tuple { name, fields } => {
+                write!(f, "{}(", name)?;
+
+                for (index, field) in fields.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{}", field)?;
+                }
+
+                write!(f, ")")
+            }
+            Struct::Fields { name, fields } => {
+                write!(f, "{} {{", name)?;
+
+                for (index, (identifier, r#type)) in fields.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{}: {}", identifier, r#type)?;
+                }
+
+                write!(f, "}}")
+            }
+        }
     }
 }
 

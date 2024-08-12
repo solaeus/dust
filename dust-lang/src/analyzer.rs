@@ -96,6 +96,44 @@ impl<'a> Analyzer<'a> {
                     }
                 }
 
+                if let BinaryOperator::FieldAccess = operator.inner {
+                    self.analyze_statement(left)?;
+
+                    if let Statement::Identifier(_) = right.inner {
+                        // Do not expect a value for property accessors
+                    } else {
+                        self.analyze_statement(right)?;
+                    }
+
+                    if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
+                        let right_type = right.inner.expected_type(self.context);
+
+                        if let Some(Type::Integer) = right_type {
+                            // Allow indexing lists with integers
+                        } else if let Some(Type::Range) = right_type {
+                            // Allow indexing lists with ranges
+                        } else {
+                            return Err(AnalyzerError::ExpectedIntegerOrRange {
+                                actual: right.as_ref().clone(),
+                            });
+                        }
+                    }
+
+                    if let Some(Type::Map { .. }) = left.inner.expected_type(self.context) {
+                        if let Some(Type::String) = right.inner.expected_type(self.context) {
+                            // Allow indexing maps with strings
+                        } else if let Statement::Identifier(_) = right.inner {
+                            // Allow indexing maps with identifiers
+                        } else {
+                            return Err(AnalyzerError::ExpectedIdentifierOrString {
+                                actual: right.as_ref().clone(),
+                            });
+                        }
+                    }
+
+                    return Ok(());
+                }
+
                 self.analyze_statement(left)?;
                 self.analyze_statement(right)?;
 
@@ -323,41 +361,6 @@ impl<'a> Analyzer<'a> {
             }
             Statement::Nil(node) => {
                 self.analyze_statement(node)?;
-            }
-            Statement::PropertyAccess(left, right) => {
-                self.analyze_statement(left)?;
-
-                if let Statement::Identifier(_) = right.inner {
-                    // Do not expect a value for property accessors
-                } else {
-                    self.analyze_statement(right)?;
-                }
-
-                if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
-                    let right_type = right.inner.expected_type(self.context);
-
-                    if let Some(Type::Integer) = right_type {
-                        // Allow indexing lists with integers
-                    } else if let Some(Type::Range) = right_type {
-                        // Allow indexing lists with ranges
-                    } else {
-                        return Err(AnalyzerError::ExpectedIntegerOrRange {
-                            actual: right.as_ref().clone(),
-                        });
-                    }
-                }
-
-                if let Some(Type::Map { .. }) = left.inner.expected_type(self.context) {
-                    if let Some(Type::String) = right.inner.expected_type(self.context) {
-                        // Allow indexing maps with strings
-                    } else if let Statement::Identifier(_) = right.inner {
-                        // Allow indexing maps with identifiers
-                    } else {
-                        return Err(AnalyzerError::ExpectedIdentifierOrString {
-                            actual: right.as_ref().clone(),
-                        });
-                    }
-                }
             }
             Statement::UnaryOperation { operator, operand } => {
                 self.analyze_statement(operand)?;
