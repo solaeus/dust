@@ -190,14 +190,17 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Constant(_) => {}
-            Statement::FunctionCall { function, .. } => {
-                if let Statement::Identifier(_) = &function.inner {
-                    // Function is in the correct position
-                } else {
-                    return Err(AnalyzerError::ExpectedIdentifier {
-                        actual: function.as_ref().clone(),
-                        position: function.position,
-                    });
+            Statement::FunctionCall {
+                function,
+                value_arguments,
+                ..
+            } => {
+                self.analyze_node(function)?;
+
+                if let Some(arguments) = value_arguments {
+                    for argument in arguments {
+                        self.analyze_node(argument)?;
+                    }
                 }
             }
             Statement::Identifier(identifier) => {
@@ -325,14 +328,27 @@ impl<'a> Analyzer<'a> {
                 self.analyze_node(node)?;
             }
             Statement::PropertyAccess(left, right) => {
-                if let Statement::Identifier(_) | Statement::Constant(_) | Statement::List(_) =
-                    &left.inner
-                {
-                    // Left side is valid
-                } else {
-                    return Err(AnalyzerError::ExpectedValue {
-                        actual: left.as_ref().clone(),
-                    });
+                if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
+                    if let Some(Type::Integer) = right.inner.expected_type(self.context) {
+                        // Allow indexing lists with integers
+                    } else {
+                        return Err(AnalyzerError::ExpectedInteger {
+                            actual: right.as_ref().clone(),
+                            position: right.position,
+                        });
+                    }
+                }
+
+                if let Some(Type::Map { .. }) = left.inner.expected_type(self.context) {
+                    if let Some(Type::String) = right.inner.expected_type(self.context) {
+                        // Allow indexing maps with strings
+                    } else if let Statement::Identifier(_) = right.inner {
+                        // Allow indexing maps with identifiers
+                    } else {
+                        return Err(AnalyzerError::ExpectedIdentifierOrString {
+                            actual: right.as_ref().clone(),
+                        });
+                    }
                 }
 
                 self.analyze_node(left)?;
@@ -358,11 +374,18 @@ impl<'a> Analyzer<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
+    ExpectedBoolean {
+        actual: Node<Statement>,
+        position: Span,
+    },
     ExpectedIdentifier {
         actual: Node<Statement>,
         position: Span,
     },
-    ExpectedBoolean {
+    ExpectedIdentifierOrString {
+        actual: Node<Statement>,
+    },
+    ExpectedInteger {
         actual: Node<Statement>,
         position: Span,
     },
@@ -395,6 +418,8 @@ impl AnalyzerError {
         match self {
             AnalyzerError::ExpectedBoolean { position, .. } => *position,
             AnalyzerError::ExpectedIdentifier { position, .. } => *position,
+            AnalyzerError::ExpectedIdentifierOrString { actual } => actual.position,
+            AnalyzerError::ExpectedInteger { position, .. } => *position,
             AnalyzerError::ExpectedValue { actual } => actual.position,
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalyzerError::TypeConflict {
@@ -417,6 +442,12 @@ impl Display for AnalyzerError {
             }
             AnalyzerError::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {}", actual)
+            }
+            AnalyzerError::ExpectedIdentifierOrString { actual } => {
+                write!(f, "Expected identifier or string, found {}", actual)
+            }
+            AnalyzerError::ExpectedInteger { actual, .. } => {
+                write!(f, "Expected integer, found {}", actual)
             }
             AnalyzerError::ExpectedValue { actual, .. } => {
                 write!(f, "Expected value, found {}", actual)

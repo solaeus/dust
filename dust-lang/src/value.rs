@@ -93,6 +93,10 @@ impl Value {
         self.0.r#type(context)
     }
 
+    pub fn get_property(&self, property: &Identifier) -> Option<Value> {
+        self.0.get_property(property)
+    }
+
     pub fn as_boolean(&self) -> Option<bool> {
         if let ValueInner::Boolean(boolean) = self.0.as_ref() {
             Some(*boolean)
@@ -626,7 +630,7 @@ pub enum ValueInner {
 }
 
 impl ValueInner {
-    pub fn r#type(&self, context: &Context) -> Type {
+    fn r#type(&self, context: &Context) -> Type {
         match self {
             ValueInner::Boolean(_) => Type::Boolean,
             ValueInner::Float(_) => Type::Float,
@@ -656,6 +660,20 @@ impl ValueInner {
             }
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
+        }
+    }
+
+    fn get_property(&self, property: &Identifier) -> Option<Value> {
+        match self {
+            ValueInner::List(list) => {
+                if property.as_str() == "length" {
+                    Some(Value::integer(list.len() as i64))
+                } else {
+                    None
+                }
+            }
+            ValueInner::Map(value_map) => value_map.get(property).cloned(),
+            _ => None,
         }
     }
 }

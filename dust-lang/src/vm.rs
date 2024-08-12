@@ -6,7 +6,8 @@ use std::{
 
 use crate::{
     abstract_tree::BinaryOperator, parse, value::ValueInner, AbstractSyntaxTree, Analyzer,
-    BuiltInFunctionError, Context, DustError, Node, ParseError, Span, Statement, Value, ValueError,
+    BuiltInFunctionError, Context, DustError, Identifier, Node, ParseError, Span, Statement, Value,
+    ValueError,
 };
 
 pub fn run<'src>(
@@ -536,6 +537,12 @@ pub enum VmError {
     UndefinedVariable {
         identifier: Node<Statement>,
     },
+    UndefinedProperty {
+        value: Value,
+        value_position: Span,
+        property: Identifier,
+        property_position: Span,
+    },
 }
 
 impl VmError {
@@ -552,6 +559,9 @@ impl VmError {
             Self::ExpectedList { position } => *position,
             Self::ExpectedValue { position } => *position,
             Self::UndefinedVariable { identifier } => identifier.position,
+            Self::UndefinedProperty {
+                property_position, ..
+            } => *property_position,
         }
     }
 }
@@ -601,6 +611,11 @@ impl Display for VmError {
             }
             Self::UndefinedVariable { identifier } => {
                 write!(f, "Undefined identifier: {}", identifier)
+            }
+            Self::UndefinedProperty {
+                value, property, ..
+            } => {
+                write!(f, "Value {} does not have the property {}", value, property)
             }
         }
     }

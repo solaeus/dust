@@ -561,6 +561,54 @@ impl<'src> Parser<'src> {
             let right = self.parse_statement(Token::Dot.precedence() + 1)?;
             let right_end = right.position.1;
 
+            if let Statement::BuiltInFunctionCall {
+                function,
+                type_arguments,
+                value_arguments,
+            } = right.inner
+            {
+                let value_arguments = if let Some(mut arguments) = value_arguments {
+                    arguments.insert(0, left);
+
+                    Some(arguments)
+                } else {
+                    Some(vec![left])
+                };
+
+                return Ok(Node::new(
+                    Statement::BuiltInFunctionCall {
+                        function,
+                        type_arguments,
+                        value_arguments,
+                    },
+                    (left_start, right_end),
+                ));
+            }
+
+            if let Statement::FunctionCall {
+                function,
+                type_arguments,
+                value_arguments,
+            } = right.inner
+            {
+                let value_arguments = if let Some(mut arguments) = value_arguments {
+                    arguments.insert(0, left);
+
+                    Some(arguments)
+                } else {
+                    Some(vec![left])
+                };
+
+                return Ok(Node::new(
+                    Statement::FunctionCall {
+                        function,
+                        type_arguments,
+                        value_arguments,
+                    },
+                    (left_start, right_end),
+                ));
+            }
+
             return Ok(Node::new(
                 Statement::PropertyAccess(Box::new(left), Box::new(right)),
                 (left_start, right_end),
@@ -1408,17 +1456,14 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::PropertyAccess(
-                        Box::new(Node::new(Statement::Constant(Value::integer(42)), (0, 2))),
-                        Box::new(Node::new(
-                            Statement::BuiltInFunctionCall {
-                                function: BuiltInFunction::IsEven,
-                                type_arguments: None,
-                                value_arguments: None
-                            },
-                            (3, 10)
-                        )),
-                    ),
+                    Statement::BuiltInFunctionCall {
+                        function: BuiltInFunction::IsEven,
+                        type_arguments: None,
+                        value_arguments: Some(vec![Node::new(
+                            Statement::Constant(Value::integer(42)),
+                            (0, 2)
+                        )])
+                    },
                     (0, 10),
                 )]
                 .into()
