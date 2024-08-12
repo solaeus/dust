@@ -153,6 +153,14 @@ impl Value {
         }
     }
 
+    pub fn as_string(&self) -> Option<&String> {
+        if let ValueInner::String(string) = self.inner().as_ref() {
+            Some(string)
+        } else {
+            None
+        }
+    }
+
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
         match (self.inner().as_ref(), other.inner().as_ref()) {
             (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left + right)),

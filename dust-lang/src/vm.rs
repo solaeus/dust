@@ -495,12 +495,22 @@ impl Vm {
                     }
                 }
 
-                if let (Some(map), Statement::Identifier(identifier)) =
-                    (left_value.as_map(), &right.inner)
-                {
-                    let value = map.get(identifier).cloned();
+                if let Some(map) = left_value.as_map() {
+                    if let Statement::Identifier(identifier) = right.inner {
+                        let value = map.get(&identifier).cloned();
 
-                    return Ok(value);
+                        return Ok(value);
+                    }
+
+                    if let Some(value) = self.run_statement(*right)? {
+                        if let Some(string) = value.as_string() {
+                            let identifier = Identifier::new(string);
+
+                            let value = map.get(&identifier).cloned();
+
+                            return Ok(value);
+                        }
+                    }
                 }
 
                 Err(VmError::ExpectedIdentifierIntegerOrRange {
@@ -700,6 +710,27 @@ impl Display for VmError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn map_property() {
+        let input = "{ x = 42 }.x";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
+    fn map_property_nested() {
+        let input = "{ x = { y = 42 } }.x.y";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
+    fn map_property_access_expression() {
+        let input = "{ foobar = 42 }.('foo' + 'bar')";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+    }
 
     #[test]
     fn list_index_range() {

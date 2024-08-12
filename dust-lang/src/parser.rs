@@ -596,11 +596,17 @@ impl<'src> Parser<'src> {
 
     fn parse_infix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
         let left_start = left.position.0;
+        let operator_precedence = self.current.0.precedence()
+            - if self.current.0.is_right_associative() {
+                1
+            } else {
+                0
+            };
 
         if let Token::Dot = &self.current.0 {
             self.next_token()?;
 
-            let right = self.parse_statement(0)?;
+            let right = self.parse_statement(operator_precedence)?;
             let right_end = right.position.1;
 
             if let Statement::BuiltInFunctionCall {
@@ -679,12 +685,6 @@ impl<'src> Parser<'src> {
                 });
             }
         };
-        let operator_precedence = self.current.0.precedence()
-            - if self.current.0.is_right_associative() {
-                1
-            } else {
-                0
-            };
 
         self.next_token()?;
 
@@ -844,6 +844,59 @@ mod tests {
     use crate::{abstract_tree::BinaryOperator, Identifier, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn map_property_nested() {
+        let input = "{ x = { y = 42 } }.x.y";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node {
+                    inner: Statement::PropertyAccess(
+                        Box::new(Node {
+                            inner: Statement::Map(vec![(
+                                Node {
+                                    inner: Statement::Identifier(Identifier::new("x")),
+                                    position: (2, 3)
+                                },
+                                Node {
+                                    inner: Statement::Map(vec![(
+                                        Node {
+                                            inner: Statement::Identifier(Identifier::new("y")),
+                                            position: (8, 9)
+                                        },
+                                        Node {
+                                            inner: Statement::Constant(Value::integer(42)),
+                                            position: (12, 14)
+                                        }
+                                    )]),
+                                    position: (6, 16)
+                                }
+                            )]),
+                            position: (0, 18)
+                        }),
+                        Box::new(Node {
+                            inner: Statement::PropertyAccess(
+                                Box::new(Node {
+                                    inner: Statement::Identifier(Identifier::new("x")),
+                                    position: (19, 20)
+                                }),
+                                Box::new(Node {
+                                    inner: Statement::Identifier(Identifier::new("y")),
+
+                                    position: (21, 22)
+                                })
+                            ),
+                            position: (19, 22)
+                        })
+                    ),
+                    position: (0, 22)
+                }]
+                .into()
+            })
+        )
+    }
 
     #[test]
     fn range() {
