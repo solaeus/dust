@@ -15,12 +15,36 @@ use crate::{
     ValueError,
 };
 
+/// Run the source code and return the result.
+///
+/// # Example
+/// ```
+/// # use dust_lang::vm::run;
+/// # use dust_lang::value::Value;
+/// let result = run("40 + 2");
+///
+/// assert_eq!(result, Ok(Some(Value::integer(42))));
+/// ```
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let context = Context::new();
 
     run_with_context(source, context)
 }
 
+/// Run the source code with a context and return the result.
+///
+/// # Example
+/// ```
+/// # use dust_lang::{Context, Identifier, Value, run_with_context};
+/// let context = Context::new();
+///
+/// context.set_value(Identifier::new("foo"), Value::integer(40));
+/// context.update_last_position(&Identifier::new("foo"), (100, 100));
+///
+/// let result = run_with_context("foo + 2", context);
+///
+/// assert_eq!(result, Ok(Some(Value::integer(42))));
+/// ```
 pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
     let mut analyzer = Analyzer::new(&abstract_syntax_tree, &context);

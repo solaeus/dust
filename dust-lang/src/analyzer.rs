@@ -1,4 +1,4 @@
-//! Tools for analyzing an abstract syntax tree and catch errors before running the virtual
+//! Tools for analyzing an abstract syntax tree and catching errors before running the virtual
 //! machine.
 //!
 //! This module provides two anlysis options:

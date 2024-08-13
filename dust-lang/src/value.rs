@@ -44,10 +44,9 @@ use crate::{identifier::Identifier, AbstractSyntaxTree, Context, Type, Vm, VmErr
 /// ```
 /// # use std::collections::HashMap;
 /// # use dust_lang::*;
-/// let context = Context::new();
 /// let value = Value::integer(42);
 ///
-/// assert_eq!(value.r#type(&context), Type::Integer);
+/// assert_eq!(value.r#type(), Type::Integer);
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Value(Arc<ValueInner>);
@@ -89,8 +88,8 @@ impl Value {
         Value(Arc::new(ValueInner::String(to_string.to_string())))
     }
 
-    pub fn r#type(&self, context: &Context) -> Type {
-        self.0.r#type(context)
+    pub fn r#type(&self) -> Type {
+        self.0.r#type()
     }
 
     pub fn get_property(&self, property: &Identifier) -> Option<Value> {
@@ -665,18 +664,18 @@ pub enum ValueInner {
 }
 
 impl ValueInner {
-    fn r#type(&self, context: &Context) -> Type {
+    fn r#type(&self) -> Type {
         match self {
             ValueInner::Boolean(_) => Type::Boolean,
             ValueInner::Float(_) => Type::Float,
             ValueInner::Function(function) => Type::Function {
                 type_parameters: function.type_parameters.clone(),
                 value_parameters: function.value_parameters.clone(),
-                return_type: function.return_type(context).map(Box::new),
+                return_type: function.return_type.as_ref().cloned().map(Box::new),
             },
             ValueInner::Integer(_) => Type::Integer,
             ValueInner::List(values) => {
-                let item_type = values.first().unwrap().r#type(context);
+                let item_type = values.first().unwrap().r#type();
 
                 Type::List {
                     item_type: Box::new(item_type),
@@ -686,7 +685,7 @@ impl ValueInner {
                 let mut type_map = BTreeMap::new();
 
                 for (identifier, value) in value_map {
-                    let r#type = value.r#type(context);
+                    let r#type = value.r#type();
 
                     type_map.insert(identifier.clone(), r#type);
                 }
@@ -762,6 +761,7 @@ pub struct Function {
     pub name: Identifier,
     pub type_parameters: Option<Vec<Type>>,
     pub value_parameters: Option<Vec<(Identifier, Type)>>,
+    pub return_type: Option<Type>,
     pub body: AbstractSyntaxTree,
 }
 
@@ -785,16 +785,6 @@ impl Function {
         let mut vm = Vm::new(self.body, new_context);
 
         vm.run()
-    }
-
-    pub fn return_type(&self, variables: &Context) -> Option<Type> {
-        self.body
-            .nodes
-            .iter()
-            .last()
-            .unwrap()
-            .inner
-            .expected_type(variables)
     }
 }
 

@@ -40,6 +40,7 @@ impl Context {
     pub fn get_type(&self, identifier: &Identifier) -> Option<Type> {
         match self.variables.read().unwrap().get(identifier) {
             Some((VariableData::Type(r#type), _)) => Some(r#type.clone()),
+            Some((VariableData::Value(value), _)) => Some(value.r#type()),
             _ => None,
         }
     }

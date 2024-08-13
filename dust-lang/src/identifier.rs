@@ -9,11 +9,12 @@
 //! # use dust_lang::Identifier;
 //! let foo = Identifier::new("foo");
 //! let also_foo = Identifier::new("foo");
+//! let another_foo = Identifier::new("foo");
 //!
-//! assert_eq!(foo.hard_count(), 2);
+//! assert_eq!(foo.strong_count(), 4); // One for each of the above and one for the cache.
 //! ```
 use std::{
-    collections::HashSet,
+    collections::HashMap,
     fmt::{self, Display, Formatter},
     hash::Hash,
     sync::{Arc, OnceLock, RwLock},
@@ -22,11 +23,11 @@ use std::{
 use serde::{de::Visitor, Deserialize, Serialize};
 
 /// In-use identifiers.
-static IDENTIFIER_CACHE: OnceLock<RwLock<HashSet<Identifier>>> = OnceLock::new();
+static IDENTIFIER_CACHE: OnceLock<RwLock<HashMap<String, Identifier>>> = OnceLock::new();
 
 /// Returns the identifier cache.
-fn identifier_cache<'a>() -> &'a RwLock<HashSet<Identifier>> {
-    IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashSet::new()))
+fn identifier_cache<'a>() -> &'a RwLock<HashMap<String, Identifier>> {
+    IDENTIFIER_CACHE.get_or_init(|| RwLock::new(HashMap::new()))
 }
 
 /// Key used to identify a value or type.
@@ -38,25 +39,25 @@ pub struct Identifier(Arc<String>);
 impl Identifier {
     /// Creates a new identifier or returns a clone of an existing one from a cache.
     pub fn new<T: ToString>(text: T) -> Self {
-        let cache = identifier_cache().read().unwrap();
-        let new = Identifier(Arc::new(text.to_string()));
+        let string = text.to_string();
+        let mut cache = identifier_cache().write().unwrap();
 
-        if cache.contains(&new) {
-            return new;
+        if let Some(old) = cache.get(&string) {
+            old.clone()
+        } else {
+            let new = Identifier(Arc::new(string.clone()));
+
+            cache.insert(string, new.clone());
+
+            new
         }
-
-        drop(cache);
-
-        identifier_cache().write().unwrap().insert(new.clone());
-
-        new
     }
 
     pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
 
-    pub fn hard_count(&self) -> usize {
+    pub fn strong_count(&self) -> usize {
         Arc::strong_count(&self.0)
     }
 }
