@@ -11,8 +11,8 @@ use std::{
 
 use crate::{
     parse, value::ValueInner, AbstractSyntaxTree, Analyzer, BinaryOperator, BuiltInFunctionError,
-    Context, DustError, Identifier, Node, ParseError, Span, Statement, UnaryOperator, Value,
-    ValueError,
+    Context, DustError, Identifier, Node, ParseError, Span, Statement, StructDefinition, Type,
+    UnaryOperator, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -573,6 +573,17 @@ impl Vm {
             }
             Statement::Nil(node) => {
                 let _return = self.run_statement(*node)?;
+
+                Ok(None)
+            }
+            Statement::StructDefinition(struct_definition) => {
+                let (type_name, r#type) = match struct_definition {
+                    StructDefinition::Unit { name } => {
+                        (name.inner.clone(), Type::Defined(name.inner.clone()))
+                    }
+                };
+
+                self.context.set_type(type_name, r#type, node.position);
 
                 Ok(None)
             }

@@ -420,6 +420,7 @@ impl<'a> Analyzer<'a> {
             Statement::Nil(node) => {
                 self.analyze_statement(node)?;
             }
+            Statement::StructDefinition(_) => {}
             Statement::UnaryOperation { operator, operand } => {
                 self.analyze_statement(operand)?;
 

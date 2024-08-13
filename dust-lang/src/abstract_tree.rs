@@ -103,6 +103,9 @@ pub enum Statement {
     // A statement that always returns None. Created with a semicolon, it causes the preceding
     // statement to return None. This is analagous to the semicolon or unit type in Rust.
     Nil(Box<Node<Statement>>),
+
+    // Type definitions
+    StructDefinition(StructDefinition),
 }
 
 impl Statement {
@@ -186,6 +189,7 @@ impl Statement {
                 UnaryOperator::Negate => Some(operand.inner.expected_type(context)?),
                 UnaryOperator::Not => Some(Type::Boolean),
             },
+            Statement::StructDefinition(_) => None,
             Statement::While { .. } => None,
         }
     }
@@ -391,6 +395,9 @@ impl Display for Statement {
 
                 write!(f, "{operator}{operand}")
             }
+            Statement::StructDefinition(struct_definition) => {
+                write!(f, "{struct_definition}")
+            }
             Statement::While { condition, body } => {
                 write!(f, "while {condition} {body}")
             }
@@ -431,4 +438,17 @@ pub enum BinaryOperator {
 pub enum UnaryOperator {
     Negate,
     Not,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum StructDefinition {
+    Unit { name: Node<Identifier> },
+}
+
+impl Display for StructDefinition {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            StructDefinition::Unit { name } => write!(f, "struct {name}"),
+        }
+    }
 }

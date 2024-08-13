@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     AbstractSyntaxTree, BinaryOperator, BuiltInFunction, DustError, Identifier, LexError, Lexer,
-    Node, Span, Statement, Token, TokenKind, TokenOwned, UnaryOperator, Value,
+    Node, Span, Statement, StructDefinition, Token, TokenKind, TokenOwned, UnaryOperator, Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -572,19 +572,25 @@ impl<'src> Parser<'src> {
                     left_position,
                 ))
             }
+            (Token::Struct, left_position) => {
+                self.next_token()?;
+
+                if let Token::Identifier(_) = self.current.0 {
+                    let name = self.parse_identifier()?;
+                    let name_end = name.position.1;
+
+                    Ok(Node::new(
+                        Statement::StructDefinition(StructDefinition::Unit { name }),
+                        (left_position.0, name_end),
+                    ))
+                } else {
+                    todo!()
+                }
+            }
             (Token::While, left_position) => {
                 self.next_token()?;
 
                 let condition = self.parse_statement(0)?;
-
-                if let Token::LeftCurlyBrace = self.current.0 {
-                } else {
-                    return Err(ParseError::ExpectedToken {
-                        expected: TokenKind::LeftCurlyBrace,
-                        actual: self.current.0.to_owned(),
-                        position: self.current.1,
-                    });
-                }
 
                 let body = self.parse_block()?;
                 let body_end = body.position.1;
@@ -772,6 +778,22 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn parse_identifier(&mut self) -> Result<Node<Identifier>, ParseError> {
+        let identifier = if let Token::Identifier(text) = &self.current.0 {
+            Node::new(Identifier::new(text), self.current.1)
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                actual: self.current.0.to_owned(),
+                position: self.current.1,
+            });
+        };
+
+        self.next_token()?;
+
+        Ok(identifier)
+    }
+
     fn parse_block(&mut self) -> Result<Node<Statement>, ParseError> {
         let left_start = self.current.1 .0;
 
@@ -890,9 +912,27 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{abstract_tree::BinaryOperator, Identifier, UnaryOperator};
+    use crate::{abstract_tree::BinaryOperator, Identifier, StructDefinition, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn unit_struct() {
+        let input = "struct Foo";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::StructDefinition(StructDefinition::Unit {
+                        name: Node::new(Identifier::new("Foo"), (7, 10)),
+                    }),
+                    (0, 10)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn list_index_nested() {
