@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::{BinaryOperator, UnaryOperator},
+    abstract_tree::{BinaryOperator, StructInstantiation, UnaryOperator},
     parse, AbstractSyntaxTree, Context, DustError, Identifier, Node, Span, Statement,
     StructDefinition, StructType, Type,
 };
@@ -290,8 +290,8 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Constant(_) => {}
-            Statement::FunctionCall {
-                function,
+            Statement::Invokation {
+                invokee: function,
                 value_arguments,
                 ..
             } => {
@@ -429,12 +429,30 @@ impl<'a> Analyzer<'a> {
                             name: name.inner.clone(),
                         }),
                     ),
-                    StructDefinition::Tuple { name, fields } => {
-                        todo!()
-                    }
+                    StructDefinition::Tuple { name, fields } => (
+                        name.inner.clone(),
+                        Type::Struct(StructType::Tuple {
+                            name: name.inner.clone(),
+                            fields: fields
+                                .iter()
+                                .map(|type_node| type_node.inner.clone())
+                                .collect(),
+                        }),
+                    ),
                 };
 
                 self.context.set_type(name, r#type, node.position);
+            }
+            Statement::StructInstantiation(struct_instantiation) => {
+                let name = match struct_instantiation {
+                    StructInstantiation::Tuple { name, .. } => name,
+                };
+
+                if self.context.get_type(&name.inner).is_none() {
+                    return Err(AnalyzerError::UndefinedType {
+                        identifier: name.clone(),
+                    });
+                }
             }
             Statement::UnaryOperation { operator, operand } => {
                 self.analyze_statement(operand)?;
@@ -517,18 +535,21 @@ pub enum AnalyzerError {
         actual_type: Type,
         expected: Type,
     },
-    UndefinedVariable {
-        identifier: Node<Statement>,
-    },
     UndefinedField {
         identifier: Node<Statement>,
         map: Node<Statement>,
+    },
+    UndefinedType {
+        identifier: Node<Identifier>,
     },
     UnexpectedIdentifier {
         identifier: Node<Statement>,
     },
     UnexectedString {
         actual: Node<Statement>,
+    },
+    UndefinedVariable {
+        identifier: Node<Statement>,
     },
 }
 
@@ -550,6 +571,7 @@ impl AnalyzerError {
                 actual_statement, ..
             } => actual_statement.position,
             AnalyzerError::UndefinedField { identifier, .. } => identifier.position,
+            AnalyzerError::UndefinedType { identifier } => identifier.position,
             AnalyzerError::UndefinedVariable { identifier } => identifier.position,
             AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position,
             AnalyzerError::UnexectedString { actual } => actual.position,
@@ -605,6 +627,9 @@ impl Display for AnalyzerError {
             }
             AnalyzerError::UndefinedField { identifier, map } => {
                 write!(f, "Undefined field {} in map {}", identifier, map)
+            }
+            AnalyzerError::UndefinedType { identifier } => {
+                write!(f, "Undefined type {}", identifier)
             }
             AnalyzerError::UndefinedVariable { identifier } => {
                 write!(f, "Undefined variable {}", identifier)

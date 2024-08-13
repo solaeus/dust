@@ -15,7 +15,8 @@ pub mod value;
 pub mod vm;
 
 pub use abstract_tree::{
-    AbstractSyntaxTree, BinaryOperator, Node, Statement, StructDefinition, UnaryOperator,
+    AbstractSyntaxTree, BinaryOperator, Node, Statement, StructDefinition, StructInstantiation,
+    UnaryOperator,
 };
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};

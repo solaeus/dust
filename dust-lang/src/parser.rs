@@ -686,8 +686,8 @@ impl<'src> Parser<'src> {
                 ));
             }
 
-            if let Statement::FunctionCall {
-                function,
+            if let Statement::Invokation {
+                invokee: function,
                 type_arguments,
                 value_arguments,
             } = right.inner
@@ -701,8 +701,8 @@ impl<'src> Parser<'src> {
                 };
 
                 return Ok(Node::new(
-                    Statement::FunctionCall {
-                        function,
+                    Statement::Invokation {
+                        invokee: function,
                         type_arguments,
                         value_arguments,
                     },
@@ -762,48 +762,85 @@ impl<'src> Parser<'src> {
     fn parse_postfix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
         let left_start = left.position.0;
 
-        let statement = if let Token::LeftSquareBrace = &self.current.0 {
-            let operator_start = self.current.1 .0;
+        let statement = match &self.current.0 {
+            Token::LeftParenthesis => {
+                self.next_token()?;
 
-            self.next_token()?;
+                let mut arguments = Vec::new();
 
-            let index = self.parse_statement(0)?;
+                while self.current.0 != Token::RightParenthesis {
+                    let argument = self.parse_statement(0)?;
 
-            let operator_end = if let Token::RightSquareBrace = self.current.0 {
-                let end = self.current.1 .1;
+                    arguments.push(argument);
+
+                    if let Token::Comma = self.current.0 {
+                        self.next_token()?;
+                    } else {
+                        break;
+                    }
+                }
+
+                let right_end = self.current.1 .1;
 
                 self.next_token()?;
 
-                end
-            } else {
-                return Err(ParseError::ExpectedToken {
-                    expected: TokenKind::RightSquareBrace,
+                Node::new(
+                    Statement::Invokation {
+                        invokee: Box::new(left),
+                        type_arguments: None,
+                        value_arguments: Some(arguments),
+                    },
+                    (left_start, right_end),
+                )
+            }
+            Token::LeftSquareBrace => {
+                let operator_start = self.current.1 .0;
+
+                self.next_token()?;
+
+                let index = self.parse_statement(0)?;
+
+                let operator_end = if let Token::RightSquareBrace = self.current.0 {
+                    let end = self.current.1 .1;
+
+                    self.next_token()?;
+
+                    end
+                } else {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenKind::RightSquareBrace,
+                        actual: self.current.0.to_owned(),
+                        position: self.current.1,
+                    });
+                };
+
+                let right_end = self.current.1 .1;
+
+                Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(left),
+                        operator: Node::new(
+                            BinaryOperator::ListIndex,
+                            (operator_start, operator_end),
+                        ),
+                        right: Box::new(index),
+                    },
+                    (left_start, right_end),
+                )
+            }
+            Token::Semicolon => {
+                let operator_end = self.current.1 .1;
+
+                self.next_token()?;
+
+                Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end))
+            }
+            _ => {
+                return Err(ParseError::UnexpectedToken {
                     actual: self.current.0.to_owned(),
                     position: self.current.1,
                 });
-            };
-
-            let right_end = self.current.1 .1;
-
-            Node::new(
-                Statement::BinaryOperation {
-                    left: Box::new(left),
-                    operator: Node::new(BinaryOperator::ListIndex, (operator_start, operator_end)),
-                    right: Box::new(index),
-                },
-                (left_start, right_end),
-            )
-        } else if let Token::Semicolon = &self.current.0 {
-            let operator_end = self.current.1 .1;
-
-            self.next_token()?;
-
-            Node::new(Statement::Nil(Box::new(left)), (left_start, operator_end))
-        } else {
-            return Err(ParseError::UnexpectedToken {
-                actual: self.current.0.to_owned(),
-                position: self.current.1,
-            });
+            }
         };
 
         if self.current.0.is_postfix() {
@@ -990,9 +1027,49 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BinaryOperator, Identifier, StructDefinition, Type, UnaryOperator};
+    use crate::{
+        BinaryOperator, Identifier, StructDefinition, StructInstantiation, Type, UnaryOperator,
+    };
 
     use super::*;
+
+    #[test]
+    fn tuple_struct_instantiation() {
+        let input = "struct Foo(int, float) Foo(1, 2.0)";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [
+                    Node::new(
+                        Statement::StructDefinition(StructDefinition::Tuple {
+                            name: Node::new(Identifier::new("Foo"), (7, 10)),
+                            fields: vec![
+                                Node::new(Type::Integer, (11, 14)),
+                                Node::new(Type::Float, (16, 21))
+                            ]
+                        }),
+                        (0, 22)
+                    ),
+                    Node::new(
+                        Statement::Invokation {
+                            invokee: Box::new(Node::new(
+                                Statement::Identifier(Identifier::new("Foo")),
+                                (23, 26)
+                            )),
+                            type_arguments: None,
+                            value_arguments: Some(vec![
+                                Node::new(Statement::Constant(Value::integer(1)), (27, 28)),
+                                Node::new(Statement::Constant(Value::float(2.0)), (30, 33))
+                            ])
+                        },
+                        (23, 34)
+                    )
+                ]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn tuple_struct() {

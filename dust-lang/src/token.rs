@@ -223,7 +223,7 @@ impl<'src> Token<'src> {
     pub fn precedence(&self) -> u8 {
         match self {
             Token::Dot => 10,
-            Token::LeftSquareBrace => 9,
+            Token::LeftParenthesis | Token::LeftSquareBrace => 9,
             Token::Star | Token::Slash | Token::Percent => 8,
             Token::Minus | Token::Plus => 6,
             Token::DoubleEqual
@@ -261,7 +261,10 @@ impl<'src> Token<'src> {
     }
 
     pub fn is_postfix(&self) -> bool {
-        matches!(self, Token::LeftSquareBrace | Token::Semicolon)
+        matches!(
+            self,
+            Token::LeftParenthesis | Token::LeftSquareBrace | Token::Semicolon
+        )
     }
 }
 

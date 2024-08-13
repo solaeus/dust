@@ -11,8 +11,8 @@ use std::{
 
 use crate::{
     parse, value::ValueInner, AbstractSyntaxTree, Analyzer, BinaryOperator, BuiltInFunctionError,
-    Context, DustError, Identifier, Node, ParseError, Span, Statement, StructDefinition,
-    StructType, Type, UnaryOperator, Value, ValueError,
+    Context, DustError, Identifier, Node, ParseError, Span, Statement, Struct, StructDefinition,
+    StructInstantiation, StructType, Type, UnaryOperator, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -329,17 +329,43 @@ impl Vm {
                 Ok(function_call_return)
             }
             Statement::Constant(value) => Ok(Some(value.clone())),
-            Statement::FunctionCall {
-                function: function_node,
+            Statement::Invokation {
+                invokee,
                 type_arguments: _,
                 value_arguments: value_parameter_nodes,
             } => {
-                let function_position = function_node.position;
-                let function_value = if let Some(value) = self.run_statement(*function_node)? {
+                let invokee_position = invokee.position;
+                let invokee_type = invokee.inner.expected_type(&self.context);
+
+                if let Some(Type::Struct(StructType::Tuple { name, .. })) = invokee_type {
+                    let mut fields = Vec::new();
+
+                    if let Some(value_parameter_nodes) = value_parameter_nodes {
+                        for statement in value_parameter_nodes {
+                            let position = statement.position;
+                            let value = if let Some(value) = self.run_statement(statement)? {
+                                value
+                            } else {
+                                return Err(VmError::ExpectedValue { position });
+                            };
+
+                            fields.push(value);
+                        }
+                    }
+
+                    let struct_value = Value::r#struct(Struct::Tuple {
+                        name: name.clone(),
+                        fields,
+                    });
+
+                    return Ok(Some(struct_value));
+                }
+
+                let function_value = if let Some(value) = self.run_statement(*invokee)? {
                     value
                 } else {
                     return Err(VmError::ExpectedValue {
-                        position: function_position,
+                        position: invokee_position,
                     });
                 };
                 let function = if let Some(function) = function_value.as_function() {
@@ -347,7 +373,7 @@ impl Vm {
                 } else {
                     return Err(VmError::ExpectedFunction {
                         actual: function_value,
-                        position: function_position,
+                        position: invokee_position,
                     });
                 };
 
@@ -385,8 +411,8 @@ impl Vm {
 
                 println!("{type_option:?}");
 
-                if let Some(Type::Struct(struct_type)) = type_option {
-                    return Ok(Some(Value::r#struct(struct_type.instantiate())));
+                if let Some(Type::Struct(StructType::Unit { name })) = type_option {
+                    return Ok(Some(Value::r#struct(Struct::Unit { name })));
                 }
 
                 Err(VmError::UndefinedVariable {
@@ -592,15 +618,40 @@ impl Vm {
                             name: name.inner.clone(),
                         }),
                     ),
-                    StructDefinition::Tuple { name, fields } => {
-                        todo!()
-                    }
+                    StructDefinition::Tuple { name, fields } => (
+                        name.inner.clone(),
+                        Type::Struct(StructType::Tuple {
+                            name: name.inner.clone(),
+                            fields: fields
+                                .into_iter()
+                                .map(|type_node| type_node.inner)
+                                .collect(),
+                        }),
+                    ),
                 };
 
                 self.context.set_type(type_name, r#type, node.position);
 
                 Ok(None)
             }
+            Statement::StructInstantiation(struct_instantiation) => match struct_instantiation {
+                StructInstantiation::Tuple { name, fields } => {
+                    Ok(Some(Value::r#struct(Struct::Tuple {
+                        name: name.inner,
+                        fields: fields
+                            .into_iter()
+                            .map(|node| {
+                                let position = node.position;
+                                if let Some(value) = self.run_statement(node)? {
+                                    Ok(value)
+                                } else {
+                                    Err(VmError::ExpectedValue { position })
+                                }
+                            })
+                            .collect::<Result<Vec<Value>, VmError>>()?,
+                    })))
+                }
+            },
             Statement::UnaryOperation { operator, operand } => {
                 let position = operand.position;
                 let value = if let Some(value) = self.run_statement(*operand)? {
@@ -814,6 +865,19 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn define_and_instantiate_tuple_struct() {
+        let input = "struct Foo(int) Foo(42)";
+
+        assert_eq!(
+            run(input),
+            Ok(Some(Value::r#struct(Struct::Tuple {
+                name: Identifier::new("Foo"),
+                fields: vec![Value::integer(42)]
+            })))
+        );
+    }
 
     #[test]
     fn assign_unit_struct_variable() {

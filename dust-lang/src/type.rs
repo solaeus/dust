@@ -16,7 +16,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Struct};
+use crate::Identifier;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TypeConflict {
@@ -344,7 +344,7 @@ pub enum StructType {
     },
     Tuple {
         name: Identifier,
-        types: Vec<Type>,
+        fields: Vec<Type>,
     },
     Fields {
         name: Identifier,
@@ -352,26 +352,17 @@ pub enum StructType {
     },
 }
 
-impl StructType {
-    pub fn instantiate(&self) -> Struct {
-        match self {
-            StructType::Unit { name } => Struct::Unit { name: name.clone() },
-            _ => todo!(),
-        }
-    }
-}
-
 impl Display for StructType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             StructType::Unit { name } => write!(f, "struct {name}"),
-            StructType::Tuple { name, types } => {
+            StructType::Tuple { name, fields } => {
                 write!(f, "struct {name}(")?;
 
-                for (index, r#type) in types.iter().enumerate() {
+                for (index, r#type) in fields.iter().enumerate() {
                     write!(f, "{type}")?;
 
-                    if index != types.len() - 1 {
+                    if index != fields.len() - 1 {
                         write!(f, ", ")?;
                     }
                 }
