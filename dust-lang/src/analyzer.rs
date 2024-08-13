@@ -131,7 +131,7 @@ impl<'a> Analyzer<'a> {
                             if !fields.contains_key(identifier) {
                                 return Err(AnalyzerError::UndefinedField {
                                     identifier: right.as_ref().clone(),
-                                    map: left.as_ref().clone(),
+                                    statement: left.as_ref().clone(),
                                 });
                             }
                         }
@@ -143,7 +143,7 @@ impl<'a> Analyzer<'a> {
                                 if !fields.contains_key(&Identifier::new(field_name)) {
                                     return Err(AnalyzerError::UndefinedField {
                                         identifier: right.as_ref().clone(),
-                                        map: left.as_ref().clone(),
+                                        statement: left.as_ref().clone(),
                                     });
                                 }
                             }
@@ -291,15 +291,44 @@ impl<'a> Analyzer<'a> {
             }
             Statement::Constant(_) => {}
             Statement::Invokation {
-                invokee: function,
+                invokee,
                 value_arguments,
                 ..
             } => {
-                self.analyze_statement(function)?;
+                self.analyze_statement(invokee)?;
+
+                let invokee_type = invokee.inner.expected_type(self.context);
 
                 if let Some(arguments) = value_arguments {
                     for argument in arguments {
                         self.analyze_statement(argument)?;
+                    }
+
+                    if let Some(Type::Struct(struct_type)) = invokee_type {
+                        match struct_type {
+                            StructType::Unit { name } => todo!(),
+                            StructType::Tuple { fields, .. } => {
+                                for (expected_type, argument) in fields.iter().zip(arguments.iter())
+                                {
+                                    let actual_type = argument.inner.expected_type(self.context);
+
+                                    if let Some(actual_type) = actual_type {
+                                        expected_type.check(&actual_type).map_err(|conflict| {
+                                            AnalyzerError::TypeConflict {
+                                                actual_statement: argument.clone(),
+                                                actual_type: conflict.actual,
+                                                expected: expected_type.clone(),
+                                            }
+                                        })?;
+                                    } else {
+                                        return Err(AnalyzerError::ExpectedValue {
+                                            actual: argument.clone(),
+                                        });
+                                    }
+                                }
+                            }
+                            StructType::Fields { name, fields } => todo!(),
+                        }
                     }
                 }
             }
@@ -537,7 +566,7 @@ pub enum AnalyzerError {
     },
     UndefinedField {
         identifier: Node<Statement>,
-        map: Node<Statement>,
+        statement: Node<Statement>,
     },
     UndefinedType {
         identifier: Node<Identifier>,
@@ -625,7 +654,10 @@ impl Display for AnalyzerError {
                     expected, actual_statement, actual_type
                 )
             }
-            AnalyzerError::UndefinedField { identifier, map } => {
+            AnalyzerError::UndefinedField {
+                identifier,
+                statement: map,
+            } => {
                 write!(f, "Undefined field {} in map {}", identifier, map)
             }
             AnalyzerError::UndefinedType { identifier } => {
@@ -649,6 +681,26 @@ mod tests {
     use crate::{Identifier, Value};
 
     use super::*;
+
+    #[test]
+    fn tuple_struct_with_wrong_field_types() {
+        let source = "
+            struct Foo(int, float)
+            Foo(1, 2)
+        ";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::TypeConflict {
+                    actual_statement: Node::new(Statement::Constant(Value::integer(2)), (55, 56)),
+                    actual_type: Type::Integer,
+                    expected: Type::Float
+                },
+                source
+            })
+        );
+    }
 
     #[test]
     fn constant_list_index_out_of_bounds() {
@@ -684,7 +736,7 @@ mod tests {
             Err(DustError::AnalyzerError {
                 analyzer_error: AnalyzerError::UndefinedField {
                     identifier: Node::new(Statement::Identifier(Identifier::new("y")), (10, 11)),
-                    map: Node::new(
+                    statement: Node::new(
                         Statement::Map(vec![(
                             Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
                             Node::new(Statement::Constant(Value::integer(1)), (6, 7))
@@ -706,7 +758,7 @@ mod tests {
             Err(DustError::AnalyzerError {
                 analyzer_error: AnalyzerError::UndefinedField {
                     identifier: Node::new(Statement::Constant(Value::string("y")), (10, 13)),
-                    map: Node::new(
+                    statement: Node::new(
                         Statement::Map(vec![(
                             Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
                             Node::new(Statement::Constant(Value::integer(1)), (6, 7))

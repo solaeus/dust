@@ -867,6 +867,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn assign_tuple_struct_variable() {
+        let input = "
+            struct Foo(int)
+            x = Foo(42)
+            x
+        ";
+
+        assert_eq!(
+            run(input),
+            Ok(Some(Value::r#struct(Struct::Tuple {
+                name: Identifier::new("Foo"),
+                fields: vec![Value::integer(42)]
+            })))
+        )
+    }
+
+    #[test]
     fn define_and_instantiate_tuple_struct() {
         let input = "struct Foo(int) Foo(42)";
 

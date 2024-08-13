@@ -1027,9 +1027,7 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        BinaryOperator, Identifier, StructDefinition, StructInstantiation, Type, UnaryOperator,
-    };
+    use crate::{BinaryOperator, Identifier, StructDefinition, Type, UnaryOperator};
 
     use super::*;
 
