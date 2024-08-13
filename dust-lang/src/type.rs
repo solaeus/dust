@@ -50,6 +50,10 @@ pub enum Type {
     Integer,
     List {
         item_type: Box<Type>,
+        length: usize,
+    },
+    ListOf {
+        item_type: Box<Type>,
     },
     Map(BTreeMap<Identifier, Type>),
     Number,
@@ -139,8 +143,34 @@ impl Type {
             (
                 Type::List {
                     item_type: left_type,
+                    length: left_length,
                 },
                 Type::List {
+                    item_type: right_type,
+                    length: right_length,
+                },
+            ) => {
+                if left_length != right_length {
+                    return Err(TypeConflict {
+                        actual: other.clone(),
+                        expected: self.clone(),
+                    });
+                }
+
+                if left_type.check(right_type).is_err() {
+                    return Err(TypeConflict {
+                        actual: other.clone(),
+                        expected: self.clone(),
+                    });
+                }
+
+                return Ok(());
+            }
+            (
+                Type::ListOf {
+                    item_type: left_type,
+                },
+                Type::ListOf {
                     item_type: right_type,
                 },
             ) => {
@@ -150,8 +180,36 @@ impl Type {
                         expected: self.clone(),
                     });
                 }
+            }
+            (
+                Type::List {
+                    item_type: list_item_type,
+                    ..
+                },
+                Type::ListOf {
+                    item_type: list_of_item_type,
+                },
+            )
+            | (
+                Type::ListOf {
+                    item_type: list_of_item_type,
+                },
+                Type::List {
+                    item_type: list_item_type,
+                    ..
+                },
+            ) => {
+                // TODO: This is a hack, remove it.
+                if let Type::Any = **list_of_item_type {
+                    return Ok(());
+                }
 
-                return Ok(());
+                if list_item_type.check(list_of_item_type).is_err() {
+                    return Err(TypeConflict {
+                        actual: other.clone(),
+                        expected: self.clone(),
+                    });
+                }
             }
             (
                 Type::Function {
@@ -248,7 +306,8 @@ impl Display for Type {
                 }
             }
             Type::Integer => write!(f, "int"),
-            Type::List { item_type } => write!(f, "[{item_type}]"),
+            Type::List { item_type, length } => write!(f, "[{item_type}; {length}]"),
+            Type::ListOf { item_type } => write!(f, "list_of({item_type})"),
             Type::Map(map) => {
                 write!(f, "{{ ")?;
 
@@ -316,9 +375,11 @@ mod tests {
         assert_eq!(
             Type::List {
                 item_type: Box::new(Type::Boolean),
+                length: 42
             }
             .check(&Type::List {
                 item_type: Box::new(Type::Boolean),
+                length: 42
             }),
             Ok(())
         );
@@ -360,6 +421,7 @@ mod tests {
             Type::Integer,
             Type::List {
                 item_type: Box::new(Type::Integer),
+                length: 42,
             },
             Type::Map(BTreeMap::new()),
             Type::Range,

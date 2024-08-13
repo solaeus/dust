@@ -47,7 +47,7 @@ impl BuiltInFunction {
             BuiltInFunction::Length => {
                 vec![(
                     "value".into(),
-                    Type::List {
+                    Type::ListOf {
                         item_type: Box::new(Type::Any),
                     },
                 )]

@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     abstract_tree::{BinaryOperator, UnaryOperator},
-    parse, AbstractSyntaxTree, Context, DustError, Node, Span, Statement, Type,
+    parse, AbstractSyntaxTree, Context, DustError, Identifier, Node, Span, Statement, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -105,8 +105,11 @@ impl<'a> Analyzer<'a> {
                         self.analyze_statement(right)?;
                     }
 
-                    if let Some(Type::Map { .. }) = left.inner.expected_type(self.context) {
-                        if let Some(Type::String) = right.inner.expected_type(self.context) {
+                    let left_type = left.inner.expected_type(self.context);
+                    let right_type = right.inner.expected_type(self.context);
+
+                    if let Some(Type::Map { .. }) = left_type {
+                        if let Some(Type::String) = right_type {
                             // Allow indexing maps with strings
                         } else if let Statement::Identifier(_) = right.inner {
                             // Allow indexing maps with identifiers
@@ -121,6 +124,31 @@ impl<'a> Analyzer<'a> {
                         });
                     }
 
+                    // If the accessor is an identifier, check if it is a valid field
+                    if let Statement::Identifier(identifier) = &right.inner {
+                        if let Some(Type::Map(fields)) = &left_type {
+                            if !fields.contains_key(identifier) {
+                                return Err(AnalyzerError::UndefinedField {
+                                    identifier: right.as_ref().clone(),
+                                    map: left.as_ref().clone(),
+                                });
+                            }
+                        }
+                    }
+                    // If the accessor is a constant, check if it is a valid field
+                    if let Statement::Constant(value) = &right.inner {
+                        if let Some(field_name) = value.as_string() {
+                            if let Some(Type::Map(fields)) = left_type {
+                                if !fields.contains_key(&Identifier::new(field_name)) {
+                                    return Err(AnalyzerError::UndefinedField {
+                                        identifier: right.as_ref().clone(),
+                                        map: left.as_ref().clone(),
+                                    });
+                                }
+                            }
+                        }
+                    }
+
                     return Ok(());
                 }
 
@@ -128,7 +156,8 @@ impl<'a> Analyzer<'a> {
                     self.analyze_statement(left)?;
                     self.analyze_statement(right)?;
 
-                    if let Some(Type::List { .. }) = left.inner.expected_type(self.context) {
+                    if let Some(Type::List { length, .. }) = left.inner.expected_type(self.context)
+                    {
                         let index_type = right.inner.expected_type(self.context);
 
                         if let Some(Type::Integer | Type::Range) = index_type {
@@ -137,6 +166,22 @@ impl<'a> Analyzer<'a> {
                             return Err(AnalyzerError::ExpectedIntegerOrRange {
                                 actual: right.as_ref().clone(),
                             });
+                        }
+
+                        // If the index is a constant, check if it is out of bounds
+                        if let Statement::Constant(value) = &right.inner {
+                            if let Some(index_value) = value.as_integer() {
+                                let index_value = index_value as usize;
+
+                                if index_value >= length {
+                                    return Err(AnalyzerError::IndexOutOfBounds {
+                                        list: left.as_ref().clone(),
+                                        index: right.as_ref().clone(),
+                                        index_value,
+                                        length,
+                                    });
+                                }
+                            }
                         }
                     } else {
                         return Err(AnalyzerError::ExpectedList {
@@ -459,6 +504,10 @@ pub enum AnalyzerError {
     UndefinedVariable {
         identifier: Node<Statement>,
     },
+    UndefinedField {
+        identifier: Node<Statement>,
+        map: Node<Statement>,
+    },
     UnexpectedIdentifier {
         identifier: Node<Statement>,
     },
@@ -484,6 +533,7 @@ impl AnalyzerError {
             AnalyzerError::TypeConflict {
                 actual_statement, ..
             } => actual_statement.position,
+            AnalyzerError::UndefinedField { identifier, .. } => identifier.position,
             AnalyzerError::UndefinedVariable { identifier } => identifier.position,
             AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position,
             AnalyzerError::UnexectedString { actual } => actual.position,
@@ -518,9 +568,9 @@ impl Display for AnalyzerError {
             } => write!(f, "Expected {} value arguments, found {}", expected, actual),
             AnalyzerError::IndexOutOfBounds {
                 list,
-                index,
                 index_value,
                 length,
+                ..
             } => write!(
                 f,
                 "Index {} out of bounds for list {} with length {}",
@@ -536,6 +586,9 @@ impl Display for AnalyzerError {
                     "Expected type {}, found {}, which has type {}",
                     expected, actual_statement, actual_type
                 )
+            }
+            AnalyzerError::UndefinedField { identifier, map } => {
+                write!(f, "Undefined field {} in map {}", identifier, map)
             }
             AnalyzerError::UndefinedVariable { identifier } => {
                 write!(f, "Undefined variable {}", identifier)
@@ -582,14 +635,43 @@ mod tests {
     }
 
     #[test]
-    fn nonexistant_field() {
+    fn nonexistant_field_identifier() {
         let source = "{ x = 1 }.y";
 
         assert_eq!(
             analyze(source),
             Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::UndefinedVariable {
+                analyzer_error: AnalyzerError::UndefinedField {
                     identifier: Node::new(Statement::Identifier(Identifier::new("y")), (10, 11)),
+                    map: Node::new(
+                        Statement::Map(vec![(
+                            Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
+                            Node::new(Statement::Constant(Value::integer(1)), (6, 7))
+                        )]),
+                        (0, 9)
+                    )
+                },
+                source
+            })
+        );
+    }
+
+    #[test]
+    fn nonexistant_field_string() {
+        let source = "{ x = 1 }.'y'";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::UndefinedField {
+                    identifier: Node::new(Statement::Constant(Value::string("y")), (10, 13)),
+                    map: Node::new(
+                        Statement::Map(vec![(
+                            Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
+                            Node::new(Statement::Constant(Value::integer(1)), (6, 7))
+                        )]),
+                        (0, 9)
+                    )
                 },
                 source
             })

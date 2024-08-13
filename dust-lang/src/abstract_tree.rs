@@ -147,7 +147,7 @@ impl Statement {
                 BinaryOperator::ListIndex => {
                     let left_type = left.inner.expected_type(context)?;
 
-                    if let Type::List { item_type } = left_type {
+                    if let Type::List { item_type, .. } = left_type {
                         Some(*item_type)
                     } else {
                         None
@@ -167,6 +167,7 @@ impl Statement {
 
                 Some(Type::List {
                     item_type: Box::new(item_type),
+                    length: nodes.len(),
                 })
             }
             Statement::Map(nodes) => {

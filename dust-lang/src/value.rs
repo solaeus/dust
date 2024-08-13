@@ -679,6 +679,7 @@ impl ValueInner {
 
                 Type::List {
                     item_type: Box::new(item_type),
+                    length: values.len(),
                 }
             }
             ValueInner::Map(value_map) => {
