@@ -912,7 +912,7 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{abstract_tree::BinaryOperator, Identifier, StructDefinition, UnaryOperator};
+    use crate::{BinaryOperator, Identifier, StructDefinition, UnaryOperator};
 
     use super::*;
 

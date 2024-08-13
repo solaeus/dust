@@ -24,7 +24,7 @@ pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use lexer::{lex, LexError, Lexer};
 pub use parser::{parse, ParseError, Parser};
-pub use r#type::Type;
+pub use r#type::{StructType, Type};
 pub use token::{Token, TokenKind, TokenOwned};
 pub use value::{Struct, Value, ValueError};
 pub use vm::{run, run_with_context, Vm, VmError};

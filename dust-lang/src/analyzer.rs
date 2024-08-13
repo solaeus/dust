@@ -11,7 +11,8 @@ use std::{
 
 use crate::{
     abstract_tree::{BinaryOperator, UnaryOperator},
-    parse, AbstractSyntaxTree, Context, DustError, Identifier, Node, Span, Statement, Type,
+    parse, AbstractSyntaxTree, Context, DustError, Identifier, Node, Span, Statement,
+    StructDefinition, StructType, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -420,7 +421,18 @@ impl<'a> Analyzer<'a> {
             Statement::Nil(node) => {
                 self.analyze_statement(node)?;
             }
-            Statement::StructDefinition(_) => {}
+            Statement::StructDefinition(struct_definition) => {
+                let (name, r#type) = match struct_definition {
+                    StructDefinition::Unit { name } => (
+                        name.inner.clone(),
+                        Type::Struct(StructType::Unit {
+                            name: name.inner.clone(),
+                        }),
+                    ),
+                };
+
+                self.context.set_type(name, r#type, node.position);
+            }
             Statement::UnaryOperation { operator, operand } => {
                 self.analyze_statement(operand)?;
 

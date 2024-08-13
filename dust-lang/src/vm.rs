@@ -11,8 +11,8 @@ use std::{
 
 use crate::{
     parse, value::ValueInner, AbstractSyntaxTree, Analyzer, BinaryOperator, BuiltInFunctionError,
-    Context, DustError, Identifier, Node, ParseError, Span, Statement, StructDefinition, Type,
-    UnaryOperator, Value, ValueError,
+    Context, DustError, Identifier, Node, ParseError, Span, Statement, StructDefinition,
+    StructType, Type, UnaryOperator, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -378,12 +378,20 @@ impl Vm {
                 let value_option = self.context.get_value(&identifier);
 
                 if let Some(value) = value_option {
-                    Ok(Some(value.clone()))
-                } else {
-                    Err(VmError::UndefinedVariable {
-                        identifier: Node::new(Statement::Identifier(identifier), node.position),
-                    })
+                    return Ok(Some(value.clone()));
                 }
+
+                let type_option = self.context.get_type(&identifier);
+
+                println!("{type_option:?}");
+
+                if let Some(Type::Struct(struct_type)) = type_option {
+                    return Ok(Some(Value::r#struct(struct_type.instantiate())));
+                }
+
+                Err(VmError::UndefinedVariable {
+                    identifier: Node::new(Statement::Identifier(identifier), node.position),
+                })
             }
             Statement::If { condition, body } => {
                 let condition_position = condition.position;
@@ -578,9 +586,12 @@ impl Vm {
             }
             Statement::StructDefinition(struct_definition) => {
                 let (type_name, r#type) = match struct_definition {
-                    StructDefinition::Unit { name } => {
-                        (name.inner.clone(), Type::Defined(name.inner.clone()))
-                    }
+                    StructDefinition::Unit { name } => (
+                        name.inner.clone(),
+                        Type::Struct(StructType::Unit {
+                            name: name.inner.clone(),
+                        }),
+                    ),
                 };
 
                 self.context.set_type(type_name, r#type, node.position);
@@ -797,7 +808,21 @@ impl Display for VmError {
 
 #[cfg(test)]
 mod tests {
+    use crate::Struct;
+
     use super::*;
+
+    #[test]
+    fn define_and_instantiate_unit_struct() {
+        let input = "struct Foo Foo";
+
+        assert_eq!(
+            run(input),
+            Ok(Some(Value::r#struct(Struct::Unit {
+                name: Identifier::new("Foo")
+            })))
+        );
+    }
 
     #[test]
     fn list_index_nested() {

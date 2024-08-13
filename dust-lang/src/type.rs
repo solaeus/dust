@@ -16,7 +16,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::Identifier;
+use crate::{Identifier, Struct};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TypeConflict {
@@ -31,7 +31,6 @@ pub struct TypeConflict {
 pub enum Type {
     Any,
     Boolean,
-    Defined(Identifier),
     Enum {
         name: Identifier,
         type_parameters: Option<Vec<Type>>,
@@ -252,7 +251,6 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
-            Type::Defined(identifier) => write!(f, "{identifier}"),
             Type::Enum { variants, .. } => {
                 write!(f, "enum ")?;
 
@@ -352,6 +350,15 @@ pub enum StructType {
         name: Identifier,
         fields: Vec<(Identifier, Type)>,
     },
+}
+
+impl StructType {
+    pub fn instantiate(&self) -> Struct {
+        match self {
+            StructType::Unit { name } => Struct::Unit { name: name.clone() },
+            _ => todo!(),
+        }
+    }
 }
 
 impl Display for StructType {

@@ -14,7 +14,7 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{identifier::Identifier, AbstractSyntaxTree, Context, Type, Vm, VmError};
+use crate::{identifier::Identifier, AbstractSyntaxTree, Context, StructType, Type, Vm, VmError};
 
 /// Dust value representation
 ///
@@ -699,7 +699,11 @@ impl ValueInner {
             }
             ValueInner::Range(_) => Type::Range,
             ValueInner::String(_) => Type::String,
-            ValueInner::Struct(r#struct) => Type::Defined(r#struct.name().clone()),
+            ValueInner::Struct(r#struct) => match r#struct {
+                Struct::Unit { name } => Type::Struct(StructType::Unit { name: name.clone() }),
+                Struct::Tuple { .. } => todo!(),
+                Struct::Fields { .. } => todo!(),
+            },
         }
     }
 
