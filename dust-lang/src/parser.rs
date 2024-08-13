@@ -13,7 +13,8 @@ use std::{
 
 use crate::{
     AbstractSyntaxTree, BinaryOperator, BuiltInFunction, DustError, Identifier, LexError, Lexer,
-    Node, Span, Statement, StructDefinition, Token, TokenKind, TokenOwned, UnaryOperator, Value,
+    Node, Span, Statement, StructDefinition, Token, TokenKind, TokenOwned, Type, UnaryOperator,
+    Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -575,16 +576,50 @@ impl<'src> Parser<'src> {
             (Token::Struct, left_position) => {
                 self.next_token()?;
 
-                if let Token::Identifier(_) = self.current.0 {
-                    let name = self.parse_identifier()?;
-                    let name_end = name.position.1;
+                let (name, name_end) = if let Token::Identifier(_) = self.current.0 {
+                    let position = self.current.1 .1;
 
+                    (self.parse_identifier()?, position)
+                } else {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenKind::Identifier,
+                        actual: self.current.0.to_owned(),
+                        position: self.current.1,
+                    });
+                };
+
+                if let Token::LeftParenthesis = self.current.0 {
+                    self.next_token()?;
+
+                    let mut types = Vec::new();
+
+                    loop {
+                        if let (Token::RightParenthesis, right_position) = self.current {
+                            self.next_token()?;
+
+                            return Ok(Node::new(
+                                Statement::StructDefinition(StructDefinition::Tuple {
+                                    name,
+                                    fields: types,
+                                }),
+                                (left_position.0, right_position.1),
+                            ));
+                        }
+
+                        if let (Token::Comma, _) = self.current {
+                            self.next_token()?;
+                            continue;
+                        }
+
+                        let type_node = self.parse_type()?;
+
+                        types.push(type_node);
+                    }
+                } else {
                     Ok(Node::new(
                         Statement::StructDefinition(StructDefinition::Unit { name }),
                         (left_position.0, name_end),
                     ))
-                } else {
-                    todo!()
                 }
             }
             (Token::While, left_position) => {
@@ -826,6 +861,26 @@ impl<'src> Parser<'src> {
             statements.push(statement);
         }
     }
+
+    fn parse_type(&mut self) -> Result<Node<Type>, ParseError> {
+        let r#type = match self.current.0 {
+            Token::Bool => Type::Boolean,
+            Token::FloatKeyword => Type::Float,
+            Token::Int => Type::Integer,
+            _ => {
+                return Err(ParseError::ExpectedTokenMultiple {
+                    expected: vec![TokenKind::Bool, TokenKind::FloatKeyword, TokenKind::Int],
+                    actual: self.current.0.to_owned(),
+                    position: self.current.1,
+                });
+            }
+        };
+        let position = self.current.1;
+
+        self.next_token()?;
+
+        Ok(Node::new(r#type, position))
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -844,6 +899,11 @@ pub enum ParseError {
     },
     ExpectedToken {
         expected: TokenKind,
+        actual: TokenOwned,
+        position: Span,
+    },
+    ExpectedTokenMultiple {
+        expected: Vec<TokenKind>,
         actual: TokenOwned,
         position: Span,
     },
@@ -874,6 +934,7 @@ impl ParseError {
             ParseError::ExpectedAssignment { actual } => actual.position,
             ParseError::ExpectedIdentifier { position, .. } => *position,
             ParseError::ExpectedToken { position, .. } => *position,
+            ParseError::ExpectedTokenMultiple { position, .. } => *position,
             ParseError::FloatError { position, .. } => *position,
             ParseError::IntegerError { position, .. } => *position,
             ParseError::LexError(error) => error.position(),
@@ -902,6 +963,23 @@ impl Display for ParseError {
             Self::ExpectedToken {
                 expected, actual, ..
             } => write!(f, "Expected token {expected}, found {actual}"),
+            Self::ExpectedTokenMultiple {
+                expected, actual, ..
+            } => {
+                write!(f, "Expected one of")?;
+
+                for (i, token_kind) in expected.iter().enumerate() {
+                    if i == 0 {
+                        write!(f, " {token_kind}")?;
+                    } else if i == expected.len() - 1 {
+                        write!(f, " or {token_kind}")?;
+                    } else {
+                        write!(f, ", {token_kind}")?;
+                    }
+                }
+
+                write!(f, ", found {actual}")
+            }
             Self::FloatError { error, .. } => write!(f, "{}", error),
             Self::IntegerError { error, .. } => write!(f, "{}", error),
             Self::LexError(error) => write!(f, "{}", error),
@@ -912,9 +990,31 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{BinaryOperator, Identifier, StructDefinition, UnaryOperator};
+    use crate::{BinaryOperator, Identifier, StructDefinition, Type, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn tuple_struct() {
+        let input = "struct Foo(int, float)";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::StructDefinition(StructDefinition::Tuple {
+                        name: Node::new(Identifier::new("Foo"), (7, 10)),
+                        fields: vec![
+                            Node::new(Type::Integer, (11, 14)),
+                            Node::new(Type::Float, (16, 21))
+                        ]
+                    }),
+                    (0, 22)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn unit_struct() {

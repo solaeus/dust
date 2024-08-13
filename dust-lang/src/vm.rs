@@ -592,6 +592,9 @@ impl Vm {
                             name: name.inner.clone(),
                         }),
                     ),
+                    StructDefinition::Tuple { name, fields } => {
+                        todo!()
+                    }
                 };
 
                 self.context.set_type(type_name, r#type, node.position);
@@ -811,6 +814,22 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn assign_unit_struct_variable() {
+        let input = "
+            struct Foo
+            x = Foo
+            x
+        ";
+
+        assert_eq!(
+            run(input),
+            Ok(Some(Value::r#struct(Struct::Unit {
+                name: Identifier::new("Foo")
+            })))
+        )
+    }
 
     #[test]
     fn define_and_instantiate_unit_struct() {

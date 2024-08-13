@@ -14,7 +14,7 @@ use serde::{
     Deserialize, Deserializer, Serialize,
 };
 
-use crate::{identifier::Identifier, AbstractSyntaxTree, Context, StructType, Type, Vm, VmError};
+use crate::{AbstractSyntaxTree, Context, Identifier, StructType, Type, Vm, VmError};
 
 /// Dust value representation
 ///

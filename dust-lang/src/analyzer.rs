@@ -429,6 +429,9 @@ impl<'a> Analyzer<'a> {
                             name: name.inner.clone(),
                         }),
                     ),
+                    StructDefinition::Tuple { name, fields } => {
+                        todo!()
+                    }
                 };
 
                 self.context.set_type(name, r#type, node.position);

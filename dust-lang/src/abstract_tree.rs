@@ -442,13 +442,32 @@ pub enum UnaryOperator {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StructDefinition {
-    Unit { name: Node<Identifier> },
+    Unit {
+        name: Node<Identifier>,
+    },
+    Tuple {
+        name: Node<Identifier>,
+        fields: Vec<Node<Type>>,
+    },
 }
 
 impl Display for StructDefinition {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             StructDefinition::Unit { name } => write!(f, "struct {name}"),
+            StructDefinition::Tuple { name, fields } => {
+                write!(f, "struct {name} {{")?;
+
+                for (i, field) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{field}")?;
+                }
+
+                write!(f, "}}")
+            }
         }
     }
 }
