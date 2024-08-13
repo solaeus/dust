@@ -34,6 +34,12 @@ impl<T: Display> Display for Node<T> {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
+    Assignment {
+        identifier: Node<Identifier>,
+        operator: Node<AssignmentOperator>,
+        value: Box<Node<Statement>>,
+    },
+
     // A sequence of statements
     Block(Vec<Node<Statement>>),
 
@@ -99,7 +105,7 @@ pub enum Statement {
 
     // Value collection expressions
     List(Vec<Node<Statement>>),
-    Map(Vec<(Node<Statement>, Node<Statement>)>),
+    Map(Vec<(Node<Identifier>, Node<Statement>)>),
 
     // Hard-coded value
     Constant(Value),
@@ -112,6 +118,7 @@ pub enum Statement {
 impl Statement {
     pub fn expected_type(&self, context: &Context) -> Option<Type> {
         match self {
+            Statement::Assignment { .. } => None,
             Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(context),
             Statement::BinaryOperation {
                 left,
@@ -131,8 +138,6 @@ impl Statement {
                 | BinaryOperator::LessOrEqual
                 | BinaryOperator::And
                 | BinaryOperator::Or => Some(Type::Boolean),
-
-                BinaryOperator::Assign | BinaryOperator::AddAssign => None,
 
                 BinaryOperator::FieldAccess => {
                     let left_type = left.inner.expected_type(context)?;
@@ -180,9 +185,7 @@ impl Statement {
                 let mut types = BTreeMap::new();
 
                 for (identifier, item) in nodes {
-                    if let Statement::Identifier(identifier) = &identifier.inner {
-                        types.insert(identifier.clone(), item.inner.expected_type(context)?);
-                    }
+                    types.insert(identifier.inner.clone(), item.inner.expected_type(context)?);
                 }
 
                 Some(Type::Map(types))
@@ -215,7 +218,7 @@ impl Statement {
         }
     }
 
-    pub fn map_properties_mut(&mut self) -> Option<&mut Vec<(Node<Statement>, Node<Statement>)>> {
+    pub fn map_properties_mut(&mut self) -> Option<&mut Vec<(Node<Identifier>, Node<Statement>)>> {
         match self {
             Statement::Map(properties) => Some(properties),
             _ => None,
@@ -226,6 +229,13 @@ impl Statement {
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Statement::Assignment {
+                identifier,
+                operator,
+                value,
+            } => {
+                write!(f, "{identifier} {operator} {value}")
+            }
             Statement::Block(statements) => {
                 write!(f, "{{ ")?;
 
@@ -248,8 +258,6 @@ impl Display for Statement {
                     BinaryOperator::FieldAccess => return write!(f, "{left}.{right}"),
                     BinaryOperator::ListIndex => return write!(f, "{left}[{right}]"),
                     BinaryOperator::Add => "+",
-                    BinaryOperator::AddAssign => "+=",
-                    BinaryOperator::Assign => "=",
                     BinaryOperator::Divide => "/",
                     BinaryOperator::Equal => "==",
                     BinaryOperator::Greater => ">",
@@ -423,6 +431,25 @@ impl Display for Statement {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum AssignmentOperator {
+    Assign,
+    AddAssign,
+    SubtractAssign,
+}
+
+impl Display for AssignmentOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let operator = match self {
+            AssignmentOperator::Assign => "=",
+            AssignmentOperator::AddAssign => "+=",
+            AssignmentOperator::SubtractAssign => "-=",
+        };
+
+        write!(f, "{operator}")
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BinaryOperator {
     // Accessors
     FieldAccess,
@@ -445,10 +472,6 @@ pub enum BinaryOperator {
     // Logic
     And,
     Or,
-
-    // Assignment
-    Assign,
-    AddAssign,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]

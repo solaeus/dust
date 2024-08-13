@@ -75,28 +75,29 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_statement(&mut self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
         match &node.inner {
+            Statement::Assignment {
+                identifier, value, ..
+            } => {
+                self.analyze_statement(value)?;
+
+                let value_type = value.inner.expected_type(self.context);
+
+                if let Some(r#type) = value_type {
+                    self.context
+                        .set_type(identifier.inner.clone(), r#type, identifier.position);
+                } else {
+                    return Err(AnalyzerError::ExpectedValue {
+                        actual: value.as_ref().clone(),
+                    });
+                }
+
+                return Ok(());
+            }
             Statement::BinaryOperation {
                 left,
                 operator,
                 right,
             } => {
-                if let BinaryOperator::Assign | BinaryOperator::AddAssign = operator.inner {
-                    self.analyze_statement(right)?;
-
-                    if let Statement::Identifier(identifier) = &left.inner {
-                        let right_type = right.inner.expected_type(self.context).ok_or(
-                            AnalyzerError::ExpectedValue {
-                                actual: right.as_ref().clone(),
-                            },
-                        )?;
-
-                        self.context
-                            .set_type(identifier.clone(), right_type, left.position);
-
-                        return Ok(());
-                    }
-                }
-
                 if let BinaryOperator::FieldAccess = operator.inner {
                     self.analyze_statement(left)?;
 
@@ -738,7 +739,7 @@ mod tests {
                     identifier: Node::new(Statement::Identifier(Identifier::new("y")), (10, 11)),
                     statement: Node::new(
                         Statement::Map(vec![(
-                            Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
+                            Node::new(Identifier::new("x"), (2, 3)),
                             Node::new(Statement::Constant(Value::integer(1)), (6, 7))
                         )]),
                         (0, 9)
@@ -760,7 +761,7 @@ mod tests {
                     identifier: Node::new(Statement::Constant(Value::string("y")), (10, 13)),
                     statement: Node::new(
                         Statement::Map(vec![(
-                            Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
+                            Node::new(Identifier::new("x"), (2, 3)),
                             Node::new(Statement::Constant(Value::integer(1)), (6, 7))
                         )]),
                         (0, 9)

@@ -12,9 +12,9 @@ use std::{
 };
 
 use crate::{
-    AbstractSyntaxTree, BinaryOperator, BuiltInFunction, DustError, Identifier, LexError, Lexer,
-    Node, Span, Statement, StructDefinition, Token, TokenKind, TokenOwned, Type, UnaryOperator,
-    Value,
+    AbstractSyntaxTree, AssignmentOperator, BinaryOperator, BuiltInFunction, DustError, Identifier,
+    LexError, Lexer, Node, Span, Statement, StructDefinition, Token, TokenKind, TokenOwned, Type,
+    UnaryOperator, Value,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -22,7 +22,7 @@ use crate::{
 /// # Examples
 /// ```
 /// # use dust_lang::*;
-/// let tree = parse("x = 42").unwrap();
+/// let tree = parse("x + 42").unwrap();
 ///
 /// assert_eq!(
 ///     tree,
@@ -35,7 +35,7 @@ use crate::{
 ///                         (0, 1),
 ///                     )),
 ///                     operator: Node::new(
-///                         BinaryOperator::Assign,
+///                         BinaryOperator::Add,
 ///                         (2, 3)
 ///                     ),
 ///                     right: Box::new(Node::new(
@@ -93,28 +93,8 @@ pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
 ///     }
 /// }
 ///
-/// assert_eq!(
-///     nodes,
-///     Into::<VecDeque<Node<Statement>>>::into([
-///         Node::new(
-///             Statement::BinaryOperation {
-///                 left: Box::new(Node::new(
-///                     Statement::Identifier(Identifier::new("x")),
-///                     (0, 1),
-///                 )),
-///                 operator: Node::new(
-///                     BinaryOperator::Assign,
-///                     (2, 3),
-///                 ),
-///                 right: Box::new(Node::new(
-///                     Statement::Constant(Value::integer(42)),
-///                     (4, 6),
-///                 )),
-///             },
-///             (0, 6),
-///         )
-///     ]),
-/// );
+/// let tree = AbstractSyntaxTree { nodes };
+///
 /// ```
 pub struct Parser<'src> {
     source: &'src str,
@@ -382,14 +362,14 @@ impl<'src> Parser<'src> {
                 // Determine whether the new statement is a block or a map
                 //
                 // If the first node is an assignment, this might be a map
-                let mut statement = if let Statement::BinaryOperation {
-                    left,
+                let mut statement = if let Statement::Assignment {
+                    identifier: left,
                     operator:
                         Node {
-                            inner: BinaryOperator::Assign,
-                            ..
+                            inner: AssignmentOperator::Assign,
+                            position: operator_position,
                         },
-                    right,
+                    value: right,
                 } = first_node.inner
                 {
                     // If the current token is a comma or closing brace
@@ -400,14 +380,14 @@ impl<'src> Parser<'src> {
                         }
 
                         // The new statement is a map
-                        Statement::Map(vec![(*left, *right)])
+                        Statement::Map(vec![(left, *right)])
                     } else {
                         // Otherwise, the new statement is a block
                         Statement::Block(vec![Node::new(
-                            Statement::BinaryOperation {
-                                left,
-                                operator: Node::new(BinaryOperator::Assign, (0, 0)),
-                                right,
+                            Statement::Assignment {
+                                identifier: left,
+                                operator: Node::new(AssignmentOperator::Assign, operator_position),
+                                value: right,
                             },
                             first_node.position,
                         )])
@@ -437,18 +417,18 @@ impl<'src> Parser<'src> {
                     // If the new statement is already a map
                     if let Some(map_properties) = statement.map_properties_mut() {
                         // Expect the next node to be an assignment
-                        if let Statement::BinaryOperation {
-                            left,
+                        if let Statement::Assignment {
+                            identifier,
                             operator:
                                 Node {
-                                    inner: BinaryOperator::Assign,
+                                    inner: AssignmentOperator::Assign,
                                     ..
                                 },
-                            right,
+                            value,
                         } = next_node.inner
                         {
                             // Add the new property to the map
-                            map_properties.push((*left, *right));
+                            map_properties.push((identifier, *value));
 
                             // Allow commas after properties
                             if let Token::Comma = self.current.0 {
@@ -654,6 +634,39 @@ impl<'src> Parser<'src> {
             };
         let left_start = left.position.0;
 
+        if let Token::Equal | Token::PlusEqual | Token::MinusEqual = &self.current.0 {
+            let operator_position = self.current.1;
+            let operator = match self.current.0 {
+                Token::Equal => AssignmentOperator::Assign,
+                Token::PlusEqual => AssignmentOperator::AddAssign,
+                Token::MinusEqual => AssignmentOperator::SubtractAssign,
+                _ => unreachable!(),
+            };
+
+            self.next_token()?;
+
+            let identifier = if let Statement::Identifier(identifier) = left.inner {
+                Node::new(identifier, left.position)
+            } else {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::Identifier,
+                    actual: self.current.0.to_owned(),
+                    position: self.current.1,
+                });
+            };
+            let right = self.parse_statement(operator_precedence)?;
+            let right_end = right.position.1;
+
+            return Ok(Node::new(
+                Statement::Assignment {
+                    identifier,
+                    operator: Node::new(operator, operator_position),
+                    value: Box::new(right),
+                },
+                (left_start, right_end),
+            ));
+        }
+
         if let Token::Dot = &self.current.0 {
             let operator_position = self.current.1;
 
@@ -724,14 +737,12 @@ impl<'src> Parser<'src> {
             Token::DoubleAmpersand => Node::new(BinaryOperator::And, self.current.1),
             Token::DoubleEqual => Node::new(BinaryOperator::Equal, self.current.1),
             Token::DoublePipe => Node::new(BinaryOperator::Or, self.current.1),
-            Token::Equal => Node::new(BinaryOperator::Assign, self.current.1),
             Token::Greater => Node::new(BinaryOperator::Greater, self.current.1),
             Token::GreaterEqual => Node::new(BinaryOperator::GreaterOrEqual, self.current.1),
             Token::Less => Node::new(BinaryOperator::Less, self.current.1),
             Token::LessEqual => Node::new(BinaryOperator::LessOrEqual, self.current.1),
             Token::Minus => Node::new(BinaryOperator::Subtract, self.current.1),
             Token::Plus => Node::new(BinaryOperator::Add, self.current.1),
-            Token::PlusEqual => Node::new(BinaryOperator::AddAssign, self.current.1),
             Token::Star => Node::new(BinaryOperator::Multiply, self.current.1),
             Token::Slash => Node::new(BinaryOperator::Divide, self.current.1),
             Token::Percent => Node::new(BinaryOperator::Modulo, self.current.1),
@@ -1168,16 +1179,10 @@ mod tests {
                             Statement::BinaryOperation {
                                 left: Box::new(Node::new(
                                     Statement::Map(vec![(
-                                        Node::new(
-                                            Statement::Identifier(Identifier::new("x")),
-                                            (2, 3)
-                                        ),
+                                        Node::new(Identifier::new("x"), (2, 3)),
                                         Node::new(
                                             Statement::Map(vec![(
-                                                Node::new(
-                                                    Statement::Identifier(Identifier::new("y")),
-                                                    (8, 9)
-                                                ),
+                                                Node::new(Identifier::new("y"), (8, 9)),
                                                 Node::new(
                                                     Statement::Constant(Value::integer(42)),
                                                     (12, 14)
@@ -1231,13 +1236,10 @@ mod tests {
                 nodes: [
                     Node::new(
                         Statement::Nil(Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("a")),
-                                    (0, 1)
-                                )),
-                                operator: Node::new(BinaryOperator::Assign, (2, 3)),
-                                right: Box::new(Node::new(
+                            Statement::Assignment {
+                                identifier: Node::new(Identifier::new("a"), (0, 1)),
+                                operator: Node::new(AssignmentOperator::Assign, (2, 3)),
+                                value: Box::new(Node::new(
                                     Statement::Constant(Value::integer(1)),
                                     (4, 5)
                                 )),
@@ -1336,13 +1338,10 @@ mod tests {
                 nodes: [
                     Node::new(
                         Statement::Nil(Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("a")),
-                                    (0, 1)
-                                )),
-                                operator: Node::new(BinaryOperator::Assign, (2, 3)),
-                                right: Box::new(Node::new(
+                            Statement::Assignment {
+                                identifier: Node::new(Identifier::new("a"), (0, 1)),
+                                operator: Node::new(AssignmentOperator::Assign, (2, 3)),
+                                value: Box::new(Node::new(
                                     Statement::Constant(Value::boolean(false)),
                                     (4, 9)
                                 )),
@@ -1486,13 +1485,10 @@ mod tests {
                 parse_error: ParseError::ExpectedAssignment {
                     actual: Node::new(
                         Statement::Nil(Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("z")),
-                                    (16, 17)
-                                )),
-                                operator: Node::new(BinaryOperator::Assign, (18, 19)),
-                                right: Box::new(Node::new(
+                            Statement::Assignment {
+                                identifier: Node::new(Identifier::new("z"), (16, 17)),
+                                operator: Node::new(AssignmentOperator::Assign, (18, 19)),
+                                value: Box::new(Node::new(
                                     Statement::Constant(Value::integer(3)),
                                     (20, 21)
                                 )),
@@ -1531,13 +1527,10 @@ mod tests {
                         )),
                         body: Box::new(Node::new(
                             Statement::Block(vec![Node::new(
-                                Statement::BinaryOperation {
-                                    left: Box::new(Node::new(
-                                        Statement::Identifier(Identifier::new("x")),
-                                        (15, 16)
-                                    )),
-                                    operator: Node::new(BinaryOperator::AddAssign, (17, 19)),
-                                    right: Box::new(Node::new(
+                                Statement::Assignment {
+                                    identifier: Node::new(Identifier::new("x"), (15, 16)),
+                                    operator: Node::new(AssignmentOperator::AddAssign, (17, 19)),
+                                    value: Box::new(Node::new(
                                         Statement::Constant(Value::integer(1)),
                                         (20, 21)
                                     )),
@@ -1562,13 +1555,10 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("a")),
-                            (0, 1)
-                        )),
-                        operator: Node::new(BinaryOperator::AddAssign, (2, 4)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(1)), (5, 6))),
+                    Statement::Assignment {
+                        identifier: Node::new(Identifier::new("a"), (0, 1)),
+                        operator: Node::new(AssignmentOperator::AddAssign, (2, 4)),
+                        value: Box::new(Node::new(Statement::Constant(Value::integer(1)), (5, 6))),
                     },
                     (0, 6)
                 )]
@@ -1659,13 +1649,10 @@ mod tests {
                     Statement::Block(vec![
                         Node::new(
                             Statement::Nil(Box::new(Node::new(
-                                Statement::BinaryOperation {
-                                    left: Box::new(Node::new(
-                                        Statement::Identifier(Identifier::new("foo")),
-                                        (2, 5)
-                                    )),
-                                    operator: Node::new(BinaryOperator::Assign, (6, 7)),
-                                    right: Box::new(Node::new(
+                                Statement::Assignment {
+                                    identifier: Node::new(Identifier::new("foo"), (2, 5)),
+                                    operator: Node::new(AssignmentOperator::Assign, (6, 7)),
+                                    value: Box::new(Node::new(
                                         Statement::Constant(Value::integer(42)),
                                         (8, 10)
                                     )),
@@ -1676,13 +1663,10 @@ mod tests {
                         ),
                         Node::new(
                             Statement::Nil(Box::new(Node::new(
-                                Statement::BinaryOperation {
-                                    left: Box::new(Node::new(
-                                        Statement::Identifier(Identifier::new("bar")),
-                                        (12, 15)
-                                    )),
-                                    operator: Node::new(BinaryOperator::Assign, (16, 17)),
-                                    right: Box::new(Node::new(
+                                Statement::Assignment {
+                                    identifier: Node::new(Identifier::new("bar"), (12, 15)),
+                                    operator: Node::new(AssignmentOperator::Assign, (16, 17)),
+                                    value: Box::new(Node::new(
                                         Statement::Constant(Value::integer(42)),
                                         (18, 20)
                                     )),
@@ -1692,13 +1676,10 @@ mod tests {
                             (12, 21)
                         ),
                         Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("baz")),
-                                    (22, 25)
-                                )),
-                                operator: Node::new(BinaryOperator::Assign, (26, 27)),
-                                right: Box::new(Node::new(
+                            Statement::Assignment {
+                                identifier: Node::new(Identifier::new("baz"), (22, 25)),
+                                operator: Node::new(AssignmentOperator::Assign, (26, 27)),
+                                value: Box::new(Node::new(
                                     Statement::Constant(Value::string("42")),
                                     (28, 32)
                                 )),
@@ -1735,15 +1716,15 @@ mod tests {
                 nodes: [Node::new(
                     Statement::Map(vec![
                         (
-                            Node::new(Statement::Identifier(Identifier::new("foo")), (2, 5)),
+                            Node::new(Identifier::new("foo"), (2, 5)),
                             Node::new(Statement::Constant(Value::integer(42)), (8, 10))
                         ),
                         (
-                            Node::new(Statement::Identifier(Identifier::new("bar")), (12, 15)),
+                            Node::new(Identifier::new("bar"), (12, 15)),
                             Node::new(Statement::Constant(Value::integer(42)), (18, 20))
                         ),
                         (
-                            Node::new(Statement::Identifier(Identifier::new("baz")), (22, 25)),
+                            Node::new(Identifier::new("baz"), (22, 25)),
                             Node::new(Statement::Constant(Value::string("42")), (28, 32))
                         ),
                     ]),
@@ -1764,11 +1745,11 @@ mod tests {
                 nodes: [Node::new(
                     Statement::Map(vec![
                         (
-                            Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
+                            Node::new(Identifier::new("x"), (2, 3)),
                             Node::new(Statement::Constant(Value::integer(42)), (6, 8))
                         ),
                         (
-                            Node::new(Statement::Identifier(Identifier::new("y")), (10, 11)),
+                            Node::new(Identifier::new("y"), (10, 11)),
                             Node::new(Statement::Constant(Value::string("foobar")), (14, 22))
                         )
                     ]),
@@ -1788,7 +1769,7 @@ mod tests {
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
                     Statement::Map(vec![(
-                        Node::new(Statement::Identifier(Identifier::new("x")), (2, 3)),
+                        Node::new(Identifier::new("x"), (2, 3)),
                         Node::new(Statement::Constant(Value::integer(42)), (6, 8))
                     )]),
                     (0, 10)
@@ -2271,13 +2252,10 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("a")),
-                            (0, 1)
-                        )),
-                        operator: Node::new(BinaryOperator::Assign, (2, 3)),
-                        right: Box::new(Node::new(
+                    Statement::Assignment {
+                        identifier: Node::new(Identifier::new("a"), (0, 1)),
+                        operator: Node::new(AssignmentOperator::Assign, (2, 3)),
+                        value: Box::new(Node::new(
                             Statement::BinaryOperation {
                                 left: Box::new(Node::new(
                                     Statement::Constant(Value::integer(1)),

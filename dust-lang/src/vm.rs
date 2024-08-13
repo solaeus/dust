@@ -10,9 +10,10 @@ use std::{
 };
 
 use crate::{
-    parse, value::ValueInner, AbstractSyntaxTree, Analyzer, BinaryOperator, BuiltInFunctionError,
-    Context, DustError, Identifier, Node, ParseError, Span, Statement, Struct, StructDefinition,
-    StructInstantiation, StructType, Type, UnaryOperator, Value, ValueError,
+    parse, value::ValueInner, AbstractSyntaxTree, Analyzer, AssignmentOperator, BinaryOperator,
+    BuiltInFunctionError, Context, DustError, Identifier, Node, ParseError, Span, Statement,
+    Struct, StructDefinition, StructInstantiation, StructType, Type, UnaryOperator, Value,
+    ValueError,
 };
 
 /// Run the source code and return the result.
@@ -96,70 +97,59 @@ impl Vm {
 
     fn run_statement(&self, node: Node<Statement>) -> Result<Option<Value>, VmError> {
         match node.inner {
+            Statement::Assignment {
+                identifier,
+                operator,
+                value,
+            } => match operator.inner {
+                AssignmentOperator::Assign => {
+                    let position = value.position;
+                    let value = if let Some(value) = self.run_statement(*value)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue { position });
+                    };
+
+                    self.context.set_value(identifier.inner, value);
+
+                    Ok(None)
+                }
+                AssignmentOperator::AddAssign => {
+                    let left_value = if let Some(value) = self.context.get_value(&identifier.inner)
+                    {
+                        value
+                    } else {
+                        return Err(VmError::UndefinedVariable { identifier });
+                    };
+                    let value_position = value.position;
+                    let right_value = if let Some(value) = self.run_statement(*value)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: value_position,
+                        });
+                    };
+                    let new_value = left_value.add(&right_value).map_err(|value_error| {
+                        VmError::ValueError {
+                            error: value_error,
+                            position: (identifier.position.0, value_position.1),
+                        }
+                    })?;
+
+                    self.context.set_value(identifier.inner, new_value);
+
+                    Ok(None)
+                }
+                AssignmentOperator::SubtractAssign => {
+                    todo!()
+                }
+            },
             Statement::BinaryOperation {
                 left,
                 operator,
                 right,
             } => {
                 let right_position = right.position;
-
-                if let BinaryOperator::Assign = operator.inner {
-                    let identifier = if let Statement::Identifier(identifier) = left.inner {
-                        identifier
-                    } else {
-                        return Err(VmError::ExpectedIdentifier {
-                            position: left.position,
-                        });
-                    };
-                    let value = if let Some(value) = self.run_statement(*right)? {
-                        value
-                    } else {
-                        return Err(VmError::ExpectedValue {
-                            position: right_position,
-                        });
-                    };
-
-                    self.context.set_value(identifier, value);
-
-                    return Ok(None);
-                }
-
-                if let BinaryOperator::AddAssign = operator.inner {
-                    let (identifier, left_value) =
-                        if let Statement::Identifier(identifier) = left.inner {
-                            let value = self.context.get_value(&identifier).ok_or_else(|| {
-                                VmError::UndefinedVariable {
-                                    identifier: Node::new(
-                                        Statement::Identifier(identifier.clone()),
-                                        left.position,
-                                    ),
-                                }
-                            })?;
-
-                            (identifier, value)
-                        } else {
-                            return Err(VmError::ExpectedIdentifier {
-                                position: left.position,
-                            });
-                        };
-                    let right_value = if let Some(value) = self.run_statement(*right)? {
-                        value
-                    } else {
-                        return Err(VmError::ExpectedValue {
-                            position: right_position,
-                        });
-                    };
-                    let new_value = left_value.add(&right_value).map_err(|value_error| {
-                        VmError::ValueError {
-                            error: value_error,
-                            position: right_position,
-                        }
-                    })?;
-
-                    self.context.set_value(identifier, new_value);
-
-                    return Ok(None);
-                }
 
                 if let BinaryOperator::FieldAccess = operator.inner {
                     let left_span = left.position;
@@ -416,7 +406,7 @@ impl Vm {
                 }
 
                 Err(VmError::UndefinedVariable {
-                    identifier: Node::new(Statement::Identifier(identifier), node.position),
+                    identifier: Node::new(identifier, node.position),
                 })
             }
             Statement::If { condition, body } => {
@@ -586,13 +576,6 @@ impl Vm {
                 let mut values = BTreeMap::new();
 
                 for (identifier, value_node) in nodes {
-                    let identifier = if let Statement::Identifier(identifier) = identifier.inner {
-                        identifier
-                    } else {
-                        return Err(VmError::ExpectedIdentifier {
-                            position: identifier.position,
-                        });
-                    };
                     let position = value_node.position;
                     let value = if let Some(value) = self.run_statement(value_node)? {
                         value
@@ -600,7 +583,7 @@ impl Vm {
                         return Err(VmError::ExpectedValue { position });
                     };
 
-                    values.insert(identifier, value);
+                    values.insert(identifier.inner, value);
                 }
 
                 Ok(Some(Value::map(values)))
@@ -754,7 +737,7 @@ pub enum VmError {
         position: Span,
     },
     UndefinedVariable {
-        identifier: Node<Statement>,
+        identifier: Node<Identifier>,
     },
     UndefinedProperty {
         value: Value,
