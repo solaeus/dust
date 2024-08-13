@@ -59,10 +59,7 @@ pub enum Type {
     Number,
     Range,
     String,
-    Structure {
-        name: Identifier,
-        fields: Vec<(Identifier, Type)>,
-    },
+    Struct(StructType),
 }
 
 impl Type {
@@ -115,28 +112,8 @@ impl Type {
                     }
                 }
             }
-            (
-                Type::Structure {
-                    name: left_name,
-                    fields: left_fields,
-                },
-                Type::Structure {
-                    name: right_name,
-                    fields: right_fields,
-                },
-            ) => {
-                if left_name == right_name {
-                    for ((left_field_name, left_type), (right_field_name, right_type)) in
-                        left_fields.iter().zip(right_fields.iter())
-                    {
-                        if left_field_name != right_field_name || left_type != right_type {
-                            return Err(TypeConflict {
-                                actual: other.clone(),
-                                expected: self.clone(),
-                            });
-                        }
-                    }
-
+            (Type::Struct(left_struct_type), Type::Struct(right_struct_type)) => {
+                if left_struct_type == right_struct_type {
                     return Ok(());
                 }
             }
@@ -357,7 +334,56 @@ impl Display for Type {
                     Ok(())
                 }
             }
-            Type::Structure { name, .. } => write!(f, "{name}"),
+            Type::Struct(struct_type) => write!(f, "{struct_type}"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum StructType {
+    Unit {
+        name: Identifier,
+    },
+    Tuple {
+        name: Identifier,
+        types: Vec<Type>,
+    },
+    Fields {
+        name: Identifier,
+        fields: Vec<(Identifier, Type)>,
+    },
+}
+
+impl Display for StructType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            StructType::Unit { name } => write!(f, "struct {name}"),
+            StructType::Tuple { name, types } => {
+                write!(f, "struct {name}(")?;
+
+                for (index, r#type) in types.iter().enumerate() {
+                    write!(f, "{type}")?;
+
+                    if index != types.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, ")")
+            }
+            StructType::Fields { name, fields } => {
+                write!(f, "struct {name} {{")?;
+
+                for (index, (identifier, r#type)) in fields.iter().enumerate() {
+                    write!(f, "{identifier}: {type}")?;
+
+                    if index != fields.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, "}}")
+            }
         }
     }
 }

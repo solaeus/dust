@@ -500,6 +500,62 @@ mod tests {
     use super::*;
 
     #[test]
+    fn unit_struct() {
+        let input = "struct Foo";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Struct, (0, 6)),
+                (Token::Identifier("Foo"), (7, 10)),
+                (Token::Eof, (10, 10)),
+            ])
+        );
+    }
+
+    #[test]
+    fn tuple_struct() {
+        let input = "struct Foo(int, float)";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Struct, (0, 6)),
+                (Token::Identifier("Foo"), (7, 10)),
+                (Token::LeftParenthesis, (10, 11)),
+                (Token::Int, (11, 14)),
+                (Token::Comma, (14, 15)),
+                (Token::FloatKeyword, (16, 21)),
+                (Token::RightParenthesis, (21, 22)),
+                (Token::Eof, (22, 22))
+            ])
+        );
+    }
+
+    #[test]
+    fn fields_struct() {
+        let input = "struct FooBar { foo: int, bar: float }";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Struct, (0, 6)),
+                (Token::Identifier("FooBar"), (7, 13)),
+                (Token::LeftCurlyBrace, (14, 15)),
+                (Token::Identifier("foo"), (16, 19)),
+                (Token::Colon, (19, 20)),
+                (Token::Int, (21, 24)),
+                (Token::Comma, (24, 25)),
+                (Token::Identifier("bar"), (26, 29)),
+                (Token::Colon, (29, 30)),
+                (Token::FloatKeyword, (31, 36)),
+                (Token::RightCurlyBrace, (37, 38)),
+                (Token::Eof, (38, 38))
+            ])
+        );
+    }
+
+    #[test]
     fn list_index() {
         let input = "[1, 2, 3][1]";
 

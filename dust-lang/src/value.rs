@@ -88,6 +88,10 @@ impl Value {
         Value(Arc::new(ValueInner::String(to_string.to_string())))
     }
 
+    pub fn r#struct(r#struct: Struct) -> Self {
+        Value(Arc::new(ValueInner::Struct(r#struct)))
+    }
+
     pub fn r#type(&self) -> Type {
         self.0.r#type()
     }

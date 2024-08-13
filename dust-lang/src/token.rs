@@ -4,7 +4,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 /// Source code token.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Token<'src> {
     // End of file
     Eof,
@@ -268,53 +268,6 @@ impl<'src> Token<'src> {
 impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
-    }
-}
-
-impl<'src> PartialEq for Token<'src> {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Token::Bang, Token::Bang) => true,
-            (Token::Boolean(left), Token::Boolean(right)) => left == right,
-            (Token::Comma, Token::Comma) => true,
-            (Token::Dot, Token::Dot) => true,
-            (Token::DoubleAmpersand, Token::DoubleAmpersand) => true,
-            (Token::DoubleDot, Token::DoubleDot) => true,
-            (Token::DoubleEqual, Token::DoubleEqual) => true,
-            (Token::DoublePipe, Token::DoublePipe) => true,
-            (Token::Else, Token::Else) => true,
-            (Token::Eof, Token::Eof) => true,
-            (Token::Equal, Token::Equal) => true,
-            (Token::Float(left), Token::Float(right)) => left == right,
-            (Token::Greater, Token::Greater) => true,
-            (Token::GreaterEqual, Token::GreaterEqual) => true,
-            (Token::Identifier(left), Token::Identifier(right)) => left == right,
-            (Token::If, Token::If) => true,
-            (Token::Integer(left), Token::Integer(right)) => left == right,
-            (Token::IsEven, Token::IsEven) => true,
-            (Token::IsOdd, Token::IsOdd) => true,
-            (Token::LeftCurlyBrace, Token::LeftCurlyBrace) => true,
-            (Token::LeftParenthesis, Token::LeftParenthesis) => true,
-            (Token::LeftSquareBrace, Token::LeftSquareBrace) => true,
-            (Token::Length, Token::Length) => true,
-            (Token::Less, Token::Less) => true,
-            (Token::LessEqual, Token::LessEqual) => true,
-            (Token::Minus, Token::Minus) => true,
-            (Token::Percent, Token::Percent) => true,
-            (Token::Plus, Token::Plus) => true,
-            (Token::PlusEqual, Token::PlusEqual) => true,
-            (Token::ReadLine, Token::ReadLine) => true,
-            (Token::RightCurlyBrace, Token::RightCurlyBrace) => true,
-            (Token::RightParenthesis, Token::RightParenthesis) => true,
-            (Token::RightSquareBrace, Token::RightSquareBrace) => true,
-            (Token::Semicolon, Token::Semicolon) => true,
-            (Token::Star, Token::Star) => true,
-            (Token::Slash, Token::Slash) => true,
-            (Token::String(left), Token::String(right)) => left == right,
-            (Token::While, Token::While) => true,
-            (Token::WriteLine, Token::WriteLine) => true,
-            _ => false,
-        }
     }
 }
 
