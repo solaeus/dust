@@ -491,7 +491,11 @@ pub enum StructDefinition {
     },
     Tuple {
         name: Node<Identifier>,
-        fields: Vec<Node<Type>>,
+        items: Vec<Node<Type>>,
+    },
+    Fields {
+        name: Node<Identifier>,
+        fields: Vec<(Node<Identifier>, Node<Type>)>,
     },
 }
 
@@ -499,7 +503,10 @@ impl Display for StructDefinition {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             StructDefinition::Unit { name } => write!(f, "struct {name}"),
-            StructDefinition::Tuple { name, fields } => {
+            StructDefinition::Tuple {
+                name,
+                items: fields,
+            } => {
                 write!(f, "struct {name} {{")?;
 
                 for (i, field) in fields.iter().enumerate() {
@@ -508,6 +515,19 @@ impl Display for StructDefinition {
                     }
 
                     write!(f, "{field}")?;
+                }
+
+                write!(f, "}}")
+            }
+            StructDefinition::Fields { name, fields } => {
+                write!(f, "struct {name} {{")?;
+
+                for (i, (field_name, field_type)) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{field_name}: {field_type}")?;
                 }
 
                 write!(f, "}}")

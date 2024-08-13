@@ -307,7 +307,7 @@ impl<'a> Analyzer<'a> {
 
                     if let Some(Type::Struct(struct_type)) = invokee_type {
                         match struct_type {
-                            StructType::Unit { name } => todo!(),
+                            StructType::Unit { .. } => todo!(),
                             StructType::Tuple { fields, .. } => {
                                 for (expected_type, argument) in fields.iter().zip(arguments.iter())
                                 {
@@ -328,7 +328,7 @@ impl<'a> Analyzer<'a> {
                                     }
                                 }
                             }
-                            StructType::Fields { name, fields } => todo!(),
+                            StructType::Fields { .. } => todo!(),
                         }
                     }
                 }
@@ -459,13 +459,28 @@ impl<'a> Analyzer<'a> {
                             name: name.inner.clone(),
                         }),
                     ),
-                    StructDefinition::Tuple { name, fields } => (
+                    StructDefinition::Tuple {
+                        name,
+                        items: fields,
+                    } => (
                         name.inner.clone(),
                         Type::Struct(StructType::Tuple {
                             name: name.inner.clone(),
                             fields: fields
                                 .iter()
                                 .map(|type_node| type_node.inner.clone())
+                                .collect(),
+                        }),
+                    ),
+                    StructDefinition::Fields { name, fields } => (
+                        name.inner.clone(),
+                        Type::Struct(StructType::Fields {
+                            name: name.inner.clone(),
+                            fields: fields
+                                .iter()
+                                .map(|(identifier, r#type)| {
+                                    (identifier.inner.clone(), r#type.inner.clone())
+                                })
                                 .collect(),
                         }),
                     ),

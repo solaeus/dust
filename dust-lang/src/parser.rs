@@ -580,7 +580,7 @@ impl<'src> Parser<'src> {
                             return Ok(Node::new(
                                 Statement::StructDefinition(StructDefinition::Tuple {
                                     name,
-                                    fields: types,
+                                    items: types,
                                 }),
                                 (left_position.0, right_position.1),
                             ));
@@ -595,12 +595,53 @@ impl<'src> Parser<'src> {
 
                         types.push(type_node);
                     }
-                } else {
-                    Ok(Node::new(
-                        Statement::StructDefinition(StructDefinition::Unit { name }),
-                        (left_position.0, name_end),
-                    ))
                 }
+
+                if let Token::LeftCurlyBrace = self.current.0 {
+                    self.next_token()?;
+
+                    let mut fields = Vec::new();
+
+                    loop {
+                        if let (Token::RightCurlyBrace, right_position) = self.current {
+                            self.next_token()?;
+
+                            return Ok(Node::new(
+                                Statement::StructDefinition(StructDefinition::Fields {
+                                    name,
+                                    fields,
+                                }),
+                                (left_position.0, right_position.1),
+                            ));
+                        }
+
+                        if let (Token::Comma, _) = self.current {
+                            self.next_token()?;
+                            continue;
+                        }
+
+                        let field_name = self.parse_identifier()?;
+
+                        if let (Token::Colon, _) = self.current {
+                            self.next_token()?;
+                        } else {
+                            return Err(ParseError::ExpectedToken {
+                                expected: TokenKind::Colon,
+                                actual: self.current.0.to_owned(),
+                                position: self.current.1,
+                            });
+                        }
+
+                        let field_type = self.parse_type()?;
+
+                        fields.push((field_name, field_type));
+                    }
+                }
+
+                Ok(Node::new(
+                    Statement::StructDefinition(StructDefinition::Unit { name }),
+                    (left_position.0, name_end),
+                ))
             }
             (Token::While, left_position) => {
                 self.next_token()?;
@@ -1043,6 +1084,34 @@ mod tests {
     use super::*;
 
     #[test]
+    fn fields_struct() {
+        let input = "struct Foo { a: int, b: float }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::StructDefinition(StructDefinition::Fields {
+                        name: Node::new(Identifier::new("Foo"), (7, 10)),
+                        fields: vec![
+                            (
+                                Node::new(Identifier::new("a"), (13, 14)),
+                                Node::new(Type::Integer, (16, 19))
+                            ),
+                            (
+                                Node::new(Identifier::new("b"), (21, 22)),
+                                Node::new(Type::Float, (24, 29))
+                            )
+                        ]
+                    }),
+                    (0, 31)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
     fn tuple_struct_instantiation() {
         let input = "struct Foo(int, float) Foo(1, 2.0)";
 
@@ -1053,7 +1122,7 @@ mod tests {
                     Node::new(
                         Statement::StructDefinition(StructDefinition::Tuple {
                             name: Node::new(Identifier::new("Foo"), (7, 10)),
-                            fields: vec![
+                            items: vec![
                                 Node::new(Type::Integer, (11, 14)),
                                 Node::new(Type::Float, (16, 21))
                             ]
@@ -1090,7 +1159,7 @@ mod tests {
                 nodes: [Node::new(
                     Statement::StructDefinition(StructDefinition::Tuple {
                         name: Node::new(Identifier::new("Foo"), (7, 10)),
-                        fields: vec![
+                        items: vec![
                             Node::new(Type::Integer, (11, 14)),
                             Node::new(Type::Float, (16, 21))
                         ]

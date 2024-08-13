@@ -599,30 +599,7 @@ impl Vm {
 
                 Ok(None)
             }
-            Statement::StructDefinition(struct_definition) => {
-                let (type_name, r#type) = match struct_definition {
-                    StructDefinition::Unit { name } => (
-                        name.inner.clone(),
-                        Type::Struct(StructType::Unit {
-                            name: name.inner.clone(),
-                        }),
-                    ),
-                    StructDefinition::Tuple { name, fields } => (
-                        name.inner.clone(),
-                        Type::Struct(StructType::Tuple {
-                            name: name.inner.clone(),
-                            fields: fields
-                                .into_iter()
-                                .map(|type_node| type_node.inner)
-                                .collect(),
-                        }),
-                    ),
-                };
-
-                self.context.set_type(type_name, r#type, node.position);
-
-                Ok(None)
-            }
+            Statement::StructDefinition(_) => Ok(None),
             Statement::StructInstantiation(struct_instantiation) => match struct_instantiation {
                 StructInstantiation::Tuple { name, fields } => {
                     Ok(Some(Value::r#struct(Struct::Tuple {
