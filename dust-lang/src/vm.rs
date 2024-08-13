@@ -63,6 +63,12 @@ pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>,
         .map_err(|vm_error| DustError::VmError { vm_error, source })
 }
 
+/// Dust virtual machine.
+///
+/// **Warning**: Do not run an AbstractSyntaxTree that has not been analyzed. Use the `run` or
+/// `run_with_context` functions to make sure the program is analyzed before running it.
+///
+/// See the `run_with_context` function for an example of how to use the Analyzer and the VM.
 pub struct Vm {
     abstract_tree: AbstractSyntaxTree,
     context: Context,

@@ -1,6 +1,20 @@
 //! The Dust programming language.
 //!
-//! Dust is a statically typed, interpreted programming language.
+//! To get started, you can use the `run` function to run a Dust program.
+//!
+//! ```rust
+//! use dust_lang::{run, Value};
+//!
+//! let program = "
+//!     foo = 21
+//!     bar = 2
+//!     foo * bar
+//! ";
+//!
+//! let the_answer = run(program).unwrap();
+//!
+//! assert_eq!(the_answer, Some(Value::integer(42)));
+//! ```
 pub mod abstract_tree;
 pub mod analyzer;
 pub mod built_in_function;

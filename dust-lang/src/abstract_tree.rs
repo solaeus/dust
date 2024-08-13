@@ -34,6 +34,7 @@ impl<T: Display> Display for Node<T> {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
+    // Assignment does not return a value, but has a side effect on the context
     Assignment {
         identifier: Node<Identifier>,
         operator: Node<AssignmentOperator>,
@@ -43,7 +44,7 @@ pub enum Statement {
     // A sequence of statements
     Block(Vec<Node<Statement>>),
 
-    // Assignment, logic, math and comparison expressions with two operands
+    // Logic, math and comparison expressions with two operands
     BinaryOperation {
         left: Box<Node<Statement>>,
         operator: Node<BinaryOperator>,
@@ -100,7 +101,10 @@ pub enum Statement {
         else_body: Box<Node<Statement>>,
     },
 
-    // Identifier expression
+    // Identifier
+    //
+    // Identifier statements in the syntax tree (i.e. Node<Statement>) are evaluated as
+    // expressions or reconstructed into a Node<Identifier> by the parser
     Identifier(Identifier),
 
     // Value collection expressions
@@ -111,7 +115,7 @@ pub enum Statement {
     Constant(Value),
 
     // A statement that always returns None. Created with a semicolon, it causes the preceding
-    // statement to return None. This is analagous to the semicolon or unit type in Rust.
+    // statement to return None. This is analagous to the semicolon in Rust.
     Nil(Box<Node<Statement>>),
 }
 
