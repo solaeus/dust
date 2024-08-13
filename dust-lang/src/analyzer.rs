@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::{BinaryOperator, StructInstantiation, UnaryOperator},
+    abstract_tree::{BinaryOperator, UnaryOperator},
     parse, AbstractSyntaxTree, Context, DustError, Identifier, Node, Span, Statement,
     StructDefinition, StructType, Type,
 };
@@ -291,6 +291,34 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Constant(_) => {}
+            Statement::FieldsStructInstantiation {
+                name,
+                fields: field_arguments,
+            } => {
+                let expected_type = self.context.get_type(&name.inner);
+
+                if let Some(Type::Struct(StructType::Fields { fields, .. })) = expected_type {
+                    for ((_, expected_type), (_, argument)) in
+                        fields.iter().zip(field_arguments.iter())
+                    {
+                        let actual_type = argument.inner.expected_type(self.context);
+
+                        if let Some(actual_type) = actual_type {
+                            expected_type.check(&actual_type).map_err(|conflict| {
+                                AnalyzerError::TypeConflict {
+                                    actual_statement: argument.clone(),
+                                    actual_type: conflict.actual,
+                                    expected: conflict.expected,
+                                }
+                            })?;
+                        } else {
+                            return Err(AnalyzerError::ExpectedValue {
+                                actual: argument.clone(),
+                            });
+                        }
+                    }
+                }
+            }
             Statement::Invokation {
                 invokee,
                 value_arguments,
@@ -487,17 +515,6 @@ impl<'a> Analyzer<'a> {
                 };
 
                 self.context.set_type(name, r#type, node.position);
-            }
-            Statement::StructInstantiation(struct_instantiation) => {
-                let name = match struct_instantiation {
-                    StructInstantiation::Tuple { name, .. } => name,
-                };
-
-                if self.context.get_type(&name.inner).is_none() {
-                    return Err(AnalyzerError::UndefinedType {
-                        identifier: name.clone(),
-                    });
-                }
             }
             Statement::UnaryOperation { operator, operand } => {
                 self.analyze_statement(operand)?;

@@ -30,7 +30,7 @@ pub mod vm;
 
 pub use abstract_tree::{
     AbstractSyntaxTree, AssignmentOperator, BinaryOperator, Node, Statement, StructDefinition,
-    StructInstantiation, UnaryOperator,
+    UnaryOperator,
 };
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};

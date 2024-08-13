@@ -12,8 +12,7 @@ use std::{
 use crate::{
     parse, value::ValueInner, AbstractSyntaxTree, Analyzer, AssignmentOperator, BinaryOperator,
     BuiltInFunctionError, Context, DustError, Identifier, Node, ParseError, Span, Statement,
-    Struct, StructDefinition, StructInstantiation, StructType, Type, UnaryOperator, Value,
-    ValueError,
+    Struct, StructType, Type, UnaryOperator, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -65,8 +64,9 @@ pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>,
 
 /// Dust virtual machine.
 ///
-/// **Warning**: Do not run an AbstractSyntaxTree that has not been analyzed. Use the `run` or
-/// `run_with_context` functions to make sure the program is analyzed before running it.
+/// **Warning**: Do not run an AbstractSyntaxTree that has not been analyzed *with the same
+/// context*. Use the `run` or `run_with_context` functions to make sure the program is analyzed
+/// before running it.
 ///
 /// See the `run_with_context` function for an example of how to use the Analyzer and the VM.
 pub struct Vm {
@@ -325,6 +325,25 @@ impl Vm {
                 Ok(function_call_return)
             }
             Statement::Constant(value) => Ok(Some(value.clone())),
+            Statement::FieldsStructInstantiation { name, fields } => {
+                let mut values = Vec::new();
+
+                for (identifier, value_node) in fields {
+                    let position = value_node.position;
+                    let value = if let Some(value) = self.run_statement(value_node)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue { position });
+                    };
+
+                    values.push((identifier.inner, value));
+                }
+
+                Ok(Some(Value::r#struct(Struct::Fields {
+                    name: name.inner,
+                    fields: values,
+                })))
+            }
             Statement::Invokation {
                 invokee,
                 type_arguments: _,
@@ -600,24 +619,6 @@ impl Vm {
                 Ok(None)
             }
             Statement::StructDefinition(_) => Ok(None),
-            Statement::StructInstantiation(struct_instantiation) => match struct_instantiation {
-                StructInstantiation::Tuple { name, fields } => {
-                    Ok(Some(Value::r#struct(Struct::Tuple {
-                        name: name.inner,
-                        fields: fields
-                            .into_iter()
-                            .map(|node| {
-                                let position = node.position;
-                                if let Some(value) = self.run_statement(node)? {
-                                    Ok(value)
-                                } else {
-                                    Err(VmError::ExpectedValue { position })
-                                }
-                            })
-                            .collect::<Result<Vec<Value>, VmError>>()?,
-                    })))
-                }
-            },
             Statement::UnaryOperation { operator, operand } => {
                 let position = operand.position;
                 let value = if let Some(value) = self.run_statement(*operand)? {
@@ -831,6 +832,22 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn define_and_instantiate_fields_struct() {
+        let input = "struct Foo { bar: int, baz: float } Foo { bar = 42, baz = 4.0 }";
+
+        assert_eq!(
+            run(input),
+            Ok(Some(Value::r#struct(Struct::Fields {
+                name: Identifier::new("Foo"),
+                fields: vec![
+                    (Identifier::new("bar"), Value::integer(42)),
+                    (Identifier::new("baz"), Value::float(4.0))
+                ]
+            })))
+        );
+    }
 
     #[test]
     fn assign_tuple_struct_variable() {

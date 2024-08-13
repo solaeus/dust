@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{BuiltInFunction, Context, Identifier, Span, StructType, Type, Value};
+use crate::{BuiltInFunction, Context, Identifier, Span, Type, Value};
 
 /// In-memory representation of a Dust program.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -71,7 +71,10 @@ pub enum Statement {
         type_arguments: Option<Vec<Node<Statement>>>,
         value_arguments: Option<Vec<Node<Statement>>>,
     },
-    StructInstantiation(StructInstantiation),
+    FieldsStructInstantiation {
+        name: Node<Identifier>,
+        fields: Vec<(Node<Identifier>, Node<Statement>)>,
+    },
 
     // Loops
     While {
@@ -169,6 +172,7 @@ impl Statement {
             },
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type()),
+            Statement::FieldsStructInstantiation { name, .. } => context.get_type(&name.inner),
             Statement::Invokation {
                 invokee: function, ..
             } => function.inner.expected_type(context),
@@ -200,17 +204,6 @@ impl Statement {
                 UnaryOperator::Not => Some(Type::Boolean),
             },
             Statement::StructDefinition(_) => None,
-            Statement::StructInstantiation(struct_instantiation) => match struct_instantiation {
-                StructInstantiation::Tuple { name, fields } => {
-                    Some(Type::Struct(StructType::Tuple {
-                        name: name.inner.clone(),
-                        fields: fields
-                            .iter()
-                            .map(|field| field.inner.expected_type(context))
-                            .collect::<Option<Vec<Type>>>()?,
-                    }))
-                }
-            },
             Statement::While { .. } => None,
         }
     }
@@ -313,6 +306,19 @@ impl Display for Statement {
                 write!(f, ")")
             }
             Statement::Constant(value) => write!(f, "{value}"),
+            Statement::FieldsStructInstantiation { name, fields } => {
+                write!(f, "{name} {{ ")?;
+
+                for (i, (identifier, value)) in fields.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{identifier}: {value}")?;
+                }
+
+                write!(f, " }}")
+            }
             Statement::Invokation {
                 invokee: function,
                 type_arguments: type_parameters,
@@ -424,9 +430,6 @@ impl Display for Statement {
             Statement::StructDefinition(struct_definition) => {
                 write!(f, "{struct_definition}")
             }
-            Statement::StructInstantiation(struct_instantiation) => {
-                write!(f, "{struct_instantiation}")
-            }
             Statement::While { condition, body } => {
                 write!(f, "while {condition} {body}")
             }
@@ -531,35 +534,6 @@ impl Display for StructDefinition {
                 }
 
                 write!(f, "}}")
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum StructInstantiation {
-    // The Unit variant is absent because unit structs are instantiated without any fields
-    Tuple {
-        name: Node<Identifier>,
-        fields: Vec<Node<Statement>>,
-    },
-}
-
-impl Display for StructInstantiation {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            StructInstantiation::Tuple { name, fields } => {
-                write!(f, "{name}(")?;
-
-                for (i, field) in fields.iter().enumerate() {
-                    if i > 0 {
-                        write!(f, ", ")?;
-                    }
-
-                    write!(f, "{field}")?;
-                }
-
-                write!(f, ")")
             }
         }
     }

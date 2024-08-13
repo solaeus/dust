@@ -100,6 +100,7 @@ pub struct Parser<'src> {
     source: &'src str,
     lexer: Lexer,
     current: (Token<'src>, Span),
+    context: ParserContext,
 }
 
 impl<'src> Parser<'src> {
@@ -111,6 +112,7 @@ impl<'src> Parser<'src> {
             source,
             lexer,
             current,
+            context: ParserContext::None,
         }
     }
 
@@ -218,6 +220,63 @@ impl<'src> Parser<'src> {
                     position,
                 ))
             }
+            (Token::Identifier(text), position) => {
+                self.next_token()?;
+
+                if let ParserContext::IfElseStatement = self.context {
+                    return Ok(Node::new(
+                        Statement::Identifier(Identifier::new(text)),
+                        position,
+                    ));
+                }
+
+                if let Token::LeftCurlyBrace = self.current.0 {
+                    self.next_token()?;
+
+                    let mut fields = Vec::new();
+
+                    loop {
+                        if let Token::RightCurlyBrace = self.current.0 {
+                            let right_end = self.current.1 .1;
+
+                            self.next_token()?;
+
+                            return Ok(Node::new(
+                                Statement::FieldsStructInstantiation {
+                                    name: Node::new(Identifier::new(text), position),
+                                    fields,
+                                },
+                                (position.0, right_end),
+                            ));
+                        }
+
+                        let field_name = self.parse_identifier()?;
+
+                        if let Token::Equal = self.current.0 {
+                            self.next_token()?;
+                        } else {
+                            return Err(ParseError::ExpectedToken {
+                                expected: TokenKind::Equal,
+                                actual: self.current.0.to_owned(),
+                                position: self.current.1,
+                            });
+                        }
+
+                        let field_value = self.parse_statement(0)?;
+
+                        fields.push((field_name, field_value));
+
+                        if let Token::Comma = self.current.0 {
+                            self.next_token()?;
+                        }
+                    }
+                }
+
+                Ok(Node::new(
+                    Statement::Identifier(Identifier::new(text)),
+                    position,
+                ))
+            }
             (Token::Integer(text), position) => {
                 self.next_token()?;
 
@@ -253,16 +312,10 @@ impl<'src> Parser<'src> {
                     ))
                 }
             }
-            (Token::Identifier(text), position) => {
-                self.next_token()?;
-
-                Ok(Node::new(
-                    Statement::Identifier(Identifier::new(text)),
-                    position,
-                ))
-            }
             (Token::If, position) => {
                 self.next_token()?;
+
+                self.context = ParserContext::IfElseStatement;
 
                 let condition = Box::new(self.parse_statement(0)?);
                 let if_body = Box::new(self.parse_block()?);
@@ -300,6 +353,8 @@ impl<'src> Parser<'src> {
                                 let else_body = Box::new(self.parse_block()?);
                                 let else_end = else_body.position.1;
 
+                                self.context = ParserContext::None;
+
                                 return Ok(Node::new(
                                     Statement::IfElseIfElse {
                                         condition,
@@ -315,6 +370,8 @@ impl<'src> Parser<'src> {
                         let else_body = Box::new(self.parse_block()?);
                         let else_end = else_body.position.1;
 
+                        self.context = ParserContext::None;
+
                         Ok(Node::new(
                             Statement::IfElse {
                                 condition,
@@ -326,6 +383,8 @@ impl<'src> Parser<'src> {
                     }
                 } else {
                     let if_end = if_body.position.1;
+
+                    self.context = ParserContext::None;
 
                     Ok(Node::new(
                         Statement::If {
@@ -972,6 +1031,11 @@ impl<'src> Parser<'src> {
     }
 }
 
+enum ParserContext {
+    IfElseStatement,
+    None,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
     BooleanError {
@@ -1082,6 +1146,34 @@ mod tests {
     use crate::{BinaryOperator, Identifier, StructDefinition, Type, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn fields_struct_instantiation() {
+        let input = "Foo { a = 42, b = 4.0 }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::FieldsStructInstantiation {
+                        name: Node::new(Identifier::new("Foo"), (0, 3)),
+                        fields: vec![
+                            (
+                                Node::new(Identifier::new("a"), (6, 7)),
+                                Node::new(Statement::Constant(Value::integer(42)), (10, 12))
+                            ),
+                            (
+                                Node::new(Identifier::new("b"), (14, 15)),
+                                Node::new(Statement::Constant(Value::float(4.0)), (18, 21))
+                            )
+                        ]
+                    },
+                    (0, 23)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn fields_struct() {
