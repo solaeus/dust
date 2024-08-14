@@ -5,13 +5,13 @@ use std::{
     error::Error,
     fmt::{self, Display, Formatter},
     ops::Range,
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
 use serde::{
     de::Visitor,
     ser::{SerializeMap, SerializeSeq, SerializeTuple},
-    Deserialize, Deserializer, Serialize,
+    Deserialize, Deserializer, Serialize, Serializer,
 };
 
 use crate::{AbstractSyntaxTree, Context, Identifier, StructType, Type, Vm, VmError};
@@ -48,263 +48,859 @@ use crate::{AbstractSyntaxTree, Context, Identifier, StructType, Type, Vm, VmErr
 ///
 /// assert_eq!(value.r#type(), Type::Integer);
 /// ```
-#[derive(Clone, Debug, PartialEq)]
-pub struct Value(Arc<ValueInner>);
+#[derive(Clone, Debug)]
+pub enum Value {
+    Immutable(Arc<ValueData>),
+    Mutable(Arc<RwLock<ValueData>>),
+}
 
 impl Value {
-    pub fn inner(&self) -> &Arc<ValueInner> {
-        &self.0
-    }
-
     pub fn boolean(boolean: bool) -> Self {
-        Value(Arc::new(ValueInner::Boolean(boolean)))
+        Value::Immutable(Arc::new(ValueData::Boolean(boolean)))
     }
 
     pub fn float(float: f64) -> Self {
-        Value(Arc::new(ValueInner::Float(float)))
+        Value::Immutable(Arc::new(ValueData::Float(float)))
     }
 
     pub fn function(function: Function) -> Self {
-        Value(Arc::new(ValueInner::Function(function)))
+        Value::Immutable(Arc::new(ValueData::Function(function)))
     }
 
     pub fn integer(integer: i64) -> Self {
-        Value(Arc::new(ValueInner::Integer(integer)))
+        Value::Immutable(Arc::new(ValueData::Integer(integer)))
     }
 
     pub fn list(list: Vec<Value>) -> Self {
-        Value(Arc::new(ValueInner::List(list)))
+        Value::Immutable(Arc::new(ValueData::List(list)))
     }
 
     pub fn map(map: BTreeMap<Identifier, Value>) -> Self {
-        Value(Arc::new(ValueInner::Map(map)))
+        Value::Immutable(Arc::new(ValueData::Map(map)))
     }
 
     pub fn range(range: Range<i64>) -> Self {
-        Value(Arc::new(ValueInner::Range(range)))
+        Value::Immutable(Arc::new(ValueData::Range(range)))
     }
 
     pub fn string<T: ToString>(to_string: T) -> Self {
-        Value(Arc::new(ValueInner::String(to_string.to_string())))
+        Value::Immutable(Arc::new(ValueData::String(to_string.to_string())))
     }
 
     pub fn r#struct(r#struct: Struct) -> Self {
-        Value(Arc::new(ValueInner::Struct(r#struct)))
+        Value::Immutable(Arc::new(ValueData::Struct(r#struct)))
     }
 
     pub fn r#type(&self) -> Type {
-        self.0.r#type()
+        match self {
+            Value::Immutable(inner) => inner.r#type(),
+            Value::Mutable(inner_locked) => inner_locked.read().unwrap().r#type(),
+        }
     }
 
     pub fn get_property(&self, property: &Identifier) -> Option<Value> {
-        self.0.get_property(property)
+        match self {
+            Value::Immutable(inner) => inner.get_property(property),
+            Value::Mutable(inner_locked) => inner_locked.read().unwrap().get_property(property),
+        }
     }
 
     pub fn as_boolean(&self) -> Option<bool> {
-        if let ValueInner::Boolean(boolean) = self.0.as_ref() {
-            Some(*boolean)
-        } else {
-            None
+        match self {
+            Value::Immutable(arc) => match arc.as_ref() {
+                ValueData::Boolean(boolean) => Some(*boolean),
+                _ => None,
+            },
+            Value::Mutable(arc_rw_lock) => match *arc_rw_lock.read().unwrap() {
+                ValueData::Boolean(boolean) => Some(boolean),
+                _ => None,
+            },
         }
     }
 
     pub fn as_float(&self) -> Option<f64> {
-        if let ValueInner::Float(float) = self.0.as_ref() {
-            Some(*float)
-        } else {
-            None
+        match self {
+            Value::Immutable(arc) => match arc.as_ref() {
+                ValueData::Float(float) => Some(*float),
+                _ => None,
+            },
+            Value::Mutable(arc_rw_lock) => match *arc_rw_lock.read().unwrap() {
+                ValueData::Float(float) => Some(float),
+                _ => None,
+            },
         }
     }
 
     pub fn as_function(&self) -> Option<&Function> {
-        if let ValueInner::Function(function) = self.0.as_ref() {
-            Some(function)
-        } else {
-            None
+        if let Value::Immutable(arc) = self {
+            if let ValueData::Function(function) = arc.as_ref() {
+                return Some(function);
+            }
         }
+
+        None
     }
 
     pub fn as_list(&self) -> Option<&Vec<Value>> {
-        if let ValueInner::List(list) = self.inner().as_ref() {
-            Some(list)
-        } else {
-            None
+        if let Value::Immutable(arc) = self {
+            if let ValueData::List(list) = arc.as_ref() {
+                return Some(list);
+            }
         }
+
+        None
     }
 
     pub fn as_map(&self) -> Option<&BTreeMap<Identifier, Value>> {
-        if let ValueInner::Map(map) = self.inner().as_ref() {
-            Some(map)
-        } else {
-            None
+        if let Value::Immutable(arc) = self {
+            if let ValueData::Map(map) = arc.as_ref() {
+                return Some(map);
+            }
         }
+
+        None
     }
 
     pub fn as_integer(&self) -> Option<i64> {
-        if let ValueInner::Integer(integer) = self.inner().as_ref() {
-            Some(*integer)
-        } else {
-            None
+        match self {
+            Value::Immutable(arc) => match arc.as_ref() {
+                ValueData::Integer(integer) => Some(*integer),
+                _ => None,
+            },
+            Value::Mutable(arc_rw_lock) => match *arc_rw_lock.read().unwrap() {
+                ValueData::Integer(integer) => Some(integer),
+                _ => None,
+            },
         }
     }
 
     pub fn as_range(&self) -> Option<&Range<i64>> {
-        if let ValueInner::Range(range) = self.inner().as_ref() {
-            Some(range)
-        } else {
-            None
+        if let Value::Immutable(arc) = self {
+            if let ValueData::Range(range) = arc.as_ref() {
+                return Some(range);
+            }
         }
+
+        None
     }
 
     pub fn as_string(&self) -> Option<&String> {
-        if let ValueInner::String(string) = self.inner().as_ref() {
-            Some(string)
-        } else {
-            None
+        if let Value::Immutable(arc) = self {
+            if let ValueData::String(string) = arc.as_ref() {
+                return Some(string);
+            }
         }
+
+        None
     }
 
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left + right)),
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::integer(left.saturating_add(*right)))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left + right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_add(*right)));
+                    }
+                    (ValueData::String(left), ValueData::String(right)) => {
+                        return Ok(Value::string(left.to_string() + right));
+                    }
+                    _ => {}
+                }
             }
-            (ValueInner::String(left), ValueInner::String(right)) => {
-                Ok(Value::string(left.to_string() + right))
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left + right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_add(*right)));
+                    }
+                    (ValueData::String(left), ValueData::String(right)) => {
+                        return Ok(Value::string(left.to_string() + right));
+                    }
+                    _ => {}
+                }
             }
-            _ => Err(ValueError::CannotAdd(self.clone(), other.clone())),
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (&*right.read().unwrap(), left.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left + right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_add(*right)));
+                    }
+                    (ValueData::String(left), ValueData::String(right)) => {
+                        return Ok(Value::string(left.to_string() + right));
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&*left.read().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left + right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_add(*right)));
+                    }
+                    (ValueData::String(left), ValueData::String(right)) => {
+                        return Ok(Value::string(left.to_string() + right));
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotAdd(self.clone(), other.clone()))
     }
 
     pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left - right)),
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::integer(left.saturating_sub(*right)))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left - right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_sub(*right)));
+                    }
+                    _ => {}
+                }
             }
-            _ => Err(ValueError::CannotSubtract(self.clone(), other.clone())),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left - right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_sub(*right)));
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (left.as_ref(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left - right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_sub(*right)));
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(right), Value::Immutable(left)) => {
+                match (&*right.read().unwrap(), left.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left - right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_sub(*right)));
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotSubtract(self.clone(), other.clone()))
     }
 
     pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left * right)),
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::integer(left * right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left * right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_mul(*right)));
+                    }
+                    _ => {}
+                }
             }
-            _ => Err(ValueError::CannotMultiply(self.clone(), other.clone())),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left * right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_mul(*right)));
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(data), Value::Mutable(data_locked))
+            | (Value::Mutable(data_locked), Value::Immutable(data)) => {
+                match (&*data_locked.read().unwrap(), data.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left * right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::integer(left.saturating_mul(*right)));
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotMultiply(self.clone(), other.clone()))
     }
 
     pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => {
-                if right == &0.0 {
-                    Err(ValueError::DivisionByZero)
-                } else {
-                    Ok(Value::float(left / right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        if *right == 0.0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::float(left / right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left / right));
+                    }
+                    _ => {}
                 }
             }
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                if right == &0 {
-                    Err(ValueError::DivisionByZero)
-                } else {
-                    Ok(Value::integer(left / right))
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        if *right == 0.0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::float(left / right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left / right));
+                    }
+                    _ => {}
                 }
             }
-            _ => Err(ValueError::CannotDivide(self.clone(), other.clone())),
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (left.as_ref(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        if *right == 0.0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::float(left / right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left / right));
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&*left.read().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        if *right == 0.0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::float(left / right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left / right));
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotDivide(self.clone(), other.clone()))
     }
 
     pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::float(left % right)),
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                if right == &0 {
-                    Err(ValueError::DivisionByZero)
-                } else {
-                    Ok(Value::integer(left % right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left % right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left % right));
+                    }
+                    _ => {}
                 }
             }
-            _ => Err(ValueError::CannotModulo(self.clone(), other.clone())),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left % right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left % right));
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (left.as_ref(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left % right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left % right));
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&*left.read().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::float(left % right));
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        return Ok(Value::integer(left % right));
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotModulo(self.clone(), other.clone()))
     }
 
     pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::boolean(left < right)),
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::boolean(left < right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    _ => {}
+                }
             }
-            _ => Err(ValueError::CannotLessThan(self.clone(), other.clone())),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (left.as_ref(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&*left.read().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left < right))
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotLessThan(self.clone(), other.clone()))
     }
 
     pub fn less_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => {
-                Ok(Value::boolean(left <= right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    _ => {}
+                }
             }
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::boolean(left <= right))
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    _ => {}
+                }
             }
-            _ => Err(ValueError::CannotLessThanOrEqual(
-                self.clone(),
-                other.clone(),
-            )),
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (left.as_ref(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&*left.read().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left <= right))
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotLessThanOrEqual(
+            self.clone(),
+            other.clone(),
+        ))
     }
 
     pub fn greater_than(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => Ok(Value::boolean(left > right)),
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::boolean(left > right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    _ => {}
+                }
             }
-            _ => Err(ValueError::CannotGreaterThan(self.clone(), other.clone())),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (left.as_ref(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&*left.read().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left > right))
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotGreaterThan(self.clone(), other.clone()))
     }
 
     pub fn greater_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Float(left), ValueInner::Float(right)) => {
-                Ok(Value::boolean(left >= right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                match (left.as_ref(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    _ => {}
+                }
             }
-            (ValueInner::Integer(left), ValueInner::Integer(right)) => {
-                Ok(Value::boolean(left >= right))
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&*left.read().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    _ => {}
+                }
             }
-            _ => Err(ValueError::CannotGreaterThanOrEqual(
-                self.clone(),
-                other.clone(),
-            )),
+            (Value::Immutable(left), Value::Mutable(right)) => {
+                match (left.as_ref(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&*left.read().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        return Ok(Value::boolean(left >= right))
+                    }
+                    _ => {}
+                }
+            }
         }
+
+        Err(ValueError::CannotGreaterThanOrEqual(
+            self.clone(),
+            other.clone(),
+        ))
     }
 
     pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Boolean(left), ValueInner::Boolean(right)) => {
-                Ok(Value::boolean(*left && *right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                if let (ValueData::Boolean(left), ValueData::Boolean(right)) =
+                    (left.as_ref(), right.as_ref())
+                {
+                    return Ok(Value::boolean(*left && *right));
+                }
             }
-            _ => Err(ValueError::CannotAnd(self.clone(), other.clone())),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                if let (ValueData::Boolean(left), ValueData::Boolean(right)) =
+                    (&*left.read().unwrap(), &*right.read().unwrap())
+                {
+                    return Ok(Value::boolean(*left && *right));
+                }
+            }
+            (Value::Mutable(locked), Value::Immutable(data))
+            | (Value::Immutable(data), Value::Mutable(locked)) => {
+                if let (ValueData::Boolean(left), ValueData::Boolean(right)) =
+                    (&*locked.read().unwrap(), data.as_ref())
+                {
+                    return Ok(Value::boolean(*left && *right));
+                }
+            }
         }
+
+        Err(ValueError::CannotAnd(self.clone(), other.clone()))
     }
 
     pub fn or(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.inner().as_ref(), other.inner().as_ref()) {
-            (ValueInner::Boolean(left), ValueInner::Boolean(right)) => {
-                Ok(Value::boolean(*left || *right))
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => {
+                if let (ValueData::Boolean(left), ValueData::Boolean(right)) =
+                    (left.as_ref(), right.as_ref())
+                {
+                    return Ok(Value::boolean(*left || *right));
+                }
             }
-            _ => Err(ValueError::CannotOr(self.clone(), other.clone())),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                if let (ValueData::Boolean(left), ValueData::Boolean(right)) =
+                    (&*left.read().unwrap(), &*right.read().unwrap())
+                {
+                    return Ok(Value::boolean(*left || *right));
+                }
+            }
+            (Value::Mutable(locked), Value::Immutable(data))
+            | (Value::Immutable(data), Value::Mutable(locked)) => {
+                if let (ValueData::Boolean(left), ValueData::Boolean(right)) =
+                    (&*locked.read().unwrap(), data.as_ref())
+                {
+                    return Ok(Value::boolean(*left || *right));
+                }
+            }
         }
+
+        Err(ValueError::CannotOr(self.clone(), other.clone()))
     }
 }
 
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self.inner().as_ref() {
-            ValueInner::Boolean(boolean) => write!(f, "{boolean}"),
-            ValueInner::Float(float) => {
+        match self {
+            Value::Immutable(inner) => write!(f, "{inner}"),
+            Value::Mutable(inner_locked) => {
+                let inner = inner_locked.read().unwrap();
+
+                write!(f, "{inner}")
+            }
+        }
+    }
+}
+
+impl Eq for Value {}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => left == right,
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                *left.read().unwrap() == *right.read().unwrap()
+            }
+            (Value::Immutable(inner), Value::Mutable(inner_locked))
+            | (Value::Mutable(inner_locked), Value::Immutable(inner)) => {
+                **inner == *inner_locked.read().unwrap()
+            }
+        }
+    }
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => left.cmp(right),
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                left.read().unwrap().cmp(&right.read().unwrap())
+            }
+            (Value::Immutable(inner), Value::Mutable(inner_locked))
+            | (Value::Mutable(inner_locked), Value::Immutable(inner)) => {
+                inner_locked.read().unwrap().cmp(inner)
+            }
+        }
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Value::Immutable(inner) => inner.serialize(serializer),
+            Value::Mutable(inner_locked) => inner_locked.read().unwrap().serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        ValueData::deserialize(deserializer).map(|data| Value::Immutable(Arc::new(data)))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ValueData {
+    Boolean(bool),
+    Float(f64),
+    Function(Function),
+    Integer(i64),
+    List(Vec<Value>),
+    Map(BTreeMap<Identifier, Value>),
+    Range(Range<i64>),
+    String(String),
+    Struct(Struct),
+}
+
+impl ValueData {
+    fn r#type(&self) -> Type {
+        match self {
+            ValueData::Boolean(_) => Type::Boolean,
+            ValueData::Float(_) => Type::Float,
+            ValueData::Function(function) => Type::Function {
+                type_parameters: function.type_parameters.clone(),
+                value_parameters: function.value_parameters.clone(),
+                return_type: function.return_type.as_ref().cloned().map(Box::new),
+            },
+            ValueData::Integer(_) => Type::Integer,
+            ValueData::List(values) => {
+                let item_type = values.first().unwrap().r#type();
+
+                Type::List {
+                    item_type: Box::new(item_type),
+                    length: values.len(),
+                }
+            }
+            ValueData::Map(value_map) => {
+                let mut type_map = BTreeMap::new();
+
+                for (identifier, value) in value_map {
+                    let r#type = value.r#type();
+
+                    type_map.insert(identifier.clone(), r#type);
+                }
+
+                Type::Map(type_map)
+            }
+            ValueData::Range(_) => Type::Range,
+            ValueData::String(_) => Type::String,
+            ValueData::Struct(r#struct) => match r#struct {
+                Struct::Unit { name } => Type::Struct(StructType::Unit { name: name.clone() }),
+                Struct::Tuple { .. } => todo!(),
+                Struct::Fields { .. } => todo!(),
+            },
+        }
+    }
+
+    fn get_property(&self, property: &Identifier) -> Option<Value> {
+        match self {
+            ValueData::List(list) => {
+                if property.as_str() == "length" {
+                    Some(Value::integer(list.len() as i64))
+                } else {
+                    None
+                }
+            }
+            ValueData::Map(value_map) => value_map.get(property).cloned(),
+            _ => None,
+        }
+    }
+}
+
+impl Display for ValueData {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            ValueData::Boolean(boolean) => write!(f, "{boolean}"),
+            ValueData::Float(float) => {
                 if float == &f64::INFINITY {
                     return write!(f, "Infinity");
                 }
@@ -321,9 +917,9 @@ impl Display for Value {
 
                 Ok(())
             }
-            ValueInner::Function(function) => write!(f, "{function}"),
-            ValueInner::Integer(integer) => write!(f, "{integer}"),
-            ValueInner::List(list) => {
+            ValueData::Function(function) => write!(f, "{function}"),
+            ValueData::Integer(integer) => write!(f, "{integer}"),
+            ValueData::List(list) => {
                 write!(f, "[")?;
 
                 for (index, value) in list.iter().enumerate() {
@@ -336,7 +932,7 @@ impl Display for Value {
 
                 write!(f, "]")
             }
-            ValueInner::Map(map) => {
+            ValueData::Map(map) => {
                 write!(f, "{{ ")?;
 
                 for (index, (key, value)) in map.iter().enumerate() {
@@ -349,38 +945,67 @@ impl Display for Value {
 
                 write!(f, " }}")
             }
-            ValueInner::Range(range) => write!(f, "{}..{}", range.start, range.end),
-            ValueInner::String(string) => write!(f, "{string}"),
-            ValueInner::Struct(r#struct) => write!(f, "{struct}"),
+            ValueData::Range(range) => write!(f, "{}..{}", range.start, range.end),
+            ValueData::String(string) => write!(f, "{string}"),
+            ValueData::Struct(r#struct) => write!(f, "{struct}"),
         }
     }
 }
 
-impl Eq for Value {}
+impl Eq for ValueData {}
 
-impl PartialOrd for Value {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+impl PartialOrd for ValueData {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Value {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.as_ref().cmp(other.0.as_ref())
+impl Ord for ValueData {
+    fn cmp(&self, other: &Self) -> Ordering {
+        use ValueData::*;
+
+        match (self, other) {
+            (Boolean(left), Boolean(right)) => left.cmp(right),
+            (Boolean(_), _) => Ordering::Greater,
+            (Float(left), Float(right)) => left.total_cmp(right),
+            (Float(_), _) => Ordering::Greater,
+            (Function(left), Function(right)) => left.cmp(right),
+            (Function(_), _) => Ordering::Greater,
+            (Integer(left), Integer(right)) => left.cmp(right),
+            (Integer(_), _) => Ordering::Greater,
+            (List(left), List(right)) => left.cmp(right),
+            (List(_), _) => Ordering::Greater,
+            (Map(left), Map(right)) => left.cmp(right),
+            (Map(_), _) => Ordering::Greater,
+            (Range(left), Range(right)) => {
+                let start_cmp = left.start.cmp(&right.start);
+
+                if start_cmp.is_eq() {
+                    left.end.cmp(&right.end)
+                } else {
+                    start_cmp
+                }
+            }
+            (Range(_), _) => Ordering::Greater,
+            (String(left), String(right)) => left.cmp(right),
+            (String(_), _) => Ordering::Greater,
+            (Struct(left), Struct(right)) => left.cmp(right),
+            (Struct(_), _) => Ordering::Greater,
+        }
     }
 }
 
-impl Serialize for Value {
+impl Serialize for ValueData {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
-        match self.0.as_ref() {
-            ValueInner::Boolean(boolean) => serializer.serialize_bool(*boolean),
-            ValueInner::Float(float) => serializer.serialize_f64(*float),
-            ValueInner::Function(function) => function.serialize(serializer),
-            ValueInner::Integer(integer) => serializer.serialize_i64(*integer),
-            ValueInner::List(list) => {
+        match self {
+            ValueData::Boolean(boolean) => serializer.serialize_bool(*boolean),
+            ValueData::Float(float) => serializer.serialize_f64(*float),
+            ValueData::Function(function) => function.serialize(serializer),
+            ValueData::Integer(integer) => serializer.serialize_i64(*integer),
+            ValueData::List(list) => {
                 let mut list_ser = serializer.serialize_seq(Some(list.len()))?;
 
                 for item in list {
@@ -389,7 +1014,7 @@ impl Serialize for Value {
 
                 list_ser.end()
             }
-            ValueInner::Map(map) => {
+            ValueData::Map(map) => {
                 let mut map_ser = serializer.serialize_map(Some(map.len()))?;
 
                 for (identifier, value) in map {
@@ -398,7 +1023,7 @@ impl Serialize for Value {
 
                 map_ser.end()
             }
-            ValueInner::Range(range) => {
+            ValueData::Range(range) => {
                 let mut tuple_ser = serializer.serialize_tuple(2)?;
 
                 tuple_ser.serialize_element(&range.start)?;
@@ -406,16 +1031,16 @@ impl Serialize for Value {
 
                 tuple_ser.end()
             }
-            ValueInner::String(string) => serializer.serialize_str(string),
-            ValueInner::Struct(r#struct) => r#struct.serialize(serializer),
+            ValueData::String(string) => serializer.serialize_str(string),
+            ValueData::Struct(r#struct) => r#struct.serialize(serializer),
         }
     }
 }
 
-struct ValueVisitor;
+struct ValueInnerVisitor;
 
-impl<'de> Visitor<'de> for ValueVisitor {
-    type Value = Value;
+impl<'de> Visitor<'de> for ValueInnerVisitor {
+    type Value = ValueData;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
@@ -426,7 +1051,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::boolean(v))
+        Ok(ValueData::Boolean(v))
     }
 
     fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
@@ -454,7 +1079,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::integer(v))
+        Ok(ValueData::Integer(v))
     }
 
     fn visit_i128<E>(self, _: i128) -> Result<Self::Value, E>
@@ -489,7 +1114,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::integer(v as i64))
+        Ok(ValueData::Integer(v as i64))
     }
 
     fn visit_u128<E>(self, _: u128) -> Result<Self::Value, E>
@@ -510,7 +1135,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::float(v))
+        Ok(ValueData::Float(v))
     }
 
     fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
@@ -524,7 +1149,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
     where
         E: serde::de::Error,
     {
-        Ok(Value::string(v))
+        Ok(ValueData::String(v.to_string()))
     }
 
     fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
@@ -617,7 +1242,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
             list.push(element);
         }
 
-        Ok(Value::list(list))
+        Ok(ValueData::List(list))
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
@@ -630,7 +1255,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
             btree.insert(key, value);
         }
 
-        Ok(Value::map(btree))
+        Ok(ValueData::Map(btree))
     }
 
     fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error>
@@ -645,123 +1270,12 @@ impl<'de> Visitor<'de> for ValueVisitor {
     }
 }
 
-impl<'de> Deserialize<'de> for Value {
+impl<'de> Deserialize<'de> for ValueData {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_any(ValueVisitor)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ValueInner {
-    Boolean(bool),
-    Float(f64),
-    Function(Function),
-    Integer(i64),
-    List(Vec<Value>),
-    Map(BTreeMap<Identifier, Value>),
-    Range(Range<i64>),
-    String(String),
-    Struct(Struct),
-}
-
-impl ValueInner {
-    fn r#type(&self) -> Type {
-        match self {
-            ValueInner::Boolean(_) => Type::Boolean,
-            ValueInner::Float(_) => Type::Float,
-            ValueInner::Function(function) => Type::Function {
-                type_parameters: function.type_parameters.clone(),
-                value_parameters: function.value_parameters.clone(),
-                return_type: function.return_type.as_ref().cloned().map(Box::new),
-            },
-            ValueInner::Integer(_) => Type::Integer,
-            ValueInner::List(values) => {
-                let item_type = values.first().unwrap().r#type();
-
-                Type::List {
-                    item_type: Box::new(item_type),
-                    length: values.len(),
-                }
-            }
-            ValueInner::Map(value_map) => {
-                let mut type_map = BTreeMap::new();
-
-                for (identifier, value) in value_map {
-                    let r#type = value.r#type();
-
-                    type_map.insert(identifier.clone(), r#type);
-                }
-
-                Type::Map(type_map)
-            }
-            ValueInner::Range(_) => Type::Range,
-            ValueInner::String(_) => Type::String,
-            ValueInner::Struct(r#struct) => match r#struct {
-                Struct::Unit { name } => Type::Struct(StructType::Unit { name: name.clone() }),
-                Struct::Tuple { .. } => todo!(),
-                Struct::Fields { .. } => todo!(),
-            },
-        }
-    }
-
-    fn get_property(&self, property: &Identifier) -> Option<Value> {
-        match self {
-            ValueInner::List(list) => {
-                if property.as_str() == "length" {
-                    Some(Value::integer(list.len() as i64))
-                } else {
-                    None
-                }
-            }
-            ValueInner::Map(value_map) => value_map.get(property).cloned(),
-            _ => None,
-        }
-    }
-}
-
-impl Eq for ValueInner {}
-
-impl PartialOrd for ValueInner {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ValueInner {
-    fn cmp(&self, other: &Self) -> Ordering {
-        use ValueInner::*;
-
-        match (self, other) {
-            (Boolean(left), Boolean(right)) => left.cmp(right),
-            (Boolean(_), _) => Ordering::Greater,
-            (Float(left), Float(right)) => left.total_cmp(right),
-            (Float(_), _) => Ordering::Greater,
-            (Function(left), Function(right)) => left.cmp(right),
-            (Function(_), _) => Ordering::Greater,
-            (Integer(left), Integer(right)) => left.cmp(right),
-            (Integer(_), _) => Ordering::Greater,
-            (List(left), List(right)) => left.cmp(right),
-            (List(_), _) => Ordering::Greater,
-            (Map(left), Map(right)) => left.cmp(right),
-            (Map(_), _) => Ordering::Greater,
-            (Range(left), Range(right)) => {
-                let start_cmp = left.start.cmp(&right.start);
-
-                if start_cmp.is_eq() {
-                    left.end.cmp(&right.end)
-                } else {
-                    start_cmp
-                }
-            }
-            (Range(_), _) => Ordering::Greater,
-            (String(left), String(right)) => left.cmp(right),
-            (String(_), _) => Ordering::Greater,
-            (Struct(left), Struct(right)) => left.cmp(right),
-            (Struct(_), _) => Ordering::Greater,
-        }
+        deserializer.deserialize_any(ValueInnerVisitor)
     }
 }
 

@@ -12,9 +12,9 @@ use std::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    parse, value::ValueInner, AbstractSyntaxTree, Analyzer, AssignmentOperator, BinaryOperator,
-    BuiltInFunctionError, Context, DustError, Identifier, Node, ParseError, Span, Statement,
-    Struct, StructType, Type, UnaryOperator, Value, ValueError,
+    parse, AbstractSyntaxTree, Analyzer, AssignmentOperator, BinaryOperator, BuiltInFunctionError,
+    Context, DustError, Identifier, Node, ParseError, Span, Statement, Struct, StructType, Type,
+    UnaryOperator, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -688,8 +688,8 @@ impl Vm {
                 let condition_position = condition.position;
 
                 while let Some(condition_value) = self.run_statement(*condition.clone())? {
-                    if let ValueInner::Boolean(condition_value) = condition_value.inner().as_ref() {
-                        if !condition_value {
+                    if let Some(condition) = condition_value.as_boolean() {
+                        if !condition {
                             break;
                         }
                     } else {
