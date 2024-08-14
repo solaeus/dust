@@ -16,7 +16,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn call_expression(call_expression: CallExpression, position: Span) -> Self {
+    pub fn call(call_expression: CallExpression, position: Span) -> Self {
         Expression::WithoutBlock(Node::new(
             Box::new(ExpressionWithoutBlock::Call(call_expression)),
             position,
@@ -30,7 +30,7 @@ impl Expression {
         ))
     }
 
-    pub fn operator_expression(operator_expression: OperatorExpression, position: Span) -> Self {
+    pub fn operator(operator_expression: OperatorExpression, position: Span) -> Self {
         Expression::WithoutBlock(Node::new(
             Box::new(ExpressionWithoutBlock::Operator(operator_expression)),
             position,
@@ -58,14 +58,14 @@ impl Expression {
         ))
     }
 
-    pub fn struct_expression(struct_expression: StructExpression, position: Span) -> Self {
+    pub fn r#struct(struct_expression: StructExpression, position: Span) -> Self {
         Expression::WithoutBlock(Node::new(
             Box::new(ExpressionWithoutBlock::Struct(struct_expression)),
             position,
         ))
     }
 
-    pub fn identifier_expression(identifier: Identifier, position: Span) -> Self {
+    pub fn identifier(identifier: Identifier, position: Span) -> Self {
         Expression::WithoutBlock(Node::new(
             Box::new(ExpressionWithoutBlock::Identifier(identifier)),
             position,
@@ -93,13 +93,6 @@ impl Expression {
     pub fn literal(literal: LiteralExpression, position: Span) -> Self {
         Expression::WithoutBlock(Node::new(
             Box::new(ExpressionWithoutBlock::Literal(literal)),
-            position,
-        ))
-    }
-
-    pub fn identifier(identifier: Identifier, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Identifier(identifier)),
             position,
         ))
     }
@@ -248,7 +241,7 @@ impl Display for ListExpression {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LiteralExpression {
     Boolean(bool),
     Float(f64),
@@ -272,6 +265,12 @@ impl Display for LiteralExpression {
 }
 
 impl Eq for LiteralExpression {}
+
+impl PartialOrd for LiteralExpression {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 impl Ord for LiteralExpression {
     fn cmp(&self, other: &Self) -> Ordering {

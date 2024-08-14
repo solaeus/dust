@@ -28,10 +28,7 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use abstract_tree::{
-    AbstractSyntaxTree, AssignmentOperator, BinaryOperator, Node, Statement, StructDefinition,
-    UnaryOperator,
-};
+pub use abstract_tree::{AbstractSyntaxTree, Expression, Node, Statement};
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use context::{Context, VariableData};

@@ -7,14 +7,13 @@ use std::{
     collections::VecDeque,
     error::Error,
     fmt::{self, Display, Formatter},
-    marker::PhantomData,
     num::{ParseFloatError, ParseIntError},
     str::ParseBoolError,
 };
 
 use crate::{
-    abstract_tree::*, AbstractSyntaxTree, BuiltInFunction, DustError, Identifier, LexError, Lexer,
-    Node, Span, Statement, StructDefinition, Token, TokenKind, TokenOwned, Type, Value,
+    abstract_tree::*, DustError, Identifier, LexError, Lexer, Span, Token, TokenKind, TokenOwned,
+    Type,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -51,12 +50,12 @@ use crate::{
 /// ```
 pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
     let lexer = Lexer::new();
-    let mut parser = Parser::<Statement>::new(source, lexer);
+    let mut parser = Parser::new(source, lexer);
     let mut nodes = VecDeque::new();
 
     loop {
         let node = parser
-            .parse()
+            .parse_statement()
             .map_err(|parse_error| DustError::ParseError {
                 parse_error,
                 source,
@@ -77,11 +76,11 @@ pub fn parse_into<'src>(
     tree: &mut AbstractSyntaxTree,
 ) -> Result<(), DustError<'src>> {
     let lexer = Lexer::new();
-    let mut parser = Parser::<Statement>::new(source, lexer);
+    let mut parser = Parser::new(source, lexer);
 
     loop {
         let node = parser
-            .parse()
+            .parse_statement()
             .map_err(|parse_error| DustError::ParseError {
                 parse_error,
                 source,
@@ -103,7 +102,7 @@ pub fn parse_into<'src>(
 /// ```
 /// # use std::collections::VecDeque;
 /// # use dust_lang::*;
-/// let input = "x = 42";
+/// let source = "x = 42";
 /// let lexer = Lexer::new();
 /// let mut parser = Parser::new(input, lexer);
 /// let mut nodes = VecDeque::new();
@@ -121,15 +120,14 @@ pub fn parse_into<'src>(
 /// let tree = AbstractSyntaxTree { nodes };
 ///
 /// ```
-pub struct Parser<'src, T> {
+pub struct Parser<'src> {
     source: &'src str,
     lexer: Lexer,
     current_token: Token<'src>,
     current_position: Span,
-    product: PhantomData<T>,
 }
 
-impl<'src, T> Parser<'src, T> {
+impl<'src> Parser<'src> {
     pub fn new(source: &'src str, lexer: Lexer) -> Self {
         let mut lexer = lexer;
         let (current_token, current_position) =
@@ -140,12 +138,106 @@ impl<'src, T> Parser<'src, T> {
             lexer,
             current_token,
             current_position,
-            product: PhantomData,
         }
     }
 
-    pub fn parse(&mut self) -> Result<Statement, ParseError> {
-        self.parse_next(0)
+    pub fn parse_statement(&mut self) -> Result<Statement, ParseError> {
+        let start_position = self.current_position;
+
+        if let Token::Struct = self.current_token {
+            self.next_token()?;
+
+            let (name, name_end) = if let Token::Identifier(_) = self.current_token {
+                let end = self.current_position.1;
+
+                (self.parse_identifier()?, end)
+            } else {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::Identifier,
+                    actual: self.current_token.to_owned(),
+                    position: self.current_position,
+                });
+            };
+
+            if let Token::LeftParenthesis = self.current_token {
+                self.next_token()?;
+
+                let mut types = Vec::new();
+
+                loop {
+                    if let Token::RightParenthesis = self.current_token {
+                        let position = (start_position.0, self.current_position.1);
+
+                        self.next_token()?;
+
+                        return Ok(Statement::struct_definition(
+                            StructDefinition::Tuple { name, items: types },
+                            position,
+                        ));
+                    }
+
+                    if let Token::Comma = self.current_token {
+                        self.next_token()?;
+
+                        continue;
+                    }
+
+                    let type_node = self.parse_type()?;
+
+                    types.push(type_node);
+                }
+            }
+
+            if let Token::LeftCurlyBrace = self.current_token {
+                self.next_token()?;
+
+                let mut fields = Vec::new();
+
+                loop {
+                    if let Token::RightCurlyBrace = self.current_token {
+                        let position = (start_position.0, self.current_position.1);
+
+                        self.next_token()?;
+
+                        return Ok(Statement::struct_definition(
+                            StructDefinition::Fields { name, fields },
+                            position,
+                        ));
+                    }
+
+                    if let Token::Comma = self.current_token {
+                        self.next_token()?;
+
+                        continue;
+                    }
+
+                    let field_name = self.parse_identifier()?;
+
+                    if let Token::Colon = self.current_token {
+                        self.next_token()?;
+                    } else {
+                        return Err(ParseError::ExpectedToken {
+                            expected: TokenKind::Colon,
+                            actual: self.current_token.to_owned(),
+                            position: self.current_position,
+                        });
+                    }
+
+                    let field_type = self.parse_type()?;
+
+                    fields.push((field_name, field_type));
+                }
+            }
+
+            return Ok(Statement::struct_definition(
+                StructDefinition::Unit { name },
+                (start_position.0, name_end),
+            ));
+        }
+
+        let expression = self.parse_expression(0)?;
+
+        Ok(Statement::Expression(expression))
     }
 
     fn next_token(&mut self) -> Result<(), ParseError> {
@@ -157,7 +249,7 @@ impl<'src, T> Parser<'src, T> {
         Ok(())
     }
 
-    fn parse_next(&mut self, mut precedence: u8) -> Result<Statement, ParseError> {
+    fn parse_expression(&mut self, mut precedence: u8) -> Result<Expression, ParseError> {
         // Parse a statement starting from the current node.
         let mut left = if self.current_token.is_prefix() {
             self.parse_prefix()?
@@ -184,7 +276,7 @@ impl<'src, T> Parser<'src, T> {
         Ok(left)
     }
 
-    fn parse_prefix(&mut self) -> Result<Statement, ParseError> {
+    fn parse_prefix(&mut self) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as prefix operator", self.current_token);
 
         let operator_start = self.current_position.0;
@@ -196,10 +288,10 @@ impl<'src, T> Parser<'src, T> {
                 let operand = self.parse_expression(0)?;
                 let position = (operator_start, self.current_position.1);
 
-                Ok(Statement::Expression(Expression::operator_expression(
+                Ok(Expression::operator(
                     OperatorExpression::Not(operand),
                     position,
-                )))
+                ))
             }
             Token::Minus => {
                 self.next_token()?;
@@ -207,10 +299,10 @@ impl<'src, T> Parser<'src, T> {
                 let operand = self.parse_expression(0)?;
                 let position = (operator_start, self.current_position.1);
 
-                Ok(Statement::Expression(Expression::operator_expression(
+                Ok(Expression::operator(
                     OperatorExpression::Negation(operand),
                     position,
-                )))
+                ))
             }
             _ => Err(ParseError::UnexpectedToken {
                 actual: self.current_token.to_owned(),
@@ -219,7 +311,7 @@ impl<'src, T> Parser<'src, T> {
         }
     }
 
-    fn parse_primary(&mut self) -> Result<Statement, ParseError> {
+    fn parse_primary(&mut self) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as primary", self.current_token);
 
         let start_position = self.current_position;
@@ -229,7 +321,7 @@ impl<'src, T> Parser<'src, T> {
                 let block = self.parse_block()?;
                 let position = (start_position.0, self.current_position.1);
 
-                return Ok(Statement::block(block.inner, position));
+                return Ok(Expression::block(block.inner, position));
             }
             Token::Boolean(text) => {
                 self.next_token()?;
@@ -239,7 +331,7 @@ impl<'src, T> Parser<'src, T> {
                     position: start_position,
                 })?;
                 let right_end = self.current_position.1;
-                let statement = Statement::literal(
+                let statement = Expression::literal(
                     LiteralExpression::Boolean(boolean),
                     (start_position.0, right_end),
                 );
@@ -255,7 +347,7 @@ impl<'src, T> Parser<'src, T> {
                 })?;
                 let position = (start_position.0, self.current_position.1);
 
-                return Ok(Statement::literal(
+                return Ok(Expression::literal(
                     LiteralExpression::Float(float),
                     position,
                 ));
@@ -277,7 +369,7 @@ impl<'src, T> Parser<'src, T> {
 
                             self.next_token()?;
 
-                            return Ok(Statement::struct_expression(
+                            return Ok(Expression::r#struct(
                                 StructExpression::Fields {
                                     name: Node::new(identifier, identifier_position),
                                     fields,
@@ -308,10 +400,7 @@ impl<'src, T> Parser<'src, T> {
                     }
                 }
 
-                Ok(Statement::identifier_expression(
-                    identifier,
-                    identifier_position,
-                ))
+                Ok(Expression::identifier(identifier, identifier_position))
             }
             Token::Integer(text) => {
                 self.next_token()?;
@@ -337,7 +426,7 @@ impl<'src, T> Parser<'src, T> {
                                     position: end_position,
                                 })?;
 
-                        Ok(Statement::literal(
+                        Ok(Expression::literal(
                             LiteralExpression::Range(integer, range_end),
                             (start_position.0, end_position.1),
                         ))
@@ -349,7 +438,7 @@ impl<'src, T> Parser<'src, T> {
                         })
                     }
                 } else {
-                    Ok(Statement::literal(
+                    Ok(Expression::literal(
                         LiteralExpression::Integer(integer),
                         start_position,
                     ))
@@ -369,7 +458,7 @@ impl<'src, T> Parser<'src, T> {
                 };
                 let position = (start_position.0, self.current_position.1);
 
-                Ok(Statement::r#if(
+                Ok(Expression::r#if(
                     If {
                         condition,
                         if_block,
@@ -381,7 +470,7 @@ impl<'src, T> Parser<'src, T> {
             Token::String(text) => {
                 self.next_token()?;
 
-                Ok(Statement::literal(
+                Ok(Expression::literal(
                     LiteralExpression::String(text.to_string()),
                     start_position,
                 ))
@@ -389,7 +478,7 @@ impl<'src, T> Parser<'src, T> {
             Token::LeftCurlyBrace => {
                 let block_node = self.parse_block()?;
 
-                Ok(Statement::block(block_node.inner, block_node.position))
+                Ok(Expression::block(block_node.inner, block_node.position))
             }
             Token::LeftParenthesis => {
                 self.next_token()?;
@@ -401,7 +490,7 @@ impl<'src, T> Parser<'src, T> {
 
                     self.next_token()?;
 
-                    Ok(Statement::grouped(node, position))
+                    Ok(Expression::grouped(node, position))
                 } else {
                     Err(ParseError::ExpectedToken {
                         expected: TokenKind::RightParenthesis,
@@ -425,7 +514,7 @@ impl<'src, T> Parser<'src, T> {
 
                         self.next_token()?;
 
-                        return Ok(Statement::list(
+                        return Ok(Expression::list(
                             ListExpression::AutoFill {
                                 length_operand: first_expression,
                                 repeat_operand,
@@ -449,7 +538,7 @@ impl<'src, T> Parser<'src, T> {
 
                         self.next_token()?;
 
-                        return Ok(Statement::list(
+                        return Ok(Expression::list(
                             ListExpression::Ordered(expressions),
                             position,
                         ));
@@ -466,96 +555,6 @@ impl<'src, T> Parser<'src, T> {
                     expressions.push(expression);
                 }
             }
-            Token::Struct => {
-                self.next_token()?;
-
-                let (name, name_end) = if let Token::Identifier(_) = self.current_token {
-                    let end = self.current_position.1;
-
-                    (self.parse_identifier()?, end)
-                } else {
-                    return Err(ParseError::ExpectedToken {
-                        expected: TokenKind::Identifier,
-                        actual: self.current_token.to_owned(),
-                        position: self.current_position,
-                    });
-                };
-
-                if let Token::LeftParenthesis = self.current_token {
-                    self.next_token()?;
-
-                    let mut types = Vec::new();
-
-                    loop {
-                        if let Token::RightParenthesis = self.current_token {
-                            let position = (start_position.0, self.current_position.1);
-
-                            self.next_token()?;
-
-                            return Ok(Statement::struct_definition(
-                                StructDefinition::Tuple { name, items: types },
-                                position,
-                            ));
-                        }
-
-                        if let Token::Comma = self.current_token {
-                            self.next_token()?;
-
-                            continue;
-                        }
-
-                        let type_node = self.parse_type()?;
-
-                        types.push(type_node);
-                    }
-                }
-
-                if let Token::LeftCurlyBrace = self.current_token {
-                    self.next_token()?;
-
-                    let mut fields = Vec::new();
-
-                    loop {
-                        if let Token::RightCurlyBrace = self.current_token {
-                            let position = (start_position.0, self.current_position.1);
-
-                            self.next_token()?;
-
-                            return Ok(Statement::struct_definition(
-                                StructDefinition::Fields { name, fields },
-                                position,
-                            ));
-                        }
-
-                        if let Token::Comma = self.current_token {
-                            self.next_token()?;
-
-                            continue;
-                        }
-
-                        let field_name = self.parse_identifier()?;
-
-                        if let Token::Colon = self.current_token {
-                            self.next_token()?;
-                        } else {
-                            return Err(ParseError::ExpectedToken {
-                                expected: TokenKind::Colon,
-                                actual: self.current_token.to_owned(),
-                                position: self.current_position,
-                            });
-                        }
-
-                        let field_type = self.parse_type()?;
-
-                        fields.push((field_name, field_type));
-                    }
-                }
-
-                Ok(Statement::struct_definition(
-                    StructDefinition::Unit { name },
-                    (start_position.0, name_end),
-                ))
-            }
             Token::While => {
                 self.next_token()?;
 
@@ -563,7 +562,7 @@ impl<'src, T> Parser<'src, T> {
                 let block = self.parse_block()?;
                 let position = (start_position.0, self.current_position.1);
 
-                Ok(Statement::r#loop(
+                Ok(Expression::r#loop(
                     Loop::While { condition, block },
                     position,
                 ))
@@ -575,14 +574,9 @@ impl<'src, T> Parser<'src, T> {
         }
     }
 
-    fn parse_infix(&mut self, left: Statement) -> Result<Statement, ParseError> {
+    fn parse_infix(&mut self, left: Expression) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as infix operator", self.current_token);
 
-        let left = if let Statement::Expression(expression) = left {
-            expression
-        } else {
-            return Err(ParseError::ExpectedExpression { actual: left });
-        };
         let operator_precedence = self.current_token.precedence()
             - if self.current_token.is_right_associative() {
                 1
@@ -597,7 +591,7 @@ impl<'src, T> Parser<'src, T> {
             let value = self.parse_expression(operator_precedence)?;
             let position = (left_start, value.position().1);
 
-            return Ok(Statement::operator_expression(
+            return Ok(Expression::operator(
                 OperatorExpression::Assignment {
                     assignee: left,
                     value,
@@ -619,7 +613,7 @@ impl<'src, T> Parser<'src, T> {
             let value = self.parse_expression(operator_precedence)?;
             let position = (left_start, value.position().1);
 
-            return Ok(Statement::operator_expression(
+            return Ok(Expression::operator(
                 OperatorExpression::CompoundAssignment {
                     assignee: left,
                     operator,
@@ -635,7 +629,7 @@ impl<'src, T> Parser<'src, T> {
             let field = self.parse_identifier()?;
             let position = (left_start, self.current_position.1);
 
-            return Ok(Statement::field_access(
+            return Ok(Expression::field_access(
                 FieldAccess {
                     container: left,
                     field,
@@ -663,7 +657,7 @@ impl<'src, T> Parser<'src, T> {
         let right = self.parse_expression(operator_precedence)?;
         let position = (left_start, right.position().1);
 
-        Ok(Statement::operator_expression(
+        Ok(Expression::operator(
             OperatorExpression::Math {
                 left,
                 operator: math_operator,
@@ -673,14 +667,8 @@ impl<'src, T> Parser<'src, T> {
         ))
     }
 
-    fn parse_postfix(&mut self, left: Statement) -> Result<Statement, ParseError> {
+    fn parse_postfix(&mut self, left: Expression) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as postfix operator", self.current_token);
-
-        let left = if let Statement::Expression(expression) = left {
-            expression
-        } else {
-            return Err(ParseError::ExpectedExpression { actual: left });
-        };
 
         let statement = match &self.current_token {
             Token::LeftParenthesis => {
@@ -704,7 +692,7 @@ impl<'src, T> Parser<'src, T> {
 
                 let position = (left.position().0, self.current_position.1);
 
-                Statement::call_expression(
+                Expression::call(
                     CallExpression {
                         function: left,
                         arguments,
@@ -735,14 +723,7 @@ impl<'src, T> Parser<'src, T> {
 
                 let position = (left.position().0, operator_end);
 
-                Statement::list_index(ListIndex { list: left, index }, position)
-            }
-            Token::Semicolon => {
-                let position = (left.position().0, self.current_position.1);
-
-                self.next_token()?;
-
-                Statement::ExpressionNullified(Node::new(left, position))
+                Expression::list_index(ListIndex { list: left, index }, position)
             }
             _ => {
                 return Err(ParseError::UnexpectedToken {
@@ -756,18 +737,6 @@ impl<'src, T> Parser<'src, T> {
             self.parse_postfix(statement)
         } else {
             Ok(statement)
-        }
-    }
-
-    fn parse_expression(&mut self, precedence: u8) -> Result<Expression, ParseError> {
-        log::trace!("Parsing expression");
-
-        let statement = self.parse_next(precedence)?;
-
-        if let Statement::Expression(expression) = statement {
-            Ok(expression)
-        } else {
-            Err(ParseError::ExpectedExpression { actual: statement })
         }
     }
 
@@ -820,7 +789,7 @@ impl<'src, T> Parser<'src, T> {
                 };
             }
 
-            let statement = self.parse_next(0)?;
+            let statement = self.parse_statement()?;
 
             statements.push(statement);
         }
@@ -959,34 +928,45 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Identifier, StructDefinition, Type};
+    use fmt::Write;
+
+    use crate::{Identifier, Type};
 
     use super::*;
 
     #[test]
     fn mutable_variable() {
-        let input = "mut x = false";
+        let source = "mut x = false";
 
-        assert_eq!(parse(input), todo!());
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn async_block() {
-        let input = "async { x = 42; y = 4.0 }";
+        let source = "async { x = 42; y = 4.0 }";
 
         assert_eq!(
-            parse(input),
+            parse(source),
             Ok(AbstractSyntaxTree {
-                statements: [Statement::block(
-                    Block::Async(vec![Statement::operator_expression(
-                        OperatorExpression::Assignment {
-                            assignee: Expression::WithoutBlock(()),
-                            value: ()
-                        },
-                        position
-                    )]),
-                    position
-                )]
+                statements: [Statement::Expression(Expression::block(
+                    Block::Async(vec![
+                        Statement::Expression(Expression::operator(
+                            OperatorExpression::Assignment {
+                                assignee: Expression::identifier(Identifier::new("x"), (0, 0)),
+                                value: Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                            },
+                            (0, 0)
+                        )),
+                        Statement::Expression(Expression::operator(
+                            OperatorExpression::Assignment {
+                                assignee: Expression::identifier(Identifier::new("y"), (0, 0)),
+                                value: Expression::literal(LiteralExpression::Float(4.0), (0, 0)),
+                            },
+                            (0, 0)
+                        ))
+                    ]),
+                    (0, 0)
+                ),)]
                 .into()
             })
         );
@@ -994,1343 +974,342 @@ mod tests {
 
     #[test]
     fn tuple_struct_access() {
-        let input = "(Foo(42, 'bar')).0";
-        let mut tree = AbstractSyntaxTree::new();
+        let source = "(Foo(42, 'bar')).0";
 
-        if parse_into(input, &mut tree).is_err() {
-            println!("{tree:?}")
-        }
-
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::Invokation {
-                                invokee: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("Foo")),
-                                    (1, 4)
-                                )),
-                                type_arguments: None,
-                                value_arguments: Some(vec![
-                                    Node::new(Statement::Constant(Value::integer(42)), (5, 7)),
-                                    Node::new(Statement::Constant(Value::string("bar")), (9, 14))
-                                ]),
-                            },
-                            (0, 16)
-                        )),
-                        operator: Node::new(BinaryOperator::FieldAccess, (16, 17)),
-                        right: Box::new(Node::new(
-                            Statement::Constant(Value::integer(0)),
-                            (17, 18)
-                        ))
-                    },
-                    (0, 18)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn fields_struct_instantiation() {
-        let input = "Foo { a = 42, b = 4.0 }";
+        let source = "Foo { a = 42, b = 4.0 }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::FieldsStructInstantiation {
-                        name: Node::new(Identifier::new("Foo"), (0, 3)),
-                        fields: vec![
-                            (
-                                Node::new(Identifier::new("a"), (6, 7)),
-                                Node::new(Statement::Constant(Value::integer(42)), (10, 12))
-                            ),
-                            (
-                                Node::new(Identifier::new("b"), (14, 15)),
-                                Node::new(Statement::Constant(Value::float(4.0)), (18, 21))
-                            )
-                        ]
-                    },
-                    (0, 23)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn fields_struct() {
-        let input = "struct Foo { a: int, b: float }";
+        let source = "struct Foo { a: int, b: float }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::StructDefinition(StructDefinition::Fields {
-                        name: Node::new(Identifier::new("Foo"), (7, 10)),
-                        fields: vec![
-                            (
-                                Node::new(Identifier::new("a"), (13, 14)),
-                                Node::new(Type::Integer, (16, 19))
-                            ),
-                            (
-                                Node::new(Identifier::new("b"), (21, 22)),
-                                Node::new(Type::Float, (24, 29))
-                            )
-                        ]
-                    }),
-                    (0, 31)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn tuple_struct_instantiation() {
-        let input = "struct Foo(int, float) Foo(1, 2.0)";
+        let source = "struct Foo(int, float) Foo(1, 2.0)";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [
-                    Node::new(
-                        Statement::StructDefinition(StructDefinition::Tuple {
-                            name: Node::new(Identifier::new("Foo"), (7, 10)),
-                            items: vec![
-                                Node::new(Type::Integer, (11, 14)),
-                                Node::new(Type::Float, (16, 21))
-                            ]
-                        }),
-                        (0, 22)
-                    ),
-                    Node::new(
-                        Statement::Invokation {
-                            invokee: Box::new(Node::new(
-                                Statement::Identifier(Identifier::new("Foo")),
-                                (23, 26)
-                            )),
-                            type_arguments: None,
-                            value_arguments: Some(vec![
-                                Node::new(Statement::Constant(Value::integer(1)), (27, 28)),
-                                Node::new(Statement::Constant(Value::float(2.0)), (30, 33))
-                            ])
-                        },
-                        (23, 34)
-                    )
-                ]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn tuple_struct() {
-        let input = "struct Foo(int, float)";
+        let source = "struct Foo(int, float)";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::StructDefinition(StructDefinition::Tuple {
-                        name: Node::new(Identifier::new("Foo"), (7, 10)),
-                        items: vec![
-                            Node::new(Type::Integer, (11, 14)),
-                            Node::new(Type::Float, (16, 21))
-                        ]
-                    }),
-                    (0, 22)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn unit_struct() {
-        let input = "struct Foo";
+        let source = "struct Foo";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::StructDefinition(StructDefinition::Unit {
-                        name: Node::new(Identifier::new("Foo"), (7, 10)),
-                    }),
-                    (0, 10)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn list_index_nested() {
-        let input = "[1, [2], 3][1][0]";
+        let source = "[1, [2], 3][1][0]";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::List(vec![
-                                        Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                                        Node::new(
-                                            Statement::List(vec![Node::new(
-                                                Statement::Constant(Value::integer(2)),
-                                                (5, 6)
-                                            )]),
-                                            (4, 7)
-                                        ),
-                                        Node::new(Statement::Constant(Value::integer(3)), (9, 10))
-                                    ]),
-                                    (0, 11)
-                                )),
-                                operator: Node::new(BinaryOperator::ListIndex, (11, 14)),
-                                right: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (12, 13)
-                                ))
-                            },
-                            (0, 15)
-                        )),
-                        operator: Node::new(BinaryOperator::ListIndex, (14, 17)),
-                        right: Box::new(Node::new(
-                            Statement::Constant(Value::integer(0)),
-                            (15, 16)
-                        ))
-                    },
-                    (0, 17)
-                ),]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn map_property_nested() {
-        let input = "{ x = { y = 42 } }.x.y";
-
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Map(vec![(
-                                        Node::new(Identifier::new("x"), (2, 3)),
-                                        Node::new(
-                                            Statement::Map(vec![(
-                                                Node::new(Identifier::new("y"), (8, 9)),
-                                                Node::new(
-                                                    Statement::Constant(Value::integer(42)),
-                                                    (12, 14)
-                                                )
-                                            )]),
-                                            (6, 16)
-                                        )
-                                    )]),
-                                    (0, 18)
-                                )),
-                                operator: Node::new(BinaryOperator::FieldAccess, (18, 19)),
-                                right: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("x")),
-                                    (19, 20)
-                                ))
-                            },
-                            (0, 20)
-                        )),
-                        operator: Node::new(BinaryOperator::FieldAccess, (20, 21)),
-                        right: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("y")),
-                            (21, 22)
-                        ))
-                    },
-                    (0, 22)
-                )]
-                .into()
-            })
-        )
+        let source = "{ x = { y = 42 } }.x.y";
     }
 
     #[test]
     fn range() {
-        let input = "0..42";
+        let source = "0..42";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(Statement::Constant(Value::range(0..42)), (0, 5))].into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn negate_variable() {
-        let input = "a = 1; -a";
+        let source = "a = 1; -a";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [
-                    Node::new(
-                        Statement::Nil(Box::new(Node::new(
-                            Statement::Assignment {
-                                identifier: Node::new(Identifier::new("a"), (0, 1)),
-                                operator: Node::new(AssignmentOperator::Assign, (2, 3)),
-                                value: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (4, 5)
-                                )),
-                            },
-                            (0, 5)
-                        ))),
-                        (0, 6)
-                    ),
-                    Node::new(
-                        Statement::UnaryOperation {
-                            operator: Node::new(UnaryOperator::Negate, (7, 8)),
-                            operand: Box::new(Node::new(
-                                Statement::Identifier(Identifier::new("a")),
-                                (8, 9)
-                            )),
-                        },
-                        (7, 9)
-                    )
-                ]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn negate_expression() {
-        let input = "-(1 + 1)";
+        let source = "-(1 + 1)";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::UnaryOperation {
-                        operator: Node::new(UnaryOperator::Negate, (0, 1)),
-                        operand: Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (2, 3)
-                                )),
-                                operator: Node::new(BinaryOperator::Add, (4, 5)),
-                                right: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (6, 7)
-                                )),
-                            },
-                            (1, 8)
-                        )),
-                    },
-                    (0, 8)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn not_expression() {
-        let input = "!(1 > 42)";
+        let source = "!(1 > 42)";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::UnaryOperation {
-                        operator: Node::new(UnaryOperator::Not, (0, 1)),
-                        operand: Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (2, 3)
-                                )),
-                                operator: Node::new(BinaryOperator::Greater, (4, 5)),
-                                right: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(42)),
-                                    (6, 8)
-                                )),
-                            },
-                            (1, 9)
-                        )),
-                    },
-                    (0, 9)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn not_variable() {
-        let input = "a = false; !a";
+        let source = "a = false; !a";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [
-                    Node::new(
-                        Statement::Nil(Box::new(Node::new(
-                            Statement::Assignment {
-                                identifier: Node::new(Identifier::new("a"), (0, 1)),
-                                operator: Node::new(AssignmentOperator::Assign, (2, 3)),
-                                value: Box::new(Node::new(
-                                    Statement::Constant(Value::boolean(false)),
-                                    (4, 9)
-                                )),
-                            },
-                            (0, 9)
-                        ))),
-                        (0, 10)
-                    ),
-                    Node::new(
-                        Statement::UnaryOperation {
-                            operator: Node::new(UnaryOperator::Not, (11, 12)),
-                            operand: Box::new(Node::new(
-                                Statement::Identifier(Identifier::new("a")),
-                                (12, 13)
-                            )),
-                        },
-                        (11, 13)
-                    )
-                ]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn r#if() {
-        let input = "if x { y }";
+        let source = "if x { y }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::If {
-                        condition: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("x")),
-                            (3, 4)
-                        )),
-                        body: Box::new(Node::new(
-                            Statement::Block(vec![Node::new(
-                                Statement::Identifier(Identifier::new("y")),
-                                (7, 8)
-                            )]),
-                            (5, 10)
-                        )),
-                    },
-                    (0, 10)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn if_else() {
-        let input = "if x { y } else { z }";
+        let source = "if x { y } else { z }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::IfElse {
-                        condition: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("x")),
-                            (3, 4)
-                        )),
-                        if_body: Box::new(Node::new(
-                            Statement::Block(vec![Node::new(
-                                Statement::Identifier(Identifier::new("y")),
-                                (7, 8)
-                            )]),
-                            (5, 10)
-                        )),
-                        else_body: Box::new(Node::new(
-                            Statement::Block(vec![Node::new(
-                                Statement::Identifier(Identifier::new("z")),
-                                (18, 19)
-                            )]),
-                            (16, 21)
-                        )),
-                    },
-                    (0, 21)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn if_else_if_else() {
-        let input = "if x { y } else if z { a } else { b }";
+        let source = "if x { y } else if z { a } else { b }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::IfElseIfElse {
-                        condition: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("x")),
-                            (3, 4)
-                        )),
-                        if_body: Box::new(Node::new(
-                            Statement::Block(vec![Node::new(
-                                Statement::Identifier(Identifier::new("y")),
-                                (7, 8)
-                            )]),
-                            (5, 10)
-                        )),
-                        else_ifs: vec![(
-                            Node::new(Statement::Identifier(Identifier::new("z")), (19, 20)),
-                            Node::new(
-                                Statement::Block(vec![Node::new(
-                                    Statement::Identifier(Identifier::new("a")),
-                                    (23, 24)
-                                )]),
-                                (21, 26)
-                            ),
-                        )],
-                        else_body: Box::new(Node::new(
-                            Statement::Block(vec![Node::new(
-                                Statement::Identifier(Identifier::new("b")),
-                                (34, 35)
-                            )]),
-                            (32, 37)
-                        )),
-                    },
-                    (0, 37)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn malformed_map() {
-        let input = "{ x = 1, y = 2, z = 3; }";
+        let source = "{ x = 1, y = 2, z = 3; }";
 
-        assert_eq!(
-            parse(input),
-            Err(DustError::ParseError {
-                source: input,
-                parse_error: ParseError::ExpectedAssignment {
-                    actual: Node::new(
-                        Statement::Nil(Box::new(Node::new(
-                            Statement::Assignment {
-                                identifier: Node::new(Identifier::new("z"), (16, 17)),
-                                operator: Node::new(AssignmentOperator::Assign, (18, 19)),
-                                value: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(3)),
-                                    (20, 21)
-                                )),
-                            },
-                            (16, 21)
-                        ))),
-                        (16, 22)
-                    ),
-                }
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn while_loop() {
-        let input = "while x < 10 { x += 1 }";
+        let source = "while x < 10 { x += 1 }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::While {
-                        condition: Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Identifier(Identifier::new("x")),
-                                    (6, 7)
-                                )),
-                                operator: Node::new(BinaryOperator::Less, (8, 9)),
-                                right: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(10)),
-                                    (10, 12)
-                                )),
-                            },
-                            (6, 12)
-                        )),
-                        body: Box::new(Node::new(
-                            Statement::Block(vec![Node::new(
-                                Statement::Assignment {
-                                    identifier: Node::new(Identifier::new("x"), (15, 16)),
-                                    operator: Node::new(AssignmentOperator::AddAssign, (17, 19)),
-                                    value: Box::new(Node::new(
-                                        Statement::Constant(Value::integer(1)),
-                                        (20, 21)
-                                    )),
-                                },
-                                (15, 21)
-                            )]),
-                            (13, 23)
-                        )),
-                    },
-                    (0, 23)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn add_assign() {
-        let input = "a += 1";
+        let source = "a += 1";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Assignment {
-                        identifier: Node::new(Identifier::new("a"), (0, 1)),
-                        operator: Node::new(AssignmentOperator::AddAssign, (2, 4)),
-                        value: Box::new(Node::new(Statement::Constant(Value::integer(1)), (5, 6))),
-                    },
-                    (0, 6)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn or() {
-        let input = "true || false";
+        let source = "true || false";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::Constant(Value::boolean(true)),
-                            (0, 4)
-                        )),
-                        operator: Node::new(BinaryOperator::Or, (5, 7)),
-                        right: Box::new(Node::new(
-                            Statement::Constant(Value::boolean(false)),
-                            (8, 13)
-                        )),
-                    },
-                    (0, 13)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn misplaced_semicolon() {
-        let input = ";";
+        let source = ";";
 
-        assert_eq!(
-            parse(input),
-            Err(DustError::ParseError {
-                source: input,
-                parse_error: ParseError::UnexpectedToken {
-                    actual: TokenOwned::Semicolon,
-                    position: (0, 1)
-                }
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn block_with_one_statement() {
-        let input = "{ 40 + 2 }";
+        let source = "{ 40 + 2 }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Block(vec![Node::new(
-                        Statement::BinaryOperation {
-                            left: Box::new(Node::new(
-                                Statement::Constant(Value::integer(40)),
-                                (2, 4)
-                            )),
-                            operator: Node::new(BinaryOperator::Add, (5, 6)),
-                            right: Box::new(Node::new(
-                                Statement::Constant(Value::integer(2)),
-                                (7, 8)
-                            )),
-                        },
-                        (2, 8)
-                    )]),
-                    (0, 10)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn block_with_assignment() {
-        let input = "{ foo = 42; bar = 42; baz = '42' }";
+        let source = "{ foo = 42; bar = 42; baz = '42' }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Block(vec![
-                        Node::new(
-                            Statement::Nil(Box::new(Node::new(
-                                Statement::Assignment {
-                                    identifier: Node::new(Identifier::new("foo"), (2, 5)),
-                                    operator: Node::new(AssignmentOperator::Assign, (6, 7)),
-                                    value: Box::new(Node::new(
-                                        Statement::Constant(Value::integer(42)),
-                                        (8, 10)
-                                    )),
-                                },
-                                (2, 10)
-                            ),)),
-                            (2, 11)
-                        ),
-                        Node::new(
-                            Statement::Nil(Box::new(Node::new(
-                                Statement::Assignment {
-                                    identifier: Node::new(Identifier::new("bar"), (12, 15)),
-                                    operator: Node::new(AssignmentOperator::Assign, (16, 17)),
-                                    value: Box::new(Node::new(
-                                        Statement::Constant(Value::integer(42)),
-                                        (18, 20)
-                                    )),
-                                },
-                                (12, 20)
-                            ),)),
-                            (12, 21)
-                        ),
-                        Node::new(
-                            Statement::Assignment {
-                                identifier: Node::new(Identifier::new("baz"), (22, 25)),
-                                operator: Node::new(AssignmentOperator::Assign, (26, 27)),
-                                value: Box::new(Node::new(
-                                    Statement::Constant(Value::string("42")),
-                                    (28, 32)
-                                )),
-                            },
-                            (22, 32)
-                        )
-                    ]),
-                    (0, 34)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!())
     }
 
     #[test]
     fn empty_map() {
-        let input = "{}";
+        let source = "{}";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(Statement::Map(vec![]), (0, 2))].into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn map_with_trailing_comma() {
-        let input = "{ foo = 42, bar = 42, baz = '42', }";
+        let source = "{ foo = 42, bar = 42, baz = '42', }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Map(vec![
-                        (
-                            Node::new(Identifier::new("foo"), (2, 5)),
-                            Node::new(Statement::Constant(Value::integer(42)), (8, 10))
-                        ),
-                        (
-                            Node::new(Identifier::new("bar"), (12, 15)),
-                            Node::new(Statement::Constant(Value::integer(42)), (18, 20))
-                        ),
-                        (
-                            Node::new(Identifier::new("baz"), (22, 25)),
-                            Node::new(Statement::Constant(Value::string("42")), (28, 32))
-                        ),
-                    ]),
-                    (0, 35)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn map_with_two_fields() {
-        let input = "{ x = 42, y = 'foobar' }";
+        let source = "{ x = 42, y = 'foobar' }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Map(vec![
-                        (
-                            Node::new(Identifier::new("x"), (2, 3)),
-                            Node::new(Statement::Constant(Value::integer(42)), (6, 8))
-                        ),
-                        (
-                            Node::new(Identifier::new("y"), (10, 11)),
-                            Node::new(Statement::Constant(Value::string("foobar")), (14, 22))
-                        )
-                    ]),
-                    (0, 24)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn map_with_one_field() {
-        let input = "{ x = 42 }";
+        let source = "{ x = 42 }";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Map(vec![(
-                        Node::new(Identifier::new("x"), (2, 3)),
-                        Node::new(Statement::Constant(Value::integer(42)), (6, 8))
-                    )]),
-                    (0, 10)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn equal() {
-        let input = "42 == 42";
+        let source = "42 == 42";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(42)), (0, 2))),
-                        operator: Node::new(BinaryOperator::Equal, (3, 5)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(42)), (6, 8)))
-                    },
-                    (0, 8)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn modulo() {
-        let input = "42 % 2";
+        let source = "42 % 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(42)), (0, 2))),
-                        operator: Node::new(BinaryOperator::Modulo, (3, 4)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6)))
-                    },
-                    (0, 6)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn divide() {
-        let input = "42 / 2";
+        let source = "42 / 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(42)), (0, 2))),
-                        operator: Node::new(BinaryOperator::Divide, (3, 4)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6)))
-                    },
-                    (0, 6)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn less_than() {
-        let input = "1 < 2";
+        let source = "1 < 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::Less, (2, 3)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                    },
-                    (0, 5)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn less_than_or_equal() {
-        let input = "1 <= 2";
+        let source = "1 <= 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::LessOrEqual, (2, 4)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6))),
-                    },
-                    (0, 6)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn greater_than_or_equal() {
-        let input = "1 >= 2";
+        let source = "1 >= 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::GreaterOrEqual, (2, 4)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (5, 6))),
-                    },
-                    (0, 6)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn greater_than() {
-        let input = "1 > 2";
+        let source = "1 > 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::Greater, (2, 3)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5))),
-                    },
-                    (0, 5)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn subtract_negative_integers() {
-        let input = "-1 - -2";
+        let source = "-1 - -2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Node::new(Statement::Constant(Value::integer(-1)), (0, 2)).into(),
-                        operator: Node::new(BinaryOperator::Subtract, (3, 4)),
-                        right: Node::new(Statement::Constant(Value::integer(-2)), (5, 7)).into()
-                    },
-                    (0, 7)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn string_concatenation() {
-        let input = "\"Hello, \" + \"World!\"";
+        let source = "\"Hello, \" + \"World!\"";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::Constant(Value::string("Hello, ")),
-                            (0, 9)
-                        )),
-                        operator: Node::new(BinaryOperator::Add, (10, 11)),
-                        right: Box::new(Node::new(
-                            Statement::Constant(Value::string("World!")),
-                            (12, 20)
-                        ))
-                    },
-                    (0, 20)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn string() {
-        let input = "\"Hello, World!\"";
+        let source = "\"Hello, World!\"";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Constant(Value::string("Hello, World!")),
-                    (0, 15)
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn boolean() {
-        let input = "true";
+        let source = "true";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(Statement::Constant(Value::boolean(true)), (0, 4))].into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn property_access_function_call() {
-        let input = "42.is_even()";
+        let source = "42.is_even()";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BuiltInFunctionCall {
-                        function: BuiltInFunction::IsEven,
-                        type_arguments: None,
-                        value_arguments: Some(vec![Node::new(
-                            Statement::Constant(Value::integer(42)),
-                            (0, 2)
-                        )])
-                    },
-                    (0, 10),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn list_index() {
-        let input = "[1, 2, 3][0]";
+        let source = "[1, 2, 3][0]";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::List(vec![
-                                Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                                Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
-                                Node::new(Statement::Constant(Value::integer(3)), (7, 8)),
-                            ]),
-                            (0, 9)
-                        )),
-                        operator: Node::new(BinaryOperator::ListIndex, (9, 12)),
-                        right: Box::new(Node::new(
-                            Statement::Constant(Value::integer(0)),
-                            (10, 11)
-                        )),
-                    },
-                    (0, 12),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn property_access() {
-        let input = "a.b";
+        let source = "a.b";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("a")),
-                            (0, 1)
-                        )),
-                        operator: Node::new(BinaryOperator::FieldAccess, (1, 2)),
-                        right: Box::new(Node::new(
-                            Statement::Identifier(Identifier::new("b")),
-                            (2, 3)
-                        )),
-                    },
-                    (0, 3),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn complex_list() {
-        let input = "[1, 1 + 1, 2 + (4 * 10)]";
+        let source = "[1, 1 + 1, 2 + (4 * 10)]";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::List(vec![
-                        Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                        Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (4, 5)
-                                )),
-                                operator: Node::new(BinaryOperator::Add, (6, 7)),
-                                right: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (8, 9)
-                                ))
-                            },
-                            (4, 9)
-                        ),
-                        Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(2)),
-                                    (11, 12)
-                                )),
-                                operator: Node::new(BinaryOperator::Add, (13, 14)),
-                                right: Box::new(Node::new(
-                                    Statement::BinaryOperation {
-                                        left: Box::new(Node::new(
-                                            Statement::Constant(Value::integer(4)),
-                                            (16, 17)
-                                        )),
-                                        operator: Node::new(BinaryOperator::Multiply, (18, 19)),
-                                        right: Box::new(Node::new(
-                                            Statement::Constant(Value::integer(10)),
-                                            (20, 22)
-                                        ))
-                                    },
-                                    (15, 23)
-                                ))
-                            },
-                            (11, 23)
-                        ),
-                    ]),
-                    (0, 24),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn list() {
-        let input = "[1, 2]";
+        let source = "[1, 2]";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::List(vec![
-                        Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                        Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
-                    ]),
-                    (0, 6),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn empty_list() {
-        let input = "[]";
+        let source = "[]";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(Statement::List(vec![]), (0, 2))].into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn float() {
-        let input = "42.0";
+        let source = "42.0";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(Statement::Constant(Value::float(42.0)), (0, 4))].into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn add() {
-        let input = "1 + 2";
+        let source = "1 + 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::Add, (2, 3)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)),)
-                    },
-                    (0, 5),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn multiply() {
-        let input = "1 * 2";
+        let source = "1 * 2";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::Multiply, (2, 3)),
-                        right: Box::new(Node::new(Statement::Constant(Value::integer(2)), (4, 5)),)
-                    },
-                    (0, 5),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn add_and_multiply() {
-        let input = "1 + 2 * 3";
+        let source = "1 + 2 * 3";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::BinaryOperation {
-                        left: Box::new(Node::new(Statement::Constant(Value::integer(1)), (0, 1))),
-                        operator: Node::new(BinaryOperator::Add, (2, 3)),
-                        right: Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(2)),
-                                    (4, 5)
-                                )),
-                                operator: Node::new(BinaryOperator::Multiply, (6, 7)),
-                                right: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(3)),
-                                    (8, 9)
-                                ),)
-                            },
-                            (4, 9)
-                        ),)
-                    },
-                    (0, 9),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn assignment() {
-        let input = "a = 1 + 2 * 3";
+        let source = "a = 1 + 2 * 3";
 
-        assert_eq!(
-            parse(input),
-            Ok(AbstractSyntaxTree {
-                statements: [Node::new(
-                    Statement::Assignment {
-                        identifier: Node::new(Identifier::new("a"), (0, 1)),
-                        operator: Node::new(AssignmentOperator::Assign, (2, 3)),
-                        value: Box::new(Node::new(
-                            Statement::BinaryOperation {
-                                left: Box::new(Node::new(
-                                    Statement::Constant(Value::integer(1)),
-                                    (4, 5)
-                                )),
-                                operator: Node::new(BinaryOperator::Add, (6, 7)),
-                                right: Box::new(Node::new(
-                                    Statement::BinaryOperation {
-                                        left: Box::new(Node::new(
-                                            Statement::Constant(Value::integer(2)),
-                                            (8, 9)
-                                        )),
-                                        operator: Node::new(BinaryOperator::Multiply, (10, 11)),
-                                        right: Box::new(Node::new(
-                                            Statement::Constant(Value::integer(3)),
-                                            (12, 13)
-                                        ),)
-                                    },
-                                    (8, 13)
-                                ),)
-                            },
-                            (4, 13)
-                        ),)
-                    },
-                    (0, 13),
-                )]
-                .into()
-            })
-        );
+        assert_eq!(parse(source), todo!());
     }
 }

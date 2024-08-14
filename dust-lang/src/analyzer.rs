@@ -10,9 +10,8 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::{BinaryOperator, UnaryOperator},
-    parse, AbstractSyntaxTree, Context, DustError, Identifier, Node, Span, Statement,
-    StructDefinition, StructType, Type,
+    abstract_tree::{AbstractSyntaxTree, Node, Statement},
+    parse, Context, DustError, Identifier, Span, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -73,7 +72,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_statement(&mut self, _: &Node<Statement>) -> Result<(), AnalyzerError> {
+    fn analyze_statement(&mut self, _: &Statement) -> Result<(), AnalyzerError> {
         Ok(())
     }
 }
@@ -81,25 +80,25 @@ impl<'a> Analyzer<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalyzerError {
     ExpectedBoolean {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     ExpectedIdentifier {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     ExpectedIdentifierOrString {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     ExpectedIntegerOrRange {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     ExpectedList {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     ExpectedMap {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     ExpectedValue {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     ExpectedValueArgumentCount {
         expected: usize,
@@ -107,56 +106,54 @@ pub enum AnalyzerError {
         position: Span,
     },
     IndexOutOfBounds {
-        list: Node<Statement>,
-        index: Node<Statement>,
+        list: Statement,
+        index: Statement,
         index_value: usize,
         length: usize,
     },
     TypeConflict {
-        actual_statement: Node<Statement>,
+        actual_statement: Statement,
         actual_type: Type,
         expected: Type,
     },
     UndefinedField {
-        identifier: Node<Statement>,
-        statement: Node<Statement>,
+        identifier: Statement,
+        statement: Statement,
     },
     UndefinedType {
         identifier: Node<Identifier>,
     },
     UnexpectedIdentifier {
-        identifier: Node<Statement>,
+        identifier: Statement,
     },
     UnexectedString {
-        actual: Node<Statement>,
+        actual: Statement,
     },
     UndefinedVariable {
-        identifier: Node<Statement>,
+        identifier: Statement,
     },
 }
 
 impl AnalyzerError {
     pub fn position(&self) -> Span {
         match self {
-            AnalyzerError::ExpectedBoolean { actual, .. } => actual.position,
-            AnalyzerError::ExpectedIdentifier { actual, .. } => actual.position,
-            AnalyzerError::ExpectedIdentifierOrString { actual } => actual.position,
-            AnalyzerError::ExpectedIntegerOrRange { actual, .. } => actual.position,
-            AnalyzerError::ExpectedList { actual } => actual.position,
-            AnalyzerError::ExpectedMap { actual } => actual.position,
-            AnalyzerError::ExpectedValue { actual } => actual.position,
+            AnalyzerError::ExpectedBoolean { actual } => actual.position(),
+            AnalyzerError::ExpectedIdentifier { actual } => actual.position(),
+            AnalyzerError::ExpectedIdentifierOrString { actual } => actual.position(),
+            AnalyzerError::ExpectedIntegerOrRange { actual } => actual.position(),
+            AnalyzerError::ExpectedList { actual } => actual.position(),
+            AnalyzerError::ExpectedMap { actual } => actual.position(),
+            AnalyzerError::ExpectedValue { actual } => actual.position(),
             AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
-            AnalyzerError::IndexOutOfBounds { list, index, .. } => {
-                (list.position.0, index.position.1)
-            }
+            AnalyzerError::IndexOutOfBounds { index, .. } => index.position(),
             AnalyzerError::TypeConflict {
                 actual_statement, ..
-            } => actual_statement.position,
-            AnalyzerError::UndefinedField { identifier, .. } => identifier.position,
+            } => actual_statement.position(),
+            AnalyzerError::UndefinedField { identifier, .. } => identifier.position(),
             AnalyzerError::UndefinedType { identifier } => identifier.position,
-            AnalyzerError::UndefinedVariable { identifier } => identifier.position,
-            AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position,
-            AnalyzerError::UnexectedString { actual } => actual.position,
+            AnalyzerError::UndefinedVariable { identifier } => identifier.position(),
+            AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position(),
+            AnalyzerError::UnexectedString { actual } => actual.position(),
         }
     }
 }
@@ -231,7 +228,7 @@ impl Display for AnalyzerError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{AssignmentOperator, Identifier, Value};
+    use crate::{Identifier, Value};
 
     use super::*;
 
@@ -242,27 +239,7 @@ mod tests {
             a += 1.0
         ";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::TypeConflict {
-                    actual_statement: Node::new(
-                        Statement::Assignment {
-                            identifier: Node::new(Identifier::new("a"), (31, 32)),
-                            operator: Node::new(AssignmentOperator::AddAssign, (33, 35)),
-                            value: Box::new(Node::new(
-                                Statement::Constant(Value::float(1.0)),
-                                (38, 41)
-                            ))
-                        },
-                        (31, 32)
-                    ),
-                    actual_type: Type::Integer,
-                    expected: Type::Float
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
@@ -272,27 +249,7 @@ mod tests {
             a -= 1.0
         ";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::TypeConflict {
-                    actual_statement: Node::new(
-                        Statement::Assignment {
-                            identifier: Node::new(Identifier::new("a"), (31, 32)),
-                            operator: Node::new(AssignmentOperator::SubtractAssign, (33, 37)),
-                            value: Box::new(Node::new(
-                                Statement::Constant(Value::float(1.0)),
-                                (40, 43)
-                            ))
-                        },
-                        (31, 32)
-                    ),
-                    actual_type: Type::Integer,
-                    expected: Type::Float
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
@@ -302,221 +259,83 @@ mod tests {
             Foo(1, 2)
         ";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::TypeConflict {
-                    actual_statement: Node::new(Statement::Constant(Value::integer(2)), (55, 56)),
-                    actual_type: Type::Integer,
-                    expected: Type::Float
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn constant_list_index_out_of_bounds() {
         let source = "[1, 2, 3][3]";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::IndexOutOfBounds {
-                    list: Node::new(
-                        Statement::List(vec![
-                            Node::new(Statement::Constant(Value::integer(1)), (1, 2)),
-                            Node::new(Statement::Constant(Value::integer(2)), (4, 5)),
-                            Node::new(Statement::Constant(Value::integer(3)), (7, 8)),
-                        ]),
-                        (0, 9)
-                    ),
-                    index: Node::new(Statement::Constant(Value::integer(3)), (10, 11)),
-                    index_value: 3,
-                    length: 3
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn nonexistant_field_identifier() {
         let source = "{ x = 1 }.y";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::UndefinedField {
-                    identifier: Node::new(Statement::Identifier(Identifier::new("y")), (10, 11)),
-                    statement: Node::new(
-                        Statement::Map(vec![(
-                            Node::new(Identifier::new("x"), (2, 3)),
-                            Node::new(Statement::Constant(Value::integer(1)), (6, 7))
-                        )]),
-                        (0, 9)
-                    )
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn nonexistant_field_string() {
         let source = "{ x = 1 }.'y'";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::UndefinedField {
-                    identifier: Node::new(Statement::Constant(Value::string("y")), (10, 13)),
-                    statement: Node::new(
-                        Statement::Map(vec![(
-                            Node::new(Identifier::new("x"), (2, 3)),
-                            Node::new(Statement::Constant(Value::integer(1)), (6, 7))
-                        )]),
-                        (0, 9)
-                    )
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn malformed_list_index() {
         let source = "[1, 2, 3]['foo']";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::ExpectedIntegerOrRange {
-                    actual: Node::new(Statement::Constant(Value::string("foo")), (10, 15)),
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn malformed_field_access() {
         let source = "{ x = 1 }.0";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::ExpectedIdentifierOrString {
-                    actual: Node::new(Statement::Constant(Value::integer(0)), (10, 11)),
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn length_no_arguments() {
         let source = "length()";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::ExpectedValueArgumentCount {
-                    expected: 1,
-                    actual: 0,
-                    position: (0, 6)
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn float_plus_integer() {
         let source = "42.0 + 2";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::TypeConflict {
-                    actual_statement: Node::new(Statement::Constant(Value::integer(2)), (7, 8)),
-                    actual_type: Type::Integer,
-                    expected: Type::Float,
-                },
-                source
-            })
-        )
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn integer_plus_boolean() {
         let source = "42 + true";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::TypeConflict {
-                    actual_statement: Node::new(Statement::Constant(Value::boolean(true)), (5, 9)),
-                    actual_type: Type::Boolean,
-                    expected: Type::Integer,
-                },
-                source
-            })
-        )
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn is_even_expects_number() {
         let source = "is_even('hello')";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::TypeConflict {
-                    actual_statement: Node::new(
-                        Statement::Constant(Value::string("hello")),
-                        (8, 15)
-                    ),
-                    actual_type: Type::String,
-                    expected: Type::Number,
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn is_odd_expects_number() {
         let source = "is_odd('hello')";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::TypeConflict {
-                    actual_statement: Node::new(
-                        Statement::Constant(Value::string("hello")),
-                        (7, 14)
-                    ),
-                    actual_type: Type::String,
-                    expected: Type::Number,
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 
     #[test]
     fn undefined_variable() {
         let source = "foo";
 
-        assert_eq!(
-            analyze(source),
-            Err(DustError::AnalyzerError {
-                analyzer_error: AnalyzerError::UndefinedVariable {
-                    identifier: Node::new(Statement::Identifier(Identifier::new("foo")), (0, 3)),
-                },
-                source
-            })
-        );
+        assert_eq!(analyze(source), todo!());
     }
 }
