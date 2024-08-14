@@ -95,6 +95,31 @@ impl Value {
         Value::Mutable(Arc::new(RwLock::new(ValueData::Boolean(boolean))))
     }
 
+    pub fn to_mut(self) -> Self {
+        match self {
+            Value::Immutable(inner) => {
+                Value::Mutable(Arc::new(RwLock::new(inner.as_ref().clone())))
+            }
+            _ => self,
+        }
+    }
+
+    pub fn mutate(&self, other: &Value) -> Result<(), VmError> {
+        let other_data = match other {
+            Value::Immutable(inner) => inner.as_ref().clone(),
+            Value::Mutable(inner_locked) => inner_locked.read().unwrap().clone(),
+        };
+
+        match self {
+            Value::Mutable(locked) => {
+                *locked.write().unwrap() = other_data;
+
+                Ok(())
+            }
+            Value::Immutable(_) => todo!(),
+        }
+    }
+
     pub fn r#type(&self) -> Type {
         match self {
             Value::Immutable(inner) => inner.r#type(),

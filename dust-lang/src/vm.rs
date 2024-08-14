@@ -360,7 +360,7 @@ impl Vm {
 
                 Ok(function_call_return)
             }
-            Statement::Constant(value) => Ok(Some(value.clone())),
+            Statement::Constant(value) => Ok(Some(value)),
             Statement::FieldsStructInstantiation { name, fields } => {
                 let mut values = Vec::new();
 
@@ -648,6 +648,18 @@ impl Vm {
                 }
 
                 Ok(Some(Value::map(values)))
+            }
+            Statement::MutAssignment { identifier, value } => {
+                let position = value.position;
+                let value = if let Some(value) = self.run_statement(*value)? {
+                    value.to_mut()
+                } else {
+                    return Err(VmError::ExpectedValue { position });
+                };
+
+                self.context.set_value(identifier.inner, value);
+
+                Ok(None)
             }
             Statement::Nil(node) => {
                 let _return = self.run_statement(*node)?;

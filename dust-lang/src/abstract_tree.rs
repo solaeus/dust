@@ -54,6 +54,10 @@ pub enum Statement {
         operator: Node<AssignmentOperator>,
         value: Box<Node<Statement>>,
     },
+    MutAssignment {
+        identifier: Node<Identifier>,
+        value: Box<Node<Statement>>,
+    },
 
     // Statement blocks, delimited by curly braces
     AsyncBlock(Vec<Node<Statement>>),
@@ -214,6 +218,7 @@ impl Statement {
 
                 Some(Type::Map(types))
             }
+            Statement::MutAssignment { .. } => None,
             Statement::Nil(_) => None,
             Statement::UnaryOperation { operator, operand } => match operator.inner {
                 UnaryOperator::Negate => Some(operand.inner.expected_type(context)?),
@@ -446,6 +451,9 @@ impl Display for Statement {
                 }
 
                 write!(f, "}}")
+            }
+            Statement::MutAssignment { identifier, value } => {
+                write!(f, "mut {identifier} = {value}")
             }
             Statement::Nil(node) => write!(f, "{node};"),
             Statement::UnaryOperation { operator, operand } => {

@@ -125,7 +125,7 @@ pub struct Parser<'src> {
     source: &'src str,
     lexer: Lexer,
     current: (Token<'src>, Span),
-    context: ParserContext,
+    mode: ParserMode,
 }
 
 impl<'src> Parser<'src> {
@@ -137,7 +137,7 @@ impl<'src> Parser<'src> {
             source,
             lexer,
             current,
-            context: ParserContext::None,
+            mode: ParserMode::None,
         }
     }
 
@@ -158,12 +158,8 @@ impl<'src> Parser<'src> {
     fn parse_statement(&mut self, mut precedence: u8) -> Result<Node<Statement>, ParseError> {
         // Parse a statement starting from the current node.
         let mut left = if self.current.0.is_prefix() {
-            log::trace!("Parsing {} as prefix operator", self.current.0);
-
             self.parse_prefix()?
         } else {
-            log::trace!("Parsing {} as primary", self.current.0);
-
             self.parse_primary()?
         };
 
@@ -171,26 +167,45 @@ impl<'src> Parser<'src> {
         while precedence < self.current.0.precedence() {
             // Give precedence to postfix operations
             left = if self.current.0.is_postfix() {
-                log::trace!("Parsing {} as postfix operator", self.current.0);
-
-                // Replace the left-hand side with the postfix operation
                 let statement = self.parse_postfix(left)?;
 
                 precedence = self.current.0.precedence();
 
+                // Replace the left-hand side with the postfix operation
                 statement
             } else {
-                log::trace!("Parsing {} as infix operator", self.current.0);
-
                 // Replace the left-hand side with the infix operation
                 self.parse_infix(left)?
             };
         }
 
+        log::trace!(
+            "{}'s precedence is lower than or equal to {}",
+            self.current.0,
+            precedence
+        );
+
         Ok(left)
     }
 
+    fn parse_statement_in_mode(
+        &mut self,
+        mode: ParserMode,
+        precedence: u8,
+    ) -> Result<Node<Statement>, ParseError> {
+        let old_mode = self.mode;
+        self.mode = mode;
+
+        let result = self.parse_statement(precedence);
+
+        self.mode = old_mode;
+
+        result
+    }
+
     fn parse_prefix(&mut self) -> Result<Node<Statement>, ParseError> {
+        log::trace!("Parsing {} as prefix operator", self.current.0);
+
         match self.current {
             (Token::Bang, position) => {
                 self.next_token()?;
@@ -228,6 +243,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_primary(&mut self) -> Result<Node<Statement>, ParseError> {
+        log::trace!("Parsing {} as primary", self.current.0);
+
         match self.current {
             (Token::Async, position) => {
                 self.next_token()?;
@@ -287,7 +304,7 @@ impl<'src> Parser<'src> {
             (Token::Identifier(text), position) => {
                 self.next_token()?;
 
-                if let ParserContext::IfElseStatement = self.context {
+                if let ParserMode::Condition = self.mode {
                     return Ok(Node::new(
                         Statement::Identifier(Identifier::new(text)),
                         position,
@@ -379,9 +396,7 @@ impl<'src> Parser<'src> {
             (Token::If, position) => {
                 self.next_token()?;
 
-                self.context = ParserContext::IfElseStatement;
-
-                let condition = Box::new(self.parse_statement(0)?);
+                let condition = Box::new(self.parse_statement_in_mode(ParserMode::Condition, 0)?);
                 let if_body = Box::new(self.parse_block()?);
 
                 if let Token::Else = self.current.0 {
@@ -390,7 +405,10 @@ impl<'src> Parser<'src> {
                     if let Token::If = self.current.0 {
                         self.next_token()?;
 
-                        let first_else_if = (self.parse_statement(0)?, self.parse_statement(0)?);
+                        let first_else_if = (
+                            self.parse_statement_in_mode(ParserMode::Condition, 0)?,
+                            self.parse_statement(0)?,
+                        );
                         let mut else_ifs = vec![first_else_if];
 
                         loop {
@@ -410,14 +428,15 @@ impl<'src> Parser<'src> {
                             if let Token::If = self.current.0 {
                                 self.next_token()?;
 
-                                let else_if = (self.parse_statement(0)?, self.parse_statement(0)?);
+                                let else_if = (
+                                    self.parse_statement_in_mode(ParserMode::Condition, 0)?,
+                                    self.parse_statement(0)?,
+                                );
 
                                 else_ifs.push(else_if);
                             } else {
                                 let else_body = Box::new(self.parse_block()?);
                                 let else_end = else_body.position.1;
-
-                                self.context = ParserContext::None;
 
                                 return Ok(Node::new(
                                     Statement::IfElseIfElse {
@@ -434,8 +453,6 @@ impl<'src> Parser<'src> {
                         let else_body = Box::new(self.parse_block()?);
                         let else_end = else_body.position.1;
 
-                        self.context = ParserContext::None;
-
                         Ok(Node::new(
                             Statement::IfElse {
                                 condition,
@@ -448,7 +465,7 @@ impl<'src> Parser<'src> {
                 } else {
                     let if_end = if_body.position.1;
 
-                    self.context = ParserContext::None;
+                    self.mode = ParserMode::None;
 
                     Ok(Node::new(
                         Statement::If {
@@ -676,6 +693,29 @@ impl<'src> Parser<'src> {
                     left_position,
                 ))
             }
+            (Token::Mut, left_position) => {
+                self.next_token()?;
+
+                let identifier = self.parse_identifier()?;
+
+                if let (Token::Equal, _) = self.current {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenKind::Equal,
+                        actual: self.current.0.to_owned(),
+                        position: self.current.1,
+                    });
+                }
+
+                let value = Box::new(self.parse_statement(0)?);
+                let value_end = value.position.1;
+
+                Ok(Node::new(
+                    Statement::MutAssignment { identifier, value },
+                    (left_position.0, value_end),
+                ))
+            }
             (Token::Struct, left_position) => {
                 self.next_token()?;
 
@@ -769,7 +809,7 @@ impl<'src> Parser<'src> {
             (Token::While, left_position) => {
                 self.next_token()?;
 
-                let condition = self.parse_statement(0)?;
+                let condition = self.parse_statement_in_mode(ParserMode::Condition, 0)?;
 
                 let body = self.parse_block()?;
                 let body_end = body.position.1;
@@ -790,6 +830,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_infix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
+        log::trace!("Parsing {} as infix operator", self.current.0);
+
         let operator_precedence = self.current.0.precedence()
             - if self.current.0.is_right_associative() {
                 1
@@ -935,6 +977,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_postfix(&mut self, left: Node<Statement>) -> Result<Node<Statement>, ParseError> {
+        log::trace!("Parsing {} as postfix operator", self.current.0);
+
         let left_start = left.position.0;
 
         let statement = match &self.current.0 {
@@ -1095,8 +1139,9 @@ impl<'src> Parser<'src> {
     }
 }
 
-enum ParserContext {
-    IfElseStatement,
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum ParserMode {
+    Condition,
     None,
 }
 
@@ -1219,9 +1264,8 @@ mod tests {
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::Assignment {
+                    Statement::MutAssignment {
                         identifier: Node::new(Identifier::new("x"), (4, 5)),
-                        operator: Node::new(AssignmentOperator::Assign, (6, 7)),
                         value: Box::new(Node::new(
                             Statement::Constant(Value::integer(42)),
                             (8, 10)
@@ -1278,7 +1322,12 @@ mod tests {
 
     #[test]
     fn tuple_struct_access() {
-        let input = "Foo(42, 'bar').0";
+        let input = "(Foo(42, 'bar')).0";
+        let mut tree = AbstractSyntaxTree::new();
+
+        if parse_into(input, &mut tree).is_err() {
+            println!("{tree:?}")
+        }
 
         assert_eq!(
             parse(input),
@@ -1289,23 +1338,23 @@ mod tests {
                             Statement::Invokation {
                                 invokee: Box::new(Node::new(
                                     Statement::Identifier(Identifier::new("Foo")),
-                                    (0, 3)
+                                    (1, 4)
                                 )),
                                 type_arguments: None,
                                 value_arguments: Some(vec![
-                                    Node::new(Statement::Constant(Value::integer(42)), (4, 6)),
-                                    Node::new(Statement::Constant(Value::string("bar")), (8, 11))
+                                    Node::new(Statement::Constant(Value::integer(42)), (5, 7)),
+                                    Node::new(Statement::Constant(Value::string("bar")), (9, 14))
                                 ]),
                             },
-                            (0, 12)
+                            (0, 16)
                         )),
-                        operator: Node::new(BinaryOperator::FieldAccess, (13, 14)),
+                        operator: Node::new(BinaryOperator::FieldAccess, (16, 17)),
                         right: Box::new(Node::new(
                             Statement::Constant(Value::integer(0)),
-                            (15, 16)
+                            (17, 18)
                         ))
                     },
-                    (0, 16)
+                    (0, 18)
                 )]
                 .into()
             })
