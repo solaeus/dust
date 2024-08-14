@@ -66,512 +66,14 @@ impl<'a> Analyzer<'a> {
     }
 
     pub fn analyze(&mut self) -> Result<(), AnalyzerError> {
-        for node in &self.abstract_tree.nodes {
+        for node in &self.abstract_tree.statements {
             self.analyze_statement(node)?;
         }
 
         Ok(())
     }
 
-    fn analyze_statement(&mut self, node: &Node<Statement>) -> Result<(), AnalyzerError> {
-        match &node.inner {
-            Statement::Assignment {
-                identifier, value, ..
-            } => {
-                self.analyze_statement(value)?;
-
-                let value_type = value.inner.expected_type(self.context);
-
-                if let Some(r#type) = value_type {
-                    self.context
-                        .set_type(identifier.inner.clone(), r#type, identifier.position);
-                } else {
-                    return Err(AnalyzerError::ExpectedValue {
-                        actual: value.as_ref().clone(),
-                    });
-                }
-            }
-            Statement::AssignmentMut { identifier, value } => {
-                self.analyze_statement(value)?;
-
-                let value_type = value.inner.expected_type(self.context);
-
-                if let Some(r#type) = value_type {
-                    self.context
-                        .set_type(identifier.inner.clone(), r#type, identifier.position);
-                } else {
-                    return Err(AnalyzerError::ExpectedValue {
-                        actual: value.as_ref().clone(),
-                    });
-                }
-            }
-            Statement::AsyncBlock(statements) => {
-                for statement in statements {
-                    self.analyze_statement(statement)?;
-                }
-            }
-            Statement::BinaryOperation {
-                left,
-                operator,
-                right,
-            } => {
-                if let BinaryOperator::FieldAccess = operator.inner {
-                    self.analyze_statement(left)?;
-
-                    if let Statement::Identifier(_) = right.inner {
-                        // Do not expect a value for property accessors
-                    } else {
-                        self.analyze_statement(right)?;
-                    }
-
-                    let left_type = left.inner.expected_type(self.context);
-                    let right_type = right.inner.expected_type(self.context);
-
-                    if let Some(Type::Map { .. }) = left_type {
-                        if let Some(Type::String) = right_type {
-                            // Allow indexing maps with strings
-                        } else if let Statement::Identifier(_) = right.inner {
-                            // Allow indexing maps with identifiers
-                        } else {
-                            return Err(AnalyzerError::ExpectedIdentifierOrString {
-                                actual: right.as_ref().clone(),
-                            });
-                        }
-                    } else {
-                        return Err(AnalyzerError::ExpectedMap {
-                            actual: left.as_ref().clone(),
-                        });
-                    }
-
-                    // If the accessor is an identifier, check if it is a valid field
-                    if let Statement::Identifier(identifier) = &right.inner {
-                        if let Some(Type::Map(fields)) = &left_type {
-                            if !fields.contains_key(identifier) {
-                                return Err(AnalyzerError::UndefinedField {
-                                    identifier: right.as_ref().clone(),
-                                    statement: left.as_ref().clone(),
-                                });
-                            }
-                        }
-                    }
-                    // If the accessor is a constant, check if it is a valid field
-                    if let Statement::Constant(value) = &right.inner {
-                        if let Some(field_name) = value.as_string() {
-                            if let Some(Type::Map(fields)) = left_type {
-                                if !fields.contains_key(&Identifier::new(field_name)) {
-                                    return Err(AnalyzerError::UndefinedField {
-                                        identifier: right.as_ref().clone(),
-                                        statement: left.as_ref().clone(),
-                                    });
-                                }
-                            }
-                        }
-                    }
-
-                    return Ok(());
-                }
-
-                if let BinaryOperator::ListIndex = operator.inner {
-                    self.analyze_statement(left)?;
-                    self.analyze_statement(right)?;
-
-                    if let Some(Type::List { length, .. }) = left.inner.expected_type(self.context)
-                    {
-                        let index_type = right.inner.expected_type(self.context);
-
-                        if let Some(Type::Integer | Type::Range) = index_type {
-                            // List and index are valid
-                        } else {
-                            return Err(AnalyzerError::ExpectedIntegerOrRange {
-                                actual: right.as_ref().clone(),
-                            });
-                        }
-
-                        // If the index is a constant, check if it is out of bounds
-                        if let Statement::Constant(value) = &right.inner {
-                            if let Some(index_value) = value.as_integer() {
-                                let index_value = index_value as usize;
-
-                                if index_value >= length {
-                                    return Err(AnalyzerError::IndexOutOfBounds {
-                                        list: left.as_ref().clone(),
-                                        index: right.as_ref().clone(),
-                                        index_value,
-                                        length,
-                                    });
-                                }
-                            }
-                        }
-                    } else {
-                        return Err(AnalyzerError::ExpectedList {
-                            actual: left.as_ref().clone(),
-                        });
-                    }
-
-                    return Ok(());
-                }
-
-                self.analyze_statement(left)?;
-                self.analyze_statement(right)?;
-
-                let left_type = left.inner.expected_type(self.context);
-                let right_type = right.inner.expected_type(self.context);
-
-                if let BinaryOperator::Add
-                | BinaryOperator::Subtract
-                | BinaryOperator::Multiply
-                | BinaryOperator::Divide
-                | BinaryOperator::Greater
-                | BinaryOperator::GreaterOrEqual
-                | BinaryOperator::Less
-                | BinaryOperator::LessOrEqual = operator.inner
-                {
-                    if let Some(expected_type) = left_type {
-                        if let Some(actual_type) = right_type {
-                            expected_type.check(&actual_type).map_err(|conflict| {
-                                AnalyzerError::TypeConflict {
-                                    actual_statement: right.as_ref().clone(),
-                                    actual_type: conflict.actual,
-                                    expected: conflict.expected,
-                                }
-                            })?;
-                        } else {
-                            return Err(AnalyzerError::ExpectedValue {
-                                actual: right.as_ref().clone(),
-                            });
-                        }
-                    } else {
-                        return Err(AnalyzerError::ExpectedValue {
-                            actual: left.as_ref().clone(),
-                        });
-                    }
-                }
-            }
-            Statement::Block(statements) => {
-                for statement in statements {
-                    self.analyze_statement(statement)?;
-                }
-            }
-            Statement::BuiltInFunctionCall {
-                function,
-                value_arguments,
-                ..
-            } => {
-                let value_parameters = function.value_parameters();
-
-                if let Some(arguments) = value_arguments {
-                    for argument in arguments {
-                        self.analyze_statement(argument)?;
-                    }
-
-                    if arguments.len() != value_parameters.len() {
-                        return Err(AnalyzerError::ExpectedValueArgumentCount {
-                            expected: value_parameters.len(),
-                            actual: arguments.len(),
-                            position: node.position,
-                        });
-                    }
-
-                    for ((_identifier, parameter_type), argument) in
-                        value_parameters.iter().zip(arguments)
-                    {
-                        let argument_type_option = argument.inner.expected_type(self.context);
-
-                        if let Some(argument_type) = argument_type_option {
-                            parameter_type.check(&argument_type).map_err(|conflict| {
-                                AnalyzerError::TypeConflict {
-                                    actual_statement: argument.clone(),
-                                    actual_type: conflict.actual,
-                                    expected: parameter_type.clone(),
-                                }
-                            })?;
-                        } else {
-                            return Err(AnalyzerError::ExpectedValue {
-                                actual: argument.clone(),
-                            });
-                        }
-                    }
-
-                    if arguments.is_empty() && !value_parameters.is_empty() {
-                        return Err(AnalyzerError::ExpectedValueArgumentCount {
-                            expected: value_parameters.len(),
-                            actual: 0,
-                            position: node.position,
-                        });
-                    }
-                } else if !value_parameters.is_empty() {
-                    return Err(AnalyzerError::ExpectedValueArgumentCount {
-                        expected: value_parameters.len(),
-                        actual: 0,
-                        position: node.position,
-                    });
-                }
-            }
-            Statement::Constant(_) => {}
-            Statement::ConstantMut(_) => {}
-            Statement::FieldsStructInstantiation {
-                name,
-                fields: field_arguments,
-            } => {
-                let expected_type = self.context.get_type(&name.inner);
-
-                if let Some(Type::Struct(StructType::Fields { fields, .. })) = expected_type {
-                    for ((_, expected_type), (_, argument)) in
-                        fields.iter().zip(field_arguments.iter())
-                    {
-                        let actual_type = argument.inner.expected_type(self.context);
-
-                        if let Some(actual_type) = actual_type {
-                            expected_type.check(&actual_type).map_err(|conflict| {
-                                AnalyzerError::TypeConflict {
-                                    actual_statement: argument.clone(),
-                                    actual_type: conflict.actual,
-                                    expected: conflict.expected,
-                                }
-                            })?;
-                        } else {
-                            return Err(AnalyzerError::ExpectedValue {
-                                actual: argument.clone(),
-                            });
-                        }
-                    }
-                }
-            }
-            Statement::Invokation {
-                invokee,
-                value_arguments,
-                ..
-            } => {
-                self.analyze_statement(invokee)?;
-
-                let invokee_type = invokee.inner.expected_type(self.context);
-
-                if let Some(arguments) = value_arguments {
-                    for argument in arguments {
-                        self.analyze_statement(argument)?;
-                    }
-
-                    if let Some(Type::Struct(struct_type)) = invokee_type {
-                        match struct_type {
-                            StructType::Unit { .. } => todo!(),
-                            StructType::Tuple { fields, .. } => {
-                                for (expected_type, argument) in fields.iter().zip(arguments.iter())
-                                {
-                                    let actual_type = argument.inner.expected_type(self.context);
-
-                                    if let Some(actual_type) = actual_type {
-                                        expected_type.check(&actual_type).map_err(|conflict| {
-                                            AnalyzerError::TypeConflict {
-                                                actual_statement: argument.clone(),
-                                                actual_type: conflict.actual,
-                                                expected: expected_type.clone(),
-                                            }
-                                        })?;
-                                    } else {
-                                        return Err(AnalyzerError::ExpectedValue {
-                                            actual: argument.clone(),
-                                        });
-                                    }
-                                }
-                            }
-                            StructType::Fields { .. } => todo!(),
-                        }
-                    }
-                }
-            }
-            Statement::Identifier(identifier) => {
-                let exists = self.context.update_last_position(identifier, node.position);
-
-                if !exists {
-                    return Err(AnalyzerError::UndefinedVariable {
-                        identifier: node.clone(),
-                    });
-                }
-            }
-            Statement::If { condition, body } => {
-                self.analyze_statement(condition)?;
-
-                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
-                    // Condition is valid
-                } else {
-                    return Err(AnalyzerError::ExpectedBoolean {
-                        actual: condition.as_ref().clone(),
-                    });
-                }
-
-                self.analyze_statement(body)?;
-            }
-            Statement::IfElse {
-                condition,
-                if_body,
-                else_body,
-            } => {
-                self.analyze_statement(condition)?;
-
-                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
-                    // Condition is valid
-                } else {
-                    return Err(AnalyzerError::ExpectedBoolean {
-                        actual: condition.as_ref().clone(),
-                    });
-                }
-
-                self.analyze_statement(if_body)?;
-                self.analyze_statement(else_body)?;
-            }
-            Statement::IfElseIf {
-                condition,
-                if_body,
-                else_ifs,
-            } => {
-                self.analyze_statement(condition)?;
-
-                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
-                    // Condition is valid
-                } else {
-                    return Err(AnalyzerError::ExpectedBoolean {
-                        actual: condition.as_ref().clone(),
-                    });
-                }
-
-                self.analyze_statement(if_body)?;
-
-                for (condition, body) in else_ifs {
-                    self.analyze_statement(condition)?;
-
-                    if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
-                        // Condition is valid
-                    } else {
-                        return Err(AnalyzerError::ExpectedBoolean {
-                            actual: condition.clone(),
-                        });
-                    }
-
-                    self.analyze_statement(body)?;
-                }
-            }
-            Statement::IfElseIfElse {
-                condition,
-                if_body,
-                else_ifs,
-                else_body,
-            } => {
-                self.analyze_statement(condition)?;
-
-                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
-                    // Condition is valid
-                } else {
-                    return Err(AnalyzerError::ExpectedBoolean {
-                        actual: condition.as_ref().clone(),
-                    });
-                }
-
-                self.analyze_statement(if_body)?;
-
-                for (condition, body) in else_ifs {
-                    self.analyze_statement(condition)?;
-
-                    if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
-                        // Condition is valid
-                    } else {
-                        return Err(AnalyzerError::ExpectedBoolean {
-                            actual: condition.clone(),
-                        });
-                    }
-
-                    self.analyze_statement(body)?;
-                }
-
-                self.analyze_statement(else_body)?;
-            }
-            Statement::List(statements) => {
-                for statement in statements {
-                    self.analyze_statement(statement)?;
-                }
-            }
-            Statement::Map(properties) => {
-                for (_key, value_node) in properties {
-                    self.analyze_statement(value_node)?;
-                }
-            }
-            Statement::Nil(node) => {
-                self.analyze_statement(node)?;
-            }
-            Statement::StructDefinition(struct_definition) => {
-                let (name, r#type) = match struct_definition {
-                    StructDefinition::Unit { name } => (
-                        name.inner.clone(),
-                        Type::Struct(StructType::Unit {
-                            name: name.inner.clone(),
-                        }),
-                    ),
-                    StructDefinition::Tuple {
-                        name,
-                        items: fields,
-                    } => (
-                        name.inner.clone(),
-                        Type::Struct(StructType::Tuple {
-                            name: name.inner.clone(),
-                            fields: fields
-                                .iter()
-                                .map(|type_node| type_node.inner.clone())
-                                .collect(),
-                        }),
-                    ),
-                    StructDefinition::Fields { name, fields } => (
-                        name.inner.clone(),
-                        Type::Struct(StructType::Fields {
-                            name: name.inner.clone(),
-                            fields: fields
-                                .iter()
-                                .map(|(identifier, r#type)| {
-                                    (identifier.inner.clone(), r#type.inner.clone())
-                                })
-                                .collect(),
-                        }),
-                    ),
-                };
-
-                self.context.set_type(name, r#type, node.position);
-            }
-            Statement::UnaryOperation { operator, operand } => {
-                self.analyze_statement(operand)?;
-
-                if let UnaryOperator::Negate = operator.inner {
-                    if let Some(Type::Integer | Type::Float | Type::Number) =
-                        operand.inner.expected_type(self.context)
-                    {
-                        // Operand is valid
-                    } else {
-                        return Err(AnalyzerError::ExpectedBoolean {
-                            actual: operand.as_ref().clone(),
-                        });
-                    }
-                }
-
-                if let UnaryOperator::Not = operator.inner {
-                    if let Some(Type::Boolean) = operand.inner.expected_type(self.context) {
-                        // Operand is valid
-                    } else {
-                        return Err(AnalyzerError::ExpectedBoolean {
-                            actual: operand.as_ref().clone(),
-                        });
-                    }
-                }
-            }
-            Statement::While { condition, body } => {
-                self.analyze_statement(condition)?;
-                self.analyze_statement(body)?;
-
-                if let Some(Type::Boolean) = condition.inner.expected_type(self.context) {
-                } else {
-                    return Err(AnalyzerError::ExpectedBoolean {
-                        actual: condition.as_ref().clone(),
-                    });
-                }
-            }
-        }
-
+    fn analyze_statement(&mut self, _: &Node<Statement>) -> Result<(), AnalyzerError> {
         Ok(())
     }
 }
@@ -729,9 +231,69 @@ impl Display for AnalyzerError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Identifier, Value};
+    use crate::{AssignmentOperator, Identifier, Value};
 
     use super::*;
+
+    #[test]
+    fn add_assign_wrong_type() {
+        let source = "
+            a = 1
+            a += 1.0
+        ";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::TypeConflict {
+                    actual_statement: Node::new(
+                        Statement::Assignment {
+                            identifier: Node::new(Identifier::new("a"), (31, 32)),
+                            operator: Node::new(AssignmentOperator::AddAssign, (33, 35)),
+                            value: Box::new(Node::new(
+                                Statement::Constant(Value::float(1.0)),
+                                (38, 41)
+                            ))
+                        },
+                        (31, 32)
+                    ),
+                    actual_type: Type::Integer,
+                    expected: Type::Float
+                },
+                source
+            })
+        );
+    }
+
+    #[test]
+    fn subtract_assign_wrong_type() {
+        let source = "
+            a = 1
+            a -= 1.0
+        ";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalyzerError {
+                analyzer_error: AnalyzerError::TypeConflict {
+                    actual_statement: Node::new(
+                        Statement::Assignment {
+                            identifier: Node::new(Identifier::new("a"), (31, 32)),
+                            operator: Node::new(AssignmentOperator::SubtractAssign, (33, 37)),
+                            value: Box::new(Node::new(
+                                Statement::Constant(Value::float(1.0)),
+                                (40, 43)
+                            ))
+                        },
+                        (31, 32)
+                    ),
+                    actual_type: Type::Integer,
+                    expected: Type::Float
+                },
+                source
+            })
+        );
+    }
 
     #[test]
     fn tuple_struct_with_wrong_field_types() {

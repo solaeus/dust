@@ -389,6 +389,42 @@ impl Value {
         Err(ValueError::CannotSubtract(self.clone(), other.clone()))
     }
 
+    pub fn subtract_mut(&self, other: &Value) -> Result<(), ValueError> {
+        match (self, other) {
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left -= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        *left = left.saturating_sub(*right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&mut *left.write().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left -= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        *left = left.saturating_sub(*right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(_), _) => {
+                return Err(ValueError::CannotMutate(self.clone()));
+            }
+        }
+
+        Err(ValueError::CannotSubtract(self.clone(), other.clone()))
+    }
+
     pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
             (Value::Immutable(left), Value::Immutable(right)) => {
@@ -1424,7 +1460,7 @@ impl Display for Function {
 
         write!(f, ") {{")?;
 
-        for statement in &self.body.nodes {
+        for statement in &self.body.statements {
             write!(f, "{}", statement)?;
         }
 

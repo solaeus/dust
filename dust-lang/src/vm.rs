@@ -88,7 +88,7 @@ impl Vm {
         let mut previous_position = (0, 0);
         let mut previous_value = None;
 
-        while let Some(statement) = self.abstract_tree.nodes.pop_front() {
+        while let Some(statement) = self.abstract_tree.statements.pop_front() {
             let new_position = statement.position;
 
             previous_value = self.run_statement(statement)?;
@@ -118,7 +118,18 @@ impl Vm {
                         return Err(VmError::ExpectedValue { position });
                     };
 
-                    self.context.set_value(identifier.inner, value);
+                    if let Some(existing_value) = self.context.get_value(&identifier.inner) {
+                        if existing_value.is_mutable() {
+                            existing_value.mutate(&value);
+                        } else {
+                            return Err(VmError::CannotMutate {
+                                value: existing_value,
+                                position: identifier.position,
+                            });
+                        }
+                    } else {
+                        self.context.set_value(identifier.inner, value);
+                    }
 
                     Ok(None)
                 }
@@ -146,14 +157,10 @@ impl Vm {
                             }
                         })?;
                     } else {
-                        let new_value = left_value.add(&right_value).map_err(|value_error| {
-                            VmError::ValueError {
-                                error: value_error,
-                                position: (identifier.position.0, value_position.1),
-                            }
-                        })?;
-
-                        self.context.set_value(identifier.inner, new_value);
+                        return Err(VmError::CannotMutate {
+                            value: left_value,
+                            position: identifier.position,
+                        });
                     }
 
                     Ok(None)
@@ -173,14 +180,20 @@ impl Vm {
                             position: value_position,
                         });
                     };
-                    let new_value = left_value.subtract(&right_value).map_err(|value_error| {
-                        VmError::ValueError {
-                            error: value_error,
-                            position: (identifier.position.0, value_position.1),
-                        }
-                    })?;
 
-                    self.context.set_value(identifier.inner, new_value);
+                    if left_value.is_mutable() {
+                        left_value
+                            .subtract_mut(&right_value)
+                            .map_err(|value_error| VmError::ValueError {
+                                error: value_error,
+                                position: (identifier.position.0, value_position.1),
+                            })?;
+                    } else {
+                        return Err(VmError::CannotMutate {
+                            value: left_value,
+                            position: identifier.position,
+                        });
+                    }
 
                     Ok(None)
                 }
@@ -748,6 +761,10 @@ pub enum VmError {
         error: BuiltInFunctionError,
         position: Span,
     },
+    CannotMutate {
+        value: Value,
+        position: Span,
+    },
     ExpectedBoolean {
         position: Span,
     },
@@ -795,6 +812,7 @@ impl VmError {
         match self {
             Self::ParseError(parse_error) => parse_error.position(),
             Self::ValueError { position, .. } => *position,
+            Self::CannotMutate { position, .. } => *position,
             Self::BuiltInFunctionError { position, .. } => *position,
             Self::ExpectedBoolean { position } => *position,
             Self::ExpectedIdentifier { position } => *position,
@@ -825,6 +843,9 @@ impl Display for VmError {
         match self {
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
             Self::ValueError { error, .. } => write!(f, "{}", error),
+            Self::CannotMutate { value, .. } => {
+                write!(f, "Cannot mutate immutable value {}", value)
+            }
             Self::BuiltInFunctionError { error, .. } => {
                 write!(f, "{}", error)
             }
@@ -834,7 +855,7 @@ impl Display for VmError {
             Self::ExpectedFunction { actual, position } => {
                 write!(
                     f,
-                    "Expected a function, but got: {} at position: {:?}",
+                    "Expected a function, but got {} at position: {:?}",
                     actual, position
                 )
             }
@@ -908,7 +929,7 @@ mod tests {
 
     #[test]
     fn async_block() {
-        let input = "x = 1; async { x += 1; x -= 1; } x";
+        let input = "mut x = 1; async { x += 1; x -= 1; } x";
 
         assert!(run(input).unwrap().unwrap().as_integer().is_some());
     }
@@ -1107,21 +1128,21 @@ mod tests {
 
     #[test]
     fn while_loop() {
-        let input = "x = 0; while x < 5 { x += 1; } x";
+        let input = "mut x = 0; while x < 5 { x += 1; } x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(5))));
     }
 
     #[test]
     fn subtract_assign() {
-        let input = "x = 1; x -= 1; x";
+        let input = "mut x = 1; x -= 1; x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(0))));
     }
 
     #[test]
     fn add_assign() {
-        let input = "x = 1; x += 1; x";
+        let input = "mut x = 1; x += 1; x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
