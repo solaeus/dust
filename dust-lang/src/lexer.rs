@@ -419,6 +419,7 @@ impl Lexer {
         let token = match string {
             "Infinity" => Token::Float("Infinity"),
             "NaN" => Token::Float("NaN"),
+            "async" => Token::Async,
             "bool" => Token::Bool,
             "else" => Token::Else,
             "false" => Token::Boolean("false"),
@@ -507,27 +508,28 @@ mod tests {
 
     #[test]
     fn all_keywords() {
-        let input = "bool else false float if int is_even is_odd length read_line struct to_string true while write_line";
+        let input = "async bool else false float if int is_even is_odd length read_line struct to_string true while write_line";
 
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::Bool, (0, 4)),
-                (Token::Else, (5, 9)),
-                (Token::Boolean("false"), (10, 15)),
-                (Token::FloatKeyword, (16, 21)),
-                (Token::If, (22, 24)),
-                (Token::Int, (25, 28)),
-                (Token::IsEven, (29, 36)),
-                (Token::IsOdd, (37, 43)),
-                (Token::Length, (44, 50)),
-                (Token::ReadLine, (51, 60)),
-                (Token::Struct, (61, 67)),
-                (Token::ToString, (68, 77)),
-                (Token::Boolean("true"), (78, 82)),
-                (Token::While, (83, 88)),
-                (Token::WriteLine, (89, 99)),
-                (Token::Eof, (99, 99)),
+                (Token::Async, (0, 5)),
+                (Token::Bool, (6, 10)),
+                (Token::Else, (11, 15)),
+                (Token::Boolean("false"), (16, 21)),
+                (Token::FloatKeyword, (22, 27)),
+                (Token::If, (28, 30)),
+                (Token::Int, (31, 34)),
+                (Token::IsEven, (35, 42)),
+                (Token::IsOdd, (43, 49)),
+                (Token::Length, (50, 56)),
+                (Token::ReadLine, (57, 66)),
+                (Token::Struct, (67, 73)),
+                (Token::ToString, (74, 83)),
+                (Token::Boolean("true"), (84, 88)),
+                (Token::While, (89, 94)),
+                (Token::WriteLine, (95, 105)),
+                (Token::Eof, (105, 105)),
             ])
         );
     }

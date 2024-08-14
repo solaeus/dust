@@ -17,6 +17,7 @@ pub enum Token<'src> {
     String(&'src str),
 
     // Keywords
+    Async,
     Bool,
     Else,
     FloatKeyword,
@@ -65,6 +66,7 @@ pub enum Token<'src> {
 impl<'src> Token<'src> {
     pub fn to_owned(&self) -> TokenOwned {
         match self {
+            Token::Async => TokenOwned::Async,
             Token::Bang => TokenOwned::Bang,
             Token::Bool => TokenOwned::Bool,
             Token::Boolean(boolean) => TokenOwned::Boolean(boolean.to_string()),
@@ -123,6 +125,7 @@ impl<'src> Token<'src> {
             Token::Integer(integer_text) => integer_text,
             Token::String(text) => text,
 
+            Token::Async => "async",
             Token::Bang => "!",
             Token::Bool => "bool",
             Token::Colon => ":",
@@ -170,6 +173,7 @@ impl<'src> Token<'src> {
 
     pub fn kind(&self) -> TokenKind {
         match self {
+            Token::Async => TokenKind::Async,
             Token::Bang => TokenKind::Bang,
             Token::Bool => TokenKind::Bool,
             Token::Boolean(_) => TokenKind::Boolean,
@@ -309,6 +313,7 @@ pub enum TokenOwned {
     WriteLine,
 
     // Symbols
+    Async,
     Bang,
     Colon,
     Comma,
@@ -342,6 +347,7 @@ pub enum TokenOwned {
 impl Display for TokenOwned {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            TokenOwned::Async => Token::Async.fmt(f),
             TokenOwned::Bang => Token::Bang.fmt(f),
             TokenOwned::Bool => write!(f, "bool"),
             TokenOwned::Boolean(boolean) => write!(f, "{boolean}"),
@@ -407,6 +413,7 @@ pub enum TokenKind {
     String,
 
     // Keywords
+    Async,
     Bool,
     Else,
     FloatKeyword,
@@ -455,6 +462,7 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            TokenKind::Async => Token::Async.fmt(f),
             TokenKind::Bang => Token::Bang.fmt(f),
             TokenKind::Bool => Token::Bool.fmt(f),
             TokenKind::Boolean => write!(f, "boolean value"),
@@ -510,8 +518,9 @@ impl Display for TokenKind {
 pub(crate) mod tests {
     use super::*;
 
-    pub fn all_tokens<'src>() -> [Token<'src>; 46] {
+    pub fn all_tokens<'src>() -> [Token<'src>; 47] {
         [
+            Token::Async,
             Token::Bang,
             Token::Bool,
             Token::Boolean("true"),

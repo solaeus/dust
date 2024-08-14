@@ -229,6 +229,37 @@ impl<'src> Parser<'src> {
 
     fn parse_primary(&mut self) -> Result<Node<Statement>, ParseError> {
         match self.current {
+            (Token::Async, position) => {
+                self.next_token()?;
+
+                if let Token::LeftCurlyBrace = self.current.0 {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::UnexpectedToken {
+                        actual: self.current.0.to_owned(),
+                        position: self.current.1,
+                    });
+                }
+
+                let mut statements = Vec::new();
+
+                loop {
+                    if let Token::RightCurlyBrace = self.current.0 {
+                        let right_end = self.current.1 .1;
+
+                        self.next_token()?;
+
+                        return Ok(Node::new(
+                            Statement::AsyncBlock(statements),
+                            (position.0, right_end),
+                        ));
+                    }
+
+                    let statement = self.parse_statement(0)?;
+
+                    statements.push(statement);
+                }
+            }
             (Token::Boolean(text), position) => {
                 self.next_token()?;
 
@@ -1179,6 +1210,48 @@ mod tests {
     use crate::{BinaryOperator, Identifier, StructDefinition, Type, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn async_block() {
+        let input = "async { x = 42; y = 4.0 }";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::AsyncBlock(vec![
+                        Node::new(
+                            Statement::Nil(Box::new(Node::new(
+                                Statement::Assignment {
+                                    identifier: Node::new(Identifier::new("x"), (8, 9)),
+                                    operator: Node::new(AssignmentOperator::Assign, (10, 11)),
+                                    value: Box::new(Node::new(
+                                        Statement::Constant(Value::integer(42)),
+                                        (12, 14)
+                                    )),
+                                },
+                                (8, 14)
+                            ))),
+                            (8, 15)
+                        ),
+                        Node::new(
+                            Statement::Assignment {
+                                identifier: Node::new(Identifier::new("y"), (16, 17)),
+                                operator: Node::new(AssignmentOperator::Assign, (18, 19)),
+                                value: Box::new(Node::new(
+                                    Statement::Constant(Value::float(4.0)),
+                                    (20, 23)
+                                )),
+                            },
+                            (16, 23)
+                        )
+                    ]),
+                    (0, 25)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn tuple_struct_access() {

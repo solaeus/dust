@@ -9,6 +9,8 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 use crate::{
     parse, value::ValueInner, AbstractSyntaxTree, Analyzer, AssignmentOperator, BinaryOperator,
     BuiltInFunctionError, Context, DustError, Identifier, Node, ParseError, Span, Statement,
@@ -173,6 +175,17 @@ impl Vm {
                     Ok(None)
                 }
             },
+            Statement::AsyncBlock(statements) => {
+                let error_option = statements
+                    .into_par_iter()
+                    .find_map_any(|statement| self.run_statement(statement).err());
+
+                if let Some(error) = error_option {
+                    return Err(error);
+                }
+
+                Ok(None)
+            }
             Statement::BinaryOperation {
                 left,
                 operator,
@@ -855,6 +868,13 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn async_block() {
+        let input = "x = 1; async { x += 1; x -= 1; } x";
+
+        assert!(run(input).unwrap().unwrap().as_integer().is_some());
+    }
 
     #[test]
     fn define_and_instantiate_fields_struct() {

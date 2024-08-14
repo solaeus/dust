@@ -93,6 +93,13 @@ impl<'a> Analyzer<'a> {
 
                 return Ok(());
             }
+            Statement::AsyncBlock(statements) => {
+                for statement in statements {
+                    self.analyze_statement(statement)?;
+                }
+
+                return Ok(());
+            }
             Statement::BinaryOperation {
                 left,
                 operator,

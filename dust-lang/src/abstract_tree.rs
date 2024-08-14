@@ -55,7 +55,8 @@ pub enum Statement {
         value: Box<Node<Statement>>,
     },
 
-    // A sequence of statements
+    // Statement blocks, delimited by curly braces
+    AsyncBlock(Vec<Node<Statement>>),
     Block(Vec<Node<Statement>>),
 
     // Logic, math and comparison expressions with two operands
@@ -139,8 +140,9 @@ pub enum Statement {
 impl Statement {
     pub fn expected_type(&self, context: &Context) -> Option<Type> {
         match self {
+            Statement::AsyncBlock(_) => None,
             Statement::Assignment { .. } => None,
-            Statement::Block(nodes) => nodes.last().unwrap().inner.expected_type(context),
+            Statement::Block(statements) => statements.last().unwrap().inner.expected_type(context),
             Statement::BinaryOperation {
                 left,
                 operator,
@@ -246,6 +248,19 @@ impl Display for Statement {
                 value,
             } => {
                 write!(f, "{identifier} {operator} {value}")
+            }
+            Statement::AsyncBlock(statements) => {
+                write!(f, "async {{ ")?;
+
+                for (i, statement) in statements.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+
+                    write!(f, "{statement}")?;
+                }
+
+                write!(f, " }}")
             }
             Statement::Block(statements) => {
                 write!(f, "{{ ")?;
