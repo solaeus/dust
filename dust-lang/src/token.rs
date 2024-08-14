@@ -26,6 +26,7 @@ pub enum Token<'src> {
     IsEven,
     IsOdd,
     Length,
+    Mut,
     ReadLine,
     Str,
     Struct,
@@ -98,6 +99,7 @@ impl<'src> Token<'src> {
             Token::LessEqual => TokenOwned::LessOrEqual,
             Token::Minus => TokenOwned::Minus,
             Token::MinusEqual => TokenOwned::MinusEqual,
+            Token::Mut => TokenOwned::Mut,
             Token::Percent => TokenOwned::Percent,
             Token::Plus => TokenOwned::Plus,
             Token::PlusEqual => TokenOwned::PlusEqual,
@@ -153,6 +155,7 @@ impl<'src> Token<'src> {
             Token::LessEqual => "<=",
             Token::Minus => "-",
             Token::MinusEqual => "-=",
+            Token::Mut => "mut",
             Token::Percent => "%",
             Token::Plus => "+",
             Token::PlusEqual => "+=",
@@ -205,6 +208,7 @@ impl<'src> Token<'src> {
             Token::LessEqual => TokenKind::LessOrEqual,
             Token::Minus => TokenKind::Minus,
             Token::MinusEqual => TokenKind::MinusEqual,
+            Token::Mut => TokenKind::Mut,
             Token::Percent => TokenKind::Percent,
             Token::Plus => TokenKind::Plus,
             Token::PlusEqual => TokenKind::PlusEqual,
@@ -306,6 +310,7 @@ pub enum TokenOwned {
     IsEven,
     IsOdd,
     Length,
+    Mut,
     ReadLine,
     Str,
     ToString,
@@ -379,6 +384,7 @@ impl Display for TokenOwned {
             TokenOwned::LessOrEqual => Token::LessEqual.fmt(f),
             TokenOwned::Minus => Token::Minus.fmt(f),
             TokenOwned::MinusEqual => Token::MinusEqual.fmt(f),
+            TokenOwned::Mut => Token::Mut.fmt(f),
             TokenOwned::Percent => Token::Percent.fmt(f),
             TokenOwned::Plus => Token::Plus.fmt(f),
             TokenOwned::PlusEqual => Token::PlusEqual.fmt(f),
@@ -447,6 +453,7 @@ pub enum TokenKind {
     LessOrEqual,
     Minus,
     MinusEqual,
+    Mut,
     Percent,
     Plus,
     PlusEqual,
@@ -494,6 +501,7 @@ impl Display for TokenKind {
             TokenKind::LessOrEqual => Token::LessEqual.fmt(f),
             TokenKind::Minus => Token::Minus.fmt(f),
             TokenKind::MinusEqual => Token::MinusEqual.fmt(f),
+            TokenKind::Mut => Token::Mut.fmt(f),
             TokenKind::Percent => Token::Percent.fmt(f),
             TokenKind::Plus => Token::Plus.fmt(f),
             TokenKind::PlusEqual => Token::PlusEqual.fmt(f),
@@ -518,7 +526,7 @@ impl Display for TokenKind {
 pub(crate) mod tests {
     use super::*;
 
-    pub fn all_tokens<'src>() -> [Token<'src>; 47] {
+    pub fn all_tokens<'src>() -> [Token<'src>; 48] {
         [
             Token::Async,
             Token::Bang,
@@ -552,6 +560,7 @@ pub(crate) mod tests {
             Token::LessEqual,
             Token::Minus,
             Token::MinusEqual,
+            Token::Mut,
             Token::Percent,
             Token::Plus,
             Token::PlusEqual,

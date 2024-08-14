@@ -91,6 +91,10 @@ impl Value {
         Value::Immutable(Arc::new(ValueData::Struct(r#struct)))
     }
 
+    pub fn boolean_mut(boolean: bool) -> Self {
+        Value::Mutable(Arc::new(RwLock::new(ValueData::Boolean(boolean))))
+    }
+
     pub fn r#type(&self) -> Type {
         match self {
             Value::Immutable(inner) => inner.r#type(),
@@ -1421,6 +1425,7 @@ pub enum ValueError {
     CannotLessThanOrEqual(Value, Value),
     CannotModulo(Value, Value),
     CannotMultiply(Value, Value),
+    CannotMutate(Value),
     CannotSubtract(Value, Value),
     CannotOr(Value, Value),
     DivisionByZero,
@@ -1448,6 +1453,7 @@ impl Display for ValueError {
             ValueError::CannotMultiply(left, right) => {
                 write!(f, "Cannot multiply {} and {}", left, right)
             }
+            ValueError::CannotMutate(value) => write!(f, "Cannot mutate {}", value),
             ValueError::CannotSubtract(left, right) => {
                 write!(f, "Cannot subtract {} and {}", left, right)
             }

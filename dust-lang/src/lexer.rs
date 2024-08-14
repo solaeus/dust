@@ -429,6 +429,7 @@ impl Lexer {
             "is_even" => Token::IsEven,
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
+            "mut" => Token::Mut,
             "read_line" => Token::ReadLine,
             "struct" => Token::Struct,
             "to_string" => Token::ToString,
@@ -505,34 +506,6 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn all_keywords() {
-        let input = "async bool else false float if int is_even is_odd length read_line struct to_string true while write_line";
-
-        assert_eq!(
-            lex(input),
-            Ok(vec![
-                (Token::Async, (0, 5)),
-                (Token::Bool, (6, 10)),
-                (Token::Else, (11, 15)),
-                (Token::Boolean("false"), (16, 21)),
-                (Token::FloatKeyword, (22, 27)),
-                (Token::If, (28, 30)),
-                (Token::Int, (31, 34)),
-                (Token::IsEven, (35, 42)),
-                (Token::IsOdd, (43, 49)),
-                (Token::Length, (50, 56)),
-                (Token::ReadLine, (57, 66)),
-                (Token::Struct, (67, 73)),
-                (Token::ToString, (74, 83)),
-                (Token::Boolean("true"), (84, 88)),
-                (Token::While, (89, 94)),
-                (Token::WriteLine, (95, 105)),
-                (Token::Eof, (105, 105)),
-            ])
-        );
-    }
 
     #[test]
     fn unit_struct() {

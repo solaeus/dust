@@ -1212,6 +1212,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn mutable_variable() {
+        let input = "mut x = 42";
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::Assignment {
+                        identifier: Node::new(Identifier::new("x"), (4, 5)),
+                        operator: Node::new(AssignmentOperator::Assign, (6, 7)),
+                        value: Box::new(Node::new(
+                            Statement::Constant(Value::integer(42)),
+                            (8, 10)
+                        )),
+                    },
+                    (0, 10)
+                )]
+                .into()
+            })
+        );
+    }
+
+    #[test]
     fn async_block() {
         let input = "async { x = 42; y = 4.0 }";
 
