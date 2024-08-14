@@ -16,6 +16,13 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn range(range: Range, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Range(range)),
+            position,
+        ))
+    }
+
     pub fn call(call_expression: CallExpression, position: Span) -> Self {
         Expression::WithoutBlock(Node::new(
             Box::new(ExpressionWithoutBlock::Call(call_expression)),
@@ -160,6 +167,7 @@ pub enum ExpressionWithoutBlock {
     Grouped(Expression),
     FieldAccess(FieldAccess),
     ListIndex(ListIndex),
+    Range(Range),
 }
 
 impl Display for ExpressionWithoutBlock {
@@ -174,7 +182,20 @@ impl Display for ExpressionWithoutBlock {
             ExpressionWithoutBlock::Grouped(expression) => write!(f, "({})", expression),
             ExpressionWithoutBlock::FieldAccess(field_access) => write!(f, "{}", field_access),
             ExpressionWithoutBlock::ListIndex(list_index) => write!(f, "{}", list_index),
+            ExpressionWithoutBlock::Range(range) => write!(f, "{}", range),
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Range {
+    pub start: Expression,
+    pub end: Expression,
+}
+
+impl Display for Range {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}..{}", self.start, self.end)
     }
 }
 

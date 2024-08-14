@@ -1023,96 +1023,336 @@ mod tests {
     fn tuple_struct_access() {
         let source = "(Foo(42, 'bar')).0";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::field_access(
+                    FieldAccess {
+                        container: Expression::r#struct(
+                            StructExpression::Tuple {
+                                name: Node::new(Identifier::new("Foo"), (0, 0)),
+                                items: vec![
+                                    Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                                    Expression::literal(
+                                        LiteralExpression::String("bar".to_string()),
+                                        (0, 0)
+                                    ),
+                                ],
+                            },
+                            (0, 0)
+                        ),
+                        field: Node::new(Identifier::new("0"), (0, 0)),
+                    },
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn fields_struct_instantiation() {
         let source = "Foo { a = 42, b = 4.0 }";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::r#struct(
+                    StructExpression::Fields {
+                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        fields: vec![
+                            (
+                                Node::new(Identifier::new("a"), (0, 0)),
+                                Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                            ),
+                            (
+                                Node::new(Identifier::new("b"), (0, 0)),
+                                Expression::literal(LiteralExpression::Float(4.0), (0, 0))
+                            )
+                        ]
+                    },
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn fields_struct() {
         let source = "struct Foo { a: int, b: float }";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::struct_definition(
+                    StructDefinition::Fields {
+                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        fields: vec![
+                            (
+                                Node::new(Identifier::new("a"), (0, 0)),
+                                Node::new(Type::Integer, (0, 0))
+                            ),
+                            (
+                                Node::new(Identifier::new("b"), (0, 0)),
+                                Node::new(Type::Float, (0, 0))
+                            )
+                        ]
+                    },
+                    (0, 0)
+                )
+            ]))
+        );
     }
 
     #[test]
     fn tuple_struct_instantiation() {
         let source = "struct Foo(int, float) Foo(1, 2.0)";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::struct_definition(
+                    StructDefinition::Tuple {
+                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        items: vec![
+                            Node::new(Type::Integer, (0, 0)),
+                            Node::new(Type::Float, (0, 0)),
+                        ]
+                    },
+                    (0, 0)
+                ),
+                Statement::Expression(Expression::r#struct(
+                    StructExpression::Tuple {
+                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        items: vec![
+                            Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                            Expression::literal(LiteralExpression::Float(2.0), (0, 0))
+                        ]
+                    },
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn tuple_struct() {
         let source = "struct Foo(int, float)";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::StructDefinition(Node::new(
+                    StructDefinition::Tuple {
+                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        items: vec![
+                            Node::new(Type::Integer, (0, 0)),
+                            Node::new(Type::Float, (0, 0)),
+                        ],
+                    },
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn unit_struct() {
         let source = "struct Foo";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::StructDefinition(Node::new(
+                    StructDefinition::Unit {
+                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                    },
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn list_index_nested() {
         let source = "[1, [2], 3][1][0]";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::list_index(
+                    ListIndex {
+                        list: Expression::list_index(
+                            ListIndex {
+                                list: Expression::list(
+                                    ListExpression::Ordered(vec![
+                                        Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                                        Expression::list(
+                                            ListExpression::Ordered(vec![Expression::literal(
+                                                LiteralExpression::Integer(2),
+                                                (0, 0)
+                                            )]),
+                                            (0, 0)
+                                        ),
+                                        Expression::literal(LiteralExpression::Integer(3), (0, 0)),
+                                    ]),
+                                    (0, 0)
+                                ),
+                                index: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                            },
+                            (0, 0)
+                        ),
+                        index: Expression::literal(LiteralExpression::Integer(0), (0, 0)),
+                    },
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn map_property_nested() {
         let source = "{ x = { y = 42 } }.x.y";
+
+        assert_eq!(parse(source), todo!());
     }
 
     #[test]
     fn range() {
         let source = "0..42";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::range(
+                    Range {
+                        start: Expression::literal(LiteralExpression::Integer(0), (0, 0)),
+                        end: Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                    },
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn negate_variable() {
         let source = "a = 1; -a";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Assignment {
+                        assignee: Expression::identifier(Identifier::new("a"), (0, 0)),
+                        value: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                    },
+                    (0, 0)
+                )),
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Negation(Expression::identifier(
+                        Identifier::new("a"),
+                        (0, 0)
+                    )),
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn negate_expression() {
         let source = "-(1 + 1)";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Negation(Expression::grouped(
+                        Expression::operator(
+                            OperatorExpression::Math {
+                                left: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                                operator: Node::new(MathOperator::Add, (0, 0)),
+                                right: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                            },
+                            (0, 0)
+                        ),
+                        (0, 0)
+                    )),
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn not_expression() {
         let source = "!(1 > 42)";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Not(Expression::grouped(
+                        Expression::operator(
+                            OperatorExpression::Comparison {
+                                left: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                                operator: Node::new(ComparisonOperator::GreaterThan, (0, 0)),
+                                right: Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                            },
+                            (0, 0)
+                        ),
+                        (0, 0)
+                    )),
+                    (0, 0)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn not_variable() {
         let source = "a = false; !a";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Assignment {
+                        assignee: Expression::identifier(Identifier::new("a"), (0, 0)),
+                        value: Expression::literal(LiteralExpression::Boolean(false), (0, 0)),
+                    },
+                    (0, 0)
+                )),
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Not(Expression::identifier(Identifier::new("a"), (0, 0))),
+                    (0, 0)
+                )),
+            ]))
+        );
     }
 
     #[test]
     fn r#if() {
         let source = "if x { y }";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::r#if(
+                    If::If {
+                        condition: Expression::identifier(Identifier::new("x"), (3, 4)),
+                        if_block: Node::new(
+                            Block::Sync(vec![Statement::Expression(Expression::identifier(
+                                Identifier::new("y"),
+                                (7, 8)
+                            ))]),
+                            (5, 10)
+                        )
+                    },
+                    (0, 10)
+                ))
+            ]))
+        );
     }
 
     #[test]
