@@ -1183,11 +1183,6 @@ mod tests {
     #[test]
     fn tuple_struct_access() {
         let input = "Foo(42, 'bar').0";
-        let mut tree = AbstractSyntaxTree::new();
-
-        if parse_into(input, &mut tree).is_err() {
-            println!("{:?}", tree);
-        }
 
         assert_eq!(
             parse(input),
