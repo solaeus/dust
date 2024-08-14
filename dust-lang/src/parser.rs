@@ -72,6 +72,31 @@ pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
     Ok(AbstractSyntaxTree { nodes })
 }
 
+pub fn parse_into<'src>(
+    source: &'src str,
+    tree: &mut AbstractSyntaxTree,
+) -> Result<(), DustError<'src>> {
+    let lexer = Lexer::new();
+    let mut parser = Parser::new(source, lexer);
+
+    loop {
+        let node = parser
+            .parse()
+            .map_err(|parse_error| DustError::ParseError {
+                parse_error,
+                source,
+            })?;
+
+        tree.nodes.push_back(node);
+
+        if let Token::Eof = parser.current.0 {
+            break;
+        }
+    }
+
+    Ok(())
+}
+
 /// Low-level tool for parsing the input a statement at a time.
 ///
 /// # Examples
@@ -133,8 +158,12 @@ impl<'src> Parser<'src> {
     fn parse_statement(&mut self, mut precedence: u8) -> Result<Node<Statement>, ParseError> {
         // Parse a statement starting from the current node.
         let mut left = if self.current.0.is_prefix() {
+            log::trace!("Parsing {} as prefix operator", self.current.0);
+
             self.parse_prefix()?
         } else {
+            log::trace!("Parsing {} as primary", self.current.0);
+
             self.parse_primary()?
         };
 
@@ -142,6 +171,8 @@ impl<'src> Parser<'src> {
         while precedence < self.current.0.precedence() {
             // Give precedence to postfix operations
             left = if self.current.0.is_postfix() {
+                log::trace!("Parsing {} as postfix operator", self.current.0);
+
                 // Replace the left-hand side with the postfix operation
                 let statement = self.parse_postfix(left)?;
 
@@ -149,6 +180,8 @@ impl<'src> Parser<'src> {
 
                 statement
             } else {
+                log::trace!("Parsing {} as infix operator", self.current.0);
+
                 // Replace the left-hand side with the infix operation
                 self.parse_infix(left)?
             };
@@ -735,13 +768,13 @@ impl<'src> Parser<'src> {
         let left_start = left.position.0;
 
         if let Token::Equal | Token::PlusEqual | Token::MinusEqual = &self.current.0 {
-            let operator_position = self.current.1;
             let operator = match self.current.0 {
                 Token::Equal => AssignmentOperator::Assign,
                 Token::PlusEqual => AssignmentOperator::AddAssign,
                 Token::MinusEqual => AssignmentOperator::SubtractAssign,
                 _ => unreachable!(),
             };
+            let operator_position = self.current.1;
 
             self.next_token()?;
 
@@ -891,9 +924,9 @@ impl<'src> Parser<'src> {
                     }
                 }
 
-                let right_end = self.current.1 .1;
-
                 self.next_token()?;
+
+                let right_end = self.current.1 .1;
 
                 Node::new(
                     Statement::Invokation {
@@ -1146,6 +1179,47 @@ mod tests {
     use crate::{BinaryOperator, Identifier, StructDefinition, Type, UnaryOperator};
 
     use super::*;
+
+    #[test]
+    fn tuple_struct_access() {
+        let input = "Foo(42, 'bar').0";
+        let mut tree = AbstractSyntaxTree::new();
+
+        if parse_into(input, &mut tree).is_err() {
+            println!("{:?}", tree);
+        }
+
+        assert_eq!(
+            parse(input),
+            Ok(AbstractSyntaxTree {
+                nodes: [Node::new(
+                    Statement::BinaryOperation {
+                        left: Box::new(Node::new(
+                            Statement::Invokation {
+                                invokee: Box::new(Node::new(
+                                    Statement::Identifier(Identifier::new("Foo")),
+                                    (0, 3)
+                                )),
+                                type_arguments: None,
+                                value_arguments: Some(vec![
+                                    Node::new(Statement::Constant(Value::integer(42)), (4, 6)),
+                                    Node::new(Statement::Constant(Value::string("bar")), (8, 11))
+                                ]),
+                            },
+                            (0, 12)
+                        )),
+                        operator: Node::new(BinaryOperator::FieldAccess, (13, 14)),
+                        right: Box::new(Node::new(
+                            Statement::Constant(Value::integer(0)),
+                            (15, 16)
+                        ))
+                    },
+                    (0, 16)
+                )]
+                .into()
+            })
+        );
+    }
 
     #[test]
     fn fields_struct_instantiation() {

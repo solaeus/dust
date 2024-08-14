@@ -103,7 +103,13 @@ impl Lexer {
             match c {
                 '0'..='9' => self.lex_number(source)?,
                 '-' => {
-                    if let Some('0'..='9') = self.peek_second_char(source) {
+                    let second_char = self.peek_second_char(source);
+
+                    if let Some('=') = second_char {
+                        self.position += 2;
+
+                        (Token::MinusEqual, (self.position - 2, self.position))
+                    } else if let Some('0'..='9') = second_char {
                         self.lex_number(source)?
                     } else if "-Infinity" == self.peek_chars(source, 9) {
                         self.position += 9;
@@ -498,6 +504,33 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn all_keywords() {
+        let input = "bool else false float if int is_even is_odd length read_line struct to_string true while write_line";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Bool, (0, 4)),
+                (Token::Else, (5, 9)),
+                (Token::Boolean("false"), (10, 15)),
+                (Token::FloatKeyword, (16, 21)),
+                (Token::If, (22, 24)),
+                (Token::Int, (25, 28)),
+                (Token::IsEven, (29, 36)),
+                (Token::IsOdd, (37, 43)),
+                (Token::Length, (44, 50)),
+                (Token::ReadLine, (51, 60)),
+                (Token::Struct, (61, 67)),
+                (Token::ToString, (68, 77)),
+                (Token::Boolean("true"), (78, 82)),
+                (Token::While, (83, 88)),
+                (Token::WriteLine, (89, 99)),
+                (Token::Eof, (99, 99)),
+            ])
+        );
+    }
 
     #[test]
     fn unit_struct() {

@@ -147,7 +147,30 @@ impl Vm {
                     Ok(None)
                 }
                 AssignmentOperator::SubtractAssign => {
-                    todo!()
+                    let left_value = if let Some(value) = self.context.get_value(&identifier.inner)
+                    {
+                        value
+                    } else {
+                        return Err(VmError::UndefinedVariable { identifier });
+                    };
+                    let value_position = value.position;
+                    let right_value = if let Some(value) = self.run_statement(*value)? {
+                        value
+                    } else {
+                        return Err(VmError::ExpectedValue {
+                            position: value_position,
+                        });
+                    };
+                    let new_value = left_value.subtract(&right_value).map_err(|value_error| {
+                        VmError::ValueError {
+                            error: value_error,
+                            position: (identifier.position.0, value_position.1),
+                        }
+                    })?;
+
+                    self.context.set_value(identifier.inner, new_value);
+
+                    Ok(None)
                 }
             },
             Statement::BinaryOperation {
@@ -1030,6 +1053,13 @@ mod tests {
         let input = "x = 0; while x < 5 { x += 1; } x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(5))));
+    }
+
+    #[test]
+    fn subtract_assign() {
+        let input = "x = 1; x -= 1; x";
+
+        assert_eq!(run(input), Ok(Some(Value::integer(0))));
     }
 
     #[test]

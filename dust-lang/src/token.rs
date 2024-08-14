@@ -237,7 +237,7 @@ impl<'src> Token<'src> {
             | Token::GreaterEqual => 5,
             Token::DoubleAmpersand => 4,
             Token::DoublePipe => 3,
-            Token::Equal | Token::PlusEqual => 2,
+            Token::Equal | Token::MinusEqual | Token::PlusEqual => 2,
             Token::DoubleDot | Token::Semicolon => 1,
             _ => 0,
         }
@@ -507,12 +507,13 @@ impl Display for TokenKind {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    fn all_tokens<'src>() -> [Token<'src>; 42] {
+    pub fn all_tokens<'src>() -> [Token<'src>; 46] {
         [
             Token::Bang,
+            Token::Bool,
             Token::Boolean("true"),
             Token::Colon,
             Token::Comma,
@@ -524,12 +525,14 @@ mod tests {
             Token::Else,
             Token::Eof,
             Token::Equal,
-            Token::Float("42.0"),
+            Token::Float("0.0"),
+            Token::FloatKeyword,
             Token::Greater,
             Token::GreaterEqual,
-            Token::Identifier("foobar"),
+            Token::Identifier(""),
             Token::If,
-            Token::Integer("42"),
+            Token::Int,
+            Token::Integer("0"),
             Token::IsEven,
             Token::IsOdd,
             Token::LeftCurlyBrace,
@@ -539,6 +542,7 @@ mod tests {
             Token::Less,
             Token::LessEqual,
             Token::Minus,
+            Token::MinusEqual,
             Token::Percent,
             Token::Plus,
             Token::PlusEqual,
@@ -548,8 +552,8 @@ mod tests {
             Token::RightSquareBrace,
             Token::Semicolon,
             Token::Star,
-            Token::Slash,
-            Token::String("foobar"),
+            Token::Str,
+            Token::String(""),
             Token::Struct,
             Token::ToString,
             Token::While,

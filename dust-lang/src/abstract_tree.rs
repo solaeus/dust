@@ -14,6 +14,20 @@ pub struct AbstractSyntaxTree {
     pub nodes: VecDeque<Node<Statement>>,
 }
 
+impl AbstractSyntaxTree {
+    pub fn new() -> Self {
+        Self {
+            nodes: VecDeque::new(),
+        }
+    }
+}
+
+impl Default for AbstractSyntaxTree {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Node<T> {
     pub inner: T,
