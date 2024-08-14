@@ -97,6 +97,24 @@ impl Expression {
         ))
     }
 
+    pub fn as_identifier(&self) -> Option<&Identifier> {
+        if let Expression::WithoutBlock(Node {
+            inner: expression_without_block,
+            ..
+        }) = self
+        {
+            if let ExpressionWithoutBlock::Identifier(identifier) =
+                expression_without_block.as_ref()
+            {
+                Some(identifier)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     pub fn position(&self) -> Span {
         match self {
             Expression::WithBlock(expression_node) => expression_node.position,
@@ -297,6 +315,11 @@ pub enum OperatorExpression {
         assignee: Expression,
         value: Expression,
     },
+    Comparison {
+        left: Expression,
+        operator: Node<ComparisonOperator>,
+        right: Expression,
+    },
     CompoundAssignment {
         assignee: Expression,
         operator: Node<MathOperator>,
@@ -312,7 +335,7 @@ pub enum OperatorExpression {
     },
     Logic {
         left: Expression,
-        operator: LogicOperator,
+        operator: Node<LogicOperator>,
         right: Expression,
     },
 }
@@ -322,6 +345,13 @@ impl Display for OperatorExpression {
         match self {
             OperatorExpression::Assignment { assignee, value } => {
                 write!(f, "{} = {}", assignee, value)
+            }
+            OperatorExpression::Comparison {
+                left,
+                operator,
+                right,
+            } => {
+                write!(f, "{} {} {}", left, operator, right)
             }
             OperatorExpression::CompoundAssignment {
                 assignee,
@@ -346,6 +376,31 @@ impl Display for OperatorExpression {
                 write!(f, "{} {} {}", left, operator, right)
             }
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum ComparisonOperator {
+    Equal,
+    NotEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+}
+
+impl Display for ComparisonOperator {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let operator = match self {
+            ComparisonOperator::Equal => "==",
+            ComparisonOperator::NotEqual => "!=",
+            ComparisonOperator::GreaterThan => ">",
+            ComparisonOperator::GreaterThanOrEqual => ">=",
+            ComparisonOperator::LessThan => "<",
+            ComparisonOperator::LessThanOrEqual => "<=",
+        };
+
+        write!(f, "{}", operator)
     }
 }
 
@@ -390,21 +445,50 @@ impl Display for LogicOperator {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct If {
-    pub condition: Expression,
-    pub if_block: Node<Block>,
-    pub else_block: Option<Node<Block>>,
+pub enum If {
+    If {
+        condition: Expression,
+        if_block: Node<Block>,
+    },
+    IfElse {
+        condition: Expression,
+        if_block: Node<Block>,
+        r#else: ElseExpression,
+    },
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum ElseExpression {
+    Block(Node<Block>),
+    If(Box<If>),
+}
+
+impl Display for ElseExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ElseExpression::Block(block) => write!(f, "{}", block),
+            ElseExpression::If(r#if) => write!(f, "{}", r#if),
+        }
+    }
 }
 
 impl Display for If {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "if {} {}", self.condition, self.if_block)?;
-
-        if let Some(else_block) = &self.else_block {
-            write!(f, " else {}", else_block)?;
+        match self {
+            If::If {
+                condition,
+                if_block,
+            } => {
+                write!(f, "if {} {}", condition, if_block)
+            }
+            If::IfElse {
+                condition,
+                if_block,
+                r#else,
+            } => {
+                write!(f, "if {} {} else {}", condition, if_block, r#else)
+            }
         }
-
-        Ok(())
     }
 }
 

@@ -358,48 +358,6 @@ impl<'src> Parser<'src> {
 
                 self.next_token()?;
 
-                if let Token::LeftCurlyBrace = self.current_token {
-                    self.next_token()?;
-
-                    let mut fields = Vec::new();
-
-                    loop {
-                        if let Token::RightCurlyBrace = self.current_token {
-                            let position = (start_position.0, self.current_position.1);
-
-                            self.next_token()?;
-
-                            return Ok(Expression::r#struct(
-                                StructExpression::Fields {
-                                    name: Node::new(identifier, identifier_position),
-                                    fields,
-                                },
-                                position,
-                            ));
-                        }
-
-                        let field_name = self.parse_identifier()?;
-
-                        if let Token::Colon = self.current_token {
-                            self.next_token()?;
-                        } else {
-                            return Err(ParseError::ExpectedToken {
-                                expected: TokenKind::Equal,
-                                actual: self.current_token.to_owned(),
-                                position: self.current_position,
-                            });
-                        }
-
-                        let field_value = self.parse_expression(0)?;
-
-                        fields.push((field_name, field_value));
-
-                        if let Token::Comma = self.current_token {
-                            self.next_token()?;
-                        }
-                    }
-                }
-
                 Ok(Expression::identifier(identifier, identifier_position))
             }
             Token::Integer(text) => {
@@ -445,27 +403,11 @@ impl<'src> Parser<'src> {
                 }
             }
             Token::If => {
-                self.next_token()?;
+                let start = self.current_position.0;
+                let r#if = self.parse_if()?;
+                let position = (start, self.current_position.1);
 
-                let condition = self.parse_expression(0)?;
-                let if_block = self.parse_block()?;
-                let else_block = if let Token::Else = self.current_token {
-                    self.next_token()?;
-
-                    Some(self.parse_block()?)
-                } else {
-                    None
-                };
-                let position = (start_position.0, self.current_position.1);
-
-                Ok(Expression::r#if(
-                    If {
-                        condition,
-                        if_block,
-                        else_block,
-                    },
-                    position,
-                ))
+                Ok(Expression::r#if(r#if, position))
             }
             Token::String(text) => {
                 self.next_token()?;
@@ -682,6 +624,53 @@ impl<'src> Parser<'src> {
         log::trace!("Parsing {} as postfix operator", self.current_token);
 
         let statement = match &self.current_token {
+            Token::LeftCurlyBrace => {
+                let identifier = if let Some(identifier) = left.as_identifier() {
+                    identifier
+                } else {
+                    return Err(ParseError::ExpectedIdentifierNode { actual: left });
+                };
+
+                let name = Node::new(identifier.clone(), left.position());
+                let start_left = self.current_position.0;
+
+                self.next_token()?;
+
+                let mut fields = Vec::new();
+
+                loop {
+                    if let Token::RightCurlyBrace = self.current_token {
+                        let position = (start_left, self.current_position.1);
+
+                        self.next_token()?;
+
+                        return Ok(Expression::r#struct(
+                            StructExpression::Fields { name, fields },
+                            position,
+                        ));
+                    }
+
+                    let field_name = self.parse_identifier()?;
+
+                    if let Token::Colon = self.current_token {
+                        self.next_token()?;
+                    } else {
+                        return Err(ParseError::ExpectedToken {
+                            expected: TokenKind::Equal,
+                            actual: self.current_token.to_owned(),
+                            position: self.current_position,
+                        });
+                    }
+
+                    let field_value = self.parse_expression(0)?;
+
+                    fields.push((field_name, field_value));
+
+                    if let Token::Comma = self.current_token {
+                        self.next_token()?;
+                    }
+                }
+            }
             Token::LeftParenthesis => {
                 self.next_token()?;
 
@@ -748,6 +737,46 @@ impl<'src> Parser<'src> {
             self.parse_postfix(statement)
         } else {
             Ok(statement)
+        }
+    }
+
+    fn parse_if(&mut self) -> Result<If, ParseError> {
+        if let Token::If = self.current_token {
+            self.next_token()?;
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenKind::If,
+                actual: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        }
+
+        let condition = self.parse_expression(0)?;
+        let if_block = self.parse_block()?;
+
+        if let Token::Else = self.current_token {
+            self.next_token()?;
+
+            if let Ok(else_if) = self.parse_if() {
+                Ok(If::IfElse {
+                    condition,
+                    if_block,
+                    r#else: ElseExpression::If(Box::new(else_if)),
+                })
+            } else {
+                let else_block = self.parse_block()?;
+
+                Ok(If::IfElse {
+                    condition,
+                    if_block,
+                    r#else: ElseExpression::Block(else_block),
+                })
+            }
+        } else {
+            Ok(If::If {
+                condition,
+                if_block,
+            })
         }
     }
 
@@ -840,7 +869,10 @@ pub enum ParseError {
     ExpectedExpression {
         actual: Statement,
     },
-    ExpectedIdentifier {
+    ExpectedIdentifierNode {
+        actual: Expression,
+    },
+    ExpectedIdentifierToken {
         actual: TokenOwned,
         position: Span,
     },
@@ -880,7 +912,8 @@ impl ParseError {
             ParseError::Boolean { position, .. } => *position,
             ParseError::ExpectedAssignment { actual } => actual.position(),
             ParseError::ExpectedExpression { actual } => actual.position(),
-            ParseError::ExpectedIdentifier { position, .. } => *position,
+            ParseError::ExpectedIdentifierNode { actual } => actual.position(),
+            ParseError::ExpectedIdentifierToken { position, .. } => *position,
             ParseError::ExpectedToken { position, .. } => *position,
             ParseError::ExpectedTokenMultiple { position, .. } => *position,
             ParseError::Float { position, .. } => *position,
@@ -906,7 +939,10 @@ impl Display for ParseError {
             Self::Boolean { error, .. } => write!(f, "{}", error),
             Self::ExpectedAssignment { .. } => write!(f, "Expected assignment"),
             Self::ExpectedExpression { .. } => write!(f, "Expected expression"),
-            Self::ExpectedIdentifier { actual, .. } => {
+            Self::ExpectedIdentifierNode { actual } => {
+                write!(f, "Expected identifier, found {actual}")
+            }
+            Self::ExpectedIdentifierToken { actual, .. } => {
                 write!(f, "Expected identifier, found {actual}")
             }
             Self::ExpectedToken {
@@ -1083,14 +1119,72 @@ mod tests {
     fn if_else() {
         let source = "if x { y } else { z }";
 
-        assert_eq!(parse(source), todo!())
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::r#if(
+                    If::IfElse {
+                        condition: Expression::identifier(Identifier::new("x"), (3, 4)),
+                        if_block: Node::new(
+                            Block::Sync(vec![Statement::Expression(Expression::identifier(
+                                Identifier::new("y"),
+                                (7, 8)
+                            ))]),
+                            (5, 10)
+                        ),
+                        r#else: ElseExpression::Block(Node::new(
+                            Block::Sync(vec![Statement::Expression(Expression::identifier(
+                                Identifier::new("z"),
+                                (18, 19)
+                            ))]),
+                            (16, 21)
+                        ))
+                    },
+                    (0, 21)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn if_else_if_else() {
         let source = "if x { y } else if z { a } else { b }";
 
-        assert_eq!(parse(source), todo!())
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::r#if(
+                    If::IfElse {
+                        condition: Expression::identifier(Identifier::new("x"), (3, 4)),
+                        if_block: Node::new(
+                            Block::Sync(vec![Statement::Expression(Expression::identifier(
+                                Identifier::new("y"),
+                                (7, 8)
+                            ))]),
+                            (5, 10)
+                        ),
+                        r#else: ElseExpression::If(Box::new(If::IfElse {
+                            condition: Expression::identifier(Identifier::new("z"), (19, 20)),
+                            if_block: Node::new(
+                                Block::Sync(vec![Statement::Expression(Expression::identifier(
+                                    Identifier::new("a"),
+                                    (23, 24)
+                                ))]),
+                                (21, 26)
+                            ),
+                            r#else: ElseExpression::Block(Node::new(
+                                Block::Sync(vec![Statement::Expression(Expression::identifier(
+                                    Identifier::new("b"),
+                                    (34, 35)
+                                ))]),
+                                (32, 37)
+                            )),
+                        })),
+                    },
+                    (0, 37)
+                ))
+            ]))
+        )
     }
 
     #[test]
@@ -1104,42 +1198,162 @@ mod tests {
     fn while_loop() {
         let source = "while x < 10 { x += 1 }";
 
-        assert_eq!(parse(source), todo!())
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::r#loop(
+                    Loop::While {
+                        condition: Expression::operator(
+                            OperatorExpression::Comparison {
+                                left: Expression::identifier(Identifier::new("x"), (0, 0)),
+                                operator: Node::new(ComparisonOperator::LessThan, (0, 0)),
+                                right: Expression::literal(LiteralExpression::Integer(10), (0, 0)),
+                            },
+                            (0, 0)
+                        ),
+                        block: Node::new(
+                            Block::Sync(vec![Statement::Expression(Expression::operator(
+                                OperatorExpression::CompoundAssignment {
+                                    assignee: Expression::identifier(Identifier::new("x"), (0, 0)),
+                                    operator: Node::new(MathOperator::Add, (0, 0)),
+                                    value: Expression::literal(
+                                        LiteralExpression::Integer(1),
+                                        (0, 0)
+                                    ),
+                                },
+                                (0, 0)
+                            ))]),
+                            (0, 0)
+                        )
+                    },
+                    (0, 0)
+                ))
+            ]))
+        )
     }
 
     #[test]
     fn add_assign() {
         let source = "a += 1";
 
-        assert_eq!(parse(source), todo!())
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Assignment {
+                        assignee: Expression::identifier(Identifier::new("a"), (0, 0)),
+                        value: Expression::operator(
+                            OperatorExpression::Math {
+                                left: Expression::identifier(Identifier::new("a"), (0, 0)),
+                                operator: Node::new(MathOperator::Add, (0, 0)),
+                                right: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                            },
+                            (0, 0)
+                        ),
+                    },
+                    (0, 0)
+                ))
+            ]))
+        )
     }
 
     #[test]
     fn or() {
         let source = "true || false";
 
-        assert_eq!(parse(source), todo!())
-    }
-
-    #[test]
-    fn misplaced_semicolon() {
-        let source = ";";
-
-        assert_eq!(parse(source), todo!())
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Logic {
+                        left: Expression::literal(LiteralExpression::Boolean(true), (0, 0)),
+                        operator: Node::new(LogicOperator::Or, (0, 0)),
+                        right: Expression::literal(LiteralExpression::Boolean(false), (0, 0)),
+                    },
+                    (0, 0)
+                ))
+            ]))
+        )
     }
 
     #[test]
     fn block_with_one_statement() {
         let source = "{ 40 + 2 }";
 
-        assert_eq!(parse(source), todo!())
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::block(
+                    Block::Sync(vec![Statement::Expression(Expression::operator(
+                        OperatorExpression::Math {
+                            left: Expression::literal(LiteralExpression::Integer(40), (0, 0)),
+                            operator: Node::new(MathOperator::Add, (0, 0)),
+                            right: Expression::literal(LiteralExpression::Integer(2), (0, 0)),
+                        },
+                        (0, 0)
+                    ))]),
+                    (0, 0)
+                ))
+            ]))
+        )
     }
 
     #[test]
     fn block_with_assignment() {
         let source = "{ foo = 42; bar = 42; baz = '42' }";
 
-        assert_eq!(parse(source), todo!())
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::block(
+                    Block::Sync(vec![
+                        Statement::ExpressionNullified(Node::new(
+                            Expression::operator(
+                                OperatorExpression::Assignment {
+                                    assignee: Expression::identifier(
+                                        Identifier::new("foo"),
+                                        (0, 0)
+                                    ),
+                                    value: Expression::literal(
+                                        LiteralExpression::Integer(42),
+                                        (0, 0)
+                                    ),
+                                },
+                                (0, 0)
+                            ),
+                            (0, 0)
+                        )),
+                        Statement::ExpressionNullified(Node::new(
+                            Expression::operator(
+                                OperatorExpression::Assignment {
+                                    assignee: Expression::identifier(
+                                        Identifier::new("bar"),
+                                        (0, 0)
+                                    ),
+                                    value: Expression::literal(
+                                        LiteralExpression::Integer(42),
+                                        (0, 0)
+                                    ),
+                                },
+                                (0, 0)
+                            ),
+                            (0, 0)
+                        )),
+                        Statement::Expression(Expression::operator(
+                            OperatorExpression::Assignment {
+                                assignee: Expression::identifier(Identifier::new("baz"), (0, 0)),
+                                value: Expression::literal(
+                                    LiteralExpression::String("42".to_string()),
+                                    (0, 0)
+                                ),
+                            },
+                            (0, 0)
+                        )),
+                    ]),
+                    (0, 0)
+                ))
+            ]))
+        )
     }
 
     #[test]
@@ -1174,112 +1388,317 @@ mod tests {
     fn equal() {
         let source = "42 == 42";
 
-        assert_eq!(parse(source), todo!());
-    }
-
-    #[test]
-    fn modulo() {
-        let source = "42 % 2";
-
-        assert_eq!(parse(source), todo!());
-    }
-
-    #[test]
-    fn divide() {
-        let source = "42 / 2";
-
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
+                        operator: Node::new(MathOperator::Divide, (3, 4)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
+                    },
+                    (0, 6),
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn less_than() {
         let source = "1 < 2";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Comparison {
+                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
+                        operator: Node::new(ComparisonOperator::LessThan, (2, 3)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                    },
+                    (0, 5),
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn less_than_or_equal() {
         let source = "1 <= 2";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Comparison {
+                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
+                        operator: Node::new(ComparisonOperator::LessThanOrEqual, (2, 3)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                    },
+                    (0, 5),
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn greater_than_or_equal() {
         let source = "1 >= 2";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Comparison {
+                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
+                        operator: Node::new(ComparisonOperator::GreaterThanOrEqual, (2, 3)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                    },
+                    (0, 5),
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn greater_than() {
         let source = "1 > 2";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Comparison {
+                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
+                        operator: Node::new(ComparisonOperator::GreaterThan, (2, 3)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                    },
+                    (0, 5),
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn subtract_negative_integers() {
         let source = "-1 - -2";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(LiteralExpression::Integer(-1), (0, 2)),
+                        operator: Node::new(MathOperator::Subtract, (2, 3)),
+                        right: Expression::literal(LiteralExpression::Integer(-2), (5, 7)),
+                    },
+                    (0, 7),
+                ))
+            ]))
+        );
+    }
+
+    #[test]
+    fn modulo() {
+        let source = "42 % 2";
+
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
+                        operator: Node::new(MathOperator::Divide, (3, 4)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
+                    },
+                    (0, 6),
+                ))
+            ]))
+        );
+    }
+
+    #[test]
+    fn divide() {
+        let source = "42 / 2";
+
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
+                        operator: Node::new(MathOperator::Divide, (3, 4)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
+                    },
+                    (0, 6),
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn string_concatenation() {
         let source = "\"Hello, \" + \"World!\"";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(
+                            LiteralExpression::String("Hello, ".to_string()),
+                            (0, 9)
+                        ),
+                        operator: Node::new(MathOperator::Add, (9, 10)),
+                        right: Expression::literal(
+                            LiteralExpression::String("World!".to_string()),
+                            (10, 18)
+                        )
+                    },
+                    (0, 18)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn string() {
         let source = "\"Hello, World!\"";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::literal(
+                    LiteralExpression::String("Hello, World!".to_string()),
+                    (0, 15)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn boolean() {
         let source = "true";
 
-        assert_eq!(parse(source), todo!());
-    }
-
-    #[test]
-    fn property_access_function_call() {
-        let source = "42.is_even()";
-
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::literal(
+                    LiteralExpression::Boolean(true),
+                    (0, 4)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn list_index() {
         let source = "[1, 2, 3][0]";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::list_index(
+                    ListIndex {
+                        list: Expression::list(
+                            ListExpression::Ordered(vec![
+                                Expression::literal(LiteralExpression::Integer(1), (1, 2)),
+                                Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                                Expression::literal(LiteralExpression::Integer(3), (7, 8)),
+                            ]),
+                            (0, 9)
+                        ),
+                        index: Expression::literal(LiteralExpression::Integer(0), (10, 11)),
+                    },
+                    (0, 12)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn property_access() {
         let source = "a.b";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::field_access(
+                    FieldAccess {
+                        container: Expression::identifier(Identifier::new("a"), (0, 1)),
+                        field: Node::new(Identifier::new("b"), (2, 3)),
+                    },
+                    (0, 3)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn complex_list() {
         let source = "[1, 1 + 1, 2 + (4 * 10)]";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::list(
+                    ListExpression::Ordered(vec![
+                        Expression::literal(LiteralExpression::Integer(1), (1, 2)),
+                        Expression::operator(
+                            OperatorExpression::Math {
+                                left: Expression::literal(LiteralExpression::Integer(1), (4, 5)),
+                                operator: Node::new(MathOperator::Add, (6, 7)),
+                                right: Expression::literal(LiteralExpression::Integer(1), (8, 9)),
+                            },
+                            (4, 9)
+                        ),
+                        Expression::operator(
+                            OperatorExpression::Math {
+                                left: Expression::literal(LiteralExpression::Integer(2), (11, 12)),
+                                operator: Node::new(MathOperator::Add, (13, 14)),
+                                right: Expression::grouped(
+                                    Expression::operator(
+                                        OperatorExpression::Math {
+                                            left: Expression::literal(
+                                                LiteralExpression::Integer(4),
+                                                (16, 17)
+                                            ),
+                                            operator: Node::new(MathOperator::Multiply, (18, 19)),
+                                            right: Expression::literal(
+                                                LiteralExpression::Integer(10),
+                                                (20, 22)
+                                            ),
+                                        },
+                                        (16, 22)
+                                    ),
+                                    (15, 23)
+                                ),
+                            },
+                            (11, 23)
+                        )
+                    ]),
+                    (0, 24)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn list() {
         let source = "[1, 2]";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::list(
+                    ListExpression::Ordered(vec![
+                        Expression::literal(LiteralExpression::Integer(1), (1, 2)),
+                        Expression::literal(LiteralExpression::Integer(2), (4, 5))
+                    ]),
+                    (0, 6)
+                ))
+            ]))
+        );
     }
 
     #[test]
