@@ -284,10 +284,17 @@ impl<'src> Parser<'src> {
                     .parse()
                     .map_err(|error| ParseError::BooleanError { error, position })?;
 
-                Ok(Node::new(
-                    Statement::Constant(Value::boolean(boolean)),
-                    position,
-                ))
+                if let ParserMode::Mutable = self.mode {
+                    Ok(Node::new(
+                        Statement::ConstantMut(Value::boolean_mut(boolean)),
+                        position,
+                    ))
+                } else {
+                    Ok(Node::new(
+                        Statement::Constant(Value::boolean(boolean)),
+                        position,
+                    ))
+                }
             }
             (Token::Float(text), position) => {
                 self.next_token()?;
@@ -479,10 +486,17 @@ impl<'src> Parser<'src> {
             (Token::String(string), position) => {
                 self.next_token()?;
 
-                Ok(Node::new(
-                    Statement::Constant(Value::string(string)),
-                    position,
-                ))
+                if let ParserMode::Mutable = self.mode {
+                    Ok(Node::new(
+                        Statement::ConstantMut(Value::string_mut(string)),
+                        position,
+                    ))
+                } else {
+                    Ok(Node::new(
+                        Statement::Constant(Value::string(string)),
+                        position,
+                    ))
+                }
             }
             (Token::LeftCurlyBrace, left_position) => {
                 self.next_token()?;
@@ -708,11 +722,11 @@ impl<'src> Parser<'src> {
                     });
                 }
 
-                let value = Box::new(self.parse_statement(0)?);
+                let value = Box::new(self.parse_statement_in_mode(ParserMode::Mutable, 0)?);
                 let value_end = value.position.1;
 
                 Ok(Node::new(
-                    Statement::MutAssignment { identifier, value },
+                    Statement::AssignmentMut { identifier, value },
                     (left_position.0, value_end),
                 ))
             }
@@ -1142,6 +1156,7 @@ impl<'src> Parser<'src> {
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum ParserMode {
     Condition,
+    Mutable,
     None,
 }
 
@@ -1258,20 +1273,20 @@ mod tests {
 
     #[test]
     fn mutable_variable() {
-        let input = "mut x = 42";
+        let input = "mut x = false";
 
         assert_eq!(
             parse(input),
             Ok(AbstractSyntaxTree {
                 nodes: [Node::new(
-                    Statement::MutAssignment {
+                    Statement::AssignmentMut {
                         identifier: Node::new(Identifier::new("x"), (4, 5)),
                         value: Box::new(Node::new(
-                            Statement::Constant(Value::integer(42)),
-                            (8, 10)
+                            Statement::ConstantMut(Value::boolean_mut(false)),
+                            (8, 13)
                         )),
                     },
-                    (0, 10)
+                    (0, 13)
                 )]
                 .into()
             })

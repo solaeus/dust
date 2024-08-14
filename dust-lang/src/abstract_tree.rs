@@ -54,7 +54,7 @@ pub enum Statement {
         operator: Node<AssignmentOperator>,
         value: Box<Node<Statement>>,
     },
-    MutAssignment {
+    AssignmentMut {
         identifier: Node<Identifier>,
         value: Box<Node<Statement>>,
     },
@@ -135,6 +135,7 @@ pub enum Statement {
 
     // Hard-coded value
     Constant(Value),
+    ConstantMut(Value),
 
     // A statement that always returns None. Created with a semicolon, it causes the preceding
     // statement to return None. This is analagous to the semicolon in Rust.
@@ -146,6 +147,7 @@ impl Statement {
         match self {
             Statement::AsyncBlock(_) => None,
             Statement::Assignment { .. } => None,
+            Statement::AssignmentMut { .. } => None,
             Statement::Block(statements) => statements.last().unwrap().inner.expected_type(context),
             Statement::BinaryOperation {
                 left,
@@ -192,6 +194,7 @@ impl Statement {
             },
             Statement::BuiltInFunctionCall { function, .. } => function.expected_return_type(),
             Statement::Constant(value) => Some(value.r#type()),
+            Statement::ConstantMut(value) => Some(value.r#type()),
             Statement::FieldsStructInstantiation { name, .. } => context.get_type(&name.inner),
             Statement::Invokation {
                 invokee: function, ..
@@ -218,7 +221,6 @@ impl Statement {
 
                 Some(Type::Map(types))
             }
-            Statement::MutAssignment { .. } => None,
             Statement::Nil(_) => None,
             Statement::UnaryOperation { operator, operand } => match operator.inner {
                 UnaryOperator::Negate => Some(operand.inner.expected_type(context)?),
@@ -253,6 +255,9 @@ impl Display for Statement {
                 value,
             } => {
                 write!(f, "{identifier} {operator} {value}")
+            }
+            Statement::AssignmentMut { identifier, value } => {
+                write!(f, "mut {identifier} = {value}")
             }
             Statement::AsyncBlock(statements) => {
                 write!(f, "async {{ ")?;
@@ -340,6 +345,7 @@ impl Display for Statement {
                 write!(f, ")")
             }
             Statement::Constant(value) => write!(f, "{value}"),
+            Statement::ConstantMut(value) => write!(f, "{value}"),
             Statement::FieldsStructInstantiation { name, fields } => {
                 write!(f, "{name} {{ ")?;
 
@@ -451,9 +457,6 @@ impl Display for Statement {
                 }
 
                 write!(f, "}}")
-            }
-            Statement::MutAssignment { identifier, value } => {
-                write!(f, "mut {identifier} = {value}")
             }
             Statement::Nil(node) => write!(f, "{node};"),
             Statement::UnaryOperation { operator, operand } => {

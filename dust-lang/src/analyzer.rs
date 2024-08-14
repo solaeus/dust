@@ -91,6 +91,20 @@ impl<'a> Analyzer<'a> {
                     });
                 }
             }
+            Statement::AssignmentMut { identifier, value } => {
+                self.analyze_statement(value)?;
+
+                let value_type = value.inner.expected_type(self.context);
+
+                if let Some(r#type) = value_type {
+                    self.context
+                        .set_type(identifier.inner.clone(), r#type, identifier.position);
+                } else {
+                    return Err(AnalyzerError::ExpectedValue {
+                        actual: value.as_ref().clone(),
+                    });
+                }
+            }
             Statement::AsyncBlock(statements) => {
                 for statement in statements {
                     self.analyze_statement(statement)?;
@@ -294,6 +308,7 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Statement::Constant(_) => {}
+            Statement::ConstantMut(_) => {}
             Statement::FieldsStructInstantiation {
                 name,
                 fields: field_arguments,
@@ -477,20 +492,6 @@ impl<'a> Analyzer<'a> {
             Statement::Map(properties) => {
                 for (_key, value_node) in properties {
                     self.analyze_statement(value_node)?;
-                }
-            }
-            Statement::MutAssignment { identifier, value } => {
-                self.analyze_statement(value)?;
-
-                let value_type = value.inner.expected_type(self.context);
-
-                if let Some(r#type) = value_type {
-                    self.context
-                        .set_type(identifier.inner.clone(), r#type, identifier.position);
-                } else {
-                    return Err(AnalyzerError::ExpectedValue {
-                        actual: value.as_ref().clone(),
-                    });
                 }
             }
             Statement::Nil(node) => {

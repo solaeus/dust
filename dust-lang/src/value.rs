@@ -95,6 +95,16 @@ impl Value {
         Value::Mutable(Arc::new(RwLock::new(ValueData::Boolean(boolean))))
     }
 
+    pub fn string_mut<T: ToString>(to_string: T) -> Self {
+        Value::Mutable(Arc::new(RwLock::new(ValueData::String(
+            to_string.to_string(),
+        ))))
+    }
+
+    pub fn is_mutable(&self) -> bool {
+        matches!(self, Value::Mutable(_))
+    }
+
     pub fn to_mut(self) -> Self {
         match self {
             Value::Immutable(inner) => {
@@ -104,7 +114,7 @@ impl Value {
         }
     }
 
-    pub fn mutate(&self, other: &Value) -> Result<(), VmError> {
+    pub fn mutate(&self, other: &Value) {
         let other_data = match other {
             Value::Immutable(inner) => inner.as_ref().clone(),
             Value::Mutable(inner_locked) => inner_locked.read().unwrap().clone(),
@@ -113,8 +123,6 @@ impl Value {
         match self {
             Value::Mutable(locked) => {
                 *locked.write().unwrap() = other_data;
-
-                Ok(())
             }
             Value::Immutable(_) => todo!(),
         }
@@ -254,7 +262,7 @@ impl Value {
                 }
             }
             (Value::Immutable(left), Value::Mutable(right)) => {
-                match (&*right.read().unwrap(), left.as_ref()) {
+                match (left.as_ref(), &*right.read().unwrap()) {
                     (ValueData::Float(left), ValueData::Float(right)) => {
                         return Ok(Value::float(left + right));
                     }
@@ -280,6 +288,50 @@ impl Value {
                     }
                     _ => {}
                 }
+            }
+        }
+
+        Err(ValueError::CannotAdd(self.clone(), other.clone()))
+    }
+
+    pub fn add_mut(&self, other: &Value) -> Result<(), ValueError> {
+        match (self, other) {
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left += right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        *left = left.saturating_add(*right);
+                        return Ok(());
+                    }
+                    (ValueData::String(left), ValueData::String(right)) => {
+                        left.push_str(right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&mut *left.write().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left += right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        *left = left.saturating_add(*right);
+                        return Ok(());
+                    }
+                    (ValueData::String(left), ValueData::String(right)) => {
+                        left.push_str(right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(_), _) => {
+                return Err(ValueError::CannotMutate(self.clone()));
             }
         }
 

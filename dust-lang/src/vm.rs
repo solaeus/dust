@@ -137,14 +137,24 @@ impl Vm {
                             position: value_position,
                         });
                     };
-                    let new_value = left_value.add(&right_value).map_err(|value_error| {
-                        VmError::ValueError {
-                            error: value_error,
-                            position: (identifier.position.0, value_position.1),
-                        }
-                    })?;
 
-                    self.context.set_value(identifier.inner, new_value);
+                    if left_value.is_mutable() {
+                        left_value.add_mut(&right_value).map_err(|value_error| {
+                            VmError::ValueError {
+                                error: value_error,
+                                position: (identifier.position.0, value_position.1),
+                            }
+                        })?;
+                    } else {
+                        let new_value = left_value.add(&right_value).map_err(|value_error| {
+                            VmError::ValueError {
+                                error: value_error,
+                                position: (identifier.position.0, value_position.1),
+                            }
+                        })?;
+
+                        self.context.set_value(identifier.inner, new_value);
+                    }
 
                     Ok(None)
                 }
@@ -649,7 +659,7 @@ impl Vm {
 
                 Ok(Some(Value::map(values)))
             }
-            Statement::MutAssignment { identifier, value } => {
+            Statement::AssignmentMut { identifier, value } => {
                 let position = value.position;
                 let value = if let Some(value) = self.run_statement(*value)? {
                     value.to_mut()
@@ -661,6 +671,7 @@ impl Vm {
 
                 Ok(None)
             }
+            Statement::ConstantMut(value) => Ok(Some(value)),
             Statement::Nil(node) => {
                 let _return = self.run_statement(*node)?;
 
@@ -880,6 +891,20 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn mutate_variable() {
+        let input = "
+            mut x = ''
+
+            x += 'foo'
+            x += 'bar'
+
+            x
+        ";
+
+        assert_eq!(run(input), Ok(Some(Value::string_mut("foobar"))));
+    }
 
     #[test]
     fn async_block() {
