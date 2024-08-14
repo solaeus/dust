@@ -62,9 +62,15 @@ impl Identifier {
     }
 }
 
+impl From<String> for Identifier {
+    fn from(string: String) -> Self {
+        Identifier::new(string)
+    }
+}
+
 impl From<&str> for Identifier {
-    fn from(text: &str) -> Self {
-        Identifier::new(text)
+    fn from(slice: &str) -> Self {
+        Identifier::new(slice)
     }
 }
 
