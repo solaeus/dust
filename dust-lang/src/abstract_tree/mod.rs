@@ -24,6 +24,12 @@ impl AbstractSyntaxTree {
             statements: VecDeque::new(),
         }
     }
+
+    pub fn with_statements<const LEN: usize>(statements: [Statement; LEN]) -> Self {
+        Self {
+            statements: statements.into(),
+        }
+    }
 }
 
 impl Default for AbstractSyntaxTree {

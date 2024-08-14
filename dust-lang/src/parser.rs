@@ -347,10 +347,10 @@ impl<'src> Parser<'src> {
                 })?;
                 let position = (start_position.0, self.current_position.1);
 
-                return Ok(Expression::literal(
+                Ok(Expression::literal(
                     LiteralExpression::Float(float),
                     position,
-                ));
+                ))
             }
             Token::Identifier(text) => {
                 let identifier = Identifier::new(text);
@@ -501,6 +501,17 @@ impl<'src> Parser<'src> {
             }
             Token::LeftSquareBrace => {
                 self.next_token()?;
+
+                if let Token::RightSquareBrace = self.current_token {
+                    let position = (start_position.0, self.current_position.1);
+
+                    self.next_token()?;
+
+                    return Ok(Expression::list(
+                        ListExpression::Ordered(Vec::new()),
+                        position,
+                    ));
+                }
 
                 let first_expression = self.parse_expression(0)?;
 
@@ -1275,41 +1286,125 @@ mod tests {
     fn empty_list() {
         let source = "[]";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::list(ListExpression::Ordered(vec![]), (0, 2)))
+            ]))
+        );
     }
 
     #[test]
     fn float() {
         let source = "42.0";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::literal(LiteralExpression::Float(42.0), (0, 4)))
+            ]))
+        );
     }
 
     #[test]
     fn add() {
         let source = "1 + 2";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
+                        operator: Node::new(MathOperator::Add, (2, 3)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5))
+                    },
+                    (0, 5)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn multiply() {
         let source = "1 * 2";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
+                        operator: Node::new(MathOperator::Multiply, (2, 3)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5))
+                    },
+                    (0, 5)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn add_and_multiply() {
         let source = "1 + 2 * 3";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Math {
+                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
+                        operator: Node::new(MathOperator::Add, (2, 3)),
+                        right: Expression::operator(
+                            OperatorExpression::Math {
+                                left: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                                operator: Node::new(MathOperator::Multiply, (6, 7)),
+                                right: Expression::literal(LiteralExpression::Integer(3), (8, 9))
+                            },
+                            (4, 9)
+                        )
+                    },
+                    (0, 5)
+                ))
+            ]))
+        );
     }
 
     #[test]
     fn assignment() {
         let source = "a = 1 + 2 * 3";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::operator(
+                    OperatorExpression::Assignment {
+                        assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
+                        value: Expression::operator(
+                            OperatorExpression::Math {
+                                left: Expression::literal(LiteralExpression::Integer(1), (4, 5)),
+                                operator: Node::new(MathOperator::Add, (6, 7)),
+                                right: Expression::operator(
+                                    OperatorExpression::Math {
+                                        left: Expression::literal(
+                                            LiteralExpression::Integer(2),
+                                            (8, 9)
+                                        ),
+                                        operator: Node::new(MathOperator::Multiply, (10, 11)),
+                                        right: Expression::literal(
+                                            LiteralExpression::Integer(3),
+                                            (12, 13)
+                                        )
+                                    },
+                                    (8, 13)
+                                )
+                            },
+                            (4, 13)
+                        )
+                    },
+                    (0, 13)
+                ))
+            ]))
+        );
     }
 }
