@@ -237,7 +237,17 @@ impl<'src> Parser<'src> {
 
         let expression = self.parse_expression(0)?;
 
-        Ok(Statement::Expression(expression))
+        let statement = if let Token::Semicolon = self.current_token {
+            let position = (start_position.0, self.current_position.1);
+
+            self.next_token()?;
+
+            Statement::ExpressionNullified(Node::new(expression, position))
+        } else {
+            Statement::Expression(expression)
+        };
+
+        Ok(statement)
     }
 
     fn next_token(&mut self) -> Result<(), ParseError> {
@@ -321,7 +331,7 @@ impl<'src> Parser<'src> {
                 let block = self.parse_block()?;
                 let position = (start_position.0, self.current_position.1);
 
-                return Ok(Expression::block(block.inner, position));
+                Ok(Expression::block(block.inner, position))
             }
             Token::Boolean(text) => {
                 self.next_token()?;
@@ -330,13 +340,10 @@ impl<'src> Parser<'src> {
                     error,
                     position: start_position,
                 })?;
-                let right_end = self.current_position.1;
-                let statement = Expression::literal(
-                    LiteralExpression::Boolean(boolean),
-                    (start_position.0, right_end),
-                );
+                let statement =
+                    Expression::literal(LiteralExpression::Boolean(boolean), start_position);
 
-                return Ok(statement);
+                Ok(statement)
             }
             Token::Float(text) => {
                 self.next_token()?;
@@ -345,20 +352,18 @@ impl<'src> Parser<'src> {
                     error,
                     position: start_position,
                 })?;
-                let position = (start_position.0, self.current_position.1);
 
                 Ok(Expression::literal(
                     LiteralExpression::Float(float),
-                    position,
+                    start_position,
                 ))
             }
             Token::Identifier(text) => {
-                let identifier = Identifier::new(text);
-                let identifier_position = self.current_position;
-
                 self.next_token()?;
 
-                Ok(Expression::identifier(identifier, identifier_position))
+                let identifier = Identifier::new(text);
+
+                Ok(Expression::identifier(identifier, start_position))
             }
             Token::Integer(text) => {
                 self.next_token()?;
@@ -368,42 +373,16 @@ impl<'src> Parser<'src> {
                     position: start_position,
                 })?;
 
-                if let Token::DoubleDot = self.current_token {
-                    self.next_token()?;
-
-                    if let Token::Integer(range_end) = self.current_token {
-                        let end_position = self.current_position;
-
-                        self.next_token()?;
-
-                        let range_end =
-                            range_end
-                                .parse::<i64>()
-                                .map_err(|error| ParseError::Integer {
-                                    error,
-                                    position: end_position,
-                                })?;
-
-                        Ok(Expression::literal(
-                            LiteralExpression::Range(integer, range_end),
-                            (start_position.0, end_position.1),
-                        ))
-                    } else {
-                        Err(ParseError::ExpectedToken {
-                            expected: TokenKind::Integer,
-                            actual: self.current_token.to_owned(),
-                            position: (start_position.0, self.current_position.1),
-                        })
-                    }
-                } else {
-                    Ok(Expression::literal(
-                        LiteralExpression::Integer(integer),
-                        start_position,
-                    ))
-                }
+                Ok(Expression::literal(
+                    LiteralExpression::Integer(integer),
+                    start_position,
+                ))
             }
             Token::If => {
                 let start = self.current_position.0;
+
+                self.next_token()?;
+
                 let r#if = self.parse_if()?;
                 let position = (start, self.current_position.1);
 
@@ -591,17 +570,87 @@ impl<'src> Parser<'src> {
             ));
         }
 
-        let math_operator = match &self.current_token {
-            Token::Minus => Node::new(MathOperator::Subtract, self.current_position),
-            Token::Plus => Node::new(MathOperator::Add, self.current_position),
-            Token::Star => Node::new(MathOperator::Multiply, self.current_position),
-            Token::Slash => Node::new(MathOperator::Divide, self.current_position),
-            Token::Percent => Node::new(MathOperator::Modulo, self.current_position),
+        if let Token::DoubleDot = &self.current_token {
+            self.next_token()?;
+
+            let end = self.parse_expression(operator_precedence)?;
+            let position = (left_start, end.position().1);
+
+            return Ok(Expression::range(Range { start: left, end }, position));
+        }
+
+        if let Token::Minus | Token::Plus | Token::Star | Token::Slash | Token::Percent =
+            &self.current_token
+        {
+            let math_operator = match &self.current_token {
+                Token::Minus => Node::new(MathOperator::Subtract, self.current_position),
+                Token::Plus => Node::new(MathOperator::Add, self.current_position),
+                Token::Star => Node::new(MathOperator::Multiply, self.current_position),
+                Token::Slash => Node::new(MathOperator::Divide, self.current_position),
+                Token::Percent => Node::new(MathOperator::Modulo, self.current_position),
+                _ => unreachable!(),
+            };
+
+            self.next_token()?;
+
+            let right = self.parse_expression(operator_precedence)?;
+            let position = (left_start, right.position().1);
+
+            return Ok(Expression::operator(
+                OperatorExpression::Math {
+                    left,
+                    operator: math_operator,
+                    right,
+                },
+                position,
+            ));
+        }
+
+        if let Token::DoubleEqual
+        | Token::BangEqual
+        | Token::Less
+        | Token::LessEqual
+        | Token::Greater
+        | Token::GreaterEqual = &self.current_token
+        {
+            let comparison_operator = match &self.current_token {
+                Token::DoubleEqual => Node::new(ComparisonOperator::Equal, self.current_position),
+                Token::BangEqual => Node::new(ComparisonOperator::NotEqual, self.current_position),
+                Token::Less => Node::new(ComparisonOperator::LessThan, self.current_position),
+                Token::LessEqual => {
+                    Node::new(ComparisonOperator::LessThanOrEqual, self.current_position)
+                }
+                Token::Greater => Node::new(ComparisonOperator::GreaterThan, self.current_position),
+                Token::GreaterEqual => Node::new(
+                    ComparisonOperator::GreaterThanOrEqual,
+                    self.current_position,
+                ),
+                _ => unreachable!(),
+            };
+
+            self.next_token()?;
+
+            let right = self.parse_expression(operator_precedence)?;
+            let position = (left_start, right.position().1);
+
+            return Ok(Expression::operator(
+                OperatorExpression::Comparison {
+                    left,
+                    operator: comparison_operator,
+                    right,
+                },
+                position,
+            ));
+        }
+
+        let logic_operator = match &self.current_token {
+            Token::DoubleAmpersand => Node::new(LogicOperator::And, self.current_position),
+            Token::DoublePipe => Node::new(LogicOperator::Or, self.current_position),
             _ => {
                 return Err(ParseError::UnexpectedToken {
                     actual: self.current_token.to_owned(),
                     position: self.current_position,
-                });
+                })
             }
         };
 
@@ -611,9 +660,9 @@ impl<'src> Parser<'src> {
         let position = (left_start, right.position().1);
 
         Ok(Expression::operator(
-            OperatorExpression::Math {
+            OperatorExpression::Logic {
                 left,
-                operator: math_operator,
+                operator: logic_operator,
                 right,
             },
             position,
@@ -623,7 +672,7 @@ impl<'src> Parser<'src> {
     fn parse_postfix(&mut self, left: Expression) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as postfix operator", self.current_token);
 
-        let statement = match &self.current_token {
+        let expression = match &self.current_token {
             Token::LeftCurlyBrace => {
                 let identifier = if let Some(identifier) = left.as_identifier() {
                     identifier
@@ -640,14 +689,9 @@ impl<'src> Parser<'src> {
 
                 loop {
                     if let Token::RightCurlyBrace = self.current_token {
-                        let position = (start_left, self.current_position.1);
-
                         self.next_token()?;
 
-                        return Ok(Expression::r#struct(
-                            StructExpression::Fields { name, fields },
-                            position,
-                        ));
+                        break;
                     }
 
                     let field_name = self.parse_identifier()?;
@@ -670,6 +714,10 @@ impl<'src> Parser<'src> {
                         self.next_token()?;
                     }
                 }
+
+                let position = (start_left, self.current_position.1);
+
+                Expression::r#struct(StructExpression::Fields { name, fields }, position)
             }
             Token::LeftParenthesis => {
                 self.next_token()?;
@@ -734,22 +782,14 @@ impl<'src> Parser<'src> {
         };
 
         if self.current_token.is_postfix() {
-            self.parse_postfix(statement)
+            self.parse_postfix(expression)
         } else {
-            Ok(statement)
+            Ok(expression)
         }
     }
 
     fn parse_if(&mut self) -> Result<If, ParseError> {
-        if let Token::If = self.current_token {
-            self.next_token()?;
-        } else {
-            return Err(ParseError::ExpectedToken {
-                expected: TokenKind::If,
-                actual: self.current_token.to_owned(),
-                position: self.current_position,
-            });
-        }
+        // Assume that the "if" token has already been consumed
 
         let condition = self.parse_expression(0)?;
         let if_block = self.parse_block()?;
@@ -757,7 +797,11 @@ impl<'src> Parser<'src> {
         if let Token::Else = self.current_token {
             self.next_token()?;
 
-            if let Ok(else_if) = self.parse_if() {
+            if let Token::If = self.current_token {
+                self.next_token()?;
+
+                let else_if = self.parse_if()?;
+
                 Ok(If::IfElse {
                     condition,
                     if_block,
@@ -782,9 +826,11 @@ impl<'src> Parser<'src> {
 
     fn parse_identifier(&mut self) -> Result<Node<Identifier>, ParseError> {
         if let Token::Identifier(text) = self.current_token {
+            let position = self.current_position;
+
             self.next_token()?;
 
-            Ok(Node::new(Identifier::new(text), self.current_position))
+            Ok(Node::new(Identifier::new(text), position))
         } else {
             Err(ParseError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -975,7 +1021,6 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use fmt::Write;
 
     use crate::{Identifier, Type};
 
@@ -1021,17 +1066,17 @@ mod tests {
 
     #[test]
     fn tuple_struct_access() {
-        let source = "(Foo(42, 'bar')).0";
+        let source = "Foo(42, 'bar').0";
 
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::field_access(
                     FieldAccess {
-                        container: Expression::r#struct(
-                            StructExpression::Tuple {
-                                name: Node::new(Identifier::new("Foo"), (0, 0)),
-                                items: vec![
+                        container: Expression::call(
+                            CallExpression {
+                                function: Expression::identifier(Identifier::new("Foo"), (0, 0)),
+                                arguments: vec![
                                     Expression::literal(LiteralExpression::Integer(42), (0, 0)),
                                     Expression::literal(
                                         LiteralExpression::String("bar".to_string()),
@@ -1112,23 +1157,23 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::struct_definition(
                     StructDefinition::Tuple {
-                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        name: Node::new(Identifier::new("Foo"), (7, 10)),
                         items: vec![
-                            Node::new(Type::Integer, (0, 0)),
-                            Node::new(Type::Float, (0, 0)),
+                            Node::new(Type::Integer, (11, 14)),
+                            Node::new(Type::Float, (16, 21)),
                         ]
                     },
-                    (0, 0)
+                    (0, 22)
                 ),
-                Statement::Expression(Expression::r#struct(
-                    StructExpression::Tuple {
-                        name: Node::new(Identifier::new("Foo"), (0, 0)),
-                        items: vec![
-                            Expression::literal(LiteralExpression::Integer(1), (0, 0)),
-                            Expression::literal(LiteralExpression::Float(2.0), (0, 0))
+                Statement::Expression(Expression::call(
+                    CallExpression {
+                        function: Expression::identifier(Identifier::new("Foo"), (23, 26)),
+                        arguments: vec![
+                            Expression::literal(LiteralExpression::Integer(1), (27, 28)),
+                            Expression::literal(LiteralExpression::Float(2.0), (30, 33))
                         ]
                     },
-                    (0, 0)
+                    (23, 34)
                 ))
             ]))
         );
@@ -1143,13 +1188,13 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::StructDefinition(Node::new(
                     StructDefinition::Tuple {
-                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        name: Node::new(Identifier::new("Foo"), (7, 10)),
                         items: vec![
-                            Node::new(Type::Integer, (0, 0)),
-                            Node::new(Type::Float, (0, 0)),
+                            Node::new(Type::Integer, (11, 14)),
+                            Node::new(Type::Float, (16, 21)),
                         ],
                     },
-                    (0, 0)
+                    (0, 22)
                 ))
             ]))
         );
@@ -1164,9 +1209,9 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::StructDefinition(Node::new(
                     StructDefinition::Unit {
-                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        name: Node::new(Identifier::new("Foo"), (7, 10)),
                     },
-                    (0, 0)
+                    (0, 10)
                 ))
             ]))
         );
@@ -1210,13 +1255,6 @@ mod tests {
     }
 
     #[test]
-    fn map_property_nested() {
-        let source = "{ x = { y = 42 } }.x.y";
-
-        assert_eq!(parse(source), todo!());
-    }
-
-    #[test]
     fn range() {
         let source = "0..42";
 
@@ -1225,10 +1263,10 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::range(
                     Range {
-                        start: Expression::literal(LiteralExpression::Integer(0), (0, 0)),
-                        end: Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                        start: Expression::literal(LiteralExpression::Integer(0), (0, 1)),
+                        end: Expression::literal(LiteralExpression::Integer(42), (3, 5)),
                     },
-                    (0, 0)
+                    (0, 5)
                 ))
             ]))
         );
@@ -1241,19 +1279,22 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Assignment {
-                        assignee: Expression::identifier(Identifier::new("a"), (0, 0)),
-                        value: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
-                    },
-                    (0, 0)
+                Statement::ExpressionNullified(Node::new(
+                    Expression::operator(
+                        OperatorExpression::Assignment {
+                            assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
+                            value: Expression::literal(LiteralExpression::Integer(1), (4, 5)),
+                        },
+                        (0, 5)
+                    ),
+                    (0, 6)
                 )),
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Negation(Expression::identifier(
                         Identifier::new("a"),
-                        (0, 0)
+                        (8, 9)
                     )),
-                    (0, 0)
+                    (7, 9)
                 ))
             ]))
         );
@@ -1270,15 +1311,15 @@ mod tests {
                     OperatorExpression::Negation(Expression::grouped(
                         Expression::operator(
                             OperatorExpression::Math {
-                                left: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
-                                operator: Node::new(MathOperator::Add, (0, 0)),
-                                right: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                                left: Expression::literal(LiteralExpression::Integer(1), (2, 3)),
+                                operator: Node::new(MathOperator::Add, (4, 5)),
+                                right: Expression::literal(LiteralExpression::Integer(1), (6, 7)),
                             },
-                            (0, 0)
+                            (2, 7)
                         ),
-                        (0, 0)
+                        (1, 8)
                     )),
-                    (0, 0)
+                    (0, 8)
                 ))
             ]))
         );
@@ -1295,15 +1336,15 @@ mod tests {
                     OperatorExpression::Not(Expression::grouped(
                         Expression::operator(
                             OperatorExpression::Comparison {
-                                left: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
-                                operator: Node::new(ComparisonOperator::GreaterThan, (0, 0)),
-                                right: Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                                left: Expression::literal(LiteralExpression::Integer(1), (2, 3)),
+                                operator: Node::new(ComparisonOperator::GreaterThan, (4, 5)),
+                                right: Expression::literal(LiteralExpression::Integer(42), (6, 8)),
                             },
-                            (0, 0)
+                            (2, 8)
                         ),
-                        (0, 0)
+                        (1, 9)
                     )),
-                    (0, 0)
+                    (0, 9)
                 ))
             ]))
         );
@@ -1316,16 +1357,19 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Assignment {
-                        assignee: Expression::identifier(Identifier::new("a"), (0, 0)),
-                        value: Expression::literal(LiteralExpression::Boolean(false), (0, 0)),
-                    },
-                    (0, 0)
+                Statement::ExpressionNullified(Node::new(
+                    Expression::operator(
+                        OperatorExpression::Assignment {
+                            assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
+                            value: Expression::literal(LiteralExpression::Boolean(false), (4, 9)),
+                        },
+                        (0, 9)
+                    ),
+                    (0, 10)
                 )),
                 Statement::Expression(Expression::operator(
-                    OperatorExpression::Not(Expression::identifier(Identifier::new("a"), (0, 0))),
-                    (0, 0)
+                    OperatorExpression::Not(Expression::identifier(Identifier::new("a"), (12, 13))),
+                    (11, 13)
                 )),
             ]))
         );
@@ -1428,13 +1472,6 @@ mod tests {
     }
 
     #[test]
-    fn malformed_map() {
-        let source = "{ x = 1, y = 2, z = 3; }";
-
-        assert_eq!(parse(source), todo!())
-    }
-
-    #[test]
     fn while_loop() {
         let source = "while x < 10 { x += 1 }";
 
@@ -1445,28 +1482,34 @@ mod tests {
                     Loop::While {
                         condition: Expression::operator(
                             OperatorExpression::Comparison {
-                                left: Expression::identifier(Identifier::new("x"), (0, 0)),
-                                operator: Node::new(ComparisonOperator::LessThan, (0, 0)),
-                                right: Expression::literal(LiteralExpression::Integer(10), (0, 0)),
+                                left: Expression::identifier(Identifier::new("x"), (6, 7)),
+                                operator: Node::new(ComparisonOperator::LessThan, (8, 9)),
+                                right: Expression::literal(
+                                    LiteralExpression::Integer(10),
+                                    (10, 12)
+                                ),
                             },
-                            (0, 0)
+                            (6, 12)
                         ),
                         block: Node::new(
                             Block::Sync(vec![Statement::Expression(Expression::operator(
                                 OperatorExpression::CompoundAssignment {
-                                    assignee: Expression::identifier(Identifier::new("x"), (0, 0)),
-                                    operator: Node::new(MathOperator::Add, (0, 0)),
+                                    assignee: Expression::identifier(
+                                        Identifier::new("x"),
+                                        (15, 16)
+                                    ),
+                                    operator: Node::new(MathOperator::Add, (17, 19)),
                                     value: Expression::literal(
                                         LiteralExpression::Integer(1),
-                                        (0, 0)
+                                        (20, 21)
                                     ),
                                 },
-                                (0, 0)
+                                (15, 21)
                             ))]),
-                            (0, 0)
+                            (13, 23)
                         )
                     },
-                    (0, 0)
+                    (0, 23)
                 ))
             ]))
         )
@@ -1506,11 +1549,11 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Logic {
-                        left: Expression::literal(LiteralExpression::Boolean(true), (0, 0)),
-                        operator: Node::new(LogicOperator::Or, (0, 0)),
-                        right: Expression::literal(LiteralExpression::Boolean(false), (0, 0)),
+                        left: Expression::literal(LiteralExpression::Boolean(true), (0, 4)),
+                        operator: Node::new(LogicOperator::Or, (5, 7)),
+                        right: Expression::literal(LiteralExpression::Boolean(false), (8, 13)),
                     },
-                    (0, 0)
+                    (0, 13)
                 ))
             ]))
         )
@@ -1562,7 +1605,7 @@ mod tests {
                                 (0, 0)
                             ),
                             (0, 0)
-                        )),
+                        ),),
                         Statement::ExpressionNullified(Node::new(
                             Expression::operator(
                                 OperatorExpression::Assignment {
@@ -1578,7 +1621,7 @@ mod tests {
                                 (0, 0)
                             ),
                             (0, 0)
-                        )),
+                        ),),
                         Statement::Expression(Expression::operator(
                             OperatorExpression::Assignment {
                                 assignee: Expression::identifier(Identifier::new("baz"), (0, 0)),
@@ -1594,34 +1637,6 @@ mod tests {
                 ))
             ]))
         )
-    }
-
-    #[test]
-    fn empty_map() {
-        let source = "{}";
-
-        assert_eq!(parse(source), todo!());
-    }
-
-    #[test]
-    fn map_with_trailing_comma() {
-        let source = "{ foo = 42, bar = 42, baz = '42', }";
-
-        assert_eq!(parse(source), todo!());
-    }
-
-    #[test]
-    fn map_with_two_fields() {
-        let source = "{ x = 42, y = 'foobar' }";
-
-        assert_eq!(parse(source), todo!());
-    }
-
-    #[test]
-    fn map_with_one_field() {
-        let source = "{ x = 42 }";
-
-        assert_eq!(parse(source), todo!());
     }
 
     #[test]
@@ -1729,7 +1744,7 @@ mod tests {
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Math {
                         left: Expression::literal(LiteralExpression::Integer(-1), (0, 2)),
-                        operator: Node::new(MathOperator::Subtract, (2, 3)),
+                        operator: Node::new(MathOperator::Subtract, (3, 4)),
                         right: Expression::literal(LiteralExpression::Integer(-2), (5, 7)),
                     },
                     (0, 7),
@@ -1778,7 +1793,7 @@ mod tests {
 
     #[test]
     fn string_concatenation() {
-        let source = "\"Hello, \" + \"World!\"";
+        let source = "'Hello, ' + 'World!'";
 
         assert_eq!(
             parse(source),
@@ -1789,13 +1804,13 @@ mod tests {
                             LiteralExpression::String("Hello, ".to_string()),
                             (0, 9)
                         ),
-                        operator: Node::new(MathOperator::Add, (9, 10)),
+                        operator: Node::new(MathOperator::Add, (10, 11)),
                         right: Expression::literal(
                             LiteralExpression::String("World!".to_string()),
-                            (10, 18)
+                            (12, 20)
                         )
                     },
-                    (0, 18)
+                    (0, 20)
                 ))
             ]))
         );
@@ -2023,7 +2038,7 @@ mod tests {
                             (4, 9)
                         )
                     },
-                    (0, 5)
+                    (0, 9)
                 ))
             ]))
         );

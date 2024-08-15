@@ -35,6 +35,7 @@ pub enum Token<'src> {
     WriteLine,
 
     // Symbols
+    BangEqual,
     Bang,
     Colon,
     Comma,
@@ -68,6 +69,7 @@ impl<'src> Token<'src> {
     pub fn to_owned(&self) -> TokenOwned {
         match self {
             Token::Async => TokenOwned::Async,
+            Token::BangEqual => TokenOwned::BangEqual,
             Token::Bang => TokenOwned::Bang,
             Token::Bool => TokenOwned::Bool,
             Token::Boolean(boolean) => TokenOwned::Boolean(boolean.to_string()),
@@ -128,6 +130,7 @@ impl<'src> Token<'src> {
             Token::String(text) => text,
 
             Token::Async => "async",
+            Token::BangEqual => "!=",
             Token::Bang => "!",
             Token::Bool => "bool",
             Token::Colon => ":",
@@ -177,6 +180,7 @@ impl<'src> Token<'src> {
     pub fn kind(&self) -> TokenKind {
         match self {
             Token::Async => TokenKind::Async,
+            Token::BangEqual => TokenKind::BangEqual,
             Token::Bang => TokenKind::Bang,
             Token::Bool => TokenKind::Bool,
             Token::Boolean(_) => TokenKind::Boolean,
@@ -246,7 +250,7 @@ impl<'src> Token<'src> {
             Token::DoubleAmpersand => 4,
             Token::DoublePipe => 3,
             Token::Equal | Token::MinusEqual | Token::PlusEqual => 2,
-            Token::DoubleDot | Token::Semicolon => 1,
+            Token::DoubleDot => 1,
             _ => 0,
         }
     }
@@ -273,10 +277,7 @@ impl<'src> Token<'src> {
     }
 
     pub fn is_postfix(&self) -> bool {
-        matches!(
-            self,
-            Token::LeftParenthesis | Token::LeftSquareBrace | Token::Semicolon
-        )
+        matches!(self, Token::LeftParenthesis | Token::LeftSquareBrace)
     }
 }
 
@@ -320,6 +321,7 @@ pub enum TokenOwned {
     // Symbols
     Async,
     Bang,
+    BangEqual,
     Colon,
     Comma,
     Dot,
@@ -354,6 +356,7 @@ impl Display for TokenOwned {
         match self {
             TokenOwned::Async => Token::Async.fmt(f),
             TokenOwned::Bang => Token::Bang.fmt(f),
+            TokenOwned::BangEqual => Token::BangEqual.fmt(f),
             TokenOwned::Bool => write!(f, "bool"),
             TokenOwned::Boolean(boolean) => write!(f, "{boolean}"),
             TokenOwned::Colon => Token::Colon.fmt(f),
@@ -435,6 +438,7 @@ pub enum TokenKind {
     WriteLine,
 
     // Symbols
+    BangEqual,
     Bang,
     Colon,
     Comma,
@@ -471,6 +475,7 @@ impl Display for TokenKind {
         match self {
             TokenKind::Async => Token::Async.fmt(f),
             TokenKind::Bang => Token::Bang.fmt(f),
+            TokenKind::BangEqual => Token::BangEqual.fmt(f),
             TokenKind::Bool => Token::Bool.fmt(f),
             TokenKind::Boolean => write!(f, "boolean value"),
             TokenKind::Colon => Token::Colon.fmt(f),
@@ -526,10 +531,11 @@ impl Display for TokenKind {
 pub(crate) mod tests {
     use super::*;
 
-    pub fn all_tokens<'src>() -> [Token<'src>; 48] {
+    pub fn all_tokens<'src>() -> [Token<'src>; 49] {
         [
             Token::Async,
             Token::Bang,
+            Token::BangEqual,
             Token::Bool,
             Token::Boolean("true"),
             Token::Colon,

@@ -285,7 +285,6 @@ pub enum LiteralExpression {
     Boolean(bool),
     Float(f64),
     Integer(i64),
-    Range(i64, i64),
     String(String),
     Value(Value),
 }
@@ -296,7 +295,6 @@ impl Display for LiteralExpression {
             LiteralExpression::Boolean(boolean) => write!(f, "{}", boolean),
             LiteralExpression::Float(float) => write!(f, "{}", float),
             LiteralExpression::Integer(integer) => write!(f, "{}", integer),
-            LiteralExpression::Range(start, end) => write!(f, "{}..{}", start, end),
             LiteralExpression::String(string) => write!(f, "{}", string),
             LiteralExpression::Value(value) => write!(f, "{}", value),
         }
@@ -582,12 +580,9 @@ impl Display for Loop {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StructExpression {
+    // The tuple struct expression is omitted because it is redundant with call expression
     Unit {
         name: Node<Identifier>,
-    },
-    Tuple {
-        name: Node<Identifier>,
-        items: Vec<Expression>,
     },
     Fields {
         name: Node<Identifier>,
@@ -599,19 +594,6 @@ impl Display for StructExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             StructExpression::Unit { name } => write!(f, "{}", name),
-            StructExpression::Tuple { name, items } => {
-                write!(f, "{}(", name)?;
-
-                for (index, item) in items.iter().enumerate() {
-                    write!(f, "{}", item)?;
-
-                    if index < items.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-
-                write!(f, ")")
-            }
             StructExpression::Fields { name, fields } => {
                 write!(f, "{} {{", name)?;
 
