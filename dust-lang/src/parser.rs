@@ -298,10 +298,7 @@ impl<'src> Parser<'src> {
                 let operand = self.parse_expression(0)?;
                 let position = (operator_start, self.current_position.1);
 
-                Ok(Expression::operator(
-                    OperatorExpression::Not(operand),
-                    position,
-                ))
+                Ok(Expression::not(operand, position))
             }
             Token::Minus => {
                 self.next_token()?;
@@ -309,10 +306,7 @@ impl<'src> Parser<'src> {
                 let operand = self.parse_expression(0)?;
                 let position = (operator_start, self.current_position.1);
 
-                Ok(Expression::operator(
-                    OperatorExpression::Negation(operand),
-                    position,
-                ))
+                Ok(Expression::negation(operand, position))
             }
             _ => Err(ParseError::UnexpectedToken {
                 actual: self.current_token.to_owned(),
@@ -494,10 +488,7 @@ impl<'src> Parser<'src> {
                 let block = self.parse_block()?;
                 let position = (start_position.0, self.current_position.1);
 
-                Ok(Expression::r#loop(
-                    Loop::While { condition, block },
-                    position,
-                ))
+                Ok(Expression::while_loop(condition, block, position))
             }
             _ => Err(ParseError::UnexpectedToken {
                 actual: self.current_token.to_owned(),
@@ -523,13 +514,7 @@ impl<'src> Parser<'src> {
             let value = self.parse_expression(operator_precedence)?;
             let position = (left_start, value.position().1);
 
-            return Ok(Expression::operator(
-                OperatorExpression::Assignment {
-                    assignee: left,
-                    value,
-                },
-                position,
-            ));
+            return Ok(Expression::assignment(left, value, position));
         }
 
         if let Token::PlusEqual | Token::MinusEqual = &self.current_token {
@@ -549,22 +534,7 @@ impl<'src> Parser<'src> {
                 OperatorExpression::CompoundAssignment {
                     assignee: left,
                     operator,
-                    value,
-                },
-                position,
-            ));
-        }
-
-        if let Token::Dot = &self.current_token {
-            self.next_token()?;
-
-            let field = self.parse_identifier()?;
-            let position = (left_start, self.current_position.1);
-
-            return Ok(Expression::field_access(
-                FieldAccess {
-                    container: left,
-                    field,
+                    modifier: value,
                 },
                 position,
             ));
@@ -576,7 +546,7 @@ impl<'src> Parser<'src> {
             let end = self.parse_expression(operator_precedence)?;
             let position = (left_start, end.position().1);
 
-            return Ok(Expression::range(Range { start: left, end }, position));
+            return Ok(Expression::range(left, end, position));
         }
 
         if let Token::Minus | Token::Plus | Token::Star | Token::Slash | Token::Percent =
@@ -673,6 +643,27 @@ impl<'src> Parser<'src> {
         log::trace!("Parsing {} as postfix operator", self.current_token);
 
         let expression = match &self.current_token {
+            Token::Dot => {
+                self.next_token()?;
+
+                if let Token::Integer(text) = &self.current_token {
+                    let index = text.parse::<usize>().map_err(|error| ParseError::Integer {
+                        error,
+                        position: self.current_position,
+                    })?;
+                    let index_node = Node::new(index, self.current_position);
+                    let position = (left.position().0, self.current_position.1);
+
+                    self.next_token()?;
+
+                    Expression::tuple_access(left, index_node, position)
+                } else {
+                    let field = self.parse_identifier()?;
+                    let position = (left.position().0, self.current_position.1);
+
+                    Expression::field_access(left, field, position)
+                }
+            }
             Token::LeftCurlyBrace => {
                 let identifier = if let Some(identifier) = left.as_identifier() {
                     identifier
@@ -681,7 +672,6 @@ impl<'src> Parser<'src> {
                 };
 
                 let name = Node::new(identifier.clone(), left.position());
-                let start_left = self.current_position.0;
 
                 self.next_token()?;
 
@@ -700,7 +690,7 @@ impl<'src> Parser<'src> {
                         self.next_token()?;
                     } else {
                         return Err(ParseError::ExpectedToken {
-                            expected: TokenKind::Equal,
+                            expected: TokenKind::Colon,
                             actual: self.current_token.to_owned(),
                             position: self.current_position,
                         });
@@ -715,7 +705,7 @@ impl<'src> Parser<'src> {
                     }
                 }
 
-                let position = (start_left, self.current_position.1);
+                let position = (left.position().0, self.current_position.1);
 
                 Expression::r#struct(StructExpression::Fields { name, fields }, position)
             }
@@ -740,17 +730,9 @@ impl<'src> Parser<'src> {
 
                 let position = (left.position().0, self.current_position.1);
 
-                Expression::call(
-                    CallExpression {
-                        function: left,
-                        arguments,
-                    },
-                    position,
-                )
+                Expression::call(left, arguments, position)
             }
             Token::LeftSquareBrace => {
-                let operator_start = self.current_position.0;
-
                 self.next_token()?;
 
                 let index = self.parse_expression(0)?;
@@ -791,7 +773,7 @@ impl<'src> Parser<'src> {
     fn parse_if(&mut self) -> Result<If, ParseError> {
         // Assume that the "if" token has already been consumed
 
-        let condition = self.parse_expression(0)?;
+        let condition = self.parse_expression(10)?;
         let if_block = self.parse_block()?;
 
         if let Token::Else = self.current_token {
@@ -1071,24 +1053,20 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::field_access(
-                    FieldAccess {
-                        container: Expression::call(
-                            CallExpression {
-                                function: Expression::identifier(Identifier::new("Foo"), (0, 0)),
-                                arguments: vec![
-                                    Expression::literal(LiteralExpression::Integer(42), (0, 0)),
-                                    Expression::literal(
-                                        LiteralExpression::String("bar".to_string()),
-                                        (0, 0)
-                                    ),
-                                ],
-                            },
-                            (0, 0)
-                        ),
-                        field: Node::new(Identifier::new("0"), (0, 0)),
-                    },
-                    (0, 0)
+                Statement::Expression(Expression::tuple_access(
+                    Expression::call(
+                        Expression::identifier(Identifier::new("Foo"), (0, 3)),
+                        vec![
+                            Expression::literal(LiteralExpression::Integer(42), (4, 6)),
+                            Expression::literal(
+                                LiteralExpression::String("bar".to_string()),
+                                (8, 13)
+                            ),
+                        ],
+                        (0, 15)
+                    ),
+                    Node::new(0, (15, 16)),
+                    (0, 16)
                 ))
             ]))
         );
@@ -1096,7 +1074,12 @@ mod tests {
 
     #[test]
     fn fields_struct_instantiation() {
-        let source = "Foo { a = 42, b = 4.0 }";
+        let source = "Foo { a: 42, b: 4.0 }";
+        let mut tree = AbstractSyntaxTree::new();
+
+        if parse_into(source, &mut tree).is_err() {
+            println!("{:?}", tree);
+        }
 
         assert_eq!(
             parse(source),
@@ -1130,19 +1113,19 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::struct_definition(
                     StructDefinition::Fields {
-                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        name: Node::new(Identifier::new("Foo"), (7, 10)),
                         fields: vec![
                             (
-                                Node::new(Identifier::new("a"), (0, 0)),
-                                Node::new(Type::Integer, (0, 0))
+                                Node::new(Identifier::new("a"), (13, 14)),
+                                Node::new(Type::Integer, (16, 19))
                             ),
                             (
-                                Node::new(Identifier::new("b"), (0, 0)),
-                                Node::new(Type::Float, (0, 0))
+                                Node::new(Identifier::new("b"), (21, 22)),
+                                Node::new(Type::Float, (24, 29))
                             )
                         ]
                     },
-                    (0, 0)
+                    (0, 31)
                 )
             ]))
         );
@@ -1166,13 +1149,11 @@ mod tests {
                     (0, 22)
                 ),
                 Statement::Expression(Expression::call(
-                    CallExpression {
-                        function: Expression::identifier(Identifier::new("Foo"), (23, 26)),
-                        arguments: vec![
-                            Expression::literal(LiteralExpression::Integer(1), (27, 28)),
-                            Expression::literal(LiteralExpression::Float(2.0), (30, 33))
-                        ]
-                    },
+                    Expression::identifier(Identifier::new("Foo"), (23, 26)),
+                    vec![
+                        Expression::literal(LiteralExpression::Integer(1), (27, 28)),
+                        Expression::literal(LiteralExpression::Float(2.0), (30, 33))
+                    ],
                     (23, 34)
                 ))
             ]))
@@ -1230,25 +1211,25 @@ mod tests {
                             ListIndex {
                                 list: Expression::list(
                                     ListExpression::Ordered(vec![
-                                        Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                                        Expression::literal(LiteralExpression::Integer(1), (1, 2)),
                                         Expression::list(
                                             ListExpression::Ordered(vec![Expression::literal(
                                                 LiteralExpression::Integer(2),
-                                                (0, 0)
+                                                (5, 6)
                                             )]),
-                                            (0, 0)
+                                            (4, 7)
                                         ),
-                                        Expression::literal(LiteralExpression::Integer(3), (0, 0)),
+                                        Expression::literal(LiteralExpression::Integer(3), (9, 10)),
                                     ]),
-                                    (0, 0)
+                                    (0, 11)
                                 ),
-                                index: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
+                                index: Expression::literal(LiteralExpression::Integer(1), (12, 13)),
                             },
-                            (0, 0)
+                            (0, 14)
                         ),
-                        index: Expression::literal(LiteralExpression::Integer(0), (0, 0)),
+                        index: Expression::literal(LiteralExpression::Integer(0), (15, 16)),
                     },
-                    (0, 0)
+                    (0, 17)
                 ))
             ]))
         );
@@ -1262,10 +1243,8 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::range(
-                    Range {
-                        start: Expression::literal(LiteralExpression::Integer(0), (0, 1)),
-                        end: Expression::literal(LiteralExpression::Integer(42), (3, 5)),
-                    },
+                    Expression::literal(LiteralExpression::Integer(0), (0, 1)),
+                    Expression::literal(LiteralExpression::Integer(42), (3, 5)),
                     (0, 5)
                 ))
             ]))
@@ -1478,37 +1457,29 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::r#loop(
-                    Loop::While {
-                        condition: Expression::operator(
-                            OperatorExpression::Comparison {
-                                left: Expression::identifier(Identifier::new("x"), (6, 7)),
-                                operator: Node::new(ComparisonOperator::LessThan, (8, 9)),
-                                right: Expression::literal(
-                                    LiteralExpression::Integer(10),
-                                    (10, 12)
+                Statement::Expression(Expression::while_loop(
+                    Expression::operator(
+                        OperatorExpression::Comparison {
+                            left: Expression::identifier(Identifier::new("x"), (6, 7)),
+                            operator: Node::new(ComparisonOperator::LessThan, (8, 9)),
+                            right: Expression::literal(LiteralExpression::Integer(10), (10, 12)),
+                        },
+                        (6, 12)
+                    ),
+                    Node::new(
+                        Block::Sync(vec![Statement::Expression(Expression::operator(
+                            OperatorExpression::CompoundAssignment {
+                                assignee: Expression::identifier(Identifier::new("x"), (15, 16)),
+                                operator: Node::new(MathOperator::Add, (17, 19)),
+                                modifier: Expression::literal(
+                                    LiteralExpression::Integer(1),
+                                    (20, 21)
                                 ),
                             },
-                            (6, 12)
-                        ),
-                        block: Node::new(
-                            Block::Sync(vec![Statement::Expression(Expression::operator(
-                                OperatorExpression::CompoundAssignment {
-                                    assignee: Expression::identifier(
-                                        Identifier::new("x"),
-                                        (15, 16)
-                                    ),
-                                    operator: Node::new(MathOperator::Add, (17, 19)),
-                                    value: Expression::literal(
-                                        LiteralExpression::Integer(1),
-                                        (20, 21)
-                                    ),
-                                },
-                                (15, 21)
-                            ))]),
-                            (13, 23)
-                        )
-                    },
+                            (15, 21)
+                        ))]),
+                        (13, 23)
+                    ),
                     (0, 23)
                 ))
             ]))
@@ -1523,18 +1494,12 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::operator(
-                    OperatorExpression::Assignment {
-                        assignee: Expression::identifier(Identifier::new("a"), (0, 0)),
-                        value: Expression::operator(
-                            OperatorExpression::Math {
-                                left: Expression::identifier(Identifier::new("a"), (0, 0)),
-                                operator: Node::new(MathOperator::Add, (0, 0)),
-                                right: Expression::literal(LiteralExpression::Integer(1), (0, 0)),
-                            },
-                            (0, 0)
-                        ),
+                    OperatorExpression::CompoundAssignment {
+                        assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
+                        operator: Node::new(MathOperator::Add, (2, 4)),
+                        modifier: Expression::literal(LiteralExpression::Integer(1), (5, 6)),
                     },
-                    (0, 0)
+                    (0, 6)
                 ))
             ]))
         )
@@ -1569,13 +1534,13 @@ mod tests {
                 Statement::Expression(Expression::block(
                     Block::Sync(vec![Statement::Expression(Expression::operator(
                         OperatorExpression::Math {
-                            left: Expression::literal(LiteralExpression::Integer(40), (0, 0)),
-                            operator: Node::new(MathOperator::Add, (0, 0)),
-                            right: Expression::literal(LiteralExpression::Integer(2), (0, 0)),
+                            left: Expression::literal(LiteralExpression::Integer(40), (2, 4)),
+                            operator: Node::new(MathOperator::Add, (5, 6)),
+                            right: Expression::literal(LiteralExpression::Integer(2), (7, 8)),
                         },
-                        (0, 0)
+                        (2, 8)
                     ))]),
-                    (0, 0)
+                    (0, 10)
                 ))
             ]))
         )
@@ -1649,10 +1614,10 @@ mod tests {
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Math {
                         left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
-                        operator: Node::new(MathOperator::Divide, (3, 4)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
+                        operator: Node::new(MathOperator::Divide, (3, 5)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (6, 8)),
                     },
-                    (0, 6),
+                    (0, 8),
                 ))
             ]))
         );
@@ -1687,10 +1652,10 @@ mod tests {
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Comparison {
                         left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(ComparisonOperator::LessThanOrEqual, (2, 3)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                        operator: Node::new(ComparisonOperator::LessThanOrEqual, (2, 4)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
                     },
-                    (0, 5),
+                    (0, 6),
                 ))
             ]))
         );
@@ -1706,10 +1671,10 @@ mod tests {
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Comparison {
                         left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(ComparisonOperator::GreaterThanOrEqual, (2, 3)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
+                        operator: Node::new(ComparisonOperator::GreaterThanOrEqual, (2, 4)),
+                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
                     },
-                    (0, 5),
+                    (0, 6),
                 ))
             ]))
         );
@@ -1763,7 +1728,7 @@ mod tests {
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Math {
                         left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
-                        operator: Node::new(MathOperator::Divide, (3, 4)),
+                        operator: Node::new(MathOperator::Modulo, (3, 4)),
                         right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
                     },
                     (0, 6),
@@ -1879,10 +1844,8 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::field_access(
-                    FieldAccess {
-                        container: Expression::identifier(Identifier::new("a"), (0, 1)),
-                        field: Node::new(Identifier::new("b"), (2, 3)),
-                    },
+                    Expression::identifier(Identifier::new("a"), (0, 1)),
+                    Node::new(Identifier::new("b"), (2, 3)),
                     (0, 3)
                 ))
             ]))

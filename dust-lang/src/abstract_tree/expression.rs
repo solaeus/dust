@@ -16,27 +16,6 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn range(range: Range, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Range(range)),
-            position,
-        ))
-    }
-
-    pub fn call(call_expression: CallExpression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Call(call_expression)),
-            position,
-        ))
-    }
-
-    pub fn field_access(field_access: FieldAccess, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::FieldAccess(field_access)),
-            position,
-        ))
-    }
-
     pub fn operator(operator_expression: OperatorExpression, position: Span) -> Self {
         Expression::WithoutBlock(Node::new(
             Box::new(ExpressionWithoutBlock::Operator(operator_expression)),
@@ -44,9 +23,175 @@ impl Expression {
         ))
     }
 
-    pub fn r#loop(r#loop: Loop, position: Span) -> Self {
+    pub fn range(start: Expression, end: Expression, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Range(Range { start, end })),
+            position,
+        ))
+    }
+
+    pub fn call(invoker: Expression, arguments: Vec<Expression>, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Call(CallExpression {
+                invoker,
+                arguments,
+            })),
+            position,
+        ))
+    }
+
+    pub fn field_access(container: Expression, field: Node<Identifier>, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::FieldAccess(FieldAccess {
+                container,
+                field,
+            })),
+            position,
+        ))
+    }
+
+    pub fn tuple_access(tuple: Expression, index: Node<usize>, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::TupleAccess(TupleAccess {
+                tuple,
+                index,
+            })),
+            position,
+        ))
+    }
+
+    pub fn assignment(assignee: Expression, value: Expression, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(
+                OperatorExpression::Assignment { assignee, value },
+            )),
+            position,
+        ))
+    }
+
+    pub fn comparison(
+        left: Expression,
+        operator: Node<ComparisonOperator>,
+        right: Expression,
+        position: Span,
+    ) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(
+                OperatorExpression::Comparison {
+                    left,
+                    operator,
+                    right,
+                },
+            )),
+            position,
+        ))
+    }
+
+    pub fn compound_assignment(
+        assignee: Expression,
+        operator: Node<MathOperator>,
+        modifier: Expression,
+        position: Span,
+    ) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(
+                OperatorExpression::CompoundAssignment {
+                    assignee,
+                    operator,
+                    modifier,
+                },
+            )),
+            position,
+        ))
+    }
+
+    pub fn math(
+        left: Expression,
+        operator: Node<MathOperator>,
+        right: Expression,
+        position: Span,
+    ) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(OperatorExpression::Math {
+                left,
+                operator,
+                right,
+            })),
+            position,
+        ))
+    }
+
+    pub fn negation(expression: Expression, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(
+                OperatorExpression::Negation(expression),
+            )),
+            position,
+        ))
+    }
+
+    pub fn not(expression: Expression, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(OperatorExpression::Not(
+                expression,
+            ))),
+            position,
+        ))
+    }
+
+    pub fn logic(
+        left: Expression,
+        operator: Node<LogicOperator>,
+        right: Expression,
+        position: Span,
+    ) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(
+                OperatorExpression::Logic {
+                    left,
+                    operator,
+                    right,
+                },
+            )),
+            position,
+        ))
+    }
+
+    pub fn error_propagation(expression: Expression, position: Span) -> Self {
+        Expression::WithoutBlock(Node::new(
+            Box::new(ExpressionWithoutBlock::Operator(
+                OperatorExpression::ErrorPropagation(expression),
+            )),
+            position,
+        ))
+    }
+
+    pub fn infinite_loop(block: Node<Block>, position: Span) -> Self {
         Expression::WithBlock(Node::new(
-            Box::new(ExpressionWithBlock::Loop(r#loop)),
+            Box::new(ExpressionWithBlock::Loop(Loop::Infinite { block })),
+            position,
+        ))
+    }
+
+    pub fn while_loop(condition: Expression, block: Node<Block>, position: Span) -> Self {
+        Expression::WithBlock(Node::new(
+            Box::new(ExpressionWithBlock::Loop(Loop::While { condition, block })),
+            position,
+        ))
+    }
+
+    pub fn for_loop(
+        identifier: Node<Identifier>,
+        iterator: Expression,
+        block: Node<Block>,
+        position: Span,
+    ) -> Self {
+        Expression::WithBlock(Node::new(
+            Box::new(ExpressionWithBlock::Loop(Loop::For {
+                identifier,
+                iterator,
+                block,
+            })),
             position,
         ))
     }
@@ -168,6 +313,7 @@ pub enum ExpressionWithoutBlock {
     FieldAccess(FieldAccess),
     ListIndex(ListIndex),
     Range(Range),
+    TupleAccess(TupleAccess),
 }
 
 impl Display for ExpressionWithoutBlock {
@@ -183,7 +329,20 @@ impl Display for ExpressionWithoutBlock {
             ExpressionWithoutBlock::FieldAccess(field_access) => write!(f, "{}", field_access),
             ExpressionWithoutBlock::ListIndex(list_index) => write!(f, "{}", list_index),
             ExpressionWithoutBlock::Range(range) => write!(f, "{}", range),
+            ExpressionWithoutBlock::TupleAccess(tuple_access) => write!(f, "{}", tuple_access),
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct TupleAccess {
+    pub tuple: Expression,
+    pub index: Node<usize>,
+}
+
+impl Display for TupleAccess {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}.{}", self.tuple, self.index)
     }
 }
 
@@ -213,13 +372,13 @@ impl Display for ListIndex {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CallExpression {
-    pub function: Expression,
+    pub invoker: Expression,
     pub arguments: Vec<Expression>,
 }
 
 impl Display for CallExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}(", self.function)?;
+        write!(f, "{}(", self.invoker)?;
 
         for (index, argument) in self.arguments.iter().enumerate() {
             if index > 0 {
@@ -342,7 +501,7 @@ pub enum OperatorExpression {
     CompoundAssignment {
         assignee: Expression,
         operator: Node<MathOperator>,
-        value: Expression,
+        modifier: Expression,
     },
     ErrorPropagation(Expression),
     Negation(Expression),
@@ -375,7 +534,7 @@ impl Display for OperatorExpression {
             OperatorExpression::CompoundAssignment {
                 assignee,
                 operator,
-                value,
+                modifier: value,
             } => write!(f, "{} {}= {}", assignee, operator, value),
             OperatorExpression::ErrorPropagation(expression) => write!(f, "{}?", expression),
             OperatorExpression::Negation(expression) => write!(f, "-{}", expression),
@@ -552,7 +711,9 @@ impl Display for Block {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Loop {
-    Infinite(Block),
+    Infinite {
+        block: Node<Block>,
+    },
     While {
         condition: Expression,
         block: Node<Block>,
@@ -560,14 +721,14 @@ pub enum Loop {
     For {
         identifier: Node<Identifier>,
         iterator: Expression,
-        block: Block,
+        block: Node<Block>,
     },
 }
 
 impl Display for Loop {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Loop::Infinite(block) => write!(f, "loop {}", block),
+            Loop::Infinite { block } => write!(f, "loop {}", block),
             Loop::While { condition, block } => write!(f, "while {} {}", condition, block),
             Loop::For {
                 identifier,

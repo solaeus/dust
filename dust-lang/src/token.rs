@@ -238,9 +238,10 @@ impl<'src> Token<'src> {
 
     pub fn precedence(&self) -> u8 {
         match self {
-            Token::Dot => 10,
-            Token::LeftParenthesis | Token::LeftSquareBrace => 9,
-            Token::Star | Token::Slash | Token::Percent => 8,
+            Token::Identifier(_) => 10,
+            Token::Dot => 9,
+            Token::LeftCurlyBrace | Token::LeftParenthesis | Token::LeftSquareBrace => 8,
+            Token::Star | Token::Slash | Token::Percent => 7,
             Token::Minus | Token::Plus => 6,
             Token::DoubleEqual
             | Token::Less
@@ -249,8 +250,8 @@ impl<'src> Token<'src> {
             | Token::GreaterEqual => 5,
             Token::DoubleAmpersand => 4,
             Token::DoublePipe => 3,
-            Token::Equal | Token::MinusEqual | Token::PlusEqual => 2,
-            Token::DoubleDot => 1,
+            Token::DoubleDot => 2,
+            Token::Equal | Token::MinusEqual | Token::PlusEqual => 1,
             _ => 0,
         }
     }
@@ -258,7 +259,8 @@ impl<'src> Token<'src> {
     pub fn is_left_associative(&self) -> bool {
         matches!(
             self,
-            Token::DoubleAmpersand
+            Token::Dot
+                | Token::DoubleAmpersand
                 | Token::DoublePipe
                 | Token::Plus
                 | Token::Minus
@@ -269,7 +271,7 @@ impl<'src> Token<'src> {
     }
 
     pub fn is_right_associative(&self) -> bool {
-        matches!(self, Token::Equal | Token::PlusEqual)
+        matches!(self, Token::Equal | Token::MinusEqual | Token::PlusEqual)
     }
 
     pub fn is_prefix(&self) -> bool {
@@ -277,7 +279,10 @@ impl<'src> Token<'src> {
     }
 
     pub fn is_postfix(&self) -> bool {
-        matches!(self, Token::LeftParenthesis | Token::LeftSquareBrace)
+        matches!(
+            self,
+            Token::Dot | Token::LeftCurlyBrace | Token::LeftParenthesis | Token::LeftSquareBrace
+        )
     }
 }
 
