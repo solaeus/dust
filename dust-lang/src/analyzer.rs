@@ -168,8 +168,12 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(modifier)?;
                 }
                 OperatorExpression::ErrorPropagation(_) => todo!(),
-                OperatorExpression::Negation(_) => todo!(),
-                OperatorExpression::Not(_) => todo!(),
+                OperatorExpression::Negation(expression) => {
+                    self.analyze_expression(expression)?;
+                }
+                OperatorExpression::Not(expression) => {
+                    self.analyze_expression(expression)?;
+                }
                 OperatorExpression::Math { left, right, .. } => {
                     self.analyze_expression(left)?;
                     self.analyze_expression(right)?;

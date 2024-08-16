@@ -6,6 +6,7 @@
 //! - `Vm` struct that can be used to run an abstract syntax tree
 use std::{
     fmt::{self, Display, Formatter},
+    ops::Range,
     sync::{Arc, Mutex},
 };
 
@@ -16,7 +17,7 @@ use crate::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
         FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
         LiteralExpression, LogicOperator, LoopExpression, MathOperator, Node, OperatorExpression,
-        Statement,
+        RangeExpression, Statement,
     },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
     Span, Value, ValueError,
@@ -93,32 +94,38 @@ impl Vm {
         let mut previous_value = None;
 
         while let Some(statement) = self.abstract_tree.statements.pop_front() {
-            previous_value = self.run_statement(statement)?;
+            previous_value = self.run_statement(statement, true)?;
         }
 
         Ok(previous_value)
     }
 
-    fn run_statement(&self, statement: Statement) -> Result<Option<Value>, VmError> {
+    fn run_statement(
+        &self,
+        statement: Statement,
+        collect_garbage: bool,
+    ) -> Result<Option<Value>, VmError> {
         let position = statement.position();
         let result = match statement {
             Statement::Expression(expression) => self
-                .run_expression(expression)
+                .run_expression(expression, collect_garbage)
                 .map(|evaluation| evaluation.value()),
             Statement::ExpressionNullified(expression) => {
-                self.run_expression(expression.inner)?;
+                self.run_expression(expression.inner, collect_garbage)?;
 
                 Ok(None)
             }
             Statement::Let(let_statement) => {
-                self.run_let_statement(let_statement.inner)?;
+                self.run_let_statement(let_statement.inner, collect_garbage)?;
 
                 Ok(None)
             }
             Statement::StructDefinition(_) => todo!(),
         };
 
-        self.context.collect_garbage(position.1);
+        if collect_garbage {
+            self.context.collect_garbage(position.1);
+        }
 
         result.map_err(|error| VmError::Trace {
             error: Box::new(error),
@@ -126,11 +133,17 @@ impl Vm {
         })
     }
 
-    fn run_let_statement(&self, let_statement: LetStatement) -> Result<(), VmError> {
+    fn run_let_statement(
+        &self,
+        let_statement: LetStatement,
+        collect_garbage: bool,
+    ) -> Result<(), VmError> {
         match let_statement {
             LetStatement::Let { identifier, value } => {
                 let value_position = value.position();
-                let value = self.run_expression(value)?.expect_value(value_position)?;
+                let value = self
+                    .run_expression(value, collect_garbage)?
+                    .expect_value(value_position)?;
 
                 self.context.set_value(identifier.inner, value);
 
@@ -138,7 +151,9 @@ impl Vm {
             }
             LetStatement::LetMut { identifier, value } => {
                 let value_position = value.position();
-                let value = self.run_expression(value)?.expect_value(value_position)?;
+                let value = self
+                    .run_expression(value, collect_garbage)?
+                    .expect_value(value_position)?;
                 let mutable_value = value.to_mut().map_err(|error| VmError::ValueError {
                     error,
                     left_position: identifier.position,
@@ -154,13 +169,21 @@ impl Vm {
         }
     }
 
-    fn run_expression(&self, expression: Expression) -> Result<Evaluation, VmError> {
+    fn run_expression(
+        &self,
+        expression: Expression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         let position = expression.position();
         let evaluation_result = match expression {
-            Expression::Block(Node { inner, .. }) => self.run_block(*inner),
-            Expression::Call(call) => self.run_call(*call.inner),
-            Expression::FieldAccess(field_access) => self.run_field_access(*field_access.inner),
-            Expression::Grouped(expression) => self.run_expression(*expression.inner),
+            Expression::Block(Node { inner, .. }) => self.run_block(*inner, collect_garbage),
+            Expression::Call(call) => self.run_call(*call.inner, collect_garbage),
+            Expression::FieldAccess(field_access) => {
+                self.run_field_access(*field_access.inner, collect_garbage)
+            }
+            Expression::Grouped(expression) => {
+                self.run_expression(*expression.inner, collect_garbage)
+            }
             Expression::Identifier(identifier) => {
                 let get_value = self.context.get_value(&identifier.inner);
 
@@ -173,15 +196,33 @@ impl Vm {
                     })
                 }
             }
-            Expression::If(if_expression) => self.run_if(*if_expression.inner),
-            Expression::List(list_expression) => self.run_list(*list_expression.inner),
-            Expression::ListIndex(list_index) => self.run_list_index(*list_index.inner),
+            Expression::If(if_expression) => self.run_if(*if_expression.inner, collect_garbage),
+            Expression::List(list_expression) => {
+                self.run_list(*list_expression.inner, collect_garbage)
+            }
+            Expression::ListIndex(list_index) => {
+                self.run_list_index(*list_index.inner, collect_garbage)
+            }
             Expression::Literal(literal) => self.run_literal(*literal.inner),
             Expression::Loop(loop_expression) => self.run_loop(*loop_expression.inner),
             Expression::Operator(operator_expression) => {
-                self.run_operator(*operator_expression.inner)
+                self.run_operator(*operator_expression.inner, collect_garbage)
             }
-            Expression::Range(_) => todo!(),
+            Expression::Range(range_expression) => match range_expression.inner.as_ref() {
+                RangeExpression::Exclusive { start, end } => {
+                    let start_position = start.position();
+                    let start = self
+                        .run_expression(*start.inner, collect_garbage)?
+                        .expect_value(start_position)?;
+                    let end_position = end.position();
+                    let end = self
+                        .run_expression(*end.inner, collect_garbage)?
+                        .expect_value(end_position)?;
+
+                    Ok(Evaluation::Return(Some(Value::range(start..end))))
+                }
+                RangeExpression::Inclusive { start, end } => todo!(),
+            },
             Expression::Struct(_) => todo!(),
             Expression::TupleAccess(_) => todo!(),
         };
@@ -192,15 +233,21 @@ impl Vm {
         })
     }
 
-    fn run_operator(&self, operator: OperatorExpression) -> Result<Evaluation, VmError> {
+    fn run_operator(
+        &self,
+        operator: OperatorExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         match operator {
             OperatorExpression::Assignment { assignee, value } => {
                 let assignee_position = assignee.position();
                 let assignee = self
-                    .run_expression(assignee)?
+                    .run_expression(assignee, collect_garbage)?
                     .expect_value(assignee_position)?;
                 let value_position = value.position();
-                let value = self.run_expression(value)?.expect_value(value_position)?;
+                let value = self
+                    .run_expression(value, collect_garbage)?
+                    .expect_value(value_position)?;
 
                 assignee
                     .mutate(value)
@@ -218,9 +265,13 @@ impl Vm {
                 right,
             } => {
                 let left_position = left.position();
-                let left_value = self.run_expression(left)?.expect_value(left_position)?;
+                let left_value = self
+                    .run_expression(left, collect_garbage)?
+                    .expect_value(left_position)?;
                 let right_position = right.position();
-                let right_value = self.run_expression(right)?.expect_value(right_position)?;
+                let right_value = self
+                    .run_expression(right, collect_garbage)?
+                    .expect_value(right_position)?;
                 let outcome =
                     match operator.inner {
                         ComparisonOperator::Equal => left_value.equal(&right_value),
@@ -264,11 +315,11 @@ impl Vm {
             } => {
                 let assignee_position = assignee.position();
                 let assignee = self
-                    .run_expression(assignee)?
+                    .run_expression(assignee, collect_garbage)?
                     .expect_value(assignee_position)?;
                 let modifier_position = modifier.position();
                 let modifier = self
-                    .run_expression(modifier)?
+                    .run_expression(modifier, collect_garbage)?
                     .expect_value(modifier_position)?;
 
                 match operator.inner {
@@ -287,17 +338,43 @@ impl Vm {
                 Ok(Evaluation::Return(None))
             }
             OperatorExpression::ErrorPropagation(_) => todo!(),
-            OperatorExpression::Negation(_) => todo!(),
-            OperatorExpression::Not(_) => todo!(),
+            OperatorExpression::Negation(expression) => {
+                let position = expression.position();
+                let value = self
+                    .run_expression(expression, collect_garbage)?
+                    .expect_value(position)?;
+                let integer = value
+                    .as_integer()
+                    .ok_or(VmError::ExpectedBoolean { position })?;
+                let negated = Value::integer(-integer);
+
+                Ok(Evaluation::Return(Some(negated)))
+            }
+            OperatorExpression::Not(expression) => {
+                let position = expression.position();
+                let value = self
+                    .run_expression(expression, collect_garbage)?
+                    .expect_value(position)?;
+                let boolean = value
+                    .as_boolean()
+                    .ok_or(VmError::ExpectedBoolean { position })?;
+                let not = Value::boolean(!boolean);
+
+                Ok(Evaluation::Return(Some(not)))
+            }
             OperatorExpression::Math {
                 left,
                 operator,
                 right,
             } => {
                 let left_position = left.position();
-                let left_value = self.run_expression(left)?.expect_value(left_position)?;
+                let left_value = self
+                    .run_expression(left, collect_garbage)?
+                    .expect_value(left_position)?;
                 let right_position = right.position();
-                let right_value = self.run_expression(right)?.expect_value(right_position)?;
+                let right_value = self
+                    .run_expression(right, collect_garbage)?
+                    .expect_value(right_position)?;
                 let outcome = match operator.inner {
                     MathOperator::Add => left_value.add(&right_value),
                     MathOperator::Subtract => left_value.subtract(&right_value),
@@ -319,9 +396,13 @@ impl Vm {
                 right,
             } => {
                 let left_position = left.position();
-                let left_value = self.run_expression(left)?.expect_value(left_position)?;
+                let left_value = self
+                    .run_expression(left, collect_garbage)?
+                    .expect_value(left_position)?;
                 let right_position = right.position();
-                let right_value = self.run_expression(right)?.expect_value(right_position)?;
+                let right_value = self
+                    .run_expression(right, collect_garbage)?
+                    .expect_value(right_position)?;
                 let outcome = match operator.inner {
                     LogicOperator::And => left_value.and(&right_value),
                     LogicOperator::Or => left_value.or(&right_value),
@@ -340,9 +421,22 @@ impl Vm {
     fn run_loop(&self, loop_expression: LoopExpression) -> Result<Evaluation, VmError> {
         match loop_expression {
             LoopExpression::Infinite { block } => loop {
-                self.run_expression(Expression::block(block.inner.clone(), block.position))?;
+                self.run_block(block.inner.clone(), false)?;
             },
-            LoopExpression::While { condition, block } => todo!(),
+            LoopExpression::While { condition, block } => {
+                while self
+                    .run_expression(condition.clone(), false)?
+                    .expect_value(condition.position())?
+                    .as_boolean()
+                    .ok_or_else(|| VmError::ExpectedBoolean {
+                        position: condition.position(),
+                    })?
+                {
+                    self.run_block(block.inner.clone(), false)?;
+                }
+
+                Ok(Evaluation::Return(None))
+            }
             LoopExpression::For {
                 identifier,
                 iterator,
@@ -363,14 +457,22 @@ impl Vm {
         Ok(Evaluation::Return(Some(value)))
     }
 
-    fn run_list_index(&self, list_index: ListIndexExpression) -> Result<Evaluation, VmError> {
+    fn run_list_index(
+        &self,
+        list_index: ListIndexExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         let ListIndexExpression { list, index } = list_index;
 
         let list_position = list.position();
-        let list_value = self.run_expression(list)?.expect_value(list_position)?;
+        let list_value = self
+            .run_expression(list, collect_garbage)?
+            .expect_value(list_position)?;
 
         let index_position = index.position();
-        let index_value = self.run_expression(index)?.expect_value(index_position)?;
+        let index_value = self
+            .run_expression(index, collect_garbage)?
+            .expect_value(index_position)?;
 
         let index = if let Some(index) = index_value.as_integer() {
             index as usize
@@ -385,17 +487,22 @@ impl Vm {
         Ok(Evaluation::Return(value_option))
     }
 
-    fn run_call(&self, call_expression: CallExpression) -> Result<Evaluation, VmError> {
+    fn run_call(
+        &self,
+        call_expression: CallExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         let CallExpression { invoker, arguments } = call_expression;
 
         let invoker_position = invoker.position();
-        let invoker_value = if let Some(value) = self.run_expression(invoker)?.value() {
-            value
-        } else {
-            return Err(VmError::ExpectedValue {
-                position: invoker_position,
-            });
-        };
+        let invoker_value =
+            if let Some(value) = self.run_expression(invoker, collect_garbage)?.value() {
+                value
+            } else {
+                return Err(VmError::ExpectedValue {
+                    position: invoker_position,
+                });
+            };
 
         let function = if let Some(function) = invoker_value.as_function() {
             function
@@ -411,7 +518,7 @@ impl Vm {
         for argument in arguments {
             let position = argument.position();
 
-            if let Some(value) = self.run_expression(argument)?.value() {
+            if let Some(value) = self.run_expression(argument, collect_garbage)?.value() {
                 value_arguments.push(value);
             } else {
                 return Err(VmError::ExpectedValue { position });
@@ -425,22 +532,31 @@ impl Vm {
             .map(Evaluation::Return)
     }
 
-    fn run_field_access(&self, field_access: FieldAccessExpression) -> Result<Evaluation, VmError> {
+    fn run_field_access(
+        &self,
+        field_access: FieldAccessExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         let FieldAccessExpression { container, field } = field_access;
 
         let container_position = container.position();
-        let container_value = if let Some(value) = self.run_expression(container)?.value() {
-            value
-        } else {
-            return Err(VmError::ExpectedValue {
-                position: container_position,
-            });
-        };
+        let container_value =
+            if let Some(value) = self.run_expression(container, collect_garbage)?.value() {
+                value
+            } else {
+                return Err(VmError::ExpectedValue {
+                    position: container_position,
+                });
+            };
 
         Ok(Evaluation::Return(container_value.get_field(&field.inner)))
     }
 
-    fn run_list(&self, list_expression: ListExpression) -> Result<Evaluation, VmError> {
+    fn run_list(
+        &self,
+        list_expression: ListExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         match list_expression {
             ListExpression::AutoFill {
                 repeat_operand,
@@ -448,14 +564,14 @@ impl Vm {
             } => {
                 let position = length_operand.position();
                 let length = self
-                    .run_expression(length_operand)?
+                    .run_expression(length_operand, collect_garbage)?
                     .expect_value(position)?
                     .as_integer()
                     .ok_or(VmError::ExpectedInteger { position })?;
 
                 let position = repeat_operand.position();
                 let value = self
-                    .run_expression(repeat_operand)?
+                    .run_expression(repeat_operand, collect_garbage)?
                     .expect_value(position)?;
 
                 Ok(Evaluation::Return(Some(Value::list(vec![
@@ -468,7 +584,9 @@ impl Vm {
 
                 for expression in expressions {
                     let position = expression.position();
-                    let value = self.run_expression(expression)?.expect_value(position)?;
+                    let value = self
+                        .run_expression(expression, collect_garbage)?
+                        .expect_value(position)?;
 
                     values.push(value);
                 }
@@ -478,7 +596,11 @@ impl Vm {
         }
     }
 
-    fn run_block(&self, block: BlockExpression) -> Result<Evaluation, VmError> {
+    fn run_block(
+        &self,
+        block: BlockExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         match block {
             BlockExpression::Async(statements) => {
                 let final_result = Arc::new(Mutex::new(None));
@@ -488,7 +610,7 @@ impl Vm {
                         .into_par_iter()
                         .enumerate()
                         .find_map_any(|(i, statement)| {
-                            let evaluation_result = self.run_statement(statement);
+                            let evaluation_result = self.run_statement(statement, false);
 
                             match evaluation_result {
                                 Ok(evaluation) => {
@@ -516,7 +638,7 @@ impl Vm {
                 for statement in statements {
                     let position = statement.position();
 
-                    previous_value = self.run_statement(statement)?;
+                    previous_value = self.run_statement(statement, collect_garbage)?;
 
                     self.context.collect_garbage(position.1);
                 }
@@ -526,7 +648,11 @@ impl Vm {
         }
     }
 
-    fn run_if(&self, if_expression: IfExpression) -> Result<Evaluation, VmError> {
+    fn run_if(
+        &self,
+        if_expression: IfExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, VmError> {
         match if_expression {
             IfExpression::If {
                 condition,
@@ -534,13 +660,13 @@ impl Vm {
             } => {
                 let position = condition.position();
                 let boolean = self
-                    .run_expression(condition)?
+                    .run_expression(condition, collect_garbage)?
                     .expect_value(position)?
                     .as_boolean()
                     .ok_or(VmError::ExpectedBoolean { position })?;
 
                 if boolean {
-                    self.run_expression(Expression::block(if_block.inner, if_block.position))?;
+                    self.run_block(if_block.inner, collect_garbage)?;
                 }
 
                 Ok(Evaluation::Return(None))
@@ -552,22 +678,20 @@ impl Vm {
             } => {
                 let position = condition.position();
                 let boolean = self
-                    .run_expression(condition)?
+                    .run_expression(condition, collect_garbage)?
                     .expect_value(position)?
                     .as_boolean()
                     .ok_or(VmError::ExpectedBoolean { position })?;
 
                 if boolean {
-                    self.run_expression(Expression::block(if_block.inner, if_block.position))?;
+                    self.run_block(if_block.inner, collect_garbage)?;
                 }
 
                 match r#else {
                     ElseExpression::If(if_expression) => {
-                        self.run_expression(Expression::If(if_expression))
+                        self.run_expression(Expression::If(if_expression), collect_garbage)
                     }
-                    ElseExpression::Block(block) => {
-                        self.run_expression(Expression::block(block.inner, block.position))
-                    }
+                    ElseExpression::Block(block) => self.run_block(block.inner, collect_garbage),
                 }
             }
         }
@@ -907,7 +1031,7 @@ mod tests {
 
     #[test]
     fn negate_expression() {
-        let input = "x = -42; -x";
+        let input = "let x = -42; -x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }

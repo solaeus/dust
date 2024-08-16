@@ -22,7 +22,7 @@ pub enum Expression {
     Literal(Node<Box<LiteralExpression>>),
     Loop(Node<Box<LoopExpression>>),
     Operator(Node<Box<OperatorExpression>>),
-    Range(Node<Box<Range>>),
+    Range(Node<Box<RangeExpression>>),
     Struct(Node<Box<StructExpression>>),
     TupleAccess(Node<Box<TupleAccess>>),
 }
@@ -32,8 +32,18 @@ impl Expression {
         Self::Operator(Node::new(Box::new(operator_expression), position))
     }
 
-    pub fn range(start: Expression, end: Expression, position: Span) -> Self {
-        Self::Range(Node::new(Box::new(Range { start, end }), position))
+    pub fn exclusive_range(start: Expression, end: Expression, position: Span) -> Self {
+        Self::Range(Node::new(
+            Box::new(RangeExpression::Exclusive { start, end }),
+            position,
+        ))
+    }
+
+    pub fn inclusive_range(start: Expression, end: Expression, position: Span) -> Self {
+        Self::Range(Node::new(
+            Box::new(RangeExpression::Inclusive { start, end }),
+            position,
+        ))
     }
 
     pub fn call(invoker: Expression, arguments: Vec<Expression>, position: Span) -> Self {
@@ -391,14 +401,17 @@ impl Display for TupleAccess {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Range {
-    pub start: Expression,
-    pub end: Expression,
+pub enum RangeExpression {
+    Exclusive { start: Expression, end: Expression },
+    Inclusive { start: Expression, end: Expression },
 }
 
-impl Display for Range {
+impl Display for RangeExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}..{}", self.start, self.end)
+        match self {
+            RangeExpression::Exclusive { start, end } => write!(f, "{}..{}", start, end),
+            RangeExpression::Inclusive { start, end } => write!(f, "{}..={}", start, end),
+        }
     }
 }
 

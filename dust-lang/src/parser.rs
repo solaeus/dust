@@ -633,7 +633,7 @@ impl<'src> Parser<'src> {
             let end = self.parse_expression(operator_precedence)?;
             let position = (left_start, end.position().1);
 
-            return Ok(Expression::range(left, end, position));
+            return Ok(Expression::exclusive_range(left, end, position));
         }
 
         if let Token::Minus | Token::Plus | Token::Star | Token::Slash | Token::Percent =
@@ -1335,7 +1335,7 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::range(
+                Statement::Expression(Expression::exclusive_range(
                     Expression::literal(LiteralExpression::Integer(0), (0, 1)),
                     Expression::literal(LiteralExpression::Integer(42), (3, 5)),
                     (0, 5)

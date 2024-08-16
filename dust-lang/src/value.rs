@@ -4,7 +4,7 @@ use std::{
     collections::BTreeMap,
     error::Error,
     fmt::{self, Display, Formatter},
-    ops::Range,
+    ops::{Range, RangeInclusive},
     sync::{Arc, RwLock, RwLockWriteGuard},
 };
 
@@ -80,7 +80,7 @@ impl Value {
     }
 
     pub fn range(range: Range<i64>) -> Self {
-        Value::Immutable(Arc::new(ValueData::Range(range)))
+        Value::Immutable(Arc::new(ValueData::RangeExclusive(range)))
     }
 
     pub fn string<T: ToString>(to_string: T) -> Self {
@@ -1137,7 +1137,8 @@ pub enum ValueData {
     Integer(i64),
     List(Vec<Value>),
     Map(BTreeMap<Identifier, Value>),
-    Range(Range<i64>),
+    RangeExclusive(Range<Value>),
+    RangeInclusive(RangeInclusive<Value>),
     String(String),
     Struct(Struct),
 }
@@ -1172,7 +1173,8 @@ impl ValueData {
 
                 Type::Map(type_map)
             }
-            ValueData::Range(_) => Type::Range,
+            ValueData::RangeExclusive(_) => Type::Range,
+            ValueData::RangeInclusive(_) => Type::Range,
             ValueData::String(_) => Type::String,
             ValueData::Struct(r#struct) => match r#struct {
                 Struct::Unit { name } => Type::Struct(StructType::Unit { name: name.clone() }),
@@ -1196,12 +1198,12 @@ impl ValueData {
         }
     }
 
-    fn get_index(&self, index: usize) -> Option<Value> {
+    fn get_index(&self, index: Value) -> Option<Value> {
         if let ValueData::List(list) = self {
             return list.get(index).cloned();
         }
 
-        if let ValueData::Range(range) = self {
+        if let ValueData::RangeExclusive(range) = self {
             if range.contains(&(index as i64)) {
                 return Some(Value::integer(index as i64));
             }
@@ -1271,7 +1273,8 @@ impl Display for ValueData {
 
                 write!(f, " }}")
             }
-            ValueData::Range(range) => write!(f, "{}..{}", range.start, range.end),
+            ValueData::RangeExclusive(range) => write!(f, "{}..{}", range.start, range.end),
+            ValueData::RangeInclusive(range) => write!(f, "{}..={}", range.start(), range.end()),
             ValueData::String(string) => write!(f, "{string}"),
             ValueData::Struct(r#struct) => write!(f, "{struct}"),
         }
@@ -1303,7 +1306,7 @@ impl Ord for ValueData {
             (List(_), _) => Ordering::Greater,
             (Map(left), Map(right)) => left.cmp(right),
             (Map(_), _) => Ordering::Greater,
-            (Range(left), Range(right)) => {
+            (RangeExclusive(left), RangeExclusive(right)) => {
                 let start_cmp = left.start.cmp(&right.start);
 
                 if start_cmp.is_eq() {
@@ -1312,7 +1315,17 @@ impl Ord for ValueData {
                     start_cmp
                 }
             }
-            (Range(_), _) => Ordering::Greater,
+            (RangeExclusive(_), _) => Ordering::Greater,
+            (RangeInclusive(left), RangeInclusive(right)) => {
+                let start_cmp = left.start().cmp(right.start());
+
+                if start_cmp.is_eq() {
+                    left.end().cmp(right.end())
+                } else {
+                    start_cmp
+                }
+            }
+            (RangeInclusive(_), _) => Ordering::Greater,
             (String(left), String(right)) => left.cmp(right),
             (String(_), _) => Ordering::Greater,
             (Struct(left), Struct(right)) => left.cmp(right),
@@ -1349,11 +1362,19 @@ impl Serialize for ValueData {
 
                 map_ser.end()
             }
-            ValueData::Range(range) => {
+            ValueData::RangeExclusive(range) => {
                 let mut tuple_ser = serializer.serialize_tuple(2)?;
 
                 tuple_ser.serialize_element(&range.start)?;
                 tuple_ser.serialize_element(&range.end)?;
+
+                tuple_ser.end()
+            }
+            ValueData::RangeInclusive(range) => {
+                let mut tuple_ser = serializer.serialize_tuple(2)?;
+
+                tuple_ser.serialize_element(&range.start())?;
+                tuple_ser.serialize_element(&range.end())?;
 
                 tuple_ser.end()
             }
@@ -1626,7 +1647,7 @@ impl Function {
         if let (Some(value_parameters), Some(value_arguments)) =
             (&self.value_parameters, value_arguments)
         {
-            for ((identifier, _), value) in value_parameters.into_iter().zip(value_arguments) {
+            for ((identifier, _), value) in value_parameters.iter().zip(value_arguments) {
                 new_context.set_value(identifier.clone(), value);
             }
         }
@@ -1743,6 +1764,7 @@ pub enum ValueError {
     CannotDivide(Value, Value),
     CannotGreaterThan(Value, Value),
     CannotGreaterThanOrEqual(Value, Value),
+    CannotIndex { value: Value, index: Value },
     CannotLessThan(Value, Value),
     CannotLessThanOrEqual(Value, Value),
     CannotMakeMutable,
@@ -1769,6 +1791,9 @@ impl Display for ValueError {
             ),
             ValueError::CannotDivide(left, right) => {
                 write!(f, "Cannot divide {} by {}", left, right)
+            }
+            ValueError::CannotIndex { value, index } => {
+                write!(f, "Cannot index {} with {}", value, index)
             }
             ValueError::CannotModulo(left, right) => {
                 write!(f, "Cannot modulo {} by {}", left, right)
