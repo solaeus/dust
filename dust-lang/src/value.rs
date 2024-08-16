@@ -114,18 +114,18 @@ impl Value {
         }
     }
 
-    pub fn mutate(&self, other: &Value) {
-        let other_data = match other {
-            Value::Immutable(inner) => inner.as_ref().clone(),
-            Value::Mutable(inner_locked) => inner_locked.read().unwrap().clone(),
+    pub fn mutate(&self, other: Value) -> Result<(), ValueError> {
+        let mut inner = match self {
+            Value::Immutable(_) => return Err(ValueError::CannotMutate(self.clone())),
+            Value::Mutable(inner) => inner.write().unwrap(),
         };
 
-        match self {
-            Value::Mutable(locked) => {
-                *locked.write().unwrap() = other_data;
-            }
-            Value::Immutable(_) => todo!(),
+        match other {
+            Value::Immutable(other) => *inner = other.as_ref().clone(),
+            Value::Mutable(other) => *inner = other.read().unwrap().clone(),
         }
+
+        Ok(())
     }
 
     pub fn r#type(&self) -> Type {
@@ -625,6 +625,36 @@ impl Value {
         }
 
         Err(ValueError::CannotModulo(self.clone(), other.clone()))
+    }
+
+    pub fn equal(&self, other: &Value) -> Value {
+        let is_equal = match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => left == right,
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                *left.read().unwrap() == *right.read().unwrap()
+            }
+            (Value::Immutable(arc), Value::Mutable(arc_locked))
+            | (Value::Mutable(arc_locked), Value::Immutable(arc)) => {
+                *arc_locked.read().unwrap() == *arc.as_ref()
+            }
+        };
+
+        Value::boolean(is_equal)
+    }
+
+    pub fn not_equal(&self, other: &Value) -> Value {
+        let is_not_equal = match (self, other) {
+            (Value::Immutable(left), Value::Immutable(right)) => left != right,
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                *left.read().unwrap() != *right.read().unwrap()
+            }
+            (Value::Immutable(arc), Value::Mutable(arc_locked))
+            | (Value::Mutable(arc_locked), Value::Immutable(arc)) => {
+                *arc_locked.read().unwrap() != *arc.as_ref()
+            }
+        };
+
+        Value::boolean(is_not_equal)
     }
 
     pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {

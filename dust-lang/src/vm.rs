@@ -13,9 +13,10 @@ use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterato
 
 use crate::{
     ast::{
-        AbstractSyntaxTree, BlockExpression, CallExpression, ElseExpression, FieldAccessExpression,
-        IfExpression, ListExpression, ListIndexExpression, LiteralExpression, LoopExpression, Node,
-        OperatorExpression, Statement,
+        AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
+        FieldAccessExpression, IfExpression, ListExpression, ListIndexExpression,
+        LiteralExpression, LogicOperator, LoopExpression, MathOperator, Node, OperatorExpression,
+        Statement,
     },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
     Span, Type, Value, ValueError,
@@ -135,13 +136,26 @@ impl Vm {
             Expression::Call(call) => self.run_call(*call.inner),
             Expression::FieldAccess(field_access) => self.run_field_access(*field_access.inner),
             Expression::Grouped(expression) => self.run_expression(*expression.inner),
-            Expression::Identifier(identifier) => self.run_identifier(identifier.inner),
+            Expression::Identifier(identifier) => {
+                let get_value = self.context.get_value(&identifier.inner);
+
+                if let Some(value) = get_value {
+                    Ok(Evaluation::Return(Some(value)))
+                } else {
+                    Err(VmError::UndefinedVariable {
+                        identifier: identifier.inner,
+                        position: identifier.position,
+                    })
+                }
+            }
             Expression::If(if_expression) => self.run_if(*if_expression.inner),
             Expression::List(list_expression) => self.run_list(*list_expression.inner),
             Expression::ListIndex(list_index) => self.run_list_index(*list_index.inner),
             Expression::Literal(literal) => self.run_literal(*literal.inner),
             Expression::Loop(loop_expression) => self.run_loop(*loop_expression.inner),
-            Expression::Operator(_) => todo!(),
+            Expression::Operator(operator_expression) => {
+                self.run_operator(*operator_expression.inner)
+            }
             Expression::Range(_) => todo!(),
             Expression::Struct(_) => todo!(),
             Expression::TupleAccess(_) => todo!(),
@@ -155,12 +169,63 @@ impl Vm {
 
     fn run_operator(&self, operator: OperatorExpression) -> Result<Evaluation, VmError> {
         match operator {
-            OperatorExpression::Assignment { assignee, value } => todo!(),
+            OperatorExpression::Assignment { assignee, value } => {
+                let assignee_position = assignee.position();
+                let assignee = self
+                    .run_expression(assignee)?
+                    .expect_value(assignee_position)?;
+                let value_position = value.position();
+                let value = self.run_expression(value)?.expect_value(value_position)?;
+
+                assignee.mutate(value);
+
+                Ok(Evaluation::Return(None))
+            }
             OperatorExpression::Comparison {
                 left,
                 operator,
                 right,
-            } => todo!(),
+            } => {
+                let left_position = left.position();
+                let left_value = self.run_expression(left)?.expect_value(left_position)?;
+                let right_position = right.position();
+                let right_value = self.run_expression(right)?.expect_value(right_position)?;
+                let outcome =
+                    match operator.inner {
+                        ComparisonOperator::Equal => left_value.equal(&right_value),
+                        ComparisonOperator::NotEqual => left_value.not_equal(&right_value),
+                        ComparisonOperator::GreaterThan => left_value
+                            .greater_than(&right_value)
+                            .map_err(|error| VmError::ValueError {
+                                error,
+                                left_position,
+                                right_position,
+                            })?,
+                        ComparisonOperator::GreaterThanOrEqual => left_value
+                            .greater_than_or_equal(&right_value)
+                            .map_err(|error| VmError::ValueError {
+                                error,
+                                left_position,
+                                right_position,
+                            })?,
+                        ComparisonOperator::LessThan => left_value
+                            .less_than(&right_value)
+                            .map_err(|error| VmError::ValueError {
+                                error,
+                                left_position,
+                                right_position,
+                            })?,
+                        ComparisonOperator::LessThanOrEqual => left_value
+                            .less_than_or_equal(&right_value)
+                            .map_err(|error| VmError::ValueError {
+                                error,
+                                left_position,
+                                right_position,
+                            })?,
+                    };
+
+                Ok(Evaluation::Return(Some(outcome)))
+            }
             OperatorExpression::CompoundAssignment {
                 assignee,
                 operator,
@@ -173,12 +238,47 @@ impl Vm {
                 left,
                 operator,
                 right,
-            } => todo!(),
+            } => {
+                let left_position = left.position();
+                let left_value = self.run_expression(left)?.expect_value(left_position)?;
+                let right_position = right.position();
+                let right_value = self.run_expression(right)?.expect_value(right_position)?;
+                let outcome = match operator.inner {
+                    MathOperator::Add => left_value.add(&right_value),
+                    MathOperator::Subtract => left_value.subtract(&right_value),
+                    MathOperator::Multiply => left_value.multiply(&right_value),
+                    MathOperator::Divide => left_value.divide(&right_value),
+                    MathOperator::Modulo => left_value.modulo(&right_value),
+                }
+                .map_err(|value_error| VmError::ValueError {
+                    error: value_error,
+                    left_position,
+                    right_position,
+                })?;
+
+                Ok(Evaluation::Return(Some(outcome)))
+            }
             OperatorExpression::Logic {
                 left,
                 operator,
                 right,
-            } => todo!(),
+            } => {
+                let left_position = left.position();
+                let left_value = self.run_expression(left)?.expect_value(left_position)?;
+                let right_position = right.position();
+                let right_value = self.run_expression(right)?.expect_value(right_position)?;
+                let outcome = match operator.inner {
+                    LogicOperator::And => left_value.and(&right_value),
+                    LogicOperator::Or => left_value.or(&right_value),
+                }
+                .map_err(|value_error| VmError::ValueError {
+                    error: value_error,
+                    left_position,
+                    right_position,
+                })?;
+
+                Ok(Evaluation::Return(Some(outcome)))
+            }
         }
     }
 
@@ -267,7 +367,7 @@ impl Vm {
 
         function
             .call(None, Some(value_arguments), &context)
-            .map(|value_option| Evaluation::Return(value_option))
+            .map(Evaluation::Return)
     }
 
     fn run_field_access(&self, field_access: FieldAccessExpression) -> Result<Evaluation, VmError> {
@@ -283,16 +383,6 @@ impl Vm {
         };
 
         Ok(Evaluation::Return(container_value.get_field(&field.inner)))
-    }
-
-    fn run_identifier(&self, identifier: Identifier) -> Result<Evaluation, VmError> {
-        let value_option = self.context.get_value(&identifier);
-
-        if let Some(value) = value_option {
-            Ok(Evaluation::Return(Some(value)))
-        } else {
-            Err(VmError::UndefinedVariable { identifier })
-        }
     }
 
     fn run_list(&self, list_expression: ListExpression) -> Result<Evaluation, VmError> {
@@ -336,19 +426,33 @@ impl Vm {
     fn run_block(&self, block: BlockExpression) -> Result<Evaluation, VmError> {
         match block {
             BlockExpression::Async(statements) => {
-                let expected_return = statements.last().unwrap().expected_type();
-
                 let final_result = Arc::new(Mutex::new(None));
+                let statements_length = statements.len();
+                let error_option =
+                    statements
+                        .into_par_iter()
+                        .enumerate()
+                        .find_map_any(|(i, statement)| {
+                            let evaluation_result = self.run_statement(statement);
 
-                let error_option = statements
-                    .into_par_iter()
-                    .enumerate()
-                    .find_map_any(|statement| self.run_statement(statement).err());
+                            match evaluation_result {
+                                Ok(evaluation) => {
+                                    if i == statements_length - 1 {
+                                        let mut final_result = final_result.lock().unwrap();
+
+                                        *final_result = evaluation;
+                                    }
+
+                                    None
+                                }
+                                Err(error) => Some(error),
+                            }
+                        });
 
                 if let Some(error) = error_option {
                     Err(error)
                 } else {
-                    Ok(Evaluation::Return(None))
+                    Ok(Evaluation::Return(final_result.lock().unwrap().clone()))
                 }
             }
             BlockExpression::Sync(statements) => {
@@ -446,7 +550,8 @@ pub enum VmError {
     },
     ValueError {
         error: ValueError,
-        position: Span,
+        left_position: Span,
+        right_position: Span,
     },
 
     // Anaylsis Failures
@@ -492,6 +597,7 @@ pub enum VmError {
     },
     UndefinedVariable {
         identifier: Identifier,
+        position: Span,
     },
     UndefinedProperty {
         value: Value,
@@ -499,6 +605,36 @@ pub enum VmError {
         property: Identifier,
         property_position: Span,
     },
+}
+
+impl VmError {
+    pub fn position(&self) -> Span {
+        match self {
+            Self::ParseError(parse_error) => parse_error.position(),
+            Self::Trace { position, .. } => *position,
+            Self::ValueError {
+                left_position,
+                right_position,
+                ..
+            } => (left_position.0, right_position.1),
+            Self::BuiltInFunctionError { position, .. } => *position,
+            Self::CannotMutate { position, .. } => *position,
+            Self::ExpectedBoolean { position } => *position,
+            Self::ExpectedIdentifier { position } => *position,
+            Self::ExpectedIntegerOrRange { position } => *position,
+            Self::ExpectedIdentifierOrString { position } => *position,
+            Self::ExpectedInteger { position } => *position,
+            Self::ExpectedNumber { position } => *position,
+            Self::ExpectedMap { position } => *position,
+            Self::ExpectedFunction { position, .. } => *position,
+            Self::ExpectedList { position } => *position,
+            Self::ExpectedValue { position } => *position,
+            Self::UndefinedVariable { position, .. } => *position,
+            Self::UndefinedProperty {
+                property_position, ..
+            } => *property_position,
+        }
+    }
 }
 
 impl From<ParseError> for VmError {
@@ -518,7 +654,17 @@ impl Display for VmError {
                     position, error
                 )
             }
-            Self::ValueError { error, .. } => write!(f, "{}", error),
+            Self::ValueError {
+                error,
+                left_position,
+                right_position,
+            } => {
+                write!(
+                    f,
+                    "Value error with values at positions: {:?} and {:?} {}",
+                    left_position, right_position, error
+                )
+            }
             Self::CannotMutate { value, .. } => {
                 write!(f, "Cannot mutate immutable value {}", value)
             }
@@ -571,8 +717,15 @@ impl Display for VmError {
             Self::ExpectedValue { position } => {
                 write!(f, "Expected a value at position: {:?}", position)
             }
-            Self::UndefinedVariable { identifier } => {
-                write!(f, "Undefined identifier: {}", identifier)
+            Self::UndefinedVariable {
+                identifier,
+                position,
+            } => {
+                write!(
+                    f,
+                    "Undefined variable {} at position: {:?}",
+                    identifier, position
+                )
             }
             Self::UndefinedProperty {
                 value, property, ..
@@ -814,6 +967,13 @@ mod tests {
         let input = "mut x = 1; x += 1; x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(2))));
+    }
+
+    #[test]
+    fn and() {
+        let input = "true && true";
+
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
