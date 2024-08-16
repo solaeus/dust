@@ -679,21 +679,6 @@ pub enum IfExpression {
     },
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum ElseExpression {
-    Block(Node<BlockExpression>),
-    If(Node<Box<IfExpression>>),
-}
-
-impl Display for ElseExpression {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ElseExpression::Block(block) => write!(f, "{}", block),
-            ElseExpression::If(r#if) => write!(f, "{}", r#if),
-        }
-    }
-}
-
 impl Display for IfExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -710,6 +695,21 @@ impl Display for IfExpression {
             } => {
                 write!(f, "if {} {} else {}", condition, if_block, r#else)
             }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum ElseExpression {
+    Block(Node<BlockExpression>),
+    If(Node<Box<IfExpression>>),
+}
+
+impl Display for ElseExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ElseExpression::Block(block) => write!(f, "{}", block),
+            ElseExpression::If(r#if) => write!(f, "{}", r#if),
         }
     }
 }

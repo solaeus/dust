@@ -12,8 +12,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::*, DustError, Identifier, LexError, Lexer, Span, Token, TokenKind, TokenOwned,
-    Type,
+    ast::*, DustError, Identifier, LexError, Lexer, Span, Token, TokenKind, TokenOwned, Type,
 };
 
 /// Parses the input into an abstract syntax tree.

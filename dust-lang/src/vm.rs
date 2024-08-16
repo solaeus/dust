@@ -12,7 +12,7 @@ use std::{
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    abstract_tree::{
+    ast::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ElseExpression, FieldAccessExpression,
         IfExpression, ListExpression, ListIndexExpression, LiteralExpression, LoopExpression, Node,
         OperatorExpression, Statement,

@@ -15,8 +15,8 @@
 //!
 //! assert_eq!(the_answer, Some(Value::integer(42)));
 //! ```
-pub mod abstract_tree;
 pub mod analyzer;
+pub mod ast;
 pub mod built_in_function;
 pub mod context;
 pub mod dust_error;
@@ -28,8 +28,8 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use abstract_tree::{AbstractSyntaxTree, Expression, Node, Statement};
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
+pub use ast::{AbstractSyntaxTree, Expression, Node, Statement};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use context::{Context, VariableData};
 pub use dust_error::DustError;

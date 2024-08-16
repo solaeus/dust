@@ -10,7 +10,7 @@ use std::{
 };
 
 use crate::{
-    abstract_tree::{AbstractSyntaxTree, Node, Statement},
+    ast::{AbstractSyntaxTree, Node, Statement},
     parse, Context, DustError, Identifier, Span, Type,
 };
 
