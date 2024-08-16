@@ -10,7 +10,7 @@ use super::{Expression, Node};
 pub enum Statement {
     Expression(Expression),
     ExpressionNullified(Node<Expression>),
-    Let(Node<Let>),
+    Let(Node<LetStatement>),
     StructDefinition(Node<StructDefinition>),
 }
 
@@ -52,14 +52,51 @@ impl Display for Statement {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Let {
-    pub identifier: Node<Identifier>,
-    pub value: Node<Expression>,
+pub enum LetStatement {
+    Let {
+        identifier: Node<Identifier>,
+        value: Expression,
+    },
+    LetMut {
+        identifier: Node<Identifier>,
+        value: Expression,
+    },
+    LetType {
+        identifier: Node<Identifier>,
+        r#type: Node<Type>,
+        value: Expression,
+    },
+    LetMutType {
+        identifier: Node<Identifier>,
+        r#type: Node<Type>,
+        value: Expression,
+    },
 }
 
-impl Display for Let {
+impl Display for LetStatement {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "let {} = {}", self.identifier, self.value)
+        match self {
+            LetStatement::Let { identifier, value } => {
+                write!(f, "let {identifier} = {value}")
+            }
+            LetStatement::LetMut { identifier, value } => {
+                write!(f, "let mut {identifier} = {value}")
+            }
+            LetStatement::LetType {
+                identifier,
+                r#type,
+                value,
+            } => {
+                write!(f, "let {identifier}: {type} = {value}")
+            }
+            LetStatement::LetMutType {
+                identifier,
+                r#type,
+                value,
+            } => {
+                write!(f, "let mut {identifier}: {type} = {value}")
+            }
+        }
     }
 }
 

@@ -145,6 +145,41 @@ impl<'src> Parser<'src> {
     pub fn parse_statement(&mut self) -> Result<Statement, ParseError> {
         let start_position = self.current_position;
 
+        if let Token::Let = self.current_token {
+            self.next_token()?;
+
+            let is_mutable = if let Token::Mut = self.current_token {
+                self.next_token()?;
+
+                true
+            } else {
+                false
+            };
+
+            let identifier = self.parse_identifier()?;
+
+            if let Token::Equal = self.current_token {
+                self.next_token()?;
+            } else {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::Equal,
+                    actual: self.current_token.to_owned(),
+                    position: self.current_position,
+                });
+            }
+
+            let value = self.parse_expression(0)?;
+
+            let r#let = if is_mutable {
+                LetStatement::LetMut { identifier, value }
+            } else {
+                LetStatement::Let { identifier, value }
+            };
+            let position = (start_position.0, self.current_position.1);
+
+            return Ok(Statement::Let(Node::new(r#let, position)));
+        }
+
         if let Token::Struct = self.current_token {
             self.next_token()?;
 
@@ -1026,10 +1061,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mutable_variable() {
-        let source = "mut x = false";
+    fn let_statement() {
+        let source = "let x = 42";
 
-        assert_eq!(parse(source), todo!());
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree {
+                statements: [Statement::Let(Node::new(
+                    LetStatement::Let {
+                        identifier: Node::new(Identifier::new("x"), (4, 5)),
+                        value: Expression::literal(LiteralExpression::Integer(42), (8, 10)),
+                    },
+                    (0, 10),
+                ))]
+                .into()
+            })
+        );
+    }
+
+    #[test]
+    fn let_mut_statement() {
+        let source = "let mut x = false";
+
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree {
+                statements: [Statement::Let(Node::new(
+                    LetStatement::LetMut {
+                        identifier: Node::new(Identifier::new("x"), (8, 9)),
+                        value: Expression::literal(LiteralExpression::Boolean(false), (12, 17)),
+                    },
+                    (0, 17),
+                ))]
+                .into()
+            })
+        );
     }
 
     #[test]

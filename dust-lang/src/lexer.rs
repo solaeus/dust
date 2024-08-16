@@ -429,6 +429,7 @@ impl Lexer {
             "is_even" => Token::IsEven,
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
+            "let" => Token::Let,
             "mut" => Token::Mut,
             "read_line" => Token::ReadLine,
             "struct" => Token::Struct,
@@ -506,6 +507,22 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn let_statement() {
+        let input = "let x = 42";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Let, (0, 3)),
+                (Token::Identifier("x"), (4, 5)),
+                (Token::Equal, (6, 7)),
+                (Token::Integer("42"), (8, 10)),
+                (Token::Eof, (10, 10)),
+            ])
+        );
+    }
 
     #[test]
     fn unit_struct() {
