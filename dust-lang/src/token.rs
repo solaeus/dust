@@ -238,9 +238,8 @@ impl<'src> Token<'src> {
 
     pub fn precedence(&self) -> u8 {
         match self {
-            Token::Identifier(_) => 10,
             Token::Dot => 9,
-            Token::LeftCurlyBrace | Token::LeftParenthesis | Token::LeftSquareBrace => 8,
+            Token::LeftParenthesis | Token::LeftSquareBrace => 8,
             Token::Star | Token::Slash | Token::Percent => 7,
             Token::Minus | Token::Plus => 6,
             Token::DoubleEqual

@@ -1024,22 +1024,28 @@ mod tests {
             Ok(AbstractSyntaxTree {
                 statements: [Statement::Expression(Expression::block(
                     Block::Async(vec![
-                        Statement::Expression(Expression::operator(
-                            OperatorExpression::Assignment {
-                                assignee: Expression::identifier(Identifier::new("x"), (0, 0)),
-                                value: Expression::literal(LiteralExpression::Integer(42), (0, 0)),
-                            },
-                            (0, 0)
+                        Statement::ExpressionNullified(Node::new(
+                            Expression::operator(
+                                OperatorExpression::Assignment {
+                                    assignee: Expression::identifier(Identifier::new("x"), (8, 9)),
+                                    value: Expression::literal(
+                                        LiteralExpression::Integer(42),
+                                        (12, 14)
+                                    ),
+                                },
+                                (8, 14)
+                            ),
+                            (8, 15)
                         )),
                         Statement::Expression(Expression::operator(
                             OperatorExpression::Assignment {
-                                assignee: Expression::identifier(Identifier::new("y"), (0, 0)),
-                                value: Expression::literal(LiteralExpression::Float(4.0), (0, 0)),
+                                assignee: Expression::identifier(Identifier::new("y"), (16, 17)),
+                                value: Expression::literal(LiteralExpression::Float(4.0), (20, 23)),
                             },
-                            (0, 0)
+                            (16, 23)
                         ))
                     ]),
-                    (0, 0)
+                    (0, 25)
                 ),)]
                 .into()
             })
@@ -1560,45 +1566,45 @@ mod tests {
                                 OperatorExpression::Assignment {
                                     assignee: Expression::identifier(
                                         Identifier::new("foo"),
-                                        (0, 0)
+                                        (2, 5)
                                     ),
                                     value: Expression::literal(
                                         LiteralExpression::Integer(42),
-                                        (0, 0)
+                                        (8, 10)
                                     ),
                                 },
-                                (0, 0)
+                                (2, 10)
                             ),
-                            (0, 0)
+                            (2, 11)
                         ),),
                         Statement::ExpressionNullified(Node::new(
                             Expression::operator(
                                 OperatorExpression::Assignment {
                                     assignee: Expression::identifier(
                                         Identifier::new("bar"),
-                                        (0, 0)
+                                        (12, 15)
                                     ),
                                     value: Expression::literal(
                                         LiteralExpression::Integer(42),
-                                        (0, 0)
+                                        (18, 20)
                                     ),
                                 },
-                                (0, 0)
+                                (12, 20)
                             ),
-                            (0, 0)
+                            (12, 21)
                         ),),
                         Statement::Expression(Expression::operator(
                             OperatorExpression::Assignment {
-                                assignee: Expression::identifier(Identifier::new("baz"), (0, 0)),
+                                assignee: Expression::identifier(Identifier::new("baz"), (22, 25)),
                                 value: Expression::literal(
                                     LiteralExpression::String("42".to_string()),
-                                    (0, 0)
+                                    (28, 32)
                                 ),
                             },
-                            (0, 0)
+                            (22, 32)
                         )),
                     ]),
-                    (0, 0)
+                    (0, 34)
                 ))
             ]))
         )
@@ -1612,10 +1618,10 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
+                    OperatorExpression::Comparison {
                         left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
-                        operator: Node::new(MathOperator::Divide, (3, 5)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (6, 8)),
+                        operator: Node::new(ComparisonOperator::Equal, (3, 5)),
+                        right: Expression::literal(LiteralExpression::Integer(42), (6, 8)),
                     },
                     (0, 8),
                 ))
