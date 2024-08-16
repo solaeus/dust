@@ -5,22 +5,22 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Span, Value};
+use crate::{Context, Identifier, Span, StructType, Type, Value};
 
 use super::{Node, Statement};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
-    Block(Node<Box<Block>>),
+    Block(Node<Box<BlockExpression>>),
     Call(Node<Box<CallExpression>>),
-    FieldAccess(Node<Box<FieldAccess>>),
+    FieldAccess(Node<Box<FieldAccessExpression>>),
     Grouped(Node<Box<Expression>>),
     Identifier(Node<Identifier>),
     If(Node<Box<IfExpression>>),
     List(Node<Box<ListExpression>>),
-    ListIndex(Node<Box<ListIndex>>),
+    ListIndex(Node<Box<ListIndexExpression>>),
     Literal(Node<Box<LiteralExpression>>),
-    Loop(Node<Box<Loop>>),
+    Loop(Node<Box<LoopExpression>>),
     Operator(Node<Box<OperatorExpression>>),
     Range(Node<Box<Range>>),
     Struct(Node<Box<StructExpression>>),
@@ -45,7 +45,7 @@ impl Expression {
 
     pub fn field_access(container: Expression, field: Node<Identifier>, position: Span) -> Self {
         Self::FieldAccess(Node::new(
-            Box::new(FieldAccess { container, field }),
+            Box::new(FieldAccessExpression { container, field }),
             position,
         ))
     }
@@ -146,13 +146,16 @@ impl Expression {
         ))
     }
 
-    pub fn infinite_loop(block: Node<Block>, position: Span) -> Self {
-        Self::Loop(Node::new(Box::new(Loop::Infinite { block }), position))
+    pub fn infinite_loop(block: Node<BlockExpression>, position: Span) -> Self {
+        Self::Loop(Node::new(
+            Box::new(LoopExpression::Infinite { block }),
+            position,
+        ))
     }
 
-    pub fn while_loop(condition: Expression, block: Node<Block>, position: Span) -> Self {
+    pub fn while_loop(condition: Expression, block: Node<BlockExpression>, position: Span) -> Self {
         Self::Loop(Node::new(
-            Box::new(Loop::While { condition, block }),
+            Box::new(LoopExpression::While { condition, block }),
             position,
         ))
     }
@@ -160,11 +163,11 @@ impl Expression {
     pub fn for_loop(
         identifier: Node<Identifier>,
         iterator: Expression,
-        block: Node<Block>,
+        block: Node<BlockExpression>,
         position: Span,
     ) -> Self {
         Self::Loop(Node::new(
-            Box::new(Loop::For {
+            Box::new(LoopExpression::For {
                 identifier,
                 iterator,
                 block,
@@ -173,7 +176,7 @@ impl Expression {
         ))
     }
 
-    pub fn block(block: Block, position: Span) -> Self {
+    pub fn block(block: BlockExpression, position: Span) -> Self {
         Self::Block(Node::new(Box::new(block), position))
     }
 
@@ -193,7 +196,7 @@ impl Expression {
         Self::List(Node::new(Box::new(list_expression), position))
     }
 
-    pub fn list_index(list_index: ListIndex, position: Span) -> Self {
+    pub fn list_index(list_index: ListIndexExpression, position: Span) -> Self {
         Self::ListIndex(Node::new(Box::new(list_index), position))
     }
 
@@ -210,6 +213,127 @@ impl Expression {
             Some(&identifier.inner)
         } else {
             None
+        }
+    }
+
+    pub fn return_type(&self, context: &Context) -> Option<Type> {
+        match self {
+            Expression::Block(block_expression) => {
+                block_expression.inner.as_ref().return_type(context)
+            }
+            Expression::Call(call_expression) => {
+                let CallExpression { invoker, .. } = call_expression.inner.as_ref();
+
+                let invoker_type = invoker.return_type(context)?;
+
+                if let Type::Function { return_type, .. } = invoker_type {
+                    return_type.map(|r#type| *r#type)
+                } else if let Type::Struct(_) = invoker_type {
+                    Some(invoker_type)
+                } else {
+                    None
+                }
+            }
+            Expression::FieldAccess(field_access_expression) => {
+                let FieldAccessExpression { container, field } =
+                    field_access_expression.inner.as_ref();
+
+                let container_type = container.return_type(context)?;
+
+                if let Type::Struct(StructType::Fields { fields, .. }) = container_type {
+                    fields
+                        .into_iter()
+                        .find(|(name, _)| name == &field.inner)
+                        .map(|(_, r#type)| r#type)
+                } else {
+                    None
+                }
+            }
+            Expression::Grouped(expression) => expression.inner.return_type(context),
+            Expression::Identifier(identifier) => context.get_type(&identifier.inner),
+            Expression::If(if_expression) => match if_expression.inner.as_ref() {
+                IfExpression::If { .. } => None,
+                IfExpression::IfElse { if_block, .. } => if_block.inner.return_type(context),
+            },
+
+            Expression::List(list_expression) => match list_expression.inner.as_ref() {
+                ListExpression::AutoFill { repeat_operand, .. } => {
+                    let item_type = repeat_operand.return_type(context)?;
+
+                    Some(Type::ListOf {
+                        item_type: Box::new(item_type),
+                    })
+                }
+                ListExpression::Ordered(expressions) => {
+                    if expressions.is_empty() {
+                        return Some(Type::EmptyList);
+                    }
+
+                    let item_type = expressions.last().unwrap().return_type(context)?;
+                    let length = expressions.len();
+
+                    Some(Type::List {
+                        item_type: Box::new(item_type),
+                        length,
+                    })
+                }
+            },
+            Expression::ListIndex(list_index_expression) => {
+                let ListIndexExpression { list, .. } = list_index_expression.inner.as_ref();
+
+                let list_type = list.return_type(context)?;
+
+                if let Type::List { item_type, .. } = list_type {
+                    Some(*item_type)
+                } else {
+                    None
+                }
+            }
+            Expression::Literal(literal_expression) => match literal_expression.inner.as_ref() {
+                LiteralExpression::Boolean(_) => Some(Type::Boolean),
+                LiteralExpression::Float(_) => Some(Type::Float),
+                LiteralExpression::Integer(_) => Some(Type::Integer),
+                LiteralExpression::String(_) => Some(Type::String),
+                LiteralExpression::Value(value) => Some(value.r#type()),
+            },
+            Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
+                LoopExpression::For { block, .. } => block.inner.return_type(context),
+                LoopExpression::Infinite { .. } => None,
+                LoopExpression::While { block, .. } => block.inner.return_type(context),
+            },
+            Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
+                OperatorExpression::Assignment { .. } => None,
+                OperatorExpression::Comparison { .. } => Some(Type::Boolean),
+                OperatorExpression::CompoundAssignment { .. } => None,
+                OperatorExpression::ErrorPropagation(expression) => expression.return_type(context),
+                OperatorExpression::Negation(expression) => expression.return_type(context),
+                OperatorExpression::Not(_) => Some(Type::Boolean),
+                OperatorExpression::Math { left, .. } => left.return_type(context),
+                OperatorExpression::Logic { .. } => Some(Type::Boolean),
+            },
+            Expression::Range(_) => Some(Type::Range),
+            Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
+                StructExpression::Fields { name, fields } => {
+                    let mut field_types = Vec::with_capacity(fields.len());
+
+                    for (name, expression) in fields {
+                        let r#type = expression.return_type(context)?;
+
+                        field_types.push((name.inner.clone(), r#type));
+                    }
+
+                    Some(Type::Struct(StructType::Fields {
+                        name: name.inner.clone(),
+                        fields: field_types,
+                    }))
+                }
+                StructExpression::Unit { name } => Some(Type::Struct(StructType::Unit {
+                    name: name.inner.clone(),
+                })),
+            },
+            Expression::TupleAccess(tuple_access_expression) => {
+                todo!()
+            }
         }
     }
 
@@ -279,12 +403,12 @@ impl Display for Range {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ListIndex {
+pub struct ListIndexExpression {
     pub list: Expression,
     pub index: Expression,
 }
 
-impl Display for ListIndex {
+impl Display for ListIndexExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}[{}]", self.list, self.index)
     }
@@ -313,12 +437,12 @@ impl Display for CallExpression {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct FieldAccess {
+pub struct FieldAccessExpression {
     pub container: Expression,
     pub field: Node<Identifier>,
 }
 
-impl Display for FieldAccess {
+impl Display for FieldAccessExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}.{}", self.container, self.field)
     }
@@ -546,18 +670,18 @@ impl Display for LogicOperator {
 pub enum IfExpression {
     If {
         condition: Expression,
-        if_block: Node<Block>,
+        if_block: Node<BlockExpression>,
     },
     IfElse {
         condition: Expression,
-        if_block: Node<Block>,
+        if_block: Node<BlockExpression>,
         r#else: ElseExpression,
     },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ElseExpression {
-    Block(Node<Block>),
+    Block(Node<BlockExpression>),
     If(Node<Box<IfExpression>>),
 }
 
@@ -591,15 +715,28 @@ impl Display for IfExpression {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Block {
+pub enum BlockExpression {
     Async(Vec<Statement>),
     Sync(Vec<Statement>),
 }
 
-impl Display for Block {
+impl BlockExpression {
+    fn return_type(&self, context: &Context) -> Option<Type> {
+        match self {
+            BlockExpression::Async(statements) => statements
+                .last()
+                .and_then(|statement| statement.return_type(context)),
+            BlockExpression::Sync(statements) => statements
+                .last()
+                .and_then(|statement| statement.return_type(context)),
+        }
+    }
+}
+
+impl Display for BlockExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Block::Async(statements) => {
+            BlockExpression::Async(statements) => {
                 writeln!(f, "async {{ ")?;
 
                 for (i, statement) in statements.iter().enumerate() {
@@ -612,7 +749,7 @@ impl Display for Block {
 
                 write!(f, " }}")
             }
-            Block::Sync(statements) => {
+            BlockExpression::Sync(statements) => {
                 writeln!(f, "{{ ")?;
 
                 for (i, statement) in statements.iter().enumerate() {
@@ -630,27 +767,29 @@ impl Display for Block {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum Loop {
+pub enum LoopExpression {
     Infinite {
-        block: Node<Block>,
+        block: Node<BlockExpression>,
     },
     While {
         condition: Expression,
-        block: Node<Block>,
+        block: Node<BlockExpression>,
     },
     For {
         identifier: Node<Identifier>,
         iterator: Expression,
-        block: Node<Block>,
+        block: Node<BlockExpression>,
     },
 }
 
-impl Display for Loop {
+impl Display for LoopExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Loop::Infinite { block } => write!(f, "loop {}", block),
-            Loop::While { condition, block } => write!(f, "while {} {}", condition, block),
-            Loop::For {
+            LoopExpression::Infinite { block } => write!(f, "loop {}", block),
+            LoopExpression::While { condition, block } => {
+                write!(f, "while {} {}", condition, block)
+            }
+            LoopExpression::For {
                 identifier,
                 iterator,
                 block,

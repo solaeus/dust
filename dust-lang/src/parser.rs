@@ -757,7 +757,7 @@ impl<'src> Parser<'src> {
 
                 let position = (left.position().0, operator_end);
 
-                Expression::list_index(ListIndex { list: left, index }, position)
+                Expression::list_index(ListIndexExpression { list: left, index }, position)
             }
             _ => {
                 return Err(ParseError::UnexpectedToken {
@@ -834,7 +834,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_block(&mut self) -> Result<Node<Block>, ParseError> {
+    fn parse_block(&mut self) -> Result<Node<BlockExpression>, ParseError> {
         let left_start = self.current_position.0;
         let is_async = if let Token::Async = self.current_token {
             self.next_token()?;
@@ -863,9 +863,9 @@ impl<'src> Parser<'src> {
                 self.next_token()?;
 
                 return if is_async {
-                    Ok(Node::new(Block::Async(statements), position))
+                    Ok(Node::new(BlockExpression::Async(statements), position))
                 } else {
-                    Ok(Node::new(Block::Sync(statements), position))
+                    Ok(Node::new(BlockExpression::Sync(statements), position))
                 };
             }
 
@@ -1041,7 +1041,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree {
                 statements: [Statement::Expression(Expression::block(
-                    Block::Async(vec![
+                    BlockExpression::Async(vec![
                         Statement::ExpressionNullified(Node::new(
                             Expression::operator(
                                 OperatorExpression::Assignment {
@@ -1230,9 +1230,9 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::list_index(
-                    ListIndex {
+                    ListIndexExpression {
                         list: Expression::list_index(
-                            ListIndex {
+                            ListIndexExpression {
                                 list: Expression::list(
                                     ListExpression::Ordered(vec![
                                         Expression::literal(LiteralExpression::Integer(1), (1, 2)),
@@ -1389,10 +1389,9 @@ mod tests {
                     IfExpression::If {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
-                            Block::Sync(vec![Statement::Expression(Expression::identifier(
-                                Identifier::new("y"),
-                                (7, 8)
-                            ))]),
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("y"), (7, 8))
+                            )]),
                             (5, 10)
                         )
                     },
@@ -1413,17 +1412,15 @@ mod tests {
                     IfExpression::IfElse {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
-                            Block::Sync(vec![Statement::Expression(Expression::identifier(
-                                Identifier::new("y"),
-                                (7, 8)
-                            ))]),
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("y"), (7, 8))
+                            )]),
                             (5, 10)
                         ),
                         r#else: ElseExpression::Block(Node::new(
-                            Block::Sync(vec![Statement::Expression(Expression::identifier(
-                                Identifier::new("z"),
-                                (18, 19)
-                            ))]),
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("z"), (18, 19))
+                            )]),
                             (16, 21)
                         ))
                     },
@@ -1444,23 +1441,22 @@ mod tests {
                     IfExpression::IfElse {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
-                            Block::Sync(vec![Statement::Expression(Expression::identifier(
-                                Identifier::new("y"),
-                                (7, 8)
-                            ))]),
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("y"), (7, 8))
+                            )]),
                             (5, 10)
                         ),
                         r#else: ElseExpression::If(Node::new(
                             Box::new(IfExpression::IfElse {
                                 condition: Expression::identifier(Identifier::new("z"), (19, 20)),
                                 if_block: Node::new(
-                                    Block::Sync(vec![Statement::Expression(
+                                    BlockExpression::Sync(vec![Statement::Expression(
                                         Expression::identifier(Identifier::new("a"), (23, 24))
                                     )]),
                                     (21, 26)
                                 ),
                                 r#else: ElseExpression::Block(Node::new(
-                                    Block::Sync(vec![Statement::Expression(
+                                    BlockExpression::Sync(vec![Statement::Expression(
                                         Expression::identifier(Identifier::new("b"), (34, 35))
                                     )]),
                                     (32, 37)
@@ -1492,7 +1488,7 @@ mod tests {
                         (6, 12)
                     ),
                     Node::new(
-                        Block::Sync(vec![Statement::Expression(Expression::operator(
+                        BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
                             OperatorExpression::CompoundAssignment {
                                 assignee: Expression::identifier(Identifier::new("x"), (15, 16)),
                                 operator: Node::new(MathOperator::Add, (17, 19)),
@@ -1557,7 +1553,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::block(
-                    Block::Sync(vec![Statement::Expression(Expression::operator(
+                    BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
                         OperatorExpression::Math {
                             left: Expression::literal(LiteralExpression::Integer(40), (2, 4)),
                             operator: Node::new(MathOperator::Add, (5, 6)),
@@ -1579,7 +1575,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::block(
-                    Block::Sync(vec![
+                    BlockExpression::Sync(vec![
                         Statement::ExpressionNullified(Node::new(
                             Expression::operator(
                                 OperatorExpression::Assignment {
@@ -1844,7 +1840,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::list_index(
-                    ListIndex {
+                    ListIndexExpression {
                         list: Expression::list(
                             ListExpression::Ordered(vec![
                                 Expression::literal(LiteralExpression::Integer(1), (1, 2)),

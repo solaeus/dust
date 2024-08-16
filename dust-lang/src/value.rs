@@ -241,17 +241,17 @@ impl Value {
     }
 
     pub fn get_field(&self, field: &Identifier) -> Option<Value> {
-        return match self {
+        match self {
             Value::Immutable(inner) => inner.get_field(field),
             Value::Mutable(inner) => inner.read().unwrap().get_field(field),
-        };
+        }
     }
 
     pub fn get_index(&self, index: usize) -> Option<Value> {
-        return match self {
+        match self {
             Value::Immutable(inner) => inner.get_index(index),
             Value::Mutable(inner) => inner.read().unwrap().get_index(index),
-        };
+        }
     }
 
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {

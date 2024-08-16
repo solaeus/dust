@@ -31,6 +31,7 @@ pub struct TypeConflict {
 pub enum Type {
     Any,
     Boolean,
+    EmptyList,
     Enum {
         name: Identifier,
         type_parameters: Option<Vec<Type>>,
@@ -251,6 +252,7 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
+            Type::EmptyList => write!(f, "[]"),
             Type::Enum { variants, .. } => {
                 write!(f, "enum ")?;
 
@@ -282,7 +284,7 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List { item_type, length } => write!(f, "[{item_type}; {length}]"),
-            Type::ListOf { item_type } => write!(f, "list_of({item_type})"),
+            Type::ListOf { item_type } => write!(f, "[{item_type}]"),
             Type::Map(map) => {
                 write!(f, "{{ ")?;
 

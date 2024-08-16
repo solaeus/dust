@@ -10,7 +10,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Span, Type};
+use crate::{Context, Identifier, Span, Type};
 
 /// In-memory representation of a Dust program.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -67,6 +67,17 @@ pub enum Statement {
 impl Statement {
     pub fn struct_definition(struct_definition: StructDefinition, position: Span) -> Self {
         Statement::StructDefinition(Node::new(struct_definition, position))
+    }
+
+    pub fn return_type(&self, context: &Context) -> Option<Type> {
+        match self {
+            Statement::Expression(expression) => expression.return_type(context),
+            Statement::ExpressionNullified(expression_node) => {
+                expression_node.inner.return_type(context)
+            }
+            Statement::Let(_) => None,
+            Statement::StructDefinition(_) => None,
+        }
     }
 
     pub fn position(&self) -> Span {

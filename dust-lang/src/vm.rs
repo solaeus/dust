@@ -5,19 +5,20 @@
 //! - `run_with_context` convenience function that takes a source code string and a context
 //! - `Vm` struct that can be used to run an abstract syntax tree
 use std::{
-    collections::BTreeMap,
     fmt::{self, Display, Formatter},
+    sync::{Arc, Mutex},
 };
 
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 use crate::{
     abstract_tree::{
-        AbstractSyntaxTree, Block, CallExpression, ElseExpression, FieldAccess, IfExpression,
-        ListExpression, Node, Statement,
+        AbstractSyntaxTree, BlockExpression, CallExpression, ElseExpression, FieldAccessExpression,
+        IfExpression, ListExpression, ListIndexExpression, LiteralExpression, LoopExpression, Node,
+        OperatorExpression, Statement,
     },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
-    Span, Value, ValueError,
+    Span, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -109,7 +110,9 @@ impl Vm {
     fn run_statement(&self, statement: Statement) -> Result<Option<Value>, VmError> {
         let position = statement.position();
         let result = match statement {
-            Statement::Expression(expression) => self.run_expression(expression),
+            Statement::Expression(expression) => self
+                .run_expression(expression)
+                .map(|evaluation| evaluation.value()),
             Statement::ExpressionNullified(expression) => {
                 self.run_expression(expression.inner)?;
 
@@ -125,146 +128,230 @@ impl Vm {
         })
     }
 
-    fn run_expression(&self, expression: Expression) -> Result<Option<Value>, VmError> {
+    fn run_expression(&self, expression: Expression) -> Result<Evaluation, VmError> {
         let position = expression.position();
-        let result = match expression {
+        let evaluation_result = match expression {
             Expression::Block(Node { inner, .. }) => self.run_block(*inner),
-            Expression::Call(Node { inner, .. }) => {
-                let CallExpression { invoker, arguments } = *inner;
-
-                let invoker_position = invoker.position();
-                let invoker_value = if let Some(value) = self.run_expression(invoker)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: invoker_position,
-                    });
-                };
-
-                let function = if let Some(function) = invoker_value.as_function() {
-                    function
-                } else {
-                    return Err(VmError::ExpectedFunction {
-                        actual: invoker_value,
-                        position: invoker_position,
-                    });
-                };
-
-                let mut value_arguments = Vec::new();
-
-                for argument in arguments {
-                    let position = argument.position();
-
-                    if let Some(value) = self.run_expression(argument)? {
-                        value_arguments.push(value);
-                    } else {
-                        return Err(VmError::ExpectedValue { position });
-                    }
-                }
-
-                let context = Context::new();
-
-                function.call(None, Some(value_arguments), &context)
-            }
-            Expression::FieldAccess(Node { inner, .. }) => {
-                let FieldAccess { container, field } = *inner;
-
-                let container_position = container.position();
-                let container_value = if let Some(value) = self.run_expression(container)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: container_position,
-                    });
-                };
-
-                Ok(container_value.get_field(&field.inner))
-            }
+            Expression::Call(call) => self.run_call(*call.inner),
+            Expression::FieldAccess(field_access) => self.run_field_access(*field_access.inner),
             Expression::Grouped(expression) => self.run_expression(*expression.inner),
-            Expression::Identifier(identifier) => {
-                let value_option = self.context.get_value(&identifier.inner);
-
-                if let Some(value) = value_option {
-                    Ok(Some(value))
-                } else {
-                    Err(VmError::UndefinedVariable { identifier })
-                }
-            }
+            Expression::Identifier(identifier) => self.run_identifier(identifier.inner),
             Expression::If(if_expression) => self.run_if(*if_expression.inner),
             Expression::List(list_expression) => self.run_list(*list_expression.inner),
-            Expression::ListIndex(_) => todo!(),
-            Expression::Literal(_) => todo!(),
-            Expression::Loop(_) => todo!(),
+            Expression::ListIndex(list_index) => self.run_list_index(*list_index.inner),
+            Expression::Literal(literal) => self.run_literal(*literal.inner),
+            Expression::Loop(loop_expression) => self.run_loop(*loop_expression.inner),
             Expression::Operator(_) => todo!(),
             Expression::Range(_) => todo!(),
             Expression::Struct(_) => todo!(),
             Expression::TupleAccess(_) => todo!(),
         };
 
-        result.map_err(|error| VmError::Trace {
+        evaluation_result.map_err(|error| VmError::Trace {
             error: Box::new(error),
             position,
         })
     }
 
-    fn run_list(&self, list_expression: ListExpression) -> Result<Option<Value>, VmError> {
+    fn run_operator(&self, operator: OperatorExpression) -> Result<Evaluation, VmError> {
+        match operator {
+            OperatorExpression::Assignment { assignee, value } => todo!(),
+            OperatorExpression::Comparison {
+                left,
+                operator,
+                right,
+            } => todo!(),
+            OperatorExpression::CompoundAssignment {
+                assignee,
+                operator,
+                modifier,
+            } => todo!(),
+            OperatorExpression::ErrorPropagation(_) => todo!(),
+            OperatorExpression::Negation(_) => todo!(),
+            OperatorExpression::Not(_) => todo!(),
+            OperatorExpression::Math {
+                left,
+                operator,
+                right,
+            } => todo!(),
+            OperatorExpression::Logic {
+                left,
+                operator,
+                right,
+            } => todo!(),
+        }
+    }
+
+    fn run_loop(&self, loop_expression: LoopExpression) -> Result<Evaluation, VmError> {
+        match loop_expression {
+            LoopExpression::Infinite { block } => loop {
+                self.run_expression(Expression::block(block.inner.clone(), block.position))?;
+            },
+            LoopExpression::While { condition, block } => todo!(),
+            LoopExpression::For {
+                identifier,
+                iterator,
+                block,
+            } => todo!(),
+        }
+    }
+
+    fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, VmError> {
+        let value = match literal {
+            LiteralExpression::Boolean(boolean) => Value::boolean(boolean),
+            LiteralExpression::Float(float) => Value::float(float),
+            LiteralExpression::Integer(integer) => Value::integer(integer),
+            LiteralExpression::String(string) => Value::string(string),
+            LiteralExpression::Value(value) => value,
+        };
+
+        Ok(Evaluation::Return(Some(value)))
+    }
+
+    fn run_list_index(&self, list_index: ListIndexExpression) -> Result<Evaluation, VmError> {
+        let ListIndexExpression { list, index } = list_index;
+
+        let list_position = list.position();
+        let list_value = self.run_expression(list)?.expect_value(list_position)?;
+
+        let index_position = index.position();
+        let index_value = self.run_expression(index)?.expect_value(index_position)?;
+
+        let index = if let Some(index) = index_value.as_integer() {
+            index as usize
+        } else {
+            return Err(VmError::ExpectedInteger {
+                position: index_position,
+            });
+        };
+
+        let value_option = list_value.get_index(index);
+
+        Ok(Evaluation::Return(value_option))
+    }
+
+    fn run_call(&self, call_expression: CallExpression) -> Result<Evaluation, VmError> {
+        let CallExpression { invoker, arguments } = call_expression;
+
+        let invoker_position = invoker.position();
+        let invoker_value = if let Some(value) = self.run_expression(invoker)?.value() {
+            value
+        } else {
+            return Err(VmError::ExpectedValue {
+                position: invoker_position,
+            });
+        };
+
+        let function = if let Some(function) = invoker_value.as_function() {
+            function
+        } else {
+            return Err(VmError::ExpectedFunction {
+                actual: invoker_value,
+                position: invoker_position,
+            });
+        };
+
+        let mut value_arguments = Vec::new();
+
+        for argument in arguments {
+            let position = argument.position();
+
+            if let Some(value) = self.run_expression(argument)?.value() {
+                value_arguments.push(value);
+            } else {
+                return Err(VmError::ExpectedValue { position });
+            }
+        }
+
+        let context = Context::new();
+
+        function
+            .call(None, Some(value_arguments), &context)
+            .map(|value_option| Evaluation::Return(value_option))
+    }
+
+    fn run_field_access(&self, field_access: FieldAccessExpression) -> Result<Evaluation, VmError> {
+        let FieldAccessExpression { container, field } = field_access;
+
+        let container_position = container.position();
+        let container_value = if let Some(value) = self.run_expression(container)?.value() {
+            value
+        } else {
+            return Err(VmError::ExpectedValue {
+                position: container_position,
+            });
+        };
+
+        Ok(Evaluation::Return(container_value.get_field(&field.inner)))
+    }
+
+    fn run_identifier(&self, identifier: Identifier) -> Result<Evaluation, VmError> {
+        let value_option = self.context.get_value(&identifier);
+
+        if let Some(value) = value_option {
+            Ok(Evaluation::Return(Some(value)))
+        } else {
+            Err(VmError::UndefinedVariable { identifier })
+        }
+    }
+
+    fn run_list(&self, list_expression: ListExpression) -> Result<Evaluation, VmError> {
         match list_expression {
             ListExpression::AutoFill {
                 repeat_operand,
                 length_operand,
             } => {
                 let position = length_operand.position();
-                let length = if let Some(value) = self.run_expression(length_operand)? {
-                    if let Some(length) = value.as_integer() {
-                        length
-                    } else {
-                        return Err(VmError::ExpectedInteger { position });
-                    }
-                } else {
-                    return Err(VmError::ExpectedValue { position });
-                };
+                let length = self
+                    .run_expression(length_operand)?
+                    .expect_value(position)?
+                    .as_integer()
+                    .ok_or(VmError::ExpectedInteger { position })?;
 
                 let position = repeat_operand.position();
-                let value = if let Some(value) = self.run_expression(repeat_operand)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue { position });
-                };
+                let value = self
+                    .run_expression(repeat_operand)?
+                    .expect_value(position)?;
 
-                Ok(Some(Value::list(vec![value; length as usize])))
+                Ok(Evaluation::Return(Some(Value::list(vec![
+                    value;
+                    length as usize
+                ]))))
             }
             ListExpression::Ordered(expressions) => {
                 let mut values = Vec::new();
 
                 for expression in expressions {
                     let position = expression.position();
+                    let value = self.run_expression(expression)?.expect_value(position)?;
 
-                    if let Some(value) = self.run_expression(expression)? {
-                        values.push(value);
-                    } else {
-                        return Err(VmError::ExpectedValue { position });
-                    }
+                    values.push(value);
                 }
 
-                Ok(Some(Value::list(values)))
+                Ok(Evaluation::Return(Some(Value::list(values))))
             }
         }
     }
 
-    fn run_block(&self, block: Block) -> Result<Option<Value>, VmError> {
+    fn run_block(&self, block: BlockExpression) -> Result<Evaluation, VmError> {
         match block {
-            Block::Async(statements) => {
+            BlockExpression::Async(statements) => {
+                let expected_return = statements.last().unwrap().expected_type();
+
+                let final_result = Arc::new(Mutex::new(None));
+
                 let error_option = statements
                     .into_par_iter()
+                    .enumerate()
                     .find_map_any(|statement| self.run_statement(statement).err());
 
                 if let Some(error) = error_option {
                     Err(error)
                 } else {
-                    Ok(None)
+                    Ok(Evaluation::Return(None))
                 }
             }
-            Block::Sync(statements) => {
+            BlockExpression::Sync(statements) => {
                 let mut previous_value = None;
 
                 for statement in statements {
@@ -275,60 +362,44 @@ impl Vm {
                     self.context.collect_garbage(position.1);
                 }
 
-                Ok(previous_value)
+                Ok(Evaluation::Return(previous_value))
             }
         }
     }
 
-    fn run_if(&self, if_expression: IfExpression) -> Result<Option<Value>, VmError> {
+    fn run_if(&self, if_expression: IfExpression) -> Result<Evaluation, VmError> {
         match if_expression {
             IfExpression::If {
                 condition,
                 if_block,
             } => {
-                let condition_position = condition.position();
-                let condition_value = if let Some(value) = self.run_expression(condition)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: condition_position,
-                    });
-                };
+                let position = condition.position();
+                let boolean = self
+                    .run_expression(condition)?
+                    .expect_value(position)?
+                    .as_boolean()
+                    .ok_or(VmError::ExpectedBoolean { position })?;
 
-                if let Some(boolean) = condition_value.as_boolean() {
-                    if boolean {
-                        self.run_expression(Expression::block(if_block.inner, if_block.position))?;
-                    }
-                } else {
-                    return Err(VmError::ExpectedBoolean {
-                        position: condition_position,
-                    });
+                if boolean {
+                    self.run_expression(Expression::block(if_block.inner, if_block.position))?;
                 }
 
-                Ok(None)
+                Ok(Evaluation::Return(None))
             }
             IfExpression::IfElse {
                 condition,
                 if_block,
                 r#else,
             } => {
-                let condition_position = condition.position();
-                let condition_value = if let Some(value) = self.run_expression(condition)? {
-                    value
-                } else {
-                    return Err(VmError::ExpectedValue {
-                        position: condition_position,
-                    });
-                };
+                let position = condition.position();
+                let boolean = self
+                    .run_expression(condition)?
+                    .expect_value(position)?
+                    .as_boolean()
+                    .ok_or(VmError::ExpectedBoolean { position })?;
 
-                if let Some(boolean) = condition_value.as_boolean() {
-                    if boolean {
-                        self.run_expression(Expression::block(if_block.inner, if_block.position))?;
-                    }
-                } else {
-                    return Err(VmError::ExpectedBoolean {
-                        position: condition_position,
-                    });
+                if boolean {
+                    self.run_expression(Expression::block(if_block.inner, if_block.position))?;
                 }
 
                 match r#else {
@@ -340,6 +411,28 @@ impl Vm {
                     }
                 }
             }
+        }
+    }
+}
+
+enum Evaluation {
+    Break,
+    Return(Option<Value>),
+}
+
+impl Evaluation {
+    pub fn value(self) -> Option<Value> {
+        match self {
+            Evaluation::Break => None,
+            Evaluation::Return(value_option) => value_option,
+        }
+    }
+
+    pub fn expect_value(self, position: Span) -> Result<Value, VmError> {
+        if let Evaluation::Return(Some(value)) = self {
+            Ok(value)
+        } else {
+            Err(VmError::ExpectedValue { position })
         }
     }
 }
@@ -398,7 +491,7 @@ pub enum VmError {
         position: Span,
     },
     UndefinedVariable {
-        identifier: Node<Identifier>,
+        identifier: Identifier,
     },
     UndefinedProperty {
         value: Value,
@@ -406,32 +499,6 @@ pub enum VmError {
         property: Identifier,
         property_position: Span,
     },
-}
-
-impl VmError {
-    pub fn position(&self) -> Span {
-        match self {
-            Self::ParseError(parse_error) => parse_error.position(),
-            Self::Trace { position, .. } => *position,
-            Self::ValueError { position, .. } => *position,
-            Self::CannotMutate { position, .. } => *position,
-            Self::BuiltInFunctionError { position, .. } => *position,
-            Self::ExpectedBoolean { position } => *position,
-            Self::ExpectedIdentifier { position } => *position,
-            Self::ExpectedIdentifierOrString { position } => *position,
-            Self::ExpectedIntegerOrRange { position } => *position,
-            Self::ExpectedInteger { position } => *position,
-            Self::ExpectedFunction { position, .. } => *position,
-            Self::ExpectedList { position } => *position,
-            Self::ExpectedMap { position } => *position,
-            Self::ExpectedNumber { position } => *position,
-            Self::ExpectedValue { position } => *position,
-            Self::UndefinedVariable { identifier } => identifier.position,
-            Self::UndefinedProperty {
-                property_position, ..
-            } => *property_position,
-        }
-    }
 }
 
 impl From<ParseError> for VmError {
