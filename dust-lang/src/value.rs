@@ -105,12 +105,17 @@ impl Value {
         matches!(self, Value::Mutable(_))
     }
 
-    pub fn to_mut(self) -> Self {
-        match self {
-            Value::Immutable(inner) => {
-                Value::Mutable(Arc::new(RwLock::new(inner.as_ref().clone())))
-            }
-            _ => self,
+    pub fn to_mut(self) -> Result<Value, ValueError> {
+        if let Value::Immutable(arc) = self {
+            let value_data = if let Some(value_data) = Arc::into_inner(arc) {
+                value_data
+            } else {
+                return Err(ValueError::CannotMakeMutable);
+            };
+
+            Ok(Value::Mutable(Arc::new(RwLock::new(value_data))))
+        } else {
+            Ok(self)
         }
     }
 
@@ -317,7 +322,7 @@ impl Value {
         Err(ValueError::CannotAdd(self.clone(), other.clone()))
     }
 
-    pub fn add_mut(&self, other: &Value) -> Result<(), ValueError> {
+    pub fn add_assign(&self, other: &Value) -> Result<(), ValueError> {
         match (self, other) {
             (Value::Mutable(left), Value::Mutable(right)) => {
                 match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
@@ -412,7 +417,7 @@ impl Value {
         Err(ValueError::CannotSubtract(self.clone(), other.clone()))
     }
 
-    pub fn subtract_mut(&self, other: &Value) -> Result<(), ValueError> {
+    pub fn subtract_assign(&self, other: &Value) -> Result<(), ValueError> {
         match (self, other) {
             (Value::Mutable(left), Value::Mutable(right)) => {
                 match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
@@ -483,6 +488,42 @@ impl Value {
                     }
                     _ => {}
                 }
+            }
+        }
+
+        Err(ValueError::CannotMultiply(self.clone(), other.clone()))
+    }
+
+    pub fn multiply_assign(&self, other: &Value) -> Result<(), ValueError> {
+        match (self, other) {
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left *= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        *left = left.saturating_mul(*right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&mut *left.write().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left *= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        *left = left.saturating_mul(*right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(_), _) => {
+                return Err(ValueError::CannotMutate(self.clone()));
             }
         }
 
@@ -564,6 +605,54 @@ impl Value {
         Err(ValueError::CannotDivide(self.clone(), other.clone()))
     }
 
+    pub fn divide_assign(&self, other: &Value) -> Result<(), ValueError> {
+        match (self, other) {
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        if *right == 0.0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        *left /= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        *left = left.saturating_div(*right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&mut *left.write().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        if *right == 0.0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        *left /= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        *left = left.saturating_div(*right);
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(_), _) => {
+                return Err(ValueError::CannotMutate(self.clone()));
+            }
+        }
+
+        Err(ValueError::CannotDivide(self.clone(), other.clone()))
+    }
+
     pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
             (Value::Immutable(left), Value::Immutable(right)) => {
@@ -621,6 +710,48 @@ impl Value {
                     }
                     _ => {}
                 }
+            }
+        }
+
+        Err(ValueError::CannotModulo(self.clone(), other.clone()))
+    }
+
+    pub fn modulo_assign(&self, other: &Value) -> Result<(), ValueError> {
+        match (self, other) {
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left %= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        *left %= right;
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Mutable(left), Value::Immutable(right)) => {
+                match (&mut *left.write().unwrap(), right.as_ref()) {
+                    (ValueData::Float(left), ValueData::Float(right)) => {
+                        *left %= right;
+                        return Ok(());
+                    }
+                    (ValueData::Integer(left), ValueData::Integer(right)) => {
+                        if *right == 0 {
+                            return Err(ValueError::DivisionByZero);
+                        }
+                        *left %= right;
+                        return Ok(());
+                    }
+                    _ => {}
+                }
+            }
+            (Value::Immutable(_), _) => {
+                return Err(ValueError::CannotMutate(self.clone()));
             }
         }
 
@@ -1614,6 +1745,7 @@ pub enum ValueError {
     CannotGreaterThanOrEqual(Value, Value),
     CannotLessThan(Value, Value),
     CannotLessThanOrEqual(Value, Value),
+    CannotMakeMutable,
     CannotModulo(Value, Value),
     CannotMultiply(Value, Value),
     CannotMutate(Value),
@@ -1644,6 +1776,10 @@ impl Display for ValueError {
             ValueError::CannotMultiply(left, right) => {
                 write!(f, "Cannot multiply {} and {}", left, right)
             }
+            ValueError::CannotMakeMutable => write!(
+                f,
+                "Failed to make mutable value because the value has an immutable reference to it"
+            ),
             ValueError::CannotMutate(value) => write!(f, "Cannot mutate {}", value),
             ValueError::CannotSubtract(left, right) => {
                 write!(f, "Cannot subtract {} and {}", left, right)

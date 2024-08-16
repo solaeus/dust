@@ -10,8 +10,8 @@ use std::{
 };
 
 use crate::{
-    ast::{AbstractSyntaxTree, Node, Statement},
-    parse, Context, DustError, Identifier, Span, Type,
+    ast::{AbstractSyntaxTree, LetStatement, Node, OperatorExpression, Statement},
+    parse, Context, DustError, Expression, Identifier, Span, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -65,14 +65,125 @@ impl<'a> Analyzer<'a> {
     }
 
     pub fn analyze(&mut self) -> Result<(), AnalyzerError> {
-        for node in &self.abstract_tree.statements {
-            self.analyze_statement(node)?;
+        for statement in &self.abstract_tree.statements {
+            self.analyze_statement(statement)?;
         }
 
         Ok(())
     }
 
-    fn analyze_statement(&mut self, _: &Statement) -> Result<(), AnalyzerError> {
+    fn analyze_statement(&mut self, statement: &Statement) -> Result<(), AnalyzerError> {
+        match statement {
+            Statement::Expression(expression) => self.analyze_expression(expression)?,
+            Statement::ExpressionNullified(expression_node) => {
+                self.analyze_expression(&expression_node.inner)?;
+            }
+            Statement::Let(let_statement) => match &let_statement.inner {
+                LetStatement::Let { identifier, value } => {
+                    let type_option = value.return_type(self.context);
+
+                    if let Some(r#type) = type_option {
+                        self.context.set_type(
+                            identifier.inner.clone(),
+                            r#type,
+                            identifier.position,
+                        );
+                    } else {
+                        return Err(AnalyzerError::UndefinedVariable {
+                            identifier: identifier.clone(),
+                        });
+                    }
+
+                    self.analyze_expression(value)?;
+                }
+                LetStatement::LetMut { identifier, value } => {
+                    let type_option = value.return_type(self.context);
+
+                    if let Some(r#type) = type_option {
+                        self.context.set_type(
+                            identifier.inner.clone(),
+                            r#type,
+                            identifier.position,
+                        );
+                    } else {
+                        return Err(AnalyzerError::UndefinedVariable {
+                            identifier: identifier.clone(),
+                        });
+                    }
+
+                    self.analyze_expression(value)?;
+                }
+                LetStatement::LetType {
+                    identifier,
+                    r#type,
+                    value,
+                } => todo!(),
+                LetStatement::LetMutType {
+                    identifier,
+                    r#type,
+                    value,
+                } => todo!(),
+            },
+            Statement::StructDefinition(_) => {}
+        }
+
+        Ok(())
+    }
+
+    fn analyze_expression(&mut self, expression: &Expression) -> Result<(), AnalyzerError> {
+        match expression {
+            Expression::Block(_) => {}
+            Expression::Call(_) => {}
+            Expression::FieldAccess(_) => {}
+            Expression::Grouped(_) => {}
+            Expression::Identifier(identifier) => {
+                let found = self
+                    .context
+                    .update_last_position(&identifier.inner, identifier.position);
+
+                if !found {
+                    return Err(AnalyzerError::UndefinedVariable {
+                        identifier: identifier.clone(),
+                    });
+                }
+            }
+            Expression::If(_) => {}
+            Expression::List(_) => {}
+            Expression::ListIndex(_) => {}
+            Expression::Literal(_) => {}
+            Expression::Loop(_) => {}
+            Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
+                OperatorExpression::Assignment { assignee, value } => {
+                    self.analyze_expression(assignee)?;
+                    self.analyze_expression(value)?;
+                }
+                OperatorExpression::Comparison { left, right, .. } => {
+                    self.analyze_expression(left)?;
+                    self.analyze_expression(right)?;
+                }
+                OperatorExpression::CompoundAssignment {
+                    assignee, modifier, ..
+                } => {
+                    self.analyze_expression(assignee)?;
+                    self.analyze_expression(modifier)?;
+                }
+                OperatorExpression::ErrorPropagation(_) => todo!(),
+                OperatorExpression::Negation(_) => todo!(),
+                OperatorExpression::Not(_) => todo!(),
+                OperatorExpression::Math { left, right, .. } => {
+                    self.analyze_expression(left)?;
+                    self.analyze_expression(right)?;
+                }
+                OperatorExpression::Logic { left, right, .. } => {
+                    self.analyze_expression(left)?;
+                    self.analyze_expression(right)?;
+                }
+            },
+            Expression::Range(_) => {}
+            Expression::Struct(_) => {}
+            Expression::TupleAccess(_) => {}
+        }
+
         Ok(())
     }
 }
@@ -124,13 +235,13 @@ pub enum AnalyzerError {
         identifier: Node<Identifier>,
     },
     UnexpectedIdentifier {
-        identifier: Statement,
+        identifier: Node<Identifier>,
     },
     UnexectedString {
         actual: Statement,
     },
     UndefinedVariable {
-        identifier: Statement,
+        identifier: Node<Identifier>,
     },
 }
 
@@ -151,8 +262,8 @@ impl AnalyzerError {
             } => actual_statement.position(),
             AnalyzerError::UndefinedField { identifier, .. } => identifier.position(),
             AnalyzerError::UndefinedType { identifier } => identifier.position,
-            AnalyzerError::UndefinedVariable { identifier } => identifier.position(),
-            AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position(),
+            AnalyzerError::UndefinedVariable { identifier } => identifier.position,
+            AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position,
             AnalyzerError::UnexectedString { actual } => actual.position(),
         }
     }

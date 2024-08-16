@@ -170,6 +170,10 @@ impl<'src> Parser<'src> {
 
             let value = self.parse_expression(0)?;
 
+            if let Token::Semicolon = self.current_token {
+                self.next_token()?;
+            }
+
             let r#let = if is_mutable {
                 LetStatement::LetMut { identifier, value }
             } else {

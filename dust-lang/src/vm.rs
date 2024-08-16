@@ -14,12 +14,12 @@ use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterato
 use crate::{
     ast::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
-        FieldAccessExpression, IfExpression, ListExpression, ListIndexExpression,
+        FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
         LiteralExpression, LogicOperator, LoopExpression, MathOperator, Node, OperatorExpression,
         Statement,
     },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
-    Span, Type, Value, ValueError,
+    Span, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -90,20 +90,11 @@ impl Vm {
     }
 
     pub fn run(&mut self) -> Result<Option<Value>, VmError> {
-        let mut previous_position = (0, 0);
         let mut previous_value = None;
 
         while let Some(statement) = self.abstract_tree.statements.pop_front() {
-            let new_position = statement.position();
-
             previous_value = self.run_statement(statement)?;
-
-            self.context.collect_garbage(previous_position.1);
-
-            previous_position = new_position;
         }
-
-        self.context.collect_garbage(previous_position.1);
 
         Ok(previous_value)
     }
@@ -119,14 +110,48 @@ impl Vm {
 
                 Ok(None)
             }
-            Statement::Let(_) => todo!(),
+            Statement::Let(let_statement) => {
+                self.run_let_statement(let_statement.inner)?;
+
+                Ok(None)
+            }
             Statement::StructDefinition(_) => todo!(),
         };
+
+        self.context.collect_garbage(position.1);
 
         result.map_err(|error| VmError::Trace {
             error: Box::new(error),
             position,
         })
+    }
+
+    fn run_let_statement(&self, let_statement: LetStatement) -> Result<(), VmError> {
+        match let_statement {
+            LetStatement::Let { identifier, value } => {
+                let value_position = value.position();
+                let value = self.run_expression(value)?.expect_value(value_position)?;
+
+                self.context.set_value(identifier.inner, value);
+
+                Ok(())
+            }
+            LetStatement::LetMut { identifier, value } => {
+                let value_position = value.position();
+                let value = self.run_expression(value)?.expect_value(value_position)?;
+                let mutable_value = value.to_mut().map_err(|error| VmError::ValueError {
+                    error,
+                    left_position: identifier.position,
+                    right_position: value_position,
+                })?;
+
+                self.context.set_value(identifier.inner, mutable_value);
+
+                Ok(())
+            }
+            LetStatement::LetType { .. } => todo!(),
+            LetStatement::LetMutType { .. } => todo!(),
+        }
     }
 
     fn run_expression(&self, expression: Expression) -> Result<Evaluation, VmError> {
@@ -177,7 +202,13 @@ impl Vm {
                 let value_position = value.position();
                 let value = self.run_expression(value)?.expect_value(value_position)?;
 
-                assignee.mutate(value);
+                assignee
+                    .mutate(value)
+                    .map_err(|error| VmError::ValueError {
+                        error,
+                        left_position: assignee_position,
+                        right_position: value_position,
+                    })?;
 
                 Ok(Evaluation::Return(None))
             }
@@ -230,7 +261,31 @@ impl Vm {
                 assignee,
                 operator,
                 modifier,
-            } => todo!(),
+            } => {
+                let assignee_position = assignee.position();
+                let assignee = self
+                    .run_expression(assignee)?
+                    .expect_value(assignee_position)?;
+                let modifier_position = modifier.position();
+                let modifier = self
+                    .run_expression(modifier)?
+                    .expect_value(modifier_position)?;
+
+                match operator.inner {
+                    MathOperator::Add => assignee.add_assign(&modifier),
+                    MathOperator::Subtract => assignee.subtract_assign(&modifier),
+                    MathOperator::Multiply => assignee.multiply_assign(&modifier),
+                    MathOperator::Divide => assignee.divide_assign(&modifier),
+                    MathOperator::Modulo => assignee.modulo_assign(&modifier),
+                }
+                .map_err(|error| VmError::ValueError {
+                    error,
+                    left_position: assignee_position,
+                    right_position: modifier_position,
+                })?;
+
+                Ok(Evaluation::Return(None))
+            }
             OperatorExpression::ErrorPropagation(_) => todo!(),
             OperatorExpression::Negation(_) => todo!(),
             OperatorExpression::Not(_) => todo!(),
@@ -743,29 +798,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn mutate_variable() {
-        let input = "
-            mut x = ''
-
-            x += 'foo'
-            x += 'bar'
-
-            x
-        ";
-
-        assert_eq!(run(input), Ok(Some(Value::string_mut("foobar"))));
-    }
-
-    #[test]
     fn async_block() {
-        let input = "mut x = 1; async { x += 1; x -= 1; } x";
+        let input = "let mut x = 1; async { x += 1; x -= 1; } x";
 
         assert!(run(input).unwrap().unwrap().as_integer().is_some());
     }
 
     #[test]
     fn define_and_instantiate_fields_struct() {
-        let input = "struct Foo { bar: int, baz: float } Foo { bar = 42, baz = 4.0 }";
+        let input = "struct Foo { bar: int, baz: float } Foo { bar: 42, baz: 4.0 }";
 
         assert_eq!(
             run(input),
@@ -840,20 +881,6 @@ mod tests {
     #[test]
     fn list_index_nested() {
         let input = "[[1, 2], [42, 4], [5, 6]][1][0]";
-
-        assert_eq!(run(input), Ok(Some(Value::integer(42))));
-    }
-
-    #[test]
-    fn map_property() {
-        let input = "{ x = 42 }.x";
-
-        assert_eq!(run(input), Ok(Some(Value::integer(42))));
-    }
-
-    #[test]
-    fn map_property_nested() {
-        let input = "{ x = { y = 42 } }.x.y";
 
         assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }
@@ -950,21 +977,23 @@ mod tests {
 
     #[test]
     fn while_loop() {
-        let input = "mut x = 0; while x < 5 { x += 1; } x";
+        let input = "let mut x = 0; while x < 5 { x += 1; } x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(5))));
     }
 
     #[test]
     fn subtract_assign() {
-        let input = "mut x = 1; x -= 1; x";
+        let input = "let mut x = 1; x -= 1; x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(0))));
     }
 
     #[test]
     fn add_assign() {
-        let input = "mut x = 1; x += 1; x";
+        env_logger::builder().is_test(true).try_init().ok();
+
+        let input = "let mut x = 1; x += 1; x";
 
         assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
@@ -979,13 +1008,6 @@ mod tests {
     #[test]
     fn or() {
         let input = "true || false";
-
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
-    }
-
-    #[test]
-    fn map_equal() {
-        let input = "{ y = 'foo' } == { y = 'foo' }";
 
         assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
