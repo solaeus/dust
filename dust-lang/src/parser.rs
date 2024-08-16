@@ -774,7 +774,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_if(&mut self) -> Result<If, ParseError> {
+    fn parse_if(&mut self) -> Result<IfExpression, ParseError> {
         // Assume that the "if" token has already been consumed
 
         self.mode = ParserMode::Condition;
@@ -788,27 +788,30 @@ impl<'src> Parser<'src> {
         if let Token::Else = self.current_token {
             self.next_token()?;
 
+            let if_keyword_start = self.current_position.0;
+
             if let Token::If = self.current_token {
                 self.next_token()?;
 
-                let else_if = self.parse_if()?;
+                let if_expression = self.parse_if()?;
+                let position = (if_keyword_start, self.current_position.1);
 
-                Ok(If::IfElse {
+                Ok(IfExpression::IfElse {
                     condition,
                     if_block,
-                    r#else: ElseExpression::If(Box::new(else_if)),
+                    r#else: ElseExpression::If(Node::new(Box::new(if_expression), position)),
                 })
             } else {
                 let else_block = self.parse_block()?;
 
-                Ok(If::IfElse {
+                Ok(IfExpression::IfElse {
                     condition,
                     if_block,
                     r#else: ElseExpression::Block(else_block),
                 })
             }
         } else {
-            Ok(If::If {
+            Ok(IfExpression::If {
                 condition,
                 if_block,
             })
@@ -1383,7 +1386,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::r#if(
-                    If::If {
+                    IfExpression::If {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
                             Block::Sync(vec![Statement::Expression(Expression::identifier(
@@ -1407,7 +1410,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::r#if(
-                    If::IfElse {
+                    IfExpression::IfElse {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
                             Block::Sync(vec![Statement::Expression(Expression::identifier(
@@ -1438,7 +1441,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::r#if(
-                    If::IfElse {
+                    IfExpression::IfElse {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
                             Block::Sync(vec![Statement::Expression(Expression::identifier(
@@ -1447,23 +1450,24 @@ mod tests {
                             ))]),
                             (5, 10)
                         ),
-                        r#else: ElseExpression::If(Box::new(If::IfElse {
-                            condition: Expression::identifier(Identifier::new("z"), (19, 20)),
-                            if_block: Node::new(
-                                Block::Sync(vec![Statement::Expression(Expression::identifier(
-                                    Identifier::new("a"),
-                                    (23, 24)
-                                ))]),
-                                (21, 26)
-                            ),
-                            r#else: ElseExpression::Block(Node::new(
-                                Block::Sync(vec![Statement::Expression(Expression::identifier(
-                                    Identifier::new("b"),
-                                    (34, 35)
-                                ))]),
-                                (32, 37)
-                            )),
-                        })),
+                        r#else: ElseExpression::If(Node::new(
+                            Box::new(IfExpression::IfElse {
+                                condition: Expression::identifier(Identifier::new("z"), (19, 20)),
+                                if_block: Node::new(
+                                    Block::Sync(vec![Statement::Expression(
+                                        Expression::identifier(Identifier::new("a"), (23, 24))
+                                    )]),
+                                    (21, 26)
+                                ),
+                                r#else: ElseExpression::Block(Node::new(
+                                    Block::Sync(vec![Statement::Expression(
+                                        Expression::identifier(Identifier::new("b"), (34, 35))
+                                    )]),
+                                    (32, 37)
+                                )),
+                            }),
+                            (16, 37)
+                        )),
                     },
                     (0, 37)
                 ))

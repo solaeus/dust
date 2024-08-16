@@ -16,7 +16,7 @@ pub enum Expression {
     FieldAccess(Node<Box<FieldAccess>>),
     Grouped(Node<Box<Expression>>),
     Identifier(Node<Identifier>),
-    If(Node<Box<If>>),
+    If(Node<Box<IfExpression>>),
     List(Node<Box<ListExpression>>),
     ListIndex(Node<Box<ListIndex>>),
     Literal(Node<Box<LiteralExpression>>),
@@ -197,7 +197,7 @@ impl Expression {
         Self::ListIndex(Node::new(Box::new(list_index), position))
     }
 
-    pub fn r#if(r#if: If, position: Span) -> Self {
+    pub fn r#if(r#if: IfExpression, position: Span) -> Self {
         Self::If(Node::new(Box::new(r#if), position))
     }
 
@@ -543,7 +543,7 @@ impl Display for LogicOperator {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum If {
+pub enum IfExpression {
     If {
         condition: Expression,
         if_block: Node<Block>,
@@ -558,7 +558,7 @@ pub enum If {
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ElseExpression {
     Block(Node<Block>),
-    If(Box<If>),
+    If(Node<Box<IfExpression>>),
 }
 
 impl Display for ElseExpression {
@@ -570,16 +570,16 @@ impl Display for ElseExpression {
     }
 }
 
-impl Display for If {
+impl Display for IfExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            If::If {
+            IfExpression::If {
                 condition,
                 if_block,
             } => {
                 write!(f, "if {} {}", condition, if_block)
             }
-            If::IfElse {
+            IfExpression::IfElse {
                 condition,
                 if_block,
                 r#else,

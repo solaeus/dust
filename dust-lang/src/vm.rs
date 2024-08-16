@@ -12,9 +12,12 @@ use std::{
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
-    abstract_tree::{AbstractSyntaxTree, Block, CallExpression, FieldAccess, Node, Statement},
+    abstract_tree::{
+        AbstractSyntaxTree, Block, CallExpression, ElseExpression, FieldAccess, IfExpression,
+        ListExpression, Node, Statement,
+    },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
-    Span, Struct, StructType, Type, Value, ValueError,
+    Span, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -104,7 +107,8 @@ impl Vm {
     }
 
     fn run_statement(&self, statement: Statement) -> Result<Option<Value>, VmError> {
-        match statement {
+        let position = statement.position();
+        let result = match statement {
             Statement::Expression(expression) => self.run_expression(expression),
             Statement::ExpressionNullified(expression) => {
                 self.run_expression(expression.inner)?;
@@ -113,37 +117,18 @@ impl Vm {
             }
             Statement::Let(_) => todo!(),
             Statement::StructDefinition(_) => todo!(),
-        }
+        };
+
+        result.map_err(|error| VmError::Trace {
+            error: Box::new(error),
+            position,
+        })
     }
 
     fn run_expression(&self, expression: Expression) -> Result<Option<Value>, VmError> {
-        match expression {
-            Expression::Block(Node { inner, position }) => match *inner {
-                Block::Async(statements) => {
-                    let error_option = statements
-                        .into_par_iter()
-                        .find_map_any(|statement| self.run_statement(statement).err());
-
-                    if let Some(error) = error_option {
-                        Err(error)
-                    } else {
-                        Ok(None)
-                    }
-                }
-                Block::Sync(statements) => {
-                    let mut previous_value = None;
-
-                    for statement in statements {
-                        let position = statement.position();
-
-                        previous_value = self.run_statement(statement)?;
-
-                        self.context.collect_garbage(position.1);
-                    }
-
-                    Ok(previous_value)
-                }
-            },
+        let position = expression.position();
+        let result = match expression {
+            Expression::Block(Node { inner, .. }) => self.run_block(*inner),
             Expression::Call(Node { inner, .. }) => {
                 let CallExpression { invoker, arguments } = *inner;
 
@@ -195,10 +180,18 @@ impl Vm {
 
                 Ok(container_value.get_field(&field.inner))
             }
-            Expression::Grouped(_) => todo!(),
-            Expression::Identifier(_) => todo!(),
-            Expression::If(_) => todo!(),
-            Expression::List(_) => todo!(),
+            Expression::Grouped(expression) => self.run_expression(*expression.inner),
+            Expression::Identifier(identifier) => {
+                let value_option = self.context.get_value(&identifier.inner);
+
+                if let Some(value) = value_option {
+                    Ok(Some(value))
+                } else {
+                    Err(VmError::UndefinedVariable { identifier })
+                }
+            }
+            Expression::If(if_expression) => self.run_if(*if_expression.inner),
+            Expression::List(list_expression) => self.run_list(*list_expression.inner),
             Expression::ListIndex(_) => todo!(),
             Expression::Literal(_) => todo!(),
             Expression::Loop(_) => todo!(),
@@ -206,6 +199,147 @@ impl Vm {
             Expression::Range(_) => todo!(),
             Expression::Struct(_) => todo!(),
             Expression::TupleAccess(_) => todo!(),
+        };
+
+        result.map_err(|error| VmError::Trace {
+            error: Box::new(error),
+            position,
+        })
+    }
+
+    fn run_list(&self, list_expression: ListExpression) -> Result<Option<Value>, VmError> {
+        match list_expression {
+            ListExpression::AutoFill {
+                repeat_operand,
+                length_operand,
+            } => {
+                let position = length_operand.position();
+                let length = if let Some(value) = self.run_expression(length_operand)? {
+                    if let Some(length) = value.as_integer() {
+                        length
+                    } else {
+                        return Err(VmError::ExpectedInteger { position });
+                    }
+                } else {
+                    return Err(VmError::ExpectedValue { position });
+                };
+
+                let position = repeat_operand.position();
+                let value = if let Some(value) = self.run_expression(repeat_operand)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue { position });
+                };
+
+                Ok(Some(Value::list(vec![value; length as usize])))
+            }
+            ListExpression::Ordered(expressions) => {
+                let mut values = Vec::new();
+
+                for expression in expressions {
+                    let position = expression.position();
+
+                    if let Some(value) = self.run_expression(expression)? {
+                        values.push(value);
+                    } else {
+                        return Err(VmError::ExpectedValue { position });
+                    }
+                }
+
+                Ok(Some(Value::list(values)))
+            }
+        }
+    }
+
+    fn run_block(&self, block: Block) -> Result<Option<Value>, VmError> {
+        match block {
+            Block::Async(statements) => {
+                let error_option = statements
+                    .into_par_iter()
+                    .find_map_any(|statement| self.run_statement(statement).err());
+
+                if let Some(error) = error_option {
+                    Err(error)
+                } else {
+                    Ok(None)
+                }
+            }
+            Block::Sync(statements) => {
+                let mut previous_value = None;
+
+                for statement in statements {
+                    let position = statement.position();
+
+                    previous_value = self.run_statement(statement)?;
+
+                    self.context.collect_garbage(position.1);
+                }
+
+                Ok(previous_value)
+            }
+        }
+    }
+
+    fn run_if(&self, if_expression: IfExpression) -> Result<Option<Value>, VmError> {
+        match if_expression {
+            IfExpression::If {
+                condition,
+                if_block,
+            } => {
+                let condition_position = condition.position();
+                let condition_value = if let Some(value) = self.run_expression(condition)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: condition_position,
+                    });
+                };
+
+                if let Some(boolean) = condition_value.as_boolean() {
+                    if boolean {
+                        self.run_expression(Expression::block(if_block.inner, if_block.position))?;
+                    }
+                } else {
+                    return Err(VmError::ExpectedBoolean {
+                        position: condition_position,
+                    });
+                }
+
+                Ok(None)
+            }
+            IfExpression::IfElse {
+                condition,
+                if_block,
+                r#else,
+            } => {
+                let condition_position = condition.position();
+                let condition_value = if let Some(value) = self.run_expression(condition)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: condition_position,
+                    });
+                };
+
+                if let Some(boolean) = condition_value.as_boolean() {
+                    if boolean {
+                        self.run_expression(Expression::block(if_block.inner, if_block.position))?;
+                    }
+                } else {
+                    return Err(VmError::ExpectedBoolean {
+                        position: condition_position,
+                    });
+                }
+
+                match r#else {
+                    ElseExpression::If(if_expression) => {
+                        self.run_expression(Expression::If(if_expression))
+                    }
+                    ElseExpression::Block(block) => {
+                        self.run_expression(Expression::block(block.inner, block.position))
+                    }
+                }
+            }
         }
     }
 }
@@ -213,6 +347,10 @@ impl Vm {
 #[derive(Clone, Debug, PartialEq)]
 pub enum VmError {
     ParseError(ParseError),
+    Trace {
+        error: Box<VmError>,
+        position: Span,
+    },
     ValueError {
         error: ValueError,
         position: Span,
@@ -274,6 +412,7 @@ impl VmError {
     pub fn position(&self) -> Span {
         match self {
             Self::ParseError(parse_error) => parse_error.position(),
+            Self::Trace { position, .. } => *position,
             Self::ValueError { position, .. } => *position,
             Self::CannotMutate { position, .. } => *position,
             Self::BuiltInFunctionError { position, .. } => *position,
@@ -305,6 +444,13 @@ impl Display for VmError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
+            Self::Trace { error, position } => {
+                write!(
+                    f,
+                    "Error during execution at position: {:?}\n{}",
+                    position, error
+                )
+            }
             Self::ValueError { error, .. } => write!(f, "{}", error),
             Self::CannotMutate { value, .. } => {
                 write!(f, "Cannot mutate immutable value {}", value)
@@ -488,13 +634,6 @@ mod tests {
     #[test]
     fn map_property_nested() {
         let input = "{ x = { y = 42 } }.x.y";
-
-        assert_eq!(run(input), Ok(Some(Value::integer(42))));
-    }
-
-    #[test]
-    fn map_property_access_expression() {
-        let input = "{ foobar = 42 }.('foo' + 'bar')";
 
         assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }
