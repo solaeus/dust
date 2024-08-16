@@ -125,6 +125,7 @@ pub struct Parser<'src> {
     lexer: Lexer,
     current_token: Token<'src>,
     current_position: Span,
+    mode: ParserMode,
 }
 
 impl<'src> Parser<'src> {
@@ -138,6 +139,7 @@ impl<'src> Parser<'src> {
             lexer,
             current_token,
             current_position,
+            mode: ParserMode::Normal,
         }
     }
 
@@ -356,6 +358,53 @@ impl<'src> Parser<'src> {
                 self.next_token()?;
 
                 let identifier = Identifier::new(text);
+
+                if let ParserMode::Condition = self.mode {
+                    return Ok(Expression::identifier(identifier, start_position));
+                }
+
+                if let Token::LeftCurlyBrace = self.current_token {
+                    let name = Node::new(identifier, start_position);
+
+                    self.next_token()?;
+
+                    let mut fields = Vec::new();
+
+                    loop {
+                        if let Token::RightCurlyBrace = self.current_token {
+                            self.next_token()?;
+
+                            break;
+                        }
+
+                        let field_name = self.parse_identifier()?;
+
+                        if let Token::Colon = self.current_token {
+                            self.next_token()?;
+                        } else {
+                            return Err(ParseError::ExpectedToken {
+                                expected: TokenKind::Colon,
+                                actual: self.current_token.to_owned(),
+                                position: self.current_position,
+                            });
+                        }
+
+                        let field_value = self.parse_expression(0)?;
+
+                        fields.push((field_name, field_value));
+
+                        if let Token::Comma = self.current_token {
+                            self.next_token()?;
+                        }
+                    }
+
+                    let position = (start_position.0, self.current_position.1);
+
+                    return Ok(Expression::r#struct(
+                        StructExpression::Fields { name, fields },
+                        position,
+                    ));
+                }
 
                 Ok(Expression::identifier(identifier, start_position))
             }
@@ -664,51 +713,6 @@ impl<'src> Parser<'src> {
                     Expression::field_access(left, field, position)
                 }
             }
-            Token::LeftCurlyBrace => {
-                let identifier = if let Some(identifier) = left.as_identifier() {
-                    identifier
-                } else {
-                    return Err(ParseError::ExpectedIdentifierNode { actual: left });
-                };
-
-                let name = Node::new(identifier.clone(), left.position());
-
-                self.next_token()?;
-
-                let mut fields = Vec::new();
-
-                loop {
-                    if let Token::RightCurlyBrace = self.current_token {
-                        self.next_token()?;
-
-                        break;
-                    }
-
-                    let field_name = self.parse_identifier()?;
-
-                    if let Token::Colon = self.current_token {
-                        self.next_token()?;
-                    } else {
-                        return Err(ParseError::ExpectedToken {
-                            expected: TokenKind::Colon,
-                            actual: self.current_token.to_owned(),
-                            position: self.current_position,
-                        });
-                    }
-
-                    let field_value = self.parse_expression(0)?;
-
-                    fields.push((field_name, field_value));
-
-                    if let Token::Comma = self.current_token {
-                        self.next_token()?;
-                    }
-                }
-
-                let position = (left.position().0, self.current_position.1);
-
-                Expression::r#struct(StructExpression::Fields { name, fields }, position)
-            }
             Token::LeftParenthesis => {
                 self.next_token()?;
 
@@ -773,7 +777,12 @@ impl<'src> Parser<'src> {
     fn parse_if(&mut self) -> Result<If, ParseError> {
         // Assume that the "if" token has already been consumed
 
-        let condition = self.parse_expression(10)?;
+        self.mode = ParserMode::Condition;
+
+        let condition = self.parse_expression(0)?;
+
+        self.mode = ParserMode::Normal;
+
         let if_block = self.parse_block()?;
 
         if let Token::Else = self.current_token {
@@ -882,6 +891,12 @@ impl<'src> Parser<'src> {
 
         Ok(Node::new(r#type, position))
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ParserMode {
+    Condition,
+    Normal,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -1092,19 +1107,19 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::r#struct(
                     StructExpression::Fields {
-                        name: Node::new(Identifier::new("Foo"), (0, 0)),
+                        name: Node::new(Identifier::new("Foo"), (0, 3)),
                         fields: vec![
                             (
-                                Node::new(Identifier::new("a"), (0, 0)),
-                                Expression::literal(LiteralExpression::Integer(42), (0, 0)),
+                                Node::new(Identifier::new("a"), (6, 7)),
+                                Expression::literal(LiteralExpression::Integer(42), (9, 11)),
                             ),
                             (
-                                Node::new(Identifier::new("b"), (0, 0)),
-                                Expression::literal(LiteralExpression::Float(4.0), (0, 0))
+                                Node::new(Identifier::new("b"), (13, 14)),
+                                Expression::literal(LiteralExpression::Float(4.0), (16, 19))
                             )
                         ]
                     },
-                    (0, 0)
+                    (0, 21)
                 ))
             ]))
         );
