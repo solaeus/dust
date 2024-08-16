@@ -5,7 +5,7 @@ use std::{
     error::Error,
     fmt::{self, Display, Formatter},
     ops::Range,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockWriteGuard},
 };
 
 use serde::{
@@ -135,13 +135,6 @@ impl Value {
         }
     }
 
-    pub fn get_property(&self, property: &Identifier) -> Option<Value> {
-        match self {
-            Value::Immutable(inner) => inner.get_property(property),
-            Value::Mutable(inner_locked) => inner_locked.read().unwrap().get_property(property),
-        }
-    }
-
     pub fn as_boolean(&self) -> Option<bool> {
         match self {
             Value::Immutable(arc) => match arc.as_ref() {
@@ -211,16 +204,6 @@ impl Value {
         }
     }
 
-    pub fn as_range(&self) -> Option<&Range<i64>> {
-        if let Value::Immutable(arc) = self {
-            if let ValueData::Range(range) = arc.as_ref() {
-                return Some(range);
-            }
-        }
-
-        None
-    }
-
     pub fn as_string(&self) -> Option<&String> {
         if let Value::Immutable(arc) = self {
             if let ValueData::String(string) = arc.as_ref() {
@@ -229,6 +212,46 @@ impl Value {
         }
 
         None
+    }
+
+    pub fn as_struct(&self) -> Option<&Struct> {
+        if let Value::Immutable(arc) = self {
+            if let ValueData::Struct(r#struct) = arc.as_ref() {
+                return Some(r#struct);
+            }
+        }
+
+        None
+    }
+
+    pub fn value_data_immutable(&self) -> Option<&ValueData> {
+        if let Value::Immutable(inner) = self {
+            Some(inner.as_ref())
+        } else {
+            None
+        }
+    }
+
+    pub fn value_data_mutable(&self) -> Option<RwLockWriteGuard<ValueData>> {
+        if let Value::Mutable(inner) = self {
+            Some(inner.write().unwrap())
+        } else {
+            None
+        }
+    }
+
+    pub fn get_field(&self, field: &Identifier) -> Option<Value> {
+        return match self {
+            Value::Immutable(inner) => inner.get_field(field),
+            Value::Mutable(inner) => inner.read().unwrap().get_field(field),
+        };
+    }
+
+    pub fn get_index(&self, index: usize) -> Option<Value> {
+        return match self {
+            Value::Immutable(inner) => inner.get_index(index),
+            Value::Mutable(inner) => inner.read().unwrap().get_index(index),
+        };
     }
 
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
@@ -998,18 +1021,43 @@ impl ValueData {
         }
     }
 
-    fn get_property(&self, property: &Identifier) -> Option<Value> {
-        match self {
-            ValueData::List(list) => {
-                if property.as_str() == "length" {
-                    Some(Value::integer(list.len() as i64))
+    fn get_field(&self, property: &Identifier) -> Option<Value> {
+        if let ValueData::Struct(Struct::Fields { fields, .. }) = self {
+            fields.iter().find_map(|(identifier, value)| {
+                if identifier == property {
+                    Some(value.clone())
                 } else {
                     None
                 }
-            }
-            ValueData::Map(value_map) => value_map.get(property).cloned(),
-            _ => None,
+            })
+        } else {
+            None
         }
+    }
+
+    fn get_index(&self, index: usize) -> Option<Value> {
+        if let ValueData::List(list) = self {
+            return list.get(index).cloned();
+        }
+
+        if let ValueData::Range(range) = self {
+            if range.contains(&(index as i64)) {
+                return Some(Value::integer(index as i64));
+            }
+        }
+
+        if let ValueData::String(string) = self {
+            return string
+                .chars()
+                .nth(index)
+                .map(|character| Value::string(character.to_string()));
+        }
+
+        if let ValueData::Struct(Struct::Tuple { fields, .. }) = self {
+            return fields.get(index).cloned();
+        }
+
+        None
     }
 }
 
@@ -1407,7 +1455,7 @@ pub struct Function {
 
 impl Function {
     pub fn call(
-        self,
+        &self,
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
         context: &Context,
@@ -1415,14 +1463,14 @@ impl Function {
         let new_context = Context::with_variables_from(context);
 
         if let (Some(value_parameters), Some(value_arguments)) =
-            (self.value_parameters, value_arguments)
+            (&self.value_parameters, value_arguments)
         {
             for ((identifier, _), value) in value_parameters.into_iter().zip(value_arguments) {
-                new_context.set_value(identifier, value);
+                new_context.set_value(identifier.clone(), value);
             }
         }
 
-        let mut vm = Vm::new(self.body, new_context);
+        let mut vm = Vm::new(self.body.clone(), new_context);
 
         vm.run()
     }

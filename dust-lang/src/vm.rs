@@ -9,10 +9,12 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
 use crate::{
-    abstract_tree::{AbstractSyntaxTree, Node, Statement},
-    parse, Analyzer, BuiltInFunctionError, Context, DustError, Identifier, ParseError, Span,
-    Struct, StructType, Type, Value, ValueError,
+    abstract_tree::{AbstractSyntaxTree, Block, CallExpression, FieldAccess, Node, Statement},
+    parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
+    Span, Struct, StructType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -101,8 +103,110 @@ impl Vm {
         Ok(previous_value)
     }
 
-    fn run_statement(&self, node: Statement) -> Result<Option<Value>, VmError> {
-        todo!()
+    fn run_statement(&self, statement: Statement) -> Result<Option<Value>, VmError> {
+        match statement {
+            Statement::Expression(expression) => self.run_expression(expression),
+            Statement::ExpressionNullified(expression) => {
+                self.run_expression(expression.inner)?;
+
+                Ok(None)
+            }
+            Statement::Let(_) => todo!(),
+            Statement::StructDefinition(_) => todo!(),
+        }
+    }
+
+    fn run_expression(&self, expression: Expression) -> Result<Option<Value>, VmError> {
+        match expression {
+            Expression::Block(Node { inner, position }) => match *inner {
+                Block::Async(statements) => {
+                    let error_option = statements
+                        .into_par_iter()
+                        .find_map_any(|statement| self.run_statement(statement).err());
+
+                    if let Some(error) = error_option {
+                        Err(error)
+                    } else {
+                        Ok(None)
+                    }
+                }
+                Block::Sync(statements) => {
+                    let mut previous_value = None;
+
+                    for statement in statements {
+                        let position = statement.position();
+
+                        previous_value = self.run_statement(statement)?;
+
+                        self.context.collect_garbage(position.1);
+                    }
+
+                    Ok(previous_value)
+                }
+            },
+            Expression::Call(Node { inner, .. }) => {
+                let CallExpression { invoker, arguments } = *inner;
+
+                let invoker_position = invoker.position();
+                let invoker_value = if let Some(value) = self.run_expression(invoker)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: invoker_position,
+                    });
+                };
+
+                let function = if let Some(function) = invoker_value.as_function() {
+                    function
+                } else {
+                    return Err(VmError::ExpectedFunction {
+                        actual: invoker_value,
+                        position: invoker_position,
+                    });
+                };
+
+                let mut value_arguments = Vec::new();
+
+                for argument in arguments {
+                    let position = argument.position();
+
+                    if let Some(value) = self.run_expression(argument)? {
+                        value_arguments.push(value);
+                    } else {
+                        return Err(VmError::ExpectedValue { position });
+                    }
+                }
+
+                let context = Context::new();
+
+                function.call(None, Some(value_arguments), &context)
+            }
+            Expression::FieldAccess(Node { inner, .. }) => {
+                let FieldAccess { container, field } = *inner;
+
+                let container_position = container.position();
+                let container_value = if let Some(value) = self.run_expression(container)? {
+                    value
+                } else {
+                    return Err(VmError::ExpectedValue {
+                        position: container_position,
+                    });
+                };
+
+                Ok(container_value.get_field(&field.inner))
+            }
+            Expression::Grouped(_) => todo!(),
+            Expression::Identifier(_) => todo!(),
+            Expression::If(_) => todo!(),
+            Expression::List(_) => todo!(),
+            Expression::ListIndex(_) => todo!(),
+            Expression::Literal(_) => todo!(),
+            Expression::Loop(_) => todo!(),
+            Expression::Operator(_) => todo!(),
+            Expression::Range(_) => todo!(),
+            Expression::Struct(_) => todo!(),
+            Expression::TupleAccess(_) => todo!(),
+        }
     }
 }
 

@@ -11,60 +11,52 @@ use super::{Node, Statement};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
-    WithBlock(Node<Box<ExpressionWithBlock>>),
-    WithoutBlock(Node<Box<ExpressionWithoutBlock>>),
+    Block(Node<Box<Block>>),
+    Call(Node<Box<CallExpression>>),
+    FieldAccess(Node<Box<FieldAccess>>),
+    Grouped(Node<Box<Expression>>),
+    Identifier(Node<Identifier>),
+    If(Node<Box<If>>),
+    List(Node<Box<ListExpression>>),
+    ListIndex(Node<Box<ListIndex>>),
+    Literal(Node<Box<LiteralExpression>>),
+    Loop(Node<Box<Loop>>),
+    Operator(Node<Box<OperatorExpression>>),
+    Range(Node<Box<Range>>),
+    Struct(Node<Box<StructExpression>>),
+    TupleAccess(Node<Box<TupleAccess>>),
 }
 
 impl Expression {
     pub fn operator(operator_expression: OperatorExpression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(operator_expression)),
-            position,
-        ))
+        Self::Operator(Node::new(Box::new(operator_expression), position))
     }
 
     pub fn range(start: Expression, end: Expression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Range(Range { start, end })),
-            position,
-        ))
+        Self::Range(Node::new(Box::new(Range { start, end }), position))
     }
 
     pub fn call(invoker: Expression, arguments: Vec<Expression>, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Call(CallExpression {
-                invoker,
-                arguments,
-            })),
+        Self::Call(Node::new(
+            Box::new(CallExpression { invoker, arguments }),
             position,
         ))
     }
 
     pub fn field_access(container: Expression, field: Node<Identifier>, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::FieldAccess(FieldAccess {
-                container,
-                field,
-            })),
+        Self::FieldAccess(Node::new(
+            Box::new(FieldAccess { container, field }),
             position,
         ))
     }
 
     pub fn tuple_access(tuple: Expression, index: Node<usize>, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::TupleAccess(TupleAccess {
-                tuple,
-                index,
-            })),
-            position,
-        ))
+        Self::TupleAccess(Node::new(Box::new(TupleAccess { tuple, index }), position))
     }
 
     pub fn assignment(assignee: Expression, value: Expression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(
-                OperatorExpression::Assignment { assignee, value },
-            )),
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::Assignment { assignee, value }),
             position,
         ))
     }
@@ -75,14 +67,12 @@ impl Expression {
         right: Expression,
         position: Span,
     ) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(
-                OperatorExpression::Comparison {
-                    left,
-                    operator,
-                    right,
-                },
-            )),
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::Comparison {
+                left,
+                operator,
+                right,
+            }),
             position,
         ))
     }
@@ -93,14 +83,12 @@ impl Expression {
         modifier: Expression,
         position: Span,
     ) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(
-                OperatorExpression::CompoundAssignment {
-                    assignee,
-                    operator,
-                    modifier,
-                },
-            )),
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::CompoundAssignment {
+                assignee,
+                operator,
+                modifier,
+            }),
             position,
         ))
     }
@@ -111,30 +99,26 @@ impl Expression {
         right: Expression,
         position: Span,
     ) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(OperatorExpression::Math {
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::Math {
                 left,
                 operator,
                 right,
-            })),
+            }),
             position,
         ))
     }
 
     pub fn negation(expression: Expression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(
-                OperatorExpression::Negation(expression),
-            )),
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::Negation(expression)),
             position,
         ))
     }
 
     pub fn not(expression: Expression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(OperatorExpression::Not(
-                expression,
-            ))),
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::Not(expression)),
             position,
         ))
     }
@@ -145,37 +129,30 @@ impl Expression {
         right: Expression,
         position: Span,
     ) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(
-                OperatorExpression::Logic {
-                    left,
-                    operator,
-                    right,
-                },
-            )),
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::Logic {
+                left,
+                operator,
+                right,
+            }),
             position,
         ))
     }
 
     pub fn error_propagation(expression: Expression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Operator(
-                OperatorExpression::ErrorPropagation(expression),
-            )),
+        Self::Operator(Node::new(
+            Box::new(OperatorExpression::ErrorPropagation(expression)),
             position,
         ))
     }
 
     pub fn infinite_loop(block: Node<Block>, position: Span) -> Self {
-        Expression::WithBlock(Node::new(
-            Box::new(ExpressionWithBlock::Loop(Loop::Infinite { block })),
-            position,
-        ))
+        Self::Loop(Node::new(Box::new(Loop::Infinite { block }), position))
     }
 
     pub fn while_loop(condition: Expression, block: Node<Block>, position: Span) -> Self {
-        Expression::WithBlock(Node::new(
-            Box::new(ExpressionWithBlock::Loop(Loop::While { condition, block })),
+        Self::Loop(Node::new(
+            Box::new(Loop::While { condition, block }),
             position,
         ))
     }
@@ -186,82 +163,51 @@ impl Expression {
         block: Node<Block>,
         position: Span,
     ) -> Self {
-        Expression::WithBlock(Node::new(
-            Box::new(ExpressionWithBlock::Loop(Loop::For {
+        Self::Loop(Node::new(
+            Box::new(Loop::For {
                 identifier,
                 iterator,
                 block,
-            })),
+            }),
             position,
         ))
     }
 
     pub fn block(block: Block, position: Span) -> Self {
-        Expression::WithBlock(Node::new(
-            Box::new(ExpressionWithBlock::Block(block)),
-            position,
-        ))
+        Self::Block(Node::new(Box::new(block), position))
     }
 
     pub fn grouped(expression: Expression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Grouped(expression)),
-            position,
-        ))
+        Self::Grouped(Node::new(Box::new(expression), position))
     }
 
     pub fn r#struct(struct_expression: StructExpression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Struct(struct_expression)),
-            position,
-        ))
+        Self::Struct(Node::new(Box::new(struct_expression), position))
     }
 
     pub fn identifier(identifier: Identifier, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Identifier(identifier)),
-            position,
-        ))
+        Self::Identifier(Node::new(identifier, position))
     }
 
     pub fn list(list_expression: ListExpression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::List(list_expression)),
-            position,
-        ))
+        Self::List(Node::new(Box::new(list_expression), position))
     }
 
     pub fn list_index(list_index: ListIndex, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::ListIndex(list_index)),
-            position,
-        ))
+        Self::ListIndex(Node::new(Box::new(list_index), position))
     }
 
     pub fn r#if(r#if: If, position: Span) -> Self {
-        Expression::WithBlock(Node::new(Box::new(ExpressionWithBlock::If(r#if)), position))
+        Self::If(Node::new(Box::new(r#if), position))
     }
 
     pub fn literal(literal: LiteralExpression, position: Span) -> Self {
-        Expression::WithoutBlock(Node::new(
-            Box::new(ExpressionWithoutBlock::Literal(literal)),
-            position,
-        ))
+        Self::Literal(Node::new(Box::new(literal), position))
     }
 
     pub fn as_identifier(&self) -> Option<&Identifier> {
-        if let Expression::WithoutBlock(Node {
-            inner: expression_without_block,
-            ..
-        }) = self
-        {
-            if let ExpressionWithoutBlock::Identifier(identifier) =
-                expression_without_block.as_ref()
-            {
-                Some(identifier)
-            } else {
-                None
-            }
+        if let Expression::Identifier(identifier) = self {
+            Some(&identifier.inner)
         } else {
             None
         }
@@ -269,8 +215,20 @@ impl Expression {
 
     pub fn position(&self) -> Span {
         match self {
-            Expression::WithBlock(expression_node) => expression_node.position,
-            Expression::WithoutBlock(expression_node) => expression_node.position,
+            Expression::Block(block) => block.position,
+            Expression::Call(call) => call.position,
+            Expression::FieldAccess(field_access) => field_access.position,
+            Expression::Grouped(grouped) => grouped.position,
+            Expression::Identifier(identifier) => identifier.position,
+            Expression::If(r#if) => r#if.position,
+            Expression::List(list) => list.position,
+            Expression::ListIndex(list_index) => list_index.position,
+            Expression::Literal(literal) => literal.position,
+            Expression::Loop(r#loop) => r#loop.position,
+            Expression::Operator(operator) => operator.position,
+            Expression::Range(range) => range.position,
+            Expression::Struct(r#struct) => r#struct.position,
+            Expression::TupleAccess(tuple_access) => tuple_access.position,
         }
     }
 }
@@ -278,58 +236,20 @@ impl Expression {
 impl Display for Expression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Expression::WithBlock(expression) => write!(f, "{}", expression),
-            Expression::WithoutBlock(expression) => write!(f, "{}", expression),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum ExpressionWithBlock {
-    Block(Block),
-    Loop(Loop),
-    If(If),
-}
-
-impl Display for ExpressionWithBlock {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ExpressionWithBlock::Block(block) => write!(f, "{}", block),
-            ExpressionWithBlock::Loop(r#loop) => write!(f, "{}", r#loop),
-            ExpressionWithBlock::If(r#if) => write!(f, "{}", r#if),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum ExpressionWithoutBlock {
-    Call(CallExpression),
-    List(ListExpression),
-    Literal(LiteralExpression),
-    Identifier(Identifier),
-    Operator(OperatorExpression),
-    Struct(StructExpression),
-    Grouped(Expression),
-    FieldAccess(FieldAccess),
-    ListIndex(ListIndex),
-    Range(Range),
-    TupleAccess(TupleAccess),
-}
-
-impl Display for ExpressionWithoutBlock {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            ExpressionWithoutBlock::Call(call_expression) => write!(f, "{}", call_expression),
-            ExpressionWithoutBlock::List(list) => write!(f, "{}", list),
-            ExpressionWithoutBlock::Literal(literal) => write!(f, "{}", literal),
-            ExpressionWithoutBlock::Identifier(identifier) => write!(f, "{}", identifier),
-            ExpressionWithoutBlock::Operator(expression) => write!(f, "{}", expression),
-            ExpressionWithoutBlock::Struct(struct_expression) => write!(f, "{}", struct_expression),
-            ExpressionWithoutBlock::Grouped(expression) => write!(f, "({})", expression),
-            ExpressionWithoutBlock::FieldAccess(field_access) => write!(f, "{}", field_access),
-            ExpressionWithoutBlock::ListIndex(list_index) => write!(f, "{}", list_index),
-            ExpressionWithoutBlock::Range(range) => write!(f, "{}", range),
-            ExpressionWithoutBlock::TupleAccess(tuple_access) => write!(f, "{}", tuple_access),
+            Expression::Block(block) => write!(f, "{}", block.inner),
+            Expression::Call(call) => write!(f, "{}", call.inner),
+            Expression::FieldAccess(field_access) => write!(f, "{}", field_access.inner),
+            Expression::Grouped(grouped) => write!(f, "({})", grouped.inner),
+            Expression::Identifier(identifier) => write!(f, "{}", identifier.inner),
+            Expression::If(r#if) => write!(f, "{}", r#if.inner),
+            Expression::List(list) => write!(f, "{}", list.inner),
+            Expression::ListIndex(list_index) => write!(f, "{}", list_index.inner),
+            Expression::Literal(literal) => write!(f, "{}", literal.inner),
+            Expression::Loop(r#loop) => write!(f, "{}", r#loop.inner),
+            Expression::Operator(operator) => write!(f, "{}", operator.inner),
+            Expression::Range(range) => write!(f, "{}", range),
+            Expression::Struct(r#struct) => write!(f, "{}", r#struct.inner),
+            Expression::TupleAccess(tuple_access) => write!(f, "{}", tuple_access),
         }
     }
 }
