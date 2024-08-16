@@ -6,7 +6,6 @@
 //! - `Vm` struct that can be used to run an abstract syntax tree
 use std::{
     fmt::{self, Display, Formatter},
-    ops::Range,
     sync::{Arc, Mutex},
 };
 
@@ -151,14 +150,10 @@ impl Vm {
             }
             LetStatement::LetMut { identifier, value } => {
                 let value_position = value.position();
-                let value = self
+                let mutable_value = self
                     .run_expression(value, collect_garbage)?
-                    .expect_value(value_position)?;
-                let mutable_value = value.to_mut().map_err(|error| VmError::ValueError {
-                    error,
-                    left_position: identifier.position,
-                    right_position: value_position,
-                })?;
+                    .expect_value(value_position)?
+                    .into_mutable();
 
                 self.context.set_value(identifier.inner, mutable_value);
 

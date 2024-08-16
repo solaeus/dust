@@ -10,19 +10,13 @@
 //! library's "length" function does not care about the type of item in the list, only the list
 //! itself. So the input is defined as `[any]`, i.e. `Type::ListOf(Box::new(Type::Any))`.
 use std::{
-    collections::BTreeMap,
     fmt::{self, Display, Formatter},
+    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::Identifier;
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TypeConflict {
-    pub expected: Type,
-    pub actual: Type,
-}
+use crate::{value::Function, Identifier};
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 /// Description of a kind of value.
@@ -31,18 +25,11 @@ pub struct TypeConflict {
 pub enum Type {
     Any,
     Boolean,
-    EmptyList,
-    Enum {
-        name: Identifier,
-        type_parameters: Option<Vec<Type>>,
-        variants: Vec<(Identifier, Option<Vec<Type>>)>,
-    },
+    Byte,
+    Character,
+    Enum(EnumType),
     Float,
-    Function {
-        type_parameters: Option<Vec<Type>>,
-        value_parameters: Option<Vec<(Identifier, Type)>>,
-        return_type: Option<Box<Type>>,
-    },
+    Function(FunctionType),
     Generic {
         identifier: Identifier,
         concrete_type: Option<Box<Type>>,
@@ -52,14 +39,15 @@ pub enum Type {
         item_type: Box<Type>,
         length: usize,
     },
+    ListEmpty,
     ListOf {
         item_type: Box<Type>,
     },
-    Map(BTreeMap<Identifier, Type>),
     Number,
     Range,
     String,
     Struct(StructType),
+    Tuple(Vec<Type>),
 }
 
 impl Type {
@@ -189,17 +177,26 @@ impl Type {
                 }
             }
             (
-                Type::Function {
+                Type::Function(FunctionType {
+                    name: left_name,
                     type_parameters: left_type_parameters,
                     value_parameters: left_value_parameters,
                     return_type: left_return,
-                },
-                Type::Function {
+                }),
+                Type::Function(FunctionType {
+                    name: right_name,
                     type_parameters: right_type_parameters,
                     value_parameters: right_value_parameters,
                     return_type: right_return,
-                },
+                }),
             ) => {
+                if left_name != right_name {
+                    return Err(TypeConflict {
+                        actual: other.clone(),
+                        expected: self.clone(),
+                    });
+                }
+
                 if left_return == right_return {
                     for (left_parameter, right_parameter) in left_type_parameters
                         .iter()
@@ -228,11 +225,6 @@ impl Type {
                     return Ok(());
                 }
             }
-            (Type::Map(left), Type::Map(right)) => {
-                if left == right {
-                    return Ok(());
-                }
-            }
             (Type::Number, Type::Number | Type::Integer | Type::Float)
             | (Type::Integer | Type::Float, Type::Number) => {
                 return Ok(());
@@ -252,29 +244,11 @@ impl Display for Type {
         match self {
             Type::Any => write!(f, "any"),
             Type::Boolean => write!(f, "bool"),
-            Type::EmptyList => write!(f, "[]"),
-            Type::Enum { variants, .. } => {
-                write!(f, "enum ")?;
-
-                write!(f, " {{")?;
-
-                for (identifier, types) in variants {
-                    writeln!(f, "{identifier}")?;
-
-                    if let Some(types) = types {
-                        write!(f, "(")?;
-
-                        for r#type in types {
-                            write!(f, "{}", r#type)?;
-                        }
-                    }
-
-                    write!(f, ")")?;
-                }
-
-                write!(f, "}}")
-            }
+            Type::Byte => write!(f, "byte"),
+            Type::Character => write!(f, "char"),
+            Type::Enum(enum_type) => write!(f, "{enum_type}"),
             Type::Float => write!(f, "float"),
+            Type::Function(function_type) => write!(f, "{function_type}"),
             Type::Generic { concrete_type, .. } => {
                 match concrete_type.clone().map(|r#box| *r#box) {
                     Some(Type::Generic { identifier, .. }) => write!(f, "{identifier}"),
@@ -284,82 +258,14 @@ impl Display for Type {
             }
             Type::Integer => write!(f, "int"),
             Type::List { item_type, length } => write!(f, "[{item_type}; {length}]"),
+            Type::ListEmpty => write!(f, "[]"),
             Type::ListOf { item_type } => write!(f, "[{item_type}]"),
-            Type::Map(map) => {
-                write!(f, "{{ ")?;
-
-                for (index, (key, r#type)) in map.iter().enumerate() {
-                    write!(f, "{key}: {type}")?;
-
-                    if index != map.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-
-                write!(f, " }}")
-            }
             Type::Number => write!(f, "num"),
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),
-            Type::Function {
-                type_parameters,
-                value_parameters,
-                return_type,
-            } => {
-                write!(f, "fn ")?;
-
-                if let Some(type_parameters) = type_parameters {
-                    write!(f, "<")?;
-
-                    for identifier in type_parameters {
-                        write!(f, "{}, ", identifier)?;
-                    }
-
-                    write!(f, ">")?;
-                }
-
-                write!(f, "(")?;
-
-                if let Some(value_parameters) = value_parameters {
-                    for (identifier, r#type) in value_parameters {
-                        write!(f, "{identifier}: {type}")?;
-                    }
-                }
-
-                write!(f, ")")?;
-
-                if let Some(r#type) = return_type {
-                    write!(f, " -> {type}")
-                } else {
-                    Ok(())
-                }
-            }
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum StructType {
-    Unit {
-        name: Identifier,
-    },
-    Tuple {
-        name: Identifier,
-        fields: Vec<Type>,
-    },
-    Fields {
-        name: Identifier,
-        fields: Vec<(Identifier, Type)>,
-    },
-}
-
-impl Display for StructType {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            StructType::Unit { name } => write!(f, "struct {name}"),
-            StructType::Tuple { name, fields } => {
-                write!(f, "struct {name}(")?;
+            Type::Tuple(fields) => {
+                write!(f, "(")?;
 
                 for (index, r#type) in fields.iter().enumerate() {
                     write!(f, "{type}")?;
@@ -371,8 +277,94 @@ impl Display for StructType {
 
                 write!(f, ")")
             }
-            StructType::Fields { name, fields } => {
-                write!(f, "struct {name} {{")?;
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct FunctionType {
+    pub name: Identifier,
+    pub type_parameters: Option<Vec<Type>>,
+    pub value_parameters: Option<Vec<(Identifier, Type)>>,
+    pub return_type: Option<Box<Type>>,
+}
+
+impl Display for FunctionType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "fn ")?;
+
+        if let Some(type_parameters) = &self.type_parameters {
+            write!(f, "<")?;
+
+            for (index, type_parameter) in type_parameters.iter().enumerate() {
+                write!(f, "{type_parameter}")?;
+
+                if index != type_parameters.len() - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+
+            write!(f, ">")?;
+        }
+
+        write!(f, "(")?;
+
+        if let Some(value_parameters) = &self.value_parameters {
+            for (index, (identifier, r#type)) in value_parameters.iter().enumerate() {
+                write!(f, "{identifier}: {type}")?;
+
+                if index != value_parameters.len() - 1 {
+                    write!(f, ", ")?;
+                }
+            }
+        }
+
+        write!(f, ")")?;
+
+        if let Some(return_type) = &self.return_type {
+            write!(f, " -> {return_type}")?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum StructType {
+    Unit {
+        identifier: Identifier,
+    },
+    Tuple {
+        identifier: Identifier,
+        fields: Vec<Type>,
+    },
+    Fields {
+        identifier: Identifier,
+        fields: Vec<(Identifier, Type)>,
+    },
+}
+
+impl Display for StructType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            StructType::Unit { .. } => write!(f, "()"),
+            StructType::Tuple { fields, .. } => {
+                write!(f, "(")?;
+
+                for (index, r#type) in fields.iter().enumerate() {
+                    write!(f, "{type}")?;
+
+                    if index != fields.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, ")")
+            }
+            StructType::Fields {
+                identifier, fields, ..
+            } => {
+                write!(f, "{identifier} {{ ")?;
 
                 for (index, (identifier, r#type)) in fields.iter().enumerate() {
                     write!(f, "{identifier}: {type}")?;
@@ -382,10 +374,28 @@ impl Display for StructType {
                     }
                 }
 
-                write!(f, "}}")
+                write!(f, " }}")
             }
         }
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct EnumType {
+    name: Identifier,
+    variants: Vec<StructType>,
+}
+
+impl Display for EnumType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TypeConflict {
+    pub expected: Type,
+    pub actual: Type,
 }
 
 #[cfg(test)]
@@ -393,32 +403,35 @@ mod tests {
     use super::*;
 
     #[test]
-    fn check_same_types() {
-        assert_eq!(Type::Any.check(&Type::Any), Ok(()));
-        assert_eq!(Type::Boolean.check(&Type::Boolean), Ok(()));
-        assert_eq!(Type::Float.check(&Type::Float), Ok(()));
-        assert_eq!(Type::Integer.check(&Type::Integer), Ok(()));
-        assert_eq!(
-            Type::List {
-                item_type: Box::new(Type::Boolean),
-                length: 42
-            }
-            .check(&Type::List {
-                item_type: Box::new(Type::Boolean),
-                length: 42
-            }),
-            Ok(())
-        );
+    fn check_type_any() {
+        let foo = Type::Any;
+        let bar = Type::Any;
 
-        let mut map = BTreeMap::new();
+        foo.check(&bar).unwrap();
+    }
 
-        map.insert(Identifier::from("x"), Type::Integer);
-        map.insert(Identifier::from("y"), Type::String);
-        map.insert(Identifier::from("z"), Type::Map(map.clone()));
+    #[test]
+    fn check_type_boolean() {
+        let foo = Type::Boolean;
+        let bar = Type::Boolean;
 
-        assert_eq!(Type::Map(map.clone()).check(&Type::Map(map)), Ok(()));
-        assert_eq!(Type::Range.check(&Type::Range), Ok(()));
-        assert_eq!(Type::String.check(&Type::String), Ok(()));
+        foo.check(&bar).unwrap();
+    }
+
+    #[test]
+    fn check_type_byte() {
+        let foo = Type::Byte;
+        let bar = Type::Byte;
+
+        foo.check(&bar).unwrap();
+    }
+
+    #[test]
+    fn check_type_character() {
+        let foo = Type::Character;
+        let bar = Type::Character;
+
+        foo.check(&bar).unwrap();
     }
 
     #[test]
@@ -449,7 +462,6 @@ mod tests {
                 item_type: Box::new(Type::Integer),
                 length: 42,
             },
-            Type::Map(BTreeMap::new()),
             Type::Range,
             Type::String,
         ];

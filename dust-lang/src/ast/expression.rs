@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, Identifier, Span, StructType, Type, Value};
+use crate::{Context, FunctionType, Identifier, Span, StructType, Type, Value};
 
 use super::{Node, Statement};
 
@@ -236,7 +236,7 @@ impl Expression {
 
                 let invoker_type = invoker.return_type(context)?;
 
-                if let Type::Function { return_type, .. } = invoker_type {
+                if let Type::Function(FunctionType { return_type, .. }) = invoker_type {
                     return_type.map(|r#type| *r#type)
                 } else if let Type::Struct(_) = invoker_type {
                     Some(invoker_type)
@@ -276,7 +276,7 @@ impl Expression {
                 }
                 ListExpression::Ordered(expressions) => {
                     if expressions.is_empty() {
-                        return Some(Type::EmptyList);
+                        return Some(Type::ListEmpty);
                     }
 
                     let item_type = expressions.last().unwrap().return_type(context)?;
@@ -304,7 +304,6 @@ impl Expression {
                 LiteralExpression::Float(_) => Some(Type::Float),
                 LiteralExpression::Integer(_) => Some(Type::Integer),
                 LiteralExpression::String(_) => Some(Type::String),
-                LiteralExpression::Value(value) => Some(value.r#type()),
             },
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
                 LoopExpression::For { block, .. } => block.inner.return_type(context),
@@ -326,19 +325,19 @@ impl Expression {
                 StructExpression::Fields { name, fields } => {
                     let mut field_types = Vec::with_capacity(fields.len());
 
-                    for (name, expression) in fields {
+                    for (field_name, expression) in fields {
                         let r#type = expression.return_type(context)?;
 
-                        field_types.push((name.inner.clone(), r#type));
+                        field_types.push((field_name.inner.clone(), r#type));
                     }
 
                     Some(Type::Struct(StructType::Fields {
-                        name: name.inner.clone(),
+                        identifier: name.inner.clone(),
                         fields: field_types,
                     }))
                 }
                 StructExpression::Unit { name } => Some(Type::Struct(StructType::Unit {
-                    name: name.inner.clone(),
+                    identifier: name.inner.clone(),
                 })),
             },
             Expression::TupleAccess(tuple_access_expression) => {
@@ -502,7 +501,6 @@ pub enum LiteralExpression {
     Float(f64),
     Integer(i64),
     String(String),
-    Value(Value),
 }
 
 impl Display for LiteralExpression {
@@ -512,7 +510,6 @@ impl Display for LiteralExpression {
             LiteralExpression::Float(float) => write!(f, "{}", float),
             LiteralExpression::Integer(integer) => write!(f, "{}", integer),
             LiteralExpression::String(string) => write!(f, "{}", string),
-            LiteralExpression::Value(value) => write!(f, "{}", value),
         }
     }
 }
@@ -538,7 +535,6 @@ impl Ord for LiteralExpression {
                 left.cmp(right)
             }
             (LiteralExpression::String(left), LiteralExpression::String(right)) => left.cmp(right),
-            (LiteralExpression::Value(left), LiteralExpression::Value(right)) => left.cmp(right),
             _ => unreachable!(),
         }
     }
