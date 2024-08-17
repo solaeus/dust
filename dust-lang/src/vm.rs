@@ -16,10 +16,10 @@ use crate::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
         FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
         LiteralExpression, LogicOperator, LoopExpression, MathOperator, Node, OperatorExpression,
-        RangeExpression, Statement,
+        RangeExpression, Statement, StructDefinition,
     },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
-    Span, Value, ValueError,
+    Span, StructType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -30,7 +30,7 @@ use crate::{
 /// # use dust_lang::value::Value;
 /// let result = run("40 + 2");
 ///
-/// assert_eq!(result, Ok(Some(Value::integer(42))));
+/// assert_eq!(result, Ok(Some(Value::Integer(42))));
 /// ```
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let context = Context::new();
@@ -45,12 +45,12 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 /// # use dust_lang::{Context, Identifier, Value, run_with_context};
 /// let context = Context::new();
 ///
-/// context.set_value(Identifier::new("foo"), Value::integer(40));
+/// context.set_value(Identifier::new("foo"), Value::Integer(40));
 /// context.update_last_position(&Identifier::new("foo"), (100, 100));
 ///
 /// let result = run_with_context("foo + 2", context);
 ///
-/// assert_eq!(result, Ok(Some(Value::integer(42))));
+/// assert_eq!(result, Ok(Some(Value::Integer(42))));
 /// ```
 pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
@@ -119,7 +119,20 @@ impl Vm {
 
                 Ok(None)
             }
-            Statement::StructDefinition(_) => todo!(),
+            Statement::StructDefinition(struct_definition) => {
+                let (name, struct_type) = match struct_definition.inner {
+                    StructDefinition::Unit { name } => {
+                        (name.inner.clone(), StructType::Unit { name: name.inner })
+                    }
+                    StructDefinition::Tuple { name, items } => todo!(),
+                    StructDefinition::Fields { name, fields } => todo!(),
+                };
+
+                self.context
+                    .set_type(name, Type::Struct(struct_type), struct_definition.position);
+
+                Ok(None)
+            }
         };
 
         if collect_garbage {
@@ -203,20 +216,65 @@ impl Vm {
             Expression::Operator(operator_expression) => {
                 self.run_operator(*operator_expression.inner, collect_garbage)
             }
-            Expression::Range(range_expression) => match range_expression.inner.as_ref() {
+            Expression::Range(range_expression) => match *range_expression.inner {
                 RangeExpression::Exclusive { start, end } => {
                     let start_position = start.position();
                     let start = self
-                        .run_expression(*start.inner, collect_garbage)?
+                        .run_expression(start, collect_garbage)?
                         .expect_value(start_position)?;
                     let end_position = end.position();
                     let end = self
-                        .run_expression(*end.inner, collect_garbage)?
+                        .run_expression(end, collect_garbage)?
                         .expect_value(end_position)?;
 
-                    Ok(Evaluation::Return(Some(Value::range(start..end))))
+                    match (start, end) {
+                        (Value::Byte(start), Value::Byte(end)) => {
+                            Ok(Evaluation::Return(Some(Value::byte_range(start, end))))
+                        }
+                        (Value::Character(start), Value::Character(end)) => {
+                            Ok(Evaluation::Return(Some(Value::character_range(start, end))))
+                        }
+                        (Value::Float(start), Value::Float(end)) => {
+                            Ok(Evaluation::Return(Some(Value::float_range(start, end))))
+                        }
+                        (Value::Integer(start), Value::Integer(end)) => {
+                            Ok(Evaluation::Return(Some(Value::integer_range(start, end))))
+                        }
+                        _ => Err(VmError::InvalidRange {
+                            start_position,
+                            end_position,
+                        }),
+                    }
                 }
-                RangeExpression::Inclusive { start, end } => todo!(),
+                RangeExpression::Inclusive { start, end } => {
+                    let start_position = start.position();
+                    let start = self
+                        .run_expression(start, collect_garbage)?
+                        .expect_value(start_position)?;
+                    let end_position = end.position();
+                    let end = self
+                        .run_expression(end, collect_garbage)?
+                        .expect_value(end_position)?;
+
+                    match (start, end) {
+                        (Value::Byte(start), Value::Byte(end)) => Ok(Evaluation::Return(Some(
+                            Value::byte_range_inclusive(start, end),
+                        ))),
+                        (Value::Character(start), Value::Character(end)) => Ok(Evaluation::Return(
+                            Some(Value::character_range_inclusive(start, end)),
+                        )),
+                        (Value::Float(start), Value::Float(end)) => Ok(Evaluation::Return(Some(
+                            Value::float_range_inclusive(start, end),
+                        ))),
+                        (Value::Integer(start), Value::Integer(end)) => Ok(Evaluation::Return(
+                            Some(Value::integer_range_inclusive(start, end)),
+                        )),
+                        _ => Err(VmError::InvalidRange {
+                            start_position,
+                            end_position,
+                        }),
+                    }
+                }
             },
             Expression::Struct(_) => todo!(),
             Expression::TupleAccess(_) => todo!(),
@@ -341,7 +399,7 @@ impl Vm {
                 let integer = value
                     .as_integer()
                     .ok_or(VmError::ExpectedBoolean { position })?;
-                let negated = Value::integer(-integer);
+                let negated = Value::Integer(-integer);
 
                 Ok(Evaluation::Return(Some(negated)))
             }
@@ -353,7 +411,7 @@ impl Vm {
                 let boolean = value
                     .as_boolean()
                     .ok_or(VmError::ExpectedBoolean { position })?;
-                let not = Value::boolean(!boolean);
+                let not = Value::Boolean(!boolean);
 
                 Ok(Evaluation::Return(Some(not)))
             }
@@ -442,11 +500,10 @@ impl Vm {
 
     fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, VmError> {
         let value = match literal {
-            LiteralExpression::Boolean(boolean) => Value::boolean(boolean),
-            LiteralExpression::Float(float) => Value::float(float),
-            LiteralExpression::Integer(integer) => Value::integer(integer),
-            LiteralExpression::String(string) => Value::string(string),
-            LiteralExpression::Value(value) => value,
+            LiteralExpression::Boolean(boolean) => Value::Boolean(boolean),
+            LiteralExpression::Float(float) => Value::Float(float),
+            LiteralExpression::Integer(integer) => Value::Integer(integer),
+            LiteralExpression::String(string) => Value::String(string),
         };
 
         Ok(Evaluation::Return(Some(value)))
@@ -499,7 +556,7 @@ impl Vm {
                 });
             };
 
-        let function = if let Some(function) = invoker_value.as_function() {
+        let function = if let Value::Function(function) = invoker_value {
             function
         } else {
             return Err(VmError::ExpectedFunction {
@@ -569,7 +626,7 @@ impl Vm {
                     .run_expression(repeat_operand, collect_garbage)?
                     .expect_value(position)?;
 
-                Ok(Evaluation::Return(Some(Value::list(vec![
+                Ok(Evaluation::Return(Some(Value::List(vec![
                     value;
                     length as usize
                 ]))))
@@ -586,7 +643,7 @@ impl Vm {
                     values.push(value);
                 }
 
-                Ok(Evaluation::Return(Some(Value::list(values))))
+                Ok(Evaluation::Return(Some(Value::List(values))))
             }
         }
     }
@@ -769,6 +826,10 @@ pub enum VmError {
     ExpectedValue {
         position: Span,
     },
+    InvalidRange {
+        start_position: Span,
+        end_position: Span,
+    },
     UndefinedVariable {
         identifier: Identifier,
         position: Span,
@@ -803,6 +864,11 @@ impl VmError {
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedList { position } => *position,
             Self::ExpectedValue { position } => *position,
+            Self::InvalidRange {
+                start_position,
+                end_position,
+                ..
+            } => (start_position.0, end_position.1),
             Self::UndefinedVariable { position, .. } => *position,
             Self::UndefinedProperty {
                 property_position, ..
@@ -891,6 +957,16 @@ impl Display for VmError {
             Self::ExpectedValue { position } => {
                 write!(f, "Expected a value at position: {:?}", position)
             }
+            Self::InvalidRange {
+                start_position,
+                end_position,
+            } => {
+                write!(
+                    f,
+                    "Invalid range with start position: {:?} and end position: {:?}",
+                    start_position, end_position
+                )
+            }
             Self::UndefinedVariable {
                 identifier,
                 position,
@@ -912,7 +988,7 @@ impl Display for VmError {
 
 #[cfg(test)]
 mod tests {
-    use crate::Struct;
+    use crate::{Struct, StructType, Type};
 
     use super::*;
 
@@ -920,7 +996,7 @@ mod tests {
     fn async_block() {
         let input = "let mut x = 1; async { x += 1; x -= 1; } x";
 
-        assert!(run(input).unwrap().unwrap().as_integer().is_some());
+        assert_eq!(run(input), Ok(Some(Value::Integer(1))));
     }
 
     #[test]
@@ -929,12 +1005,15 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::r#struct(Struct::Fields {
-                name: Identifier::new("Foo"),
-                fields: vec![
-                    (Identifier::new("bar"), Value::integer(42)),
-                    (Identifier::new("baz"), Value::float(4.0))
-                ]
+            Ok(Some(Value::Struct(Struct::Fields {
+                r#type: StructType::Fields {
+                    name: Identifier::new("Foo"),
+                    fields: vec![
+                        (Identifier::new("bar"), Type::Integer),
+                        (Identifier::new("baz"), Type::Float)
+                    ]
+                },
+                fields: vec![Value::Integer(42), Value::Float(4.0)]
             })))
         );
     }
@@ -949,9 +1028,12 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::r#struct(Struct::Tuple {
-                name: Identifier::new("Foo"),
-                fields: vec![Value::integer(42)]
+            Ok(Some(Value::Struct(Struct::Tuple {
+                r#type: StructType::Tuple {
+                    name: Identifier::new("Foo"),
+                    fields: vec![Type::Integer]
+                },
+                fields: vec![Value::Integer(42)]
             })))
         )
     }
@@ -962,9 +1044,11 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::r#struct(Struct::Tuple {
-                name: Identifier::new("Foo"),
-                fields: vec![Value::integer(42)]
+            Ok(Some(Value::Struct(Struct::Tuple {
+                r#type: StructType::Unit {
+                    name: Identifier::new("Foo")
+                },
+                fields: vec![Value::Integer(42)]
             })))
         );
     }
@@ -979,8 +1063,10 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::r#struct(Struct::Unit {
-                name: Identifier::new("Foo")
+            Ok(Some(Value::Struct(Struct::Unit {
+                r#type: StructType::Unit {
+                    name: Identifier::new("Foo")
+                }
             })))
         )
     }
@@ -991,8 +1077,10 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::r#struct(Struct::Unit {
-                name: Identifier::new("Foo")
+            Ok(Some(Value::Struct(Struct::Unit {
+                r#type: StructType::Unit {
+                    name: Identifier::new("Foo")
+                }
             })))
         );
     }
@@ -1001,7 +1089,7 @@ mod tests {
     fn list_index_nested() {
         let input = "[[1, 2], [42, 4], [5, 6]][1][0]";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
     }
 
     #[test]
@@ -1010,9 +1098,9 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::list(vec![
-                Value::integer(2),
-                Value::integer(3)
+            Ok(Some(Value::List(vec![
+                Value::Integer(2),
+                Value::Integer(3)
             ])))
         );
     }
@@ -1021,35 +1109,35 @@ mod tests {
     fn range() {
         let input = "1..5";
 
-        assert_eq!(run(input), Ok(Some(Value::range(1..5))));
+        assert_eq!(run(input), Ok(Some(Value::integer_range(1, 5))));
     }
 
     #[test]
     fn negate_expression() {
         let input = "let x = -42; -x";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
     }
 
     #[test]
     fn not_expression() {
         let input = "!(1 == 2 || 3 == 4 || 5 == 6)";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn list_index() {
         let input = "[1, 42, 3][1]";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
     }
 
     #[test]
     fn map_property_access() {
         let input = "{ a = 42 }.a";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
     }
 
     #[test]
@@ -1063,7 +1151,7 @@ mod tests {
     fn to_string() {
         let input = "to_string(42)";
 
-        assert_eq!(run(input), Ok(Some(Value::string("42".to_string()))));
+        assert_eq!(run(input), Ok(Some(Value::string("42"))));
     }
 
     #[test]
@@ -1077,7 +1165,7 @@ mod tests {
     fn if_else() {
         let input = "if false { 1 } else { 2 }";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(2))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(2))));
     }
 
     #[test]
@@ -1091,155 +1179,153 @@ mod tests {
     fn if_else_if_else() {
         let input = "if false { 1 } else if false { 2 } else { 3 }";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(3))));
     }
 
     #[test]
     fn while_loop() {
         let input = "let mut x = 0; while x < 5 { x += 1; } x";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(5))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(5))));
     }
 
     #[test]
     fn subtract_assign() {
         let input = "let mut x = 1; x -= 1; x";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(0))));
+        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(0)))));
     }
 
     #[test]
     fn add_assign() {
-        env_logger::builder().is_test(true).try_init().ok();
-
         let input = "let mut x = 1; x += 1; x";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(2))));
+        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(2)))));
     }
 
     #[test]
     fn and() {
         let input = "true && true";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn or() {
         let input = "true || false";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn integer_equal() {
         let input = "42 == 42";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn modulo() {
         let input = "42 % 2";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(0))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(0))));
     }
 
     #[test]
     fn divide() {
         let input = "42 / 2";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(21))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(21))));
     }
 
     #[test]
     fn less_than() {
         let input = "2 < 3";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn less_than_or_equal() {
         let input = "42 <= 42";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn greater_than() {
         let input = "2 > 3";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(false))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(false))));
     }
 
     #[test]
     fn greater_than_or_equal() {
         let input = "42 >= 42";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn integer_saturating_add() {
         let input = "9223372036854775807 + 1";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(i64::MAX))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(i64::MAX))));
     }
 
     #[test]
     fn integer_saturating_sub() {
         let input = "-9223372036854775808 - 1";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(i64::MIN))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(i64::MIN))));
     }
 
     #[test]
     fn multiply() {
         let input = "2 * 3";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(6))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(6))));
     }
 
     #[test]
     fn boolean() {
         let input = "true";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn is_even() {
         let input = "is_even(42)";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn is_odd() {
         let input = "is_odd(42)";
 
-        assert_eq!(run(input), Ok(Some(Value::boolean(false))));
+        assert_eq!(run(input), Ok(Some(Value::Boolean(false))));
     }
 
     #[test]
     fn length() {
         let input = "length([1, 2, 3])";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(3))));
     }
 
     #[test]
     fn add() {
         let input = "1 + 2";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(3))));
     }
 
     #[test]
     fn add_multiple() {
         let input = "1 + 2 + 3";
 
-        assert_eq!(run(input), Ok(Some(Value::integer(6))));
+        assert_eq!(run(input), Ok(Some(Value::Integer(6))));
     }
 }

@@ -78,7 +78,7 @@ impl BuiltInFunction {
                 if let Some(value_arguments) = value_arguments {
                     if value_arguments.len() == 1 {
                         if let Some(integer) = value_arguments[0].as_integer() {
-                            Ok(Some(Value::boolean(integer % 2 == 0)))
+                            Ok(Some(Value::Boolean(integer % 2 == 0)))
                         } else {
                             Err(BuiltInFunctionError::ExpectedInteger)
                         }
@@ -93,7 +93,7 @@ impl BuiltInFunction {
                 if let Some(value_arguments) = value_arguments {
                     if value_arguments.len() == 1 {
                         if let Some(integer) = value_arguments[0].as_integer() {
-                            Ok(Some(Value::boolean(integer % 2 != 0)))
+                            Ok(Some(Value::Boolean(integer % 2 != 0)))
                         } else {
                             Err(BuiltInFunctionError::ExpectedInteger)
                         }
@@ -107,8 +107,8 @@ impl BuiltInFunction {
             BuiltInFunction::Length => {
                 if let Some(value_arguments) = value_arguments {
                     if value_arguments.len() == 1 {
-                        if let Some(list) = value_arguments[0].as_list() {
-                            Ok(Some(Value::integer(list.len() as i64)))
+                        if let Value::List(list) = &value_arguments[0] {
+                            Ok(Some(Value::Integer(list.len() as i64)))
                         } else {
                             Err(BuiltInFunctionError::ExpectedInteger)
                         }

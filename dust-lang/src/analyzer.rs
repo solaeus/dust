@@ -10,7 +10,9 @@ use std::{
 };
 
 use crate::{
-    ast::{AbstractSyntaxTree, LetStatement, Node, OperatorExpression, Statement},
+    ast::{
+        AbstractSyntaxTree, LetStatement, Node, OperatorExpression, Statement, StructDefinition,
+    },
     parse, Context, DustError, Expression, Identifier, Span, Type,
 };
 
@@ -89,8 +91,8 @@ impl<'a> Analyzer<'a> {
                             identifier.position,
                         );
                     } else {
-                        return Err(AnalyzerError::UndefinedVariable {
-                            identifier: identifier.clone(),
+                        return Err(AnalyzerError::ExpectedValue {
+                            actual: statement.clone(),
                         });
                     }
 
@@ -106,8 +108,8 @@ impl<'a> Analyzer<'a> {
                             identifier.position,
                         );
                     } else {
-                        return Err(AnalyzerError::UndefinedVariable {
-                            identifier: identifier.clone(),
+                        return Err(AnalyzerError::ExpectedValue {
+                            actual: statement.clone(),
                         });
                     }
 
@@ -124,7 +126,9 @@ impl<'a> Analyzer<'a> {
                     value,
                 } => todo!(),
             },
-            Statement::StructDefinition(_) => {}
+            Statement::StructDefinition(_) => {
+                let StructDefinition { identifier, fields } = statement;
+            }
         }
 
         Ok(())

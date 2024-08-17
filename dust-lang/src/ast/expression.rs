@@ -332,12 +332,12 @@ impl Expression {
                     }
 
                     Some(Type::Struct(StructType::Fields {
-                        identifier: name.inner.clone(),
+                        name: name.inner.clone(),
                         fields: field_types,
                     }))
                 }
                 StructExpression::Unit { name } => Some(Type::Struct(StructType::Unit {
-                    identifier: name.inner.clone(),
+                    name: name.inner.clone(),
                 })),
             },
             Expression::TupleAccess(tuple_access_expression) => {

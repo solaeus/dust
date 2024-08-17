@@ -332,14 +332,14 @@ impl Display for FunctionType {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StructType {
     Unit {
-        identifier: Identifier,
+        name: Identifier,
     },
     Tuple {
-        identifier: Identifier,
+        name: Identifier,
         fields: Vec<Type>,
     },
     Fields {
-        identifier: Identifier,
+        name: Identifier,
         fields: Vec<(Identifier, Type)>,
     },
 }
@@ -362,7 +362,9 @@ impl Display for StructType {
                 write!(f, ")")
             }
             StructType::Fields {
-                identifier, fields, ..
+                name: identifier,
+                fields,
+                ..
             } => {
                 write!(f, "{identifier} {{ ")?;
 

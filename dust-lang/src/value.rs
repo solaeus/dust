@@ -1,17 +1,15 @@
 //! Dust value representation
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
     error::Error,
     fmt::{self, Display, Formatter},
     ops::{Range, RangeInclusive},
-    ptr,
-    sync::{Arc, RwLock, RwLockWriteGuard},
+    sync::{Arc, RwLock},
 };
 
 use serde::{
-    de::{self, MapAccess, SeqAccess, Visitor},
-    ser::{SerializeMap, SerializeSeq, SerializeStruct, SerializeStructVariant, SerializeTuple},
+    de::{self, MapAccess, Visitor},
+    ser::{SerializeStruct, SerializeStructVariant},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
@@ -58,7 +56,7 @@ pub enum Value {
     Character(char),
     Enum { name: Identifier, r#type: EnumType },
     Float(f64),
-    Function(Arc<Function>),
+    Function(Function),
     Integer(i64),
     List(Vec<Value>),
     Mutable(Arc<RwLock<Value>>),
@@ -70,20 +68,91 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn mutable(value: Value) -> Value {
+        Value::Mutable(Arc::new(RwLock::new(value)))
+    }
+
     pub fn byte_range(start: u8, end: u8) -> Value {
         Value::Range(Rangeable::Byte(start)..Rangeable::Byte(end))
+    }
+
+    pub fn byte_range_inclusive(start: u8, end: u8) -> Value {
+        Value::RangeInclusive(Rangeable::Byte(start)..=Rangeable::Byte(end))
     }
 
     pub fn character_range(start: char, end: char) -> Value {
         Value::Range(Rangeable::Character(start)..Rangeable::Character(end))
     }
 
+    pub fn character_range_inclusive(start: char, end: char) -> Value {
+        Value::RangeInclusive(Rangeable::Character(start)..=Rangeable::Character(end))
+    }
+
     pub fn float_range(start: f64, end: f64) -> Value {
         Value::Range(Rangeable::Float(start)..Rangeable::Float(end))
     }
 
+    pub fn float_range_inclusive(start: f64, end: f64) -> Value {
+        Value::RangeInclusive(Rangeable::Float(start)..=Rangeable::Float(end))
+    }
+
     pub fn integer_range(start: i64, end: i64) -> Value {
         Value::Range(Rangeable::Integer(start)..Rangeable::Integer(end))
+    }
+
+    pub fn integer_range_inclusive(start: i64, end: i64) -> Value {
+        Value::RangeInclusive(Rangeable::Integer(start)..=Rangeable::Integer(end))
+    }
+
+    pub fn string<T: ToString>(to_string: T) -> Value {
+        Value::String(to_string.to_string())
+    }
+
+    pub fn as_boolean(&self) -> Option<bool> {
+        match self {
+            Value::Boolean(value) => Some(*value),
+            Value::Mutable(locked) => locked.read().unwrap().as_boolean(),
+            _ => None,
+        }
+    }
+
+    pub fn as_byte(&self) -> Option<u8> {
+        match self {
+            Value::Byte(value) => Some(*value),
+            Value::Mutable(locked) => locked.read().unwrap().as_byte(),
+            _ => None,
+        }
+    }
+
+    pub fn as_character(&self) -> Option<char> {
+        match self {
+            Value::Character(value) => Some(*value),
+            Value::Mutable(locked) => locked.read().unwrap().as_character(),
+            _ => None,
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        match self {
+            Value::Float(value) => Some(*value),
+            Value::Mutable(locked) => locked.read().unwrap().as_float(),
+            _ => None,
+        }
+    }
+
+    pub fn as_integer(&self) -> Option<i64> {
+        match self {
+            Value::Integer(value) => Some(*value),
+            Value::Mutable(locked) => locked.read().unwrap().as_integer(),
+            _ => None,
+        }
+    }
+
+    pub fn as_mutable(&self) -> Result<&Arc<RwLock<Value>>, ValueError> {
+        match self {
+            Value::Mutable(inner) => Ok(inner),
+            _ => Err(ValueError::CannotMutate(self.clone())),
+        }
     }
 
     pub fn into_mutable(self) -> Value {
@@ -95,13 +164,6 @@ impl Value {
 
     pub fn is_mutable(&self) -> bool {
         matches!(self, Value::Mutable(_))
-    }
-
-    pub fn as_mutable(&self) -> Result<&Arc<RwLock<Value>>, ValueError> {
-        match self {
-            Value::Mutable(inner) => Ok(inner),
-            _ => Err(ValueError::CannotMutate(self.clone())),
-        }
     }
 
     pub fn mutate(&self, other: Value) -> Result<(), ValueError> {
@@ -135,9 +197,9 @@ impl Value {
             Value::RangeInclusive(_) => Type::Range,
             Value::String(_) => Type::String,
             Value::Struct(r#struct) => match r#struct {
-                Struct::Unit { r#type } => r#type.clone(),
-                Struct::Tuple { r#type, .. } => r#type.clone(),
-                Struct::Fields { r#type, .. } => r#type.clone(),
+                Struct::Unit { r#type } => Type::Struct(r#type.clone()),
+                Struct::Tuple { r#type, .. } => Type::Struct(r#type.clone()),
+                Struct::Fields { r#type, .. } => Type::Struct(r#type.clone()),
             },
             Value::Tuple(values) => {
                 let item_types = values.iter().map(Value::r#type).collect();
@@ -149,16 +211,24 @@ impl Value {
 
     pub fn get_field(&self, field: &Identifier) -> Option<Value> {
         match self {
-            Value::Struct(Struct::Fields { fields, .. }) => {
-                fields.iter().find_map(|(identifier, value)| {
+            Value::Mutable(inner) => inner.read().unwrap().get_field(field),
+            Value::Struct(Struct::Fields {
+                fields,
+                r#type:
+                    StructType::Fields {
+                        fields: field_types,
+                        ..
+                    },
+            }) => field_types
+                .iter()
+                .zip(fields.iter())
+                .find_map(|((identifier, _), value)| {
                     if identifier == field {
                         Some(value.clone())
                     } else {
                         None
                     }
-                })
-            }
-            Value::Mutable(inner) => inner.clone().read().unwrap().get_field(field),
+                }),
             _ => None,
         }
     }
@@ -174,7 +244,9 @@ impl Value {
     pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left + right)),
+            (Value::Integer(left), Value::Integer(right)) => {
+                Ok(Value::Integer(left.saturating_add(*right)))
+            }
             (Value::String(left), Value::String(right)) => {
                 Ok(Value::String(format!("{}{}", left, right)))
             }
@@ -231,7 +303,9 @@ impl Value {
     pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left - right)),
+            (Value::Integer(left), Value::Integer(right)) => {
+                Ok(Value::Integer(left.saturating_sub(*right)))
+            }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
                 let right = right.read().unwrap();
@@ -277,7 +351,9 @@ impl Value {
     pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left * right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left * right)),
+            (Value::Integer(left), Value::Integer(right)) => {
+                Ok(Value::Integer(left.saturating_mul(*right)))
+            }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
                 let right = right.read().unwrap();
@@ -324,7 +400,7 @@ impl Value {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left / right)),
             (Value::Integer(left), Value::Integer(right)) => {
-                Ok(Value::Float((*left as f64) / (*right as f64)))
+                Ok(Value::Integer(left.saturating_div(*right)))
             }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
@@ -472,8 +548,24 @@ impl Value {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left < right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left < right)),
+            (Value::Float(left), Value::Integer(right)) => {
+                Ok(Value::Boolean(*left < *right as f64))
+            }
+            (Value::Integer(left), Value::Float(right)) => {
+                Ok(Value::Boolean((*left as f64) < *right))
+            }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
+                let right = right.read().unwrap();
+
+                left.less_than(&right)
+            }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.less_than(right)
+            }
+            (left, Value::Mutable(right)) => {
                 let right = right.read().unwrap();
 
                 left.less_than(&right)
@@ -486,8 +578,24 @@ impl Value {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left <= right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left <= right)),
+            (Value::Float(left), Value::Integer(right)) => {
+                Ok(Value::Boolean(*left <= *right as f64))
+            }
+            (Value::Integer(left), Value::Float(right)) => {
+                Ok(Value::Boolean(*left as f64 <= *right))
+            }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
+                let right = right.read().unwrap();
+
+                left.less_than_or_equal(&right)
+            }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.less_than_or_equal(right)
+            }
+            (left, Value::Mutable(right)) => {
                 let right = right.read().unwrap();
 
                 left.less_than_or_equal(&right)
@@ -503,8 +611,24 @@ impl Value {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left > right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left > right)),
+            (Value::Float(left), Value::Integer(right)) => {
+                Ok(Value::Boolean(*left > *right as f64))
+            }
+            (Value::Integer(left), Value::Float(right)) => {
+                Ok(Value::Boolean(*left as f64 > *right))
+            }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
+                let right = right.read().unwrap();
+
+                left.greater_than(&right)
+            }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.greater_than(right)
+            }
+            (left, Value::Mutable(right)) => {
                 let right = right.read().unwrap();
 
                 left.greater_than(&right)
@@ -517,8 +641,24 @@ impl Value {
         match (self, other) {
             (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left >= right)),
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left >= right)),
+            (Value::Float(left), Value::Integer(right)) => {
+                Ok(Value::Boolean(*left >= *right as f64))
+            }
+            (Value::Integer(left), Value::Float(right)) => {
+                Ok(Value::Boolean(*left as f64 >= *right))
+            }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
+                let right = right.read().unwrap();
+
+                left.greater_than_or_equal(&right)
+            }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.greater_than_or_equal(right)
+            }
+            (left, Value::Mutable(right)) => {
                 let right = right.read().unwrap();
 
                 left.greater_than_or_equal(&right)
@@ -531,15 +671,15 @@ impl Value {
     }
 
     pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Boolean(left), Value::Boolean(right)) => Ok(Value::Boolean(*left && *right)),
+        match (self.as_boolean(), other.as_boolean()) {
+            (Some(left), Some(right)) => Ok(Value::Boolean(left && right)),
             _ => Err(ValueError::CannotAnd(self.clone(), other.clone())),
         }
     }
 
     pub fn or(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Boolean(left), Value::Boolean(right)) => Ok(Value::Boolean(*left || *right)),
+        match (self.as_boolean(), other.as_boolean()) {
+            (Some(left), Some(right)) => Ok(Value::Boolean(left || right)),
             _ => Err(ValueError::CannotOr(self.clone(), other.clone())),
         }
     }
@@ -918,15 +1058,15 @@ impl<'de> Deserialize<'de> for Function {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Struct {
     Unit {
-        r#type: Type,
+        r#type: StructType,
     },
     Tuple {
-        r#type: Type,
+        r#type: StructType,
         fields: Vec<Value>,
     },
     Fields {
-        r#type: Type,
-        fields: Vec<(Identifier, Value)>,
+        r#type: StructType,
+        fields: Vec<Value>,
     },
 }
 
@@ -947,24 +1087,34 @@ impl Display for Struct {
 
                 write!(f, ")")
             }
-            Struct::Fields { fields, .. } => {
+            Struct::Fields {
+                fields,
+                r#type:
+                    StructType::Fields {
+                        fields: field_types,
+                        ..
+                    },
+            } => {
                 write!(f, "{{ ")?;
 
-                for (index, (identifier, r#type)) in fields.iter().enumerate() {
+                for (index, ((identifier, _), value)) in
+                    field_types.iter().zip(fields.iter()).enumerate()
+                {
                     if index > 0 {
                         write!(f, ", ")?;
                     }
 
-                    write!(f, "{}: {}", identifier, r#type)?;
+                    write!(f, "{}: {}", identifier, value)?;
                 }
 
                 write!(f, " }}")
             }
+            _ => Ok(()),
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum Rangeable {
     Byte(u8),
     Character(char),
@@ -984,6 +1134,12 @@ impl Display for Rangeable {
 }
 
 impl Eq for Rangeable {}
+
+impl PartialOrd for Rangeable {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 impl Ord for Rangeable {
     fn cmp(&self, other: &Self) -> Ordering {
