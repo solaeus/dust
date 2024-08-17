@@ -24,7 +24,7 @@ pub enum Expression {
     Operator(Node<Box<OperatorExpression>>),
     Range(Node<Box<RangeExpression>>),
     Struct(Node<Box<StructExpression>>),
-    TupleAccess(Node<Box<TupleAccess>>),
+    TupleAccess(Node<Box<TupleAccessExpression>>),
 }
 
 impl Expression {
@@ -61,7 +61,10 @@ impl Expression {
     }
 
     pub fn tuple_access(tuple: Expression, index: Node<usize>, position: Span) -> Self {
-        Self::TupleAccess(Node::new(Box::new(TupleAccess { tuple, index }), position))
+        Self::TupleAccess(Node::new(
+            Box::new(TupleAccessExpression { tuple, index }),
+            position,
+        ))
     }
 
     pub fn assignment(assignee: Expression, value: Expression, position: Span) -> Self {
@@ -388,12 +391,12 @@ impl Display for Expression {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct TupleAccess {
+pub struct TupleAccessExpression {
     pub tuple: Expression,
     pub index: Node<usize>,
 }
 
-impl Display for TupleAccess {
+impl Display for TupleAccessExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}.{}", self.tuple, self.index)
     }

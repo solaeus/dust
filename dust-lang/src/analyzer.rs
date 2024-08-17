@@ -11,7 +11,9 @@ use std::{
 
 use crate::{
     ast::{
-        AbstractSyntaxTree, LetStatement, Node, OperatorExpression, Statement, StructDefinition,
+        AbstractSyntaxTree, BlockExpression, CallExpression, ElseExpression, FieldAccessExpression,
+        IfExpression, LetStatement, ListExpression, ListIndexExpression, LoopExpression, Node,
+        OperatorExpression, RangeExpression, Statement, StructExpression, TupleAccessExpression,
     },
     parse, Context, DustError, Expression, Identifier, Span, Type,
 };
@@ -126,9 +128,7 @@ impl<'a> Analyzer<'a> {
                     value,
                 } => todo!(),
             },
-            Statement::StructDefinition(_) => {
-                let StructDefinition { identifier, fields } = statement;
-            }
+            Statement::StructDefinition(_) => {}
         }
 
         Ok(())
@@ -136,10 +136,25 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_expression(&mut self, expression: &Expression) -> Result<(), AnalyzerError> {
         match expression {
-            Expression::Block(_) => {}
-            Expression::Call(_) => {}
-            Expression::FieldAccess(_) => {}
-            Expression::Grouped(_) => {}
+            Expression::Block(block_expression) => self.analyze_block(&block_expression.inner)?,
+            Expression::Call(call_expression) => {
+                let CallExpression { invoker, arguments } = call_expression.inner.as_ref();
+
+                self.analyze_expression(invoker)?;
+
+                for argument in arguments {
+                    self.analyze_expression(argument)?;
+                }
+            }
+            Expression::FieldAccess(field_access_expression) => {
+                let FieldAccessExpression { container, .. } =
+                    field_access_expression.inner.as_ref();
+
+                self.analyze_expression(container)?;
+            }
+            Expression::Grouped(expression) => {
+                self.analyze_expression(expression.inner.as_ref())?;
+            }
             Expression::Identifier(identifier) => {
                 let found = self
                     .context
@@ -151,11 +166,43 @@ impl<'a> Analyzer<'a> {
                     });
                 }
             }
-            Expression::If(_) => {}
-            Expression::List(_) => {}
-            Expression::ListIndex(_) => {}
-            Expression::Literal(_) => {}
-            Expression::Loop(_) => {}
+            Expression::If(if_expression) => self.analyze_if(&if_expression.inner)?,
+            Expression::List(list_expression) => match list_expression.inner.as_ref() {
+                ListExpression::AutoFill {
+                    repeat_operand,
+                    length_operand,
+                } => {
+                    self.analyze_expression(repeat_operand)?;
+                    self.analyze_expression(length_operand)?;
+                }
+                ListExpression::Ordered(expressions) => {
+                    for expression in expressions {
+                        self.analyze_expression(expression)?;
+                    }
+                }
+            },
+            Expression::ListIndex(list_index_expression) => {
+                let ListIndexExpression { list, index } = list_index_expression.inner.as_ref();
+
+                self.analyze_expression(list)?;
+                self.analyze_expression(index)?;
+            }
+            Expression::Literal(_) => {
+                // Literals don't need to be analyzed
+            }
+            Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
+                LoopExpression::Infinite { block } => self.analyze_block(&block.inner)?,
+                LoopExpression::While { condition, block } => {
+                    self.analyze_expression(condition)?;
+                    self.analyze_block(&block.inner)?;
+                }
+                LoopExpression::For {
+                    iterator, block, ..
+                } => {
+                    self.analyze_expression(iterator)?;
+                    self.analyze_block(&block.inner)?;
+                }
+            },
             Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
                 OperatorExpression::Assignment { assignee, value } => {
                     self.analyze_expression(assignee)?;
@@ -187,9 +234,97 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(right)?;
                 }
             },
-            Expression::Range(_) => {}
-            Expression::Struct(_) => {}
-            Expression::TupleAccess(_) => {}
+            Expression::Range(range_expression) => match range_expression.inner.as_ref() {
+                RangeExpression::Exclusive { start, end } => {
+                    self.analyze_expression(start)?;
+                    self.analyze_expression(end)?;
+                }
+                RangeExpression::Inclusive { start, end } => {
+                    self.analyze_expression(start)?;
+                    self.analyze_expression(end)?;
+                }
+            },
+            Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
+                StructExpression::Unit { name } => {
+                    let found = self
+                        .context
+                        .update_last_position(&name.inner, name.position);
+
+                    if !found {
+                        return Err(AnalyzerError::UndefinedType {
+                            identifier: name.clone(),
+                        });
+                    }
+                }
+                StructExpression::Fields { name, fields } => {
+                    let found = self
+                        .context
+                        .update_last_position(&name.inner, name.position);
+
+                    if !found {
+                        return Err(AnalyzerError::UndefinedType {
+                            identifier: name.clone(),
+                        });
+                    }
+
+                    for (_, expression) in fields {
+                        self.analyze_expression(expression)?;
+                    }
+                }
+            },
+            Expression::TupleAccess(tuple_access) => {
+                let TupleAccessExpression { tuple, .. } = tuple_access.inner.as_ref();
+
+                self.analyze_expression(tuple)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn analyze_block(&mut self, block_expression: &BlockExpression) -> Result<(), AnalyzerError> {
+        match block_expression {
+            BlockExpression::Async(statements) => {
+                for statement in statements {
+                    self.analyze_statement(statement)?;
+                }
+            }
+            BlockExpression::Sync(statements) => {
+                for statement in statements {
+                    self.analyze_statement(statement)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn analyze_if(&mut self, if_expression: &IfExpression) -> Result<(), AnalyzerError> {
+        match if_expression {
+            IfExpression::If {
+                condition,
+                if_block,
+            } => {
+                self.analyze_expression(condition)?;
+                self.analyze_block(&if_block.inner)?;
+            }
+            IfExpression::IfElse {
+                condition,
+                if_block,
+                r#else,
+            } => {
+                self.analyze_expression(condition)?;
+                self.analyze_block(&if_block.inner)?;
+
+                match r#else {
+                    ElseExpression::Block(block_expression) => {
+                        self.analyze_block(&block_expression.inner)?;
+                    }
+                    ElseExpression::If(if_expression) => {
+                        self.analyze_if(&if_expression.inner)?;
+                    }
+                }
+            }
         }
 
         Ok(())
