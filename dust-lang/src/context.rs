@@ -93,13 +93,13 @@ impl Context {
     }
 
     /// Collects garbage up to the given position, removing all variables with lesser positions.
-    pub fn collect_garbage(&self, current_position: usize) {
-        log::trace!("Collecting garbage up to {current_position}");
+    pub fn collect_garbage(&self, position: Span) {
+        log::trace!("Collecting garbage up to {position:?}");
 
         let mut variables = self.variables.write().unwrap();
 
         variables.retain(|identifier, (_, last_used)| {
-            let should_drop = current_position >= last_used.1;
+            let should_drop = position.0 > last_used.0 && position.1 > last_used.1;
 
             if should_drop {
                 log::trace!("Removing {identifier}");

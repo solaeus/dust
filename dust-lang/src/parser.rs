@@ -46,34 +46,18 @@ use crate::{ast::*, DustError, Identifier, LexError, Lexer, Token, TokenKind, To
 /// );
 /// ```
 pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
-    let lexer = Lexer::new();
-    let mut parser = Parser::new(source, lexer);
-    let mut nodes = VecDeque::new();
+    let mut tree = AbstractSyntaxTree::new();
 
-    loop {
-        let node = parser
-            .parse_statement()
-            .map_err(|parse_error| DustError::ParseError {
-                parse_error,
-                source,
-            })?;
+    parse_into(source, &mut tree)?;
 
-        nodes.push_back(node);
-
-        if let Token::Eof = parser.current_token {
-            break;
-        }
-    }
-
-    Ok(AbstractSyntaxTree { statements: nodes })
+    Ok(tree)
 }
 
 pub fn parse_into<'src>(
     source: &'src str,
     tree: &mut AbstractSyntaxTree,
 ) -> Result<(), DustError<'src>> {
-    let lexer = Lexer::new();
-    let mut parser = Parser::new(source, lexer);
+    let mut parser = Parser::new(source);
 
     loop {
         let node = parser
@@ -118,21 +102,18 @@ pub fn parse_into<'src>(
 ///
 /// ```
 pub struct Parser<'src> {
-    source: &'src str,
-    lexer: Lexer,
+    lexer: Lexer<'src>,
     current_token: Token<'src>,
     current_position: Span,
     mode: ParserMode,
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(source: &'src str, lexer: Lexer) -> Self {
-        let mut lexer = lexer;
-        let (current_token, current_position) =
-            lexer.next_token(source).unwrap_or((Token::Eof, (0, 0)));
+    pub fn new(source: &'src str) -> Self {
+        let mut lexer = Lexer::new(source);
+        let (current_token, current_position) = lexer.next_token().unwrap_or((Token::Eof, (0, 0)));
 
         Parser {
-            source,
             lexer,
             current_token,
             current_position,
@@ -312,7 +293,7 @@ impl<'src> Parser<'src> {
     }
 
     fn next_token(&mut self) -> Result<(), ParseError> {
-        let (token, position) = self.lexer.next_token(self.source)?;
+        let (token, position) = self.lexer.next_token()?;
 
         self.current_token = token;
         self.current_position = position;
@@ -1106,7 +1087,7 @@ mod tests {
     fn let_mut_while_loop() {
         env_logger::builder().is_test(true).try_init().ok();
 
-        let source = "let mut x = 0; while x < 10 { x += 1 };";
+        let source = "let mut x = 0; while x < 10 { x += 1 }; x";
 
         assert_eq!(
             parse(source),
@@ -1144,7 +1125,8 @@ mod tests {
                             (15, 39),
                         ),
                         (15, 39)
-                    ))
+                    )),
+                    Statement::Expression(Expression::identifier(Identifier::new("x"), (40, 41)),),
                 ]
                 .into()
             })

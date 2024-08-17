@@ -37,8 +37,8 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 
     analyzer
         .analyze()
-        .map_err(|analyzer_error| DustError::AnalyzerError {
-            analyzer_error,
+        .map_err(|analysis_error| DustError::AnalysisError {
+            analysis_error,
             source,
         })
 }
@@ -69,7 +69,7 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    pub fn analyze(&mut self) -> Result<(), AnalyzerError> {
+    pub fn analyze(&mut self) -> Result<(), AnalysisError> {
         for statement in &self.abstract_tree.statements {
             self.analyze_statement(statement)?;
         }
@@ -77,7 +77,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_statement(&mut self, statement: &Statement) -> Result<(), AnalyzerError> {
+    fn analyze_statement(&mut self, statement: &Statement) -> Result<(), AnalysisError> {
         match statement {
             Statement::Expression(expression) => self.analyze_expression(expression)?,
             Statement::ExpressionNullified(expression_node) => {
@@ -94,7 +94,7 @@ impl<'a> Analyzer<'a> {
                             identifier.position,
                         );
                     } else {
-                        return Err(AnalyzerError::ExpectedValue {
+                        return Err(AnalysisError::ExpectedValue {
                             actual: statement.clone(),
                         });
                     }
@@ -111,7 +111,7 @@ impl<'a> Analyzer<'a> {
                             identifier.position,
                         );
                     } else {
-                        return Err(AnalyzerError::ExpectedValue {
+                        return Err(AnalysisError::ExpectedValue {
                             actual: statement.clone(),
                         });
                     }
@@ -135,7 +135,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_expression(&mut self, expression: &Expression) -> Result<(), AnalyzerError> {
+    fn analyze_expression(&mut self, expression: &Expression) -> Result<(), AnalysisError> {
         match expression {
             Expression::Block(block_expression) => self.analyze_block(&block_expression.inner)?,
             Expression::Call(call_expression) => {
@@ -162,7 +162,7 @@ impl<'a> Analyzer<'a> {
                     .update_last_position(&identifier.inner, identifier.position);
 
                 if !found {
-                    return Err(AnalyzerError::UndefinedVariable {
+                    return Err(AnalysisError::UndefinedVariable {
                         identifier: identifier.clone(),
                     });
                 }
@@ -252,7 +252,7 @@ impl<'a> Analyzer<'a> {
                         .update_last_position(&name.inner, name.position);
 
                     if !found {
-                        return Err(AnalyzerError::UndefinedType {
+                        return Err(AnalysisError::UndefinedType {
                             identifier: name.clone(),
                         });
                     }
@@ -263,7 +263,7 @@ impl<'a> Analyzer<'a> {
                         .update_last_position(&name.inner, name.position);
 
                     if !found {
-                        return Err(AnalyzerError::UndefinedType {
+                        return Err(AnalysisError::UndefinedType {
                             identifier: name.clone(),
                         });
                     }
@@ -283,7 +283,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_block(&mut self, block_expression: &BlockExpression) -> Result<(), AnalyzerError> {
+    fn analyze_block(&mut self, block_expression: &BlockExpression) -> Result<(), AnalysisError> {
         match block_expression {
             BlockExpression::Async(statements) => {
                 for statement in statements {
@@ -300,7 +300,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_if(&mut self, if_expression: &IfExpression) -> Result<(), AnalyzerError> {
+    fn analyze_if(&mut self, if_expression: &IfExpression) -> Result<(), AnalysisError> {
         match if_expression {
             IfExpression::If {
                 condition,
@@ -333,7 +333,7 @@ impl<'a> Analyzer<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum AnalyzerError {
+pub enum AnalysisError {
     ExpectedBoolean {
         actual: Statement,
     },
@@ -389,56 +389,56 @@ pub enum AnalyzerError {
     },
 }
 
-impl AnalyzerError {
+impl AnalysisError {
     pub fn position(&self) -> Span {
         match self {
-            AnalyzerError::ExpectedBoolean { actual } => actual.position(),
-            AnalyzerError::ExpectedIdentifier { actual } => actual.position(),
-            AnalyzerError::ExpectedIdentifierOrString { actual } => actual.position(),
-            AnalyzerError::ExpectedIntegerOrRange { actual } => actual.position(),
-            AnalyzerError::ExpectedList { actual } => actual.position(),
-            AnalyzerError::ExpectedMap { actual } => actual.position(),
-            AnalyzerError::ExpectedValue { actual } => actual.position(),
-            AnalyzerError::ExpectedValueArgumentCount { position, .. } => *position,
-            AnalyzerError::IndexOutOfBounds { index, .. } => index.position(),
-            AnalyzerError::TypeConflict {
+            AnalysisError::ExpectedBoolean { actual } => actual.position(),
+            AnalysisError::ExpectedIdentifier { actual } => actual.position(),
+            AnalysisError::ExpectedIdentifierOrString { actual } => actual.position(),
+            AnalysisError::ExpectedIntegerOrRange { actual } => actual.position(),
+            AnalysisError::ExpectedList { actual } => actual.position(),
+            AnalysisError::ExpectedMap { actual } => actual.position(),
+            AnalysisError::ExpectedValue { actual } => actual.position(),
+            AnalysisError::ExpectedValueArgumentCount { position, .. } => *position,
+            AnalysisError::IndexOutOfBounds { index, .. } => index.position(),
+            AnalysisError::TypeConflict {
                 actual_statement, ..
             } => actual_statement.position(),
-            AnalyzerError::UndefinedField { identifier, .. } => identifier.position(),
-            AnalyzerError::UndefinedType { identifier } => identifier.position,
-            AnalyzerError::UndefinedVariable { identifier } => identifier.position,
-            AnalyzerError::UnexpectedIdentifier { identifier } => identifier.position,
-            AnalyzerError::UnexectedString { actual } => actual.position(),
+            AnalysisError::UndefinedField { identifier, .. } => identifier.position(),
+            AnalysisError::UndefinedType { identifier } => identifier.position,
+            AnalysisError::UndefinedVariable { identifier } => identifier.position,
+            AnalysisError::UnexpectedIdentifier { identifier } => identifier.position,
+            AnalysisError::UnexectedString { actual } => actual.position(),
         }
     }
 }
 
-impl Error for AnalyzerError {}
+impl Error for AnalysisError {}
 
-impl Display for AnalyzerError {
+impl Display for AnalysisError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            AnalyzerError::ExpectedBoolean { actual, .. } => {
+            AnalysisError::ExpectedBoolean { actual, .. } => {
                 write!(f, "Expected boolean, found {}", actual)
             }
-            AnalyzerError::ExpectedIdentifier { actual, .. } => {
+            AnalysisError::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {}", actual)
             }
-            AnalyzerError::ExpectedIdentifierOrString { actual } => {
+            AnalysisError::ExpectedIdentifierOrString { actual } => {
                 write!(f, "Expected identifier or string, found {}", actual)
             }
-            AnalyzerError::ExpectedIntegerOrRange { actual, .. } => {
+            AnalysisError::ExpectedIntegerOrRange { actual, .. } => {
                 write!(f, "Expected integer or range, found {}", actual)
             }
-            AnalyzerError::ExpectedList { actual } => write!(f, "Expected list, found {}", actual),
-            AnalyzerError::ExpectedMap { actual } => write!(f, "Expected map, found {}", actual),
-            AnalyzerError::ExpectedValue { actual, .. } => {
+            AnalysisError::ExpectedList { actual } => write!(f, "Expected list, found {}", actual),
+            AnalysisError::ExpectedMap { actual } => write!(f, "Expected map, found {}", actual),
+            AnalysisError::ExpectedValue { actual, .. } => {
                 write!(f, "Expected value, found {}", actual)
             }
-            AnalyzerError::ExpectedValueArgumentCount {
+            AnalysisError::ExpectedValueArgumentCount {
                 expected, actual, ..
             } => write!(f, "Expected {} value arguments, found {}", expected, actual),
-            AnalyzerError::IndexOutOfBounds {
+            AnalysisError::IndexOutOfBounds {
                 list,
                 index_value,
                 length,
@@ -448,7 +448,7 @@ impl Display for AnalyzerError {
                 "Index {} out of bounds for list {} with length {}",
                 index_value, list, length
             ),
-            AnalyzerError::TypeConflict {
+            AnalysisError::TypeConflict {
                 actual_statement,
                 actual_type,
                 expected,
@@ -459,22 +459,22 @@ impl Display for AnalyzerError {
                     expected, actual_statement, actual_type
                 )
             }
-            AnalyzerError::UndefinedField {
+            AnalysisError::UndefinedField {
                 identifier,
                 statement: map,
             } => {
                 write!(f, "Undefined field {} in map {}", identifier, map)
             }
-            AnalyzerError::UndefinedType { identifier } => {
+            AnalysisError::UndefinedType { identifier } => {
                 write!(f, "Undefined type {}", identifier)
             }
-            AnalyzerError::UndefinedVariable { identifier } => {
+            AnalysisError::UndefinedVariable { identifier } => {
                 write!(f, "Undefined variable {}", identifier)
             }
-            AnalyzerError::UnexpectedIdentifier { identifier, .. } => {
+            AnalysisError::UnexpectedIdentifier { identifier, .. } => {
                 write!(f, "Unexpected identifier {}", identifier)
             }
-            AnalyzerError::UnexectedString { actual, .. } => {
+            AnalysisError::UnexectedString { actual, .. } => {
                 write!(f, "Unexpected string {}", actual)
             }
         }

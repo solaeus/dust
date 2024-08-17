@@ -28,7 +28,7 @@ pub mod r#type;
 pub mod value;
 pub mod vm;
 
-pub use analyzer::{analyze, Analyzer, AnalyzerError};
+pub use analyzer::{analyze, AnalysisError, Analyzer};
 pub use ast::{AbstractSyntaxTree, Expression, Statement};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use context::{Context, VariableData};
@@ -39,4 +39,4 @@ pub use parser::{parse, ParseError, Parser};
 pub use r#type::*;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use value::*;
-pub use vm::{run, run_with_context, Vm, VmError};
+pub use vm::{run, run_with_context, RuntimeError, Vm};

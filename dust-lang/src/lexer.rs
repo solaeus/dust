@@ -30,12 +30,14 @@ use crate::{ast::Span, Token};
 ///     ]
 /// );
 /// ```
-pub fn lex<'chars, 'src: 'chars>(input: &'src str) -> Result<Vec<(Token<'chars>, Span)>, LexError> {
-    let mut lexer = Lexer::new();
+pub fn lex<'chars, 'src: 'chars>(
+    source: &'src str,
+) -> Result<Vec<(Token<'chars>, Span)>, LexError> {
+    let mut lexer = Lexer::new(source);
     let mut tokens = Vec::new();
 
     loop {
-        let (token, span) = lexer.next_token(input)?;
+        let (token, span) = lexer.next_token()?;
         let is_eof = matches!(token, Token::Eof);
 
         tokens.push((token, span));
@@ -48,7 +50,6 @@ pub fn lex<'chars, 'src: 'chars>(input: &'src str) -> Result<Vec<(Token<'chars>,
     Ok(tokens)
 }
 
-#[derive(Debug, Clone)]
 /// Low-level tool for lexing a single token at a time.
 ///
 /// **Note**: It is a logic error to call `next_token` with different inputs.
@@ -83,35 +84,40 @@ pub fn lex<'chars, 'src: 'chars>(input: &'src str) -> Result<Vec<(Token<'chars>,
 ///     ]
 /// )
 /// ```
-pub struct Lexer {
+#[derive(Debug, Clone)]
+pub struct Lexer<'src> {
+    source: &'src str,
     position: usize,
 }
 
-impl Lexer {
+impl<'src> Lexer<'src> {
     /// Create a new lexer for the given input.
-    pub fn new() -> Self {
-        Lexer { position: 0 }
+    pub fn new(source: &'src str) -> Self {
+        Lexer {
+            source,
+            position: 0,
+        }
     }
 
     /// Produce the next token.
     ///
     /// It is a logic error to call this method with different inputs.
-    pub fn next_token<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
-        self.skip_whitespace(source);
+    pub fn next_token(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        self.skip_whitespace();
 
-        let (token, span) = if let Some(c) = self.peek_char(source) {
+        let (token, span) = if let Some(c) = self.peek_char() {
             match c {
-                '0'..='9' => self.lex_number(source)?,
+                '0'..='9' => self.lex_number()?,
                 '-' => {
-                    let second_char = self.peek_second_char(source);
+                    let second_char = self.peek_second_char();
 
                     if let Some('=') = second_char {
                         self.position += 2;
 
                         (Token::MinusEqual, (self.position - 2, self.position))
                     } else if let Some('0'..='9') = second_char {
-                        self.lex_number(source)?
-                    } else if "-Infinity" == self.peek_chars(source, 9) {
+                        self.lex_number()?
+                    } else if "-Infinity" == self.peek_chars(9) {
                         self.position += 9;
 
                         (
@@ -124,11 +130,11 @@ impl Lexer {
                         (Token::Minus, (self.position - 1, self.position))
                     }
                 }
-                'a'..='z' | 'A'..='Z' => self.lex_alphanumeric(source)?,
-                '"' => self.lex_string('"', source)?,
-                '\'' => self.lex_string('\'', source)?,
+                'a'..='z' | 'A'..='Z' => self.lex_alphanumeric()?,
+                '"' => self.lex_string('"')?,
+                '\'' => self.lex_string('\'')?,
                 '+' => {
-                    if let Some('=') = self.peek_second_char(source) {
+                    if let Some('=') = self.peek_second_char() {
                         self.position += 2;
 
                         (Token::PlusEqual, (self.position - 2, self.position))
@@ -154,7 +160,7 @@ impl Lexer {
                     (Token::RightParenthesis, (self.position - 1, self.position))
                 }
                 '=' => {
-                    if let Some('=') = self.peek_second_char(source) {
+                    if let Some('=') = self.peek_second_char() {
                         self.position += 2;
 
                         (Token::DoubleEqual, (self.position - 2, self.position))
@@ -180,7 +186,7 @@ impl Lexer {
                     (Token::Comma, (self.position - 1, self.position))
                 }
                 '.' => {
-                    if let Some('.') = self.peek_second_char(source) {
+                    if let Some('.') = self.peek_second_char() {
                         self.position += 2;
 
                         (Token::DoubleDot, (self.position - 2, self.position))
@@ -191,7 +197,7 @@ impl Lexer {
                     }
                 }
                 '>' => {
-                    if let Some('=') = self.peek_second_char(source) {
+                    if let Some('=') = self.peek_second_char() {
                         self.position += 2;
 
                         (Token::GreaterEqual, (self.position - 2, self.position))
@@ -202,7 +208,7 @@ impl Lexer {
                     }
                 }
                 '<' => {
-                    if let Some('=') = self.peek_second_char(source) {
+                    if let Some('=') = self.peek_second_char() {
                         self.position += 2;
 
                         (Token::LessEqual, (self.position - 2, self.position))
@@ -233,7 +239,7 @@ impl Lexer {
                     (Token::Percent, (self.position - 1, self.position))
                 }
                 '&' => {
-                    if let Some('&') = self.peek_second_char(source) {
+                    if let Some('&') = self.peek_second_char() {
                         self.position += 2;
 
                         (Token::DoubleAmpersand, (self.position - 2, self.position))
@@ -252,7 +258,7 @@ impl Lexer {
                     (Token::Semicolon, (self.position - 1, self.position))
                 }
                 '|' => {
-                    if let Some('|') = self.peek_second_char(source) {
+                    if let Some('|') = self.peek_second_char() {
                         self.position += 2;
 
                         (Token::DoublePipe, (self.position - 2, self.position))
@@ -292,8 +298,8 @@ impl Lexer {
     }
 
     /// Peek at the next token without consuming the source.
-    pub fn peek_token<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
-        let token = self.next_token(source)?;
+    pub fn peek_token(&mut self) -> Result<(Token<'src>, Span), LexError> {
+        let token = self.next_token()?;
 
         self.position -= token.0.as_str().len();
 
@@ -301,8 +307,8 @@ impl Lexer {
     }
 
     /// Progress to the next character.
-    fn next_char(&mut self, source: &str) -> Option<char> {
-        if let Some(c) = source[self.position..].chars().next() {
+    fn next_char(&mut self) -> Option<char> {
+        if let Some(c) = self.source[self.position..].chars().next() {
             self.position += c.len_utf8();
 
             Some(c)
@@ -312,10 +318,10 @@ impl Lexer {
     }
 
     /// Skip whitespace characters.
-    fn skip_whitespace(&mut self, source: &str) {
-        while let Some(c) = self.peek_char(source) {
+    fn skip_whitespace(&mut self) {
+        while let Some(c) = self.peek_char() {
             if c.is_whitespace() {
-                self.next_char(source);
+                self.next_char();
             } else {
                 break;
             }
@@ -323,18 +329,18 @@ impl Lexer {
     }
 
     /// Peek at the next character without consuming it.
-    fn peek_char(&self, source: &str) -> Option<char> {
-        source[self.position..].chars().next()
+    fn peek_char(&self) -> Option<char> {
+        self.source[self.position..].chars().next()
     }
 
     /// Peek at the second-to-next character without consuming it.
-    fn peek_second_char(&self, source: &str) -> Option<char> {
-        source[self.position..].chars().nth(1)
+    fn peek_second_char(&self) -> Option<char> {
+        self.source[self.position..].chars().nth(1)
     }
 
     /// Peek the next `n` characters without consuming them.
-    fn peek_chars<'src>(&self, source: &'src str, n: usize) -> &'src str {
-        let remaining_source = &source[self.position..];
+    fn peek_chars(&self, n: usize) -> &'src str {
+        let remaining_source = &self.source[self.position..];
 
         if remaining_source.len() < n {
             remaining_source
@@ -344,32 +350,32 @@ impl Lexer {
     }
 
     /// Lex an integer or float token.
-    fn lex_number<'src>(&mut self, source: &'src str) -> Result<(Token<'src>, Span), LexError> {
+    fn lex_number(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
         let mut is_float = false;
 
-        if let Some('-') = self.peek_char(source) {
-            self.next_char(source);
+        if let Some('-') = self.peek_char() {
+            self.next_char();
         }
 
-        while let Some(c) = self.peek_char(source) {
+        while let Some(c) = self.peek_char() {
             if c == '.' {
-                if let Some('0'..='9') = self.peek_second_char(source) {
+                if let Some('0'..='9') = self.peek_second_char() {
                     if !is_float {
-                        self.next_char(source);
+                        self.next_char();
                     }
 
-                    self.next_char(source);
+                    self.next_char();
 
                     loop {
-                        let peek_char = self.peek_char(source);
+                        let peek_char = self.peek_char();
 
                         if let Some('0'..='9') = peek_char {
-                            self.next_char(source);
+                            self.next_char();
                         } else if let Some('e') = peek_char {
-                            if let Some('0'..='9') = self.peek_second_char(source) {
-                                self.next_char(source);
-                                self.next_char(source);
+                            if let Some('0'..='9') = self.peek_second_char() {
+                                self.next_char();
+                                self.next_char();
                             } else {
                                 break;
                             }
@@ -385,13 +391,13 @@ impl Lexer {
             }
 
             if c.is_ascii_digit() {
-                self.next_char(source);
+                self.next_char();
             } else {
                 break;
             }
         }
 
-        let text = &source[start_pos..self.position];
+        let text = &self.source[start_pos..self.position];
 
         if is_float {
             Ok((Token::Float(text), (start_pos, self.position)))
@@ -401,21 +407,18 @@ impl Lexer {
     }
 
     /// Lex an identifier token.
-    fn lex_alphanumeric<'src>(
-        &mut self,
-        source: &'src str,
-    ) -> Result<(Token<'src>, Span), LexError> {
+    fn lex_alphanumeric(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
 
-        while let Some(c) = self.peek_char(source) {
+        while let Some(c) = self.peek_char() {
             if c.is_ascii_alphanumeric() || c == '_' {
-                self.next_char(source);
+                self.next_char();
             } else {
                 break;
             }
         }
 
-        let string = &source[start_pos..self.position];
+        let string = &self.source[start_pos..self.position];
         let token = match string {
             "Infinity" => Token::Float("Infinity"),
             "NaN" => Token::Float("NaN"),
@@ -443,33 +446,23 @@ impl Lexer {
         Ok((token, (start_pos, self.position)))
     }
 
-    fn lex_string<'src>(
-        &mut self,
-        delimiter: char,
-        source: &'src str,
-    ) -> Result<(Token<'src>, Span), LexError> {
+    fn lex_string(&mut self, delimiter: char) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
 
-        self.next_char(source);
+        self.next_char();
 
-        while let Some(c) = self.peek_char(source) {
+        while let Some(c) = self.peek_char() {
             if c == delimiter {
-                self.next_char(source);
+                self.next_char();
                 break;
             } else {
-                self.next_char(source);
+                self.next_char();
             }
         }
 
-        let text = &source[start_pos + 1..self.position - 1];
+        let text = &self.source[start_pos + 1..self.position - 1];
 
         Ok((Token::String(text), (start_pos, self.position)))
-    }
-}
-
-impl Default for Lexer {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

@@ -58,15 +58,17 @@ pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>,
 
     analyzer
         .analyze()
-        .map_err(|analyzer_error| DustError::AnalyzerError {
-            analyzer_error,
+        .map_err(|analysis_error| DustError::AnalysisError {
+            analysis_error,
             source,
         })?;
 
     let mut vm = Vm::new(abstract_syntax_tree, context);
 
-    vm.run()
-        .map_err(|vm_error| DustError::VmError { vm_error, source })
+    vm.run().map_err(|runtime_error| DustError::VmError {
+        runtime_error,
+        source,
+    })
 }
 
 /// Dust virtual machine.
@@ -89,7 +91,7 @@ impl Vm {
         }
     }
 
-    pub fn run(&mut self) -> Result<Option<Value>, VmError> {
+    pub fn run(&mut self) -> Result<Option<Value>, RuntimeError> {
         let mut previous_value = None;
 
         while let Some(statement) = self.abstract_tree.statements.pop_front() {
@@ -103,7 +105,7 @@ impl Vm {
         &self,
         statement: Statement,
         collect_garbage: bool,
-    ) -> Result<Option<Value>, VmError> {
+    ) -> Result<Option<Value>, RuntimeError> {
         let position = statement.position();
         let result = match statement {
             Statement::Expression(expression) => self
@@ -138,10 +140,10 @@ impl Vm {
         };
 
         if collect_garbage {
-            self.context.collect_garbage(position.1);
+            self.context.collect_garbage(position);
         }
 
-        result.map_err(|error| VmError::Trace {
+        result.map_err(|error| RuntimeError::Trace {
             error: Box::new(error),
             position,
         })
@@ -151,7 +153,7 @@ impl Vm {
         &self,
         let_statement: LetStatement,
         collect_garbage: bool,
-    ) -> Result<(), VmError> {
+    ) -> Result<(), RuntimeError> {
         match let_statement {
             LetStatement::Let { identifier, value } => {
                 let value_position = value.position();
@@ -183,7 +185,7 @@ impl Vm {
         &self,
         expression: Expression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         let position = expression.position();
         let evaluation_result = match expression {
             Expression::Block(Node { inner, .. }) => self.run_block(*inner, collect_garbage),
@@ -200,7 +202,7 @@ impl Vm {
                 if let Some(value) = get_value {
                     Ok(Evaluation::Return(Some(value)))
                 } else {
-                    Err(VmError::UndefinedVariable {
+                    Err(RuntimeError::UndefinedVariable {
                         identifier: identifier.inner,
                         position: identifier.position,
                     })
@@ -242,7 +244,7 @@ impl Vm {
                         (Value::Integer(start), Value::Integer(end)) => {
                             Ok(Evaluation::Return(Some(Value::integer_range(start, end))))
                         }
-                        _ => Err(VmError::InvalidRange {
+                        _ => Err(RuntimeError::InvalidRange {
                             start_position,
                             end_position,
                         }),
@@ -271,7 +273,7 @@ impl Vm {
                         (Value::Integer(start), Value::Integer(end)) => Ok(Evaluation::Return(
                             Some(Value::integer_range_inclusive(start, end)),
                         )),
-                        _ => Err(VmError::InvalidRange {
+                        _ => Err(RuntimeError::InvalidRange {
                             start_position,
                             end_position,
                         }),
@@ -282,7 +284,7 @@ impl Vm {
             Expression::TupleAccess(_) => todo!(),
         };
 
-        evaluation_result.map_err(|error| VmError::Trace {
+        evaluation_result.map_err(|error| RuntimeError::Trace {
             error: Box::new(error),
             position,
         })
@@ -292,7 +294,7 @@ impl Vm {
         &self,
         operator: OperatorExpression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         match operator {
             OperatorExpression::Assignment { assignee, value } => {
                 let assignee_position = assignee.position();
@@ -306,7 +308,7 @@ impl Vm {
 
                 assignee
                     .mutate(value)
-                    .map_err(|error| VmError::ValueError {
+                    .map_err(|error| RuntimeError::ValueError {
                         error,
                         left_position: assignee_position,
                         right_position: value_position,
@@ -333,28 +335,28 @@ impl Vm {
                         ComparisonOperator::NotEqual => left_value.not_equal(&right_value),
                         ComparisonOperator::GreaterThan => left_value
                             .greater_than(&right_value)
-                            .map_err(|error| VmError::ValueError {
+                            .map_err(|error| RuntimeError::ValueError {
                                 error,
                                 left_position,
                                 right_position,
                             })?,
                         ComparisonOperator::GreaterThanOrEqual => left_value
                             .greater_than_or_equal(&right_value)
-                            .map_err(|error| VmError::ValueError {
+                            .map_err(|error| RuntimeError::ValueError {
                                 error,
                                 left_position,
                                 right_position,
                             })?,
                         ComparisonOperator::LessThan => left_value
                             .less_than(&right_value)
-                            .map_err(|error| VmError::ValueError {
+                            .map_err(|error| RuntimeError::ValueError {
                                 error,
                                 left_position,
                                 right_position,
                             })?,
                         ComparisonOperator::LessThanOrEqual => left_value
                             .less_than_or_equal(&right_value)
-                            .map_err(|error| VmError::ValueError {
+                            .map_err(|error| RuntimeError::ValueError {
                                 error,
                                 left_position,
                                 right_position,
@@ -384,7 +386,7 @@ impl Vm {
                     MathOperator::Divide => assignee.divide_assign(&modifier),
                     MathOperator::Modulo => assignee.modulo_assign(&modifier),
                 }
-                .map_err(|error| VmError::ValueError {
+                .map_err(|error| RuntimeError::ValueError {
                     error,
                     left_position: assignee_position,
                     right_position: modifier_position,
@@ -400,7 +402,7 @@ impl Vm {
                     .expect_value(position)?;
                 let integer = value
                     .as_integer()
-                    .ok_or(VmError::ExpectedBoolean { position })?;
+                    .ok_or(RuntimeError::ExpectedBoolean { position })?;
                 let negated = Value::Integer(-integer);
 
                 Ok(Evaluation::Return(Some(negated)))
@@ -412,7 +414,7 @@ impl Vm {
                     .expect_value(position)?;
                 let boolean = value
                     .as_boolean()
-                    .ok_or(VmError::ExpectedBoolean { position })?;
+                    .ok_or(RuntimeError::ExpectedBoolean { position })?;
                 let not = Value::Boolean(!boolean);
 
                 Ok(Evaluation::Return(Some(not)))
@@ -437,7 +439,7 @@ impl Vm {
                     MathOperator::Divide => left_value.divide(&right_value),
                     MathOperator::Modulo => left_value.modulo(&right_value),
                 }
-                .map_err(|value_error| VmError::ValueError {
+                .map_err(|value_error| RuntimeError::ValueError {
                     error: value_error,
                     left_position,
                     right_position,
@@ -462,7 +464,7 @@ impl Vm {
                     LogicOperator::And => left_value.and(&right_value),
                     LogicOperator::Or => left_value.or(&right_value),
                 }
-                .map_err(|value_error| VmError::ValueError {
+                .map_err(|value_error| RuntimeError::ValueError {
                     error: value_error,
                     left_position,
                     right_position,
@@ -473,7 +475,7 @@ impl Vm {
         }
     }
 
-    fn run_loop(&self, loop_expression: LoopExpression) -> Result<Evaluation, VmError> {
+    fn run_loop(&self, loop_expression: LoopExpression) -> Result<Evaluation, RuntimeError> {
         match loop_expression {
             LoopExpression::Infinite { block } => loop {
                 self.run_block(block.inner.clone(), false)?;
@@ -483,7 +485,7 @@ impl Vm {
                     .run_expression(condition.clone(), false)?
                     .expect_value(condition.position())?
                     .as_boolean()
-                    .ok_or_else(|| VmError::ExpectedBoolean {
+                    .ok_or_else(|| RuntimeError::ExpectedBoolean {
                         position: condition.position(),
                     })?
                 {
@@ -500,7 +502,7 @@ impl Vm {
         }
     }
 
-    fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, VmError> {
+    fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, RuntimeError> {
         let value = match literal {
             LiteralExpression::Boolean(boolean) => Value::Boolean(boolean),
             LiteralExpression::Float(float) => Value::Float(float),
@@ -515,7 +517,7 @@ impl Vm {
         &self,
         list_index: ListIndexExpression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         let ListIndexExpression { list, index } = list_index;
 
         let list_position = list.position();
@@ -531,7 +533,7 @@ impl Vm {
         let index = if let Some(index) = index_value.as_integer() {
             index as usize
         } else {
-            return Err(VmError::ExpectedInteger {
+            return Err(RuntimeError::ExpectedInteger {
                 position: index_position,
             });
         };
@@ -545,7 +547,7 @@ impl Vm {
         &self,
         call_expression: CallExpression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         let CallExpression { invoker, arguments } = call_expression;
 
         let invoker_position = invoker.position();
@@ -553,7 +555,7 @@ impl Vm {
             if let Some(value) = self.run_expression(invoker, collect_garbage)?.value() {
                 value
             } else {
-                return Err(VmError::ExpectedValue {
+                return Err(RuntimeError::ExpectedValue {
                     position: invoker_position,
                 });
             };
@@ -561,7 +563,7 @@ impl Vm {
         let function = if let Value::Function(function) = invoker_value {
             function
         } else {
-            return Err(VmError::ExpectedFunction {
+            return Err(RuntimeError::ExpectedFunction {
                 actual: invoker_value,
                 position: invoker_position,
             });
@@ -575,7 +577,7 @@ impl Vm {
             if let Some(value) = self.run_expression(argument, collect_garbage)?.value() {
                 value_arguments.push(value);
             } else {
-                return Err(VmError::ExpectedValue { position });
+                return Err(RuntimeError::ExpectedValue { position });
             }
         }
 
@@ -590,7 +592,7 @@ impl Vm {
         &self,
         field_access: FieldAccessExpression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         let FieldAccessExpression { container, field } = field_access;
 
         let container_position = container.position();
@@ -598,7 +600,7 @@ impl Vm {
             if let Some(value) = self.run_expression(container, collect_garbage)?.value() {
                 value
             } else {
-                return Err(VmError::ExpectedValue {
+                return Err(RuntimeError::ExpectedValue {
                     position: container_position,
                 });
             };
@@ -610,7 +612,7 @@ impl Vm {
         &self,
         list_expression: ListExpression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         match list_expression {
             ListExpression::AutoFill {
                 repeat_operand,
@@ -621,7 +623,7 @@ impl Vm {
                     .run_expression(length_operand, collect_garbage)?
                     .expect_value(position)?
                     .as_integer()
-                    .ok_or(VmError::ExpectedInteger { position })?;
+                    .ok_or(RuntimeError::ExpectedInteger { position })?;
 
                 let position = repeat_operand.position();
                 let value = self
@@ -654,7 +656,7 @@ impl Vm {
         &self,
         block: BlockExpression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         match block {
             BlockExpression::Async(statements) => {
                 let final_result = Arc::new(Mutex::new(None));
@@ -694,7 +696,9 @@ impl Vm {
 
                     previous_value = self.run_statement(statement, collect_garbage)?;
 
-                    self.context.collect_garbage(position.1);
+                    if collect_garbage {
+                        self.context.collect_garbage(position);
+                    }
                 }
 
                 Ok(Evaluation::Return(previous_value))
@@ -706,7 +710,7 @@ impl Vm {
         &self,
         if_expression: IfExpression,
         collect_garbage: bool,
-    ) -> Result<Evaluation, VmError> {
+    ) -> Result<Evaluation, RuntimeError> {
         match if_expression {
             IfExpression::If {
                 condition,
@@ -717,7 +721,7 @@ impl Vm {
                     .run_expression(condition, collect_garbage)?
                     .expect_value(position)?
                     .as_boolean()
-                    .ok_or(VmError::ExpectedBoolean { position })?;
+                    .ok_or(RuntimeError::ExpectedBoolean { position })?;
 
                 if boolean {
                     self.run_block(if_block.inner, collect_garbage)?;
@@ -735,7 +739,7 @@ impl Vm {
                     .run_expression(condition, collect_garbage)?
                     .expect_value(position)?
                     .as_boolean()
-                    .ok_or(VmError::ExpectedBoolean { position })?;
+                    .ok_or(RuntimeError::ExpectedBoolean { position })?;
 
                 if boolean {
                     self.run_block(if_block.inner, collect_garbage)?;
@@ -765,20 +769,20 @@ impl Evaluation {
         }
     }
 
-    pub fn expect_value(self, position: Span) -> Result<Value, VmError> {
+    pub fn expect_value(self, position: Span) -> Result<Value, RuntimeError> {
         if let Evaluation::Return(Some(value)) = self {
             Ok(value)
         } else {
-            Err(VmError::ExpectedValue { position })
+            Err(RuntimeError::ExpectedValue { position })
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum VmError {
+pub enum RuntimeError {
     ParseError(ParseError),
     Trace {
-        error: Box<VmError>,
+        error: Box<RuntimeError>,
         position: Span,
     },
     ValueError {
@@ -844,7 +848,7 @@ pub enum VmError {
     },
 }
 
-impl VmError {
+impl RuntimeError {
     pub fn position(&self) -> Span {
         match self {
             Self::ParseError(parse_error) => parse_error.position(),
@@ -879,13 +883,13 @@ impl VmError {
     }
 }
 
-impl From<ParseError> for VmError {
+impl From<ParseError> for RuntimeError {
     fn from(error: ParseError) -> Self {
         Self::ParseError(error)
     }
 }
 
-impl Display for VmError {
+impl Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
@@ -998,7 +1002,7 @@ mod tests {
 
     #[test]
     fn async_block() {
-        let input = "let mut x = 1; async { x += 1; x -= 1; } x";
+        let input = "let x = 1; async { x += 1; x -= 1; } x";
 
         assert_eq!(run(input), Ok(Some(Value::Integer(1))));
     }

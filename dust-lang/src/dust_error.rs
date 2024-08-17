@@ -2,18 +2,18 @@
 use annotate_snippets::{Level, Renderer, Snippet};
 use std::fmt::Display;
 
-use crate::{AnalyzerError, LexError, ParseError, VmError};
+use crate::{AnalysisError, LexError, ParseError, RuntimeError};
 
 /// An error that occurred during the execution of the Dust language and its
 /// corresponding source code.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DustError<'src> {
     VmError {
-        vm_error: VmError,
+        runtime_error: RuntimeError,
         source: &'src str,
     },
-    AnalyzerError {
-        analyzer_error: AnalyzerError,
+    AnalysisError {
+        analysis_error: AnalysisError,
         source: &'src str,
     },
     ParseError {
@@ -30,7 +30,7 @@ impl<'src> DustError<'src> {
     pub fn title(&self) -> &'static str {
         match self {
             DustError::VmError { .. } => "Runtime error",
-            DustError::AnalyzerError { .. } => "Analyzer error",
+            DustError::AnalysisError { .. } => "Analysis error",
             DustError::ParseError { .. } => "Parse error",
             DustError::LexError { .. } => "Lex error",
         }
@@ -38,8 +38,8 @@ impl<'src> DustError<'src> {
 
     pub fn position(&self) -> (usize, usize) {
         match self {
-            DustError::VmError { vm_error, .. } => vm_error.position(),
-            DustError::AnalyzerError { analyzer_error, .. } => analyzer_error.position(),
+            DustError::VmError { runtime_error, .. } => runtime_error.position(),
+            DustError::AnalysisError { analysis_error, .. } => analysis_error.position(),
             DustError::ParseError { parse_error, .. } => parse_error.position(),
             DustError::LexError { lex_error, .. } => lex_error.position(),
         }
@@ -48,7 +48,7 @@ impl<'src> DustError<'src> {
     pub fn source(&self) -> &'src str {
         match self {
             DustError::VmError { source, .. } => source,
-            DustError::AnalyzerError { source, .. } => source,
+            DustError::AnalysisError { source, .. } => source,
             DustError::ParseError { source, .. } => source,
             DustError::LexError { source, .. } => source,
         }
@@ -71,8 +71,8 @@ impl<'src> DustError<'src> {
 impl Display for DustError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DustError::VmError { vm_error, .. } => write!(f, "{vm_error}"),
-            DustError::AnalyzerError { analyzer_error, .. } => write!(f, "{analyzer_error}"),
+            DustError::VmError { runtime_error, .. } => write!(f, "{runtime_error}"),
+            DustError::AnalysisError { analysis_error, .. } => write!(f, "{analysis_error}"),
             DustError::ParseError { parse_error, .. } => write!(f, "{parse_error}"),
             DustError::LexError { lex_error, .. } => write!(f, "{lex_error}"),
         }

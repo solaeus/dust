@@ -15,8 +15,8 @@ use serde::{
 };
 
 use crate::{
-    AbstractSyntaxTree, Context, EnumType, FieldsStructType, FunctionType, Identifier, StructType,
-    TupleType, Type, Vm, VmError,
+    AbstractSyntaxTree, Context, EnumType, FieldsStructType, FunctionType, Identifier,
+    RuntimeError, StructType, TupleType, Type, Vm,
 };
 
 /// Dust value representation
@@ -918,7 +918,7 @@ impl Function {
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
         context: &Context,
-    ) -> Result<Option<Value>, VmError> {
+    ) -> Result<Option<Value>, RuntimeError> {
         let new_context = Context::with_variables_from(context);
 
         if let (Some(value_parameters), Some(value_arguments)) =
