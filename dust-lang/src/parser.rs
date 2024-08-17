@@ -4,7 +4,6 @@
 //! - `parse` convenience function
 //! - `Parser` struct, which parses the input a statement at a time
 use std::{
-    collections::VecDeque,
     error::Error,
     fmt::{self, Display, Formatter},
     num::{ParseFloatError, ParseIntError},
@@ -180,10 +179,8 @@ impl<'src> Parser<'src> {
 
             self.next_token()?;
 
-            let (name, name_end) = if let Token::Identifier(_) = self.current_token {
-                let end = self.current_position.1;
-
-                (self.parse_identifier()?, end)
+            let name = if let Token::Identifier(_) = self.current_token {
+                self.parse_identifier()?
             } else {
                 return Err(ParseError::ExpectedToken {
                     expected: TokenKind::Identifier,
@@ -192,6 +189,17 @@ impl<'src> Parser<'src> {
                 });
             };
 
+            if let Token::Semicolon = self.current_token {
+                let end = self.current_position.1;
+
+                self.next_token()?;
+
+                return Ok(Statement::struct_definition(
+                    StructDefinition::Unit { name },
+                    (start_position.0, end),
+                ));
+            }
+
             if let Token::LeftParenthesis = self.current_token {
                 self.next_token()?;
 
@@ -199,26 +207,45 @@ impl<'src> Parser<'src> {
 
                 loop {
                     if let Token::RightParenthesis = self.current_token {
-                        let position = (start_position.0, self.current_position.1);
-
                         self.next_token()?;
 
-                        return Ok(Statement::struct_definition(
-                            StructDefinition::Tuple { name, items: types },
-                            position,
-                        ));
+                        if let Token::Semicolon = self.current_token {
+                            break;
+                        } else {
+                            return Err(ParseError::ExpectedToken {
+                                expected: TokenKind::Semicolon,
+                                actual: self.current_token.to_owned(),
+                                position: self.current_position,
+                            });
+                        }
                     }
+
+                    let type_node = self.parse_type()?;
+
+                    types.push(type_node);
 
                     if let Token::Comma = self.current_token {
                         self.next_token()?;
 
                         continue;
                     }
-
-                    let type_node = self.parse_type()?;
-
-                    types.push(type_node);
                 }
+
+                let position = (start_position.0, self.current_position.1);
+
+                self.next_token()?;
+
+                return if types.is_empty() {
+                    Ok(Statement::struct_definition(
+                        StructDefinition::Unit { name },
+                        position,
+                    ))
+                } else {
+                    Ok(Statement::struct_definition(
+                        StructDefinition::Tuple { name, items: types },
+                        position,
+                    ))
+                };
             }
 
             if let Token::LeftCurlyBrace = self.current_token {
@@ -228,20 +255,11 @@ impl<'src> Parser<'src> {
 
                 loop {
                     if let Token::RightCurlyBrace = self.current_token {
-                        let position = (start_position.0, self.current_position.1);
+                        if let Token::Semicolon = self.current_token {
+                            self.next_token()?;
+                        }
 
-                        self.next_token()?;
-
-                        return Ok(Statement::struct_definition(
-                            StructDefinition::Fields { name, fields },
-                            position,
-                        ));
-                    }
-
-                    if let Token::Comma = self.current_token {
-                        self.next_token()?;
-
-                        continue;
+                        break;
                     }
 
                     let field_name = self.parse_identifier()?;
@@ -259,13 +277,40 @@ impl<'src> Parser<'src> {
                     let field_type = self.parse_type()?;
 
                     fields.push((field_name, field_type));
+
+                    if let Token::Comma = self.current_token {
+                        self.next_token()?;
+
+                        continue;
+                    }
                 }
+
+                let position = (start_position.0, self.current_position.1);
+
+                self.next_token()?;
+
+                return if fields.is_empty() {
+                    Ok(Statement::struct_definition(
+                        StructDefinition::Unit { name },
+                        position,
+                    ))
+                } else {
+                    Ok(Statement::struct_definition(
+                        StructDefinition::Fields { name, fields },
+                        position,
+                    ))
+                };
             }
 
-            return Ok(Statement::struct_definition(
-                StructDefinition::Unit { name },
-                (start_position.0, name_end),
-            ));
+            return Err(ParseError::ExpectedTokenMultiple {
+                expected: vec![
+                    TokenKind::LeftParenthesis,
+                    TokenKind::LeftCurlyBrace,
+                    TokenKind::Semicolon,
+                ],
+                actual: self.current_token.to_owned(),
+                position: self.current_position,
+            });
         }
 
         let expression = self.parse_expression(0)?;
@@ -567,6 +612,51 @@ impl<'src> Parser<'src> {
                     let expression = self.parse_expression(0)?;
 
                     expressions.push(expression);
+                }
+            }
+            Token::Map => {
+                self.next_token()?;
+
+                if let Token::LeftCurlyBrace = self.current_token {
+                    self.next_token()?;
+                } else {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenKind::LeftCurlyBrace,
+                        actual: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                }
+
+                let mut fields = Vec::new();
+
+                loop {
+                    if let Token::RightCurlyBrace = self.current_token {
+                        let position = (start_position.0, self.current_position.1);
+
+                        self.next_token()?;
+
+                        return Ok(Expression::map(fields, position));
+                    }
+
+                    let field_name = self.parse_identifier()?;
+
+                    if let Token::Equal = self.current_token {
+                        self.next_token()?;
+                    } else {
+                        return Err(ParseError::ExpectedToken {
+                            expected: TokenKind::Equal,
+                            actual: self.current_token.to_owned(),
+                            position: self.current_position,
+                        });
+                    }
+
+                    let field_value = self.parse_expression(0)?;
+
+                    fields.push((field_name, field_value));
+
+                    if let Token::Comma = self.current_token {
+                        self.next_token()?;
+                    }
                 }
             }
             Token::While => {
@@ -1084,9 +1174,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn let_mut_while_loop() {
-        env_logger::builder().is_test(true).try_init().ok();
+    fn map_expression() {
+        let source = "map { x = '1', y = 2, z = 3.0 }";
 
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree {
+                statements: [Statement::Expression(Expression::map(
+                    vec![
+                        (
+                            Node::new(Identifier::new("x"), (6, 7)),
+                            Expression::literal(
+                                LiteralExpression::String("1".to_string()),
+                                (10, 13)
+                            ),
+                        ),
+                        (
+                            Node::new(Identifier::new("y"), (15, 16)),
+                            Expression::literal(LiteralExpression::Integer(2), (19, 20)),
+                        ),
+                        (
+                            Node::new(Identifier::new("z"), (22, 23)),
+                            Expression::literal(LiteralExpression::Float(3.0), (26, 29)),
+                        ),
+                    ],
+                    (0, 31),
+                ))]
+                .into(),
+            })
+        );
+    }
+
+    #[test]
+    fn let_mut_while_loop() {
         let source = "let mut x = 0; while x < 10 { x += 1 }; x";
 
         assert_eq!(
@@ -1307,36 +1427,26 @@ mod tests {
 
     #[test]
     fn tuple_struct_instantiation() {
-        let source = "struct Foo(int, float) Foo(1, 2.0)";
+        let source = "Foo(1, 2.0)";
 
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::struct_definition(
-                    StructDefinition::Tuple {
-                        name: Node::new(Identifier::new("Foo"), (7, 10)),
-                        items: vec![
-                            Node::new(Type::Integer, (11, 14)),
-                            Node::new(Type::Float, (16, 21)),
-                        ]
-                    },
-                    (0, 22)
-                ),
                 Statement::Expression(Expression::call(
-                    Expression::identifier(Identifier::new("Foo"), (23, 26)),
+                    Expression::identifier(Identifier::new("Foo"), (0, 3)),
                     vec![
-                        Expression::literal(LiteralExpression::Integer(1), (27, 28)),
-                        Expression::literal(LiteralExpression::Float(2.0), (30, 33))
+                        Expression::literal(LiteralExpression::Integer(1), (4, 5)),
+                        Expression::literal(LiteralExpression::Float(2.0), (7, 10))
                     ],
-                    (23, 34)
+                    (0, 11)
                 ))
             ]))
         );
     }
 
     #[test]
-    fn tuple_struct() {
-        let source = "struct Foo(int, float)";
+    fn tuple_struct_definition() {
+        let source = "struct Foo(int, float);";
 
         assert_eq!(
             parse(source),
@@ -1349,7 +1459,7 @@ mod tests {
                             Node::new(Type::Float, (16, 21)),
                         ],
                     },
-                    (0, 22)
+                    (0, 23)
                 ))
             ]))
         );
@@ -1357,7 +1467,7 @@ mod tests {
 
     #[test]
     fn unit_struct() {
-        let source = "struct Foo";
+        let source = "struct Foo;";
 
         assert_eq!(
             parse(source),
@@ -1366,7 +1476,7 @@ mod tests {
                     StructDefinition::Unit {
                         name: Node::new(Identifier::new("Foo"), (7, 10)),
                     },
-                    (0, 10)
+                    (0, 11)
                 ))
             ]))
         );

@@ -12,11 +12,12 @@ use std::{
 use crate::{
     ast::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ElseExpression, FieldAccessExpression,
-        IfExpression, LetStatement, ListExpression, ListIndexExpression, LoopExpression, Node,
-        OperatorExpression, RangeExpression, Span, Statement, StructExpression,
-        TupleAccessExpression,
+        IfExpression, LetStatement, ListExpression, ListIndexExpression, LoopExpression,
+        MapExpression, Node, OperatorExpression, RangeExpression, Span, Statement,
+        StructDefinition, StructExpression, TupleAccessExpression,
     },
-    parse, Context, DustError, Expression, Identifier, Type,
+    parse, Context, DustError, Expression, FieldsStructType, Identifier, StructType, TupleType,
+    Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -129,7 +130,37 @@ impl<'a> Analyzer<'a> {
                     value,
                 } => todo!(),
             },
-            Statement::StructDefinition(_) => {}
+            Statement::StructDefinition(struct_definition) => {
+                let (name, struct_type) = match &struct_definition.inner {
+                    StructDefinition::Unit { name } => {
+                        (name.inner.clone(), Type::Struct(StructType::Unit))
+                    }
+                    StructDefinition::Tuple { name, items } => {
+                        let fields = items.iter().map(|item| item.inner.clone()).collect();
+
+                        (
+                            name.inner.clone(),
+                            Type::Struct(StructType::Tuple(TupleType { fields })),
+                        )
+                    }
+                    StructDefinition::Fields { name, fields } => {
+                        let fields = fields
+                            .iter()
+                            .map(|(identifier, r#type)| {
+                                (identifier.inner.clone(), r#type.inner.clone())
+                            })
+                            .collect();
+
+                        (
+                            name.inner.clone(),
+                            Type::Struct(StructType::Fields(FieldsStructType { fields })),
+                        )
+                    }
+                };
+
+                self.context
+                    .set_type(name, struct_type, struct_definition.position);
+            }
         }
 
         Ok(())
@@ -204,6 +235,13 @@ impl<'a> Analyzer<'a> {
                     self.analyze_block(&block.inner)?;
                 }
             },
+            Expression::Map(map_expression) => {
+                let MapExpression { pairs } = map_expression.inner.as_ref();
+
+                for (_, expression) in pairs {
+                    self.analyze_expression(expression)?;
+                }
+            }
             Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
                 OperatorExpression::Assignment { assignee, value } => {
                     self.analyze_expression(assignee)?;

@@ -6,7 +6,9 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, FieldsStructType, FunctionType, Identifier, StructType, TupleType, Type};
+use crate::{
+    Context, FieldsStructType, FunctionType, Identifier, RangeableType, StructType, TupleType, Type,
+};
 
 use super::{Node, Span, Statement};
 
@@ -22,6 +24,7 @@ pub enum Expression {
     ListIndex(Node<Box<ListIndexExpression>>),
     Literal(Node<Box<LiteralExpression>>),
     Loop(Node<Box<LoopExpression>>),
+    Map(Node<Box<MapExpression>>),
     Operator(Node<Box<OperatorExpression>>),
     Range(Node<Box<RangeExpression>>),
     Struct(Node<Box<StructExpression>>),
@@ -29,6 +32,15 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn map(pairs: Vec<(Node<Identifier>, Expression)>, position: Span) -> Self {
+        Self::Map(Node::new(
+            Box::new(MapExpression {
+                pairs: pairs.into_iter().collect(),
+            }),
+            position,
+        ))
+    }
+
     pub fn operator(operator_expression: OperatorExpression, position: Span) -> Self {
         Self::Operator(Node::new(Box::new(operator_expression), position))
     }
@@ -323,6 +335,19 @@ impl Expression {
                 LoopExpression::Infinite { .. } => None,
                 LoopExpression::While { block, .. } => block.inner.return_type(context),
             },
+            Expression::Map(map_expression) => {
+                let MapExpression { pairs } = map_expression.inner.as_ref();
+
+                let mut types = HashMap::with_capacity(pairs.len());
+
+                for (key, value) in pairs {
+                    let value_type = value.return_type(context)?;
+
+                    types.insert(key.inner.clone(), value_type);
+                }
+
+                Some(Type::Map { pairs: types })
+            }
             Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
                 OperatorExpression::Assignment { .. } => None,
                 OperatorExpression::Comparison { .. } => Some(Type::Boolean),
@@ -333,7 +358,24 @@ impl Expression {
                 OperatorExpression::Math { left, .. } => left.return_type(context),
                 OperatorExpression::Logic { .. } => Some(Type::Boolean),
             },
-            Expression::Range(_) => Some(Type::Range),
+            Expression::Range(range_expression) => {
+                let start = match range_expression.inner.as_ref() {
+                    RangeExpression::Exclusive { start, .. } => start,
+                    RangeExpression::Inclusive { start, end } => start,
+                };
+                let start_type = start.return_type(context)?;
+                let rangeable_type = match start_type {
+                    Type::Byte => RangeableType::Byte,
+                    Type::Character => RangeableType::Character,
+                    Type::Float => RangeableType::Float,
+                    Type::Integer => RangeableType::Integer,
+                    _ => return None,
+                };
+
+                Some(Type::Range {
+                    r#type: rangeable_type,
+                })
+            }
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Fields { fields, .. } => {
                     let mut types = HashMap::with_capacity(fields.len());
@@ -375,6 +417,7 @@ impl Expression {
             Expression::ListIndex(list_index) => list_index.position,
             Expression::Literal(literal) => literal.position,
             Expression::Loop(r#loop) => r#loop.position,
+            Expression::Map(map) => map.position,
             Expression::Operator(operator) => operator.position,
             Expression::Range(range) => range.position,
             Expression::Struct(r#struct) => r#struct.position,
@@ -396,11 +439,33 @@ impl Display for Expression {
             Expression::ListIndex(list_index) => write!(f, "{}", list_index.inner),
             Expression::Literal(literal) => write!(f, "{}", literal.inner),
             Expression::Loop(r#loop) => write!(f, "{}", r#loop.inner),
+            Expression::Map(map) => write!(f, "{}", map.inner),
             Expression::Operator(operator) => write!(f, "{}", operator.inner),
             Expression::Range(range) => write!(f, "{}", range),
             Expression::Struct(r#struct) => write!(f, "{}", r#struct.inner),
             Expression::TupleAccess(tuple_access) => write!(f, "{}", tuple_access),
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct MapExpression {
+    pub pairs: Vec<(Node<Identifier>, Expression)>,
+}
+
+impl Display for MapExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{{")?;
+
+        for (index, (key, value)) in self.pairs.iter().enumerate() {
+            if index > 0 {
+                write!(f, ", ")?;
+            }
+
+            write!(f, "{} = {}", key.inner, value)?;
+        }
+
+        write!(f, "}}")
     }
 }
 

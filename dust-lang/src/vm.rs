@@ -5,6 +5,7 @@
 //! - `run_with_context` convenience function that takes a source code string and a context
 //! - `Vm` struct that can be used to run an abstract syntax tree
 use std::{
+    collections::HashMap,
     fmt::{self, Display, Formatter},
     sync::{Arc, Mutex},
 };
@@ -15,11 +16,11 @@ use crate::{
     ast::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
         FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
-        LiteralExpression, LogicOperator, LoopExpression, MathOperator, Node, OperatorExpression,
-        RangeExpression, Span, Statement, StructDefinition,
+        LiteralExpression, LogicOperator, LoopExpression, MapExpression, MathOperator, Node,
+        OperatorExpression, RangeExpression, Span, Statement, StructDefinition, StructExpression,
     },
-    parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
-    StructType, TupleType, Type, Value, ValueError,
+    parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, FieldsStructType,
+    Identifier, ParseError, Struct, StructType, TupleType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -129,7 +130,17 @@ impl Vm {
 
                         (name.inner.clone(), StructType::Tuple(TupleType { fields }))
                     }
-                    StructDefinition::Fields { name, fields } => todo!(),
+                    StructDefinition::Fields { name, fields } => {
+                        let fields = fields
+                            .into_iter()
+                            .map(|(identifier, r#type)| (identifier.inner, r#type.inner))
+                            .collect();
+
+                        (
+                            name.inner.clone(),
+                            StructType::Fields(FieldsStructType { fields }),
+                        )
+                    }
                 };
 
                 self.context
@@ -202,7 +213,7 @@ impl Vm {
                 if let Some(value) = get_value {
                     Ok(Evaluation::Return(Some(value)))
                 } else {
-                    Err(RuntimeError::UndefinedVariable {
+                    Err(RuntimeError::UndefinedValue {
                         identifier: identifier.inner,
                         position: identifier.position,
                     })
@@ -217,70 +228,16 @@ impl Vm {
             }
             Expression::Literal(literal) => self.run_literal(*literal.inner),
             Expression::Loop(loop_expression) => self.run_loop(*loop_expression.inner),
+            Expression::Map(map_expression) => self.run_map(*map_expression.inner, collect_garbage),
             Expression::Operator(operator_expression) => {
                 self.run_operator(*operator_expression.inner, collect_garbage)
             }
-            Expression::Range(range_expression) => match *range_expression.inner {
-                RangeExpression::Exclusive { start, end } => {
-                    let start_position = start.position();
-                    let start = self
-                        .run_expression(start, collect_garbage)?
-                        .expect_value(start_position)?;
-                    let end_position = end.position();
-                    let end = self
-                        .run_expression(end, collect_garbage)?
-                        .expect_value(end_position)?;
-
-                    match (start, end) {
-                        (Value::Byte(start), Value::Byte(end)) => {
-                            Ok(Evaluation::Return(Some(Value::byte_range(start, end))))
-                        }
-                        (Value::Character(start), Value::Character(end)) => {
-                            Ok(Evaluation::Return(Some(Value::character_range(start, end))))
-                        }
-                        (Value::Float(start), Value::Float(end)) => {
-                            Ok(Evaluation::Return(Some(Value::float_range(start, end))))
-                        }
-                        (Value::Integer(start), Value::Integer(end)) => {
-                            Ok(Evaluation::Return(Some(Value::integer_range(start, end))))
-                        }
-                        _ => Err(RuntimeError::InvalidRange {
-                            start_position,
-                            end_position,
-                        }),
-                    }
-                }
-                RangeExpression::Inclusive { start, end } => {
-                    let start_position = start.position();
-                    let start = self
-                        .run_expression(start, collect_garbage)?
-                        .expect_value(start_position)?;
-                    let end_position = end.position();
-                    let end = self
-                        .run_expression(end, collect_garbage)?
-                        .expect_value(end_position)?;
-
-                    match (start, end) {
-                        (Value::Byte(start), Value::Byte(end)) => Ok(Evaluation::Return(Some(
-                            Value::byte_range_inclusive(start, end),
-                        ))),
-                        (Value::Character(start), Value::Character(end)) => Ok(Evaluation::Return(
-                            Some(Value::character_range_inclusive(start, end)),
-                        )),
-                        (Value::Float(start), Value::Float(end)) => Ok(Evaluation::Return(Some(
-                            Value::float_range_inclusive(start, end),
-                        ))),
-                        (Value::Integer(start), Value::Integer(end)) => Ok(Evaluation::Return(
-                            Some(Value::integer_range_inclusive(start, end)),
-                        )),
-                        _ => Err(RuntimeError::InvalidRange {
-                            start_position,
-                            end_position,
-                        }),
-                    }
-                }
-            },
-            Expression::Struct(_) => todo!(),
+            Expression::Range(range_expression) => {
+                self.run_range(*range_expression.inner, collect_garbage)
+            }
+            Expression::Struct(struct_expression) => {
+                self.run_struct(*struct_expression.inner, collect_garbage)
+            }
             Expression::TupleAccess(_) => todo!(),
         };
 
@@ -288,6 +245,162 @@ impl Vm {
             error: Box::new(error),
             position,
         })
+    }
+
+    fn run_struct(
+        &self,
+        struct_expression: StructExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        match struct_expression {
+            StructExpression::Unit { name } => {
+                let position = name.position;
+                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
+                    RuntimeError::UndefinedType {
+                        identifier: name.inner.clone(),
+                        position,
+                    }
+                })?;
+
+                if let Type::Struct(StructType::Unit) = r#type {
+                    Ok(Evaluation::Return(Some(Value::Struct(Struct::Unit {
+                        name: name.inner,
+                    }))))
+                } else {
+                    Err(RuntimeError::ExpectedType {
+                        expected: Type::Struct(StructType::Unit),
+                        actual: r#type,
+                        position,
+                    })
+                }
+            }
+            StructExpression::Fields {
+                name,
+                fields: expressions,
+            } => {
+                let position = name.position;
+                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
+                    RuntimeError::UndefinedType {
+                        identifier: name.inner.clone(),
+                        position,
+                    }
+                })?;
+
+                if let Type::Struct(StructType::Fields(FieldsStructType { .. })) = r#type {
+                    let mut values = HashMap::with_capacity(expressions.len());
+
+                    for (identifier, expression) in expressions {
+                        let expression_position = expression.position();
+                        let value = self
+                            .run_expression(expression, collect_garbage)?
+                            .expect_value(expression_position)?;
+
+                        values.insert(identifier.inner, value);
+                    }
+
+                    Ok(Evaluation::Return(Some(Value::Struct(Struct::Fields {
+                        name: name.inner,
+                        fields: values,
+                    }))))
+                } else {
+                    Err(RuntimeError::ExpectedType {
+                        expected: Type::Struct(StructType::Fields(FieldsStructType {
+                            fields: HashMap::new(),
+                        })),
+                        actual: r#type,
+                        position,
+                    })
+                }
+            }
+        }
+    }
+
+    fn run_range(
+        &self,
+        range: RangeExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        match range {
+            RangeExpression::Exclusive { start, end } => {
+                let start_position = start.position();
+                let start = self
+                    .run_expression(start, collect_garbage)?
+                    .expect_value(start_position)?;
+                let end_position = end.position();
+                let end = self
+                    .run_expression(end, collect_garbage)?
+                    .expect_value(end_position)?;
+
+                match (start, end) {
+                    (Value::Byte(start), Value::Byte(end)) => {
+                        Ok(Evaluation::Return(Some(Value::byte_range(start, end))))
+                    }
+                    (Value::Character(start), Value::Character(end)) => {
+                        Ok(Evaluation::Return(Some(Value::character_range(start, end))))
+                    }
+                    (Value::Float(start), Value::Float(end)) => {
+                        Ok(Evaluation::Return(Some(Value::float_range(start, end))))
+                    }
+                    (Value::Integer(start), Value::Integer(end)) => {
+                        Ok(Evaluation::Return(Some(Value::integer_range(start, end))))
+                    }
+                    _ => Err(RuntimeError::InvalidRange {
+                        start_position,
+                        end_position,
+                    }),
+                }
+            }
+            RangeExpression::Inclusive { start, end } => {
+                let start_position = start.position();
+                let start = self
+                    .run_expression(start, collect_garbage)?
+                    .expect_value(start_position)?;
+                let end_position = end.position();
+                let end = self
+                    .run_expression(end, collect_garbage)?
+                    .expect_value(end_position)?;
+
+                match (start, end) {
+                    (Value::Byte(start), Value::Byte(end)) => Ok(Evaluation::Return(Some(
+                        Value::byte_range_inclusive(start, end),
+                    ))),
+                    (Value::Character(start), Value::Character(end)) => Ok(Evaluation::Return(
+                        Some(Value::character_range_inclusive(start, end)),
+                    )),
+                    (Value::Float(start), Value::Float(end)) => Ok(Evaluation::Return(Some(
+                        Value::float_range_inclusive(start, end),
+                    ))),
+                    (Value::Integer(start), Value::Integer(end)) => Ok(Evaluation::Return(Some(
+                        Value::integer_range_inclusive(start, end),
+                    ))),
+                    _ => Err(RuntimeError::InvalidRange {
+                        start_position,
+                        end_position,
+                    }),
+                }
+            }
+        }
+    }
+
+    fn run_map(
+        &self,
+        map: MapExpression,
+        collect_garbage: bool,
+    ) -> Result<Evaluation, RuntimeError> {
+        let MapExpression { pairs } = map;
+
+        let mut map = HashMap::new();
+
+        for (identifier, expression) in pairs {
+            let expression_position = expression.position();
+            let value = self
+                .run_expression(expression, collect_garbage)?
+                .expect_value(expression_position)?;
+
+            map.insert(identifier.inner, value);
+        }
+
+        Ok(Evaluation::Return(Some(Value::Map(map))))
     }
 
     fn run_operator(
@@ -530,17 +643,16 @@ impl Vm {
             .run_expression(index, collect_garbage)?
             .expect_value(index_position)?;
 
-        let index = if let Some(index) = index_value.as_integer() {
-            index as usize
-        } else {
-            return Err(RuntimeError::ExpectedInteger {
-                position: index_position,
-            });
-        };
+        let get_index =
+            list_value
+                .get_index(index_value)
+                .map_err(|error| RuntimeError::ValueError {
+                    error,
+                    left_position: list_position,
+                    right_position: index_position,
+                })?;
 
-        let value_option = list_value.get_index(index);
-
-        Ok(Evaluation::Return(value_option))
+        Ok(Evaluation::Return(get_index))
     }
 
     fn run_call(
@@ -797,10 +909,6 @@ pub enum RuntimeError {
         error: BuiltInFunctionError,
         position: Span,
     },
-    CannotMutate {
-        value: Value,
-        position: Span,
-    },
     ExpectedBoolean {
         position: Span,
     },
@@ -822,6 +930,11 @@ pub enum RuntimeError {
     ExpectedMap {
         position: Span,
     },
+    ExpectedType {
+        expected: Type,
+        actual: Type,
+        position: Span,
+    },
     ExpectedFunction {
         actual: Value,
         position: Span,
@@ -836,7 +949,11 @@ pub enum RuntimeError {
         start_position: Span,
         end_position: Span,
     },
-    UndefinedVariable {
+    UndefinedType {
+        identifier: Identifier,
+        position: Span,
+    },
+    UndefinedValue {
         identifier: Identifier,
         position: Span,
     },
@@ -859,23 +976,24 @@ impl RuntimeError {
                 ..
             } => (left_position.0, right_position.1),
             Self::BuiltInFunctionError { position, .. } => *position,
-            Self::CannotMutate { position, .. } => *position,
             Self::ExpectedBoolean { position } => *position,
+            Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedIdentifier { position } => *position,
-            Self::ExpectedIntegerOrRange { position } => *position,
             Self::ExpectedIdentifierOrString { position } => *position,
             Self::ExpectedInteger { position } => *position,
-            Self::ExpectedNumber { position } => *position,
-            Self::ExpectedMap { position } => *position,
-            Self::ExpectedFunction { position, .. } => *position,
+            Self::ExpectedIntegerOrRange { position } => *position,
             Self::ExpectedList { position } => *position,
+            Self::ExpectedMap { position } => *position,
+            Self::ExpectedNumber { position } => *position,
+            Self::ExpectedType { position, .. } => *position,
             Self::ExpectedValue { position } => *position,
             Self::InvalidRange {
                 start_position,
                 end_position,
                 ..
             } => (start_position.0, end_position.1),
-            Self::UndefinedVariable { position, .. } => *position,
+            Self::UndefinedType { position, .. } => *position,
+            Self::UndefinedValue { position, .. } => *position,
             Self::UndefinedProperty {
                 property_position, ..
             } => *property_position,
@@ -910,9 +1028,6 @@ impl Display for RuntimeError {
                     "Value error with values at positions: {:?} and {:?} {}",
                     left_position, right_position, error
                 )
-            }
-            Self::CannotMutate { value, .. } => {
-                write!(f, "Cannot mutate immutable value {}", value)
             }
             Self::BuiltInFunctionError { error, .. } => {
                 write!(f, "{}", error)
@@ -950,6 +1065,17 @@ impl Display for RuntimeError {
             Self::ExpectedList { position } => {
                 write!(f, "Expected a list at position: {:?}", position)
             }
+            Self::ExpectedType {
+                expected,
+                actual,
+                position,
+            } => {
+                write!(
+                    f,
+                    "Expected type {}, but got {} at position: {:?}",
+                    expected, actual, position
+                )
+            }
             Self::ExpectedMap { position } => {
                 write!(f, "Expected a map at position: {:?}", position)
             }
@@ -973,7 +1099,7 @@ impl Display for RuntimeError {
                     start_position, end_position
                 )
             }
-            Self::UndefinedVariable {
+            Self::UndefinedValue {
                 identifier,
                 position,
             } => {
@@ -988,6 +1114,16 @@ impl Display for RuntimeError {
             } => {
                 write!(f, "Value {} does not have the property {}", value, property)
             }
+            Self::UndefinedType {
+                identifier,
+                position,
+            } => {
+                write!(
+                    f,
+                    "Undefined type {} at position: {:?}",
+                    identifier, position
+                )
+            }
         }
     }
 }
@@ -1001,10 +1137,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn async_block() {
-        let input = "let x = 1; async { x += 1; x -= 1; } x";
+    fn string_index() {
+        let input = "'foo'[0]";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(1))));
+        assert_eq!(run(input), Ok(Some(Value::Character('f'))));
+    }
+
+    #[test]
+    fn map_expression() {
+        let input = "let x = map { foo = 42, bar = 4.2 }; x";
+
+        assert_eq!(
+            run(input),
+            Ok(Some(Value::map([
+                (Identifier::new("foo"), Value::Integer(42)),
+                (Identifier::new("bar"), Value::Float(4.2))
+            ])))
+        );
+    }
+
+    #[test]
+    fn async_block() {
+        let input = "let mut x = 1; async { x += 1; x -= 1; } x";
+
+        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(1)))));
     }
 
     #[test]
@@ -1056,8 +1212,8 @@ mod tests {
     #[test]
     fn assign_unit_struct_variable() {
         let input = "
-            struct Foo
-            x = Foo
+            struct Foo;
+            let x = Foo;
             x
         ";
 

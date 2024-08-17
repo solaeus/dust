@@ -13,17 +13,16 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{value::Function, Identifier};
+use crate::Identifier;
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 /// Description of a kind of value.
 ///
 /// See the [module documentation](index.html) for more information.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Type {
     Any,
     Boolean,
@@ -45,8 +44,13 @@ pub enum Type {
     ListOf {
         item_type: Box<Type>,
     },
+    Map {
+        pairs: HashMap<Identifier, Type>,
+    },
     Number,
-    Range,
+    Range {
+        r#type: RangeableType,
+    },
     String,
     Struct(StructType),
     Tuple(TupleType),
@@ -72,7 +76,6 @@ impl Type {
             | (Type::Boolean, Type::Boolean)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::Range, Type::Range)
             | (Type::String, Type::String) => return Ok(()),
             (
                 Type::Generic {
@@ -192,38 +195,21 @@ impl Type {
                     return_type: right_return,
                 }),
             ) => {
-                if left_name != right_name {
+                if left_name != right_name
+                    || left_return != right_return
+                    || left_type_parameters != right_type_parameters
+                    || left_value_parameters != right_value_parameters
+                {
                     return Err(TypeConflict {
                         actual: other.clone(),
                         expected: self.clone(),
                     });
                 }
 
-                if left_return == right_return {
-                    for (left_parameter, right_parameter) in left_type_parameters
-                        .iter()
-                        .zip(right_type_parameters.iter())
-                    {
-                        if left_parameter != right_parameter {
-                            return Err(TypeConflict {
-                                actual: other.clone(),
-                                expected: self.clone(),
-                            });
-                        }
-                    }
-
-                    for (left_parameter, right_parameter) in left_value_parameters
-                        .iter()
-                        .zip(right_value_parameters.iter())
-                    {
-                        if left_parameter != right_parameter {
-                            return Err(TypeConflict {
-                                actual: other.clone(),
-                                expected: self.clone(),
-                            });
-                        }
-                    }
-
+                return Ok(());
+            }
+            (Type::Range { r#type: left_type }, Type::Range { r#type: right_type }) => {
+                if left_type == right_type {
                     return Ok(());
                 }
             }
@@ -248,7 +234,7 @@ impl Display for Type {
             Type::Boolean => write!(f, "bool"),
             Type::Byte => write!(f, "byte"),
             Type::Character => write!(f, "char"),
-            Type::Enum(enum_type) => write!(f, "{enum_type}"),
+            Type::Enum(EnumType { name, .. }) => write!(f, "{name}"),
             Type::Float => write!(f, "float"),
             Type::Function(function_type) => write!(f, "{function_type}"),
             Type::Generic { concrete_type, .. } => {
@@ -262,10 +248,53 @@ impl Display for Type {
             Type::List { item_type, length } => write!(f, "[{item_type}; {length}]"),
             Type::ListEmpty => write!(f, "[]"),
             Type::ListOf { item_type } => write!(f, "[{item_type}]"),
+            Type::Map { pairs } => {
+                write!(f, "map ")?;
+
+                write!(f, "{{")?;
+
+                for (index, (key, value)) in pairs.iter().enumerate() {
+                    write!(f, "{key}: {value}")?;
+
+                    if index != pairs.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, "}}")
+            }
             Type::Number => write!(f, "num"),
-            Type::Range => write!(f, "range"),
+            Type::Range { r#type } => write!(f, "{type} range"),
             Type::String => write!(f, "str"),
-            Type::Struct(struct_type) => write!(f, "{struct_type}"),
+            Type::Struct(struct_type) => match struct_type {
+                StructType::Unit => write!(f, "()"),
+                StructType::Tuple(TupleType { fields }) => {
+                    write!(f, "(")?;
+
+                    for (index, r#type) in fields.iter().enumerate() {
+                        write!(f, "{type}")?;
+
+                        if index != fields.len() - 1 {
+                            write!(f, ", ")?;
+                        }
+                    }
+
+                    write!(f, ")")
+                }
+                StructType::Fields(FieldsStructType { fields }) => {
+                    write!(f, "{{")?;
+
+                    for (index, (name, r#type)) in fields.iter().enumerate() {
+                        write!(f, "{name}: {type}")?;
+
+                        if index != fields.len() - 1 {
+                            write!(f, ", ")?;
+                        }
+                    }
+
+                    write!(f, "}}")
+                }
+            },
             Type::Tuple(TupleType { fields }) => {
                 write!(f, "(")?;
 
@@ -279,6 +308,85 @@ impl Display for Type {
 
                 write!(f, ")")
             }
+        }
+    }
+}
+
+impl PartialOrd for Type {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Type {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Type::Any, Type::Any) => Ordering::Equal,
+            (Type::Any, _) => Ordering::Greater,
+            (Type::Boolean, Type::Boolean) => Ordering::Equal,
+            (Type::Boolean, _) => Ordering::Greater,
+            (Type::Byte, Type::Byte) => Ordering::Equal,
+            (Type::Byte, _) => Ordering::Greater,
+            (Type::Character, Type::Character) => Ordering::Equal,
+            (Type::Character, _) => Ordering::Greater,
+            (Type::Enum(left_enum), Type::Enum(right_enum)) => left_enum.cmp(right_enum),
+            (Type::Enum(_), _) => Ordering::Greater,
+            (Type::Float, Type::Float) => Ordering::Equal,
+            (Type::Float, _) => Ordering::Greater,
+            (Type::Function(left_function), Type::Function(right_function)) => {
+                left_function.cmp(right_function)
+            }
+            (Type::Function(_), _) => Ordering::Greater,
+            (Type::Generic { .. }, Type::Generic { .. }) => Ordering::Equal,
+            (Type::Generic { .. }, _) => Ordering::Greater,
+            (Type::Integer, Type::Integer) => Ordering::Equal,
+            (Type::Integer, _) => Ordering::Greater,
+            (
+                Type::List {
+                    item_type: left_item_type,
+                    length: left_length,
+                },
+                Type::List {
+                    item_type: right_item_type,
+                    length: right_length,
+                },
+            ) => {
+                if left_length == right_length {
+                    left_item_type.cmp(right_item_type)
+                } else {
+                    left_length.cmp(right_length)
+                }
+            }
+            (Type::List { .. }, _) => Ordering::Greater,
+            (Type::ListEmpty, Type::ListEmpty) => Ordering::Equal,
+            (Type::ListEmpty, _) => Ordering::Greater,
+            (
+                Type::ListOf {
+                    item_type: left_item_type,
+                },
+                Type::ListOf {
+                    item_type: right_item_type,
+                },
+            ) => left_item_type.cmp(right_item_type),
+            (Type::ListOf { .. }, _) => Ordering::Greater,
+            (Type::Map { pairs: left_pairs }, Type::Map { pairs: right_pairs }) => {
+                left_pairs.iter().cmp(right_pairs.iter())
+            }
+            (Type::Map { .. }, _) => Ordering::Greater,
+            (Type::Number, Type::Number) => Ordering::Equal,
+            (Type::Number, _) => Ordering::Greater,
+            (Type::Range { r#type: left_type }, Type::Range { r#type: right_type }) => {
+                left_type.cmp(right_type)
+            }
+            (Type::Range { .. }, _) => Ordering::Greater,
+            (Type::String, Type::String) => Ordering::Equal,
+            (Type::String, _) => Ordering::Greater,
+            (Type::Struct(left_struct), Type::Struct(right_struct)) => {
+                left_struct.cmp(right_struct)
+            }
+            (Type::Struct(_), _) => Ordering::Greater,
+            (Type::Tuple(left_tuple), Type::Tuple(right_tuple)) => left_tuple.cmp(right_tuple),
+            (Type::Tuple(_), _) => Ordering::Greater,
         }
     }
 }
@@ -339,35 +447,11 @@ pub enum StructType {
 }
 
 impl Display for StructType {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             StructType::Unit => write!(f, "()"),
-            StructType::Tuple(TupleType { fields, .. }) => {
-                write!(f, "(")?;
-
-                for (index, r#type) in fields.iter().enumerate() {
-                    write!(f, "{type}")?;
-
-                    if index != fields.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-
-                write!(f, ")")
-            }
-            StructType::Fields(FieldsStructType { fields, .. }) => {
-                write!(f, "{{ ")?;
-
-                for (index, (identifier, r#type)) in fields.iter().enumerate() {
-                    write!(f, "{identifier}: {type}")?;
-
-                    if index != fields.len() - 1 {
-                        write!(f, ", ")?;
-                    }
-                }
-
-                write!(f, " }}")
-            }
+            StructType::Tuple(tuple) => write!(f, "{tuple}"),
+            StructType::Fields(fields) => write!(f, "{fields}"),
         }
     }
 }
@@ -377,9 +461,41 @@ pub struct TupleType {
     pub fields: Vec<Type>,
 }
 
+impl Display for TupleType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "(")?;
+
+        for (index, field) in self.fields.iter().enumerate() {
+            write!(f, "{field}")?;
+
+            if index != self.fields.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+
+        write!(f, ")")
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FieldsStructType {
     pub fields: HashMap<Identifier, Type>,
+}
+
+impl Display for FieldsStructType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{{ ")?;
+
+        for (index, (identifier, r#type)) in self.fields.iter().enumerate() {
+            write!(f, "{identifier}: {type}")?;
+
+            if index != self.fields.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+
+        write!(f, " }}")
+    }
 }
 
 impl PartialOrd for FieldsStructType {
@@ -401,8 +517,39 @@ pub struct EnumType {
 }
 
 impl Display for EnumType {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let EnumType { name, variants } = self;
+
+        write!(f, "enum {name} {{")?;
+
+        for (index, variant) in variants.iter().enumerate() {
+            write!(f, "{variant}")?;
+
+            if index != self.variants.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+
+        write!(f, "}}")
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum RangeableType {
+    Byte,
+    Character,
+    Float,
+    Integer,
+}
+
+impl Display for RangeableType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            RangeableType::Byte => Type::Byte.fmt(f),
+            RangeableType::Character => Type::Character.fmt(f),
+            RangeableType::Float => Type::Float.fmt(f),
+            RangeableType::Integer => Type::Integer.fmt(f),
+        }
     }
 }
 
@@ -476,7 +623,9 @@ mod tests {
                 item_type: Box::new(Type::Integer),
                 length: 42,
             },
-            Type::Range,
+            Type::Range {
+                r#type: RangeableType::Integer,
+            },
             Type::String,
         ];
 

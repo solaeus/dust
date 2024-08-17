@@ -4,19 +4,20 @@ use std::{
     collections::HashMap,
     error::Error,
     fmt::{self, Display, Formatter},
-    ops::{Range, RangeInclusive},
+    ops::{Index, Range, RangeInclusive},
+    rc::Weak,
     sync::{Arc, RwLock},
 };
 
 use serde::{
     de::{self, MapAccess, Visitor},
-    ser::{SerializeStruct, SerializeStructVariant},
+    ser::{SerializeMap, SerializeStruct, SerializeStructVariant},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
 use crate::{
     AbstractSyntaxTree, Context, EnumType, FieldsStructType, FunctionType, Identifier,
-    RuntimeError, StructType, TupleType, Type, Vm,
+    RangeableType, RuntimeError, StructType, TupleType, Type, Vm,
 };
 
 /// Dust value representation
@@ -61,6 +62,7 @@ pub enum Value {
     Function(Function),
     Integer(i64),
     List(Vec<Value>),
+    Map(HashMap<Identifier, Value>),
     Mutable(Arc<RwLock<Value>>),
     Range(Range<Rangeable>),
     RangeInclusive(RangeInclusive<Rangeable>),
@@ -70,6 +72,10 @@ pub enum Value {
 }
 
 impl Value {
+    pub fn map<T: Into<HashMap<Identifier, Value>>>(pairs: T) -> Value {
+        Value::Map(pairs.into())
+    }
+
     pub fn mutable(value: Value) -> Value {
         Value::Mutable(Arc::new(RwLock::new(value)))
     }
@@ -194,9 +200,25 @@ impl Value {
                     length: values.len(),
                 }
             }
+            Value::Map(map) => {
+                let pairs = map
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.r#type()))
+                    .collect();
+
+                Type::Map { pairs }
+            }
             Value::Mutable(locked) => locked.read().unwrap().r#type(),
-            Value::Range(_) => Type::Range,
-            Value::RangeInclusive(_) => Type::Range,
+            Value::Range(range) => Type::Range {
+                r#type: range.start.r#type(),
+            },
+            Value::RangeInclusive(range_inclusive) => {
+                let rangeable_type = range_inclusive.start().r#type();
+
+                Type::Range {
+                    r#type: rangeable_type,
+                }
+            }
             Value::String(_) => Type::String,
             Value::Struct(r#struct) => match r#struct {
                 Struct::Unit { .. } => Type::Struct(StructType::Unit),
@@ -230,12 +252,69 @@ impl Value {
         }
     }
 
-    pub fn get_index(&self, index: usize) -> Option<Value> {
-        match self {
-            Value::List(values) => values.get(index).cloned(),
-            Value::Mutable(inner) => inner.read().unwrap().get_index(index),
-            Value::Struct(Struct::Tuple { fields, .. }) => fields.get(index).cloned(),
-            _ => None,
+    pub fn get_index(&self, index: Value) -> Result<Option<Value>, ValueError> {
+        match (self, index) {
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                return left
+                    .read()
+                    .unwrap()
+                    .get_index(right.read().unwrap().clone());
+            }
+            (Value::Mutable(locked), index) => {
+                return locked.read().unwrap().get_index(index);
+            }
+            (left, Value::Mutable(locked)) => {
+                return left.get_index(locked.read().unwrap().clone());
+            }
+            (Value::List(values), Value::Integer(integer)) => {
+                let index = integer as usize;
+
+                return Ok(values.get(index).cloned());
+            }
+            (Value::List(values), Value::Range(range)) => match (range.start, range.end) {
+                (Rangeable::Integer(start), Rangeable::Integer(end)) => {
+                    let start = start as usize;
+                    let end = end as usize;
+
+                    return Ok(values
+                        .get(start..end)
+                        .map(|values| Value::List(values.to_vec())));
+                }
+                (start, end) => Err(ValueError::CannotIndex {
+                    value: self.clone(),
+                    index: Value::Range(start..end),
+                }),
+            },
+            (Value::String(string), Value::Range(range)) => match (range.start, range.end) {
+                (Rangeable::Integer(start), Rangeable::Integer(end)) => {
+                    let start = start as usize;
+                    let end = end as usize;
+
+                    return Ok(string.get(start..end).map(Value::string));
+                }
+                (start, end) => Err(ValueError::CannotIndex {
+                    value: self.clone(),
+                    index: Value::Range(start..end),
+                }),
+            },
+            (Value::Range(range), Value::Integer(index)) => match (range.start, range.end) {
+                (Rangeable::Integer(start), Rangeable::Integer(end)) => {
+                    Ok((start..end).nth(index as usize).map(Value::Integer))
+                }
+                (start, end) => Err(ValueError::CannotIndex {
+                    value: self.clone(),
+                    index: Value::Range(start..end),
+                }),
+            },
+            (Value::String(string), Value::Integer(integer)) => {
+                let index = integer as usize;
+
+                return Ok(string.chars().nth(index).map(Value::Character));
+            }
+            (value, index) => Err(ValueError::CannotIndex {
+                value: value.clone(),
+                index,
+            }),
         }
     }
 
@@ -295,7 +374,7 @@ impl Value {
             _ => {}
         }
 
-        Err(ValueError::CannotAdd(self.clone(), other.clone()))
+        Err(ValueError::CannotMutate(self.clone()))
     }
 
     pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
@@ -698,6 +777,19 @@ impl Display for Value {
             Value::Float(float) => write!(f, "{float}"),
             Value::Function(function) => write!(f, "{function}"),
             Value::Integer(integer) => write!(f, "{integer}"),
+            Value::Map(pairs) => {
+                write!(f, "{{ ")?;
+
+                for (index, (key, value)) in pairs.iter().enumerate() {
+                    write!(f, "{key}: {value}")?;
+
+                    if index < pairs.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, " }}")
+            }
             Value::List(list) => {
                 write!(f, "[")?;
 
@@ -751,6 +843,7 @@ impl PartialEq for Value {
             (Value::Function(left), Value::Function(right)) => left == right,
             (Value::Integer(left), Value::Integer(right)) => left == right,
             (Value::List(left), Value::List(right)) => left == right,
+            (Value::Map(left), Value::Map(right)) => left == right,
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = &*left.read().unwrap();
                 let right = &*right.read().unwrap();
@@ -853,6 +946,15 @@ impl Serialize for Value {
             Value::Function(function) => function.serialize(serializer),
             Value::Integer(integer) => serializer.serialize_i64(*integer),
             Value::List(list) => list.serialize(serializer),
+            Value::Map(pairs) => {
+                let mut ser = serializer.serialize_map(Some(pairs.len()))?;
+
+                for (key, value) in pairs {
+                    ser.serialize_entry(key, value)?;
+                }
+
+                ser.end()
+            }
             Value::Range(range) => range.serialize(serializer),
             Value::RangeInclusive(inclusive) => inclusive.serialize(serializer),
             Value::String(string) => serializer.serialize_str(string),
@@ -1033,7 +1135,7 @@ impl<'de> Deserialize<'de> for Function {
                                 return Err(de::Error::duplicate_field("body"));
                             }
 
-                            body = Some(map.next_value().map(|ast| Arc::new(ast))?);
+                            body = Some(map.next_value().map(Arc::new)?);
                         }
                         _ => {
                             return Err(de::Error::unknown_field(key, &["name", "type", "body"]));
@@ -1156,12 +1258,23 @@ impl Display for Struct {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Rangeable {
     Byte(u8),
     Character(char),
     Float(f64),
     Integer(i64),
+}
+
+impl Rangeable {
+    fn r#type(&self) -> RangeableType {
+        match self {
+            Rangeable::Byte(_) => RangeableType::Byte,
+            Rangeable::Character(_) => RangeableType::Character,
+            Rangeable::Float(_) => RangeableType::Float,
+            Rangeable::Integer(_) => RangeableType::Integer,
+        }
+    }
 }
 
 impl Display for Rangeable {

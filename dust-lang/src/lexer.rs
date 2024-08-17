@@ -433,6 +433,7 @@ impl<'src> Lexer<'src> {
             "is_odd" => Token::IsOdd,
             "length" => Token::Length,
             "let" => Token::Let,
+            "map" => Token::Map,
             "mut" => Token::Mut,
             "read_line" => Token::ReadLine,
             "struct" => Token::Struct,
@@ -500,6 +501,32 @@ impl Display for LexError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn map_expression() {
+        let input = "map { x = '1', y = 2, z = 3.0 }";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Map, (0, 3)),
+                (Token::LeftCurlyBrace, (4, 5)),
+                (Token::Identifier("x"), (6, 7)),
+                (Token::Equal, (8, 9)),
+                (Token::String("1"), (10, 13)),
+                (Token::Comma, (13, 14)),
+                (Token::Identifier("y"), (15, 16)),
+                (Token::Equal, (17, 18)),
+                (Token::Integer("2"), (19, 20)),
+                (Token::Comma, (20, 21)),
+                (Token::Identifier("z"), (22, 23)),
+                (Token::Equal, (24, 25)),
+                (Token::Float("3.0"), (26, 29)),
+                (Token::RightCurlyBrace, (30, 31)),
+                (Token::Eof, (31, 31)),
+            ])
+        );
+    }
 
     #[test]
     fn let_statement() {
