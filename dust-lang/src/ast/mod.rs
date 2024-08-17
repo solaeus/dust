@@ -12,7 +12,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::Span;
+pub type Span = (usize, usize);
 
 /// In-memory representation of a Dust program.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]

@@ -10,6 +10,8 @@
 //! library's "length" function does not care about the type of item in the list, only the list
 //! itself. So the input is defined as `[any]`, i.e. `Type::ListOf(Box::new(Type::Any))`.
 use std::{
+    cmp::Ordering,
+    collections::HashMap,
     fmt::{self, Display, Formatter},
     sync::Arc,
 };
@@ -47,7 +49,7 @@ pub enum Type {
     Range,
     String,
     Struct(StructType),
-    Tuple(Vec<Type>),
+    Tuple(TupleType),
 }
 
 impl Type {
@@ -264,7 +266,7 @@ impl Display for Type {
             Type::Range => write!(f, "range"),
             Type::String => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
-            Type::Tuple(fields) => {
+            Type::Tuple(TupleType { fields }) => {
                 write!(f, "(")?;
 
                 for (index, r#type) in fields.iter().enumerate() {
@@ -331,24 +333,16 @@ impl Display for FunctionType {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StructType {
-    Unit {
-        name: Identifier,
-    },
-    Tuple {
-        name: Identifier,
-        fields: Vec<Type>,
-    },
-    Fields {
-        name: Identifier,
-        fields: Vec<(Identifier, Type)>,
-    },
+    Unit,
+    Tuple(TupleType),
+    Fields(FieldsStructType),
 }
 
 impl Display for StructType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            StructType::Unit { .. } => write!(f, "()"),
-            StructType::Tuple { fields, .. } => {
+            StructType::Unit => write!(f, "()"),
+            StructType::Tuple(TupleType { fields, .. }) => {
                 write!(f, "(")?;
 
                 for (index, r#type) in fields.iter().enumerate() {
@@ -361,12 +355,8 @@ impl Display for StructType {
 
                 write!(f, ")")
             }
-            StructType::Fields {
-                name: identifier,
-                fields,
-                ..
-            } => {
-                write!(f, "{identifier} {{ ")?;
+            StructType::Fields(FieldsStructType { fields, .. }) => {
+                write!(f, "{{ ")?;
 
                 for (index, (identifier, r#type)) in fields.iter().enumerate() {
                     write!(f, "{identifier}: {type}")?;
@@ -379,6 +369,28 @@ impl Display for StructType {
                 write!(f, " }}")
             }
         }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct TupleType {
+    pub fields: Vec<Type>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct FieldsStructType {
+    pub fields: HashMap<Identifier, Type>,
+}
+
+impl PartialOrd for FieldsStructType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FieldsStructType {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.fields.iter().cmp(other.fields.iter())
     }
 }
 

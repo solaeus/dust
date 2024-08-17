@@ -1,6 +1,7 @@
 //! Dust value representation
 use std::{
     cmp::Ordering,
+    collections::HashMap,
     error::Error,
     fmt::{self, Display, Formatter},
     ops::{Range, RangeInclusive},
@@ -14,7 +15,8 @@ use serde::{
 };
 
 use crate::{
-    AbstractSyntaxTree, Context, EnumType, FunctionType, Identifier, StructType, Type, Vm, VmError,
+    AbstractSyntaxTree, Context, EnumType, FieldsStructType, FunctionType, Identifier, StructType,
+    TupleType, Type, Vm, VmError,
 };
 
 /// Dust value representation
@@ -197,14 +199,25 @@ impl Value {
             Value::RangeInclusive(_) => Type::Range,
             Value::String(_) => Type::String,
             Value::Struct(r#struct) => match r#struct {
-                Struct::Unit { r#type } => Type::Struct(r#type.clone()),
-                Struct::Tuple { r#type, .. } => Type::Struct(r#type.clone()),
-                Struct::Fields { r#type, .. } => Type::Struct(r#type.clone()),
+                Struct::Unit { .. } => Type::Struct(StructType::Unit),
+                Struct::Tuple { fields, .. } => {
+                    let types = fields.iter().map(|field| field.r#type()).collect();
+
+                    Type::Struct(StructType::Tuple(TupleType { fields: types }))
+                }
+                Struct::Fields { fields, .. } => {
+                    let types = fields
+                        .iter()
+                        .map(|(identifier, value)| (identifier.clone(), value.r#type()))
+                        .collect();
+
+                    Type::Struct(StructType::Fields(FieldsStructType { fields: types }))
+                }
             },
             Value::Tuple(values) => {
-                let item_types = values.iter().map(Value::r#type).collect();
+                let fields = values.iter().map(|value| value.r#type()).collect();
 
-                Type::Tuple(item_types)
+                Type::Tuple(TupleType { fields })
             }
         }
     }
@@ -212,23 +225,7 @@ impl Value {
     pub fn get_field(&self, field: &Identifier) -> Option<Value> {
         match self {
             Value::Mutable(inner) => inner.read().unwrap().get_field(field),
-            Value::Struct(Struct::Fields {
-                fields,
-                r#type:
-                    StructType::Fields {
-                        fields: field_types,
-                        ..
-                    },
-            }) => field_types
-                .iter()
-                .zip(fields.iter())
-                .find_map(|((identifier, _), value)| {
-                    if identifier == field {
-                        Some(value.clone())
-                    } else {
-                        None
-                    }
-                }),
+            Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
             _ => None,
         }
     }
@@ -237,6 +234,7 @@ impl Value {
         match self {
             Value::List(values) => values.get(index).cloned(),
             Value::Mutable(inner) => inner.read().unwrap().get_index(index),
+            Value::Struct(Struct::Tuple { fields, .. }) => fields.get(index).cloned(),
             _ => None,
         }
     }
@@ -1055,19 +1053,72 @@ impl<'de> Deserialize<'de> for Function {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Struct {
     Unit {
-        r#type: StructType,
+        name: Identifier,
     },
     Tuple {
-        r#type: StructType,
+        name: Identifier,
         fields: Vec<Value>,
     },
     Fields {
-        r#type: StructType,
-        fields: Vec<Value>,
+        name: Identifier,
+        fields: HashMap<Identifier, Value>,
     },
+}
+
+impl PartialOrd for Struct {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Struct {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Struct::Unit { name: left }, Struct::Unit { name: right }) => left.cmp(right),
+            (Struct::Unit { .. }, _) => Ordering::Greater,
+            (
+                Struct::Tuple {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                Struct::Tuple {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => {
+                let type_cmp = left_name.cmp(right_name);
+
+                if type_cmp != Ordering::Equal {
+                    return type_cmp;
+                }
+
+                left_fields.cmp(right_fields)
+            }
+            (Struct::Tuple { .. }, _) => Ordering::Greater,
+            (
+                Struct::Fields {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                Struct::Fields {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => {
+                let type_cmp = left_name.cmp(right_name);
+
+                if type_cmp != Ordering::Equal {
+                    return type_cmp;
+                }
+
+                left_fields.into_iter().cmp(right_fields.into_iter())
+            }
+            (Struct::Fields { .. }, _) => Ordering::Greater,
+        }
+    }
 }
 
 impl Display for Struct {
@@ -1087,19 +1138,10 @@ impl Display for Struct {
 
                 write!(f, ")")
             }
-            Struct::Fields {
-                fields,
-                r#type:
-                    StructType::Fields {
-                        fields: field_types,
-                        ..
-                    },
-            } => {
+            Struct::Fields { fields, .. } => {
                 write!(f, "{{ ")?;
 
-                for (index, ((identifier, _), value)) in
-                    field_types.iter().zip(fields.iter()).enumerate()
-                {
+                for (index, (identifier, value)) in fields.iter().enumerate() {
                     if index > 0 {
                         write!(f, ", ")?;
                     }
@@ -1115,7 +1157,7 @@ impl Display for Struct {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-enum Rangeable {
+pub enum Rangeable {
     Byte(u8),
     Character(char),
     Float(f64),

@@ -16,10 +16,10 @@ use crate::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
         FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
         LiteralExpression, LogicOperator, LoopExpression, MathOperator, Node, OperatorExpression,
-        RangeExpression, Statement, StructDefinition,
+        RangeExpression, Span, Statement, StructDefinition,
     },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, Identifier, ParseError,
-    Span, StructType, Type, Value, ValueError,
+    StructType, TupleType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -121,10 +121,12 @@ impl Vm {
             }
             Statement::StructDefinition(struct_definition) => {
                 let (name, struct_type) = match struct_definition.inner {
-                    StructDefinition::Unit { name } => {
-                        (name.inner.clone(), StructType::Unit { name: name.inner })
+                    StructDefinition::Unit { name } => (name.inner.clone(), StructType::Unit),
+                    StructDefinition::Tuple { name, items } => {
+                        let fields = items.into_iter().map(|item| item.inner).collect();
+
+                        (name.inner.clone(), StructType::Tuple(TupleType { fields }))
                     }
-                    StructDefinition::Tuple { name, items } => todo!(),
                     StructDefinition::Fields { name, fields } => todo!(),
                 };
 
@@ -988,7 +990,9 @@ impl Display for VmError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Struct, StructType, Type};
+    use std::collections::HashMap;
+
+    use crate::Struct;
 
     use super::*;
 
@@ -1006,14 +1010,11 @@ mod tests {
         assert_eq!(
             run(input),
             Ok(Some(Value::Struct(Struct::Fields {
-                r#type: StructType::Fields {
-                    name: Identifier::new("Foo"),
-                    fields: vec![
-                        (Identifier::new("bar"), Type::Integer),
-                        (Identifier::new("baz"), Type::Float)
-                    ]
-                },
-                fields: vec![Value::Integer(42), Value::Float(4.0)]
+                name: Identifier::new("Foo"),
+                fields: HashMap::from([
+                    (Identifier::new("bar"), Value::Integer(42)),
+                    (Identifier::new("baz"), Value::Float(4.0))
+                ])
             })))
         );
     }
@@ -1029,10 +1030,7 @@ mod tests {
         assert_eq!(
             run(input),
             Ok(Some(Value::Struct(Struct::Tuple {
-                r#type: StructType::Tuple {
-                    name: Identifier::new("Foo"),
-                    fields: vec![Type::Integer]
-                },
+                name: Identifier::new("Foo"),
                 fields: vec![Value::Integer(42)]
             })))
         )
@@ -1045,9 +1043,7 @@ mod tests {
         assert_eq!(
             run(input),
             Ok(Some(Value::Struct(Struct::Tuple {
-                r#type: StructType::Unit {
-                    name: Identifier::new("Foo")
-                },
+                name: Identifier::new("Foo"),
                 fields: vec![Value::Integer(42)]
             })))
         );
@@ -1064,9 +1060,7 @@ mod tests {
         assert_eq!(
             run(input),
             Ok(Some(Value::Struct(Struct::Unit {
-                r#type: StructType::Unit {
-                    name: Identifier::new("Foo")
-                }
+                name: Identifier::new("Foo")
             })))
         )
     }
@@ -1078,9 +1072,7 @@ mod tests {
         assert_eq!(
             run(input),
             Ok(Some(Value::Struct(Struct::Unit {
-                r#type: StructType::Unit {
-                    name: Identifier::new("Foo")
-                }
+                name: Identifier::new("Foo")
             })))
         );
     }
@@ -1163,7 +1155,7 @@ mod tests {
 
     #[test]
     fn if_else() {
-        let input = "if false { 1 } else { 2 }";
+        let input = "let x = if false { 1 } else { 2 }; x";
 
         assert_eq!(run(input), Ok(Some(Value::Integer(2))));
     }
@@ -1184,7 +1176,7 @@ mod tests {
 
     #[test]
     fn while_loop() {
-        let input = "let mut x = 0; while x < 5 { x += 1; } x";
+        let input = "let mut x = 0; while x < 5 { x += 1 } x";
 
         assert_eq!(run(input), Ok(Some(Value::Integer(5))));
     }

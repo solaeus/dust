@@ -29,16 +29,14 @@ pub mod value;
 pub mod vm;
 
 pub use analyzer::{analyze, Analyzer, AnalyzerError};
-pub use ast::{AbstractSyntaxTree, Expression, Node, Statement};
+pub use ast::{AbstractSyntaxTree, Expression, Statement};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use context::{Context, VariableData};
 pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use lexer::{lex, LexError, Lexer};
 pub use parser::{parse, ParseError, Parser};
-pub use r#type::{EnumType, FunctionType, StructType, Type};
+pub use r#type::*;
 pub use token::{Token, TokenKind, TokenOwned};
-pub use value::{Struct, Value, ValueError};
+pub use value::*;
 pub use vm::{run, run_with_context, Vm, VmError};
-
-pub type Span = (usize, usize);

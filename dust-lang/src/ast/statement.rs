@@ -2,9 +2,9 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, Identifier, Span, Type};
+use crate::{Context, Identifier, Type};
 
-use super::{Expression, Node};
+use super::{Expression, Node, Span};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {

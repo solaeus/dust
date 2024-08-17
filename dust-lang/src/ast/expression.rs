@@ -1,13 +1,14 @@
 use std::{
     cmp::Ordering,
+    collections::HashMap,
     fmt::{self, Display, Formatter},
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, FunctionType, Identifier, Span, StructType, Type, Value};
+use crate::{Context, FieldsStructType, FunctionType, Identifier, StructType, TupleType, Type};
 
-use super::{Node, Statement};
+use super::{Node, Span, Statement};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
@@ -221,6 +222,13 @@ impl Expression {
         Self::Literal(Node::new(Box::new(literal), position))
     }
 
+    pub fn has_block(&self) -> bool {
+        matches!(
+            self,
+            Expression::Block(_) | Expression::If(_) | Expression::Loop(_)
+        )
+    }
+
     pub fn as_identifier(&self) -> Option<&Identifier> {
         if let Expression::Identifier(identifier) = self {
             Some(&identifier.inner)
@@ -253,7 +261,9 @@ impl Expression {
 
                 let container_type = container.return_type(context)?;
 
-                if let Type::Struct(StructType::Fields { fields, .. }) = container_type {
+                if let Type::Struct(StructType::Fields(FieldsStructType { fields, .. })) =
+                    container_type
+                {
                     fields
                         .into_iter()
                         .find(|(name, _)| name == &field.inner)
@@ -325,26 +335,30 @@ impl Expression {
             },
             Expression::Range(_) => Some(Type::Range),
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
-                StructExpression::Fields { name, fields } => {
-                    let mut field_types = Vec::with_capacity(fields.len());
+                StructExpression::Fields { fields, .. } => {
+                    let mut types = HashMap::with_capacity(fields.len());
 
-                    for (field_name, expression) in fields {
+                    for (field, expression) in fields {
                         let r#type = expression.return_type(context)?;
 
-                        field_types.push((field_name.inner.clone(), r#type));
+                        types.insert(field.inner.clone(), r#type);
                     }
 
-                    Some(Type::Struct(StructType::Fields {
-                        name: name.inner.clone(),
-                        fields: field_types,
-                    }))
+                    Some(Type::Struct(StructType::Fields(FieldsStructType {
+                        fields: types,
+                    })))
                 }
-                StructExpression::Unit { name } => Some(Type::Struct(StructType::Unit {
-                    name: name.inner.clone(),
-                })),
+                StructExpression::Unit { .. } => Some(Type::Struct(StructType::Unit)),
             },
             Expression::TupleAccess(tuple_access_expression) => {
-                todo!()
+                let TupleAccessExpression { tuple, index } = tuple_access_expression.inner.as_ref();
+                let tuple_value = tuple.return_type(context)?;
+
+                if let Type::Tuple(TupleType { fields }) = tuple_value {
+                    fields.get(index.inner).cloned()
+                } else {
+                    None
+                }
             }
         }
     }

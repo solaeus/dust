@@ -13,9 +13,10 @@ use crate::{
     ast::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ElseExpression, FieldAccessExpression,
         IfExpression, LetStatement, ListExpression, ListIndexExpression, LoopExpression, Node,
-        OperatorExpression, RangeExpression, Statement, StructExpression, TupleAccessExpression,
+        OperatorExpression, RangeExpression, Span, Statement, StructExpression,
+        TupleAccessExpression,
     },
-    parse, Context, DustError, Expression, Identifier, Span, Type,
+    parse, Context, DustError, Expression, Identifier, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.

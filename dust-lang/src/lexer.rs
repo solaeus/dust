@@ -8,7 +8,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
-use crate::{Span, Token};
+use crate::{ast::Span, Token};
 
 /// Lexes the input and return a vector of tokens and their positions.
 ///

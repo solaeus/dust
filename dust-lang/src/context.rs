@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, PoisonError as StdPoisonError, RwLock, RwLockWriteGuard},
 };
 
-use crate::{Identifier, Span, Type, Value};
+use crate::{ast::Span, Identifier, Type, Value};
 
 pub type Variables = HashMap<Identifier, (VariableData, Span)>;
 
