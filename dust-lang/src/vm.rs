@@ -7,6 +7,7 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    primitive,
     sync::{Arc, Mutex},
 };
 
@@ -17,7 +18,8 @@ use crate::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
         FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
         LiteralExpression, LogicOperator, LoopExpression, MapExpression, MathOperator, Node,
-        OperatorExpression, RangeExpression, Span, Statement, StructDefinition, StructExpression,
+        OperatorExpression, PrimitiveValueExpression, RangeExpression, RawStringExpression, Span,
+        Statement, StructDefinition, StructExpression,
     },
     parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, FieldsStructType,
     Identifier, ParseError, Struct, StructType, TupleType, Type, Value, ValueError,
@@ -617,10 +619,13 @@ impl Vm {
 
     fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, RuntimeError> {
         let value = match literal {
-            LiteralExpression::Boolean(boolean) => Value::Boolean(boolean),
-            LiteralExpression::Float(float) => Value::Float(float),
-            LiteralExpression::Integer(integer) => Value::Integer(integer),
-            LiteralExpression::String(string) => Value::String(string),
+            LiteralExpression::String(RawStringExpression(string)) => Value::String(string),
+            LiteralExpression::Primitive(primitive_expression) => match primitive_expression {
+                PrimitiveValueExpression::Boolean(boolean) => Value::Boolean(boolean),
+                PrimitiveValueExpression::Character(character) => Value::Character(character),
+                PrimitiveValueExpression::Integer(integer) => Value::Integer(integer),
+                PrimitiveValueExpression::Float(float) => Value::Float(float),
+            },
         };
 
         Ok(Evaluation::Return(Some(value)))

@@ -3,6 +3,10 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
+pub struct Raw<'src> {
+    data: &'src str,
+}
+
 /// Source code token.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Token<'src> {

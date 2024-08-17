@@ -32,10 +32,10 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn map(pairs: Vec<(Node<Identifier>, Expression)>, position: Span) -> Self {
+    pub fn map<T: Into<Vec<(Node<Identifier>, Expression)>>>(pairs: T, position: Span) -> Self {
         Self::Map(Node::new(
             Box::new(MapExpression {
-                pairs: pairs.into_iter().collect(),
+                pairs: pairs.into(),
             }),
             position,
         ))
@@ -214,24 +214,40 @@ impl Expression {
         Self::Struct(Node::new(Box::new(struct_expression), position))
     }
 
-    pub fn identifier(identifier: Identifier, position: Span) -> Self {
-        Self::Identifier(Node::new(identifier, position))
+    pub fn identifier<T: ToString>(to_string: T, position: Span) -> Self {
+        Self::Identifier(Node::new(Identifier::new(to_string), position))
     }
 
-    pub fn list(list_expression: ListExpression, position: Span) -> Self {
-        Self::List(Node::new(Box::new(list_expression), position))
+    pub fn list<T: Into<Vec<Expression>>>(expressions: T, position: Span) -> Self {
+        Self::List(Node::new(
+            Box::new(ListExpression::Ordered(expressions.into())),
+            position,
+        ))
     }
 
-    pub fn list_index(list_index: ListIndexExpression, position: Span) -> Self {
-        Self::ListIndex(Node::new(Box::new(list_index), position))
+    pub fn auto_fill_list(repeat: Expression, length: Expression, position: Span) -> Self {
+        Self::List(Node::new(
+            Box::new(ListExpression::AutoFill {
+                repeat_operand: repeat,
+                length_operand: length,
+            }),
+            position,
+        ))
+    }
+
+    pub fn list_index(list: Expression, index: Expression, position: Span) -> Self {
+        Self::ListIndex(Node::new(
+            Box::new(ListIndexExpression { list, index }),
+            position,
+        ))
     }
 
     pub fn r#if(r#if: IfExpression, position: Span) -> Self {
         Self::If(Node::new(Box::new(r#if), position))
     }
 
-    pub fn literal(literal: LiteralExpression, position: Span) -> Self {
-        Self::Literal(Node::new(Box::new(literal), position))
+    pub fn literal<T: Into<LiteralExpression>>(into_literal: T, position: Span) -> Self {
+        Self::Literal(Node::new(Box::new(into_literal.into()), position))
     }
 
     pub fn has_block(&self) -> bool {
@@ -325,9 +341,12 @@ impl Expression {
                 }
             }
             Expression::Literal(literal_expression) => match literal_expression.inner.as_ref() {
-                LiteralExpression::Boolean(_) => Some(Type::Boolean),
-                LiteralExpression::Float(_) => Some(Type::Float),
-                LiteralExpression::Integer(_) => Some(Type::Integer),
+                LiteralExpression::Primitive(primitive_value) => match primitive_value {
+                    PrimitiveValueExpression::Boolean(_) => Some(Type::Boolean),
+                    PrimitiveValueExpression::Character(_) => Some(Type::Character),
+                    PrimitiveValueExpression::Integer(_) => Some(Type::Integer),
+                    PrimitiveValueExpression::Float(_) => Some(Type::Float),
+                },
                 LiteralExpression::String(_) => Some(Type::String),
             },
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
@@ -361,7 +380,7 @@ impl Expression {
             Expression::Range(range_expression) => {
                 let start = match range_expression.inner.as_ref() {
                     RangeExpression::Exclusive { start, .. } => start,
-                    RangeExpression::Inclusive { start, end } => start,
+                    RangeExpression::Inclusive { start, .. } => start,
                 };
                 let start_type = start.return_type(context)?;
                 let rangeable_type = match start_type {
@@ -578,20 +597,114 @@ impl Display for ListExpression {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum LiteralExpression {
+pub enum PrimitiveValueExpression {
     Boolean(bool),
+    Character(char),
     Float(f64),
     Integer(i64),
-    String(String),
+}
+
+impl Display for PrimitiveValueExpression {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            PrimitiveValueExpression::Boolean(boolean) => write!(f, "{boolean}"),
+            PrimitiveValueExpression::Character(character) => write!(f, "{character}"),
+            PrimitiveValueExpression::Float(float) => write!(f, "{float}"),
+            PrimitiveValueExpression::Integer(integer) => write!(f, "{integer}"),
+        }
+    }
+}
+
+impl Eq for PrimitiveValueExpression {}
+
+impl PartialOrd for PrimitiveValueExpression {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PrimitiveValueExpression {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (PrimitiveValueExpression::Boolean(left), PrimitiveValueExpression::Boolean(right)) => {
+                left.cmp(right)
+            }
+            (PrimitiveValueExpression::Boolean(_), _) => Ordering::Greater,
+            (
+                PrimitiveValueExpression::Character(left),
+                PrimitiveValueExpression::Character(right),
+            ) => left.cmp(right),
+            (PrimitiveValueExpression::Character(_), _) => Ordering::Greater,
+            (PrimitiveValueExpression::Float(left), PrimitiveValueExpression::Float(right)) => {
+                left.to_bits().cmp(&right.to_bits())
+            }
+            (PrimitiveValueExpression::Float(_), _) => Ordering::Greater,
+            (PrimitiveValueExpression::Integer(left), PrimitiveValueExpression::Integer(right)) => {
+                left.cmp(right)
+            }
+            (PrimitiveValueExpression::Integer(_), _) => Ordering::Greater,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct RawStringExpression(pub String);
+
+impl Display for RawStringExpression {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<i64> for LiteralExpression {
+    fn from(value: i64) -> Self {
+        LiteralExpression::Primitive(PrimitiveValueExpression::Integer(value))
+    }
+}
+
+impl From<String> for LiteralExpression {
+    fn from(value: String) -> Self {
+        LiteralExpression::String(RawStringExpression(value))
+    }
+}
+
+impl From<&str> for LiteralExpression {
+    fn from(value: &str) -> Self {
+        LiteralExpression::String(RawStringExpression(value.to_string()))
+    }
+}
+
+impl From<f64> for LiteralExpression {
+    fn from(value: f64) -> Self {
+        LiteralExpression::Primitive(PrimitiveValueExpression::Float(value))
+    }
+}
+
+impl From<bool> for LiteralExpression {
+    fn from(value: bool) -> Self {
+        LiteralExpression::Primitive(PrimitiveValueExpression::Boolean(value))
+    }
+}
+
+impl From<char> for LiteralExpression {
+    fn from(value: char) -> Self {
+        LiteralExpression::Primitive(PrimitiveValueExpression::Character(value))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum LiteralExpression {
+    Primitive(PrimitiveValueExpression),
+    String(RawStringExpression),
 }
 
 impl Display for LiteralExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            LiteralExpression::Boolean(boolean) => write!(f, "{}", boolean),
-            LiteralExpression::Float(float) => write!(f, "{}", float),
-            LiteralExpression::Integer(integer) => write!(f, "{}", integer),
-            LiteralExpression::String(string) => write!(f, "{}", string),
+            LiteralExpression::Primitive(primitive) => {
+                write!(f, "{primitive}")
+            }
+            LiteralExpression::String(string) => write!(f, "{string}"),
         }
     }
 }
@@ -607,17 +720,12 @@ impl PartialOrd for LiteralExpression {
 impl Ord for LiteralExpression {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (LiteralExpression::Boolean(left), LiteralExpression::Boolean(right)) => {
+            (LiteralExpression::Primitive(left), LiteralExpression::Primitive(right)) => {
                 left.cmp(right)
             }
-            (LiteralExpression::Float(left), LiteralExpression::Float(right)) => {
-                left.to_bits().cmp(&right.to_bits())
-            }
-            (LiteralExpression::Integer(left), LiteralExpression::Integer(right)) => {
-                left.cmp(right)
-            }
+            (LiteralExpression::Primitive(_), _) => Ordering::Greater,
             (LiteralExpression::String(left), LiteralExpression::String(right)) => left.cmp(right),
-            _ => unreachable!(),
+            (LiteralExpression::String(_), _) => Ordering::Greater,
         }
     }
 }
@@ -724,6 +832,28 @@ pub enum MathOperator {
     Multiply,
     Divide,
     Modulo,
+}
+
+impl MathOperator {
+    pub fn add(position: Span) -> Node<Self> {
+        Node::new(MathOperator::Add, position)
+    }
+
+    pub fn subtract(position: Span) -> Node<Self> {
+        Node::new(MathOperator::Subtract, position)
+    }
+
+    pub fn multiply(position: Span) -> Node<Self> {
+        Node::new(MathOperator::Multiply, position)
+    }
+
+    pub fn divide(position: Span) -> Node<Self> {
+        Node::new(MathOperator::Divide, position)
+    }
+
+    pub fn modulo(position: Span) -> Node<Self> {
+        Node::new(MathOperator::Modulo, position)
+    }
 }
 
 impl Display for MathOperator {

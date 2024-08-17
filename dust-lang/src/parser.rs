@@ -418,27 +418,23 @@ impl<'src> Parser<'src> {
             Token::Boolean(text) => {
                 self.next_token()?;
 
-                let boolean = text.parse().map_err(|error| ParseError::Boolean {
+                let boolean = text.parse::<bool>().map_err(|error| ParseError::Boolean {
                     error,
                     position: start_position,
                 })?;
-                let statement =
-                    Expression::literal(LiteralExpression::Boolean(boolean), start_position);
+                let statement = Expression::literal(boolean, start_position);
 
                 Ok(statement)
             }
             Token::Float(text) => {
                 self.next_token()?;
 
-                let float = text.parse().map_err(|error| ParseError::Float {
+                let float = text.parse::<f64>().map_err(|error| ParseError::Float {
                     error,
                     position: start_position,
                 })?;
 
-                Ok(Expression::literal(
-                    LiteralExpression::Float(float),
-                    start_position,
-                ))
+                Ok(Expression::literal(float, start_position))
             }
             Token::Identifier(text) => {
                 self.next_token()?;
@@ -502,10 +498,7 @@ impl<'src> Parser<'src> {
                     position: start_position,
                 })?;
 
-                Ok(Expression::literal(
-                    LiteralExpression::Integer(integer),
-                    start_position,
-                ))
+                Ok(Expression::literal(integer, start_position))
             }
             Token::If => {
                 self.next_token()?;
@@ -518,10 +511,7 @@ impl<'src> Parser<'src> {
             Token::String(text) => {
                 self.next_token()?;
 
-                Ok(Expression::literal(
-                    LiteralExpression::String(text.to_string()),
-                    start_position,
-                ))
+                Ok(Expression::literal(text.to_string(), start_position))
             }
             Token::LeftCurlyBrace => {
                 let block_node = self.parse_block()?;
@@ -555,10 +545,7 @@ impl<'src> Parser<'src> {
 
                     self.next_token()?;
 
-                    return Ok(Expression::list(
-                        ListExpression::Ordered(Vec::new()),
-                        position,
-                    ));
+                    return Ok(Expression::list(Vec::new(), position));
                 }
 
                 let first_expression = self.parse_expression(0)?;
@@ -573,11 +560,9 @@ impl<'src> Parser<'src> {
 
                         self.next_token()?;
 
-                        return Ok(Expression::list(
-                            ListExpression::AutoFill {
-                                length_operand: first_expression,
-                                repeat_operand,
-                            },
+                        return Ok(Expression::auto_fill_list(
+                            first_expression,
+                            repeat_operand,
                             position,
                         ));
                     } else {
@@ -597,10 +582,7 @@ impl<'src> Parser<'src> {
 
                         self.next_token()?;
 
-                        return Ok(Expression::list(
-                            ListExpression::Ordered(expressions),
-                            position,
-                        ));
+                        return Ok(Expression::list(expressions, position));
                     }
 
                     if let Token::Comma = self.current_token {
@@ -899,7 +881,7 @@ impl<'src> Parser<'src> {
 
                 let position = (left.position().0, operator_end);
 
-                Expression::list_index(ListIndexExpression { list: left, index }, position)
+                Expression::list_index(left, index, position)
             }
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
@@ -1184,18 +1166,15 @@ mod tests {
                     vec![
                         (
                             Node::new(Identifier::new("x"), (6, 7)),
-                            Expression::literal(
-                                LiteralExpression::String("1".to_string()),
-                                (10, 13)
-                            ),
+                            Expression::literal("1".to_string(), (10, 13)),
                         ),
                         (
                             Node::new(Identifier::new("y"), (15, 16)),
-                            Expression::literal(LiteralExpression::Integer(2), (19, 20)),
+                            Expression::literal(2, (19, 20)),
                         ),
                         (
                             Node::new(Identifier::new("z"), (22, 23)),
-                            Expression::literal(LiteralExpression::Float(3.0), (26, 29)),
+                            Expression::literal(3.0, (26, 29)),
                         ),
                     ],
                     (0, 31),
@@ -1216,7 +1195,7 @@ mod tests {
                     Statement::Let(Node::new(
                         LetStatement::LetMut {
                             identifier: Node::new(Identifier::new("x"), (8, 9)),
-                            value: Expression::literal(LiteralExpression::Integer(0), (12, 13)),
+                            value: Expression::literal(0, (12, 13)),
                         },
                         (0, 14),
                     )),
@@ -1225,7 +1204,7 @@ mod tests {
                             Expression::comparison(
                                 Expression::identifier(Identifier::new("x"), (21, 22)),
                                 Node::new(ComparisonOperator::LessThan, (23, 24)),
-                                Expression::literal(LiteralExpression::Integer(10), (25, 27)),
+                                Expression::literal(10, (25, 27)),
                                 (21, 27),
                             ),
                             Node::new(
@@ -1233,10 +1212,7 @@ mod tests {
                                     Expression::compound_assignment(
                                         Expression::identifier(Identifier::new("x"), (30, 31)),
                                         Node::new(MathOperator::Add, (32, 34)),
-                                        Expression::literal(
-                                            LiteralExpression::Integer(1),
-                                            (35, 36)
-                                        ),
+                                        Expression::literal(1, (35, 36)),
                                         (30, 36),
                                     ),
                                 )]),
@@ -1263,7 +1239,7 @@ mod tests {
                 statements: [Statement::Let(Node::new(
                     LetStatement::Let {
                         identifier: Node::new(Identifier::new("x"), (4, 5)),
-                        value: Expression::literal(LiteralExpression::Integer(42), (8, 10)),
+                        value: Expression::literal(42, (8, 10)),
                     },
                     (0, 11),
                 ))]
@@ -1282,7 +1258,7 @@ mod tests {
                 statements: [Statement::Let(Node::new(
                     LetStatement::LetMut {
                         identifier: Node::new(Identifier::new("x"), (8, 9)),
-                        value: Expression::literal(LiteralExpression::Boolean(false), (12, 17)),
+                        value: Expression::literal(false, (12, 17)),
                     },
                     (0, 18),
                 ))]
@@ -1308,10 +1284,7 @@ mod tests {
                                             Identifier::new("x"),
                                             (8, 9)
                                         ),
-                                        value: Expression::literal(
-                                            LiteralExpression::Integer(42),
-                                            (12, 14)
-                                        ),
+                                        value: Expression::literal(42, (12, 14)),
                                     },
                                     (8, 14)
                                 ),
@@ -1323,10 +1296,7 @@ mod tests {
                                         Identifier::new("y"),
                                         (16, 17)
                                     ),
-                                    value: Expression::literal(
-                                        LiteralExpression::Float(4.0),
-                                        (20, 23)
-                                    ),
+                                    value: Expression::literal(4.0, (20, 23)),
                                 },
                                 (16, 23)
                             ))
@@ -1351,11 +1321,8 @@ mod tests {
                     Expression::call(
                         Expression::identifier(Identifier::new("Foo"), (0, 3)),
                         vec![
-                            Expression::literal(LiteralExpression::Integer(42), (4, 6)),
-                            Expression::literal(
-                                LiteralExpression::String("bar".to_string()),
-                                (8, 13)
-                            ),
+                            Expression::literal(42, (4, 6)),
+                            Expression::literal("bar".to_string(), (8, 13)),
                         ],
                         (0, 15)
                     ),
@@ -1369,11 +1336,6 @@ mod tests {
     #[test]
     fn fields_struct_instantiation() {
         let source = "Foo { a: 42, b: 4.0 }";
-        let mut tree = AbstractSyntaxTree::new();
-
-        if parse_into(source, &mut tree).is_err() {
-            println!("{:?}", tree);
-        }
 
         assert_eq!(
             parse(source),
@@ -1384,11 +1346,11 @@ mod tests {
                         fields: vec![
                             (
                                 Node::new(Identifier::new("a"), (6, 7)),
-                                Expression::literal(LiteralExpression::Integer(42), (9, 11)),
+                                Expression::literal(42, (9, 11)),
                             ),
                             (
                                 Node::new(Identifier::new("b"), (13, 14)),
-                                Expression::literal(LiteralExpression::Float(4.0), (16, 19))
+                                Expression::literal(4.0, (16, 19))
                             )
                         ]
                     },
@@ -1435,8 +1397,8 @@ mod tests {
                 Statement::Expression(Expression::call(
                     Expression::identifier(Identifier::new("Foo"), (0, 3)),
                     vec![
-                        Expression::literal(LiteralExpression::Integer(1), (4, 5)),
-                        Expression::literal(LiteralExpression::Float(2.0), (7, 10))
+                        Expression::literal(1, (4, 5)),
+                        Expression::literal(2.0, (7, 10))
                     ],
                     (0, 11)
                 ))
@@ -1490,31 +1452,21 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::list_index(
-                    ListIndexExpression {
-                        list: Expression::list_index(
-                            ListIndexExpression {
-                                list: Expression::list(
-                                    ListExpression::Ordered(vec![
-                                        Expression::literal(LiteralExpression::Integer(1), (1, 2)),
-                                        Expression::list(
-                                            ListExpression::Ordered(vec![Expression::literal(
-                                                LiteralExpression::Integer(2),
-                                                (5, 6)
-                                            )]),
-                                            (4, 7)
-                                        ),
-                                        Expression::literal(LiteralExpression::Integer(3), (9, 10)),
-                                    ]),
-                                    (0, 11)
-                                ),
-                                index: Expression::literal(LiteralExpression::Integer(1), (12, 13)),
-                            },
-                            (0, 14)
+                    Expression::list_index(
+                        Expression::list(
+                            [
+                                Expression::literal(1, (1, 2)),
+                                Expression::list([Expression::literal(2, (5, 6))], (4, 7)),
+                                Expression::literal(3, (9, 10)),
+                            ],
+                            (0, 11)
                         ),
-                        index: Expression::literal(LiteralExpression::Integer(0), (15, 16)),
-                    },
+                        Expression::literal(1, (12, 13)),
+                        (0, 14)
+                    ),
+                    Expression::literal(0, (15, 16)),
                     (0, 17)
-                ))
+                ),)
             ]))
         );
     }
@@ -1527,8 +1479,8 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::exclusive_range(
-                    Expression::literal(LiteralExpression::Integer(0), (0, 1)),
-                    Expression::literal(LiteralExpression::Integer(42), (3, 5)),
+                    Expression::literal(0, (0, 1)),
+                    Expression::literal(42, (3, 5)),
                     (0, 5)
                 ))
             ]))
@@ -1546,7 +1498,7 @@ mod tests {
                     Expression::operator(
                         OperatorExpression::Assignment {
                             assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
-                            value: Expression::literal(LiteralExpression::Integer(1), (4, 5)),
+                            value: Expression::literal(1, (4, 5)),
                         },
                         (0, 5)
                     ),
@@ -1574,9 +1526,9 @@ mod tests {
                     OperatorExpression::Negation(Expression::grouped(
                         Expression::operator(
                             OperatorExpression::Math {
-                                left: Expression::literal(LiteralExpression::Integer(1), (2, 3)),
+                                left: Expression::literal(1, (2, 3)),
                                 operator: Node::new(MathOperator::Add, (4, 5)),
-                                right: Expression::literal(LiteralExpression::Integer(1), (6, 7)),
+                                right: Expression::literal(1, (6, 7)),
                             },
                             (2, 7)
                         ),
@@ -1599,9 +1551,9 @@ mod tests {
                     OperatorExpression::Not(Expression::grouped(
                         Expression::operator(
                             OperatorExpression::Comparison {
-                                left: Expression::literal(LiteralExpression::Integer(1), (2, 3)),
+                                left: Expression::literal(1, (2, 3)),
                                 operator: Node::new(ComparisonOperator::GreaterThan, (4, 5)),
-                                right: Expression::literal(LiteralExpression::Integer(42), (6, 8)),
+                                right: Expression::literal(42, (6, 8)),
                             },
                             (2, 8)
                         ),
@@ -1624,7 +1576,7 @@ mod tests {
                     Expression::operator(
                         OperatorExpression::Assignment {
                             assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
-                            value: Expression::literal(LiteralExpression::Boolean(false), (4, 9)),
+                            value: Expression::literal(false, (4, 9)),
                         },
                         (0, 9)
                     ),
@@ -1756,10 +1708,7 @@ mod tests {
                             OperatorExpression::Comparison {
                                 left: Expression::identifier(Identifier::new("x"), (6, 7)),
                                 operator: Node::new(ComparisonOperator::LessThan, (8, 9)),
-                                right: Expression::literal(
-                                    LiteralExpression::Integer(10),
-                                    (10, 12)
-                                ),
+                                right: Expression::literal(10, (10, 12)),
                             },
                             (6, 12)
                         ),
@@ -1772,10 +1721,7 @@ mod tests {
                                             (15, 16)
                                         ),
                                         operator: Node::new(MathOperator::Add, (17, 19)),
-                                        modifier: Expression::literal(
-                                            LiteralExpression::Integer(1),
-                                            (20, 21)
-                                        ),
+                                        modifier: Expression::literal(1, (20, 21)),
                                     },
                                     (15, 21)
                                 )
@@ -1801,7 +1747,7 @@ mod tests {
                     OperatorExpression::CompoundAssignment {
                         assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
                         operator: Node::new(MathOperator::Add, (2, 4)),
-                        modifier: Expression::literal(LiteralExpression::Integer(1), (5, 6)),
+                        modifier: Expression::literal(1, (5, 6)),
                     },
                     (0, 6)
                 ))
@@ -1818,9 +1764,9 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::operator(
                     OperatorExpression::Logic {
-                        left: Expression::literal(LiteralExpression::Boolean(true), (0, 4)),
+                        left: Expression::literal(true, (0, 4)),
                         operator: Node::new(LogicOperator::Or, (5, 7)),
-                        right: Expression::literal(LiteralExpression::Boolean(false), (8, 13)),
+                        right: Expression::literal(false, (8, 13)),
                     },
                     (0, 13)
                 ))
@@ -1839,9 +1785,9 @@ mod tests {
                     Expression::block(
                         BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
                             OperatorExpression::Math {
-                                left: Expression::literal(LiteralExpression::Integer(40), (2, 4)),
+                                left: Expression::literal(40, (2, 4)),
                                 operator: Node::new(MathOperator::Add, (5, 6)),
-                                right: Expression::literal(LiteralExpression::Integer(2), (7, 8)),
+                                right: Expression::literal(2, (7, 8)),
                             },
                             (2, 8)
                         ))]),
@@ -1864,50 +1810,26 @@ mod tests {
                     Expression::block(
                         BlockExpression::Sync(vec![
                             Statement::ExpressionNullified(Node::new(
-                                Expression::operator(
-                                    OperatorExpression::Assignment {
-                                        assignee: Expression::identifier(
-                                            Identifier::new("foo"),
-                                            (2, 5)
-                                        ),
-                                        value: Expression::literal(
-                                            LiteralExpression::Integer(42),
-                                            (8, 10)
-                                        ),
-                                    },
+                                Expression::assignment(
+                                    Expression::identifier("foo", (2, 5)),
+                                    Expression::literal(42, (8, 10)),
                                     (2, 10)
                                 ),
                                 (2, 11)
-                            ),),
+                            )),
                             Statement::ExpressionNullified(Node::new(
-                                Expression::operator(
-                                    OperatorExpression::Assignment {
-                                        assignee: Expression::identifier(
-                                            Identifier::new("bar"),
-                                            (12, 15)
-                                        ),
-                                        value: Expression::literal(
-                                            LiteralExpression::Integer(42),
-                                            (18, 20)
-                                        ),
-                                    },
+                                Expression::assignment(
+                                    Expression::identifier("bar", (12, 15)),
+                                    Expression::literal(42, (18, 20)),
                                     (12, 20)
                                 ),
                                 (12, 21)
-                            ),),
-                            Statement::Expression(Expression::operator(
-                                OperatorExpression::Assignment {
-                                    assignee: Expression::identifier(
-                                        Identifier::new("baz"),
-                                        (22, 25)
-                                    ),
-                                    value: Expression::literal(
-                                        LiteralExpression::String("42".to_string()),
-                                        (28, 32)
-                                    ),
-                                },
-                                (22, 32)
                             )),
+                            Statement::Expression(Expression::assignment(
+                                Expression::identifier("baz", (22, 25)),
+                                Expression::literal("42", (28, 32)),
+                                (22, 32)
+                            ))
                         ]),
                         (0, 34)
                     ),
@@ -1924,13 +1846,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Comparison {
-                        left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
-                        operator: Node::new(ComparisonOperator::Equal, (3, 5)),
-                        right: Expression::literal(LiteralExpression::Integer(42), (6, 8)),
-                    },
-                    (0, 8),
+                Statement::Expression(Expression::comparison(
+                    Expression::literal(42, (0, 2)),
+                    Node::new(ComparisonOperator::Equal, (3, 5)),
+                    Expression::literal(42, (6, 8)),
+                    (0, 8)
                 ))
             ]))
         );
@@ -1943,13 +1863,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Comparison {
-                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(ComparisonOperator::LessThan, (2, 3)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
-                    },
-                    (0, 5),
+                Statement::Expression(Expression::comparison(
+                    Expression::literal(1, (0, 1)),
+                    Node::new(ComparisonOperator::LessThan, (2, 3)),
+                    Expression::literal(2, (4, 5)),
+                    (0, 5)
                 ))
             ]))
         );
@@ -1962,13 +1880,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Comparison {
-                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(ComparisonOperator::LessThanOrEqual, (2, 4)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
-                    },
-                    (0, 6),
+                Statement::Expression(Expression::comparison(
+                    Expression::literal(1, (0, 1)),
+                    Node::new(ComparisonOperator::LessThanOrEqual, (2, 4)),
+                    Expression::literal(2, (5, 6)),
+                    (0, 6)
                 ))
             ]))
         );
@@ -1981,13 +1897,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Comparison {
-                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(ComparisonOperator::GreaterThanOrEqual, (2, 4)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
-                    },
-                    (0, 6),
+                Statement::Expression(Expression::comparison(
+                    Expression::literal(1, (0, 1)),
+                    Node::new(ComparisonOperator::GreaterThanOrEqual, (2, 4)),
+                    Expression::literal(2, (5, 6)),
+                    (0, 6)
                 ))
             ]))
         );
@@ -2000,13 +1914,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Comparison {
-                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(ComparisonOperator::GreaterThan, (2, 3)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
-                    },
-                    (0, 5),
+                Statement::Expression(Expression::comparison(
+                    Expression::literal(1, (0, 1)),
+                    Node::new(ComparisonOperator::GreaterThan, (2, 3)),
+                    Expression::literal(2, (4, 5)),
+                    (0, 5)
                 ))
             ]))
         );
@@ -2019,13 +1931,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
-                        left: Expression::literal(LiteralExpression::Integer(-1), (0, 2)),
-                        operator: Node::new(MathOperator::Subtract, (3, 4)),
-                        right: Expression::literal(LiteralExpression::Integer(-2), (5, 7)),
-                    },
-                    (0, 7),
+                Statement::Expression(Expression::math(
+                    Expression::literal(-1, (0, 2)),
+                    MathOperator::subtract((3, 4)),
+                    Expression::literal(-2, (5, 7)),
+                    (0, 7)
                 ))
             ]))
         );
@@ -2038,13 +1948,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
-                        left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
-                        operator: Node::new(MathOperator::Modulo, (3, 4)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
-                    },
-                    (0, 6),
+                Statement::Expression(Expression::math(
+                    Expression::literal(42, (0, 2)),
+                    MathOperator::modulo((3, 4)),
+                    Expression::literal(2, (5, 6)),
+                    (0, 6)
                 ))
             ]))
         );
@@ -2057,13 +1965,11 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
-                        left: Expression::literal(LiteralExpression::Integer(42), (0, 2)),
-                        operator: Node::new(MathOperator::Divide, (3, 4)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (5, 6)),
-                    },
-                    (0, 6),
+                Statement::Expression(Expression::math(
+                    Expression::literal(42, (0, 2)),
+                    MathOperator::divide((3, 4)),
+                    Expression::literal(2, (5, 6)),
+                    (0, 6)
                 ))
             ]))
         );
@@ -2076,18 +1982,10 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
-                        left: Expression::literal(
-                            LiteralExpression::String("Hello, ".to_string()),
-                            (0, 9)
-                        ),
-                        operator: Node::new(MathOperator::Add, (10, 11)),
-                        right: Expression::literal(
-                            LiteralExpression::String("World!".to_string()),
-                            (12, 20)
-                        )
-                    },
+                Statement::Expression(Expression::math(
+                    Expression::literal("Hello, ", (0, 9)),
+                    MathOperator::add((10, 11)),
+                    Expression::literal("World!", (12, 20)),
                     (0, 20)
                 ))
             ]))
@@ -2101,10 +1999,7 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::literal(
-                    LiteralExpression::String("Hello, World!".to_string()),
-                    (0, 15)
-                ))
+                Statement::Expression(Expression::literal("Hello, World!", (0, 15)))
             ]))
         );
     }
@@ -2116,10 +2011,7 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::literal(
-                    LiteralExpression::Boolean(true),
-                    (0, 4)
-                ))
+                Statement::Expression(Expression::literal(true, (0, 4)))
             ]))
         );
     }
@@ -2132,17 +2024,15 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::list_index(
-                    ListIndexExpression {
-                        list: Expression::list(
-                            ListExpression::Ordered(vec![
-                                Expression::literal(LiteralExpression::Integer(1), (1, 2)),
-                                Expression::literal(LiteralExpression::Integer(2), (4, 5)),
-                                Expression::literal(LiteralExpression::Integer(3), (7, 8)),
-                            ]),
-                            (0, 9)
-                        ),
-                        index: Expression::literal(LiteralExpression::Integer(0), (10, 11)),
-                    },
+                    Expression::list(
+                        [
+                            Expression::literal(1, (1, 2)),
+                            Expression::literal(2, (4, 5)),
+                            Expression::literal(3, (7, 8)),
+                        ],
+                        (0, 9)
+                    ),
+                    Expression::literal(0, (10, 11)),
                     (0, 12)
                 ))
             ]))
@@ -2173,41 +2063,29 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::list(
-                    ListExpression::Ordered(vec![
-                        Expression::literal(LiteralExpression::Integer(1), (1, 2)),
-                        Expression::operator(
-                            OperatorExpression::Math {
-                                left: Expression::literal(LiteralExpression::Integer(1), (4, 5)),
-                                operator: Node::new(MathOperator::Add, (6, 7)),
-                                right: Expression::literal(LiteralExpression::Integer(1), (8, 9)),
-                            },
+                    [
+                        Expression::literal(1, (1, 2)),
+                        Expression::math(
+                            Expression::literal(1, (4, 5)),
+                            MathOperator::add((6, 7)),
+                            Expression::literal(1, (8, 9)),
                             (4, 9)
                         ),
-                        Expression::operator(
-                            OperatorExpression::Math {
-                                left: Expression::literal(LiteralExpression::Integer(2), (11, 12)),
-                                operator: Node::new(MathOperator::Add, (13, 14)),
-                                right: Expression::grouped(
-                                    Expression::operator(
-                                        OperatorExpression::Math {
-                                            left: Expression::literal(
-                                                LiteralExpression::Integer(4),
-                                                (16, 17)
-                                            ),
-                                            operator: Node::new(MathOperator::Multiply, (18, 19)),
-                                            right: Expression::literal(
-                                                LiteralExpression::Integer(10),
-                                                (20, 22)
-                                            ),
-                                        },
-                                        (16, 22)
-                                    ),
-                                    (15, 23)
+                        Expression::math(
+                            Expression::literal(2, (11, 12)),
+                            Node::new(MathOperator::Add, (13, 14)),
+                            Expression::grouped(
+                                Expression::math(
+                                    Expression::literal(4, (16, 17)),
+                                    MathOperator::multiply((18, 19)),
+                                    Expression::literal(10, (20, 22)),
+                                    (16, 22)
                                 ),
-                            },
+                                (15, 23)
+                            ),
                             (11, 23)
-                        )
-                    ]),
+                        ),
+                    ],
                     (0, 24)
                 ))
             ]))
@@ -2222,10 +2100,10 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::list(
-                    ListExpression::Ordered(vec![
-                        Expression::literal(LiteralExpression::Integer(1), (1, 2)),
-                        Expression::literal(LiteralExpression::Integer(2), (4, 5))
-                    ]),
+                    [
+                        Expression::literal(1, (1, 2)),
+                        Expression::literal(2, (4, 5))
+                    ],
                     (0, 6)
                 ))
             ]))
@@ -2239,7 +2117,7 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::list(ListExpression::Ordered(vec![]), (0, 2)))
+                Statement::Expression(Expression::list(vec![], (0, 2)))
             ]))
         );
     }
@@ -2251,7 +2129,7 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::literal(LiteralExpression::Float(42.0), (0, 4)))
+                Statement::Expression(Expression::literal(42.0, (0, 4)))
             ]))
         );
     }
@@ -2263,12 +2141,10 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
-                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(MathOperator::Add, (2, 3)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5))
-                    },
+                Statement::Expression(Expression::math(
+                    Expression::literal(1, (0, 1)),
+                    MathOperator::add((2, 3)),
+                    Expression::literal(2, (4, 5)),
                     (0, 5)
                 ))
             ]))
@@ -2282,14 +2158,12 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
-                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(MathOperator::Multiply, (2, 3)),
-                        right: Expression::literal(LiteralExpression::Integer(2), (4, 5))
-                    },
+                Statement::Expression(Expression::math(
+                    Expression::literal(1, (0, 1)),
+                    MathOperator::multiply((2, 3)),
+                    Expression::literal(2, (4, 5)),
                     (0, 5)
-                ))
+                ),)
             ]))
         );
     }
@@ -2301,21 +2175,17 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Math {
-                        left: Expression::literal(LiteralExpression::Integer(1), (0, 1)),
-                        operator: Node::new(MathOperator::Add, (2, 3)),
-                        right: Expression::operator(
-                            OperatorExpression::Math {
-                                left: Expression::literal(LiteralExpression::Integer(2), (4, 5)),
-                                operator: Node::new(MathOperator::Multiply, (6, 7)),
-                                right: Expression::literal(LiteralExpression::Integer(3), (8, 9))
-                            },
-                            (4, 9)
-                        )
-                    },
+                Statement::Expression(Expression::math(
+                    Expression::literal(1, (0, 1)),
+                    MathOperator::add((2, 3)),
+                    Expression::math(
+                        Expression::literal(2, (4, 5)),
+                        MathOperator::multiply((6, 7)),
+                        Expression::literal(3, (8, 9)),
+                        (4, 9)
+                    ),
                     (0, 9)
-                ))
+                )),
             ]))
         );
     }
@@ -2327,31 +2197,19 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::Expression(Expression::operator(
-                    OperatorExpression::Assignment {
-                        assignee: Expression::identifier(Identifier::new("a"), (0, 1)),
-                        value: Expression::operator(
-                            OperatorExpression::Math {
-                                left: Expression::literal(LiteralExpression::Integer(1), (4, 5)),
-                                operator: Node::new(MathOperator::Add, (6, 7)),
-                                right: Expression::operator(
-                                    OperatorExpression::Math {
-                                        left: Expression::literal(
-                                            LiteralExpression::Integer(2),
-                                            (8, 9)
-                                        ),
-                                        operator: Node::new(MathOperator::Multiply, (10, 11)),
-                                        right: Expression::literal(
-                                            LiteralExpression::Integer(3),
-                                            (12, 13)
-                                        )
-                                    },
-                                    (8, 13)
-                                )
-                            },
-                            (4, 13)
-                        )
-                    },
+                Statement::Expression(Expression::assignment(
+                    Expression::identifier("a", (0, 1)),
+                    Expression::math(
+                        Expression::literal(1, (4, 5)),
+                        MathOperator::add((6, 7)),
+                        Expression::math(
+                            Expression::literal(2, (8, 9)),
+                            MathOperator::multiply((10, 11)),
+                            Expression::literal(3, (12, 13)),
+                            (8, 13)
+                        ),
+                        (4, 13)
+                    ),
                     (0, 13)
                 ))
             ]))
