@@ -13,14 +13,13 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    rc::Weak,
 };
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     constructor::{FieldsConstructor, TupleConstructor, UnitConstructor},
-    Constructor, Enum, Identifier, Struct, Value,
+    Constructor, Identifier,
 };
 
 /// Description of a kind of value.

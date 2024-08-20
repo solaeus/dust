@@ -7,7 +7,6 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    primitive,
     sync::{Arc, Mutex},
 };
 
@@ -21,8 +20,8 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, RawStringExpression, Span,
         Statement, StructDefinition, StructExpression,
     },
-    parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, DustError, Enum,
-    EnumType, Expression, Identifier, ParseError, Struct, StructType, Type, Value, ValueError,
+    parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, DustError,
+    Expression, Identifier, ParseError, Struct, StructType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -109,6 +108,8 @@ impl Vm {
         statement: Statement,
         collect_garbage: bool,
     ) -> Result<Option<Value>, RuntimeError> {
+        log::debug!("Running statement: {}", statement);
+
         let position = statement.position();
         let result = match statement {
             Statement::Expression(expression) => self
@@ -211,6 +212,8 @@ impl Vm {
         expression: Expression,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
+        log::debug!("Running expression: {}", expression);
+
         let position = expression.position();
         let evaluation_result = match expression {
             Expression::Block(Node { inner, .. }) => self.run_block(*inner, collect_garbage),
@@ -222,13 +225,19 @@ impl Vm {
                 self.run_expression(*expression.inner, collect_garbage)
             }
             Expression::Identifier(identifier) => {
+                log::debug!("Running identifier: {}", identifier.inner);
+
                 let get_data = self.context.get_data(&identifier.inner);
 
                 if let Some(ContextData::VariableValue(value)) = get_data {
-                    return Ok(Evaluation::Return(Some(value.clone())));
+                    return Ok(Evaluation::Return(Some(value)));
                 }
 
                 if let Some(ContextData::Constructor(constructor)) = get_data {
+                    if let Constructor::Unit(unit_constructor) = constructor {
+                        return Ok(Evaluation::Return(Some(unit_constructor.construct())));
+                    }
+
                     return Ok(Evaluation::Constructor(constructor));
                 }
 
@@ -270,6 +279,8 @@ impl Vm {
         struct_expression: StructExpression,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
+        log::debug!("Running struct expression: {struct_expression}");
+
         match struct_expression {
             StructExpression::Unit { name } => {
                 let position = name.position;
@@ -678,14 +689,19 @@ impl Vm {
         call_expression: CallExpression,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
+        log::debug!("Running call expression: {call_expression}");
+
         let CallExpression { invoker, arguments } = call_expression;
 
         let invoker_position = invoker.position();
         let run_invoker = self.run_expression(invoker, collect_garbage)?;
 
         match run_invoker {
-            Evaluation::Constructor(constructor) => {
-                if let Constructor::Tuple(tuple_constructor) = constructor {
+            Evaluation::Constructor(constructor) => match constructor {
+                Constructor::Unit(unit_constructor) => {
+                    Ok(Evaluation::Return(Some(unit_constructor.construct())))
+                }
+                Constructor::Tuple(tuple_constructor) => {
                     let mut fields = Vec::new();
 
                     for argument in arguments {
@@ -701,9 +717,12 @@ impl Vm {
 
                     let tuple = tuple_constructor.construct(fields);
 
-                    return Ok(Evaluation::Return(Some(tuple)));
+                    Ok(Evaluation::Return(Some(tuple)))
                 }
-            }
+                Constructor::Fields(_) => {
+                    todo!("Return an error")
+                }
+            },
             Evaluation::Return(Some(value)) => {
                 let function = if let Value::Function(function) = value {
                     function
@@ -718,26 +737,23 @@ impl Vm {
 
                 for argument in arguments {
                     let position = argument.position();
+                    let value = self
+                        .run_expression(argument, collect_garbage)?
+                        .expect_value(position)?;
 
-                    if let Some(value) = self.run_expression(argument, collect_garbage)?.value() {
-                        value_arguments.push(value);
-                    } else {
-                        return Err(RuntimeError::ExpectedValue { position });
-                    }
+                    value_arguments.push(value);
                 }
 
                 let context = Context::new();
 
-                return function
+                function
                     .call(None, Some(value_arguments), &context)
-                    .map(Evaluation::Return);
+                    .map(Evaluation::Return)
             }
-            _ => (),
+            _ => Err(RuntimeError::ExpectedValueOrConstructor {
+                position: invoker_position,
+            }),
         }
-
-        Err(RuntimeError::ExpectedValue {
-            position: invoker_position,
-        })
     }
 
     fn run_field_access(
@@ -998,6 +1014,9 @@ pub enum RuntimeError {
     ExpectedValue {
         position: Span,
     },
+    ExpectedValueOrConstructor {
+        position: Span,
+    },
     InvalidRange {
         start_position: Span,
         end_position: Span,
@@ -1050,6 +1069,7 @@ impl RuntimeError {
             } => (start_position.0, end_position.1),
             Self::UndefinedType { position, .. } => *position,
             Self::UndefinedValue { position, .. } => *position,
+            Self::ExpectedValueOrConstructor { position } => *position,
             Self::UndefinedProperty {
                 property_position, ..
             } => *property_position,
@@ -1168,6 +1188,13 @@ impl Display for RuntimeError {
             }
             Self::ExpectedValue { position } => {
                 write!(f, "Expected a value at position: {:?}", position)
+            }
+            Self::ExpectedValueOrConstructor { position } => {
+                write!(
+                    f,
+                    "Expected a value or constructor at position: {:?}",
+                    position
+                )
             }
             Self::InvalidRange {
                 start_position,
@@ -1291,6 +1318,8 @@ mod tests {
 
     #[test]
     fn assign_unit_struct_variable() {
+        env_logger::builder().is_test(true).try_init().unwrap();
+
         let input = "
             struct Foo;
             let x = Foo;

@@ -108,7 +108,7 @@ impl Context {
 
     /// Associates a constructor with an identifier.
     pub fn set_constructor(&self, identifier: Identifier, constructor: Constructor) {
-        log::trace!("Setting {identifier} to constructor {constructor:?}");
+        log::trace!("Setting {identifier} to constructor {constructor}");
 
         let mut variables = self.variables.write().unwrap();
 
@@ -130,7 +130,7 @@ impl Context {
         struct_type: StructType,
         position: Span,
     ) {
-        log::trace!("Setting {identifier} to constructor of type {struct_type:?}");
+        log::trace!("Setting {identifier} to constructor of type {struct_type}");
 
         let mut variables = self.variables.write().unwrap();
 

@@ -31,7 +31,7 @@ impl Statement {
     pub fn return_type(&self, context: &Context) -> Option<Type> {
         match self {
             Statement::Expression(expression) => expression.return_type(context),
-            Statement::ExpressionNullified(expression) => None,
+            Statement::ExpressionNullified(_) => None,
             Statement::Let(_) => None,
             Statement::StructDefinition(_) => None,
         }
@@ -42,9 +42,37 @@ impl Display for Statement {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Statement::Expression(expression) => write!(f, "{}", expression),
-            Statement::ExpressionNullified(expression) => write!(f, "{}", expression),
-            Statement::Let(r#let) => write!(f, "{}", r#let),
-            Statement::StructDefinition(definition) => write!(f, "{}", definition),
+            Statement::ExpressionNullified(expression) => write!(f, "{};", expression),
+            Statement::Let(r#let) => write!(f, "{};", r#let),
+            Statement::StructDefinition(struct_definition) => match &struct_definition.inner {
+                StructDefinition::Unit { name } => write!(f, "struct {};", name),
+                StructDefinition::Tuple { name, items } => {
+                    write!(f, "struct {name} {{ ")?;
+
+                    for (index, item) in items.iter().enumerate() {
+                        write!(f, "{}: {}", item, index)?;
+
+                        if index < items.len() - 1 {
+                            write!(f, ", ")?;
+                        }
+                    }
+
+                    write!(f, " }}")
+                }
+                StructDefinition::Fields { name, fields } => {
+                    write!(f, "struct {name} {{ ")?;
+
+                    for (index, (field, r#type)) in fields.iter().enumerate() {
+                        write!(f, "{}: {}", field, r#type)?;
+
+                        if index < fields.len() - 1 {
+                            write!(f, ", ")?;
+                        }
+                    }
+
+                    write!(f, " }}")
+                }
+            },
         }
     }
 }
