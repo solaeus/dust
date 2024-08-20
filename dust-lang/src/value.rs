@@ -234,27 +234,36 @@ impl Value {
     }
 
     pub fn get_field(&self, field: &Identifier) -> Option<Value> {
-        let built_in_function = match field.as_str() {
-            "to_string" => BuiltInFunction::ToString,
-            "length" => {
-                return match self {
-                    Value::List(values) => Some(Value::Integer(values.len() as i64)),
-                    Value::String(string) => Some(Value::Integer(string.len() as i64)),
-                    Value::Map(map) => Some(Value::Integer(map.len() as i64)),
-                    _ => None,
-                }
-            }
-            _ => {
-                return match self {
-                    Value::Mutable(inner) => inner.read().unwrap().get_field(field),
-                    Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
-                    Value::Map(pairs) => pairs.get(field).cloned(),
-                    _ => None,
-                };
-            }
-        };
+        if let Value::Mutable(locked) = self {
+            return locked.read().unwrap().get_field(field);
+        }
 
-        Some(Value::Function(Function::BuiltIn(built_in_function)))
+        match field.as_str() {
+            "is_even" => match self {
+                Value::Integer(integer) => Some(Value::Boolean(integer % 2 == 0)),
+                Value::Float(float) => Some(Value::Boolean(float % 2.0 == 0.0)),
+                _ => None,
+            },
+            "is_odd" => match self {
+                Value::Integer(integer) => Some(Value::Boolean(integer % 2 != 0)),
+                Value::Float(float) => Some(Value::Boolean(float % 2.0 != 0.0)),
+                _ => None,
+            },
+            "to_string" => Some(Value::Function(Function::BuiltIn(
+                BuiltInFunction::ToString,
+            ))),
+            "length" => match self {
+                Value::List(values) => Some(Value::Integer(values.len() as i64)),
+                Value::String(string) => Some(Value::Integer(string.len() as i64)),
+                Value::Map(map) => Some(Value::Integer(map.len() as i64)),
+                _ => None,
+            },
+            _ => match self {
+                Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
+                Value::Map(pairs) => pairs.get(field).cloned(),
+                _ => None,
+            },
+        }
     }
 
     pub fn get_index(&self, index: Value) -> Result<Option<Value>, ValueError> {

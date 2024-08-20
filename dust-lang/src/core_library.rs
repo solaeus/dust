@@ -17,24 +17,6 @@ pub fn core_library<'a>() -> &'a Context {
                 ),
             ),
             (
-                Identifier::new("is_even"),
-                (
-                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
-                        BuiltInFunction::IsEven,
-                    ))),
-                    (0, 0),
-                ),
-            ),
-            (
-                Identifier::new("is_odd"),
-                (
-                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
-                        BuiltInFunction::IsOdd,
-                    ))),
-                    (0, 0),
-                ),
-            ),
-            (
                 Identifier::new("read_line"),
                 (
                     ContextData::VariableValue(Value::Function(Function::BuiltIn(

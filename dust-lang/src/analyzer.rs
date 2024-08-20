@@ -17,8 +17,8 @@ use crate::{
         PrimitiveValueExpression, RangeExpression, Span, Statement, StructDefinition,
         StructExpression, TupleAccessExpression,
     },
-    core_library, parse, Context, ContextError, DustError, Expression, Identifier, StructType,
-    Type,
+    core_library, parse, Context, ContextError, DustError, Expression, Identifier, Rangeable,
+    RangeableType, StructType, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -253,6 +253,18 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                             index: index.clone(),
                             index_value: integer,
                             list: list.clone(),
+                        });
+                    }
+                } else if let Type::Range { r#type } = &index_type {
+                    if let RangeableType::Integer = r#type {
+                        // Ok
+                    } else {
+                        return Err(AnalysisError::ExpectedType {
+                            expected: Type::Range {
+                                r#type: RangeableType::Integer,
+                            },
+                            actual: index_type,
+                            actual_expression: index.clone(),
                         });
                     }
                 } else {

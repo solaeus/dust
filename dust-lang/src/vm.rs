@@ -737,7 +737,7 @@ impl Vm {
                     });
                 }
             } else {
-                return Err(RuntimeError::UndefinedProperty {
+                return Err(RuntimeError::UndefinedField {
                     value: container_value,
                     value_position: container_position,
                     property: field.inner,
@@ -1130,7 +1130,7 @@ pub enum RuntimeError {
         identifier: Identifier,
         position: Span,
     },
-    UndefinedProperty {
+    UndefinedField {
         value: Value,
         value_position: Span,
         property: Identifier,
@@ -1175,7 +1175,7 @@ impl RuntimeError {
             } => (start_position.0, end_position.1),
 
             Self::UndefinedType { position, .. } => *position,
-            Self::UndefinedProperty {
+            Self::UndefinedField {
                 property_position, ..
             } => *property_position,
         }
@@ -1326,7 +1326,7 @@ impl Display for RuntimeError {
                     "Identifier \"{identifier}\" is not associated with a value or constructor"
                 )
             }
-            Self::UndefinedProperty {
+            Self::UndefinedField {
                 value, property, ..
             } => {
                 write!(f, "Value {} does not have the property {}", value, property)
@@ -1672,14 +1672,14 @@ mod tests {
 
     #[test]
     fn is_even() {
-        let input = "is_even(42)";
+        let input = "42.is_even";
 
         assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
     }
 
     #[test]
     fn is_odd() {
-        let input = "is_odd(42)";
+        let input = "42.is_odd";
 
         assert_eq!(run(input), Ok(Some(Value::Boolean(false))));
     }
