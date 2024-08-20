@@ -371,7 +371,7 @@ impl Ord for Type {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FunctionType {
     pub name: Identifier,
-    pub type_parameters: Option<Vec<Type>>,
+    pub type_parameters: Option<Vec<Identifier>>,
     pub value_parameters: Option<Vec<(Identifier, Type)>>,
     pub return_type: Option<Box<Type>>,
 }

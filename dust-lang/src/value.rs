@@ -16,8 +16,8 @@ use serde::{
 };
 
 use crate::{
-    AbstractSyntaxTree, Context, EnumType, FunctionType, Identifier, RangeableType, RuntimeError,
-    StructType, Type, Vm,
+    AbstractSyntaxTree, BuiltInFunction, Context, EnumType, FunctionType, Identifier,
+    RangeableType, RuntimeError, StructType, Type, Vm,
 };
 
 /// Dust value representation
@@ -194,7 +194,15 @@ impl Value {
             Value::Character(_) => Type::Character,
             Value::Enum(Enum { r#type, .. }) => Type::Enum(r#type.clone()),
             Value::Float(_) => Type::Float,
-            Value::Function(function) => Type::Function(function.r#type.clone()),
+            Value::Function(Function::BuiltIn(built_in_function)) => Type::Function(FunctionType {
+                name: Identifier::new(built_in_function.name()),
+                type_parameters: built_in_function.type_parameters(),
+                value_parameters: built_in_function.value_parameters(),
+                return_type: built_in_function.return_type().map(Box::new),
+            }),
+            Value::Function(Function::Parsed { name, r#type, body }) => {
+                Type::Function(r#type.clone())
+            }
             Value::Integer(_) => Type::Integer,
             Value::List(values) => {
                 let item_type = values.first().unwrap().r#type();
@@ -255,6 +263,14 @@ impl Value {
     }
 
     pub fn get_field(&self, field: &Identifier) -> Option<Value> {
+        if let "to_string" = field.as_str() {
+            return Some(Value::Function(Function::BuiltIn(
+                BuiltInFunction::ToString {
+                    argument: Box::new(self.clone()),
+                },
+            )));
+        }
+
         match self {
             Value::Mutable(inner) => inner.read().unwrap().get_field(field),
             Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
@@ -1059,151 +1075,88 @@ impl<'de> Deserialize<'de> for Value {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct Function {
-    pub name: Identifier,
-    pub r#type: FunctionType,
-    pub body: Arc<AbstractSyntaxTree>,
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum Function {
+    BuiltIn(BuiltInFunction),
+    Parsed {
+        name: Identifier,
+        r#type: FunctionType,
+        body: AbstractSyntaxTree,
+    },
 }
 
 impl Function {
     pub fn call(
-        &self,
+        self,
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
         context: &Context,
     ) -> Result<Option<Value>, RuntimeError> {
-        let new_context = Context::with_data_from(context);
+        match self {
+            Function::BuiltIn(built_in_function) => built_in_function
+                .call(_type_arguments, value_arguments)
+                .map_err(|error| RuntimeError::BuiltInFunctionError { error }),
+            Function::Parsed { r#type, body, .. } => {
+                let new_context = Context::with_data_from(context);
 
-        if let (Some(value_parameters), Some(value_arguments)) =
-            (&self.r#type.value_parameters, value_arguments)
-        {
-            for ((identifier, _), value) in value_parameters.iter().zip(value_arguments) {
-                new_context.set_variable_value(identifier.clone(), value);
+                if let (Some(value_parameters), Some(value_arguments)) =
+                    (&r#type.value_parameters, value_arguments)
+                {
+                    for ((identifier, _), value) in value_parameters.iter().zip(value_arguments) {
+                        new_context.set_variable_value(identifier.clone(), value);
+                    }
+                }
+
+                let mut vm = Vm::new(body, new_context);
+
+                vm.run()
             }
         }
-
-        let mut vm = Vm::new(self.body.as_ref().clone(), new_context);
-
-        vm.run()
     }
 }
 
 impl Display for Function {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "fn {}", self.name)?;
+        match self {
+            Function::BuiltIn(built_in_function) => write!(f, "{}", built_in_function),
+            Function::Parsed { name, r#type, body } => {
+                write!(f, "fn {}", name)?;
 
-        if let Some(type_parameters) = &self.r#type.type_parameters {
-            write!(f, "<")?;
+                if let Some(type_parameters) = &r#type.type_parameters {
+                    write!(f, "<")?;
 
-            for (index, type_parameter) in type_parameters.iter().enumerate() {
-                if index > 0 {
-                    write!(f, ", ")?;
+                    for (index, type_parameter) in type_parameters.iter().enumerate() {
+                        if index > 0 {
+                            write!(f, ", ")?;
+                        }
+
+                        write!(f, "{}", type_parameter)?;
+                    }
+
+                    write!(f, ">")?;
                 }
 
-                write!(f, "{}", type_parameter)?;
-            }
+                write!(f, "(")?;
 
-            write!(f, ">")?;
-        }
-
-        write!(f, "(")?;
-
-        if let Some(value_paramers) = &self.r#type.value_parameters {
-            for (index, (identifier, r#type)) in value_paramers.iter().enumerate() {
-                if index > 0 {
-                    write!(f, ", ")?;
-                }
-
-                write!(f, "{identifier}: {type}")?;
-            }
-        }
-
-        write!(f, ") {{")?;
-
-        for statement in &self.body.statements {
-            write!(f, "{}", statement)?;
-        }
-
-        write!(f, "}}")
-    }
-}
-
-impl Serialize for Function {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut ser = serializer.serialize_struct("Function", 3)?;
-
-        ser.serialize_field("name", &self.name)?;
-        ser.serialize_field("type", &self.r#type)?;
-        ser.serialize_field("body", self.body.as_ref())?;
-
-        ser.end()
-    }
-}
-
-impl<'de> Deserialize<'de> for Function {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct FunctionVisitor;
-
-        impl<'de> Visitor<'de> for FunctionVisitor {
-            type Value = Function;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                formatter.write_str("a function")
-            }
-
-            fn visit_map<A>(self, mut map: A) -> Result<Function, A::Error>
-            where
-                A: MapAccess<'de>,
-            {
-                let mut name = None;
-                let mut r#type = None;
-                let mut body = None;
-
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        "name" => {
-                            if name.is_some() {
-                                return Err(de::Error::duplicate_field("name"));
-                            }
-
-                            name = Some(map.next_value()?);
+                if let Some(value_paramers) = &r#type.value_parameters {
+                    for (index, (identifier, r#type)) in value_paramers.iter().enumerate() {
+                        if index > 0 {
+                            write!(f, ", ")?;
                         }
-                        "type" => {
-                            if r#type.is_some() {
-                                return Err(de::Error::duplicate_field("type"));
-                            }
 
-                            r#type = Some(map.next_value()?);
-                        }
-                        "body" => {
-                            if body.is_some() {
-                                return Err(de::Error::duplicate_field("body"));
-                            }
-
-                            body = Some(map.next_value().map(Arc::new)?);
-                        }
-                        _ => {
-                            return Err(de::Error::unknown_field(key, &["name", "type", "body"]));
-                        }
+                        write!(f, "{identifier}: {type}")?;
                     }
                 }
 
-                let name = name.ok_or_else(|| de::Error::missing_field("name"))?;
-                let r#type = r#type.ok_or_else(|| de::Error::missing_field("type"))?;
-                let body = body.ok_or_else(|| de::Error::missing_field("body"))?;
+                write!(f, ") {{")?;
 
-                Ok(Function { name, r#type, body })
+                for statement in &body.statements {
+                    write!(f, "{}", statement)?;
+                }
+
+                write!(f, "}}")
             }
         }
-
-        deserializer.deserialize_struct("Function", &["name", "type", "body"], FunctionVisitor)
     }
 }
 

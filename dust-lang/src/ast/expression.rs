@@ -6,7 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, FunctionType, Identifier, RangeableType, StructType, Type};
+use crate::{BuiltInFunction, Context, FunctionType, Identifier, RangeableType, StructType, Type};
 
 use super::{Node, Span, Statement};
 
@@ -338,6 +338,9 @@ impl Expression {
                 }
             }
             Expression::Literal(literal_expression) => match literal_expression.inner.as_ref() {
+                LiteralExpression::BuiltInFunction(built_in_function) => {
+                    built_in_function.return_type()
+                }
                 LiteralExpression::Primitive(primitive_value) => match primitive_value {
                     PrimitiveValueExpression::Boolean(_) => Some(Type::Boolean),
                     PrimitiveValueExpression::Character(_) => Some(Type::Character),
@@ -682,6 +685,7 @@ impl From<char> for LiteralExpression {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LiteralExpression {
+    BuiltInFunction(BuiltInFunction),
     Primitive(PrimitiveValueExpression),
     String(String),
 }
@@ -689,6 +693,9 @@ pub enum LiteralExpression {
 impl Display for LiteralExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            LiteralExpression::BuiltInFunction(built_in_function) => {
+                write!(f, "{built_in_function}")
+            }
             LiteralExpression::Primitive(primitive) => {
                 write!(f, "{primitive}")
             }
@@ -708,6 +715,11 @@ impl PartialOrd for LiteralExpression {
 impl Ord for LiteralExpression {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
+            (
+                LiteralExpression::BuiltInFunction(left),
+                LiteralExpression::BuiltInFunction(right),
+            ) => left.cmp(right),
+            (LiteralExpression::BuiltInFunction(_), _) => Ordering::Greater,
             (LiteralExpression::Primitive(left), LiteralExpression::Primitive(right)) => {
                 left.cmp(right)
             }

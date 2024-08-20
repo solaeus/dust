@@ -20,9 +20,8 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression,
     },
-    constructor::FieldsConstructor,
     parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, DustError,
-    Expression, Identifier, ParseError, Struct, StructType, Type, Value, ValueError,
+    Expression, Function, Identifier, ParseError, StructType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -609,6 +608,9 @@ impl Vm {
 
     fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, RuntimeError> {
         let value = match literal {
+            LiteralExpression::BuiltInFunction(built_in_function) => {
+                Value::Function(Function::BuiltIn(built_in_function))
+            }
             LiteralExpression::String(string) => Value::String(string),
             LiteralExpression::Primitive(primitive_expression) => match primitive_expression {
                 PrimitiveValueExpression::Boolean(boolean) => Value::Boolean(boolean),
@@ -934,7 +936,6 @@ pub enum RuntimeError {
     // These should be prevented by running the analyzer before the VM
     BuiltInFunctionError {
         error: BuiltInFunctionError,
-        position: Span,
     },
     EnumVariantNotFound {
         identifier: Identifier,
@@ -1006,8 +1007,9 @@ pub enum RuntimeError {
 }
 
 impl RuntimeError {
-    pub fn position(&self) -> Span {
-        match self {
+    pub fn position(&self) -> Option<Span> {
+        let position = match self {
+            Self::BuiltInFunctionError { .. } => return None,
             Self::ParseError(parse_error) => parse_error.position(),
             Self::Expression { position, .. } => *position,
             Self::Statement { position, .. } => *position,
@@ -1016,7 +1018,6 @@ impl RuntimeError {
                 right_position,
                 ..
             } => (left_position.0, right_position.1),
-            Self::BuiltInFunctionError { position, .. } => *position,
             Self::EnumVariantNotFound { position, .. } => *position,
             Self::ExpectedBoolean { position } => *position,
             Self::ExpectedConstructor { position, .. } => *position,
@@ -1042,7 +1043,9 @@ impl RuntimeError {
             Self::UndefinedProperty {
                 property_position, ..
             } => *property_position,
-        }
+        };
+
+        Some(position)
     }
 }
 

@@ -437,7 +437,6 @@ impl<'src> Lexer<'src> {
             "mut" => Token::Mut,
             "read_line" => Token::ReadLine,
             "struct" => Token::Struct,
-            "to_string" => Token::ToString,
             "true" => Token::Boolean("true"),
             "while" => Token::While,
             "write_line" => Token::WriteLine,

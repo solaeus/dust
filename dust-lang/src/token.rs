@@ -36,7 +36,6 @@ pub enum Token<'src> {
     ReadLine,
     Str,
     Struct,
-    ToString,
     While,
     WriteLine,
 
@@ -123,7 +122,6 @@ impl<'src> Token<'src> {
             Token::String(text) => TokenOwned::String(text.to_string()),
             Token::Str => TokenOwned::Str,
             Token::Struct => TokenOwned::Struct,
-            Token::ToString => TokenOwned::ToString,
             Token::While => TokenOwned::While,
             Token::WriteLine => TokenOwned::WriteLine,
         }
@@ -181,7 +179,6 @@ impl<'src> Token<'src> {
             Token::Slash => "/",
             Token::Str => "str",
             Token::Struct => "struct",
-            Token::ToString => "to_string",
             Token::While => "while",
             Token::WriteLine => "write_line",
         }
@@ -238,7 +235,6 @@ impl<'src> Token<'src> {
             Token::Str => TokenKind::Str,
             Token::String(_) => TokenKind::String,
             Token::Struct => TokenKind::Struct,
-            Token::ToString => TokenKind::ToString,
             Token::While => TokenKind::While,
             Token::WriteLine => TokenKind::WriteLine,
         }
@@ -332,7 +328,6 @@ pub enum TokenOwned {
     Mut,
     ReadLine,
     Str,
-    ToString,
     While,
     WriteLine,
 
@@ -421,7 +416,6 @@ impl Display for TokenOwned {
             TokenOwned::Str => Token::Str.fmt(f),
             TokenOwned::String(string) => write!(f, "{string}"),
             TokenOwned::Struct => Token::Struct.fmt(f),
-            TokenOwned::ToString => Token::ToString.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
             TokenOwned::WriteLine => Token::WriteLine.fmt(f),
         }
@@ -455,7 +449,6 @@ pub enum TokenKind {
     Map,
     ReadLine,
     Str,
-    ToString,
     While,
     WriteLine,
 
@@ -544,7 +537,6 @@ impl Display for TokenKind {
             TokenKind::Slash => Token::Slash.fmt(f),
             TokenKind::String => write!(f, "string value"),
             TokenKind::Struct => Token::Struct.fmt(f),
-            TokenKind::ToString => Token::ToString.fmt(f),
             TokenKind::While => Token::While.fmt(f),
             TokenKind::WriteLine => Token::WriteLine.fmt(f),
         }
@@ -555,7 +547,7 @@ impl Display for TokenKind {
 pub(crate) mod tests {
     use super::*;
 
-    pub fn all_tokens<'src>() -> [Token<'src>; 52] {
+    pub fn all_tokens<'src>() -> [Token<'src>; 51] {
         [
             Token::Identifier("foobar"),
             Token::Boolean("true"),
@@ -606,7 +598,6 @@ pub(crate) mod tests {
             Token::Star,
             Token::Str,
             Token::Struct,
-            Token::ToString,
             Token::While,
             Token::WriteLine,
         ]

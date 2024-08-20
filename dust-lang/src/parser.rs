@@ -822,7 +822,7 @@ impl<'src> Parser<'src> {
                     Expression::tuple_access(left, index_node, position)
                 } else {
                     let field = self.parse_identifier()?;
-                    let position = (left.position().0, self.current_position.1);
+                    let position = (left.position().0, field.position.1);
 
                     Expression::field_access(left, field, position)
                 }
@@ -1144,6 +1144,26 @@ mod tests {
     use crate::{Identifier, Type};
 
     use super::*;
+
+    #[test]
+    fn built_in_function() {
+        let source = "42.to_string()";
+
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::call(
+                    Expression::field_access(
+                        Expression::literal(42, (0, 2)),
+                        Node::new(Identifier::new("to_string"), (3, 12)),
+                        (0, 12)
+                    ),
+                    vec![],
+                    (0, 14)
+                ))
+            ]))
+        );
+    }
 
     #[test]
     fn map_expression() {

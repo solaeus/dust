@@ -1,8 +1,8 @@
 //! Top-level error handling for the Dust language.
-use annotate_snippets::{Level, Renderer, Snippet};
+use annotate_snippets::{Level, Message, Renderer, Snippet};
 use std::fmt::Display;
 
-use crate::{AnalysisError, LexError, ParseError, RuntimeError};
+use crate::{ast::Span, AnalysisError, LexError, ParseError, RuntimeError};
 
 /// An error that occurred during the execution of the Dust language and its
 /// corresponding source code.
@@ -61,12 +61,12 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn position(&self) -> (usize, usize) {
+    pub fn position(&self) -> Option<Span> {
         match self {
             DustError::Runtime { runtime_error, .. } => runtime_error.position(),
-            DustError::Analysis { analysis_error, .. } => analysis_error.position(),
-            DustError::Parse { parse_error, .. } => parse_error.position(),
-            DustError::Lex { lex_error, .. } => lex_error.position(),
+            DustError::Analysis { analysis_error, .. } => Some(analysis_error.position()),
+            DustError::Parse { parse_error, .. } => Some(parse_error.position()),
+            DustError::Lex { lex_error, .. } => Some(lex_error.position()),
         }
     }
 
@@ -83,10 +83,18 @@ impl<'src> DustError<'src> {
         let title = self.title();
         let span = self.position();
         let label = self.to_string();
-        let message = Level::Error.title(title).snippet(
-            Snippet::source(self.source())
-                .annotation(Level::Info.span(span.0..span.1).label(&label)),
-        );
+
+        let message = if let Some(span) = span {
+            Level::Error.title(title).snippet(
+                Snippet::source(self.source())
+                    .annotation(Level::Info.span(span.0..span.1).label(&label)),
+            )
+        } else {
+            Level::Error
+                .title(title)
+                .snippet(Snippet::source(self.source()))
+                .footer(Level::Info.title("No position information available"))
+        };
         let renderer = Renderer::styled();
 
         format!("{}", renderer.render(message))
