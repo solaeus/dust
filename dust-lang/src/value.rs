@@ -11,8 +11,8 @@ use std::{
 use serde::{de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
-    AbstractSyntaxTree, BuiltInFunction, Context, EnumType, FunctionType, Identifier,
-    RangeableType, RuntimeError, StructType, Type, Vm,
+    AbstractSyntaxTree, BuiltInFunction, BuiltInFunctionError, Context, ContextError, EnumType,
+    FunctionType, Identifier, RangeableType, RuntimeError, StructType, Type, Vm,
 };
 
 /// Dust value representation
@@ -232,18 +232,27 @@ impl Value {
     }
 
     pub fn get_field(&self, field: &Identifier) -> Option<Value> {
-        if let "to_string" = field.as_str() {
-            return Some(Value::Function(Function::BuiltIn(
-                BuiltInFunction::ToString,
-            )));
-        }
+        let built_in_function = match field.as_str() {
+            "to_string" => BuiltInFunction::ToString,
+            "length" => {
+                return match self {
+                    Value::List(values) => Some(Value::Integer(values.len() as i64)),
+                    Value::String(string) => Some(Value::Integer(string.len() as i64)),
+                    Value::Map(map) => Some(Value::Integer(map.len() as i64)),
+                    _ => None,
+                }
+            }
+            _ => {
+                return match self {
+                    Value::Mutable(inner) => inner.read().unwrap().get_field(field),
+                    Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
+                    Value::Map(pairs) => pairs.get(field).cloned(),
+                    _ => None,
+                };
+            }
+        };
 
-        match self {
-            Value::Mutable(inner) => inner.read().unwrap().get_field(field),
-            Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
-            Value::Map(pairs) => pairs.get(field).cloned(),
-            _ => None,
-        }
+        Some(Value::Function(Function::BuiltIn(built_in_function)))
     }
 
     pub fn get_index(&self, index: Value) -> Result<Option<Value>, ValueError> {
@@ -1118,25 +1127,29 @@ impl Function {
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
         context: &Context,
-    ) -> Result<Option<Value>, RuntimeError> {
+    ) -> Result<Option<Value>, FunctionCallError> {
         match self {
             Function::BuiltIn(built_in_function) => built_in_function
                 .call(_type_arguments, value_arguments)
-                .map_err(|error| RuntimeError::BuiltInFunctionError { error }),
+                .map_err(FunctionCallError::BuiltInFunction),
             Function::Parsed { r#type, body, .. } => {
-                let new_context = Context::with_data_from(context)?;
+                let new_context =
+                    Context::with_data_from(context).map_err(FunctionCallError::Context)?;
 
                 if let (Some(value_parameters), Some(value_arguments)) =
                     (&r#type.value_parameters, value_arguments)
                 {
                     for ((identifier, _), value) in value_parameters.iter().zip(value_arguments) {
-                        new_context.set_variable_value(identifier.clone(), value)?;
+                        new_context
+                            .set_variable_value(identifier.clone(), value)
+                            .map_err(FunctionCallError::Context)?;
                     }
                 }
 
                 let mut vm = Vm::new(body, new_context);
 
                 vm.run()
+                    .map_err(|error| FunctionCallError::Runtime(Box::new(error)))
             }
         }
     }
@@ -1183,6 +1196,23 @@ impl Display for Function {
 
                 write!(f, "}}")
             }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FunctionCallError {
+    BuiltInFunction(BuiltInFunctionError),
+    Context(ContextError),
+    Runtime(Box<RuntimeError>),
+}
+
+impl Display for FunctionCallError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            FunctionCallError::BuiltInFunction(error) => write!(f, "{}", error),
+            FunctionCallError::Context(error) => write!(f, "{}", error),
+            FunctionCallError::Runtime(error) => write!(f, "{}", error),
         }
     }
 }

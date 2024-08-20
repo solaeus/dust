@@ -21,8 +21,8 @@ use crate::{
         StructDefinition, StructExpression,
     },
     core_library, parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData,
-    ContextError, DustError, Expression, Function, Identifier, ParseError, StructType, Type, Value,
-    ValueError,
+    ContextError, DustError, Expression, Function, FunctionCallError, Identifier, ParseError,
+    StructType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -167,14 +167,21 @@ impl Vm {
                 };
                 let constructor = struct_type.constructor();
 
-                self.context.set_constructor(name, constructor)?;
+                self.context
+                    .set_constructor(name, constructor)
+                    .map_err(|error| RuntimeError::ContextError {
+                        error,
+                        position: struct_definition.position,
+                    })?;
 
                 Ok(None)
             }
         };
 
         if collect_garbage {
-            self.context.collect_garbage(position.1)?;
+            self.context
+                .collect_garbage(position.1)
+                .map_err(|error| RuntimeError::ContextError { error, position })?;
         }
 
         result.map_err(|error| RuntimeError::Statement {
@@ -190,24 +197,27 @@ impl Vm {
     ) -> Result<(), RuntimeError> {
         match let_statement {
             LetStatement::Let { identifier, value } => {
-                let value_position = value.position();
+                let position = value.position();
                 let value = self
                     .run_expression(value, collect_garbage)?
-                    .expect_value(value_position)?;
+                    .expect_value(position)?;
 
-                self.context.set_variable_value(identifier.inner, value)?;
+                self.context
+                    .set_variable_value(identifier.inner, value)
+                    .map_err(|error| RuntimeError::ContextError { error, position })?;
 
                 Ok(())
             }
             LetStatement::LetMut { identifier, value } => {
-                let value_position = value.position();
+                let position = value.position();
                 let mutable_value = self
                     .run_expression(value, collect_garbage)?
-                    .expect_value(value_position)?
+                    .expect_value(position)?
                     .into_mutable();
 
                 self.context
-                    .set_variable_value(identifier.inner, mutable_value)?;
+                    .set_variable_value(identifier.inner, mutable_value)
+                    .map_err(|error| RuntimeError::ContextError { error, position })?;
 
                 Ok(())
             }
@@ -250,7 +260,7 @@ impl Vm {
             Expression::Grouped(expression) => {
                 self.run_expression(*expression.inner, collect_garbage)
             }
-            Expression::Identifier(identifier) => self.run_identifier(identifier.inner),
+            Expression::Identifier(identifier) => self.run_identifier(identifier),
             Expression::If(if_expression) => self.run_if(*if_expression.inner, collect_garbage),
             Expression::List(list_expression) => {
                 self.run_list(*list_expression.inner, collect_garbage)
@@ -279,10 +289,15 @@ impl Vm {
         })
     }
 
-    fn run_identifier(&self, identifier: Identifier) -> Result<Evaluation, RuntimeError> {
+    fn run_identifier(&self, identifier: Node<Identifier>) -> Result<Evaluation, RuntimeError> {
         log::debug!("Running identifier: {}", identifier);
 
-        let get_data = self.context.get_data(&identifier)?;
+        let get_data = self.context.get_data(&identifier.inner).map_err(|error| {
+            RuntimeError::ContextError {
+                error,
+                position: identifier.position,
+            }
+        })?;
 
         if let Some(ContextData::VariableValue(value)) = get_data {
             return Ok(Evaluation::Return(Some(value)));
@@ -296,7 +311,10 @@ impl Vm {
             return Ok(Evaluation::Constructor(constructor));
         }
 
-        Err(RuntimeError::UnassociatedIdentifier { identifier })
+        Err(RuntimeError::UnassociatedIdentifier {
+            identifier: identifier.inner,
+            position: identifier.position,
+        })
     }
 
     fn run_struct(
@@ -309,7 +327,10 @@ impl Vm {
         let StructExpression::Fields { name, fields } = struct_expression;
 
         let position = name.position;
-        let constructor = self.context.get_constructor(&name.inner)?;
+        let constructor = self
+            .context
+            .get_constructor(&name.inner)
+            .map_err(|error| RuntimeError::ContextError { error, position })?;
 
         if let Some(constructor) = constructor {
             if let Constructor::Fields(fields_constructor) = constructor {
@@ -696,6 +717,7 @@ impl Vm {
         log::debug!("Running call expression: {call_expression}");
 
         let CallExpression { invoker, arguments } = call_expression;
+        let invoker_position = invoker.position();
 
         if let Expression::FieldAccess(field_access) = invoker {
             let FieldAccessExpression { container, field } = *field_access.inner;
@@ -738,7 +760,11 @@ impl Vm {
 
             return function
                 .call(None, Some(value_arguments), &context)
-                .map(Evaluation::Return);
+                .map(Evaluation::Return)
+                .map_err(|error| RuntimeError::FunctionCall {
+                    error,
+                    position: invoker_position,
+                });
         }
 
         let invoker_position = invoker.position();
@@ -801,6 +827,10 @@ impl Vm {
                 function
                     .call(None, value_arguments, &context)
                     .map(Evaluation::Return)
+                    .map_err(|error| RuntimeError::FunctionCall {
+                        error,
+                        position: invoker_position,
+                    })
             }
             _ => Err(RuntimeError::ExpectedValueOrConstructor {
                 position: invoker_position,
@@ -1010,7 +1040,14 @@ impl Evaluation {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
-    ContextError(ContextError),
+    ContextError {
+        error: ContextError,
+        position: Span,
+    },
+    FunctionCall {
+        error: FunctionCallError,
+        position: Span,
+    },
     ParseError(ParseError),
     Expression {
         error: Box<RuntimeError>,
@@ -1030,6 +1067,7 @@ pub enum RuntimeError {
     // These should be prevented by running the analyzer before the VM
     BuiltInFunctionError {
         error: BuiltInFunctionError,
+        position: Span,
     },
     EnumVariantNotFound {
         identifier: Identifier,
@@ -1086,6 +1124,7 @@ pub enum RuntimeError {
     },
     UnassociatedIdentifier {
         identifier: Identifier,
+        position: Span,
     },
     UndefinedType {
         identifier: Identifier,
@@ -1099,19 +1138,13 @@ pub enum RuntimeError {
     },
 }
 
-impl From<ContextError> for RuntimeError {
-    fn from(error: ContextError) -> Self {
-        Self::ContextError(error)
-    }
-}
-
 impl RuntimeError {
-    pub fn position(&self) -> Option<Span> {
-        let position = match self {
-            Self::ContextError(_) => return None,
-            Self::BuiltInFunctionError { .. } => return None,
-            Self::UnassociatedIdentifier { .. } => return None,
-
+    pub fn position(&self) -> Span {
+        match self {
+            Self::ContextError { position, .. } => *position,
+            Self::BuiltInFunctionError { position, .. } => *position,
+            Self::FunctionCall { position, .. } => *position,
+            Self::UnassociatedIdentifier { position, .. } => *position,
             Self::ParseError(parse_error) => parse_error.position(),
             Self::Expression { position, .. } => *position,
             Self::Statement { position, .. } => *position,
@@ -1145,9 +1178,7 @@ impl RuntimeError {
             Self::UndefinedProperty {
                 property_position, ..
             } => *property_position,
-        };
-
-        Some(position)
+        }
     }
 }
 
@@ -1160,7 +1191,12 @@ impl From<ParseError> for RuntimeError {
 impl Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::ContextError(context_error) => write!(f, "{}", context_error),
+            Self::ContextError { error, position } => {
+                write!(f, "Context error at {:?}: {}", position, error)
+            }
+            Self::FunctionCall { error, position } => {
+                write!(f, "Function call error at {:?}: {}", position, error)
+            }
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
             Self::Expression { error, position } => {
                 write!(
@@ -1284,7 +1320,7 @@ impl Display for RuntimeError {
                     start_position, end_position
                 )
             }
-            Self::UnassociatedIdentifier { identifier } => {
+            Self::UnassociatedIdentifier { identifier, .. } => {
                 write!(
                     f,
                     "Identifier \"{identifier}\" is not associated with a value or constructor"

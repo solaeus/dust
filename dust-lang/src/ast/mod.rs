@@ -62,7 +62,7 @@ impl<T: Display> Display for Node<T> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstError {
-    ContextError(ContextError),
+    ContextError { error: ContextError, position: Span },
     ExpectedType { position: Span },
     ExpectedTupleType { position: Span },
     ExpectedNonEmptyList { position: Span },
@@ -70,27 +70,23 @@ pub enum AstError {
 }
 
 impl AstError {
-    pub fn position(&self) -> Option<Span> {
+    pub fn position(&self) -> Span {
         match self {
-            AstError::ContextError(_) => None,
-            AstError::ExpectedType { position } => Some(*position),
-            AstError::ExpectedTupleType { position } => Some(*position),
-            AstError::ExpectedNonEmptyList { position } => Some(*position),
-            AstError::ExpectedRangeableType { position } => Some(*position),
+            AstError::ContextError { position, .. } => *position,
+            AstError::ExpectedType { position } => *position,
+            AstError::ExpectedTupleType { position } => *position,
+            AstError::ExpectedNonEmptyList { position } => *position,
+            AstError::ExpectedRangeableType { position } => *position,
         }
-    }
-}
-
-impl From<ContextError> for AstError {
-    fn from(v: ContextError) -> Self {
-        Self::ContextError(v)
     }
 }
 
 impl Display for AstError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            AstError::ContextError(error) => write!(f, "{}", error),
+            AstError::ContextError { error, position } => {
+                write!(f, "Context error at {:?}: {}", position, error)
+            }
             AstError::ExpectedType { position } => write!(f, "Expected a type at {:?}", position),
             AstError::ExpectedTupleType { position } => {
                 write!(f, "Expected a tuple type at {:?}", position)

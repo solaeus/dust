@@ -61,12 +61,12 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn position(&self) -> Option<Span> {
+    pub fn position(&self) -> Span {
         match self {
             DustError::Runtime { runtime_error, .. } => runtime_error.position(),
             DustError::Analysis { analysis_error, .. } => analysis_error.position(),
-            DustError::Parse { parse_error, .. } => Some(parse_error.position()),
-            DustError::Lex { lex_error, .. } => Some(lex_error.position()),
+            DustError::Parse { parse_error, .. } => parse_error.position(),
+            DustError::Lex { lex_error, .. } => lex_error.position(),
         }
     }
 
@@ -79,25 +79,49 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn report(&self) -> String {
-        let title = self.title();
-        let span = self.position();
-        let label = self.to_string();
+    pub fn primary_error_data(&self) -> (&'static str, Span, String) {
+        (self.title(), self.position(), self.to_string())
+    }
 
-        let message = if let Some(span) = span {
-            Level::Error.title(title).snippet(
-                Snippet::source(self.source())
-                    .annotation(Level::Info.span(span.0..span.1).label(&label)),
-            )
+    pub fn secondary_error_data(&self) -> Option<(&'static str, Span, String)> {
+        if let DustError::Runtime { runtime_error, .. } = self {
+            match runtime_error {
+                RuntimeError::Expression { error, .. } => {
+                    Some(("Expression error", error.position(), error.to_string()))
+                }
+                RuntimeError::Statement { error, .. } => {
+                    Some(("Statement error", error.position(), error.to_string()))
+                }
+                _ => None,
+            }
         } else {
-            Level::Error
-                .title(title)
-                .snippet(Snippet::source(self.source()))
-                .footer(Level::Info.title("No position information available"))
-        };
+            None
+        }
+    }
+
+    pub fn report(&self) -> String {
+        let mut report = String::new();
         let renderer = Renderer::styled();
 
-        format!("{}", renderer.render(message))
+        let (title, span, label) = self.primary_error_data();
+
+        let message = Level::Error.title(title).snippet(
+            Snippet::source(self.source())
+                .annotation(Level::Info.span(span.0..span.1).label(&label)),
+        );
+
+        report.push_str(&format!("{}", renderer.render(message)));
+
+        if let Some((title, span, label)) = self.secondary_error_data() {
+            let message = Level::Error.title(title).snippet(
+                Snippet::source(self.source())
+                    .annotation(Level::Info.span(span.0..span.1).label(&label)),
+            );
+
+            report.push_str(&format!("{}", renderer.render(message)));
+        }
+
+        report
     }
 }
 

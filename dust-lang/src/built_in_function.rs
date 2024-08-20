@@ -14,13 +14,14 @@ use crate::{Identifier, Type, Value};
 pub enum BuiltInFunction {
     // String tools
     ToString,
+    LengthString,
 
     // Integer and float tools
     IsEven,
     IsOdd,
 
     // List tools
-    Length,
+    LengthList,
 
     // I/O
     ReadLine,
@@ -32,7 +33,8 @@ impl BuiltInFunction {
         match self {
             BuiltInFunction::IsEven => "is_even",
             BuiltInFunction::IsOdd => "is_odd",
-            BuiltInFunction::Length => "length",
+            BuiltInFunction::LengthList => "length",
+            BuiltInFunction::LengthString => "length",
             BuiltInFunction::ReadLine => "read_line",
             BuiltInFunction::ToString { .. } => "to_string",
             BuiltInFunction::WriteLine => "write_line",
@@ -44,7 +46,8 @@ impl BuiltInFunction {
             BuiltInFunction::ToString { .. } => None,
             BuiltInFunction::IsEven => None,
             BuiltInFunction::IsOdd => None,
-            BuiltInFunction::Length => None,
+            BuiltInFunction::LengthList => None,
+            BuiltInFunction::LengthString => None,
             BuiltInFunction::ReadLine => None,
             BuiltInFunction::WriteLine => None,
         }
@@ -55,14 +58,15 @@ impl BuiltInFunction {
             BuiltInFunction::ToString { .. } => Some(vec![("value".into(), Type::Any)]),
             BuiltInFunction::IsEven => Some(vec![("value".into(), Type::Number)]),
             BuiltInFunction::IsOdd => Some(vec![("value".into(), Type::Number)]),
-            BuiltInFunction::Length => Some(vec![(
+            BuiltInFunction::LengthList => Some(vec![(
                 "value".into(),
                 Type::ListOf {
                     item_type: Box::new(Type::Any),
                 },
             )]),
+            BuiltInFunction::LengthString => Some(vec![("value".into(), Type::String)]),
             BuiltInFunction::ReadLine => None,
-            BuiltInFunction::WriteLine => Some(vec![("output".into(), Type::Any)]),
+            BuiltInFunction::WriteLine => Some(vec![("value".into(), Type::Any)]),
         }
     }
 
@@ -71,7 +75,8 @@ impl BuiltInFunction {
             BuiltInFunction::ToString { .. } => Some(Type::String),
             BuiltInFunction::IsEven => Some(Type::Boolean),
             BuiltInFunction::IsOdd => Some(Type::Boolean),
-            BuiltInFunction::Length => Some(Type::Number),
+            BuiltInFunction::LengthList => Some(Type::Number),
+            BuiltInFunction::LengthString => Some(Type::Number),
             BuiltInFunction::ReadLine => Some(Type::String),
             BuiltInFunction::WriteLine => None,
         }
@@ -112,11 +117,18 @@ impl BuiltInFunction {
                     Err(BuiltInFunctionError::ExpectedInteger)
                 }
             }
-            BuiltInFunction::Length => {
+            BuiltInFunction::LengthList => {
                 if let Value::List(list) = &value_arguments.unwrap()[0] {
                     Ok(Some(Value::Integer(list.len() as i64)))
                 } else {
                     Err(BuiltInFunctionError::ExpectedList)
+                }
+            }
+            BuiltInFunction::LengthString => {
+                if let Value::String(string) = &value_arguments.unwrap()[0] {
+                    Ok(Some(Value::Integer(string.len() as i64)))
+                } else {
+                    Err(BuiltInFunctionError::ExpectedString)
                 }
             }
             BuiltInFunction::ReadLine => {

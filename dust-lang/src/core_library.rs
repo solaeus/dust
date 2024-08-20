@@ -38,7 +38,7 @@ pub fn core_library<'a>() -> &'a Context {
                 Identifier::new("length"),
                 (
                     ContextData::VariableValue(Value::Function(Function::BuiltIn(
-                        BuiltInFunction::Length,
+                        BuiltInFunction::LengthList,
                     ))),
                     (0, 0),
                 ),

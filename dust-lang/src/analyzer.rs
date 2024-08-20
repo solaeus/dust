@@ -90,11 +90,16 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     let r#type = value.return_type(&self.context)?;
 
                     if let Some(r#type) = r#type {
-                        self.context.set_variable_type(
-                            identifier.inner.clone(),
-                            r#type,
-                            identifier.position,
-                        )?;
+                        self.context
+                            .set_variable_type(
+                                identifier.inner.clone(),
+                                r#type,
+                                identifier.position,
+                            )
+                            .map_err(|error| AnalysisError::ContextError {
+                                error,
+                                position: identifier.position,
+                            })?;
                     } else {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: value.clone(),
@@ -114,7 +119,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                         name: name.inner.clone(),
                     },
                     name.position,
-                )?,
+                ),
                 StructDefinition::Tuple { name, items } => {
                     let fields = items.iter().map(|item| item.inner.clone()).collect();
 
@@ -125,7 +130,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                             fields,
                         },
                         name.position,
-                    )?;
+                    )
                 }
                 StructDefinition::Fields { name, fields } => {
                     let fields = fields
@@ -142,9 +147,13 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                             fields,
                         },
                         name.position,
-                    )?;
+                    )
                 }
-            },
+            }
+            .map_err(|error| AnalysisError::ContextError {
+                error,
+                position: struct_definition.position,
+            })?,
         }
 
         Ok(())
@@ -172,7 +181,11 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     field_access_expression.inner.as_ref();
 
                 self.context
-                    .update_last_position(&field.inner, field.position)?;
+                    .update_last_position(&field.inner, field.position)
+                    .map_err(|error| AnalysisError::ContextError {
+                        error,
+                        position: field.position,
+                    })?;
                 self.analyze_expression(container)?;
             }
             Expression::Grouped(expression) => {
@@ -181,7 +194,11 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
             Expression::Identifier(identifier) => {
                 let found = self
                     .context
-                    .update_last_position(&identifier.inner, identifier.position)?;
+                    .update_last_position(&identifier.inner, identifier.position)
+                    .map_err(|error| AnalysisError::ContextError {
+                        error,
+                        position: identifier.position,
+                    })?;
 
                 if !found {
                     return Err(AnalysisError::UndefinedVariable {
@@ -304,7 +321,11 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Fields { name, fields } => {
                     self.context
-                        .update_last_position(&name.inner, name.position)?;
+                        .update_last_position(&name.inner, name.position)
+                        .map_err(|error| AnalysisError::ContextError {
+                            error,
+                            position: name.position,
+                        });
 
                     for (_, expression) in fields {
                         self.analyze_expression(expression)?;
@@ -376,7 +397,10 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalysisError {
     AstError(AstError),
-    ContextError(ContextError),
+    ContextError {
+        error: ContextError,
+        position: Span,
+    },
     ExpectedBoolean {
         actual: Statement,
     },
@@ -442,18 +466,11 @@ impl From<AstError> for AnalysisError {
     }
 }
 
-impl From<ContextError> for AnalysisError {
-    fn from(context_error: ContextError) -> Self {
-        Self::ContextError(context_error)
-    }
-}
-
 impl AnalysisError {
-    pub fn position(&self) -> Option<Span> {
-        let position = match self {
-            AnalysisError::AstError(ast_error) => return ast_error.position(),
-            AnalysisError::ContextError(_) => return None,
-
+    pub fn position(&self) -> Span {
+        match self {
+            AnalysisError::AstError(ast_error) => ast_error.position(),
+            AnalysisError::ContextError { position, .. } => *position,
             AnalysisError::ExpectedBoolean { actual } => actual.position(),
             AnalysisError::ExpectedIdentifier { actual } => actual.position(),
             AnalysisError::ExpectedIdentifierOrString { actual } => actual.position(),
@@ -472,9 +489,7 @@ impl AnalysisError {
             AnalysisError::UndefinedVariable { identifier } => identifier.position,
             AnalysisError::UnexpectedIdentifier { identifier } => identifier.position,
             AnalysisError::UnexectedString { actual } => actual.position(),
-        };
-
-        Some(position)
+        }
     }
 }
 
@@ -484,7 +499,9 @@ impl Display for AnalysisError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             AnalysisError::AstError(ast_error) => write!(f, "{}", ast_error),
-            AnalysisError::ContextError(context_error) => write!(f, "{}", context_error),
+            Self::ContextError { error, position } => {
+                write!(f, "Context error at {:?}: {}", position, error)
+            }
             AnalysisError::ExpectedBoolean { actual, .. } => {
                 write!(f, "Expected boolean, found {}", actual)
             }

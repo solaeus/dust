@@ -307,7 +307,14 @@ impl Expression {
                 }
             }
             Expression::Grouped(expression) => expression.inner.return_type(context)?,
-            Expression::Identifier(identifier) => context.get_type(&identifier.inner)?,
+            Expression::Identifier(identifier) => {
+                context
+                    .get_type(&identifier.inner)
+                    .map_err(|error| AstError::ContextError {
+                        error,
+                        position: identifier.position,
+                    })?
+            }
             Expression::If(if_expression) => match if_expression.inner.as_ref() {
                 IfExpression::If { .. } => None,
                 IfExpression::IfElse { if_block, .. } => if_block.inner.return_type(context)?,
