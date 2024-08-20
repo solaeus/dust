@@ -413,9 +413,33 @@ impl<'src> Parser<'src> {
                     error,
                     position: start_position,
                 })?;
-                let statement = Expression::literal(boolean, start_position);
+                let expression = Expression::literal(boolean, start_position);
 
-                Ok(statement)
+                Ok(expression)
+            }
+            Token::Break => {
+                let break_end = self.current_position.1;
+
+                self.next_token()?;
+
+                let (expression_option, end) = if let Token::Semicolon = self.current_token {
+                    // Do not consume the semicolon, allowing it to nullify the expression
+
+                    (None, break_end)
+                } else if let Ok(expression) = self.parse_expression(0) {
+                    let end = expression.position().1;
+
+                    (Some(expression), end)
+                } else {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenKind::Semicolon,
+                        actual: self.current_token.to_owned(),
+                        position: self.current_position,
+                    });
+                };
+                let position = (start_position.0, end);
+
+                Ok(Expression::r#break(expression_option, position))
             }
             Token::Float(text) => {
                 self.next_token()?;
@@ -585,6 +609,14 @@ impl<'src> Parser<'src> {
 
                     expressions.push(expression);
                 }
+            }
+            Token::Loop => {
+                self.next_token()?;
+
+                let block = self.parse_block()?;
+                let position = (start_position.0, block.position.1);
+
+                Ok(Expression::infinite_loop(block, position))
             }
             Token::Map => {
                 self.next_token()?;
@@ -1144,6 +1176,27 @@ mod tests {
     use crate::{Identifier, Type};
 
     use super::*;
+
+    #[test]
+    fn break_loop() {
+        let source = "loop { break; }";
+
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::infinite_loop(
+                    Node::new(
+                        BlockExpression::Sync(vec![Statement::ExpressionNullified(Node::new(
+                            Expression::r#break(None, (7, 12)),
+                            (7, 13)
+                        ))]),
+                        (5, 15)
+                    ),
+                    (0, 15)
+                ))
+            ]))
+        );
+    }
 
     #[test]
     fn built_in_function() {

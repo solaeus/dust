@@ -2,20 +2,19 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    rc::Weak,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    BuiltInFunction, Context, ContextError, FunctionType, Identifier, RangeableType, StructType,
-    Type,
-};
+use crate::{BuiltInFunction, Context, FunctionType, Identifier, RangeableType, StructType, Type};
 
 use super::{AstError, Node, Span, Statement};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
     Block(Node<Box<BlockExpression>>),
+    Break(Node<Option<Box<Expression>>>),
     Call(Node<Box<CallExpression>>),
     FieldAccess(Node<Box<FieldAccessExpression>>),
     Grouped(Node<Box<Expression>>),
@@ -33,6 +32,10 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn r#break(expression: Option<Expression>, position: Span) -> Self {
+        Self::Break(Node::new(expression.map(Box::new), position))
+    }
+
     pub fn map<T: Into<Vec<(Node<Identifier>, Expression)>>>(pairs: T, position: Span) -> Self {
         Self::Map(Node::new(
             Box::new(MapExpression {
@@ -266,13 +269,15 @@ impl Expression {
         }
     }
 
-    pub fn return_type<'recovered>(
-        &self,
-        context: &'recovered Context,
-    ) -> Result<Option<Type>, AstError> {
+    pub fn return_type(&self, context: &Context) -> Result<Option<Type>, AstError> {
         let return_type = match self {
-            Expression::Block(block_expression) => {
-                return block_expression.inner.return_type(context)
+            Expression::Block(block_expression) => block_expression.inner.return_type(context)?,
+            Expression::Break(expression_node) => {
+                if let Some(expression) = expression_node.inner.as_ref() {
+                    expression.return_type(context)?
+                } else {
+                    None
+                }
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, .. } = call_expression.inner.as_ref();
@@ -479,6 +484,7 @@ impl Expression {
     pub fn position(&self) -> Span {
         match self {
             Expression::Block(block) => block.position,
+            Expression::Break(expression_node) => expression_node.position,
             Expression::Call(call) => call.position,
             Expression::FieldAccess(field_access) => field_access.position,
             Expression::Grouped(grouped) => grouped.position,
@@ -501,6 +507,13 @@ impl Display for Expression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Expression::Block(block) => write!(f, "{}", block.inner),
+            Expression::Break(break_node) => {
+                if let Some(expression_node) = &break_node.inner {
+                    write!(f, "break {};", expression_node)
+                } else {
+                    write!(f, "break;")
+                }
+            }
             Expression::Call(call) => write!(f, "{}", call.inner),
             Expression::FieldAccess(field_access) => write!(f, "{}", field_access.inner),
             Expression::Grouped(grouped) => write!(f, "({})", grouped.inner),
@@ -1027,10 +1040,7 @@ pub enum BlockExpression {
 }
 
 impl BlockExpression {
-    fn return_type<'recovered>(
-        &self,
-        context: &'recovered Context,
-    ) -> Result<Option<Type>, AstError> {
+    fn return_type(&self, context: &Context) -> Result<Option<Type>, AstError> {
         match self {
             BlockExpression::Async(statements) | BlockExpression::Sync(statements) => {
                 if let Some(statement) = statements.last() {

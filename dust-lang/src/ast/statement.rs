@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, ContextError, Identifier, Type};
+use crate::{Context, Identifier, Type};
 
 use super::{AstError, Expression, Node, Span};
 
@@ -28,10 +28,7 @@ impl Statement {
         }
     }
 
-    pub fn return_type<'recovered>(
-        &self,
-        context: &'recovered Context,
-    ) -> Result<Option<Type>, AstError> {
+    pub fn return_type(&self, context: &Context) -> Result<Option<Type>, AstError> {
         match self {
             Statement::Expression(expression) => expression.return_type(context),
             Statement::ExpressionNullified(_) => Ok(None),

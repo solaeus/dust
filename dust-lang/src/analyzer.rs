@@ -153,6 +153,11 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
     fn analyze_expression(&self, expression: &Expression) -> Result<(), AnalysisError> {
         match expression {
             Expression::Block(block_expression) => self.analyze_block(&block_expression.inner)?,
+            Expression::Break(break_node) => {
+                if let Some(expression) = &break_node.inner {
+                    self.analyze_expression(expression)?;
+                }
+            }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, arguments } = call_expression.inner.as_ref();
 

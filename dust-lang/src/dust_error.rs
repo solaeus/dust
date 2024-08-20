@@ -1,5 +1,5 @@
 //! Top-level error handling for the Dust language.
-use annotate_snippets::{Level, Message, Renderer, Snippet};
+use annotate_snippets::{Level, Renderer, Snippet};
 use std::fmt::Display;
 
 use crate::{ast::Span, AnalysisError, LexError, ParseError, RuntimeError};

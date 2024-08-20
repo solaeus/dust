@@ -12,7 +12,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ContextError, Type};
+use crate::ContextError;
 
 pub type Span = (usize, usize);
 

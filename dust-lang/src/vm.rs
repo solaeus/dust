@@ -95,31 +95,39 @@ impl Vm {
     }
 
     pub fn run(&mut self) -> Result<Option<Value>, RuntimeError> {
-        let mut previous_value = None;
+        let mut previous_evaluation = None;
 
         while let Some(statement) = self.abstract_tree.statements.pop_front() {
-            previous_value = self.run_statement(statement, true)?;
+            previous_evaluation = self.run_statement(statement, true)?;
         }
 
-        Ok(previous_value)
+        match previous_evaluation {
+            Some(Evaluation::Break(value_option)) => Ok(value_option),
+            Some(Evaluation::Return(value_option)) => Ok(value_option),
+            _ => Ok(None),
+        }
     }
 
     fn run_statement(
         &self,
         statement: Statement,
         collect_garbage: bool,
-    ) -> Result<Option<Value>, RuntimeError> {
+    ) -> Result<Option<Evaluation>, RuntimeError> {
         log::debug!("Running statement: {}", statement);
 
         let position = statement.position();
         let result = match statement {
-            Statement::Expression(expression) => self
-                .run_expression(expression, collect_garbage)
-                .map(|evaluation| evaluation.value()),
+            Statement::Expression(expression) => {
+                Ok(Some(self.run_expression(expression, collect_garbage)?))
+            }
             Statement::ExpressionNullified(expression) => {
-                self.run_expression(expression.inner, collect_garbage)?;
+                let evaluation = self.run_expression(expression.inner, collect_garbage)?;
 
-                Ok(None)
+                if let Evaluation::Break(_) = evaluation {
+                    Ok(Some(evaluation))
+                } else {
+                    Ok(None)
+                }
             }
             Statement::Let(let_statement) => {
                 self.run_let_statement(let_statement.inner, collect_garbage)?;
@@ -218,6 +226,23 @@ impl Vm {
         let position = expression.position();
         let evaluation_result = match expression {
             Expression::Block(Node { inner, .. }) => self.run_block(*inner, collect_garbage),
+            Expression::Break(Node { inner, .. }) => {
+                let break_expression = if let Some(expression) = inner {
+                    *expression
+                } else {
+                    return Ok(Evaluation::Break(None));
+                };
+                let run_break = self.run_expression(break_expression, collect_garbage)?;
+                let evaluation = match run_break {
+                    Evaluation::Break(value_option) => Evaluation::Break(value_option),
+                    Evaluation::Return(value_option) => Evaluation::Break(value_option),
+                    Evaluation::Constructor(_) => {
+                        return Err(RuntimeError::ExpectedValue { position })
+                    }
+                };
+
+                Ok(evaluation)
+            }
             Expression::Call(call) => self.run_call(*call.inner, collect_garbage),
             Expression::FieldAccess(field_access) => {
                 self.run_field_access(*field_access.inner, collect_garbage)
@@ -585,8 +610,19 @@ impl Vm {
 
     fn run_loop(&self, loop_expression: LoopExpression) -> Result<Evaluation, RuntimeError> {
         match loop_expression {
-            LoopExpression::Infinite { block } => loop {
-                self.run_block(block.inner.clone(), false)?;
+            LoopExpression::Infinite {
+                block: Node { inner, .. },
+            } => match inner {
+                BlockExpression::Sync(statements) => 'outer: loop {
+                    for statement in statements.clone() {
+                        let evaluation = self.run_statement(statement, false)?;
+
+                        if let Some(Evaluation::Break(value_option)) = evaluation {
+                            break 'outer Ok(Evaluation::Return(value_option));
+                        }
+                    }
+                },
+                BlockExpression::Async(_) => todo!(),
             },
             LoopExpression::While { condition, block } => {
                 while self
@@ -849,11 +885,11 @@ impl Vm {
                             let evaluation_result = self.run_statement(statement, false);
 
                             match evaluation_result {
-                                Ok(evaluation) => {
+                                Ok(evaluation_option) => {
                                     if i == statements_length - 1 {
                                         let mut final_result = final_result.lock().unwrap();
 
-                                        *final_result = evaluation;
+                                        *final_result = evaluation_option;
                                     }
 
                                     None
@@ -864,18 +900,27 @@ impl Vm {
 
                 if let Some(error) = error_option {
                     Err(error)
+                } else if let Some(evaluation) = final_result.lock().unwrap().take() {
+                    Ok(evaluation)
                 } else {
-                    Ok(Evaluation::Return(final_result.lock().unwrap().clone()))
+                    Ok(Evaluation::Return(None))
                 }
             }
             BlockExpression::Sync(statements) => {
-                let mut previous_value = None;
+                let mut previous_evaluation = None;
 
                 for statement in statements {
-                    previous_value = self.run_statement(statement, collect_garbage)?;
+                    previous_evaluation = self.run_statement(statement, collect_garbage)?;
+
+                    if let Some(Evaluation::Break(value_option)) = previous_evaluation {
+                        return Ok(Evaluation::Break(value_option));
+                    }
                 }
 
-                Ok(Evaluation::Return(previous_value))
+                match previous_evaluation {
+                    Some(evaluation) => Ok(evaluation),
+                    None => Ok(Evaluation::Return(None)),
+                }
             }
         }
     }
@@ -898,7 +943,11 @@ impl Vm {
                     .ok_or(RuntimeError::ExpectedBoolean { position })?;
 
                 if boolean {
-                    self.run_block(if_block.inner, collect_garbage)?;
+                    let evaluation = self.run_block(if_block.inner, collect_garbage)?;
+
+                    if let Evaluation::Break(_) = evaluation {
+                        return Ok(evaluation);
+                    }
                 }
 
                 Ok(Evaluation::Return(None))
@@ -916,7 +965,11 @@ impl Vm {
                     .ok_or(RuntimeError::ExpectedBoolean { position })?;
 
                 if boolean {
-                    self.run_block(if_block.inner, collect_garbage)?;
+                    let evaluation = self.run_block(if_block.inner, collect_garbage)?;
+
+                    if let Evaluation::Break(_) = evaluation {
+                        return Ok(evaluation);
+                    }
                 }
 
                 match r#else {
@@ -931,7 +984,7 @@ impl Vm {
 }
 
 enum Evaluation {
-    Break,
+    Break(Option<Value>),
     Constructor(Constructor),
     Return(Option<Value>),
 }
@@ -1261,6 +1314,13 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn break_loop() {
+        let input = "let mut x = 0; loop { x += 1; if x == 10 { break; } } x";
+
+        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(10)))));
+    }
 
     #[test]
     fn string_index() {

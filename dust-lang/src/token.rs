@@ -3,10 +3,6 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-pub struct Raw<'src> {
-    data: &'src str,
-}
-
 /// Source code token.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum Token<'src> {
@@ -23,11 +19,13 @@ pub enum Token<'src> {
     // Keywords
     Async,
     Bool,
+    Break,
     Else,
     FloatKeyword,
     If,
     Int,
     Let,
+    Loop,
     Map,
     Mut,
     Str,
@@ -73,6 +71,7 @@ impl<'src> Token<'src> {
             Token::Bang => TokenOwned::Bang,
             Token::Bool => TokenOwned::Bool,
             Token::Boolean(boolean) => TokenOwned::Boolean(boolean.to_string()),
+            Token::Break => TokenOwned::Break,
             Token::Colon => TokenOwned::Colon,
             Token::Comma => TokenOwned::Comma,
             Token::Dot => TokenOwned::Dot,
@@ -97,6 +96,7 @@ impl<'src> Token<'src> {
             Token::Let => TokenOwned::Let,
             Token::Less => TokenOwned::Less,
             Token::LessEqual => TokenOwned::LessOrEqual,
+            Token::Loop => TokenOwned::Loop,
             Token::Map => TokenOwned::Map,
             Token::Minus => TokenOwned::Minus,
             Token::MinusEqual => TokenOwned::MinusEqual,
@@ -129,6 +129,7 @@ impl<'src> Token<'src> {
             Token::BangEqual => "!=",
             Token::Bang => "!",
             Token::Bool => "bool",
+            Token::Break => "break",
             Token::Colon => ":",
             Token::Comma => ",",
             Token::Dot => ".",
@@ -150,6 +151,7 @@ impl<'src> Token<'src> {
             Token::Let => "let",
             Token::Less => "<",
             Token::LessEqual => "<=",
+            Token::Loop => "loop",
             Token::Map => "map",
             Token::Minus => "-",
             Token::MinusEqual => "-=",
@@ -176,6 +178,7 @@ impl<'src> Token<'src> {
             Token::Bang => TokenKind::Bang,
             Token::Bool => TokenKind::Bool,
             Token::Boolean(_) => TokenKind::Boolean,
+            Token::Break => TokenKind::Break,
             Token::Colon => TokenKind::Colon,
             Token::Comma => TokenKind::Comma,
             Token::Dot => TokenKind::Dot,
@@ -200,6 +203,7 @@ impl<'src> Token<'src> {
             Token::Let => TokenKind::Let,
             Token::Less => TokenKind::Less,
             Token::LessEqual => TokenKind::LessOrEqual,
+            Token::Loop => TokenKind::Loop,
             Token::Map => TokenKind::Map,
             Token::Minus => TokenKind::Minus,
             Token::MinusEqual => TokenKind::MinusEqual,
@@ -296,11 +300,13 @@ pub enum TokenOwned {
 
     // Keywords
     Bool,
+    Break,
     Else,
     FloatKeyword,
     If,
     Int,
     Let,
+    Loop,
     Map,
     Mut,
     Str,
@@ -347,6 +353,7 @@ impl Display for TokenOwned {
             TokenOwned::BangEqual => Token::BangEqual.fmt(f),
             TokenOwned::Bool => Token::Bool.fmt(f),
             TokenOwned::Boolean(boolean) => Token::Boolean(boolean).fmt(f),
+            TokenOwned::Break => Token::Break.fmt(f),
             TokenOwned::Colon => Token::Colon.fmt(f),
             TokenOwned::Comma => Token::Comma.fmt(f),
             TokenOwned::Dot => Token::Dot.fmt(f),
@@ -371,6 +378,7 @@ impl Display for TokenOwned {
             TokenOwned::Let => Token::Let.fmt(f),
             TokenOwned::Less => Token::Less.fmt(f),
             TokenOwned::LessOrEqual => Token::LessEqual.fmt(f),
+            TokenOwned::Loop => Token::Loop.fmt(f),
             TokenOwned::Map => Token::Map.fmt(f),
             TokenOwned::Minus => Token::Minus.fmt(f),
             TokenOwned::MinusEqual => Token::MinusEqual.fmt(f),
@@ -385,7 +393,7 @@ impl Display for TokenOwned {
             TokenOwned::Star => Token::Star.fmt(f),
             TokenOwned::Slash => Token::Slash.fmt(f),
             TokenOwned::Str => Token::Str.fmt(f),
-            TokenOwned::String(string) => write!(f, "{string}"),
+            TokenOwned::String(string) => Token::String(string).fmt(f),
             TokenOwned::Struct => Token::Struct.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
         }
@@ -408,11 +416,13 @@ pub enum TokenKind {
     // Keywords
     Async,
     Bool,
+    Break,
     Else,
     FloatKeyword,
     If,
     Int,
     Let,
+    Loop,
     Map,
     Str,
     While,
@@ -458,6 +468,7 @@ impl Display for TokenKind {
             TokenKind::BangEqual => Token::BangEqual.fmt(f),
             TokenKind::Bool => Token::Bool.fmt(f),
             TokenKind::Boolean => write!(f, "boolean value"),
+            TokenKind::Break => Token::Break.fmt(f),
             TokenKind::Colon => Token::Colon.fmt(f),
             TokenKind::Comma => Token::Comma.fmt(f),
             TokenKind::Dot => Token::Dot.fmt(f),
@@ -482,6 +493,7 @@ impl Display for TokenKind {
             TokenKind::Let => Token::Let.fmt(f),
             TokenKind::Less => Token::Less.fmt(f),
             TokenKind::LessOrEqual => Token::LessEqual.fmt(f),
+            TokenKind::Loop => Token::Loop.fmt(f),
             TokenKind::Map => Token::Map.fmt(f),
             TokenKind::Minus => Token::Minus.fmt(f),
             TokenKind::MinusEqual => Token::MinusEqual.fmt(f),
@@ -494,7 +506,7 @@ impl Display for TokenKind {
             TokenKind::RightSquareBrace => Token::RightSquareBrace.fmt(f),
             TokenKind::Semicolon => Token::Semicolon.fmt(f),
             TokenKind::Star => Token::Star.fmt(f),
-            TokenKind::Str => write!(f, "str"),
+            TokenKind::Str => Token::Str.fmt(f),
             TokenKind::Slash => Token::Slash.fmt(f),
             TokenKind::String => write!(f, "string value"),
             TokenKind::Struct => Token::Struct.fmt(f),
@@ -507,17 +519,13 @@ impl Display for TokenKind {
 pub(crate) mod tests {
     use super::*;
 
-    pub fn all_tokens<'src>() -> [Token<'src>; 46] {
+    pub fn all_tokens<'src>() -> [Token<'src>; 47] {
         [
-            Token::Identifier("foobar"),
-            Token::Boolean("true"),
-            Token::Float("1.0"),
-            Token::Integer("1"),
-            Token::String("string"),
             Token::Async,
             Token::Bang,
             Token::BangEqual,
             Token::Bool,
+            Token::Break,
             Token::Colon,
             Token::Comma,
             Token::Dot,
@@ -536,9 +544,9 @@ pub(crate) mod tests {
             Token::LeftCurlyBrace,
             Token::LeftParenthesis,
             Token::LeftSquareBrace,
+            Token::Let,
             Token::Less,
             Token::LessEqual,
-            Token::Let,
             Token::Map,
             Token::Minus,
             Token::MinusEqual,
@@ -550,9 +558,14 @@ pub(crate) mod tests {
             Token::RightParenthesis,
             Token::RightSquareBrace,
             Token::Semicolon,
-            Token::Slash,
             Token::Star,
             Token::Str,
+            Token::Slash,
+            Token::Boolean("true"),
+            Token::Float("0.0"),
+            Token::Integer("0"),
+            Token::String("string"),
+            Token::Identifier("foobar"),
             Token::Struct,
             Token::While,
         ]
