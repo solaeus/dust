@@ -27,17 +27,12 @@ pub enum Token<'src> {
     FloatKeyword,
     If,
     Int,
-    IsEven,
-    IsOdd,
-    Length,
     Let,
     Map,
     Mut,
-    ReadLine,
     Str,
     Struct,
     While,
-    WriteLine,
 
     // Symbols
     BangEqual,
@@ -96,12 +91,9 @@ impl<'src> Token<'src> {
             Token::If => TokenOwned::If,
             Token::Int => TokenOwned::Int,
             Token::Integer(integer) => TokenOwned::Integer(integer.to_string()),
-            Token::IsEven => TokenOwned::IsEven,
-            Token::IsOdd => TokenOwned::IsOdd,
             Token::LeftCurlyBrace => TokenOwned::LeftCurlyBrace,
             Token::LeftParenthesis => TokenOwned::LeftParenthesis,
             Token::LeftSquareBrace => TokenOwned::LeftSquareBrace,
-            Token::Length => TokenOwned::Length,
             Token::Let => TokenOwned::Let,
             Token::Less => TokenOwned::Less,
             Token::LessEqual => TokenOwned::LessOrEqual,
@@ -112,7 +104,6 @@ impl<'src> Token<'src> {
             Token::Percent => TokenOwned::Percent,
             Token::Plus => TokenOwned::Plus,
             Token::PlusEqual => TokenOwned::PlusEqual,
-            Token::ReadLine => TokenOwned::ReadLine,
             Token::RightCurlyBrace => TokenOwned::RightCurlyBrace,
             Token::RightParenthesis => TokenOwned::RightParenthesis,
             Token::RightSquareBrace => TokenOwned::RightSquareBrace,
@@ -123,7 +114,6 @@ impl<'src> Token<'src> {
             Token::Str => TokenOwned::Str,
             Token::Struct => TokenOwned::Struct,
             Token::While => TokenOwned::While,
-            Token::WriteLine => TokenOwned::WriteLine,
         }
     }
 
@@ -154,13 +144,10 @@ impl<'src> Token<'src> {
             Token::GreaterEqual => ">=",
             Token::If => "if",
             Token::Int => "int",
-            Token::IsEven => "is_even",
-            Token::IsOdd => "is_odd",
             Token::LeftCurlyBrace => "{",
             Token::LeftParenthesis => "(",
             Token::LeftSquareBrace => "[",
             Token::Let => "let",
-            Token::Length => "length",
             Token::Less => "<",
             Token::LessEqual => "<=",
             Token::Map => "map",
@@ -170,7 +157,6 @@ impl<'src> Token<'src> {
             Token::Percent => "%",
             Token::Plus => "+",
             Token::PlusEqual => "+=",
-            Token::ReadLine => "read_line",
             Token::RightCurlyBrace => "}",
             Token::RightParenthesis => ")",
             Token::RightSquareBrace => "]",
@@ -180,7 +166,6 @@ impl<'src> Token<'src> {
             Token::Str => "str",
             Token::Struct => "struct",
             Token::While => "while",
-            Token::WriteLine => "write_line",
         }
     }
 
@@ -209,13 +194,10 @@ impl<'src> Token<'src> {
             Token::If => TokenKind::If,
             Token::Int => TokenKind::Int,
             Token::Integer(_) => TokenKind::Integer,
-            Token::IsEven => TokenKind::IsEven,
-            Token::IsOdd => TokenKind::IsOdd,
             Token::LeftCurlyBrace => TokenKind::LeftCurlyBrace,
             Token::LeftParenthesis => TokenKind::LeftParenthesis,
             Token::LeftSquareBrace => TokenKind::LeftSquareBrace,
             Token::Let => TokenKind::Let,
-            Token::Length => TokenKind::Length,
             Token::Less => TokenKind::Less,
             Token::LessEqual => TokenKind::LessOrEqual,
             Token::Map => TokenKind::Map,
@@ -225,7 +207,6 @@ impl<'src> Token<'src> {
             Token::Percent => TokenKind::Percent,
             Token::Plus => TokenKind::Plus,
             Token::PlusEqual => TokenKind::PlusEqual,
-            Token::ReadLine => TokenKind::ReadLine,
             Token::RightCurlyBrace => TokenKind::RightCurlyBrace,
             Token::RightParenthesis => TokenKind::RightParenthesis,
             Token::RightSquareBrace => TokenKind::RightSquareBrace,
@@ -236,7 +217,6 @@ impl<'src> Token<'src> {
             Token::String(_) => TokenKind::String,
             Token::Struct => TokenKind::Struct,
             Token::While => TokenKind::While,
-            Token::WriteLine => TokenKind::WriteLine,
         }
     }
 
@@ -320,16 +300,11 @@ pub enum TokenOwned {
     FloatKeyword,
     If,
     Int,
-    IsEven,
-    IsOdd,
     Let,
-    Length,
     Map,
     Mut,
-    ReadLine,
     Str,
     While,
-    WriteLine,
 
     // Symbols
     Async,
@@ -371,7 +346,7 @@ impl Display for TokenOwned {
             TokenOwned::Bang => Token::Bang.fmt(f),
             TokenOwned::BangEqual => Token::BangEqual.fmt(f),
             TokenOwned::Bool => Token::Bool.fmt(f),
-            TokenOwned::Boolean(boolean) => write!(f, "{boolean}"),
+            TokenOwned::Boolean(boolean) => Token::Boolean(boolean).fmt(f),
             TokenOwned::Colon => Token::Colon.fmt(f),
             TokenOwned::Comma => Token::Comma.fmt(f),
             TokenOwned::Dot => Token::Dot.fmt(f),
@@ -382,20 +357,17 @@ impl Display for TokenOwned {
             TokenOwned::Else => Token::Else.fmt(f),
             TokenOwned::Eof => Token::Eof.fmt(f),
             TokenOwned::Equal => Token::Equal.fmt(f),
-            TokenOwned::Float(float) => write!(f, "{float}"),
+            TokenOwned::Float(float) => Token::Float(float).fmt(f),
             TokenOwned::FloatKeyword => Token::FloatKeyword.fmt(f),
             TokenOwned::Greater => Token::Greater.fmt(f),
             TokenOwned::GreaterOrEqual => Token::GreaterEqual.fmt(f),
-            TokenOwned::Identifier(text) => write!(f, "{text}"),
+            TokenOwned::Identifier(text) => Token::Identifier(text).fmt(f),
             TokenOwned::If => Token::If.fmt(f),
             TokenOwned::Int => Token::Int.fmt(f),
-            TokenOwned::Integer(integer) => write!(f, "{integer}"),
-            TokenOwned::IsEven => Token::IsEven.fmt(f),
-            TokenOwned::IsOdd => Token::IsOdd.fmt(f),
+            TokenOwned::Integer(integer) => Token::Integer(integer).fmt(f),
             TokenOwned::LeftCurlyBrace => Token::LeftCurlyBrace.fmt(f),
             TokenOwned::LeftParenthesis => Token::LeftParenthesis.fmt(f),
             TokenOwned::LeftSquareBrace => Token::LeftSquareBrace.fmt(f),
-            TokenOwned::Length => Token::Length.fmt(f),
             TokenOwned::Let => Token::Let.fmt(f),
             TokenOwned::Less => Token::Less.fmt(f),
             TokenOwned::LessOrEqual => Token::LessEqual.fmt(f),
@@ -406,7 +378,6 @@ impl Display for TokenOwned {
             TokenOwned::Percent => Token::Percent.fmt(f),
             TokenOwned::Plus => Token::Plus.fmt(f),
             TokenOwned::PlusEqual => Token::PlusEqual.fmt(f),
-            TokenOwned::ReadLine => Token::ReadLine.fmt(f),
             TokenOwned::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
             TokenOwned::RightParenthesis => Token::RightParenthesis.fmt(f),
             TokenOwned::RightSquareBrace => Token::RightSquareBrace.fmt(f),
@@ -417,7 +388,6 @@ impl Display for TokenOwned {
             TokenOwned::String(string) => write!(f, "{string}"),
             TokenOwned::Struct => Token::Struct.fmt(f),
             TokenOwned::While => Token::While.fmt(f),
-            TokenOwned::WriteLine => Token::WriteLine.fmt(f),
         }
     }
 }
@@ -442,15 +412,10 @@ pub enum TokenKind {
     FloatKeyword,
     If,
     Int,
-    IsEven,
-    IsOdd,
-    Length,
     Let,
     Map,
-    ReadLine,
     Str,
     While,
-    WriteLine,
 
     // Symbols
     BangEqual,
@@ -511,12 +476,9 @@ impl Display for TokenKind {
             TokenKind::If => Token::If.fmt(f),
             TokenKind::Int => Token::Int.fmt(f),
             TokenKind::Integer => write!(f, "integer value"),
-            TokenKind::IsEven => Token::IsEven.fmt(f),
-            TokenKind::IsOdd => Token::IsOdd.fmt(f),
             TokenKind::LeftCurlyBrace => Token::LeftCurlyBrace.fmt(f),
             TokenKind::LeftParenthesis => Token::LeftParenthesis.fmt(f),
             TokenKind::LeftSquareBrace => Token::LeftSquareBrace.fmt(f),
-            TokenKind::Length => Token::Length.fmt(f),
             TokenKind::Let => Token::Let.fmt(f),
             TokenKind::Less => Token::Less.fmt(f),
             TokenKind::LessOrEqual => Token::LessEqual.fmt(f),
@@ -527,7 +489,6 @@ impl Display for TokenKind {
             TokenKind::Percent => Token::Percent.fmt(f),
             TokenKind::Plus => Token::Plus.fmt(f),
             TokenKind::PlusEqual => Token::PlusEqual.fmt(f),
-            TokenKind::ReadLine => Token::ReadLine.fmt(f),
             TokenKind::RightCurlyBrace => Token::RightCurlyBrace.fmt(f),
             TokenKind::RightParenthesis => Token::RightParenthesis.fmt(f),
             TokenKind::RightSquareBrace => Token::RightSquareBrace.fmt(f),
@@ -538,7 +499,6 @@ impl Display for TokenKind {
             TokenKind::String => write!(f, "string value"),
             TokenKind::Struct => Token::Struct.fmt(f),
             TokenKind::While => Token::While.fmt(f),
-            TokenKind::WriteLine => Token::WriteLine.fmt(f),
         }
     }
 }
@@ -547,7 +507,7 @@ impl Display for TokenKind {
 pub(crate) mod tests {
     use super::*;
 
-    pub fn all_tokens<'src>() -> [Token<'src>; 51] {
+    pub fn all_tokens<'src>() -> [Token<'src>; 46] {
         [
             Token::Identifier("foobar"),
             Token::Boolean("true"),
@@ -573,12 +533,9 @@ pub(crate) mod tests {
             Token::GreaterEqual,
             Token::If,
             Token::Int,
-            Token::IsEven,
-            Token::IsOdd,
             Token::LeftCurlyBrace,
             Token::LeftParenthesis,
             Token::LeftSquareBrace,
-            Token::Length,
             Token::Less,
             Token::LessEqual,
             Token::Let,
@@ -589,7 +546,6 @@ pub(crate) mod tests {
             Token::Percent,
             Token::Plus,
             Token::PlusEqual,
-            Token::ReadLine,
             Token::RightCurlyBrace,
             Token::RightParenthesis,
             Token::RightSquareBrace,
@@ -599,7 +555,6 @@ pub(crate) mod tests {
             Token::Str,
             Token::Struct,
             Token::While,
-            Token::WriteLine,
         ]
     }
 

@@ -1,150 +1,187 @@
 //! Garbage-collecting context for variables.
 use std::{
     collections::HashMap,
-    sync::{Arc, PoisonError as StdPoisonError, RwLock, RwLockWriteGuard},
+    fmt::{self, Display, Formatter},
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use crate::{ast::Span, Constructor, Identifier, StructType, Type, Value};
 
-pub type Variables = HashMap<Identifier, (ContextData, Span)>;
+pub type Associations = HashMap<Identifier, (ContextData, Span)>;
 
 /// Garbage-collecting context for variables.
 #[derive(Debug, Clone)]
 pub struct Context {
-    variables: Arc<RwLock<Variables>>,
+    associations: Arc<RwLock<Associations>>,
 }
 
 impl Context {
     pub fn new() -> Self {
+        Self::with_data(HashMap::new())
+    }
+
+    pub fn with_data(data: Associations) -> Self {
         Self {
-            variables: Arc::new(RwLock::new(HashMap::new())),
+            associations: Arc::new(RwLock::new(data)),
         }
     }
 
     /// Creates a deep copy of another context.
-    pub fn with_data_from(other: &Self) -> Self {
-        Self {
-            variables: Arc::new(RwLock::new(other.variables.read().unwrap().clone())),
-        }
+    pub fn with_data_from(other: &Self) -> Result<Self, ContextError> {
+        Ok(Self::with_data(other.associations.read()?.clone()))
     }
 
-    /// Returns the number of variables in the context.
-    pub fn variable_count(&self) -> usize {
-        self.variables.read().unwrap().len()
+    /// Returns the number of associated identifiers in the context.
+    pub fn association_count(&self) -> Result<usize, ContextError> {
+        Ok(self.associations.read()?.len())
     }
 
-    /// Returns a boolean indicating whether the context contains the variable.
-    pub fn contains(&self, identifier: &Identifier) -> bool {
-        self.variables.read().unwrap().contains_key(identifier)
+    /// Returns a boolean indicating whether the identifier is in the context.
+    pub fn contains(&self, identifier: &Identifier) -> Result<bool, ContextError> {
+        Ok(self.associations.read()?.contains_key(identifier))
     }
 
-    /// Returns the full VariableData and Span if the context contains the given identifier.
-    pub fn get(&self, identifier: &Identifier) -> Option<(ContextData, Span)> {
-        self.variables.read().unwrap().get(identifier).cloned()
+    /// Returns the full ContextData and Span if the context contains the given identifier.
+    pub fn get(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<(ContextData, Span)>, ContextError> {
+        let associations = self.associations.read()?;
+
+        Ok(associations.get(identifier).cloned())
     }
 
-    /// Returns the type of the variable with the given identifier.
-    pub fn get_type(&self, identifier: &Identifier) -> Option<Type> {
-        match self.variables.read().unwrap().get(identifier) {
-            Some((ContextData::VariableType(r#type), _)) => Some(r#type.clone()),
-            Some((ContextData::VariableValue(value), _)) => Some(value.r#type()),
+    /// Returns the type associated with the given identifier.
+    pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ContextError> {
+        let r#type = match self.associations.read()?.get(identifier) {
+            Some((ContextData::VariableType(r#type), _)) => r#type.clone(),
+            Some((ContextData::VariableValue(value), _)) => value.r#type(),
             Some((ContextData::ConstructorType(struct_type), _)) => {
-                Some(Type::Struct(struct_type.clone()))
+                Type::Struct(struct_type.clone())
             }
-            _ => None,
+            _ => return Ok(None),
+        };
+
+        Ok(Some(r#type))
+    }
+
+    /// Returns the ContextData associated with the identifier.
+    pub fn get_data(&self, identifier: &Identifier) -> Result<Option<ContextData>, ContextError> {
+        match self.associations.read()?.get(identifier) {
+            Some((variable_data, _)) => Ok(Some(variable_data.clone())),
+            _ => Ok(None),
         }
     }
 
-    /// Returns the VariableData of the variable with the given identifier.
-    pub fn get_data(&self, identifier: &Identifier) -> Option<ContextData> {
-        match self.variables.read().unwrap().get(identifier) {
-            Some((variable_data, _)) => Some(variable_data.clone()),
-            _ => None,
+    /// Returns the value associated with the identifier.
+    pub fn get_variable_value(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<Value>, ContextError> {
+        match self.associations.read().unwrap().get(identifier) {
+            Some((ContextData::VariableValue(value), _)) => Ok(Some(value.clone())),
+            _ => Ok(None),
         }
     }
 
-    /// Returns the value of the variable with the given identifier.
-    pub fn get_variable_value(&self, identifier: &Identifier) -> Option<Value> {
-        match self.variables.read().unwrap().get(identifier) {
-            Some((ContextData::VariableValue(value), _)) => Some(value.clone()),
-            _ => None,
+    /// Returns the constructor associated with the identifier.
+    pub fn get_constructor(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<Constructor>, ContextError> {
+        match self.associations.read().unwrap().get(identifier) {
+            Some((ContextData::Constructor(constructor), _)) => Ok(Some(constructor.clone())),
+            _ => Ok(None),
         }
     }
 
-    /// Returns the constructor associated with the given identifier.
-    pub fn get_constructor(&self, identifier: &Identifier) -> Option<Constructor> {
-        match self.variables.read().unwrap().get(identifier) {
-            Some((ContextData::Constructor(constructor), _)) => Some(constructor.clone()),
-            _ => None,
-        }
-    }
-
-    /// Sets a variable to a type, with a position given for garbage collection.
-    pub fn set_variable_type(&self, identifier: Identifier, r#type: Type, position: Span) {
+    /// Associates an identifier with a variable type, with a position given for garbage collection.
+    pub fn set_variable_type(
+        &self,
+        identifier: Identifier,
+        r#type: Type,
+        position: Span,
+    ) -> Result<(), ContextError> {
         log::trace!("Setting {identifier} to type {type} at {position:?}");
 
-        self.variables
-            .write()
-            .unwrap()
+        self.associations
+            .write()?
             .insert(identifier, (ContextData::VariableType(r#type), position));
+
+        Ok(())
     }
 
-    /// Sets a variable to a value.
-    pub fn set_variable_value(&self, identifier: Identifier, value: Value) {
+    /// Associates an identifier with a variable value.
+    pub fn set_variable_value(
+        &self,
+        identifier: Identifier,
+        value: Value,
+    ) -> Result<(), ContextError> {
         log::trace!("Setting {identifier} to value {value}");
 
-        let mut variables = self.variables.write().unwrap();
+        let mut associations = self.associations.write()?;
 
-        let last_position = variables
+        let last_position = associations
             .get(&identifier)
             .map(|(_, last_position)| *last_position)
             .unwrap_or_default();
 
-        variables.insert(
+        associations.insert(
             identifier,
             (ContextData::VariableValue(value), last_position),
         );
+
+        Ok(())
     }
 
-    /// Associates a constructor with an identifier.
-    pub fn set_constructor(&self, identifier: Identifier, constructor: Constructor) {
+    /// Associates an identifier with a constructor.
+    pub fn set_constructor(
+        &self,
+        identifier: Identifier,
+        constructor: Constructor,
+    ) -> Result<(), ContextError> {
         log::trace!("Setting {identifier} to constructor {constructor}");
 
-        let mut variables = self.variables.write().unwrap();
+        let mut associations = self.associations.write()?;
 
-        let last_position = variables
+        let last_position = associations
             .get(&identifier)
             .map(|(_, last_position)| *last_position)
             .unwrap_or_default();
 
-        variables.insert(
+        associations.insert(
             identifier,
             (ContextData::Constructor(constructor), last_position),
         );
+
+        Ok(())
     }
 
-    /// Associates a constructor type with an identifier.
+    /// Associates an identifier with a constructor type, with a position given for garbage
+    /// collection.
     pub fn set_constructor_type(
         &self,
         identifier: Identifier,
         struct_type: StructType,
         position: Span,
-    ) {
+    ) -> Result<(), ContextError> {
         log::trace!("Setting {identifier} to constructor of type {struct_type}");
 
-        let mut variables = self.variables.write().unwrap();
+        let mut variables = self.associations.write()?;
 
         variables.insert(
             identifier,
             (ContextData::ConstructorType(struct_type), position),
         );
+
+        Ok(())
     }
 
     /// Collects garbage up to the given position, removing all variables with lesser positions.
-    pub fn collect_garbage(&self, position: Span) {
+    pub fn collect_garbage(&self, position: Span) -> Result<(), ContextError> {
         log::trace!("Collecting garbage up to {position:?}");
 
-        let mut variables = self.variables.write().unwrap();
+        let mut variables = self.associations.write()?;
 
         variables.retain(|identifier, (_, last_used)| {
             let should_drop = position.0 > last_used.0 && position.1 > last_used.1;
@@ -156,19 +193,25 @@ impl Context {
             !should_drop
         });
         variables.shrink_to_fit();
+
+        Ok(())
     }
 
-    /// Updates a variable's last known position, allowing it to live longer in the program.
-    /// Returns a boolean indicating whether the variable was found.
-    pub fn update_last_position(&self, identifier: &Identifier, position: Span) -> bool {
-        if let Some((_, last_position)) = self.variables.write().unwrap().get_mut(identifier) {
+    /// Updates an associated identifier's last known position, allowing it to live longer in the
+    /// program. Returns a boolean indicating whether the identifier.
+    pub fn update_last_position(
+        &self,
+        identifier: &Identifier,
+        position: Span,
+    ) -> Result<bool, ContextError> {
+        if let Some((_, last_position)) = self.associations.write()?.get_mut(identifier) {
             *last_position = position;
 
             log::trace!("Updating {identifier}'s last position to {position:?}");
 
-            true
+            Ok(true)
         } else {
-            false
+            Ok(false)
         }
     }
 
@@ -176,17 +219,18 @@ impl Context {
     ///
     /// This method is not used. The context's other methods do not return poison errors because
     /// they are infallible.
-    pub fn _recover_from_poison(&mut self, error: &ContextPoisonError) {
+    pub fn recover_from_poison(&mut self, error: &ContextError) {
         log::debug!("Context is recovering from poison error");
 
-        let recovered = error.get_ref();
-        let mut new_variables = HashMap::new();
+        let ContextError::PoisonErrorRecovered(recovered) = error;
 
-        for (identifier, (variable_data, position)) in recovered.iter() {
-            new_variables.insert(identifier.clone(), (variable_data.clone(), *position));
+        let mut new_associations = HashMap::new();
+
+        for (identifier, (context_data, position)) in recovered.as_ref() {
+            new_associations.insert(identifier.clone(), (context_data.clone(), *position));
         }
 
-        self.variables = Arc::new(RwLock::new(new_variables));
+        self.associations = Arc::new(RwLock::new(new_associations));
     }
 }
 
@@ -204,7 +248,50 @@ pub enum ContextData {
     VariableType(Type),
 }
 
-pub type ContextPoisonError<'err> = StdPoisonError<RwLockWriteGuard<'err, Variables>>;
+#[derive(Debug, Clone)]
+pub enum ContextError {
+    PoisonErrorRecovered(Arc<Associations>),
+}
+
+impl From<PoisonError<RwLockWriteGuard<'_, Associations>>> for ContextError {
+    fn from(error: PoisonError<RwLockWriteGuard<'_, Associations>>) -> Self {
+        let associations = error.into_inner().clone();
+
+        Self::PoisonErrorRecovered(Arc::new(associations))
+    }
+}
+
+impl From<PoisonError<RwLockReadGuard<'_, Associations>>> for ContextError {
+    fn from(error: PoisonError<RwLockReadGuard<'_, Associations>>) -> Self {
+        let associations = error.into_inner().clone();
+
+        Self::PoisonErrorRecovered(Arc::new(associations))
+    }
+}
+
+impl PartialEq for ContextError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::PoisonErrorRecovered(left), Self::PoisonErrorRecovered(right)) => {
+                Arc::ptr_eq(left, right)
+            }
+        }
+    }
+}
+
+impl Display for ContextError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::PoisonErrorRecovered(associations) => {
+                write!(
+                    f,
+                    "Context poisoned with {} associations recovered",
+                    associations.len()
+                )
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -226,7 +313,7 @@ mod tests {
 
         run_with_context(source, context.clone()).unwrap();
 
-        assert_eq!(context.variable_count(), 0);
+        assert_eq!(context.association_count().unwrap(), 0);
     }
 
     #[test]
@@ -242,6 +329,6 @@ mod tests {
 
         run_with_context(source, context.clone()).unwrap();
 
-        assert_eq!(context.variable_count(), 0);
+        assert_eq!(context.association_count().unwrap(), 0);
     }
 }

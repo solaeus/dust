@@ -64,7 +64,7 @@ impl<'src> DustError<'src> {
     pub fn position(&self) -> Option<Span> {
         match self {
             DustError::Runtime { runtime_error, .. } => runtime_error.position(),
-            DustError::Analysis { analysis_error, .. } => Some(analysis_error.position()),
+            DustError::Analysis { analysis_error, .. } => analysis_error.position(),
             DustError::Parse { parse_error, .. } => Some(parse_error.position()),
             DustError::Lex { lex_error, .. } => Some(lex_error.position()),
         }

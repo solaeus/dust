@@ -429,17 +429,12 @@ impl<'src> Lexer<'src> {
             "float" => Token::FloatKeyword,
             "if" => Token::If,
             "int" => Token::Int,
-            "is_even" => Token::IsEven,
-            "is_odd" => Token::IsOdd,
-            "length" => Token::Length,
             "let" => Token::Let,
             "map" => Token::Map,
             "mut" => Token::Mut,
-            "read_line" => Token::ReadLine,
             "struct" => Token::Struct,
             "true" => Token::Boolean("true"),
             "while" => Token::While,
-            "write_line" => Token::WriteLine,
             _ => Token::Identifier(string),
         };
 
@@ -1023,7 +1018,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::ReadLine, (0, 9)),
+                (Token::Identifier("read_line"), (0, 9)),
                 (Token::LeftParenthesis, (9, 10)),
                 (Token::RightParenthesis, (10, 11)),
                 (Token::Eof, (11, 11)),
@@ -1038,7 +1033,7 @@ mod tests {
         assert_eq!(
             lex(input),
             Ok(vec![
-                (Token::WriteLine, (0, 10)),
+                (Token::Identifier("write_line"), (0, 10)),
                 (Token::LeftParenthesis, (10, 11)),
                 (Token::String("Hello, world!"), (11, 26)),
                 (Token::RightParenthesis, (26, 27)),
@@ -1107,7 +1102,7 @@ mod tests {
             Ok(vec![
                 (Token::Integer("42"), (0, 2)),
                 (Token::Dot, (2, 3)),
-                (Token::IsEven, (3, 10)),
+                (Token::Identifier("is_even"), (3, 10)),
                 (Token::LeftParenthesis, (10, 11)),
                 (Token::RightParenthesis, (11, 12)),
                 (Token::Eof, (12, 12)),
@@ -1128,7 +1123,10 @@ mod tests {
 
         assert_eq!(
             lex(input),
-            Ok(vec![(Token::Length, (0, 6)), (Token::Eof, (6, 6)),])
+            Ok(vec![
+                (Token::Identifier("length"), (0, 6)),
+                (Token::Eof, (6, 6)),
+            ])
         )
     }
 

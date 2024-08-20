@@ -20,8 +20,8 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression,
     },
-    parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, DustError,
-    Expression, Function, Identifier, ParseError, StructType, Type, Value, ValueError,
+    parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, ContextError,
+    DustError, Expression, Function, Identifier, ParseError, StructType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -56,7 +56,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 /// ```
 pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
-    let mut analyzer = Analyzer::new(&abstract_syntax_tree, &context);
+    let mut analyzer = Analyzer::new(&abstract_syntax_tree, context.clone());
 
     analyzer
         .analyze()
@@ -224,28 +224,7 @@ impl Vm {
             Expression::Grouped(expression) => {
                 self.run_expression(*expression.inner, collect_garbage)
             }
-            Expression::Identifier(identifier) => {
-                log::debug!("Running identifier: {}", identifier.inner);
-
-                let get_data = self.context.get_data(&identifier.inner);
-
-                if let Some(ContextData::VariableValue(value)) = get_data {
-                    return Ok(Evaluation::Return(Some(value)));
-                }
-
-                if let Some(ContextData::Constructor(constructor)) = get_data {
-                    if let Constructor::Unit(unit_constructor) = constructor {
-                        return Ok(Evaluation::Return(Some(unit_constructor.construct())));
-                    }
-
-                    return Ok(Evaluation::Constructor(constructor));
-                }
-
-                Err(RuntimeError::UndefinedValue {
-                    identifier: identifier.inner,
-                    position,
-                })
-            }
+            Expression::Identifier(identifier) => self.run_identifier(identifier.inner),
             Expression::If(if_expression) => self.run_if(*if_expression.inner, collect_garbage),
             Expression::List(list_expression) => {
                 self.run_list(*list_expression.inner, collect_garbage)
@@ -274,6 +253,26 @@ impl Vm {
         })
     }
 
+    fn run_identifier(&self, identifier: Identifier) -> Result<Evaluation, RuntimeError> {
+        log::debug!("Running identifier: {}", identifier);
+
+        let get_data = self.context.get_data(&identifier)?;
+
+        if let Some(ContextData::VariableValue(value)) = get_data {
+            return Ok(Evaluation::Return(Some(value)));
+        }
+
+        if let Some(ContextData::Constructor(constructor)) = get_data {
+            if let Constructor::Unit(unit_constructor) = constructor {
+                return Ok(Evaluation::Return(Some(unit_constructor.construct())));
+            }
+
+            return Ok(Evaluation::Constructor(constructor));
+        }
+
+        Err(RuntimeError::UnassociatedIdentifier { identifier })
+    }
+
     fn run_struct(
         &self,
         struct_expression: StructExpression,
@@ -284,7 +283,7 @@ impl Vm {
         let StructExpression::Fields { name, fields } = struct_expression;
 
         let position = name.position;
-        let constructor = self.context.get_constructor(&name.inner);
+        let constructor = self.context.get_constructor(&name.inner)?;
 
         if let Some(constructor) = constructor {
             if let Constructor::Fields(fields_constructor) = constructor {
@@ -328,16 +327,16 @@ impl Vm {
 
                 match (start, end) {
                     (Value::Byte(start), Value::Byte(end)) => {
-                        Ok(Evaluation::Return(Some(Value::byte_range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
                     (Value::Character(start), Value::Character(end)) => {
-                        Ok(Evaluation::Return(Some(Value::character_range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
                     (Value::Float(start), Value::Float(end)) => {
-                        Ok(Evaluation::Return(Some(Value::float_range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
                     (Value::Integer(start), Value::Integer(end)) => {
-                        Ok(Evaluation::Return(Some(Value::integer_range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
                     _ => Err(RuntimeError::InvalidRange {
                         start_position,
@@ -356,18 +355,18 @@ impl Vm {
                     .expect_value(end_position)?;
 
                 match (start, end) {
-                    (Value::Byte(start), Value::Byte(end)) => Ok(Evaluation::Return(Some(
-                        Value::byte_range_inclusive(start, end),
-                    ))),
-                    (Value::Character(start), Value::Character(end)) => Ok(Evaluation::Return(
-                        Some(Value::character_range_inclusive(start, end)),
-                    )),
-                    (Value::Float(start), Value::Float(end)) => Ok(Evaluation::Return(Some(
-                        Value::float_range_inclusive(start, end),
-                    ))),
-                    (Value::Integer(start), Value::Integer(end)) => Ok(Evaluation::Return(Some(
-                        Value::integer_range_inclusive(start, end),
-                    ))),
+                    (Value::Byte(start), Value::Byte(end)) => {
+                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                    }
+                    (Value::Character(start), Value::Character(end)) => {
+                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                    }
+                    (Value::Float(start), Value::Float(end)) => {
+                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                    }
+                    (Value::Integer(start), Value::Integer(end)) => {
+                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                    }
                     _ => Err(RuntimeError::InvalidRange {
                         start_position,
                         end_position,
@@ -661,6 +660,50 @@ impl Vm {
 
         let CallExpression { invoker, arguments } = call_expression;
 
+        if let Expression::FieldAccess(field_access) = invoker {
+            let FieldAccessExpression { container, field } = *field_access.inner;
+
+            let container_position = container.position();
+            let container_value = self
+                .run_expression(container, collect_garbage)?
+                .expect_value(container_position)?;
+
+            let function = if let Some(value) = container_value.get_field(&field.inner) {
+                if let Value::Function(function) = value {
+                    function
+                } else {
+                    return Err(RuntimeError::ExpectedFunction {
+                        actual: value,
+                        position: container_position,
+                    });
+                }
+            } else {
+                return Err(RuntimeError::UndefinedProperty {
+                    value: container_value,
+                    value_position: container_position,
+                    property: field.inner,
+                    property_position: field.position,
+                });
+            };
+
+            let mut value_arguments = vec![container_value];
+
+            for argument in arguments {
+                let position = argument.position();
+                let value = self
+                    .run_expression(argument, collect_garbage)?
+                    .expect_value(position)?;
+
+                value_arguments.push(value);
+            }
+
+            let context = Context::new();
+
+            return function
+                .call(None, Some(value_arguments), &context)
+                .map(Evaluation::Return);
+        }
+
         let invoker_position = invoker.position();
         let run_invoker = self.run_expression(invoker, collect_garbage)?;
 
@@ -917,6 +960,7 @@ impl Evaluation {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
+    ContextError(ContextError),
     ParseError(ParseError),
     Expression {
         error: Box<RuntimeError>,
@@ -990,11 +1034,10 @@ pub enum RuntimeError {
         start_position: Span,
         end_position: Span,
     },
-    UndefinedType {
+    UnassociatedIdentifier {
         identifier: Identifier,
-        position: Span,
     },
-    UndefinedValue {
+    UndefinedType {
         identifier: Identifier,
         position: Span,
     },
@@ -1006,10 +1049,19 @@ pub enum RuntimeError {
     },
 }
 
+impl From<ContextError> for RuntimeError {
+    fn from(error: ContextError) -> Self {
+        Self::ContextError(error)
+    }
+}
+
 impl RuntimeError {
     pub fn position(&self) -> Option<Span> {
         let position = match self {
+            Self::ContextError(_) => return None,
             Self::BuiltInFunctionError { .. } => return None,
+            Self::UnassociatedIdentifier { .. } => return None,
+
             Self::ParseError(parse_error) => parse_error.position(),
             Self::Expression { position, .. } => *position,
             Self::Statement { position, .. } => *position,
@@ -1032,14 +1084,14 @@ impl RuntimeError {
             Self::ExpectedNumber { position } => *position,
             Self::ExpectedType { position, .. } => *position,
             Self::ExpectedValue { position } => *position,
+            Self::ExpectedValueOrConstructor { position } => *position,
             Self::InvalidRange {
                 start_position,
                 end_position,
                 ..
             } => (start_position.0, end_position.1),
+
             Self::UndefinedType { position, .. } => *position,
-            Self::UndefinedValue { position, .. } => *position,
-            Self::ExpectedValueOrConstructor { position } => *position,
             Self::UndefinedProperty {
                 property_position, ..
             } => *property_position,
@@ -1058,6 +1110,7 @@ impl From<ParseError> for RuntimeError {
 impl Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::ContextError(context_error) => write!(f, "{}", context_error),
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
             Self::Expression { error, position } => {
                 write!(
@@ -1181,14 +1234,10 @@ impl Display for RuntimeError {
                     start_position, end_position
                 )
             }
-            Self::UndefinedValue {
-                identifier,
-                position,
-            } => {
+            Self::UnassociatedIdentifier { identifier } => {
                 write!(
                     f,
-                    "Undefined value {} at position: {:?}",
-                    identifier, position
+                    "Identifier \"{identifier}\" is not associated with a value or constructor"
                 )
             }
             Self::UndefinedProperty {
@@ -1343,7 +1392,7 @@ mod tests {
     fn range() {
         let input = "1..5";
 
-        assert_eq!(run(input), Ok(Some(Value::integer_range(1, 5))));
+        assert_eq!(run(input), Ok(Some(Value::range(1, 5))));
     }
 
     #[test]

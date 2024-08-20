@@ -11,11 +11,12 @@ use std::{
 
 use crate::{
     ast::{
-        AbstractSyntaxTree, BlockExpression, CallExpression, ElseExpression, FieldAccessExpression,
-        IfExpression, LetStatement, ListExpression, ListIndexExpression, LoopExpression,
-        MapExpression, Node, OperatorExpression, RangeExpression, Span, Statement,
+        AbstractSyntaxTree, AstError, BlockExpression, CallExpression, ElseExpression,
+        FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
+        LoopExpression, MapExpression, Node, OperatorExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression, TupleAccessExpression,
     },
+    context::ContextError,
     parse, Context, DustError, Expression, Identifier, StructType, Type,
 };
 
@@ -33,7 +34,7 @@ use crate::{
 pub fn analyze(source: &str) -> Result<(), DustError> {
     let abstract_tree = parse(source)?;
     let context = Context::new();
-    let mut analyzer = Analyzer::new(&abstract_tree, &context);
+    let analyzer = Analyzer::new(&abstract_tree, context);
 
     analyzer
         .analyze()
@@ -58,18 +59,18 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 /// assert!(result.is_err());
 pub struct Analyzer<'a> {
     abstract_tree: &'a AbstractSyntaxTree,
-    context: &'a Context,
+    context: Context,
 }
 
-impl<'a> Analyzer<'a> {
-    pub fn new(abstract_tree: &'a AbstractSyntaxTree, context: &'a Context) -> Self {
+impl<'recovered, 'a: 'recovered> Analyzer<'a> {
+    pub fn new(abstract_tree: &'a AbstractSyntaxTree, context: Context) -> Self {
         Self {
             abstract_tree,
             context,
         }
     }
 
-    pub fn analyze(&mut self) -> Result<(), AnalysisError> {
+    pub fn analyze(&'recovered self) -> Result<(), AnalysisError> {
         for statement in &self.abstract_tree.statements {
             self.analyze_statement(statement)?;
         }
@@ -77,7 +78,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_statement(&mut self, statement: &Statement) -> Result<(), AnalysisError> {
+    fn analyze_statement(&'recovered self, statement: &Statement) -> Result<(), AnalysisError> {
         match statement {
             Statement::Expression(expression) => self.analyze_expression(expression)?,
             Statement::ExpressionNullified(expression_node) => {
@@ -86,7 +87,7 @@ impl<'a> Analyzer<'a> {
             Statement::Let(let_statement) => match &let_statement.inner {
                 LetStatement::Let { identifier, value }
                 | LetStatement::LetMut { identifier, value } => {
-                    let r#type = value.return_type(self.context);
+                    let r#type = value.return_type(&self.context)?;
 
                     if let Some(r#type) = r#type {
                         self.context.set_variable_type(
@@ -113,7 +114,7 @@ impl<'a> Analyzer<'a> {
                         name: name.inner.clone(),
                     },
                     name.position,
-                ),
+                )?,
                 StructDefinition::Tuple { name, items } => {
                     let fields = items.iter().map(|item| item.inner.clone()).collect();
 
@@ -124,7 +125,7 @@ impl<'a> Analyzer<'a> {
                             fields,
                         },
                         name.position,
-                    );
+                    )?;
                 }
                 StructDefinition::Fields { name, fields } => {
                     let fields = fields
@@ -141,7 +142,7 @@ impl<'a> Analyzer<'a> {
                             fields,
                         },
                         name.position,
-                    );
+                    )?;
                 }
             },
         }
@@ -149,7 +150,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_expression(&mut self, expression: &Expression) -> Result<(), AnalysisError> {
+    fn analyze_expression(&'recovered self, expression: &Expression) -> Result<(), AnalysisError> {
         match expression {
             Expression::Block(block_expression) => self.analyze_block(&block_expression.inner)?,
             Expression::Call(call_expression) => {
@@ -235,8 +236,8 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(assignee)?;
                     self.analyze_expression(modifier)?;
 
-                    let expected_type = assignee.return_type(self.context);
-                    let actual_type = modifier.return_type(self.context);
+                    let expected_type = assignee.return_type(&self.context)?;
+                    let actual_type = modifier.return_type(&self.context)?;
 
                     if expected_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
@@ -308,7 +309,10 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_block(&mut self, block_expression: &BlockExpression) -> Result<(), AnalysisError> {
+    fn analyze_block(
+        &'recovered self,
+        block_expression: &BlockExpression,
+    ) -> Result<(), AnalysisError> {
         match block_expression {
             BlockExpression::Async(statements) => {
                 for statement in statements {
@@ -325,7 +329,7 @@ impl<'a> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_if(&mut self, if_expression: &IfExpression) -> Result<(), AnalysisError> {
+    fn analyze_if(&'recovered self, if_expression: &IfExpression) -> Result<(), AnalysisError> {
         match if_expression {
             IfExpression::If {
                 condition,
@@ -359,6 +363,8 @@ impl<'a> Analyzer<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalysisError {
+    AstError(AstError),
+    ContextError(ContextError),
     ExpectedBoolean {
         actual: Statement,
     },
@@ -418,9 +424,24 @@ pub enum AnalysisError {
     },
 }
 
+impl From<AstError> for AnalysisError {
+    fn from(v: AstError) -> Self {
+        Self::AstError(v)
+    }
+}
+
+impl From<ContextError> for AnalysisError {
+    fn from(context_error: ContextError) -> Self {
+        Self::ContextError(context_error)
+    }
+}
+
 impl AnalysisError {
-    pub fn position(&self) -> Span {
-        match self {
+    pub fn position(&self) -> Option<Span> {
+        let position = match self {
+            AnalysisError::AstError(ast_error) => return None,
+            AnalysisError::ContextError(context_error) => return None,
+
             AnalysisError::ExpectedBoolean { actual } => actual.position(),
             AnalysisError::ExpectedIdentifier { actual } => actual.position(),
             AnalysisError::ExpectedIdentifierOrString { actual } => actual.position(),
@@ -439,7 +460,9 @@ impl AnalysisError {
             AnalysisError::UndefinedVariable { identifier } => identifier.position,
             AnalysisError::UnexpectedIdentifier { identifier } => identifier.position,
             AnalysisError::UnexectedString { actual } => actual.position(),
-        }
+        };
+
+        Some(position)
     }
 }
 
@@ -448,6 +471,8 @@ impl Error for AnalysisError {}
 impl Display for AnalysisError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            AnalysisError::AstError(ast_error) => write!(f, "{}", ast_error),
+            AnalysisError::ContextError(context_error) => write!(f, "{}", context_error),
             AnalysisError::ExpectedBoolean { actual, .. } => {
                 write!(f, "Expected boolean, found {}", actual)
             }

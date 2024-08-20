@@ -6,9 +6,12 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{BuiltInFunction, Context, FunctionType, Identifier, RangeableType, StructType, Type};
+use crate::{
+    BuiltInFunction, Context, ContextError, FunctionType, Identifier, RangeableType, StructType,
+    Type,
+};
 
-use super::{Node, Span, Statement};
+use super::{AstError, Node, Span, Statement};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
@@ -263,15 +266,18 @@ impl Expression {
         }
     }
 
-    pub fn return_type(&self, context: &Context) -> Option<Type> {
-        match self {
+    pub fn return_type<'recovered>(
+        &self,
+        context: &'recovered Context,
+    ) -> Result<Option<Type>, AstError> {
+        let return_type = match self {
             Expression::Block(block_expression) => {
-                Some(block_expression.inner.return_type(context)?)
+                return block_expression.inner.return_type(context)
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, .. } = call_expression.inner.as_ref();
 
-                let invoker_type = invoker.return_type(context);
+                let invoker_type = invoker.return_type(context)?;
 
                 if let Some(Type::Function(FunctionType { return_type, .. })) = invoker_type {
                     return_type.map(|r#type| *r#type)
@@ -285,7 +291,7 @@ impl Expression {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
-                let container_type = container.return_type(context);
+                let container_type = container.return_type(context)?;
 
                 if let Some(Type::Struct(StructType::Fields { fields, .. })) = container_type {
                     fields
@@ -296,28 +302,41 @@ impl Expression {
                     None
                 }
             }
-            Expression::Grouped(expression) => expression.inner.return_type(context),
-            Expression::Identifier(identifier) => context.get_type(&identifier.inner),
-            Expression::If(if_expression) => {
-                return match if_expression.inner.as_ref() {
-                    IfExpression::If { .. } => None,
-                    IfExpression::IfElse { if_block, .. } => if_block.inner.return_type(context),
-                }
-            }
+            Expression::Grouped(expression) => expression.inner.return_type(context)?,
+            Expression::Identifier(identifier) => context.get_type(&identifier.inner)?,
+            Expression::If(if_expression) => match if_expression.inner.as_ref() {
+                IfExpression::If { .. } => None,
+                IfExpression::IfElse { if_block, .. } => if_block.inner.return_type(context)?,
+            },
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
                 ListExpression::AutoFill { repeat_operand, .. } => {
                     let item_type = repeat_operand.return_type(context)?;
 
-                    Some(Type::ListOf {
-                        item_type: Box::new(item_type),
-                    })
+                    if let Some(r#type) = item_type {
+                        Some(Type::ListOf {
+                            item_type: Box::new(r#type),
+                        })
+                    } else {
+                        return Err(AstError::ExpectedType {
+                            position: repeat_operand.position(),
+                        });
+                    }
                 }
                 ListExpression::Ordered(expressions) => {
                     if expressions.is_empty() {
-                        return Some(Type::ListEmpty);
+                        return Ok(Some(Type::ListEmpty));
                     }
 
-                    let item_type = expressions.last().unwrap().return_type(context)?;
+                    let item_type = expressions
+                        .first()
+                        .ok_or_else(|| AstError::ExpectedNonEmptyList {
+                            position: self.position(),
+                        })?
+                        .return_type(context)?
+                        .ok_or_else(|| AstError::ExpectedType {
+                            position: expressions.first().unwrap().position(),
+                        })?;
+
                     let length = expressions.len();
 
                     Some(Type::List {
@@ -329,7 +348,11 @@ impl Expression {
             Expression::ListIndex(list_index_expression) => {
                 let ListIndexExpression { list, .. } = list_index_expression.inner.as_ref();
 
-                let list_type = list.return_type(context)?;
+                let list_type =
+                    list.return_type(context)?
+                        .ok_or_else(|| AstError::ExpectedType {
+                            position: list.position(),
+                        })?;
 
                 if let Type::List { item_type, .. } = list_type {
                     Some(*item_type)
@@ -350,9 +373,9 @@ impl Expression {
                 LiteralExpression::String(_) => Some(Type::String),
             },
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
-                LoopExpression::For { block, .. } => block.inner.return_type(context),
+                LoopExpression::For { block, .. } => block.inner.return_type(context)?,
                 LoopExpression::Infinite { .. } => None,
-                LoopExpression::While { block, .. } => block.inner.return_type(context),
+                LoopExpression::While { block, .. } => block.inner.return_type(context)?,
             },
             Expression::Map(map_expression) => {
                 let MapExpression { pairs } = map_expression.inner.as_ref();
@@ -360,7 +383,12 @@ impl Expression {
                 let mut types = HashMap::with_capacity(pairs.len());
 
                 for (key, value) in pairs {
-                    let value_type = value.return_type(context)?;
+                    let value_type =
+                        value
+                            .return_type(context)?
+                            .ok_or_else(|| AstError::ExpectedType {
+                                position: value.position(),
+                            })?;
 
                     types.insert(key.inner.clone(), value_type);
                 }
@@ -371,10 +399,12 @@ impl Expression {
                 OperatorExpression::Assignment { .. } => None,
                 OperatorExpression::Comparison { .. } => Some(Type::Boolean),
                 OperatorExpression::CompoundAssignment { .. } => None,
-                OperatorExpression::ErrorPropagation(expression) => expression.return_type(context),
-                OperatorExpression::Negation(expression) => expression.return_type(context),
+                OperatorExpression::ErrorPropagation(expression) => {
+                    expression.return_type(context)?
+                }
+                OperatorExpression::Negation(expression) => expression.return_type(context)?,
                 OperatorExpression::Not(_) => Some(Type::Boolean),
-                OperatorExpression::Math { left, .. } => left.return_type(context),
+                OperatorExpression::Math { left, .. } => left.return_type(context)?,
                 OperatorExpression::Logic { .. } => Some(Type::Boolean),
             },
             Expression::Range(range_expression) => {
@@ -382,13 +412,22 @@ impl Expression {
                     RangeExpression::Exclusive { start, .. } => start,
                     RangeExpression::Inclusive { start, .. } => start,
                 };
-                let start_type = start.return_type(context)?;
+                let start_type =
+                    start
+                        .return_type(context)?
+                        .ok_or_else(|| AstError::ExpectedType {
+                            position: start.position(),
+                        })?;
                 let rangeable_type = match start_type {
                     Type::Byte => RangeableType::Byte,
                     Type::Character => RangeableType::Character,
                     Type::Float => RangeableType::Float,
                     Type::Integer => RangeableType::Integer,
-                    _ => return None,
+                    _ => {
+                        return Err(AstError::ExpectedRangeableType {
+                            position: start.position(),
+                        })
+                    }
                 };
 
                 Some(Type::Range {
@@ -400,7 +439,11 @@ impl Expression {
                     let mut types = HashMap::with_capacity(fields.len());
 
                     for (field, expression) in fields {
-                        let r#type = expression.return_type(context)?;
+                        let r#type = expression.return_type(context)?.ok_or_else(|| {
+                            AstError::ExpectedType {
+                                position: expression.position(),
+                            }
+                        })?;
 
                         types.insert(field.inner.clone(), r#type);
                     }
@@ -413,15 +456,24 @@ impl Expression {
             },
             Expression::TupleAccess(tuple_access_expression) => {
                 let TupleAccessExpression { tuple, index } = tuple_access_expression.inner.as_ref();
-                let tuple_value = tuple.return_type(context)?;
+                let tuple_value =
+                    tuple
+                        .return_type(context)?
+                        .ok_or_else(|| AstError::ExpectedType {
+                            position: tuple.position(),
+                        })?;
 
                 if let Type::Tuple(fields) = tuple_value {
                     fields.get(index.inner).cloned()
                 } else {
-                    None
+                    Err(AstError::ExpectedTupleType {
+                        position: tuple.position(),
+                    })?
                 }
             }
-        }
+        };
+
+        Ok(return_type)
     }
 
     pub fn position(&self) -> Span {
@@ -975,13 +1027,16 @@ pub enum BlockExpression {
 }
 
 impl BlockExpression {
-    fn return_type(&self, context: &Context) -> Option<Type> {
+    fn return_type<'recovered>(
+        &self,
+        context: &'recovered Context,
+    ) -> Result<Option<Type>, AstError> {
         match self {
             BlockExpression::Async(statements) | BlockExpression::Sync(statements) => {
                 if let Some(statement) = statements.last() {
                     statement.return_type(context)
                 } else {
-                    None
+                    Ok(None)
                 }
             }
         }

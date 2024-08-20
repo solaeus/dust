@@ -2,9 +2,9 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, Identifier, Type};
+use crate::{Context, ContextError, Identifier, Type};
 
-use super::{Expression, Node, Span};
+use super::{AstError, Expression, Node, Span};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Statement {
@@ -28,12 +28,15 @@ impl Statement {
         }
     }
 
-    pub fn return_type(&self, context: &Context) -> Option<Type> {
+    pub fn return_type<'recovered>(
+        &self,
+        context: &'recovered Context,
+    ) -> Result<Option<Type>, AstError> {
         match self {
             Statement::Expression(expression) => expression.return_type(context),
-            Statement::ExpressionNullified(_) => None,
-            Statement::Let(_) => None,
-            Statement::StructDefinition(_) => None,
+            Statement::ExpressionNullified(_) => Ok(None),
+            Statement::Let(_) => Ok(None),
+            Statement::StructDefinition(_) => Ok(None),
         }
     }
 }

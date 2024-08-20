@@ -4,16 +4,11 @@ use std::{
     collections::HashMap,
     error::Error,
     fmt::{self, Display, Formatter},
-    ops::{Index, Range, RangeInclusive},
-    rc::Weak,
+    ops::{Range, RangeInclusive},
     sync::{Arc, RwLock},
 };
 
-use serde::{
-    de::{self, MapAccess, Visitor},
-    ser::{SerializeMap, SerializeStruct, SerializeStructVariant},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
     AbstractSyntaxTree, BuiltInFunction, Context, EnumType, FunctionType, Identifier,
@@ -84,36 +79,12 @@ impl Value {
         Value::Mutable(Arc::new(RwLock::new(into_value.into())))
     }
 
-    pub fn byte_range(start: u8, end: u8) -> Value {
-        Value::Range(Rangeable::Byte(start)..Rangeable::Byte(end))
+    pub fn range<T: Into<Rangeable>>(start: T, end: T) -> Value {
+        Value::Range(start.into()..end.into())
     }
 
-    pub fn byte_range_inclusive(start: u8, end: u8) -> Value {
-        Value::RangeInclusive(Rangeable::Byte(start)..=Rangeable::Byte(end))
-    }
-
-    pub fn character_range(start: char, end: char) -> Value {
-        Value::Range(Rangeable::Character(start)..Rangeable::Character(end))
-    }
-
-    pub fn character_range_inclusive(start: char, end: char) -> Value {
-        Value::RangeInclusive(Rangeable::Character(start)..=Rangeable::Character(end))
-    }
-
-    pub fn float_range(start: f64, end: f64) -> Value {
-        Value::Range(Rangeable::Float(start)..Rangeable::Float(end))
-    }
-
-    pub fn float_range_inclusive(start: f64, end: f64) -> Value {
-        Value::RangeInclusive(Rangeable::Float(start)..=Rangeable::Float(end))
-    }
-
-    pub fn integer_range(start: i64, end: i64) -> Value {
-        Value::Range(Rangeable::Integer(start)..Rangeable::Integer(end))
-    }
-
-    pub fn integer_range_inclusive(start: i64, end: i64) -> Value {
-        Value::RangeInclusive(Rangeable::Integer(start)..=Rangeable::Integer(end))
+    pub fn range_inclusive<T: Into<Rangeable>>(start: T, end: T) -> Value {
+        Value::RangeInclusive(start.into()..=end.into())
     }
 
     pub fn string<T: ToString>(to_string: T) -> Value {
@@ -200,9 +171,7 @@ impl Value {
                 value_parameters: built_in_function.value_parameters(),
                 return_type: built_in_function.return_type().map(Box::new),
             }),
-            Value::Function(Function::Parsed { name, r#type, body }) => {
-                Type::Function(r#type.clone())
-            }
+            Value::Function(Function::Parsed { r#type, .. }) => Type::Function(r#type.clone()),
             Value::Integer(_) => Type::Integer,
             Value::List(values) => {
                 let item_type = values.first().unwrap().r#type();
@@ -265,9 +234,7 @@ impl Value {
     pub fn get_field(&self, field: &Identifier) -> Option<Value> {
         if let "to_string" = field.as_str() {
             return Some(Value::Function(Function::BuiltIn(
-                BuiltInFunction::ToString {
-                    argument: Box::new(self.clone()),
-                },
+                BuiltInFunction::ToString,
             )));
         }
 
@@ -1097,13 +1064,13 @@ impl Function {
                 .call(_type_arguments, value_arguments)
                 .map_err(|error| RuntimeError::BuiltInFunctionError { error }),
             Function::Parsed { r#type, body, .. } => {
-                let new_context = Context::with_data_from(context);
+                let new_context = Context::with_data_from(context)?;
 
                 if let (Some(value_parameters), Some(value_arguments)) =
                     (&r#type.value_parameters, value_arguments)
                 {
                     for ((identifier, _), value) in value_parameters.iter().zip(value_arguments) {
-                        new_context.set_variable_value(identifier.clone(), value);
+                        new_context.set_variable_value(identifier.clone(), value)?;
                     }
                 }
 
@@ -1221,7 +1188,7 @@ impl Ord for Struct {
                     return type_cmp;
                 }
 
-                left_fields.into_iter().cmp(right_fields.into_iter())
+                left_fields.iter().cmp(right_fields.iter())
             }
             (Struct::Fields { .. }, _) => Ordering::Greater,
         }
@@ -1258,7 +1225,6 @@ impl Display for Struct {
 
                 write!(f, " }}")
             }
-            _ => Ok(()),
         }
     }
 }
@@ -1269,6 +1235,36 @@ pub enum Rangeable {
     Character(char),
     Float(f64),
     Integer(i64),
+}
+
+impl From<u8> for Rangeable {
+    fn from(value: u8) -> Self {
+        Rangeable::Byte(value)
+    }
+}
+
+impl From<char> for Rangeable {
+    fn from(value: char) -> Self {
+        Rangeable::Character(value)
+    }
+}
+
+impl From<f64> for Rangeable {
+    fn from(value: f64) -> Self {
+        Rangeable::Float(value)
+    }
+}
+
+impl From<i32> for Rangeable {
+    fn from(value: i32) -> Self {
+        Rangeable::Integer(value as i64)
+    }
+}
+
+impl From<i64> for Rangeable {
+    fn from(value: i64) -> Self {
+        Rangeable::Integer(value)
+    }
 }
 
 impl Rangeable {

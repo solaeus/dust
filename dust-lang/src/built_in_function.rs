@@ -2,7 +2,7 @@
 use std::{
     error::Error,
     fmt::{self, Display, Formatter},
-    io::{self, stdin},
+    io::{self, stdin, stdout, Write},
 };
 
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ use crate::{Identifier, Type, Value};
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BuiltInFunction {
     // String tools
-    ToString { argument: Box<Value> },
+    ToString,
 
     // Integer and float tools
     IsEven,
@@ -82,75 +82,57 @@ impl BuiltInFunction {
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
     ) -> Result<Option<Value>, BuiltInFunctionError> {
+        match (self.value_parameters(), &value_arguments) {
+            (Some(value_parameters), Some(value_arguments)) => {
+                if value_parameters.len() != value_arguments.len() {
+                    return Err(BuiltInFunctionError::WrongNumberOfValueArguments);
+                }
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(BuiltInFunctionError::WrongNumberOfValueArguments);
+            }
+            (None, None) => {}
+        }
+
+        let value_arguments = value_arguments.unwrap();
+
         match self {
-            BuiltInFunction::ToString { argument } => Ok(Some(Value::string(argument))),
+            BuiltInFunction::ToString => Ok(Some(Value::String(value_arguments[0].to_string()))),
             BuiltInFunction::IsEven => {
-                if let Some(value_arguments) = value_arguments {
-                    if value_arguments.len() == 1 {
-                        if let Some(integer) = value_arguments[0].as_integer() {
-                            Ok(Some(Value::Boolean(integer % 2 == 0)))
-                        } else {
-                            Err(BuiltInFunctionError::ExpectedInteger)
-                        }
-                    } else {
-                        Err(BuiltInFunctionError::WrongNumberOfValueArguments)
-                    }
+                if let Some(integer) = value_arguments[0].as_integer() {
+                    Ok(Some(Value::Boolean(integer % 2 == 0)))
                 } else {
-                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                    Err(BuiltInFunctionError::ExpectedInteger)
                 }
             }
             BuiltInFunction::IsOdd => {
-                if let Some(value_arguments) = value_arguments {
-                    if value_arguments.len() == 1 {
-                        if let Some(integer) = value_arguments[0].as_integer() {
-                            Ok(Some(Value::Boolean(integer % 2 != 0)))
-                        } else {
-                            Err(BuiltInFunctionError::ExpectedInteger)
-                        }
-                    } else {
-                        Err(BuiltInFunctionError::WrongNumberOfValueArguments)
-                    }
+                if let Some(integer) = value_arguments[0].as_integer() {
+                    Ok(Some(Value::Boolean(integer % 2 != 0)))
                 } else {
-                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                    Err(BuiltInFunctionError::ExpectedInteger)
                 }
             }
             BuiltInFunction::Length => {
-                if let Some(value_arguments) = value_arguments {
-                    if value_arguments.len() == 1 {
-                        if let Value::List(list) = &value_arguments[0] {
-                            Ok(Some(Value::Integer(list.len() as i64)))
-                        } else {
-                            Err(BuiltInFunctionError::ExpectedInteger)
-                        }
-                    } else {
-                        Err(BuiltInFunctionError::WrongNumberOfValueArguments)
-                    }
+                if let Value::List(list) = &value_arguments[0] {
+                    Ok(Some(Value::Integer(list.len() as i64)))
                 } else {
-                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                    Err(BuiltInFunctionError::ExpectedList)
                 }
             }
             BuiltInFunction::ReadLine => {
-                if value_arguments.is_none() {
-                    let mut input = String::new();
+                let mut input = String::new();
 
-                    stdin().read_line(&mut input)?;
+                stdin().read_line(&mut input)?;
 
-                    Ok(Some(Value::string(input.trim_end_matches('\n'))))
-                } else {
-                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
-                }
+                Ok(Some(Value::string(input.trim_end_matches('\n'))))
             }
             BuiltInFunction::WriteLine => {
-                if let Some(value_arguments) = value_arguments {
-                    if value_arguments.len() == 1 {
-                        println!("{}", value_arguments[0]);
+                if let Value::String(string) = &value_arguments[0] {
+                    stdout().write_all(string.as_bytes())?;
 
-                        Ok(None)
-                    } else {
-                        Err(BuiltInFunctionError::WrongNumberOfValueArguments)
-                    }
+                    Ok(None)
                 } else {
-                    Err(BuiltInFunctionError::WrongNumberOfValueArguments)
+                    Err(BuiltInFunctionError::ExpectedString)
                 }
             }
         }
@@ -165,8 +147,12 @@ impl Display for BuiltInFunction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltInFunctionError {
-    ExpectedInteger,
     Io(io::ErrorKind),
+
+    ExpectedString,
+    ExpectedList,
+    ExpectedInteger,
+
     WrongNumberOfValueArguments,
 }
 
@@ -181,8 +167,10 @@ impl Error for BuiltInFunctionError {}
 impl Display for BuiltInFunctionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            BuiltInFunctionError::ExpectedInteger => write!(f, "Expected an integer"),
             BuiltInFunctionError::Io(error_kind) => write!(f, "I/O error: {}", error_kind),
+            BuiltInFunctionError::ExpectedInteger => write!(f, "Expected an integer"),
+            BuiltInFunctionError::ExpectedString => write!(f, "Expected a string"),
+            BuiltInFunctionError::ExpectedList => write!(f, "Expected a list"),
             BuiltInFunctionError::WrongNumberOfValueArguments => {
                 write!(f, "Wrong number of value arguments")
             }
