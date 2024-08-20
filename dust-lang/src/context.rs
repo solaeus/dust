@@ -47,7 +47,13 @@ impl Context {
 
     /// Returns a boolean indicating whether the identifier is in the context.
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, ContextError> {
-        Ok(self.associations.read()?.contains_key(identifier))
+        if self.associations.read()?.contains_key(identifier) {
+            Ok(true)
+        } else if let Some(parent) = &self.parent {
+            parent.contains(identifier)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Returns the full ContextData and Span if the context contains the given identifier.
@@ -224,7 +230,9 @@ impl Context {
     }
 
     /// Updates an associated identifier's last known position, allowing it to live longer in the
-    /// program. Returns a boolean indicating whether the identifier.
+    /// program. Returns a boolean indicating whether the identifier was found. If the identifier is
+    /// not found in the current context, the parent context is searched but parent context's
+    /// position is not updated.
     pub fn update_last_position(
         &self,
         identifier: &Identifier,
@@ -236,6 +244,8 @@ impl Context {
             log::trace!("Updating {identifier}'s last position to {position:?}");
 
             Ok(true)
+        } else if let Some(parent) = &self.parent {
+            parent.contains(identifier)
         } else {
             Ok(false)
         }

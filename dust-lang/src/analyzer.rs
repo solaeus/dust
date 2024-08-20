@@ -16,7 +16,8 @@ use crate::{
         LoopExpression, MapExpression, Node, OperatorExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression, TupleAccessExpression,
     },
-    parse, Context, ContextError, DustError, Expression, Identifier, StructType, Type,
+    core_library, parse, Context, ContextError, DustError, Expression, Identifier, StructType,
+    Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -32,7 +33,7 @@ use crate::{
 /// ```
 pub fn analyze(source: &str) -> Result<(), DustError> {
     let abstract_tree = parse(source)?;
-    let context = Context::new();
+    let context = core_library().create_child();
     let analyzer = Analyzer::new(&abstract_tree, context);
 
     analyzer
@@ -149,7 +150,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
         Ok(())
     }
 
-    fn analyze_expression(&'recovered self, expression: &Expression) -> Result<(), AnalysisError> {
+    fn analyze_expression(&self, expression: &Expression) -> Result<(), AnalysisError> {
         match expression {
             Expression::Block(block_expression) => self.analyze_block(&block_expression.inner)?,
             Expression::Call(call_expression) => {
@@ -173,8 +174,15 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                 self.analyze_expression(expression.inner.as_ref())?;
             }
             Expression::Identifier(identifier) => {
-                self.context
+                let found = self
+                    .context
                     .update_last_position(&identifier.inner, identifier.position)?;
+
+                if !found {
+                    return Err(AnalysisError::UndefinedVariable {
+                        identifier: identifier.clone(),
+                    });
+                }
             }
             Expression::If(if_expression) => self.analyze_if(&if_expression.inner)?,
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
@@ -573,7 +581,7 @@ mod tests {
     #[test]
     fn subtract_assign_wrong_type() {
         let source = "
-            a = 1
+            let mut a = 1;
             a -= 1.0
         ";
 
@@ -674,6 +682,14 @@ mod tests {
     fn undefined_variable() {
         let source = "foo";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_error: AnalysisError::UndefinedVariable {
+                    identifier: Node::new(Identifier::new("foo"), (0, 3))
+                },
+                source,
+            })
+        );
     }
 }

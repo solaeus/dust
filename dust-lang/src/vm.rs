@@ -1462,8 +1462,6 @@ mod tests {
 
     #[test]
     fn while_loop() {
-        env_logger::builder().is_test(true).try_init().ok();
-
         let input = "let mut x = 0; while x < 5 { x += 1 } x";
 
         assert_eq!(run(input), Ok(Some(Value::mutable_from(5))));

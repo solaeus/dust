@@ -72,7 +72,7 @@ pub enum AstError {
 impl AstError {
     pub fn position(&self) -> Option<Span> {
         match self {
-            AstError::ContextError(error) => None,
+            AstError::ContextError(_) => None,
             AstError::ExpectedType { position } => Some(*position),
             AstError::ExpectedTupleType { position } => Some(*position),
             AstError::ExpectedNonEmptyList { position } => Some(*position),
