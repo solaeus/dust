@@ -19,23 +19,21 @@ impl Statement {
         Statement::StructDefinition(Node::new(struct_definition, position))
     }
 
-    pub fn return_type(&self, context: &Context) -> Option<Type> {
-        match self {
-            Statement::Expression(expression) => expression.return_type(context),
-            Statement::ExpressionNullified(expression_node) => {
-                expression_node.inner.return_type(context)
-            }
-            Statement::Let(_) => None,
-            Statement::StructDefinition(_) => None,
-        }
-    }
-
     pub fn position(&self) -> Span {
         match self {
             Statement::Expression(expression) => expression.position(),
             Statement::ExpressionNullified(expression_node) => expression_node.position,
             Statement::Let(r#let) => r#let.position,
             Statement::StructDefinition(definition) => definition.position,
+        }
+    }
+
+    pub fn return_type(&self, context: &Context) -> Option<Type> {
+        match self {
+            Statement::Expression(expression) => expression.return_type(context),
+            Statement::ExpressionNullified(expression) => None,
+            Statement::Let(_) => None,
+            Statement::StructDefinition(_) => None,
         }
     }
 }

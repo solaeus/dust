@@ -314,20 +314,11 @@ impl<'src> Parser<'src> {
         }
 
         let expression = self.parse_expression(0)?;
-        let end = self.current_position.1;
-        let is_nullified = if let Token::Semicolon = self.current_token {
+
+        if let Token::Semicolon = self.current_token {
+            let position = (start_position.0, self.current_position.1);
+
             self.next_token()?;
-
-            true
-        } else {
-            matches!(
-                expression,
-                Expression::Block(_) | Expression::Loop(_) | Expression::If(_)
-            )
-        };
-
-        if is_nullified {
-            let position = (start_position.0, end);
 
             Ok(Statement::ExpressionNullified(Node::new(
                 expression, position,
@@ -446,10 +437,9 @@ impl<'src> Parser<'src> {
                 }
 
                 if let Token::LeftCurlyBrace = self.current_token {
-                    let name = Node::new(identifier, start_position);
-
                     self.next_token()?;
 
+                    let name = Node::new(identifier, start_position);
                     let mut fields = Vec::new();
 
                     loop {
@@ -1274,35 +1264,26 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree {
-                statements: [Statement::ExpressionNullified(Node::new(
-                    Expression::block(
-                        BlockExpression::Async(vec![
-                            Statement::ExpressionNullified(Node::new(
-                                Expression::operator(
-                                    OperatorExpression::Assignment {
-                                        assignee: Expression::identifier(
-                                            Identifier::new("x"),
-                                            (8, 9)
-                                        ),
-                                        value: Expression::literal(42, (12, 14)),
-                                    },
-                                    (8, 14)
-                                ),
-                                (8, 15)
-                            )),
-                            Statement::Expression(Expression::operator(
+                statements: [Statement::Expression(Expression::block(
+                    BlockExpression::Async(vec![
+                        Statement::ExpressionNullified(Node::new(
+                            Expression::operator(
                                 OperatorExpression::Assignment {
-                                    assignee: Expression::identifier(
-                                        Identifier::new("y"),
-                                        (16, 17)
-                                    ),
-                                    value: Expression::literal(4.0, (20, 23)),
+                                    assignee: Expression::identifier(Identifier::new("x"), (8, 9)),
+                                    value: Expression::literal(42, (12, 14)),
                                 },
-                                (16, 23)
-                            ))
-                        ]),
-                        (0, 25)
-                    ),
+                                (8, 14)
+                            ),
+                            (8, 15)
+                        )),
+                        Statement::Expression(Expression::operator(
+                            OperatorExpression::Assignment {
+                                assignee: Expression::identifier(Identifier::new("y"), (16, 17)),
+                                value: Expression::literal(4.0, (20, 23)),
+                            },
+                            (16, 23)
+                        ))
+                    ]),
                     (0, 25)
                 ))]
                 .into()
@@ -1597,19 +1578,16 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::ExpressionNullified(Node::new(
-                    Expression::r#if(
-                        IfExpression::If {
-                            condition: Expression::identifier(Identifier::new("x"), (3, 4)),
-                            if_block: Node::new(
-                                BlockExpression::Sync(vec![Statement::Expression(
-                                    Expression::identifier(Identifier::new("y"), (7, 8))
-                                )]),
-                                (5, 10)
-                            )
-                        },
-                        (0, 10)
-                    ),
+                Statement::Expression(Expression::r#if(
+                    IfExpression::If {
+                        condition: Expression::identifier(Identifier::new("x"), (3, 4)),
+                        if_block: Node::new(
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("y"), (7, 8))
+                            )]),
+                            (5, 10)
+                        )
+                    },
                     (0, 10)
                 ))
             ]))
@@ -1623,25 +1601,22 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::ExpressionNullified(Node::new(
-                    Expression::r#if(
-                        IfExpression::IfElse {
-                            condition: Expression::identifier(Identifier::new("x"), (3, 4)),
-                            if_block: Node::new(
-                                BlockExpression::Sync(vec![Statement::Expression(
-                                    Expression::identifier(Identifier::new("y"), (7, 8))
-                                )]),
-                                (5, 10)
-                            ),
-                            r#else: ElseExpression::Block(Node::new(
-                                BlockExpression::Sync(vec![Statement::Expression(
-                                    Expression::identifier(Identifier::new("z"), (18, 19))
-                                )]),
-                                (16, 21)
-                            ))
-                        },
-                        (0, 21)
-                    ),
+                Statement::Expression(Expression::r#if(
+                    IfExpression::IfElse {
+                        condition: Expression::identifier(Identifier::new("x"), (3, 4)),
+                        if_block: Node::new(
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("y"), (7, 8))
+                            )]),
+                            (5, 10)
+                        ),
+                        r#else: ElseExpression::Block(Node::new(
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("z"), (18, 19))
+                            )]),
+                            (16, 21)
+                        ))
+                    },
                     (0, 21)
                 ))
             ]))
@@ -1655,40 +1630,34 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::ExpressionNullified(Node::new(
-                    Expression::r#if(
-                        IfExpression::IfElse {
-                            condition: Expression::identifier(Identifier::new("x"), (3, 4)),
-                            if_block: Node::new(
-                                BlockExpression::Sync(vec![Statement::Expression(
-                                    Expression::identifier(Identifier::new("y"), (7, 8))
-                                )]),
-                                (5, 10)
-                            ),
-                            r#else: ElseExpression::If(Node::new(
-                                Box::new(IfExpression::IfElse {
-                                    condition: Expression::identifier(
-                                        Identifier::new("z"),
-                                        (19, 20)
-                                    ),
-                                    if_block: Node::new(
-                                        BlockExpression::Sync(vec![Statement::Expression(
-                                            Expression::identifier(Identifier::new("a"), (23, 24))
-                                        )]),
-                                        (21, 26)
-                                    ),
-                                    r#else: ElseExpression::Block(Node::new(
-                                        BlockExpression::Sync(vec![Statement::Expression(
-                                            Expression::identifier(Identifier::new("b"), (34, 35))
-                                        )]),
-                                        (32, 37)
-                                    )),
-                                }),
-                                (16, 37)
-                            )),
-                        },
-                        (0, 37)
-                    ),
+                Statement::Expression(Expression::r#if(
+                    IfExpression::IfElse {
+                        condition: Expression::identifier(Identifier::new("x"), (3, 4)),
+                        if_block: Node::new(
+                            BlockExpression::Sync(vec![Statement::Expression(
+                                Expression::identifier(Identifier::new("y"), (7, 8))
+                            )]),
+                            (5, 10)
+                        ),
+                        r#else: ElseExpression::If(Node::new(
+                            Box::new(IfExpression::IfElse {
+                                condition: Expression::identifier(Identifier::new("z"), (19, 20)),
+                                if_block: Node::new(
+                                    BlockExpression::Sync(vec![Statement::Expression(
+                                        Expression::identifier(Identifier::new("a"), (23, 24))
+                                    )]),
+                                    (21, 26)
+                                ),
+                                r#else: ElseExpression::Block(Node::new(
+                                    BlockExpression::Sync(vec![Statement::Expression(
+                                        Expression::identifier(Identifier::new("b"), (34, 35))
+                                    )]),
+                                    (32, 37)
+                                )),
+                            }),
+                            (16, 37)
+                        )),
+                    },
                     (0, 37)
                 ))
             ]))
@@ -1702,33 +1671,25 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::ExpressionNullified(Node::new(
-                    Expression::while_loop(
-                        Expression::operator(
-                            OperatorExpression::Comparison {
-                                left: Expression::identifier(Identifier::new("x"), (6, 7)),
-                                operator: Node::new(ComparisonOperator::LessThan, (8, 9)),
-                                right: Expression::literal(10, (10, 12)),
+                Statement::Expression(Expression::while_loop(
+                    Expression::operator(
+                        OperatorExpression::Comparison {
+                            left: Expression::identifier(Identifier::new("x"), (6, 7)),
+                            operator: Node::new(ComparisonOperator::LessThan, (8, 9)),
+                            right: Expression::literal(10, (10, 12)),
+                        },
+                        (6, 12)
+                    ),
+                    Node::new(
+                        BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
+                            OperatorExpression::CompoundAssignment {
+                                assignee: Expression::identifier(Identifier::new("x"), (15, 16)),
+                                operator: Node::new(MathOperator::Add, (17, 19)),
+                                modifier: Expression::literal(1, (20, 21)),
                             },
-                            (6, 12)
-                        ),
-                        Node::new(
-                            BlockExpression::Sync(vec![Statement::Expression(
-                                Expression::operator(
-                                    OperatorExpression::CompoundAssignment {
-                                        assignee: Expression::identifier(
-                                            Identifier::new("x"),
-                                            (15, 16)
-                                        ),
-                                        operator: Node::new(MathOperator::Add, (17, 19)),
-                                        modifier: Expression::literal(1, (20, 21)),
-                                    },
-                                    (15, 21)
-                                )
-                            )]),
-                            (13, 23)
-                        ),
-                        (0, 23)
+                            (15, 21)
+                        ))]),
+                        (13, 23)
                     ),
                     (0, 23)
                 ))
@@ -1781,18 +1742,15 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::ExpressionNullified(Node::new(
-                    Expression::block(
-                        BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
-                            OperatorExpression::Math {
-                                left: Expression::literal(40, (2, 4)),
-                                operator: Node::new(MathOperator::Add, (5, 6)),
-                                right: Expression::literal(2, (7, 8)),
-                            },
-                            (2, 8)
-                        ))]),
-                        (0, 10)
-                    ),
+                Statement::Expression(Expression::block(
+                    BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
+                        OperatorExpression::Math {
+                            left: Expression::literal(40, (2, 4)),
+                            operator: Node::new(MathOperator::Add, (5, 6)),
+                            right: Expression::literal(2, (7, 8)),
+                        },
+                        (2, 8)
+                    ))]),
                     (0, 10)
                 ))
             ]))
@@ -1806,33 +1764,30 @@ mod tests {
         assert_eq!(
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
-                Statement::ExpressionNullified(Node::new(
-                    Expression::block(
-                        BlockExpression::Sync(vec![
-                            Statement::ExpressionNullified(Node::new(
-                                Expression::assignment(
-                                    Expression::identifier("foo", (2, 5)),
-                                    Expression::literal(42, (8, 10)),
-                                    (2, 10)
-                                ),
-                                (2, 11)
-                            )),
-                            Statement::ExpressionNullified(Node::new(
-                                Expression::assignment(
-                                    Expression::identifier("bar", (12, 15)),
-                                    Expression::literal(42, (18, 20)),
-                                    (12, 20)
-                                ),
-                                (12, 21)
-                            )),
-                            Statement::Expression(Expression::assignment(
-                                Expression::identifier("baz", (22, 25)),
-                                Expression::literal("42", (28, 32)),
-                                (22, 32)
-                            ))
-                        ]),
-                        (0, 34)
-                    ),
+                Statement::Expression(Expression::block(
+                    BlockExpression::Sync(vec![
+                        Statement::ExpressionNullified(Node::new(
+                            Expression::assignment(
+                                Expression::identifier("foo", (2, 5)),
+                                Expression::literal(42, (8, 10)),
+                                (2, 10)
+                            ),
+                            (2, 11)
+                        )),
+                        Statement::ExpressionNullified(Node::new(
+                            Expression::assignment(
+                                Expression::identifier("bar", (12, 15)),
+                                Expression::literal(42, (18, 20)),
+                                (12, 20)
+                            ),
+                            (12, 21)
+                        )),
+                        Statement::Expression(Expression::assignment(
+                            Expression::identifier("baz", (22, 25)),
+                            Expression::literal("42", (28, 32)),
+                            (22, 32)
+                        ))
+                    ]),
                     (0, 34)
                 ))
             ]))

@@ -16,8 +16,7 @@ use crate::{
         MapExpression, Node, OperatorExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression, TupleAccessExpression,
     },
-    parse, Context, DustError, Expression, FieldsStructType, Identifier, StructType, TupleType,
-    Type,
+    parse, Context, DustError, Expression, Identifier, StructType, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -85,62 +84,44 @@ impl<'a> Analyzer<'a> {
                 self.analyze_expression(&expression_node.inner)?;
             }
             Statement::Let(let_statement) => match &let_statement.inner {
-                LetStatement::Let { identifier, value } => {
-                    let type_option = value.return_type(self.context);
+                LetStatement::Let { identifier, value }
+                | LetStatement::LetMut { identifier, value } => {
+                    self.analyze_expression(value)?;
 
-                    if let Some(r#type) = type_option {
-                        self.context.set_type(
+                    let r#type = value.return_type(self.context);
+
+                    if let Some(r#type) = r#type {
+                        self.context.set_variable_type(
                             identifier.inner.clone(),
                             r#type,
                             identifier.position,
                         );
                     } else {
-                        return Err(AnalysisError::ExpectedValue {
-                            actual: statement.clone(),
+                        return Err(AnalysisError::ExpectedValueFromExpression {
+                            actual: value.clone(),
                         });
                     }
-
-                    self.analyze_expression(value)?;
                 }
-                LetStatement::LetMut { identifier, value } => {
-                    let type_option = value.return_type(self.context);
-
-                    if let Some(r#type) = type_option {
-                        self.context.set_type(
-                            identifier.inner.clone(),
-                            r#type,
-                            identifier.position,
-                        );
-                    } else {
-                        return Err(AnalysisError::ExpectedValue {
-                            actual: statement.clone(),
-                        });
-                    }
-
-                    self.analyze_expression(value)?;
-                }
-                LetStatement::LetType {
-                    identifier,
-                    r#type,
-                    value,
-                } => todo!(),
-                LetStatement::LetMutType {
-                    identifier,
-                    r#type,
-                    value,
-                } => todo!(),
+                LetStatement::LetType { .. } => todo!(),
+                LetStatement::LetMutType { .. } => todo!(),
             },
             Statement::StructDefinition(struct_definition) => {
                 let (name, struct_type) = match &struct_definition.inner {
-                    StructDefinition::Unit { name } => {
-                        (name.inner.clone(), Type::Struct(StructType::Unit))
-                    }
+                    StructDefinition::Unit { name } => (
+                        name,
+                        Type::Struct(StructType::Unit {
+                            name: name.inner.clone(),
+                        }),
+                    ),
                     StructDefinition::Tuple { name, items } => {
                         let fields = items.iter().map(|item| item.inner.clone()).collect();
 
                         (
-                            name.inner.clone(),
-                            Type::Struct(StructType::Tuple(TupleType { fields })),
+                            name,
+                            Type::Struct(StructType::Tuple {
+                                name: name.inner.clone(),
+                                fields,
+                            }),
                         )
                     }
                     StructDefinition::Fields { name, fields } => {
@@ -152,14 +133,16 @@ impl<'a> Analyzer<'a> {
                             .collect();
 
                         (
-                            name.inner.clone(),
-                            Type::Struct(StructType::Fields(FieldsStructType { fields })),
+                            name,
+                            Type::Struct(StructType::Fields {
+                                name: name.inner.clone(),
+                                fields,
+                            }),
                         )
                     }
                 };
 
-                self.context
-                    .set_type(name, struct_type, struct_definition.position);
+                todo!("Set constructor")
             }
         }
 
@@ -179,24 +162,19 @@ impl<'a> Analyzer<'a> {
                 }
             }
             Expression::FieldAccess(field_access_expression) => {
-                let FieldAccessExpression { container, .. } =
+                let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
+                self.context
+                    .update_last_position(&field.inner, field.position);
                 self.analyze_expression(container)?;
             }
             Expression::Grouped(expression) => {
                 self.analyze_expression(expression.inner.as_ref())?;
             }
             Expression::Identifier(identifier) => {
-                let found = self
-                    .context
+                self.context
                     .update_last_position(&identifier.inner, identifier.position);
-
-                if !found {
-                    return Err(AnalysisError::UndefinedVariable {
-                        identifier: identifier.clone(),
-                    });
-                }
             }
             Expression::If(if_expression) => self.analyze_if(&if_expression.inner)?,
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
@@ -256,6 +234,31 @@ impl<'a> Analyzer<'a> {
                 } => {
                     self.analyze_expression(assignee)?;
                     self.analyze_expression(modifier)?;
+
+                    let expected_type = assignee.return_type(self.context);
+                    let actual_type = modifier.return_type(self.context);
+
+                    if expected_type.is_none() {
+                        return Err(AnalysisError::ExpectedValueFromExpression {
+                            actual: assignee.clone(),
+                        });
+                    }
+
+                    if actual_type.is_none() {
+                        return Err(AnalysisError::ExpectedValueFromExpression {
+                            actual: modifier.clone(),
+                        });
+                    }
+
+                    if let (Some(expected_type), Some(actual_type)) = (expected_type, actual_type) {
+                        expected_type.check(&actual_type).map_err(|type_conflct| {
+                            AnalysisError::TypeConflict {
+                                actual_expression: modifier.clone(),
+                                actual_type,
+                                expected: expected_type,
+                            }
+                        })?;
+                    }
                 }
                 OperatorExpression::ErrorPropagation(_) => todo!(),
                 OperatorExpression::Negation(expression) => {
@@ -285,30 +288,14 @@ impl<'a> Analyzer<'a> {
             },
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Unit { name } => {
-                    let found = self
-                        .context
-                        .update_last_position(&name.inner, name.position);
-
-                    if !found {
-                        return Err(AnalysisError::UndefinedType {
-                            identifier: name.clone(),
-                        });
-                    }
+                    todo!("Update constructor position");
                 }
                 StructExpression::Fields { name, fields } => {
-                    let found = self
-                        .context
-                        .update_last_position(&name.inner, name.position);
+                    todo!("Update constructor position");
 
-                    if !found {
-                        return Err(AnalysisError::UndefinedType {
-                            identifier: name.clone(),
-                        });
-                    }
-
-                    for (_, expression) in fields {
-                        self.analyze_expression(expression)?;
-                    }
+                    // for (_, expression) in fields {
+                    // self.analyze_expression(expression)?;
+                    // }
                 }
             },
             Expression::TupleAccess(tuple_access) => {
@@ -390,8 +377,11 @@ pub enum AnalysisError {
     ExpectedMap {
         actual: Statement,
     },
-    ExpectedValue {
+    ExpectedValueFromStatement {
         actual: Statement,
+    },
+    ExpectedValueFromExpression {
+        actual: Expression,
     },
     ExpectedValueArgumentCount {
         expected: usize,
@@ -405,7 +395,7 @@ pub enum AnalysisError {
         length: usize,
     },
     TypeConflict {
-        actual_statement: Statement,
+        actual_expression: Expression,
         actual_type: Type,
         expected: Type,
     },
@@ -436,12 +426,13 @@ impl AnalysisError {
             AnalysisError::ExpectedIntegerOrRange { actual } => actual.position(),
             AnalysisError::ExpectedList { actual } => actual.position(),
             AnalysisError::ExpectedMap { actual } => actual.position(),
-            AnalysisError::ExpectedValue { actual } => actual.position(),
+            AnalysisError::ExpectedValueFromExpression { actual } => actual.position(),
+            AnalysisError::ExpectedValueFromStatement { actual } => actual.position(),
             AnalysisError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalysisError::IndexOutOfBounds { index, .. } => index.position(),
             AnalysisError::TypeConflict {
-                actual_statement, ..
-            } => actual_statement.position(),
+                actual_expression, ..
+            } => actual_expression.position(),
             AnalysisError::UndefinedField { identifier, .. } => identifier.position(),
             AnalysisError::UndefinedType { identifier } => identifier.position,
             AnalysisError::UndefinedVariable { identifier } => identifier.position,
@@ -470,8 +461,15 @@ impl Display for AnalysisError {
             }
             AnalysisError::ExpectedList { actual } => write!(f, "Expected list, found {}", actual),
             AnalysisError::ExpectedMap { actual } => write!(f, "Expected map, found {}", actual),
-            AnalysisError::ExpectedValue { actual, .. } => {
-                write!(f, "Expected value, found {}", actual)
+            AnalysisError::ExpectedValueFromExpression { actual, .. } => {
+                write!(
+                    f,
+                    "Expected expression to produce a value, found {}",
+                    actual
+                )
+            }
+            AnalysisError::ExpectedValueFromStatement { actual, .. } => {
+                write!(f, "Expected statement to produce a value, found {}", actual)
             }
             AnalysisError::ExpectedValueArgumentCount {
                 expected, actual, ..
@@ -487,7 +485,7 @@ impl Display for AnalysisError {
                 index_value, list, length
             ),
             AnalysisError::TypeConflict {
-                actual_statement,
+                actual_expression: actual_statement,
                 actual_type,
                 expected,
             } => {
@@ -521,18 +519,27 @@ impl Display for AnalysisError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Identifier, Value};
 
     use super::*;
 
     #[test]
     fn add_assign_wrong_type() {
         let source = "
-            a = 1
+            let mut a = 1;
             a += 1.0
         ";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalysisError {
+                analysis_error: AnalysisError::TypeConflict {
+                    actual_expression: Expression::literal(1.0, (45, 48)),
+                    actual_type: Type::Float,
+                    expected: Type::Integer,
+                },
+                source,
+            })
+        );
     }
 
     #[test]
@@ -542,7 +549,17 @@ mod tests {
             a -= 1.0
         ";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::AnalysisError {
+                analysis_error: AnalysisError::TypeConflict {
+                    actual_expression: Expression::literal(1.0, (45, 48)),
+                    actual_type: Type::Float,
+                    expected: Type::Integer,
+                },
+                source,
+            })
+        );
     }
 
     #[test]

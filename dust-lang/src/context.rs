@@ -22,7 +22,7 @@ impl Context {
     }
 
     /// Creates a deep copy of another context.
-    pub fn with_variables_from(other: &Self) -> Self {
+    pub fn with_data_from(other: &Self) -> Self {
         Self {
             variables: Arc::new(RwLock::new(other.variables.read().unwrap().clone())),
         }
@@ -44,7 +44,7 @@ impl Context {
     }
 
     /// Returns the type of the variable with the given identifier.
-    pub fn get_type(&self, identifier: &Identifier) -> Option<Type> {
+    pub fn get_variable_type(&self, identifier: &Identifier) -> Option<Type> {
         match self.variables.read().unwrap().get(identifier) {
             Some((VariableData::Type(r#type), _)) => Some(r#type.clone()),
             Some((VariableData::Value(value), _)) => Some(value.r#type()),
@@ -61,7 +61,7 @@ impl Context {
     }
 
     /// Returns the value of the variable with the given identifier.
-    pub fn get_value(&self, identifier: &Identifier) -> Option<Value> {
+    pub fn get_variable_value(&self, identifier: &Identifier) -> Option<Value> {
         match self.variables.read().unwrap().get(identifier) {
             Some((VariableData::Value(value), _)) => Some(value.clone()),
             _ => None,
@@ -69,7 +69,7 @@ impl Context {
     }
 
     /// Sets a variable to a type, with a position given for garbage collection.
-    pub fn set_type(&self, identifier: Identifier, r#type: Type, position: Span) {
+    pub fn set_variable_type(&self, identifier: Identifier, r#type: Type, position: Span) {
         log::trace!("Setting {identifier} to type {type} at {position:?}");
 
         self.variables
@@ -79,7 +79,7 @@ impl Context {
     }
 
     /// Sets a variable to a value.
-    pub fn set_value(&self, identifier: Identifier, value: Value) {
+    pub fn set_variable_value(&self, identifier: Identifier, value: Value) {
         log::trace!("Setting {identifier} to value {value}");
 
         let mut variables = self.variables.write().unwrap();

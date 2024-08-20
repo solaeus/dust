@@ -16,8 +16,8 @@ use serde::{
 };
 
 use crate::{
-    AbstractSyntaxTree, Context, EnumType, FieldsStructType, FunctionType, Identifier,
-    RangeableType, RuntimeError, StructType, TupleType, Type, Vm,
+    AbstractSyntaxTree, Context, EnumType, FunctionType, Identifier, RangeableType, RuntimeError,
+    StructType, Type, Vm,
 };
 
 /// Dust value representation
@@ -57,7 +57,7 @@ pub enum Value {
     Boolean(bool),
     Byte(u8),
     Character(char),
-    Enum { name: Identifier, r#type: EnumType },
+    Enum(Enum),
     Float(f64),
     Function(Function),
     Integer(i64),
@@ -78,6 +78,10 @@ impl Value {
 
     pub fn mutable(value: Value) -> Value {
         Value::Mutable(Arc::new(RwLock::new(value)))
+    }
+
+    pub fn mutable_from<T: Into<Value>>(into_value: T) -> Value {
+        Value::Mutable(Arc::new(RwLock::new(into_value.into())))
     }
 
     pub fn byte_range(start: u8, end: u8) -> Value {
@@ -188,7 +192,7 @@ impl Value {
             Value::Boolean(_) => Type::Boolean,
             Value::Byte(_) => Type::Byte,
             Value::Character(_) => Type::Character,
-            Value::Enum { r#type, .. } => Type::Enum(r#type.clone()),
+            Value::Enum(Enum { r#type, .. }) => Type::Enum(r#type.clone()),
             Value::Float(_) => Type::Float,
             Value::Function(function) => Type::Function(function.r#type.clone()),
             Value::Integer(_) => Type::Integer,
@@ -221,25 +225,31 @@ impl Value {
             }
             Value::String(_) => Type::String,
             Value::Struct(r#struct) => match r#struct {
-                Struct::Unit { .. } => Type::Struct(StructType::Unit),
-                Struct::Tuple { fields, .. } => {
+                Struct::Unit { name } => Type::Struct(StructType::Unit { name: name.clone() }),
+                Struct::Tuple { name, fields } => {
                     let types = fields.iter().map(|field| field.r#type()).collect();
 
-                    Type::Struct(StructType::Tuple(TupleType { fields: types }))
+                    Type::Struct(StructType::Tuple {
+                        name: name.clone(),
+                        fields: types,
+                    })
                 }
-                Struct::Fields { fields, .. } => {
+                Struct::Fields { name, fields } => {
                     let types = fields
                         .iter()
                         .map(|(identifier, value)| (identifier.clone(), value.r#type()))
                         .collect();
 
-                    Type::Struct(StructType::Fields(FieldsStructType { fields: types }))
+                    Type::Struct(StructType::Fields {
+                        name: name.clone(),
+                        fields: types,
+                    })
                 }
             },
             Value::Tuple(values) => {
                 let fields = values.iter().map(|value| value.r#type()).collect();
 
-                Type::Tuple(TupleType { fields })
+                Type::Tuple(fields)
             }
         }
     }
@@ -248,6 +258,7 @@ impl Value {
         match self {
             Value::Mutable(inner) => inner.read().unwrap().get_field(field),
             Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
+            Value::Map(pairs) => pairs.get(field).cloned(),
             _ => None,
         }
     }
@@ -762,6 +773,54 @@ impl Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Boolean(value)
+    }
+}
+
+impl From<u8> for Value {
+    fn from(value: u8) -> Self {
+        Value::Byte(value)
+    }
+}
+
+impl From<char> for Value {
+    fn from(value: char) -> Self {
+        Value::Character(value)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::Float(value)
+    }
+}
+
+impl From<i32> for Value {
+    fn from(value: i32) -> Self {
+        Value::Integer(value as i64)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
+        Value::Integer(value)
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::String(value)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Value::String(value.to_string())
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -773,7 +832,7 @@ impl Display for Value {
             Value::Boolean(boolean) => write!(f, "{boolean}"),
             Value::Byte(byte) => write!(f, "{byte}"),
             Value::Character(character) => write!(f, "{character}"),
-            Value::Enum { name, r#type } => write!(f, "{name}::{type}"),
+            Value::Enum(r#enum) => write!(f, "{enum}"),
             Value::Float(float) => write!(f, "{float}"),
             Value::Function(function) => write!(f, "{function}"),
             Value::Integer(integer) => write!(f, "{integer}"),
@@ -813,7 +872,7 @@ impl Display for Value {
                 write!(f, "{start}..={end}")
             }
             Value::String(string) => write!(f, "{string}"),
-            Value::Struct(structure) => write!(f, "{structure}"),
+            Value::Struct(r#struct) => write!(f, "{struct}"),
             Value::Tuple(fields) => {
                 write!(f, "(")?;
 
@@ -934,14 +993,7 @@ impl Serialize for Value {
             Value::Boolean(boolean) => serializer.serialize_bool(*boolean),
             Value::Byte(byte) => serializer.serialize_u8(*byte),
             Value::Character(character) => serializer.serialize_char(*character),
-            Value::Enum { name, r#type } => {
-                let mut ser = serializer.serialize_struct_variant("Value", 4, "Enum", 2)?;
-
-                ser.serialize_field("name", name)?;
-                ser.serialize_field("type", r#type)?;
-
-                ser.end()
-            }
+            Value::Enum(r#emum) => r#emum.serialize(serializer),
             Value::Float(float) => serializer.serialize_f64(*float),
             Value::Function(function) => function.serialize(serializer),
             Value::Integer(integer) => serializer.serialize_i64(*integer),
@@ -1021,13 +1073,13 @@ impl Function {
         value_arguments: Option<Vec<Value>>,
         context: &Context,
     ) -> Result<Option<Value>, RuntimeError> {
-        let new_context = Context::with_variables_from(context);
+        let new_context = Context::with_data_from(context);
 
         if let (Some(value_parameters), Some(value_arguments)) =
             (&self.r#type.value_parameters, value_arguments)
         {
             for ((identifier, _), value) in value_parameters.iter().zip(value_arguments) {
-                new_context.set_value(identifier.clone(), value);
+                new_context.set_variable_value(identifier.clone(), value);
             }
         }
 
@@ -1226,9 +1278,9 @@ impl Ord for Struct {
 impl Display for Struct {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Struct::Unit { .. } => write!(f, "()"),
-            Struct::Tuple { fields, .. } => {
-                write!(f, "(")?;
+            Struct::Unit { name } => write!(f, "{name}"),
+            Struct::Tuple { name, fields } => {
+                write!(f, "{name}(")?;
 
                 for (index, field) in fields.iter().enumerate() {
                     if index > 0 {
@@ -1240,8 +1292,8 @@ impl Display for Struct {
 
                 write!(f, ")")
             }
-            Struct::Fields { fields, .. } => {
-                write!(f, "{{ ")?;
+            Struct::Fields { name, fields } => {
+                write!(f, "{name} {{ ")?;
 
                 for (index, (identifier, value)) in fields.iter().enumerate() {
                     if index > 0 {
@@ -1306,6 +1358,57 @@ impl Ord for Rangeable {
             }
             (Rangeable::Integer(left), Rangeable::Integer(right)) => left.cmp(right),
             _ => unreachable!(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Enum {
+    pub r#type: EnumType,
+    pub name: Identifier,
+    pub variant_data: Struct,
+}
+
+impl Display for Enum {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let Enum {
+            name, variant_data, ..
+        } = self;
+
+        match &variant_data {
+            Struct::Unit { name: variant_name } => write!(f, "{name}::{variant_name}"),
+            Struct::Tuple {
+                name: variant_name,
+                fields,
+            } => {
+                write!(f, "{name}::{variant_name}(")?;
+
+                for (index, field) in fields.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{}", field)?;
+                }
+
+                write!(f, ")")
+            }
+            Struct::Fields {
+                name: variant_name,
+                fields,
+            } => {
+                write!(f, "{name}::{variant_name} {{ ")?;
+
+                for (index, (identifier, value)) in fields.iter().enumerate() {
+                    if index > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{}: {}", identifier, value)?;
+                }
+
+                write!(f, " }}")
+            }
         }
     }
 }

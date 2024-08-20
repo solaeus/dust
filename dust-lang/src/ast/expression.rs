@@ -6,9 +6,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Context, FieldsStructType, FunctionType, Identifier, RangeableType, StructType, TupleType, Type,
-};
+use crate::{Context, FunctionType, Identifier, RangeableType, StructType, Type};
 
 use super::{Node, Span, Statement};
 
@@ -268,17 +266,17 @@ impl Expression {
     pub fn return_type(&self, context: &Context) -> Option<Type> {
         match self {
             Expression::Block(block_expression) => {
-                block_expression.inner.as_ref().return_type(context)
+                Some(block_expression.inner.return_type(context)?)
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, .. } = call_expression.inner.as_ref();
 
-                let invoker_type = invoker.return_type(context)?;
+                let invoker_type = invoker.return_type(context);
 
-                if let Type::Function(FunctionType { return_type, .. }) = invoker_type {
+                if let Some(Type::Function(FunctionType { return_type, .. })) = invoker_type {
                     return_type.map(|r#type| *r#type)
-                } else if let Type::Struct(_) = invoker_type {
-                    Some(invoker_type)
+                } else if let Some(Type::Struct(_)) = invoker_type {
+                    invoker_type
                 } else {
                     None
                 }
@@ -287,11 +285,9 @@ impl Expression {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
-                let container_type = container.return_type(context)?;
+                let container_type = container.return_type(context);
 
-                if let Type::Struct(StructType::Fields(FieldsStructType { fields, .. })) =
-                    container_type
-                {
+                if let Some(Type::Struct(StructType::Fields { fields, .. })) = container_type {
                     fields
                         .into_iter()
                         .find(|(name, _)| name == &field.inner)
@@ -301,12 +297,13 @@ impl Expression {
                 }
             }
             Expression::Grouped(expression) => expression.inner.return_type(context),
-            Expression::Identifier(identifier) => context.get_type(&identifier.inner),
-            Expression::If(if_expression) => match if_expression.inner.as_ref() {
-                IfExpression::If { .. } => None,
-                IfExpression::IfElse { if_block, .. } => if_block.inner.return_type(context),
-            },
-
+            Expression::Identifier(identifier) => context.get_variable_type(&identifier.inner),
+            Expression::If(if_expression) => {
+                return match if_expression.inner.as_ref() {
+                    IfExpression::If { .. } => None,
+                    IfExpression::IfElse { if_block, .. } => if_block.inner.return_type(context),
+                }
+            }
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
                 ListExpression::AutoFill { repeat_operand, .. } => {
                     let item_type = repeat_operand.return_type(context)?;
@@ -396,7 +393,7 @@ impl Expression {
                 })
             }
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
-                StructExpression::Fields { fields, .. } => {
+                StructExpression::Fields { name, fields } => {
                     let mut types = HashMap::with_capacity(fields.len());
 
                     for (field, expression) in fields {
@@ -405,17 +402,20 @@ impl Expression {
                         types.insert(field.inner.clone(), r#type);
                     }
 
-                    Some(Type::Struct(StructType::Fields(FieldsStructType {
+                    Some(Type::Struct(StructType::Fields {
+                        name: name.inner.clone(),
                         fields: types,
-                    })))
+                    }))
                 }
-                StructExpression::Unit { .. } => Some(Type::Struct(StructType::Unit)),
+                StructExpression::Unit { name } => Some(Type::Struct(StructType::Unit {
+                    name: name.inner.clone(),
+                })),
             },
             Expression::TupleAccess(tuple_access_expression) => {
                 let TupleAccessExpression { tuple, index } = tuple_access_expression.inner.as_ref();
                 let tuple_value = tuple.return_type(context)?;
 
-                if let Type::Tuple(TupleType { fields }) = tuple_value {
+                if let Type::Tuple(fields) = tuple_value {
                     fields.get(index.inner).cloned()
                 } else {
                     None
@@ -944,12 +944,13 @@ pub enum BlockExpression {
 impl BlockExpression {
     fn return_type(&self, context: &Context) -> Option<Type> {
         match self {
-            BlockExpression::Async(statements) => statements
-                .last()
-                .and_then(|statement| statement.return_type(context)),
-            BlockExpression::Sync(statements) => statements
-                .last()
-                .and_then(|statement| statement.return_type(context)),
+            BlockExpression::Async(statements) | BlockExpression::Sync(statements) => {
+                if let Some(statement) = statements.last() {
+                    statement.return_type(context)
+                } else {
+                    None
+                }
+            }
         }
     }
 }

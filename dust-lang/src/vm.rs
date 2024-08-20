@@ -21,8 +21,9 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, RawStringExpression, Span,
         Statement, StructDefinition, StructExpression,
     },
-    parse, Analyzer, BuiltInFunctionError, Context, DustError, Expression, FieldsStructType,
-    Identifier, ParseError, Struct, StructType, TupleType, Type, Value, ValueError,
+    parse, Analyzer, BuiltInFunctionError, Constructor, Context, DustError, Enum, EnumType,
+    Expression, Identifier, ParseError, Struct, StructType, TupleConstructor, Type, Value,
+    ValueError,
 };
 
 /// Run the source code and return the result.
@@ -126,11 +127,19 @@ impl Vm {
             }
             Statement::StructDefinition(struct_definition) => {
                 let (name, struct_type) = match struct_definition.inner {
-                    StructDefinition::Unit { name } => (name.inner.clone(), StructType::Unit),
+                    StructDefinition::Unit { name } => {
+                        (name.inner.clone(), StructType::Unit { name: name.inner })
+                    }
                     StructDefinition::Tuple { name, items } => {
                         let fields = items.into_iter().map(|item| item.inner).collect();
 
-                        (name.inner.clone(), StructType::Tuple(TupleType { fields }))
+                        (
+                            name.inner.clone(),
+                            StructType::Tuple {
+                                name: name.inner,
+                                fields,
+                            },
+                        )
                     }
                     StructDefinition::Fields { name, fields } => {
                         let fields = fields
@@ -140,23 +149,25 @@ impl Vm {
 
                         (
                             name.inner.clone(),
-                            StructType::Fields(FieldsStructType { fields }),
+                            StructType::Fields {
+                                name: name.inner,
+                                fields,
+                            },
                         )
                     }
                 };
 
-                self.context
-                    .set_type(name, Type::Struct(struct_type), struct_definition.position);
+                todo!("Set constructor");
 
                 Ok(None)
             }
         };
 
         if collect_garbage {
-            self.context.collect_garbage(position);
+            // self.context.collect_garbage(position);
         }
 
-        result.map_err(|error| RuntimeError::Trace {
+        result.map_err(|error| RuntimeError::Statement {
             error: Box::new(error),
             position,
         })
@@ -174,7 +185,7 @@ impl Vm {
                     .run_expression(value, collect_garbage)?
                     .expect_value(value_position)?;
 
-                self.context.set_value(identifier.inner, value);
+                self.context.set_variable_value(identifier.inner, value);
 
                 Ok(())
             }
@@ -185,7 +196,8 @@ impl Vm {
                     .expect_value(value_position)?
                     .into_mutable();
 
-                self.context.set_value(identifier.inner, mutable_value);
+                self.context
+                    .set_variable_value(identifier.inner, mutable_value);
 
                 Ok(())
             }
@@ -210,7 +222,7 @@ impl Vm {
                 self.run_expression(*expression.inner, collect_garbage)
             }
             Expression::Identifier(identifier) => {
-                let get_value = self.context.get_value(&identifier.inner);
+                let get_value = self.context.get_variable_value(&identifier.inner);
 
                 if let Some(value) = get_value {
                     Ok(Evaluation::Return(Some(value)))
@@ -243,7 +255,7 @@ impl Vm {
             Expression::TupleAccess(_) => todo!(),
         };
 
-        evaluation_result.map_err(|error| RuntimeError::Trace {
+        evaluation_result.map_err(|error| RuntimeError::Expression {
             error: Box::new(error),
             position,
         })
@@ -257,20 +269,20 @@ impl Vm {
         match struct_expression {
             StructExpression::Unit { name } => {
                 let position = name.position;
-                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
+                let r#type = self.context.get_variable_type(&name.inner).ok_or_else(|| {
                     RuntimeError::UndefinedType {
                         identifier: name.inner.clone(),
                         position,
                     }
                 })?;
 
-                if let Type::Struct(StructType::Unit) = r#type {
+                if let Type::Struct(StructType::Unit { name }) = r#type {
                     Ok(Evaluation::Return(Some(Value::Struct(Struct::Unit {
-                        name: name.inner,
+                        name,
                     }))))
                 } else {
                     Err(RuntimeError::ExpectedType {
-                        expected: Type::Struct(StructType::Unit),
+                        expected: Type::Struct(StructType::Unit { name: name.inner }),
                         actual: r#type,
                         position,
                     })
@@ -281,14 +293,14 @@ impl Vm {
                 fields: expressions,
             } => {
                 let position = name.position;
-                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
+                let r#type = self.context.get_variable_type(&name.inner).ok_or_else(|| {
                     RuntimeError::UndefinedType {
                         identifier: name.inner.clone(),
                         position,
                     }
                 })?;
 
-                if let Type::Struct(StructType::Fields(FieldsStructType { .. })) = r#type {
+                if let Type::Struct(StructType::Fields { name, .. }) = r#type {
                     let mut values = HashMap::with_capacity(expressions.len());
 
                     for (identifier, expression) in expressions {
@@ -301,14 +313,15 @@ impl Vm {
                     }
 
                     Ok(Evaluation::Return(Some(Value::Struct(Struct::Fields {
-                        name: name.inner,
+                        name,
                         fields: values,
                     }))))
                 } else {
                     Err(RuntimeError::ExpectedType {
-                        expected: Type::Struct(StructType::Fields(FieldsStructType {
-                            fields: HashMap::new(),
-                        })),
+                        expected: Type::Struct(StructType::Fields {
+                            name: name.inner,
+                            fields: Default::default(),
+                        }),
                         actual: r#type,
                         position,
                     })
@@ -609,11 +622,7 @@ impl Vm {
 
                 Ok(Evaluation::Return(None))
             }
-            LoopExpression::For {
-                identifier,
-                iterator,
-                block,
-            } => todo!(),
+            LoopExpression::For { .. } => todo!(),
         }
     }
 
@@ -668,14 +677,53 @@ impl Vm {
         let CallExpression { invoker, arguments } = call_expression;
 
         let invoker_position = invoker.position();
-        let invoker_value =
-            if let Some(value) = self.run_expression(invoker, collect_garbage)?.value() {
-                value
-            } else {
-                return Err(RuntimeError::ExpectedValue {
+        let run_invoker = self.run_expression(invoker, collect_garbage)?;
+
+        if let Evaluation::Constructor(Type::Struct(StructType::Tuple { name, fields })) =
+            &run_invoker
+        {
+            let struct_type = fields
+                .iter()
+                .find(|r#type| {
+                    if let Type::Struct(struct_type) = r#type {
+                        struct_type.name() == name
+                    } else {
+                        false
+                    }
+                })
+                .ok_or(RuntimeError::EnumVariantNotFound {
+                    identifier: name.clone(),
                     position: invoker_position,
-                });
-            };
+                })?;
+
+            if let Type::Struct(StructType::Tuple { name, fields }) = struct_type {
+                let mut values = Vec::with_capacity(arguments.len());
+
+                for argument in arguments {
+                    let position = argument.position();
+                    let value = self
+                        .run_expression(argument, collect_garbage)?
+                        .expect_value(position)?;
+
+                    values.push(value);
+                }
+
+                let r#struct = Struct::Tuple {
+                    name: name.clone(),
+                    fields: values,
+                };
+
+                return Ok(Evaluation::Return(Some(Value::Struct(r#struct))));
+            }
+        }
+
+        let invoker_value = if let Some(value) = run_invoker.value() {
+            value
+        } else {
+            return Err(RuntimeError::ExpectedValue {
+                position: invoker_position,
+            });
+        };
 
         let function = if let Value::Function(function) = invoker_value {
             function
@@ -814,7 +862,7 @@ impl Vm {
                     previous_value = self.run_statement(statement, collect_garbage)?;
 
                     if collect_garbage {
-                        self.context.collect_garbage(position);
+                        // self.context.collect_garbage(position);
                     }
                 }
 
@@ -864,7 +912,7 @@ impl Vm {
 
                 match r#else {
                     ElseExpression::If(if_expression) => {
-                        self.run_expression(Expression::If(if_expression), collect_garbage)
+                        self.run_if(*if_expression.inner, collect_garbage)
                     }
                     ElseExpression::Block(block) => self.run_block(block.inner, collect_garbage),
                 }
@@ -875,14 +923,15 @@ impl Vm {
 
 enum Evaluation {
     Break,
+    Constructor(Type),
     Return(Option<Value>),
 }
 
 impl Evaluation {
     pub fn value(self) -> Option<Value> {
         match self {
-            Evaluation::Break => None,
             Evaluation::Return(value_option) => value_option,
+            _ => None,
         }
     }
 
@@ -898,7 +947,11 @@ impl Evaluation {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
     ParseError(ParseError),
-    Trace {
+    Expression {
+        error: Box<RuntimeError>,
+        position: Span,
+    },
+    Statement {
         error: Box<RuntimeError>,
         position: Span,
     },
@@ -914,7 +967,15 @@ pub enum RuntimeError {
         error: BuiltInFunctionError,
         position: Span,
     },
+    EnumVariantNotFound {
+        identifier: Identifier,
+        position: Span,
+    },
     ExpectedBoolean {
+        position: Span,
+    },
+    ExpectedConstructor {
+        actual: Type,
         position: Span,
     },
     ExpectedIdentifier {
@@ -974,14 +1035,17 @@ impl RuntimeError {
     pub fn position(&self) -> Span {
         match self {
             Self::ParseError(parse_error) => parse_error.position(),
-            Self::Trace { position, .. } => *position,
+            Self::Expression { position, .. } => *position,
+            Self::Statement { position, .. } => *position,
             Self::ValueError {
                 left_position,
                 right_position,
                 ..
             } => (left_position.0, right_position.1),
             Self::BuiltInFunctionError { position, .. } => *position,
+            Self::EnumVariantNotFound { position, .. } => *position,
             Self::ExpectedBoolean { position } => *position,
+            Self::ExpectedConstructor { position, .. } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedIdentifier { position } => *position,
             Self::ExpectedIdentifierOrString { position } => *position,
@@ -1016,10 +1080,17 @@ impl Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
-            Self::Trace { error, position } => {
+            Self::Expression { error, position } => {
                 write!(
                     f,
-                    "Error during execution at position: {:?}\n{}",
+                    "Error while running expression at {:?}: {}",
+                    position, error
+                )
+            }
+            Self::Statement { error, position } => {
+                write!(
+                    f,
+                    "Error while running statement at {:?}: {}",
                     position, error
                 )
             }
@@ -1037,8 +1108,25 @@ impl Display for RuntimeError {
             Self::BuiltInFunctionError { error, .. } => {
                 write!(f, "{}", error)
             }
+            Self::EnumVariantNotFound {
+                identifier,
+                position,
+            } => {
+                write!(
+                    f,
+                    "Enum variant not found: {} at position: {:?}",
+                    identifier, position
+                )
+            }
             Self::ExpectedBoolean { position } => {
                 write!(f, "Expected a boolean at position: {:?}", position)
+            }
+            Self::ExpectedConstructor { actual, position } => {
+                write!(
+                    f,
+                    "Expected a constructor, but got {} at position: {:?}",
+                    actual, position
+                )
             }
             Self::ExpectedFunction { actual, position } => {
                 write!(
@@ -1110,7 +1198,7 @@ impl Display for RuntimeError {
             } => {
                 write!(
                     f,
-                    "Undefined variable {} at position: {:?}",
+                    "Undefined value {} at position: {:?}",
                     identifier, position
                 )
             }
@@ -1187,8 +1275,8 @@ mod tests {
     #[test]
     fn assign_tuple_struct_variable() {
         let input = "
-            struct Foo(int)
-            x = Foo(42)
+            struct Foo(int);
+            let x = Foo(42);
             x
         ";
 
@@ -1203,7 +1291,7 @@ mod tests {
 
     #[test]
     fn define_and_instantiate_tuple_struct() {
-        let input = "struct Foo(int) Foo(42)";
+        let input = "struct Foo(int); Foo(42)";
 
         assert_eq!(
             run(input),
@@ -1232,7 +1320,7 @@ mod tests {
 
     #[test]
     fn define_and_instantiate_unit_struct() {
-        let input = "struct Foo Foo";
+        let input = "struct Foo; Foo";
 
         assert_eq!(
             run(input),
@@ -1271,6 +1359,8 @@ mod tests {
 
     #[test]
     fn negate_expression() {
+        env_logger::builder().is_test(true).try_init().unwrap();
+
         let input = "let x = -42; -x";
 
         assert_eq!(run(input), Ok(Some(Value::Integer(42))));
@@ -1292,7 +1382,7 @@ mod tests {
 
     #[test]
     fn map_property_access() {
-        let input = "{ a = 42 }.a";
+        let input = "map { a = 42 }.a";
 
         assert_eq!(run(input), Ok(Some(Value::Integer(42))));
     }
@@ -1343,21 +1433,21 @@ mod tests {
     fn while_loop() {
         let input = "let mut x = 0; while x < 5 { x += 1 } x";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(5))));
+        assert_eq!(run(input), Ok(Some(Value::mutable_from(5))));
     }
 
     #[test]
     fn subtract_assign() {
         let input = "let mut x = 1; x -= 1; x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(0)))));
+        assert_eq!(run(input), Ok(Some(Value::mutable_from(0))));
     }
 
     #[test]
     fn add_assign() {
         let input = "let mut x = 1; x += 1; x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(2)))));
+        assert_eq!(run(input), Ok(Some(Value::mutable_from(2))));
     }
 
     #[test]

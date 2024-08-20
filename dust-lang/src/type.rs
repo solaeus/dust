@@ -17,7 +17,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::Identifier;
+use crate::{Enum, Identifier, Struct, Value};
 
 /// Description of a kind of value.
 ///
@@ -53,7 +53,7 @@ pub enum Type {
     },
     String,
     Struct(StructType),
-    Tuple(TupleType),
+    Tuple(Vec<Type>),
 }
 
 impl Type {
@@ -266,36 +266,8 @@ impl Display for Type {
             Type::Number => write!(f, "num"),
             Type::Range { r#type } => write!(f, "{type} range"),
             Type::String => write!(f, "str"),
-            Type::Struct(struct_type) => match struct_type {
-                StructType::Unit => write!(f, "()"),
-                StructType::Tuple(TupleType { fields }) => {
-                    write!(f, "(")?;
-
-                    for (index, r#type) in fields.iter().enumerate() {
-                        write!(f, "{type}")?;
-
-                        if index != fields.len() - 1 {
-                            write!(f, ", ")?;
-                        }
-                    }
-
-                    write!(f, ")")
-                }
-                StructType::Fields(FieldsStructType { fields }) => {
-                    write!(f, "{{")?;
-
-                    for (index, (name, r#type)) in fields.iter().enumerate() {
-                        write!(f, "{name}: {type}")?;
-
-                        if index != fields.len() - 1 {
-                            write!(f, ", ")?;
-                        }
-                    }
-
-                    write!(f, "}}")
-                }
-            },
-            Type::Tuple(TupleType { fields }) => {
+            Type::Struct(struct_type) => write!(f, "{struct_type}"),
+            Type::Tuple(fields) => {
                 write!(f, "(")?;
 
                 for (index, r#type) in fields.iter().enumerate() {
@@ -439,88 +411,257 @@ impl Display for FunctionType {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum StructType {
-    Unit,
-    Tuple(TupleType),
-    Fields(FieldsStructType),
+    Unit {
+        name: Identifier,
+    },
+    Tuple {
+        name: Identifier,
+        fields: Vec<Type>,
+    },
+    Fields {
+        name: Identifier,
+        fields: HashMap<Identifier, Type>,
+    },
+}
+
+impl StructType {
+    pub fn name(&self) -> &Identifier {
+        match self {
+            StructType::Unit { name } => name,
+            StructType::Tuple { name, .. } => name,
+            StructType::Fields { name, .. } => name,
+        }
+    }
+
+    pub fn constructor(&self) -> Option<Constructor> {
+        let constructor = match self {
+            StructType::Unit { name } => Constructor::Unit { name: name.clone() },
+            StructType::Tuple { name, fields } => Constructor::Tuple(TupleConstructor {
+                name: name.clone(),
+                tuple_arguments: Vec::with_capacity(fields.len()),
+            }),
+            StructType::Fields { name, fields } => Constructor::Fields {
+                name: name.clone(),
+                field_arguments: HashMap::with_capacity(fields.len()),
+            },
+        };
+
+        Some(constructor)
+    }
 }
 
 impl Display for StructType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            StructType::Unit => write!(f, "()"),
-            StructType::Tuple(tuple) => write!(f, "{tuple}"),
-            StructType::Fields(fields) => write!(f, "{fields}"),
-        }
-    }
-}
+            StructType::Unit { name } => write!(f, "{name}"),
+            StructType::Tuple { name, fields } => {
+                write!(f, "{name}(")?;
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct TupleType {
-    pub fields: Vec<Type>,
-}
+                for (index, field) in fields.iter().enumerate() {
+                    write!(f, "{field}")?;
 
-impl Display for TupleType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "(")?;
+                    if index != fields.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
 
-        for (index, field) in self.fields.iter().enumerate() {
-            write!(f, "{field}")?;
+                write!(f, ")")
+            }
+            StructType::Fields { name, fields } => {
+                write!(f, "{name} {{")?;
 
-            if index != self.fields.len() - 1 {
-                write!(f, ", ")?;
+                for (index, (identifier, r#type)) in fields.iter().enumerate() {
+                    write!(f, "{identifier}: {type}")?;
+
+                    if index != fields.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+
+                write!(f, "}}")
             }
         }
-
-        write!(f, ")")
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct FieldsStructType {
-    pub fields: HashMap<Identifier, Type>,
-}
-
-impl Display for FieldsStructType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ ")?;
-
-        for (index, (identifier, r#type)) in self.fields.iter().enumerate() {
-            write!(f, "{identifier}: {type}")?;
-
-            if index != self.fields.len() - 1 {
-                write!(f, ", ")?;
-            }
-        }
-
-        write!(f, " }}")
-    }
-}
-
-impl PartialOrd for FieldsStructType {
+impl PartialOrd for StructType {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for FieldsStructType {
+impl Ord for StructType {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.fields.iter().cmp(other.fields.iter())
+        match (self, other) {
+            (StructType::Unit { name: left_name }, StructType::Unit { name: right_name }) => {
+                left_name.cmp(right_name)
+            }
+            (StructType::Unit { .. }, _) => Ordering::Greater,
+            (
+                StructType::Tuple {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                StructType::Tuple {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp == Ordering::Equal {
+                    left_fields.cmp(right_fields)
+                } else {
+                    name_cmp
+                }
+            }
+            (StructType::Tuple { .. }, _) => Ordering::Greater,
+            (
+                StructType::Fields {
+                    name: left_name,
+                    fields: left_fields,
+                },
+                StructType::Fields {
+                    name: right_name,
+                    fields: right_fields,
+                },
+            ) => {
+                let name_cmp = left_name.cmp(right_name);
+
+                if name_cmp == Ordering::Equal {
+                    let len_cmp = left_fields.len().cmp(&right_fields.len());
+
+                    if len_cmp == Ordering::Equal {
+                        left_fields.iter().cmp(right_fields.iter())
+                    } else {
+                        len_cmp
+                    }
+                } else {
+                    name_cmp
+                }
+            }
+            (StructType::Fields { .. }, _) => Ordering::Greater,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Constructor {
+    Unit {
+        name: Identifier,
+    },
+    Tuple(TupleConstructor),
+    Fields {
+        name: Identifier,
+        field_arguments: HashMap<Identifier, Value>,
+    },
+    Enum {
+        name: Identifier,
+        r#type: EnumType,
+        variant_constructor: Box<Constructor>,
+    },
+}
+
+impl Constructor {
+    pub fn construct(self) -> Value {
+        match self {
+            Constructor::Unit { name } => Value::Struct(Struct::Unit { name }),
+            Constructor::Tuple(tuple_constructor) => tuple_constructor.construct(),
+            Constructor::Fields {
+                name,
+                field_arguments,
+            } => Value::Struct(Struct::Fields {
+                name,
+                fields: field_arguments,
+            }),
+            Constructor::Enum {
+                name,
+                r#type,
+                variant_constructor,
+            } => Value::Enum(Enum {
+                name,
+                r#type,
+                variant_data: Self::make_struct(*variant_constructor),
+            }),
+        }
+    }
+
+    fn make_struct(this: Self) -> Struct {
+        match this {
+            Constructor::Unit { name } => Struct::Unit { name },
+            Constructor::Tuple(TupleConstructor {
+                name,
+                tuple_arguments,
+            }) => Struct::Tuple {
+                name,
+                fields: tuple_arguments,
+            },
+            Constructor::Fields {
+                name,
+                field_arguments,
+            } => Struct::Fields {
+                name,
+                fields: field_arguments,
+            },
+            Constructor::Enum {
+                variant_constructor,
+                ..
+            } => Self::make_struct(*variant_constructor),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TupleConstructor {
+    pub name: Identifier,
+    pub tuple_arguments: Vec<Value>,
+}
+
+impl TupleConstructor {
+    pub fn push_argument(&mut self, value: Value) {
+        self.tuple_arguments.push(value);
+    }
+
+    pub fn construct(self) -> Value {
+        Value::Struct(Struct::Tuple {
+            name: self.name,
+            fields: self.tuple_arguments,
+        })
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumType {
-    name: Identifier,
-    variants: Vec<StructType>,
+    pub name: Identifier,
+    pub variants: Vec<StructType>,
+}
+
+impl EnumType {
+    pub fn constructor(&self) -> Option<Constructor> {
+        let get_variant_constructor = self
+            .variants
+            .iter()
+            .find_map(|struct_type| struct_type.constructor());
+
+        if let Some(variant_constructor) = get_variant_constructor {
+            Some(Constructor::Enum {
+                name: self.name.clone(),
+                r#type: self.clone(),
+                variant_constructor: Box::new(variant_constructor),
+            })
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for EnumType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let EnumType { name, variants } = self;
 
-        write!(f, "enum {name} {{")?;
+        write!(f, "enum {name} {{ ")?;
 
         for (index, variant) in variants.iter().enumerate() {
             write!(f, "{variant}")?;
@@ -530,7 +671,7 @@ impl Display for EnumType {
             }
         }
 
-        write!(f, "}}")
+        write!(f, " }}")
     }
 }
 
