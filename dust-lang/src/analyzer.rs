@@ -225,7 +225,18 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
             Expression::ListIndex(list_index_expression) => {
                 let ListIndexExpression { list, index } = list_index_expression.inner.as_ref();
 
+                self.analyze_expression(list)?;
+                self.analyze_expression(index)?;
+
                 let list_type = list.return_type(&self.context)?;
+                let index_type = if let Some(r#type) = index.return_type(&self.context)? {
+                    r#type
+                } else {
+                    return Err(AnalysisError::ExpectedValueFromExpression {
+                        expression: index.clone(),
+                        found_type: None,
+                    });
+                };
 
                 let literal_type = if let Expression::Literal(Node { inner, .. }) = index {
                     Some(inner.as_ref().clone())
@@ -233,12 +244,31 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     None
                 };
 
+                if let Some(LiteralExpression::Primitive(PrimitiveValueExpression::Integer(
+                    integer,
+                ))) = literal_type
+                {
+                    if integer < 0 {
+                        return Err(AnalysisError::NegativeIndex {
+                            index: index.clone(),
+                            index_value: integer,
+                            list: list.clone(),
+                        });
+                    }
+                } else {
+                    return Err(AnalysisError::ExpectedType {
+                        expected: Type::Integer,
+                        actual: index_type,
+                        actual_expression: index.clone(),
+                    });
+                }
+
                 if let Some(Type::List { length, .. }) = list_type {
                     if let Some(LiteralExpression::Primitive(PrimitiveValueExpression::Integer(
                         integer,
                     ))) = literal_type
                     {
-                        if integer < 0 || integer >= length as i64 {
+                        if integer >= length as i64 {
                             return Err(AnalysisError::IndexOutOfBounds {
                                 index: index.clone(),
                                 length,
@@ -257,7 +287,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                         integer,
                     ))) = literal_type
                     {
-                        if integer < 0 || integer >= length as i64 {
+                        if integer >= length as i64 {
                             return Err(AnalysisError::IndexOutOfBounds {
                                 index: index.clone(),
                                 length,
@@ -274,9 +304,6 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                         found_type: list_type,
                     });
                 }
-
-                self.analyze_expression(list)?;
-                self.analyze_expression(index)?;
             }
             Expression::Literal(_) => {
                 // Literals don't need to be analyzed
@@ -536,6 +563,11 @@ pub enum AnalysisError {
         index_value: i64,
         length: usize,
     },
+    NegativeIndex {
+        list: Expression,
+        index: Expression,
+        index_value: i64,
+    },
     TypeConflict {
         actual_expression: Expression,
         actual_type: Type,
@@ -582,6 +614,7 @@ impl AnalysisError {
             AnalysisError::ExpectedValueFromStatement { actual } => actual.position(),
             AnalysisError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalysisError::IndexOutOfBounds { index, .. } => index.position(),
+            AnalysisError::NegativeIndex { index, .. } => index.position(),
             AnalysisError::TypeConflict {
                 actual_expression, ..
             } => actual_expression.position(),
@@ -601,7 +634,6 @@ impl Display for AnalysisError {
         match self {
             AnalysisError::AstError(ast_error) => write!(f, "{}", ast_error),
             AnalysisError::ContextError { error, .. } => write!(f, "{}", error),
-
             AnalysisError::ExpectedType {
                 expected,
                 actual,
@@ -657,6 +689,9 @@ impl Display for AnalysisError {
                 "Index {} out of bounds for list {} with length {}",
                 index_value, list, length
             ),
+            AnalysisError::NegativeIndex {
+                list, index_value, ..
+            } => write!(f, "Negative index {} for list {}", index_value, list),
             AnalysisError::TypeConflict {
                 actual_expression: actual_statement,
                 actual_type,
@@ -798,7 +833,17 @@ mod tests {
     fn malformed_list_index() {
         let source = "[1, 2, 3]['foo']";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_error: AnalysisError::ExpectedType {
+                    expected: Type::Integer,
+                    actual: Type::String { length: Some(3) },
+                    actual_expression: Expression::literal("foo", (10, 15)),
+                },
+                source,
+            })
+        );
     }
 
     #[test]
@@ -829,19 +874,22 @@ mod tests {
     fn integer_plus_boolean() {
         let source = "42 + true";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_error: AnalysisError::ExpectedType {
+                    expected: Type::Integer,
+                    actual: Type::Boolean,
+                    actual_expression: Expression::literal(true, (5, 9)),
+                },
+                source,
+            })
+        );
     }
 
     #[test]
-    fn is_even_expects_number() {
-        let source = "is_even('hello')";
-
-        assert_eq!(analyze(source), todo!());
-    }
-
-    #[test]
-    fn is_odd_expects_number() {
-        let source = "is_odd('hello')";
+    fn nonexistant_field() {
+        let source = "'hello'.foo";
 
         assert_eq!(analyze(source), todo!());
     }
