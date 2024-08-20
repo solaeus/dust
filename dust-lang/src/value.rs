@@ -200,7 +200,9 @@ impl Value {
                     r#type: rangeable_type,
                 }
             }
-            Value::String(_) => Type::String,
+            Value::String(string) => Type::String {
+                length: Some(string.len()),
+            },
             Value::Struct(r#struct) => match r#struct {
                 Struct::Unit { name } => Type::Struct(StructType::Unit { name: name.clone() }),
                 Struct::Tuple { name, fields } => {

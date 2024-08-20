@@ -13,8 +13,9 @@ use crate::{
     ast::{
         AbstractSyntaxTree, AstError, BlockExpression, CallExpression, ElseExpression,
         FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
-        LoopExpression, MapExpression, Node, OperatorExpression, RangeExpression, Span, Statement,
-        StructDefinition, StructExpression, TupleAccessExpression,
+        LiteralExpression, LoopExpression, MapExpression, Node, OperatorExpression,
+        PrimitiveValueExpression, RangeExpression, Span, Statement, StructDefinition,
+        StructExpression, TupleAccessExpression,
     },
     core_library, parse, Context, ContextError, DustError, Expression, Identifier, StructType,
     Type,
@@ -224,6 +225,56 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
             Expression::ListIndex(list_index_expression) => {
                 let ListIndexExpression { list, index } = list_index_expression.inner.as_ref();
 
+                let list_type = list.return_type(&self.context)?;
+
+                let literal_type = if let Expression::Literal(Node { inner, .. }) = index {
+                    Some(inner.as_ref().clone())
+                } else {
+                    None
+                };
+
+                if let Some(Type::List { length, .. }) = list_type {
+                    if let Some(LiteralExpression::Primitive(PrimitiveValueExpression::Integer(
+                        integer,
+                    ))) = literal_type
+                    {
+                        if integer < 0 || integer >= length as i64 {
+                            return Err(AnalysisError::IndexOutOfBounds {
+                                index: index.clone(),
+                                length,
+                                list: list.clone(),
+                                index_value: integer,
+                            });
+                        }
+                    }
+                }
+
+                if let Some(Type::String {
+                    length: Some(length),
+                }) = list_type
+                {
+                    if let Some(LiteralExpression::Primitive(PrimitiveValueExpression::Integer(
+                        integer,
+                    ))) = literal_type
+                    {
+                        if integer < 0 || integer >= length as i64 {
+                            return Err(AnalysisError::IndexOutOfBounds {
+                                index: index.clone(),
+                                length,
+                                list: list.clone(),
+                                index_value: integer,
+                            });
+                        }
+                    }
+                }
+
+                if list_type.is_none() {
+                    return Err(AnalysisError::ExpectedValueFromExpression {
+                        expression: list.clone(),
+                        found_type: list_type,
+                    });
+                }
+
                 self.analyze_expression(list)?;
                 self.analyze_expression(index)?;
             }
@@ -302,10 +353,60 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                 OperatorExpression::Math { left, right, .. } => {
                     self.analyze_expression(left)?;
                     self.analyze_expression(right)?;
+
+                    let left_type = left.return_type(&self.context)?;
+                    let right_type = right.return_type(&self.context)?;
+
+                    if left_type.is_none() {
+                        return Err(AnalysisError::ExpectedValueFromExpression {
+                            expression: left.clone(),
+                            found_type: left_type,
+                        });
+                    }
+
+                    if right_type.is_none() {
+                        return Err(AnalysisError::ExpectedValueFromExpression {
+                            expression: right.clone(),
+                            found_type: right_type,
+                        });
+                    }
+
+                    if left_type != right_type {
+                        return Err(AnalysisError::ExpectedType {
+                            expected: left_type.unwrap(),
+                            actual: right_type.unwrap(),
+                            actual_expression: right.clone(),
+                        });
+                    }
                 }
                 OperatorExpression::Logic { left, right, .. } => {
                     self.analyze_expression(left)?;
                     self.analyze_expression(right)?;
+
+                    let left_type = left.return_type(&self.context)?;
+                    let right_type = right.return_type(&self.context)?;
+
+                    if left_type.is_none() {
+                        return Err(AnalysisError::ExpectedValueFromExpression {
+                            expression: left.clone(),
+                            found_type: left_type,
+                        });
+                    }
+
+                    if right_type.is_none() {
+                        return Err(AnalysisError::ExpectedValueFromExpression {
+                            expression: right.clone(),
+                            found_type: right_type,
+                        });
+                    }
+
+                    if left_type != right_type {
+                        return Err(AnalysisError::ExpectedType {
+                            expected: left_type.unwrap(),
+                            actual: right_type.unwrap(),
+                            actual_expression: right.clone(),
+                        });
+                    }
                 }
             },
             Expression::Range(range_expression) => match range_expression.inner.as_ref() {
@@ -325,7 +426,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                         .map_err(|error| AnalysisError::ContextError {
                             error,
                             position: name.position,
-                        });
+                        })?;
 
                     for (_, expression) in fields {
                         self.analyze_expression(expression)?;
@@ -401,23 +502,21 @@ pub enum AnalysisError {
         error: ContextError,
         position: Span,
     },
-    ExpectedBoolean {
-        actual: Statement,
+    ExpectedType {
+        expected: Type,
+        actual: Type,
+        actual_expression: Expression,
+    },
+    ExpectedTypeMultiple {
+        expected: Vec<Type>,
+        actual: Type,
+        actual_expression: Expression,
     },
     ExpectedIdentifier {
-        actual: Statement,
+        actual: Expression,
     },
     ExpectedIdentifierOrString {
-        actual: Statement,
-    },
-    ExpectedIntegerOrRange {
-        actual: Statement,
-    },
-    ExpectedList {
-        actual: Statement,
-    },
-    ExpectedMap {
-        actual: Statement,
+        actual: Expression,
     },
     ExpectedValueFromStatement {
         actual: Statement,
@@ -432,9 +531,9 @@ pub enum AnalysisError {
         position: Span,
     },
     IndexOutOfBounds {
-        list: Statement,
-        index: Statement,
-        index_value: usize,
+        list: Expression,
+        index: Expression,
+        index_value: i64,
         length: usize,
     },
     TypeConflict {
@@ -443,8 +542,8 @@ pub enum AnalysisError {
         expected: Type,
     },
     UndefinedField {
-        identifier: Statement,
-        statement: Statement,
+        identifier: Expression,
+        statement: Expression,
     },
     UndefinedType {
         identifier: Node<Identifier>,
@@ -453,7 +552,7 @@ pub enum AnalysisError {
         identifier: Node<Identifier>,
     },
     UnexectedString {
-        actual: Statement,
+        actual: Expression,
     },
     UndefinedVariable {
         identifier: Node<Identifier>,
@@ -471,12 +570,14 @@ impl AnalysisError {
         match self {
             AnalysisError::AstError(ast_error) => ast_error.position(),
             AnalysisError::ContextError { position, .. } => *position,
-            AnalysisError::ExpectedBoolean { actual } => actual.position(),
+            AnalysisError::ExpectedType {
+                actual_expression, ..
+            } => actual_expression.position(),
+            AnalysisError::ExpectedTypeMultiple {
+                actual_expression, ..
+            } => actual_expression.position(),
             AnalysisError::ExpectedIdentifier { actual } => actual.position(),
             AnalysisError::ExpectedIdentifierOrString { actual } => actual.position(),
-            AnalysisError::ExpectedIntegerOrRange { actual } => actual.position(),
-            AnalysisError::ExpectedList { actual } => actual.position(),
-            AnalysisError::ExpectedMap { actual } => actual.position(),
             AnalysisError::ExpectedValueFromExpression { expression, .. } => expression.position(),
             AnalysisError::ExpectedValueFromStatement { actual } => actual.position(),
             AnalysisError::ExpectedValueArgumentCount { position, .. } => *position,
@@ -499,23 +600,37 @@ impl Display for AnalysisError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             AnalysisError::AstError(ast_error) => write!(f, "{}", ast_error),
-            Self::ContextError { error, position } => {
-                write!(f, "Context error at {:?}: {}", position, error)
+            AnalysisError::ContextError { error, .. } => write!(f, "{}", error),
+
+            AnalysisError::ExpectedType {
+                expected,
+                actual,
+                actual_expression,
+            } => {
+                write!(
+                    f,
+                    "Expected type {:?}, found {:?} in {}",
+                    expected, actual, actual_expression
+                )
             }
-            AnalysisError::ExpectedBoolean { actual, .. } => {
-                write!(f, "Expected boolean, found {}", actual)
+            AnalysisError::ExpectedTypeMultiple {
+                expected,
+                actual,
+                actual_expression,
+            } => {
+                write!(
+                    f,
+                    "Expected one of {:?}, found {:?} in {}",
+                    expected, actual, actual_expression
+                )
             }
+
             AnalysisError::ExpectedIdentifier { actual, .. } => {
                 write!(f, "Expected identifier, found {}", actual)
             }
             AnalysisError::ExpectedIdentifierOrString { actual } => {
                 write!(f, "Expected identifier or string, found {}", actual)
             }
-            AnalysisError::ExpectedIntegerOrRange { actual, .. } => {
-                write!(f, "Expected integer or range, found {}", actual)
-            }
-            AnalysisError::ExpectedList { actual } => write!(f, "Expected list, found {}", actual),
-            AnalysisError::ExpectedMap { actual } => write!(f, "Expected map, found {}", actual),
             AnalysisError::ExpectedValueFromExpression {
                 expression,
                 found_type,
@@ -623,18 +738,46 @@ mod tests {
     #[test]
     fn tuple_struct_with_wrong_field_types() {
         let source = "
-            struct Foo(int, float)
+            struct Foo(int, float);
             Foo(1, 2)
         ";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_error: AnalysisError::TypeConflict {
+                    actual_expression: Expression::literal(2, (52, 53)),
+                    actual_type: Type::Integer,
+                    expected: Type::Float,
+                },
+                source,
+            })
+        );
     }
 
     #[test]
     fn constant_list_index_out_of_bounds() {
         let source = "[1, 2, 3][3]";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_error: AnalysisError::IndexOutOfBounds {
+                    list: Expression::list(
+                        vec![
+                            Expression::literal(1, (1, 2)),
+                            Expression::literal(2, (4, 5)),
+                            Expression::literal(3, (7, 8)),
+                        ],
+                        (0, 9)
+                    ),
+                    index: Expression::literal(3, (10, 11)),
+                    index_value: 3,
+                    length: 3,
+                },
+                source,
+            })
+        );
     }
 
     #[test]
@@ -666,17 +809,20 @@ mod tests {
     }
 
     #[test]
-    fn length_no_arguments() {
-        let source = "length()";
-
-        assert_eq!(analyze(source), todo!());
-    }
-
-    #[test]
     fn float_plus_integer() {
         let source = "42.0 + 2";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_error: AnalysisError::ExpectedType {
+                    expected: Type::Float,
+                    actual: Type::Integer,
+                    actual_expression: Expression::literal(2, (7, 8)),
+                },
+                source,
+            })
+        );
     }
 
     #[test]

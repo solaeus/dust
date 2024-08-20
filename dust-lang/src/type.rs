@@ -54,7 +54,9 @@ pub enum Type {
     Range {
         r#type: RangeableType,
     },
-    String,
+    String {
+        length: Option<usize>,
+    },
     Struct(StructType),
     Tuple(Vec<Type>),
 }
@@ -83,7 +85,7 @@ impl Type {
             | (Type::Character, Type::Character)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
-            | (Type::String, Type::String) => return Ok(()),
+            | (Type::String { .. }, Type::String { .. }) => return Ok(()),
             (
                 Type::Generic {
                     concrete_type: left,
@@ -272,7 +274,7 @@ impl Display for Type {
             }
             Type::Number => write!(f, "num"),
             Type::Range { r#type } => write!(f, "{type} range"),
-            Type::String => write!(f, "str"),
+            Type::String { .. } => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
             Type::Tuple(fields) => {
                 write!(f, "(")?;
@@ -358,8 +360,8 @@ impl Ord for Type {
                 left_type.cmp(right_type)
             }
             (Type::Range { .. }, _) => Ordering::Greater,
-            (Type::String, Type::String) => Ordering::Equal,
-            (Type::String, _) => Ordering::Greater,
+            (Type::String { length: left }, Type::String { length: right }) => left.cmp(right),
+            (Type::String { .. }, _) => Ordering::Greater,
             (Type::Struct(left_struct), Type::Struct(right_struct)) => {
                 left_struct.cmp(right_struct)
             }
@@ -638,7 +640,7 @@ mod tests {
     #[test]
     fn errors() {
         let foo = Type::Integer;
-        let bar = Type::String;
+        let bar = Type::String { length: None };
 
         assert_eq!(
             foo.check(&bar),
@@ -666,7 +668,7 @@ mod tests {
             Type::Range {
                 r#type: RangeableType::Integer,
             },
-            Type::String,
+            Type::String { length: None },
         ];
 
         for left in types.clone() {

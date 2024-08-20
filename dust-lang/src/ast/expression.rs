@@ -381,7 +381,9 @@ impl Expression {
                     PrimitiveValueExpression::Integer(_) => Some(Type::Integer),
                     PrimitiveValueExpression::Float(_) => Some(Type::Float),
                 },
-                LiteralExpression::String(_) => Some(Type::String),
+                LiteralExpression::String(string) => Some(Type::String {
+                    length: Some(string.len()),
+                }),
             },
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
                 LoopExpression::For { block, .. } => block.inner.return_type(context)?,

@@ -35,15 +35,6 @@ pub fn core_library<'a>() -> &'a Context {
                 ),
             ),
             (
-                Identifier::new("length"),
-                (
-                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
-                        BuiltInFunction::LengthList,
-                    ))),
-                    (0, 0),
-                ),
-            ),
-            (
                 Identifier::new("read_line"),
                 (
                     ContextData::VariableValue(Value::Function(Function::BuiltIn(

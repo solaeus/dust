@@ -1685,10 +1685,24 @@ mod tests {
     }
 
     #[test]
-    fn length() {
-        let input = "length([1, 2, 3])";
+    fn list_length() {
+        let input = "[1, 2, 3].length";
 
         assert_eq!(run(input), Ok(Some(Value::Integer(3))));
+    }
+
+    #[test]
+    fn string_length() {
+        let input = "\"hello\".length";
+
+        assert_eq!(run(input), Ok(Some(Value::Integer(5))));
+    }
+
+    #[test]
+    fn map_length() {
+        let input = "map { a = 42, b = 4.0 }.length";
+
+        assert_eq!(run(input), Ok(Some(Value::Integer(2))));
     }
 
     #[test]
