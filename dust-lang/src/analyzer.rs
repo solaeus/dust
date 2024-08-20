@@ -86,8 +86,6 @@ impl<'a> Analyzer<'a> {
             Statement::Let(let_statement) => match &let_statement.inner {
                 LetStatement::Let { identifier, value }
                 | LetStatement::LetMut { identifier, value } => {
-                    self.analyze_expression(value)?;
-
                     let r#type = value.return_type(self.context);
 
                     if let Some(r#type) = r#type {
@@ -98,52 +96,54 @@ impl<'a> Analyzer<'a> {
                         );
                     } else {
                         return Err(AnalysisError::ExpectedValueFromExpression {
-                            actual: value.clone(),
+                            expression: value.clone(),
+                            found_type: r#type,
                         });
                     }
+
+                    self.analyze_expression(value)?;
                 }
                 LetStatement::LetType { .. } => todo!(),
                 LetStatement::LetMutType { .. } => todo!(),
             },
-            Statement::StructDefinition(struct_definition) => {
-                let (name, struct_type) = match &struct_definition.inner {
-                    StructDefinition::Unit { name } => (
-                        name,
-                        Type::Struct(StructType::Unit {
+            Statement::StructDefinition(struct_definition) => match &struct_definition.inner {
+                StructDefinition::Unit { name } => self.context.set_constructor_type(
+                    name.inner.clone(),
+                    StructType::Unit {
+                        name: name.inner.clone(),
+                    },
+                    name.position,
+                ),
+                StructDefinition::Tuple { name, items } => {
+                    let fields = items.iter().map(|item| item.inner.clone()).collect();
+
+                    self.context.set_constructor_type(
+                        name.inner.clone(),
+                        StructType::Tuple {
                             name: name.inner.clone(),
-                        }),
-                    ),
-                    StructDefinition::Tuple { name, items } => {
-                        let fields = items.iter().map(|item| item.inner.clone()).collect();
+                            fields,
+                        },
+                        name.position,
+                    );
+                }
+                StructDefinition::Fields { name, fields } => {
+                    let fields = fields
+                        .iter()
+                        .map(|(identifier, r#type)| {
+                            (identifier.inner.clone(), r#type.inner.clone())
+                        })
+                        .collect();
 
-                        (
-                            name,
-                            Type::Struct(StructType::Tuple {
-                                name: name.inner.clone(),
-                                fields,
-                            }),
-                        )
-                    }
-                    StructDefinition::Fields { name, fields } => {
-                        let fields = fields
-                            .iter()
-                            .map(|(identifier, r#type)| {
-                                (identifier.inner.clone(), r#type.inner.clone())
-                            })
-                            .collect();
-
-                        (
-                            name,
-                            Type::Struct(StructType::Fields {
-                                name: name.inner.clone(),
-                                fields,
-                            }),
-                        )
-                    }
-                };
-
-                todo!("Set constructor")
-            }
+                    self.context.set_constructor_type(
+                        name.inner.clone(),
+                        StructType::Fields {
+                            name: name.inner.clone(),
+                            fields,
+                        },
+                        name.position,
+                    );
+                }
+            },
         }
 
         Ok(())
@@ -240,18 +240,20 @@ impl<'a> Analyzer<'a> {
 
                     if expected_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
-                            actual: assignee.clone(),
+                            expression: assignee.clone(),
+                            found_type: expected_type,
                         });
                     }
 
                     if actual_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
-                            actual: modifier.clone(),
+                            expression: modifier.clone(),
+                            found_type: actual_type,
                         });
                     }
 
                     if let (Some(expected_type), Some(actual_type)) = (expected_type, actual_type) {
-                        expected_type.check(&actual_type).map_err(|type_conflct| {
+                        expected_type.check(&actual_type).map_err(|_| {
                             AnalysisError::TypeConflict {
                                 actual_expression: modifier.clone(),
                                 actual_type,
@@ -288,14 +290,16 @@ impl<'a> Analyzer<'a> {
             },
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Unit { name } => {
-                    todo!("Update constructor position");
+                    self.context
+                        .update_last_position(&name.inner, name.position);
                 }
                 StructExpression::Fields { name, fields } => {
-                    todo!("Update constructor position");
+                    self.context
+                        .update_last_position(&name.inner, name.position);
 
-                    // for (_, expression) in fields {
-                    // self.analyze_expression(expression)?;
-                    // }
+                    for (_, expression) in fields {
+                        self.analyze_expression(expression)?;
+                    }
                 }
             },
             Expression::TupleAccess(tuple_access) => {
@@ -381,7 +385,8 @@ pub enum AnalysisError {
         actual: Statement,
     },
     ExpectedValueFromExpression {
-        actual: Expression,
+        expression: Expression,
+        found_type: Option<Type>,
     },
     ExpectedValueArgumentCount {
         expected: usize,
@@ -426,7 +431,7 @@ impl AnalysisError {
             AnalysisError::ExpectedIntegerOrRange { actual } => actual.position(),
             AnalysisError::ExpectedList { actual } => actual.position(),
             AnalysisError::ExpectedMap { actual } => actual.position(),
-            AnalysisError::ExpectedValueFromExpression { actual } => actual.position(),
+            AnalysisError::ExpectedValueFromExpression { expression, .. } => expression.position(),
             AnalysisError::ExpectedValueFromStatement { actual } => actual.position(),
             AnalysisError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalysisError::IndexOutOfBounds { index, .. } => index.position(),
@@ -461,11 +466,14 @@ impl Display for AnalysisError {
             }
             AnalysisError::ExpectedList { actual } => write!(f, "Expected list, found {}", actual),
             AnalysisError::ExpectedMap { actual } => write!(f, "Expected map, found {}", actual),
-            AnalysisError::ExpectedValueFromExpression { actual, .. } => {
+            AnalysisError::ExpectedValueFromExpression {
+                expression,
+                found_type,
+            } => {
                 write!(
                     f,
-                    "Expected expression to produce a value, found {}",
-                    actual
+                    "Expected {} to produce a value, found {:?}",
+                    expression, found_type
                 )
             }
             AnalysisError::ExpectedValueFromStatement { actual, .. } => {

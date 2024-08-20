@@ -297,7 +297,7 @@ impl Expression {
                 }
             }
             Expression::Grouped(expression) => expression.inner.return_type(context),
-            Expression::Identifier(identifier) => context.get_variable_type(&identifier.inner),
+            Expression::Identifier(identifier) => context.get_type(&identifier.inner),
             Expression::If(if_expression) => {
                 return match if_expression.inner.as_ref() {
                     IfExpression::If { .. } => None,

@@ -18,6 +18,7 @@
 pub mod analyzer;
 pub mod ast;
 pub mod built_in_function;
+pub mod constructor;
 pub mod context;
 pub mod dust_error;
 pub mod identifier;
@@ -31,7 +32,8 @@ pub mod vm;
 pub use analyzer::{analyze, AnalysisError, Analyzer};
 pub use ast::{AbstractSyntaxTree, Expression, Statement};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
-pub use context::{Context, VariableData};
+pub use constructor::Constructor;
+pub use context::{Context, ContextData};
 pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use lexer::{lex, LexError, Lexer};

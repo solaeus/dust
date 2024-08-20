@@ -13,11 +13,15 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    rc::Weak,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Enum, Identifier, Struct, Value};
+use crate::{
+    constructor::{FieldsConstructor, TupleConstructor, UnitConstructor},
+    Constructor, Enum, Identifier, Struct, Value,
+};
 
 /// Description of a kind of value.
 ///
@@ -59,12 +63,14 @@ pub enum Type {
 impl Type {
     /// Returns a concrete type, either the type itself or the concrete type of a generic type.
     pub fn concrete_type(&self) -> &Type {
-        match self {
-            Type::Generic {
-                concrete_type: Some(concrete_type),
-                ..
-            } => concrete_type.concrete_type(),
-            _ => self,
+        if let Type::Generic {
+            concrete_type: Some(concrete_type),
+            ..
+        } = self
+        {
+            concrete_type.concrete_type()
+        } else {
+            self
         }
     }
 
@@ -435,20 +441,16 @@ impl StructType {
         }
     }
 
-    pub fn constructor(&self) -> Option<Constructor> {
-        let constructor = match self {
-            StructType::Unit { name } => Constructor::Unit { name: name.clone() },
-            StructType::Tuple { name, fields } => Constructor::Tuple(TupleConstructor {
-                name: name.clone(),
-                tuple_arguments: Vec::with_capacity(fields.len()),
-            }),
-            StructType::Fields { name, fields } => Constructor::Fields {
-                name: name.clone(),
-                field_arguments: HashMap::with_capacity(fields.len()),
-            },
-        };
-
-        Some(constructor)
+    pub fn constructor(&self) -> Constructor {
+        match self {
+            StructType::Unit { name } => Constructor::Unit(UnitConstructor { name: name.clone() }),
+            StructType::Tuple { name, .. } => {
+                Constructor::Tuple(TupleConstructor { name: name.clone() })
+            }
+            StructType::Fields { name, .. } => {
+                Constructor::Fields(FieldsConstructor { name: name.clone() })
+            }
+        }
     }
 }
 
@@ -547,114 +549,10 @@ impl Ord for StructType {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Constructor {
-    Unit {
-        name: Identifier,
-    },
-    Tuple(TupleConstructor),
-    Fields {
-        name: Identifier,
-        field_arguments: HashMap<Identifier, Value>,
-    },
-    Enum {
-        name: Identifier,
-        r#type: EnumType,
-        variant_constructor: Box<Constructor>,
-    },
-}
-
-impl Constructor {
-    pub fn construct(self) -> Value {
-        match self {
-            Constructor::Unit { name } => Value::Struct(Struct::Unit { name }),
-            Constructor::Tuple(tuple_constructor) => tuple_constructor.construct(),
-            Constructor::Fields {
-                name,
-                field_arguments,
-            } => Value::Struct(Struct::Fields {
-                name,
-                fields: field_arguments,
-            }),
-            Constructor::Enum {
-                name,
-                r#type,
-                variant_constructor,
-            } => Value::Enum(Enum {
-                name,
-                r#type,
-                variant_data: Self::make_struct(*variant_constructor),
-            }),
-        }
-    }
-
-    fn make_struct(this: Self) -> Struct {
-        match this {
-            Constructor::Unit { name } => Struct::Unit { name },
-            Constructor::Tuple(TupleConstructor {
-                name,
-                tuple_arguments,
-            }) => Struct::Tuple {
-                name,
-                fields: tuple_arguments,
-            },
-            Constructor::Fields {
-                name,
-                field_arguments,
-            } => Struct::Fields {
-                name,
-                fields: field_arguments,
-            },
-            Constructor::Enum {
-                variant_constructor,
-                ..
-            } => Self::make_struct(*variant_constructor),
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TupleConstructor {
-    pub name: Identifier,
-    pub tuple_arguments: Vec<Value>,
-}
-
-impl TupleConstructor {
-    pub fn push_argument(&mut self, value: Value) {
-        self.tuple_arguments.push(value);
-    }
-
-    pub fn construct(self) -> Value {
-        Value::Struct(Struct::Tuple {
-            name: self.name,
-            fields: self.tuple_arguments,
-        })
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumType {
     pub name: Identifier,
     pub variants: Vec<StructType>,
-}
-
-impl EnumType {
-    pub fn constructor(&self) -> Option<Constructor> {
-        let get_variant_constructor = self
-            .variants
-            .iter()
-            .find_map(|struct_type| struct_type.constructor());
-
-        if let Some(variant_constructor) = get_variant_constructor {
-            Some(Constructor::Enum {
-                name: self.name.clone(),
-                r#type: self.clone(),
-                variant_constructor: Box::new(variant_constructor),
-            })
-        } else {
-            None
-        }
-    }
 }
 
 impl Display for EnumType {

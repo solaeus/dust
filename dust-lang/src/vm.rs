@@ -21,9 +21,8 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, RawStringExpression, Span,
         Statement, StructDefinition, StructExpression,
     },
-    parse, Analyzer, BuiltInFunctionError, Constructor, Context, DustError, Enum, EnumType,
-    Expression, Identifier, ParseError, Struct, StructType, TupleConstructor, Type, Value,
-    ValueError,
+    parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, DustError, Enum,
+    EnumType, Expression, Identifier, ParseError, Struct, StructType, Type, Value, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -156,8 +155,9 @@ impl Vm {
                         )
                     }
                 };
+                let constructor = struct_type.constructor();
 
-                todo!("Set constructor");
+                self.context.set_constructor(name, constructor);
 
                 Ok(None)
             }
@@ -222,16 +222,20 @@ impl Vm {
                 self.run_expression(*expression.inner, collect_garbage)
             }
             Expression::Identifier(identifier) => {
-                let get_value = self.context.get_variable_value(&identifier.inner);
+                let get_data = self.context.get_data(&identifier.inner);
 
-                if let Some(value) = get_value {
-                    Ok(Evaluation::Return(Some(value)))
-                } else {
-                    Err(RuntimeError::UndefinedValue {
-                        identifier: identifier.inner,
-                        position: identifier.position,
-                    })
+                if let Some(ContextData::VariableValue(value)) = get_data {
+                    return Ok(Evaluation::Return(Some(value.clone())));
                 }
+
+                if let Some(ContextData::Constructor(constructor)) = get_data {
+                    return Ok(Evaluation::Constructor(constructor));
+                }
+
+                Err(RuntimeError::UndefinedValue {
+                    identifier: identifier.inner,
+                    position,
+                })
             }
             Expression::If(if_expression) => self.run_if(*if_expression.inner, collect_garbage),
             Expression::List(list_expression) => {
@@ -269,7 +273,7 @@ impl Vm {
         match struct_expression {
             StructExpression::Unit { name } => {
                 let position = name.position;
-                let r#type = self.context.get_variable_type(&name.inner).ok_or_else(|| {
+                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
                     RuntimeError::UndefinedType {
                         identifier: name.inner.clone(),
                         position,
@@ -293,7 +297,7 @@ impl Vm {
                 fields: expressions,
             } => {
                 let position = name.position;
-                let r#type = self.context.get_variable_type(&name.inner).ok_or_else(|| {
+                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
                     RuntimeError::UndefinedType {
                         identifier: name.inner.clone(),
                         position,
@@ -679,78 +683,61 @@ impl Vm {
         let invoker_position = invoker.position();
         let run_invoker = self.run_expression(invoker, collect_garbage)?;
 
-        if let Evaluation::Constructor(Type::Struct(StructType::Tuple { name, fields })) =
-            &run_invoker
-        {
-            let struct_type = fields
-                .iter()
-                .find(|r#type| {
-                    if let Type::Struct(struct_type) = r#type {
-                        struct_type.name() == name
-                    } else {
-                        false
-                    }
-                })
-                .ok_or(RuntimeError::EnumVariantNotFound {
-                    identifier: name.clone(),
-                    position: invoker_position,
-                })?;
+        match run_invoker {
+            Evaluation::Constructor(constructor) => {
+                if let Constructor::Tuple(tuple_constructor) = constructor {
+                    let mut fields = Vec::new();
 
-            if let Type::Struct(StructType::Tuple { name, fields }) = struct_type {
-                let mut values = Vec::with_capacity(arguments.len());
+                    for argument in arguments {
+                        let position = argument.position();
+
+                        if let Some(value) = self.run_expression(argument, collect_garbage)?.value()
+                        {
+                            fields.push(value);
+                        } else {
+                            return Err(RuntimeError::ExpectedValue { position });
+                        }
+                    }
+
+                    let tuple = tuple_constructor.construct(fields);
+
+                    return Ok(Evaluation::Return(Some(tuple)));
+                }
+            }
+            Evaluation::Return(Some(value)) => {
+                let function = if let Value::Function(function) = value {
+                    function
+                } else {
+                    return Err(RuntimeError::ExpectedFunction {
+                        actual: value.to_owned(),
+                        position: invoker_position,
+                    });
+                };
+
+                let mut value_arguments = Vec::new();
 
                 for argument in arguments {
                     let position = argument.position();
-                    let value = self
-                        .run_expression(argument, collect_garbage)?
-                        .expect_value(position)?;
 
-                    values.push(value);
+                    if let Some(value) = self.run_expression(argument, collect_garbage)?.value() {
+                        value_arguments.push(value);
+                    } else {
+                        return Err(RuntimeError::ExpectedValue { position });
+                    }
                 }
 
-                let r#struct = Struct::Tuple {
-                    name: name.clone(),
-                    fields: values,
-                };
+                let context = Context::new();
 
-                return Ok(Evaluation::Return(Some(Value::Struct(r#struct))));
+                return function
+                    .call(None, Some(value_arguments), &context)
+                    .map(Evaluation::Return);
             }
+            _ => (),
         }
 
-        let invoker_value = if let Some(value) = run_invoker.value() {
-            value
-        } else {
-            return Err(RuntimeError::ExpectedValue {
-                position: invoker_position,
-            });
-        };
-
-        let function = if let Value::Function(function) = invoker_value {
-            function
-        } else {
-            return Err(RuntimeError::ExpectedFunction {
-                actual: invoker_value,
-                position: invoker_position,
-            });
-        };
-
-        let mut value_arguments = Vec::new();
-
-        for argument in arguments {
-            let position = argument.position();
-
-            if let Some(value) = self.run_expression(argument, collect_garbage)?.value() {
-                value_arguments.push(value);
-            } else {
-                return Err(RuntimeError::ExpectedValue { position });
-            }
-        }
-
-        let context = Context::new();
-
-        function
-            .call(None, Some(value_arguments), &context)
-            .map(Evaluation::Return)
+        Err(RuntimeError::ExpectedValue {
+            position: invoker_position,
+        })
     }
 
     fn run_field_access(
@@ -923,7 +910,7 @@ impl Vm {
 
 enum Evaluation {
     Break,
-    Constructor(Type),
+    Constructor(Constructor),
     Return(Option<Value>),
 }
 

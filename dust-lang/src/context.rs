@@ -4,9 +4,9 @@ use std::{
     sync::{Arc, PoisonError as StdPoisonError, RwLock, RwLockWriteGuard},
 };
 
-use crate::{ast::Span, Identifier, Type, Value};
+use crate::{ast::Span, Constructor, Identifier, StructType, Type, Value};
 
-pub type Variables = HashMap<Identifier, (VariableData, Span)>;
+pub type Variables = HashMap<Identifier, (ContextData, Span)>;
 
 /// Garbage-collecting context for variables.
 #[derive(Debug, Clone)]
@@ -39,21 +39,24 @@ impl Context {
     }
 
     /// Returns the full VariableData and Span if the context contains the given identifier.
-    pub fn get(&self, identifier: &Identifier) -> Option<(VariableData, Span)> {
+    pub fn get(&self, identifier: &Identifier) -> Option<(ContextData, Span)> {
         self.variables.read().unwrap().get(identifier).cloned()
     }
 
     /// Returns the type of the variable with the given identifier.
-    pub fn get_variable_type(&self, identifier: &Identifier) -> Option<Type> {
+    pub fn get_type(&self, identifier: &Identifier) -> Option<Type> {
         match self.variables.read().unwrap().get(identifier) {
-            Some((VariableData::Type(r#type), _)) => Some(r#type.clone()),
-            Some((VariableData::Value(value), _)) => Some(value.r#type()),
+            Some((ContextData::VariableType(r#type), _)) => Some(r#type.clone()),
+            Some((ContextData::VariableValue(value), _)) => Some(value.r#type()),
+            Some((ContextData::ConstructorType(struct_type), _)) => {
+                Some(Type::Struct(struct_type.clone()))
+            }
             _ => None,
         }
     }
 
     /// Returns the VariableData of the variable with the given identifier.
-    pub fn get_variable_data(&self, identifier: &Identifier) -> Option<VariableData> {
+    pub fn get_data(&self, identifier: &Identifier) -> Option<ContextData> {
         match self.variables.read().unwrap().get(identifier) {
             Some((variable_data, _)) => Some(variable_data.clone()),
             _ => None,
@@ -63,7 +66,15 @@ impl Context {
     /// Returns the value of the variable with the given identifier.
     pub fn get_variable_value(&self, identifier: &Identifier) -> Option<Value> {
         match self.variables.read().unwrap().get(identifier) {
-            Some((VariableData::Value(value), _)) => Some(value.clone()),
+            Some((ContextData::VariableValue(value), _)) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    /// Returns the constructor associated with the given identifier.
+    pub fn get_constructor(&self, identifier: &Identifier) -> Option<Constructor> {
+        match self.variables.read().unwrap().get(identifier) {
+            Some((ContextData::Constructor(constructor), _)) => Some(constructor.clone()),
             _ => None,
         }
     }
@@ -75,7 +86,7 @@ impl Context {
         self.variables
             .write()
             .unwrap()
-            .insert(identifier, (VariableData::Type(r#type), position));
+            .insert(identifier, (ContextData::VariableType(r#type), position));
     }
 
     /// Sets a variable to a value.
@@ -89,7 +100,44 @@ impl Context {
             .map(|(_, last_position)| *last_position)
             .unwrap_or_default();
 
-        variables.insert(identifier, (VariableData::Value(value), last_position));
+        variables.insert(
+            identifier,
+            (ContextData::VariableValue(value), last_position),
+        );
+    }
+
+    /// Associates a constructor with an identifier.
+    pub fn set_constructor(&self, identifier: Identifier, constructor: Constructor) {
+        log::trace!("Setting {identifier} to constructor {constructor:?}");
+
+        let mut variables = self.variables.write().unwrap();
+
+        let last_position = variables
+            .get(&identifier)
+            .map(|(_, last_position)| *last_position)
+            .unwrap_or_default();
+
+        variables.insert(
+            identifier,
+            (ContextData::Constructor(constructor), last_position),
+        );
+    }
+
+    /// Associates a constructor type with an identifier.
+    pub fn set_constructor_type(
+        &self,
+        identifier: Identifier,
+        struct_type: StructType,
+        position: Span,
+    ) {
+        log::trace!("Setting {identifier} to constructor of type {struct_type:?}");
+
+        let mut variables = self.variables.write().unwrap();
+
+        variables.insert(
+            identifier,
+            (ContextData::ConstructorType(struct_type), position),
+        );
     }
 
     /// Collects garbage up to the given position, removing all variables with lesser positions.
@@ -149,9 +197,11 @@ impl Default for Context {
 }
 
 #[derive(Debug, Clone)]
-pub enum VariableData {
-    Value(Value),
-    Type(Type),
+pub enum ContextData {
+    Constructor(Constructor),
+    ConstructorType(StructType),
+    VariableValue(Value),
+    VariableType(Type),
 }
 
 pub type ContextPoisonError<'err> = StdPoisonError<RwLockWriteGuard<'err, Variables>>;
