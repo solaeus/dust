@@ -4,7 +4,7 @@ use crate::{BuiltInFunction, Context, ContextData, Function, Identifier, Value};
 
 static CORE_LIBRARY: OnceLock<Context> = OnceLock::new();
 
-pub fn core_library() -> &'static Context {
+pub fn core_library<'a>() -> &'a Context {
     CORE_LIBRARY.get_or_init(|| {
         Context::with_data(HashMap::from([
             (
@@ -21,6 +21,24 @@ pub fn core_library() -> &'static Context {
                 (
                     ContextData::VariableValue(Value::Function(Function::BuiltIn(
                         BuiltInFunction::IsEven,
+                    ))),
+                    (0, 0),
+                ),
+            ),
+            (
+                Identifier::new("is_odd"),
+                (
+                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
+                        BuiltInFunction::IsOdd,
+                    ))),
+                    (0, 0),
+                ),
+            ),
+            (
+                Identifier::new("length"),
+                (
+                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
+                        BuiltInFunction::Length,
                     ))),
                     (0, 0),
                 ),

@@ -16,8 +16,7 @@ use crate::{
         LoopExpression, MapExpression, Node, OperatorExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression, TupleAccessExpression,
     },
-    context::ContextError,
-    parse, Context, DustError, Expression, Identifier, StructType, Type,
+    parse, Context, ContextError, DustError, Expression, Identifier, StructType, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.

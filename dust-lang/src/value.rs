@@ -327,6 +327,16 @@ impl Value {
 
                 left.add(&right)
             }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.add(right)
+            }
+            (left, Value::Mutable(right)) => {
+                let right = right.read().unwrap();
+
+                left.add(&right)
+            }
             _ => Err(ValueError::CannotAdd(self.clone(), other.clone())),
         }
     }
@@ -383,6 +393,16 @@ impl Value {
 
                 left.subtract(&right)
             }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.subtract(right)
+            }
+            (left, Value::Mutable(right)) => {
+                let right = right.read().unwrap();
+
+                left.subtract(&right)
+            }
             _ => Err(ValueError::CannotSubtract(self.clone(), other.clone())),
         }
     }
@@ -427,6 +447,16 @@ impl Value {
             }
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
+                let right = right.read().unwrap();
+
+                left.multiply(&right)
+            }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.multiply(right)
+            }
+            (left, Value::Mutable(right)) => {
                 let right = right.read().unwrap();
 
                 left.multiply(&right)
@@ -479,6 +509,16 @@ impl Value {
 
                 left.divide(&right)
             }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.divide(right)
+            }
+            (left, Value::Mutable(right)) => {
+                let right = right.read().unwrap();
+
+                left.divide(&right)
+            }
             _ => Err(ValueError::CannotDivide(self.clone(), other.clone())),
         }
     }
@@ -521,6 +561,16 @@ impl Value {
             (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left % right)),
             (Value::Mutable(left), Value::Mutable(right)) => {
                 let left = left.read().unwrap();
+                let right = right.read().unwrap();
+
+                left.modulo(&right)
+            }
+            (Value::Mutable(left), right) => {
+                let left = left.read().unwrap();
+
+                left.modulo(right)
+            }
+            (left, Value::Mutable(right)) => {
                 let right = right.read().unwrap();
 
                 left.modulo(&right)

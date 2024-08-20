@@ -79,6 +79,8 @@ impl Type {
             (Type::Any, _)
             | (_, Type::Any)
             | (Type::Boolean, Type::Boolean)
+            | (Type::Byte, Type::Byte)
+            | (Type::Character, Type::Character)
             | (Type::Float, Type::Float)
             | (Type::Integer, Type::Integer)
             | (Type::String, Type::String) => return Ok(()),

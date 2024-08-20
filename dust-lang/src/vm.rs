@@ -20,8 +20,9 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression,
     },
-    parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, ContextError,
-    DustError, Expression, Function, Identifier, ParseError, StructType, Type, Value, ValueError,
+    core_library, parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData,
+    ContextError, DustError, Expression, Function, Identifier, ParseError, StructType, Type, Value,
+    ValueError,
 };
 
 /// Run the source code and return the result.
@@ -35,7 +36,7 @@ use crate::{
 /// assert_eq!(result, Ok(Some(Value::Integer(42))));
 /// ```
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
-    let context = Context::new();
+    let context = core_library().create_child();
 
     run_with_context(source, context)
 }

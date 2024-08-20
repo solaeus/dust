@@ -35,6 +35,7 @@ pub use ast::{AbstractSyntaxTree, Expression, Span, Statement};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use constructor::Constructor;
 pub use context::{Context, ContextData, ContextError};
+pub use core_library::core_library;
 pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use lexer::{lex, LexError, Lexer};

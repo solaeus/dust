@@ -13,6 +13,7 @@ pub type Associations = HashMap<Identifier, (ContextData, Span)>;
 #[derive(Debug, Clone)]
 pub struct Context {
     associations: Arc<RwLock<Associations>>,
+    parent: Option<Box<Context>>,
 }
 
 impl Context {
@@ -23,12 +24,20 @@ impl Context {
     pub fn with_data(data: Associations) -> Self {
         Self {
             associations: Arc::new(RwLock::new(data)),
+            parent: None,
         }
     }
 
     /// Creates a deep copy of another context.
     pub fn with_data_from(other: &Self) -> Result<Self, ContextError> {
         Ok(Self::with_data(other.associations.read()?.clone()))
+    }
+
+    pub fn create_child(&self) -> Self {
+        Self {
+            associations: Arc::new(RwLock::new(HashMap::new())),
+            parent: Some(Box::new(self.clone())),
+        }
     }
 
     /// Returns the number of associated identifiers in the context.
@@ -53,23 +62,30 @@ impl Context {
 
     /// Returns the type associated with the given identifier.
     pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ContextError> {
-        let r#type = match self.associations.read()?.get(identifier) {
-            Some((ContextData::VariableType(r#type), _)) => r#type.clone(),
-            Some((ContextData::VariableValue(value), _)) => value.r#type(),
+        match self.associations.read()?.get(identifier) {
+            Some((ContextData::VariableType(r#type), _)) => return Ok(Some(r#type.clone())),
+            Some((ContextData::VariableValue(value), _)) => return Ok(Some(value.r#type())),
             Some((ContextData::ConstructorType(struct_type), _)) => {
-                Type::Struct(struct_type.clone())
+                return Ok(Some(Type::Struct(struct_type.clone())))
             }
-            _ => return Ok(None),
-        };
+            _ => {}
+        }
 
-        Ok(Some(r#type))
+        if let Some(parent) = &self.parent {
+            parent.get_type(identifier)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Returns the ContextData associated with the identifier.
     pub fn get_data(&self, identifier: &Identifier) -> Result<Option<ContextData>, ContextError> {
-        match self.associations.read()?.get(identifier) {
-            Some((variable_data, _)) => Ok(Some(variable_data.clone())),
-            _ => Ok(None),
+        if let Some((variable_data, _)) = self.associations.read()?.get(identifier) {
+            Ok(Some(variable_data.clone()))
+        } else if let Some(parent) = &self.parent {
+            parent.get_data(identifier)
+        } else {
+            Ok(None)
         }
     }
 
@@ -78,9 +94,14 @@ impl Context {
         &self,
         identifier: &Identifier,
     ) -> Result<Option<Value>, ContextError> {
-        match self.associations.read().unwrap().get(identifier) {
-            Some((ContextData::VariableValue(value), _)) => Ok(Some(value.clone())),
-            _ => Ok(None),
+        if let Some((ContextData::VariableValue(value), _)) =
+            self.associations.read()?.get(identifier)
+        {
+            Ok(Some(value.clone()))
+        } else if let Some(parent) = &self.parent {
+            parent.get_variable_value(identifier)
+        } else {
+            Ok(None)
         }
     }
 
@@ -89,9 +110,14 @@ impl Context {
         &self,
         identifier: &Identifier,
     ) -> Result<Option<Constructor>, ContextError> {
-        match self.associations.read().unwrap().get(identifier) {
-            Some((ContextData::Constructor(constructor), _)) => Ok(Some(constructor.clone())),
-            _ => Ok(None),
+        if let Some((ContextData::Constructor(constructor), _)) =
+            self.associations.read()?.get(identifier)
+        {
+            Ok(Some(constructor.clone()))
+        } else if let Some(parent) = &self.parent {
+            parent.get_constructor(identifier)
+        } else {
+            Ok(None)
         }
     }
 
@@ -304,9 +330,9 @@ mod tests {
         env_logger::builder().is_test(true).try_init().unwrap();
 
         let source = "
-            x = 5
-            y = 10
-            z = x + y
+            let x = 5;
+            let y = 10;
+            let z = x + y;
             z
         ";
         let context = Context::new();
@@ -319,8 +345,8 @@ mod tests {
     #[test]
     fn garbage_collector_does_not_break_loops() {
         let source = "
-            y = 1
-            z = 0
+            let y = 1;
+            let mut z = 0;
             while z < 10 {
                 z = z + y
             }
