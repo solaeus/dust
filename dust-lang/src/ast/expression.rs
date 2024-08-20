@@ -2,7 +2,6 @@ use std::{
     cmp::Ordering,
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    rc::Weak,
 };
 
 use serde::{Deserialize, Serialize};

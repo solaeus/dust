@@ -792,15 +792,25 @@ impl Value {
     }
 
     pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.as_boolean(), other.as_boolean()) {
-            (Some(left), Some(right)) => Ok(Value::Boolean(left && right)),
+        match (self, other) {
+            (Value::Boolean(left), Value::Boolean(right)) => Ok(Value::Boolean(*left && *right)),
+            (Value::Mutable(locked), value) | (value, Value::Mutable(locked)) => {
+                let locked = locked.read().unwrap();
+
+                locked.and(value)
+            }
             _ => Err(ValueError::CannotAnd(self.clone(), other.clone())),
         }
     }
 
     pub fn or(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self.as_boolean(), other.as_boolean()) {
-            (Some(left), Some(right)) => Ok(Value::Boolean(left || right)),
+        match (self, other) {
+            (Value::Boolean(left), Value::Boolean(right)) => Ok(Value::Boolean(*left || *right)),
+            (Value::Mutable(locked), value) | (value, Value::Mutable(locked)) => {
+                let locked = locked.read().unwrap();
+
+                locked.or(value)
+            }
             _ => Err(ValueError::CannotOr(self.clone(), other.clone())),
         }
     }

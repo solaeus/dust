@@ -43,6 +43,15 @@ pub fn core_library<'a>() -> &'a Context {
                     (0, 0),
                 ),
             ),
+            (
+                Identifier::new("write_line"),
+                (
+                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
+                        BuiltInFunction::WriteLine,
+                    ))),
+                    (0, 0),
+                ),
+            ),
         ]))
     })
 }

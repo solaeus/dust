@@ -128,7 +128,10 @@ impl BuiltInFunction {
             }
             BuiltInFunction::WriteLine => {
                 if let Value::String(string) = &value_arguments[0] {
-                    stdout().write_all(string.as_bytes())?;
+                    let mut stdout = stdout();
+
+                    stdout.write_all(string.as_bytes())?;
+                    stdout.write_all(b"\n")?;
 
                     Ok(None)
                 } else {

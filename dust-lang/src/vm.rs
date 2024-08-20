@@ -965,18 +965,16 @@ impl Vm {
                     .ok_or(RuntimeError::ExpectedBoolean { position })?;
 
                 if boolean {
-                    let evaluation = self.run_block(if_block.inner, collect_garbage)?;
-
-                    if let Evaluation::Break(_) = evaluation {
-                        return Ok(evaluation);
+                    self.run_block(if_block.inner, collect_garbage)
+                } else {
+                    match r#else {
+                        ElseExpression::If(if_expression) => {
+                            self.run_if(*if_expression.inner, collect_garbage)
+                        }
+                        ElseExpression::Block(block) => {
+                            self.run_block(block.inner, collect_garbage)
+                        }
                     }
-                }
-
-                match r#else {
-                    ElseExpression::If(if_expression) => {
-                        self.run_if(*if_expression.inner, collect_garbage)
-                    }
-                    ElseExpression::Block(block) => self.run_block(block.inner, collect_garbage),
                 }
             }
         }
