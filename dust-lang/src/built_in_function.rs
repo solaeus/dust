@@ -94,26 +94,26 @@ impl BuiltInFunction {
             (None, None) => {}
         }
 
-        let value_arguments = value_arguments.unwrap();
-
         match self {
-            BuiltInFunction::ToString => Ok(Some(Value::String(value_arguments[0].to_string()))),
+            BuiltInFunction::ToString => {
+                Ok(Some(Value::String(value_arguments.unwrap()[0].to_string())))
+            }
             BuiltInFunction::IsEven => {
-                if let Some(integer) = value_arguments[0].as_integer() {
+                if let Value::Integer(integer) = value_arguments.unwrap()[0] {
                     Ok(Some(Value::Boolean(integer % 2 == 0)))
                 } else {
                     Err(BuiltInFunctionError::ExpectedInteger)
                 }
             }
             BuiltInFunction::IsOdd => {
-                if let Some(integer) = value_arguments[0].as_integer() {
+                if let Value::Integer(integer) = value_arguments.unwrap()[0] {
                     Ok(Some(Value::Boolean(integer % 2 != 0)))
                 } else {
                     Err(BuiltInFunctionError::ExpectedInteger)
                 }
             }
             BuiltInFunction::Length => {
-                if let Value::List(list) = &value_arguments[0] {
+                if let Value::List(list) = &value_arguments.unwrap()[0] {
                     Ok(Some(Value::Integer(list.len() as i64)))
                 } else {
                     Err(BuiltInFunctionError::ExpectedList)
@@ -127,7 +127,7 @@ impl BuiltInFunction {
                 Ok(Some(Value::string(input.trim_end_matches('\n'))))
             }
             BuiltInFunction::WriteLine => {
-                if let Value::String(string) = &value_arguments[0] {
+                if let Value::String(string) = &value_arguments.unwrap()[0] {
                     let mut stdout = stdout();
 
                     stdout.write_all(string.as_bytes())?;

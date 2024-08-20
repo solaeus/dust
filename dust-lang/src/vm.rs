@@ -781,7 +781,7 @@ impl Vm {
                     });
                 };
 
-                let mut value_arguments = Vec::new();
+                let mut value_arguments: Option<Vec<Value>> = None;
 
                 for argument in arguments {
                     let position = argument.position();
@@ -789,13 +789,17 @@ impl Vm {
                         .run_expression(argument, collect_garbage)?
                         .expect_value(position)?;
 
-                    value_arguments.push(value);
+                    if let Some(value_arguments) = &mut value_arguments {
+                        value_arguments.push(value);
+                    } else {
+                        value_arguments = Some(vec![value]);
+                    }
                 }
 
                 let context = Context::new();
 
                 function
-                    .call(None, Some(value_arguments), &context)
+                    .call(None, value_arguments, &context)
                     .map(Evaluation::Return)
             }
             _ => Err(RuntimeError::ExpectedValueOrConstructor {

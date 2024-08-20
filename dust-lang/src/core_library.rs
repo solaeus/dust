@@ -44,6 +44,15 @@ pub fn core_library<'a>() -> &'a Context {
                 ),
             ),
             (
+                Identifier::new("read_line"),
+                (
+                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
+                        BuiltInFunction::ReadLine,
+                    ))),
+                    (0, 0),
+                ),
+            ),
+            (
                 Identifier::new("write_line"),
                 (
                     ContextData::VariableValue(Value::Function(Function::BuiltIn(
