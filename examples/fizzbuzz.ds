@@ -1,8 +1,8 @@
-let mut count = 1;
+let mut count = 1
 
 while count <= 15 {
-	let divides_by_3 = count % 3 == 0;
-	let divides_by_5 = count % 5 == 0;
+	let divides_by_3 = count % 3 == 0
+	let divides_by_5 = count % 5 == 0
 
 	let output = if divides_by_3 && divides_by_5 {
 		"fizzbuzz"
@@ -12,7 +12,7 @@ while count <= 15 {
 		"buzz"
 	} else {
 		count.to_string()
-	};
+	}
 
 	write_line(output)
 

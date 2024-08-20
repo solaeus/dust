@@ -157,13 +157,8 @@ impl<'src> Parser<'src> {
 
                 end
             } else {
-                return Err(ParseError::ExpectedToken {
-                    expected: TokenKind::Semicolon,
-                    actual: self.current_token.to_owned(),
-                    position: self.current_position,
-                });
+                value.position().1
             };
-
             let r#let = if is_mutable {
                 LetStatement::LetMut { identifier, value }
             } else {
