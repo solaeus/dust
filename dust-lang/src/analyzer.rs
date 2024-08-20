@@ -37,7 +37,7 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 
     analyzer
         .analyze()
-        .map_err(|analysis_error| DustError::AnalysisError {
+        .map_err(|analysis_error| DustError::Analysis {
             analysis_error,
             source,
         })
@@ -535,7 +535,7 @@ mod tests {
 
         assert_eq!(
             analyze(source),
-            Err(DustError::AnalysisError {
+            Err(DustError::Analysis {
                 analysis_error: AnalysisError::TypeConflict {
                     actual_expression: Expression::literal(1.0, (45, 48)),
                     actual_type: Type::Float,
@@ -555,7 +555,7 @@ mod tests {
 
         assert_eq!(
             analyze(source),
-            Err(DustError::AnalysisError {
+            Err(DustError::Analysis {
                 analysis_error: AnalysisError::TypeConflict {
                     actual_expression: Expression::literal(1.0, (45, 48)),
                     actual_type: Type::Float,

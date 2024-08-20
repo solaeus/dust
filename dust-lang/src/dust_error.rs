@@ -8,49 +8,74 @@ use crate::{AnalysisError, LexError, ParseError, RuntimeError};
 /// corresponding source code.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DustError<'src> {
-    VmError {
+    Runtime {
         runtime_error: RuntimeError,
         source: &'src str,
     },
-    AnalysisError {
+    Analysis {
         analysis_error: AnalysisError,
         source: &'src str,
     },
-    ParseError {
+    Parse {
         parse_error: ParseError,
         source: &'src str,
     },
-    LexError {
+    Lex {
         lex_error: LexError,
         source: &'src str,
     },
 }
 
 impl<'src> DustError<'src> {
+    pub fn runtime(runtime_error: RuntimeError, source: &'src str) -> Self {
+        DustError::Runtime {
+            runtime_error,
+            source,
+        }
+    }
+
+    pub fn analysis(analysis_error: AnalysisError, source: &'src str) -> Self {
+        DustError::Analysis {
+            analysis_error,
+            source,
+        }
+    }
+
+    pub fn parse(parse_error: ParseError, source: &'src str) -> Self {
+        DustError::Parse {
+            parse_error,
+            source,
+        }
+    }
+
+    pub fn lex(lex_error: LexError, source: &'src str) -> Self {
+        DustError::Lex { lex_error, source }
+    }
+
     pub fn title(&self) -> &'static str {
         match self {
-            DustError::VmError { .. } => "Runtime error",
-            DustError::AnalysisError { .. } => "Analysis error",
-            DustError::ParseError { .. } => "Parse error",
-            DustError::LexError { .. } => "Lex error",
+            DustError::Runtime { .. } => "Runtime error",
+            DustError::Analysis { .. } => "Analysis error",
+            DustError::Parse { .. } => "Parse error",
+            DustError::Lex { .. } => "Lex error",
         }
     }
 
     pub fn position(&self) -> (usize, usize) {
         match self {
-            DustError::VmError { runtime_error, .. } => runtime_error.position(),
-            DustError::AnalysisError { analysis_error, .. } => analysis_error.position(),
-            DustError::ParseError { parse_error, .. } => parse_error.position(),
-            DustError::LexError { lex_error, .. } => lex_error.position(),
+            DustError::Runtime { runtime_error, .. } => runtime_error.position(),
+            DustError::Analysis { analysis_error, .. } => analysis_error.position(),
+            DustError::Parse { parse_error, .. } => parse_error.position(),
+            DustError::Lex { lex_error, .. } => lex_error.position(),
         }
     }
 
     pub fn source(&self) -> &'src str {
         match self {
-            DustError::VmError { source, .. } => source,
-            DustError::AnalysisError { source, .. } => source,
-            DustError::ParseError { source, .. } => source,
-            DustError::LexError { source, .. } => source,
+            DustError::Runtime { source, .. } => source,
+            DustError::Analysis { source, .. } => source,
+            DustError::Parse { source, .. } => source,
+            DustError::Lex { source, .. } => source,
         }
     }
 
@@ -71,10 +96,10 @@ impl<'src> DustError<'src> {
 impl Display for DustError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DustError::VmError { runtime_error, .. } => write!(f, "{runtime_error}"),
-            DustError::AnalysisError { analysis_error, .. } => write!(f, "{analysis_error}"),
-            DustError::ParseError { parse_error, .. } => write!(f, "{parse_error}"),
-            DustError::LexError { lex_error, .. } => write!(f, "{lex_error}"),
+            DustError::Runtime { runtime_error, .. } => write!(f, "{runtime_error}"),
+            DustError::Analysis { analysis_error, .. } => write!(f, "{analysis_error}"),
+            DustError::Parse { parse_error, .. } => write!(f, "{parse_error}"),
+            DustError::Lex { lex_error, .. } => write!(f, "{lex_error}"),
         }
     }
 }

@@ -61,14 +61,14 @@ pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>,
 
     analyzer
         .analyze()
-        .map_err(|analysis_error| DustError::AnalysisError {
+        .map_err(|analysis_error| DustError::Analysis {
             analysis_error,
             source,
         })?;
 
     let mut vm = Vm::new(abstract_syntax_tree, context);
 
-    vm.run().map_err(|runtime_error| DustError::VmError {
+    vm.run().map_err(|runtime_error| DustError::Runtime {
         runtime_error,
         source,
     })

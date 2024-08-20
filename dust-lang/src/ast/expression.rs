@@ -240,8 +240,8 @@ impl Expression {
         ))
     }
 
-    pub fn r#if(r#if: IfExpression, position: Span) -> Self {
-        Self::If(Node::new(Box::new(r#if), position))
+    pub fn r#if(if_expression: IfExpression, position: Span) -> Self {
+        Self::If(Node::new(Box::new(if_expression), position))
     }
 
     pub fn literal<T: Into<LiteralExpression>>(into_literal: T, position: Span) -> Self {
@@ -888,6 +888,39 @@ pub enum IfExpression {
     },
 }
 
+impl IfExpression {
+    pub fn r#if(condition: Expression, if_block: Node<BlockExpression>) -> Self {
+        IfExpression::If {
+            condition,
+            if_block,
+        }
+    }
+
+    pub fn if_else(
+        condition: Expression,
+        if_block: Node<BlockExpression>,
+        else_block: Node<BlockExpression>,
+    ) -> Self {
+        IfExpression::IfElse {
+            condition,
+            if_block,
+            r#else: ElseExpression::Block(else_block),
+        }
+    }
+
+    pub fn if_else_if(
+        condition: Expression,
+        if_block: Node<BlockExpression>,
+        else_if: Node<Box<IfExpression>>,
+    ) -> Self {
+        IfExpression::IfElse {
+            condition,
+            if_block,
+            r#else: ElseExpression::If(else_if),
+        }
+    }
+}
+
 impl Display for IfExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -1010,8 +1043,8 @@ impl Display for LoopExpression {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StructExpression {
-    // The unit struct is omitted because it is redundant with a plain identifier
-    // The tuple struct is omitted because it is redundant with the call expression
+    // The unit struct expression is omitted because it is redundant with identifier expressions
+    // The tuple struct expression is omitted because it is redundant with call expression
     Fields {
         name: Node<Identifier>,
         fields: Vec<(Node<Identifier>, Expression)>,

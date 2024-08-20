@@ -61,7 +61,7 @@ pub fn parse_into<'src>(
     loop {
         let node = parser
             .parse_statement()
-            .map_err(|parse_error| DustError::ParseError {
+            .map_err(|parse_error| DustError::Parse {
                 parse_error,
                 source,
             })?;
