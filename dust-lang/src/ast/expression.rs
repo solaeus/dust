@@ -407,9 +407,6 @@ impl Expression {
                         fields: types,
                     }))
                 }
-                StructExpression::Unit { name } => Some(Type::Struct(StructType::Unit {
-                    name: name.inner.clone(),
-                })),
             },
             Expression::TupleAccess(tuple_access_expression) => {
                 let TupleAccessExpression { tuple, index } = tuple_access_expression.inner.as_ref();
@@ -647,15 +644,6 @@ impl Ord for PrimitiveValueExpression {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct RawStringExpression(pub String);
-
-impl Display for RawStringExpression {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
 impl From<i64> for LiteralExpression {
     fn from(value: i64) -> Self {
         LiteralExpression::Primitive(PrimitiveValueExpression::Integer(value))
@@ -664,13 +652,13 @@ impl From<i64> for LiteralExpression {
 
 impl From<String> for LiteralExpression {
     fn from(value: String) -> Self {
-        LiteralExpression::String(RawStringExpression(value))
+        LiteralExpression::String(value)
     }
 }
 
 impl From<&str> for LiteralExpression {
     fn from(value: &str) -> Self {
-        LiteralExpression::String(RawStringExpression(value.to_string()))
+        LiteralExpression::String(value.to_string())
     }
 }
 
@@ -695,7 +683,7 @@ impl From<char> for LiteralExpression {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum LiteralExpression {
     Primitive(PrimitiveValueExpression),
-    String(RawStringExpression),
+    String(String),
 }
 
 impl Display for LiteralExpression {
@@ -1022,10 +1010,8 @@ impl Display for LoopExpression {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum StructExpression {
-    // The tuple struct expression is omitted because it is redundant with call expression
-    Unit {
-        name: Node<Identifier>,
-    },
+    // The unit struct is omitted because it is redundant with a plain identifier
+    // The tuple struct is omitted because it is redundant with the call expression
     Fields {
         name: Node<Identifier>,
         fields: Vec<(Node<Identifier>, Expression)>,
@@ -1035,7 +1021,6 @@ pub enum StructExpression {
 impl Display for StructExpression {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            StructExpression::Unit { name } => write!(f, "{}", name),
             StructExpression::Fields { name, fields } => {
                 write!(f, "{} {{", name)?;
 

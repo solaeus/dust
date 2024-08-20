@@ -17,9 +17,10 @@ use crate::{
         AbstractSyntaxTree, BlockExpression, CallExpression, ComparisonOperator, ElseExpression,
         FieldAccessExpression, IfExpression, LetStatement, ListExpression, ListIndexExpression,
         LiteralExpression, LogicOperator, LoopExpression, MapExpression, MathOperator, Node,
-        OperatorExpression, PrimitiveValueExpression, RangeExpression, RawStringExpression, Span,
-        Statement, StructDefinition, StructExpression,
+        OperatorExpression, PrimitiveValueExpression, RangeExpression, Span, Statement,
+        StructDefinition, StructExpression,
     },
+    constructor::FieldsConstructor,
     parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData, DustError,
     Expression, Identifier, ParseError, Struct, StructType, Type, Value, ValueError,
 };
@@ -281,67 +282,32 @@ impl Vm {
     ) -> Result<Evaluation, RuntimeError> {
         log::debug!("Running struct expression: {struct_expression}");
 
-        match struct_expression {
-            StructExpression::Unit { name } => {
-                let position = name.position;
-                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
-                    RuntimeError::UndefinedType {
-                        identifier: name.inner.clone(),
-                        position,
-                    }
-                })?;
+        let StructExpression::Fields { name, fields } = struct_expression;
 
-                if let Type::Struct(StructType::Unit { name }) = r#type {
-                    Ok(Evaluation::Return(Some(Value::Struct(Struct::Unit {
-                        name,
-                    }))))
-                } else {
-                    Err(RuntimeError::ExpectedType {
-                        expected: Type::Struct(StructType::Unit { name: name.inner }),
-                        actual: r#type,
-                        position,
-                    })
+        let position = name.position;
+        let constructor = self.context.get_constructor(&name.inner);
+
+        if let Some(constructor) = constructor {
+            if let Constructor::Fields(fields_constructor) = constructor {
+                let mut arguments = HashMap::with_capacity(fields.len());
+
+                for (identifier, expression) in fields {
+                    let position = expression.position();
+                    let value = self
+                        .run_expression(expression, collect_garbage)?
+                        .expect_value(position)?;
+
+                    arguments.insert(identifier.inner, value);
                 }
+
+                Ok(Evaluation::Return(Some(
+                    fields_constructor.construct(arguments),
+                )))
+            } else {
+                Err(RuntimeError::ExpectedFieldsConstructor { position })
             }
-            StructExpression::Fields {
-                name,
-                fields: expressions,
-            } => {
-                let position = name.position;
-                let r#type = self.context.get_type(&name.inner).ok_or_else(|| {
-                    RuntimeError::UndefinedType {
-                        identifier: name.inner.clone(),
-                        position,
-                    }
-                })?;
-
-                if let Type::Struct(StructType::Fields { name, .. }) = r#type {
-                    let mut values = HashMap::with_capacity(expressions.len());
-
-                    for (identifier, expression) in expressions {
-                        let expression_position = expression.position();
-                        let value = self
-                            .run_expression(expression, collect_garbage)?
-                            .expect_value(expression_position)?;
-
-                        values.insert(identifier.inner, value);
-                    }
-
-                    Ok(Evaluation::Return(Some(Value::Struct(Struct::Fields {
-                        name,
-                        fields: values,
-                    }))))
-                } else {
-                    Err(RuntimeError::ExpectedType {
-                        expected: Type::Struct(StructType::Fields {
-                            name: name.inner,
-                            fields: Default::default(),
-                        }),
-                        actual: r#type,
-                        position,
-                    })
-                }
-            }
+        } else {
+            Err(RuntimeError::ExpectedConstructor { position })
         }
     }
 
@@ -643,7 +609,7 @@ impl Vm {
 
     fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, RuntimeError> {
         let value = match literal {
-            LiteralExpression::String(RawStringExpression(string)) => Value::String(string),
+            LiteralExpression::String(string) => Value::String(string),
             LiteralExpression::Primitive(primitive_expression) => match primitive_expression {
                 PrimitiveValueExpression::Boolean(boolean) => Value::Boolean(boolean),
                 PrimitiveValueExpression::Character(character) => Value::Character(character),
@@ -978,7 +944,9 @@ pub enum RuntimeError {
         position: Span,
     },
     ExpectedConstructor {
-        actual: Type,
+        position: Span,
+    },
+    ExpectedFieldsConstructor {
         position: Span,
     },
     ExpectedIdentifier {
@@ -1052,6 +1020,7 @@ impl RuntimeError {
             Self::EnumVariantNotFound { position, .. } => *position,
             Self::ExpectedBoolean { position } => *position,
             Self::ExpectedConstructor { position, .. } => *position,
+            Self::ExpectedFieldsConstructor { position } => *position,
             Self::ExpectedFunction { position, .. } => *position,
             Self::ExpectedIdentifier { position } => *position,
             Self::ExpectedIdentifierOrString { position } => *position,
@@ -1128,11 +1097,14 @@ impl Display for RuntimeError {
             Self::ExpectedBoolean { position } => {
                 write!(f, "Expected a boolean at position: {:?}", position)
             }
-            Self::ExpectedConstructor { actual, position } => {
+            Self::ExpectedConstructor { position } => {
+                write!(f, "Expected a constructor at position: {:?}", position)
+            }
+            Self::ExpectedFieldsConstructor { position } => {
                 write!(
                     f,
-                    "Expected a constructor, but got {} at position: {:?}",
-                    actual, position
+                    "Expected a fields constructor at position: {:?}",
+                    position
                 )
             }
             Self::ExpectedFunction { actual, position } => {
@@ -1318,8 +1290,6 @@ mod tests {
 
     #[test]
     fn assign_unit_struct_variable() {
-        env_logger::builder().is_test(true).try_init().unwrap();
-
         let input = "
             struct Foo;
             let x = Foo;
@@ -1375,8 +1345,6 @@ mod tests {
 
     #[test]
     fn negate_expression() {
-        env_logger::builder().is_test(true).try_init().unwrap();
-
         let input = "let x = -42; -x";
 
         assert_eq!(run(input), Ok(Some(Value::Integer(42))));

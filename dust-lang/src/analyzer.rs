@@ -289,10 +289,6 @@ impl<'a> Analyzer<'a> {
                 }
             },
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
-                StructExpression::Unit { name } => {
-                    self.context
-                        .update_last_position(&name.inner, name.position);
-                }
                 StructExpression::Fields { name, fields } => {
                     self.context
                         .update_last_position(&name.inner, name.position);
