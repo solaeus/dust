@@ -57,7 +57,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 /// ```
 pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
-    let mut analyzer = Analyzer::new(&abstract_syntax_tree, context.clone());
+    let analyzer = Analyzer::new(&abstract_syntax_tree, context.clone());
 
     analyzer
         .analyze()
@@ -159,14 +159,14 @@ impl Vm {
                 };
                 let constructor = struct_type.constructor();
 
-                self.context.set_constructor(name, constructor);
+                self.context.set_constructor(name, constructor)?;
 
                 Ok(None)
             }
         };
 
         if collect_garbage {
-            // self.context.collect_garbage(position);
+            self.context.collect_garbage(position.1)?;
         }
 
         result.map_err(|error| RuntimeError::Statement {
@@ -187,7 +187,7 @@ impl Vm {
                     .run_expression(value, collect_garbage)?
                     .expect_value(value_position)?;
 
-                self.context.set_variable_value(identifier.inner, value);
+                self.context.set_variable_value(identifier.inner, value)?;
 
                 Ok(())
             }
@@ -199,7 +199,7 @@ impl Vm {
                     .into_mutable();
 
                 self.context
-                    .set_variable_value(identifier.inner, mutable_value);
+                    .set_variable_value(identifier.inner, mutable_value)?;
 
                 Ok(())
             }
@@ -872,13 +872,7 @@ impl Vm {
                 let mut previous_value = None;
 
                 for statement in statements {
-                    let position = statement.position();
-
                     previous_value = self.run_statement(statement, collect_garbage)?;
-
-                    if collect_garbage {
-                        // self.context.collect_garbage(position);
-                    }
                 }
 
                 Ok(Evaluation::Return(previous_value))
@@ -1468,6 +1462,8 @@ mod tests {
 
     #[test]
     fn while_loop() {
+        env_logger::builder().is_test(true).try_init().ok();
+
         let input = "let mut x = 0; while x < 5 { x += 1 } x";
 
         assert_eq!(run(input), Ok(Some(Value::mutable_from(5))));

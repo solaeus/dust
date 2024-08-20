@@ -93,7 +93,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                             identifier.inner.clone(),
                             r#type,
                             identifier.position,
-                        );
+                        )?;
                     } else {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: value.clone(),
@@ -166,7 +166,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     field_access_expression.inner.as_ref();
 
                 self.context
-                    .update_last_position(&field.inner, field.position);
+                    .update_last_position(&field.inner, field.position)?;
                 self.analyze_expression(container)?;
             }
             Expression::Grouped(expression) => {
@@ -174,7 +174,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
             }
             Expression::Identifier(identifier) => {
                 self.context
-                    .update_last_position(&identifier.inner, identifier.position);
+                    .update_last_position(&identifier.inner, identifier.position)?;
             }
             Expression::If(if_expression) => self.analyze_if(&if_expression.inner)?,
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
@@ -291,7 +291,7 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Fields { name, fields } => {
                     self.context
-                        .update_last_position(&name.inner, name.position);
+                        .update_last_position(&name.inner, name.position)?;
 
                     for (_, expression) in fields {
                         self.analyze_expression(expression)?;
@@ -438,8 +438,8 @@ impl From<ContextError> for AnalysisError {
 impl AnalysisError {
     pub fn position(&self) -> Option<Span> {
         let position = match self {
-            AnalysisError::AstError(ast_error) => return None,
-            AnalysisError::ContextError(context_error) => return None,
+            AnalysisError::AstError(ast_error) => return ast_error.position(),
+            AnalysisError::ContextError(_) => return None,
 
             AnalysisError::ExpectedBoolean { actual } => actual.position(),
             AnalysisError::ExpectedIdentifier { actual } => actual.position(),

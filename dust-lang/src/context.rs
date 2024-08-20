@@ -204,13 +204,13 @@ impl Context {
     }
 
     /// Collects garbage up to the given position, removing all variables with lesser positions.
-    pub fn collect_garbage(&self, position: Span) -> Result<(), ContextError> {
-        log::trace!("Collecting garbage up to {position:?}");
+    pub fn collect_garbage(&self, position_end: usize) -> Result<(), ContextError> {
+        log::trace!("Collecting garbage up to {position_end}");
 
         let mut variables = self.associations.write()?;
 
         variables.retain(|identifier, (_, last_used)| {
-            let should_drop = position.0 > last_used.0 && position.1 > last_used.1;
+            let should_drop = position_end >= last_used.1;
 
             if should_drop {
                 log::trace!("Removing {identifier}");
@@ -327,8 +327,6 @@ mod tests {
 
     #[test]
     fn context_removes_variables() {
-        env_logger::builder().is_test(true).try_init().unwrap();
-
         let source = "
             let x = 5;
             let y = 10;
@@ -337,7 +335,10 @@ mod tests {
         ";
         let context = Context::new();
 
-        run_with_context(source, context.clone()).unwrap();
+        assert_eq!(
+            run_with_context(source, context.clone()),
+            Ok(Some(Value::Integer(15)))
+        );
 
         assert_eq!(context.association_count().unwrap(), 0);
     }

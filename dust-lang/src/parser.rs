@@ -636,7 +636,7 @@ impl<'src> Parser<'src> {
 
                 let condition = self.parse_expression(0)?;
                 let block = self.parse_block()?;
-                let position = (start_position.0, self.current_position.1);
+                let position = (start_position.0, block.position.1);
 
                 Ok(Expression::while_loop(condition, block, position))
             }
@@ -1228,7 +1228,7 @@ mod tests {
                                 )]),
                                 (28, 38),
                             ),
-                            (15, 39),
+                            (15, 38),
                         ),
                         (15, 39)
                     )),
