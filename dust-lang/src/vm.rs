@@ -20,6 +20,7 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression,
     },
+    constructor::ConstructError,
     core_library, parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData,
     ContextError, DustError, Expression, Function, FunctionCallError, Identifier, ParseError,
     StructType, Type, Value, ValueData, ValueError,
@@ -313,17 +314,22 @@ impl Vm {
         }
 
         if let Some(ContextData::Constructor(constructor)) = get_data {
-            if let Constructor::Unit(unit_constructor) = constructor {
-                return Ok(Evaluation::Return(Some(unit_constructor.construct())));
+            let construct_result = constructor.construct_unit();
+
+            match construct_result {
+                Ok(value) => Ok(Evaluation::Return(Some(value))),
+                Err(ConstructError::ExpectedUnit) => Ok(Evaluation::Constructor(constructor)),
+                Err(error) => Err(RuntimeError::ConstructError {
+                    error,
+                    position: identifier.position,
+                }),
             }
-
-            return Ok(Evaluation::Constructor(constructor));
+        } else {
+            Err(RuntimeError::UnassociatedIdentifier {
+                identifier: identifier.inner,
+                position: identifier.position,
+            })
         }
-
-        Err(RuntimeError::UnassociatedIdentifier {
-            identifier: identifier.inner,
-            position: identifier.position,
-        })
     }
 
     fn run_struct(
@@ -340,24 +346,22 @@ impl Vm {
             .map_err(|error| RuntimeError::ContextError { error, position })?;
 
         if let Some(constructor) = constructor {
-            if let Constructor::Fields(fields_constructor) = constructor {
-                let mut arguments = HashMap::with_capacity(fields.len());
+            let mut arguments = HashMap::with_capacity(fields.len());
 
-                for (identifier, expression) in fields {
-                    let position = expression.position();
-                    let value = self
-                        .run_expression(expression, collect_garbage)?
-                        .expect_value(position)?;
+            for (identifier, expression) in fields {
+                let position = expression.position();
+                let value = self
+                    .run_expression(expression, collect_garbage)?
+                    .expect_value(position)?;
 
-                    arguments.insert(identifier.inner, value);
-                }
-
-                Ok(Evaluation::Return(Some(
-                    fields_constructor.construct(arguments),
-                )))
-            } else {
-                Err(RuntimeError::ExpectedFieldsConstructor { position })
+                arguments.insert(identifier.inner, value);
             }
+
+            let value = constructor
+                .construct_fields(arguments.clone())
+                .map_err(|error| RuntimeError::ConstructError { error, position })?;
+
+            Ok(Evaluation::Return(Some(value)))
         } else {
             Err(RuntimeError::ExpectedConstructor { position })
         }
@@ -803,32 +807,28 @@ impl Vm {
         let run_invoker = self.run_expression(invoker, collect_garbage)?;
 
         match run_invoker {
-            Evaluation::Constructor(constructor) => match constructor {
-                Constructor::Unit(unit_constructor) => {
-                    Ok(Evaluation::Return(Some(unit_constructor.construct())))
-                }
-                Constructor::Tuple(tuple_constructor) => {
-                    let mut fields = Vec::new();
+            Evaluation::Constructor(constructor) => {
+                let mut fields = Vec::new();
 
-                    for argument in arguments {
-                        let position = argument.position();
+                for argument in arguments {
+                    let position = argument.position();
 
-                        if let Some(value) = self.run_expression(argument, collect_garbage)?.value()
-                        {
-                            fields.push(value);
-                        } else {
-                            return Err(RuntimeError::ExpectedValue { position });
-                        }
+                    if let Some(value) = self.run_expression(argument, collect_garbage)?.value() {
+                        fields.push(value);
+                    } else {
+                        return Err(RuntimeError::ExpectedValue { position });
                     }
-
-                    let tuple = tuple_constructor.construct(fields);
-
-                    Ok(Evaluation::Return(Some(tuple)))
                 }
-                Constructor::Fields(_) => {
-                    todo!("Return an error")
-                }
-            },
+
+                let value = constructor.construct_tuple(fields).map_err(|error| {
+                    RuntimeError::ConstructError {
+                        error,
+                        position: invoker_position,
+                    }
+                })?;
+
+                Ok(Evaluation::Return(Some(value)))
+            }
             Evaluation::Return(Some(value)) => {
                 let function = match value {
                     Value::Raw(ValueData::Function(function)) => function,
@@ -1091,6 +1091,10 @@ impl Evaluation {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
+    ConstructError {
+        error: ConstructError,
+        position: Span,
+    },
     ContextError {
         error: ContextError,
         position: Span,
@@ -1113,9 +1117,6 @@ pub enum RuntimeError {
         left_position: Span,
         right_position: Span,
     },
-
-    // Anaylsis Failures
-    // These should be prevented by running the analyzer before the VM
     BuiltInFunctionError {
         error: BuiltInFunctionError,
         position: Span,
@@ -1192,6 +1193,7 @@ pub enum RuntimeError {
 impl RuntimeError {
     pub fn position(&self) -> Span {
         match self {
+            Self::ConstructError { position, .. } => *position,
             Self::ContextError { position, .. } => *position,
             Self::BuiltInFunctionError { position, .. } => *position,
             Self::FunctionCall { position, .. } => *position,
@@ -1242,6 +1244,9 @@ impl From<ParseError> for RuntimeError {
 impl Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::ConstructError { error, position } => {
+                write!(f, "Constructor error at {:?}: {}", position, error)
+            }
             Self::ContextError { error, position } => {
                 write!(f, "Context error at {:?}: {}", position, error)
             }

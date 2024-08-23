@@ -82,9 +82,11 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_statement(&mut self, statement: &Statement) {
         match statement {
-            Statement::Expression(expression) => self.analyze_expression(expression),
+            Statement::Expression(expression) => {
+                self.analyze_expression(expression, statement.position())
+            }
             Statement::ExpressionNullified(expression_node) => {
-                self.analyze_expression(&expression_node.inner);
+                self.analyze_expression(&expression_node.inner, statement.position());
             }
             Statement::Let(let_statement) => match &let_statement.inner {
                 LetStatement::Let { identifier, value }
@@ -118,7 +120,7 @@ impl<'a> Analyzer<'a> {
                             });
                     }
 
-                    self.analyze_expression(value);
+                    self.analyze_expression(value, statement.position());
                 }
                 LetStatement::LetType { .. } => todo!(),
                 LetStatement::LetMutType { .. } => todo!(),
@@ -130,7 +132,7 @@ impl<'a> Analyzer<'a> {
                         StructType::Unit {
                             name: name.inner.clone(),
                         },
-                        name.position,
+                        statement.position(),
                     ),
                     StructDefinition::Tuple { name, items } => {
                         let fields = items.iter().map(|item| item.inner.clone()).collect();
@@ -141,7 +143,7 @@ impl<'a> Analyzer<'a> {
                                 name: name.inner.clone(),
                                 fields,
                             },
-                            name.position,
+                            statement.position(),
                         )
                     }
                     StructDefinition::Fields { name, fields } => {
@@ -158,7 +160,7 @@ impl<'a> Analyzer<'a> {
                                 name: name.inner.clone(),
                                 fields,
                             },
-                            name.position,
+                            statement.position(),
                         )
                     }
                 };
@@ -173,69 +175,96 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_expression(&mut self, expression: &Expression) {
+    fn analyze_expression(&mut self, expression: &Expression, statement_position: Span) {
         match expression {
             Expression::Block(block_expression) => self.analyze_block(&block_expression.inner),
             Expression::Break(break_node) => {
                 if let Some(expression) = &break_node.inner {
-                    self.analyze_expression(expression);
+                    self.analyze_expression(expression, statement_position);
                 }
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, arguments } = call_expression.inner.as_ref();
 
-                self.analyze_expression(invoker);
+                self.analyze_expression(invoker, statement_position);
 
                 for argument in arguments {
-                    self.analyze_expression(argument);
+                    self.analyze_expression(argument, statement_position);
                 }
             }
             Expression::FieldAccess(field_access_expression) => {
-                let FieldAccessExpression { container, .. } =
+                let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
-                self.analyze_expression(container);
+                let container_type = match container.return_type(&self.context) {
+                    Ok(Some(r#type)) => r#type,
+                    Ok(None) => {
+                        self.errors
+                            .push(AnalysisError::ExpectedValueFromExpression {
+                                expression: container.clone(),
+                            });
+
+                        return;
+                    }
+                    Err(ast_error) => {
+                        self.errors.push(AnalysisError::AstError(ast_error));
+
+                        return;
+                    }
+                };
+
+                if !container_type.has_field(&field.inner) {
+                    self.errors.push(AnalysisError::UndefinedFieldIdentifier {
+                        identifier: field.clone(),
+                        container: container.clone(),
+                    });
+                }
+
+                self.analyze_expression(container, statement_position);
             }
             Expression::Grouped(expression) => {
-                self.analyze_expression(expression.inner.as_ref());
+                self.analyze_expression(expression.inner.as_ref(), statement_position);
             }
             Expression::Identifier(identifier) => {
-                let found = self
+                let find_identifier = self
                     .context
-                    .update_last_position(&identifier.inner, identifier.position)
-                    .map_err(|error| {
-                        self.errors.push(AnalysisError::ContextError {
-                            error,
-                            position: identifier.position,
-                        })
-                    });
+                    .update_last_position(&identifier.inner, statement_position);
 
-                if let Ok(false) = found {
+                if let Ok(false) = find_identifier {
                     self.errors.push(AnalysisError::UndefinedVariable {
                         identifier: identifier.clone(),
                     });
                 }
+
+                if let Err(context_error) = find_identifier {
+                    self.errors.push(AnalysisError::ContextError {
+                        error: context_error,
+                        position: identifier.position,
+                    });
+                }
             }
-            Expression::If(if_expression) => self.analyze_if(&if_expression.inner),
+            Expression::If(if_expression) => {
+                self.analyze_if(&if_expression.inner, statement_position)
+            }
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
                 ListExpression::AutoFill {
                     repeat_operand,
                     length_operand,
                 } => {
-                    self.analyze_expression(repeat_operand);
-                    self.analyze_expression(length_operand);
+                    self.analyze_expression(repeat_operand, statement_position);
+                    self.analyze_expression(length_operand, statement_position);
                 }
                 ListExpression::Ordered(expressions) => {
                     for expression in expressions {
-                        self.analyze_expression(expression);
+                        self.analyze_expression(expression, statement_position);
                     }
                 }
             },
             Expression::ListIndex(list_index_expression) => {
                 let ListIndexExpression { list, index } = list_index_expression.inner.as_ref();
 
-                self.analyze_expression(list);
-                self.analyze_expression(index);
+                self.analyze_expression(list, statement_position);
+                self.analyze_expression(index, statement_position);
 
                 let list_type = match list.return_type(&self.context) {
                     Ok(Some(r#type)) => r#type,
@@ -253,7 +282,7 @@ impl<'a> Analyzer<'a> {
                         return;
                     }
                 };
-                let index_type = match list.return_type(&self.context) {
+                let index_type = match index.return_type(&self.context) {
                     Ok(Some(r#type)) => r#type,
                     Ok(None) => {
                         self.errors
@@ -301,6 +330,22 @@ impl<'a> Analyzer<'a> {
                                 index_value: integer,
                             });
                         }
+                    } else if let Type::Integer
+                    | Type::Range {
+                        r#type: RangeableType::Integer,
+                    } = index_type
+                    {
+                    } else {
+                        self.errors.push(AnalysisError::ExpectedTypeMultiple {
+                            expected: vec![
+                                Type::Integer,
+                                Type::Range {
+                                    r#type: RangeableType::Integer,
+                                },
+                            ],
+                            actual: index_type.clone(),
+                            actual_expression: index.clone(),
+                        });
                     }
                 }
 
@@ -329,13 +374,13 @@ impl<'a> Analyzer<'a> {
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
                 LoopExpression::Infinite { block } => self.analyze_block(&block.inner),
                 LoopExpression::While { condition, block } => {
-                    self.analyze_expression(condition);
+                    self.analyze_expression(condition, statement_position);
                     self.analyze_block(&block.inner);
                 }
                 LoopExpression::For {
                     iterator, block, ..
                 } => {
-                    self.analyze_expression(iterator);
+                    self.analyze_expression(iterator, statement_position);
                     self.analyze_block(&block.inner);
                 }
             },
@@ -343,23 +388,23 @@ impl<'a> Analyzer<'a> {
                 let MapExpression { pairs } = map_expression.inner.as_ref();
 
                 for (_, expression) in pairs {
-                    self.analyze_expression(expression);
+                    self.analyze_expression(expression, statement_position);
                 }
             }
             Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
                 OperatorExpression::Assignment { assignee, value } => {
-                    self.analyze_expression(assignee);
-                    self.analyze_expression(value);
+                    self.analyze_expression(assignee, statement_position);
+                    self.analyze_expression(value, statement_position);
                 }
                 OperatorExpression::Comparison { left, right, .. } => {
-                    self.analyze_expression(left);
-                    self.analyze_expression(right);
+                    self.analyze_expression(left, statement_position);
+                    self.analyze_expression(right, statement_position);
                 }
                 OperatorExpression::CompoundAssignment {
                     assignee, modifier, ..
                 } => {
-                    self.analyze_expression(assignee);
-                    self.analyze_expression(modifier);
+                    self.analyze_expression(assignee, statement_position);
+                    self.analyze_expression(modifier, statement_position);
 
                     let (expected_type, actual_type) = match (
                         assignee.return_type(&self.context),
@@ -413,14 +458,14 @@ impl<'a> Analyzer<'a> {
                 }
                 OperatorExpression::ErrorPropagation(_) => todo!(),
                 OperatorExpression::Negation(expression) => {
-                    self.analyze_expression(expression);
+                    self.analyze_expression(expression, statement_position);
                 }
                 OperatorExpression::Not(expression) => {
-                    self.analyze_expression(expression);
+                    self.analyze_expression(expression, statement_position);
                 }
                 OperatorExpression::Math { left, right, .. } => {
-                    self.analyze_expression(left);
-                    self.analyze_expression(right);
+                    self.analyze_expression(left, statement_position);
+                    self.analyze_expression(right, statement_position);
 
                     let (left_type, right_type) = match (
                         left.return_type(&self.context),
@@ -506,8 +551,8 @@ impl<'a> Analyzer<'a> {
                     }
                 }
                 OperatorExpression::Logic { left, right, .. } => {
-                    self.analyze_expression(left);
-                    self.analyze_expression(right);
+                    self.analyze_expression(left, statement_position);
+                    self.analyze_expression(right, statement_position);
 
                     let (left_type, right_type) = match (
                         left.return_type(&self.context),
@@ -560,19 +605,19 @@ impl<'a> Analyzer<'a> {
             },
             Expression::Range(range_expression) => match range_expression.inner.as_ref() {
                 RangeExpression::Exclusive { start, end } => {
-                    self.analyze_expression(start);
-                    self.analyze_expression(end);
+                    self.analyze_expression(start, statement_position);
+                    self.analyze_expression(end, statement_position);
                 }
                 RangeExpression::Inclusive { start, end } => {
-                    self.analyze_expression(start);
-                    self.analyze_expression(end);
+                    self.analyze_expression(start, statement_position);
+                    self.analyze_expression(end, statement_position);
                 }
             },
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Fields { name, fields } => {
                     let update_position = self
                         .context
-                        .update_last_position(&name.inner, name.position);
+                        .update_last_position(&name.inner, statement_position);
 
                     if let Err(error) = update_position {
                         self.errors.push(AnalysisError::ContextError {
@@ -584,14 +629,14 @@ impl<'a> Analyzer<'a> {
                     }
 
                     for (_, expression) in fields {
-                        self.analyze_expression(expression);
+                        self.analyze_expression(expression, statement_position);
                     }
                 }
             },
             Expression::TupleAccess(tuple_access) => {
                 let TupleAccessExpression { tuple, .. } = tuple_access.inner.as_ref();
 
-                self.analyze_expression(tuple);
+                self.analyze_expression(tuple, statement_position);
             }
         }
     }
@@ -611,13 +656,13 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    fn analyze_if(&mut self, if_expression: &IfExpression) {
+    fn analyze_if(&mut self, if_expression: &IfExpression, statement_position: Span) {
         match if_expression {
             IfExpression::If {
                 condition,
                 if_block,
             } => {
-                self.analyze_expression(condition);
+                self.analyze_expression(condition, statement_position);
                 self.analyze_block(&if_block.inner);
             }
             IfExpression::IfElse {
@@ -625,7 +670,7 @@ impl<'a> Analyzer<'a> {
                 if_block,
                 r#else,
             } => {
-                self.analyze_expression(condition);
+                self.analyze_expression(condition, statement_position);
                 self.analyze_block(&if_block.inner);
 
                 match r#else {
@@ -633,7 +678,7 @@ impl<'a> Analyzer<'a> {
                         self.analyze_block(&block_expression.inner);
                     }
                     ElseExpression::If(if_expression) => {
-                        self.analyze_if(&if_expression.inner);
+                        self.analyze_if(&if_expression.inner, statement_position);
                     }
                 }
             }
@@ -691,9 +736,9 @@ pub enum AnalysisError {
         actual_type: Type,
         expected: Type,
     },
-    UndefinedField {
-        identifier: Expression,
-        expression: Expression,
+    UndefinedFieldIdentifier {
+        identifier: Node<Identifier>,
+        container: Expression,
     },
     UndefinedType {
         identifier: Node<Identifier>,
@@ -736,7 +781,7 @@ impl AnalysisError {
             AnalysisError::TypeConflict {
                 actual_expression, ..
             } => actual_expression.position(),
-            AnalysisError::UndefinedField { identifier, .. } => identifier.position(),
+            AnalysisError::UndefinedFieldIdentifier { identifier, .. } => identifier.position,
             AnalysisError::UndefinedType { identifier } => identifier.position,
             AnalysisError::UndefinedVariable { identifier } => identifier.position,
             AnalysisError::UnexpectedIdentifier { identifier } => identifier.position,
@@ -826,11 +871,15 @@ impl Display for AnalysisError {
                     expected, actual_statement, actual_type
                 )
             }
-            AnalysisError::UndefinedField {
+            AnalysisError::UndefinedFieldIdentifier {
                 identifier,
-                expression: map,
+                container,
             } => {
-                write!(f, "Undefined field {} in map {}", identifier, map)
+                write!(
+                    f,
+                    "Undefined field {} in container {}",
+                    identifier, container
+                )
             }
             AnalysisError::UndefinedType { identifier } => {
                 write!(f, "Undefined type {}", identifier)
@@ -850,6 +899,7 @@ impl Display for AnalysisError {
 
 #[cfg(test)]
 mod tests {
+    use crate::RangeableType;
 
     use super::*;
 
@@ -963,43 +1013,21 @@ mod tests {
     }
 
     #[test]
-    fn nonexistant_field_identifier() {
-        let source = "{ x = 1 }.y";
+    fn nonexistant_map_field_identifier() {
+        let source = "map { x = 1 }.y";
 
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_errors: vec![AnalysisError::UndefinedField {
-                    identifier: Expression::identifier(Identifier::new("y"), (11, 12)),
-                    expression: Expression::map(
+                analysis_errors: vec![AnalysisError::UndefinedFieldIdentifier {
+                    container: Expression::map(
                         [(
-                            Node::new(Identifier::new("x"), (2, 3)),
-                            Expression::literal(1, (6, 7))
+                            Node::new(Identifier::new("x"), (6, 7)),
+                            Expression::literal(1, (10, 11))
                         )],
-                        (0, 11)
+                        (0, 13)
                     ),
-                }],
-                source,
-            })
-        );
-    }
-
-    #[test]
-    fn nonexistant_field_string() {
-        let source = "{ x = 1 }.'y'";
-
-        assert_eq!(
-            analyze(source),
-            Err(DustError::Analysis {
-                analysis_errors: vec![AnalysisError::UndefinedField {
-                    identifier: Expression::literal("y", (11, 14)),
-                    expression: Expression::map(
-                        [(
-                            Node::new(Identifier::new("x"), (2, 3)),
-                            Expression::literal(1, (6, 7))
-                        )],
-                        (0, 11)
-                    ),
+                    identifier: Node::new(Identifier::new("y"), (14, 15)),
                 }],
                 source,
             })
@@ -1030,7 +1058,7 @@ mod tests {
 
     #[test]
     fn malformed_field_access() {
-        let source = "{ x = 1 }.0";
+        let source = "struct Foo { x: int } Foo { x: 1 }.0";
 
         assert_eq!(
             analyze(source),
@@ -1079,14 +1107,14 @@ mod tests {
 
     #[test]
     fn nonexistant_field() {
-        let source = "'hello'.foo";
+        let source = "\"hello\".foo";
 
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_errors: vec![AnalysisError::UndefinedField {
-                    expression: Expression::literal("hello", (0, 7)),
-                    identifier: Expression::identifier(Identifier::new("foo"), (8, 11)),
+                analysis_errors: vec![AnalysisError::UndefinedFieldIdentifier {
+                    container: Expression::literal("hello", (0, 7)),
+                    identifier: Node::new(Identifier::new("foo"), (8, 11)),
                 }],
                 source,
             })

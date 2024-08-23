@@ -5,60 +5,103 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Struct, Value};
+use crate::{Identifier, Struct, StructType, TypeConflict, Value};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Constructor {
-    Unit(UnitConstructor),
-    Tuple(TupleConstructor),
-    Fields(FieldsConstructor),
+pub struct Constructor {
+    pub struct_type: StructType,
 }
 
-impl Display for Constructor {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Constructor::Unit(unit) => write!(f, "{}", unit.name),
-            Constructor::Tuple(tuple) => write!(f, "{}", tuple.name),
-            Constructor::Fields(fields) => write!(f, "{}", fields.name),
+impl Constructor {
+    pub fn construct_unit(&self) -> Result<Value, ConstructError> {
+        if let StructType::Unit { name } = &self.struct_type {
+            Ok(Value::r#struct(Struct::Unit { name: name.clone() }))
+        } else {
+            Err(ConstructError::ExpectedUnit)
+        }
+    }
+
+    pub fn construct_tuple(&self, fields: Vec<Value>) -> Result<Value, ConstructError> {
+        if let StructType::Tuple {
+            name: expected_name,
+            fields: expected_fields,
+        } = &self.struct_type
+        {
+            if fields.len() != expected_fields.len() {
+                return Err(ConstructError::FieldCountMismatch);
+            }
+
+            for (i, value) in fields.iter().enumerate() {
+                let expected_type = expected_fields.get(i).unwrap();
+                let actual_type = value.r#type();
+
+                expected_type.check(&actual_type)?;
+            }
+
+            Ok(Value::r#struct(Struct::Tuple {
+                name: expected_name.clone(),
+                fields,
+            }))
+        } else {
+            Err(ConstructError::ExpectedTuple)
+        }
+    }
+
+    pub fn construct_fields(
+        &self,
+        fields: HashMap<Identifier, Value>,
+    ) -> Result<Value, ConstructError> {
+        if let StructType::Fields {
+            name: expected_name,
+            fields: expected_fields,
+        } = &self.struct_type
+        {
+            if fields.len() != expected_fields.len() {
+                return Err(ConstructError::FieldCountMismatch);
+            }
+
+            for (field_name, field_value) in fields.iter() {
+                let expected_type = expected_fields.get(field_name).unwrap();
+                let actual_type = field_value.r#type();
+
+                expected_type.check(&actual_type)?;
+            }
+
+            Ok(Value::r#struct(Struct::Fields {
+                name: expected_name.clone(),
+                fields,
+            }))
+        } else {
+            Err(ConstructError::ExpectedFields)
         }
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct UnitConstructor {
-    pub name: Identifier,
+pub enum ConstructError {
+    FieldCountMismatch,
+    ExpectedUnit,
+    ExpectedTuple,
+    ExpectedFields,
+    TypeConflict(TypeConflict),
 }
 
-impl UnitConstructor {
-    pub fn construct(self) -> Value {
-        Value::r#struct(Struct::Unit { name: self.name })
+impl From<TypeConflict> for ConstructError {
+    fn from(conflict: TypeConflict) -> Self {
+        Self::TypeConflict(conflict)
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TupleConstructor {
-    pub name: Identifier,
-}
-
-impl TupleConstructor {
-    pub fn construct(self, fields: Vec<Value>) -> Value {
-        Value::r#struct(Struct::Tuple {
-            name: self.name,
-            fields,
-        })
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct FieldsConstructor {
-    pub name: Identifier,
-}
-
-impl FieldsConstructor {
-    pub fn construct(self, fields: HashMap<Identifier, Value>) -> Value {
-        Value::r#struct(Struct::Fields {
-            name: self.name,
-            fields,
-        })
+impl Display for ConstructError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ConstructError::FieldCountMismatch => write!(f, "Field count mismatch"),
+            ConstructError::ExpectedUnit => write!(f, "Expected unit struct"),
+            ConstructError::ExpectedTuple => write!(f, "Expected tuple struct"),
+            ConstructError::ExpectedFields => write!(f, "Expected fields struct"),
+            ConstructError::TypeConflict(TypeConflict { expected, actual }) => {
+                write!(f, "Type conflict: expected {}, got {}", expected, actual)
+            }
+        }
     }
 }

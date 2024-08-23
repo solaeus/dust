@@ -172,7 +172,7 @@ impl Context {
         identifier: Identifier,
         constructor: Constructor,
     ) -> Result<(), ContextError> {
-        log::trace!("Setting {identifier} to constructor {constructor}");
+        log::trace!("Setting {identifier} to constructor {constructor:?}");
 
         let mut associations = self.associations.write()?;
 

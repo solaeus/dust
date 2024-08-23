@@ -17,10 +17,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    constructor::{FieldsConstructor, TupleConstructor, UnitConstructor},
-    Constructor, Identifier,
-};
+use crate::{constructor::Constructor, Identifier};
 
 /// Description of a kind of value.
 ///
@@ -234,6 +231,28 @@ impl Type {
             expected: self.clone(),
         })
     }
+
+    pub fn has_field(&self, field: &Identifier) -> bool {
+        match field.as_str() {
+            "to_string" => true,
+            "length" => {
+                matches!(
+                    self,
+                    Type::List { .. }
+                        | Type::ListOf { .. }
+                        | Type::ListEmpty
+                        | Type::Map { .. }
+                        | Type::String { .. }
+                )
+            }
+            "is_even" | "is_odd" => matches!(self, Type::Integer | Type::Float),
+            _ => match self {
+                Type::Struct(StructType::Fields { fields, .. }) => fields.contains_key(field),
+                Type::Map { pairs } => pairs.contains_key(field),
+                _ => false,
+            },
+        }
+    }
 }
 
 impl Display for Type {
@@ -445,14 +464,8 @@ impl StructType {
     }
 
     pub fn constructor(&self) -> Constructor {
-        match self {
-            StructType::Unit { name } => Constructor::Unit(UnitConstructor { name: name.clone() }),
-            StructType::Tuple { name, .. } => {
-                Constructor::Tuple(TupleConstructor { name: name.clone() })
-            }
-            StructType::Fields { name, .. } => {
-                Constructor::Fields(FieldsConstructor { name: name.clone() })
-            }
+        Constructor {
+            struct_type: self.clone(),
         }
     }
 }

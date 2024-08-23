@@ -204,14 +204,10 @@ impl<'src> Parser<'src> {
                         self.next_token()?;
 
                         if let Token::Semicolon = self.current_token {
-                            break;
-                        } else {
-                            return Err(ParseError::ExpectedToken {
-                                expected: TokenKind::Semicolon,
-                                actual: self.current_token.to_owned(),
-                                position: self.current_position,
-                            });
+                            self.next_token()?;
                         }
+
+                        break;
                     }
 
                     let type_node = self.parse_type()?;
@@ -226,8 +222,6 @@ impl<'src> Parser<'src> {
                 }
 
                 let position = (start_position.0, self.current_position.1);
-
-                self.next_token()?;
 
                 return if types.is_empty() {
                     Ok(Statement::struct_definition(
@@ -249,6 +243,8 @@ impl<'src> Parser<'src> {
 
                 loop {
                     if let Token::RightCurlyBrace = self.current_token {
+                        self.next_token()?;
+
                         if let Token::Semicolon = self.current_token {
                             self.next_token()?;
                         }
@@ -280,8 +276,6 @@ impl<'src> Parser<'src> {
                 }
 
                 let position = (start_position.0, self.current_position.1);
-
-                self.next_token()?;
 
                 return if fields.is_empty() {
                     Ok(Statement::struct_definition(
