@@ -3,10 +3,7 @@
 //! This module provides two lexing options:
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
-use std::{
-    error::Error,
-    fmt::{self, Display, Formatter},
-};
+use std::fmt::{self, Display, Formatter};
 
 use crate::{ast::Span, Token};
 
@@ -131,7 +128,7 @@ impl<'src> Lexer<'src> {
                     }
                 }
                 'a'..='z' | 'A'..='Z' => self.lex_alphanumeric()?,
-                '"' => self.lex_string('"')?,
+                '"' => self.lex_string()?,
                 '\'' => {
                     self.position += 1;
 
@@ -465,13 +462,13 @@ impl<'src> Lexer<'src> {
         Ok((token, (start_pos, self.position)))
     }
 
-    fn lex_string(&mut self, delimiter: char) -> Result<(Token<'src>, Span), LexError> {
+    fn lex_string(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
 
         self.next_char();
 
         while let Some(c) = self.peek_char() {
-            if c == delimiter {
+            if c == '"' {
                 self.next_char();
                 break;
             } else {

@@ -681,7 +681,7 @@ impl Display for PrimitiveValueExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             PrimitiveValueExpression::Boolean(boolean) => write!(f, "{boolean}"),
-            PrimitiveValueExpression::Character(character) => write!(f, "{character}"),
+            PrimitiveValueExpression::Character(character) => write!(f, "'{character}'"),
             PrimitiveValueExpression::Float(float) => write!(f, "{float}"),
             PrimitiveValueExpression::Integer(integer) => write!(f, "{integer}"),
         }
@@ -772,7 +772,7 @@ impl Display for LiteralExpression {
             LiteralExpression::Primitive(primitive) => {
                 write!(f, "{primitive}")
             }
-            LiteralExpression::String(string) => write!(f, "{string}"),
+            LiteralExpression::String(string) => write!(f, "\"{string}\""),
         }
     }
 }
@@ -1065,27 +1065,27 @@ impl Display for BlockExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             BlockExpression::Async(statements) => {
-                writeln!(f, "async {{ ")?;
+                write!(f, "async {{ ")?;
 
                 for (i, statement) in statements.iter().enumerate() {
                     if i > 0 {
-                        writeln!(f, " ")?;
+                        write!(f, " ")?;
                     }
 
-                    writeln!(f, "{}", statement)?;
+                    write!(f, "{}", statement)?;
                 }
 
                 write!(f, " }}")
             }
             BlockExpression::Sync(statements) => {
-                writeln!(f, "{{ ")?;
+                write!(f, "{{ ")?;
 
                 for (i, statement) in statements.iter().enumerate() {
                     if i > 0 {
-                        writeln!(f, " ")?;
+                        write!(f, " ")?;
                     }
 
-                    writeln!(f, "{}", statement)?;
+                    write!(f, "{}", statement)?;
                 }
 
                 write!(f, " }}")

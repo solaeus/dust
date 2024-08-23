@@ -4,7 +4,6 @@
 //! - `parse` convenience function
 //! - `Parser` struct, which parses the input a statement at a time
 use std::{
-    error::Error,
     fmt::{self, Display, Formatter},
     num::{ParseFloatError, ParseIntError},
     str::ParseBoolError,
@@ -435,6 +434,13 @@ impl<'src> Parser<'src> {
                 let position = (start_position.0, end);
 
                 Ok(Expression::r#break(expression_option, position))
+            }
+            Token::Character(character) => {
+                self.next_token()?;
+
+                let expression = Expression::literal(character, start_position);
+
+                Ok(expression)
             }
             Token::Float(text) => {
                 self.next_token()?;
@@ -1158,10 +1164,21 @@ impl Display for ParseError {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{Identifier, Type};
 
     use super::*;
+
+    #[test]
+    fn character_literal() {
+        let source = "'a'";
+
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::literal('a', (0, 3)))
+            ]))
+        );
+    }
 
     #[test]
     fn break_loop() {

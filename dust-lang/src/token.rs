@@ -1,8 +1,5 @@
 //! Token and TokenOwned types.
-use std::{
-    borrow::Borrow,
-    fmt::{self, Display, Formatter},
-};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 

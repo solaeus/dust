@@ -1403,10 +1403,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn character() {
+        let input = "'a'";
+
+        assert_eq!(run(input), Ok(Some(Value::character('a'))));
+    }
+
+    #[test]
     fn break_loop() {
         let input = "let mut x = 0; loop { x += 1; if x == 10 { break; } } x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable(Value::integer(10)))));
+        assert_eq!(run(input), Ok(Some(Value::integer(10))));
     }
 
     #[test]

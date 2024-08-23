@@ -102,9 +102,8 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                                 position: identifier.position,
                             })?;
                     } else {
-                        return Err(AnalysisError::ExpectedValueFromExpression {
-                            expression: value.clone(),
-                            found_type: r#type,
+                        return Err(AnalysisError::LetExpectedValueFromStatement {
+                            actual: value.clone(),
                         });
                     }
 
@@ -234,7 +233,6 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                 } else {
                     return Err(AnalysisError::ExpectedValueFromExpression {
                         expression: index.clone(),
-                        found_type: None,
                     });
                 };
 
@@ -313,7 +311,6 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                 if list_type.is_none() {
                     return Err(AnalysisError::ExpectedValueFromExpression {
                         expression: list.clone(),
-                        found_type: list_type,
                     });
                 }
             }
@@ -361,14 +358,12 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     if expected_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: assignee.clone(),
-                            found_type: expected_type,
                         });
                     }
 
                     if actual_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: modifier.clone(),
-                            found_type: actual_type,
                         });
                     }
 
@@ -399,14 +394,12 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     if left_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: left.clone(),
-                            found_type: left_type,
                         });
                     }
 
                     if right_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: right.clone(),
-                            found_type: right_type,
                         });
                     }
 
@@ -428,14 +421,12 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     if left_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: left.clone(),
-                            found_type: left_type,
                         });
                     }
 
                     if right_type.is_none() {
                         return Err(AnalysisError::ExpectedValueFromExpression {
                             expression: right.clone(),
-                            found_type: right_type,
                         });
                     }
 
@@ -557,12 +548,11 @@ pub enum AnalysisError {
     ExpectedIdentifierOrString {
         actual: Expression,
     },
-    ExpectedValueFromStatement {
-        actual: Statement,
+    LetExpectedValueFromStatement {
+        actual: Expression,
     },
     ExpectedValueFromExpression {
         expression: Expression,
-        found_type: Option<Type>,
     },
     ExpectedValueArgumentCount {
         expected: usize,
@@ -623,9 +613,9 @@ impl AnalysisError {
             AnalysisError::ExpectedIdentifier { actual } => actual.position(),
             AnalysisError::ExpectedIdentifierOrString { actual } => actual.position(),
             AnalysisError::ExpectedValueFromExpression { expression, .. } => expression.position(),
-            AnalysisError::ExpectedValueFromStatement { actual } => actual.position(),
             AnalysisError::ExpectedValueArgumentCount { position, .. } => *position,
             AnalysisError::IndexOutOfBounds { index, .. } => index.position(),
+            AnalysisError::LetExpectedValueFromStatement { actual } => actual.position(),
             AnalysisError::NegativeIndex { index, .. } => index.position(),
             AnalysisError::TypeConflict {
                 actual_expression, ..
@@ -653,7 +643,7 @@ impl Display for AnalysisError {
             } => {
                 write!(
                     f,
-                    "Expected type {:?}, found {:?} in {}",
+                    "Expected type {}, found {} in {}",
                     expected, actual, actual_expression
                 )
             }
@@ -662,11 +652,19 @@ impl Display for AnalysisError {
                 actual,
                 actual_expression,
             } => {
-                write!(
-                    f,
-                    "Expected one of {:?}, found {:?} in {}",
-                    expected, actual, actual_expression
-                )
+                write!(f, "Expected ")?;
+
+                for (i, expected_type) in expected.iter().enumerate() {
+                    if i == expected.len() - 1 {
+                        write!(f, "or ")?;
+                    } else if i > 0 {
+                        write!(f, ", ")?;
+                    }
+
+                    write!(f, "{}", expected_type)?;
+                }
+
+                write!(f, ", found {} in {}", actual, actual_expression)
             }
 
             AnalysisError::ExpectedIdentifier { actual, .. } => {
@@ -675,18 +673,8 @@ impl Display for AnalysisError {
             AnalysisError::ExpectedIdentifierOrString { actual } => {
                 write!(f, "Expected identifier or string, found {}", actual)
             }
-            AnalysisError::ExpectedValueFromExpression {
-                expression,
-                found_type,
-            } => {
-                write!(
-                    f,
-                    "Expected {} to produce a value, found {:?}",
-                    expression, found_type
-                )
-            }
-            AnalysisError::ExpectedValueFromStatement { actual, .. } => {
-                write!(f, "Expected statement to produce a value, found {}", actual)
+            AnalysisError::ExpectedValueFromExpression { expression } => {
+                write!(f, "Expected {} to produce a value", expression)
             }
             AnalysisError::ExpectedValueArgumentCount {
                 expected, actual, ..
@@ -701,6 +689,13 @@ impl Display for AnalysisError {
                 "Index {} out of bounds for list {} with length {}",
                 index_value, list, length
             ),
+            AnalysisError::LetExpectedValueFromStatement { actual, .. } => {
+                write!(
+                    f,
+                    "Cannot assign to nothing. This expression should produce a value, but {} does not",
+                    actual
+                )
+            }
             AnalysisError::NegativeIndex {
                 list, index_value, ..
             } => write!(f, "Negative index {} for list {}", index_value, list),
