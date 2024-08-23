@@ -347,7 +347,7 @@ mod tests {
 
         assert_eq!(
             run_with_context(source, context.clone()),
-            Ok(Some(Value::Integer(15)))
+            Ok(Some(Value::integer(15)))
         );
 
         assert_eq!(context.association_count().unwrap(), 0);

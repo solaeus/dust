@@ -10,7 +10,7 @@ pub fn core_library<'a>() -> &'a Context {
             (
                 Identifier::new("to_string"),
                 (
-                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
+                    ContextData::VariableValue(Value::function(Function::BuiltIn(
                         BuiltInFunction::ToString,
                     ))),
                     (0, 0),
@@ -19,7 +19,7 @@ pub fn core_library<'a>() -> &'a Context {
             (
                 Identifier::new("read_line"),
                 (
-                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
+                    ContextData::VariableValue(Value::function(Function::BuiltIn(
                         BuiltInFunction::ReadLine,
                     ))),
                     (0, 0),
@@ -28,7 +28,7 @@ pub fn core_library<'a>() -> &'a Context {
             (
                 Identifier::new("write_line"),
                 (
-                    ContextData::VariableValue(Value::Function(Function::BuiltIn(
+                    ContextData::VariableValue(Value::function(Function::BuiltIn(
                         BuiltInFunction::WriteLine,
                     ))),
                     (0, 0),

@@ -5,12 +5,11 @@ use std::{
     error::Error,
     fmt::{self, Display, Formatter},
     ops::{Range, RangeInclusive},
-    ptr::read,
     sync::{Arc, RwLock},
 };
 
 use serde::{
-    de::{self, EnumAccess, MapAccess, SeqAccess, Visitor},
+    de::{self, MapAccess, SeqAccess, Visitor},
     ser::SerializeMap,
     Deserialize, Deserializer, Serialize, Serializer,
 };
@@ -25,30 +24,29 @@ use crate::{
 /// Each type of value has a corresponding constructor, here are some simple examples:
 ///
 /// ```
-/// # use dust_lang::ValueData;
-/// let boolean = ValueData::boolean(true);
-/// let float = ValueData::float(3.14);
-/// let integer = ValueData::integer(42);
-/// let string = ValueData::string("Hello, world!");
+/// # use dust_lang::Value;
+/// let boolean = Value::boolean(true);
+/// let float = Value::float(3.14);
+/// let integer = Value::integer(42);
+/// let string = Value::string("Hello, world!");
 /// ```
 ///
 /// Values can be combined into more complex values:
 ///
 /// ```
-/// # use dust_lang::ValueData;
-/// let list = ValueData::list(vec![
-///     ValueData::integer(1),
-///     ValueData::integer(2),
-///     ValueData::integer(3),
+/// # use dust_lang::Value;
+/// let list = Value::list(vec![
+///     Value::integer(1),
+///     Value::integer(2),
+///     Value::integer(3),
 /// ]);
 /// ```
 ///
 /// Values have a type, which can be retrieved using the `type` method:
 ///
 /// ```
-/// # use std::collections::HashMap;
 /// # use dust_lang::*;
-/// let value = ValueData::integer(42);
+/// let value = Value::integer(42);
 ///
 /// assert_eq!(value.r#type(), Type::Integer);
 /// ```
@@ -76,8 +74,8 @@ impl Value {
         Value::Raw(ValueData::Float(value))
     }
 
-    pub fn integer(value: i64) -> Self {
-        Value::Raw(ValueData::Integer(value))
+    pub fn integer<T: Into<i64>>(into_i64: T) -> Self {
+        Value::Raw(ValueData::Integer(into_i64.into()))
     }
 
     pub fn string<T: ToString>(to_string: T) -> Self {
@@ -88,8 +86,8 @@ impl Value {
         Value::Raw(ValueData::List(value))
     }
 
-    pub fn map(value: HashMap<Identifier, Value>) -> Self {
-        Value::Raw(ValueData::Map(value))
+    pub fn map<T: Into<HashMap<Identifier, Value>>>(into_map: T) -> Self {
+        Value::Raw(ValueData::Map(into_map.into()))
     }
 
     pub fn mutable(value: Value) -> Self {
@@ -104,12 +102,12 @@ impl Value {
         Value::Raw(ValueData::Function(value))
     }
 
-    pub fn range<T: Into<Rangeable>>(start: T, end: T) -> Self {
-        Value::Raw(ValueData::Range(start.into()..end.into()))
+    pub fn range<T: Into<RangeValue>>(range: T) -> Self {
+        Value::Raw(ValueData::Range(range.into()))
     }
 
-    pub fn range_inclusive<T: Into<Rangeable>>(start: T, end: T) -> Self {
-        Value::Raw(ValueData::RangeInclusive(start.into()..=end.into()))
+    pub fn r#struct(value: Struct) -> Self {
+        Value::Raw(ValueData::Struct(value))
     }
 
     pub fn reference(value: Value) -> Self {
@@ -282,6 +280,40 @@ impl Value {
                     value: self.clone(),
                     index: *index,
                 }),
+            (ValueData::List(values), ValueData::Range(RangeValue::IntegerRange(range))) => {
+                if range.start < 0 || range.start > values.len() as i64 {
+                    return Err(ValueError::IndexOutOfBounds {
+                        value: self.clone(),
+                        index: range.start,
+                    });
+                }
+
+                if range.end < 0 || range.end > values.len() as i64 {
+                    return Err(ValueError::IndexOutOfBounds {
+                        value: self.clone(),
+                        index: range.end,
+                    });
+                }
+
+                let slice = values
+                    .get(range.start as usize..range.end as usize)
+                    .unwrap();
+
+                Ok(Value::list(slice.to_vec()))
+            }
+            (ValueData::String(string), ValueData::Integer(index)) => {
+                let index = *index as usize;
+                let character =
+                    string
+                        .chars()
+                        .nth(index)
+                        .ok_or_else(|| ValueError::IndexOutOfBounds {
+                            value: self.clone(),
+                            index: index as i64,
+                        })?;
+
+                Ok(Value::character(character))
+            }
             _ => Err(ValueError::CannotIndex {
                 value: self.clone(),
                 index: index_value.clone(),
@@ -354,7 +386,7 @@ impl Value {
             Value::Mutable(data) => &data.read().unwrap(),
         };
         let new_data = left
-            .add(&right)
+            .add(right)
             .ok_or_else(|| ValueError::CannotAdd(self.clone(), other.clone()))?;
 
         *left = new_data;
@@ -392,7 +424,7 @@ impl Value {
             Value::Mutable(data) => &data.read().unwrap(),
         };
         let new_data = left
-            .subtract(&right)
+            .subtract(right)
             .ok_or_else(|| ValueError::CannotSubtract(self.clone(), other.clone()))?;
 
         *left = new_data;
@@ -430,7 +462,7 @@ impl Value {
             Value::Mutable(data) => &data.read().unwrap(),
         };
         let new_data = left
-            .multiply(&right)
+            .multiply(right)
             .ok_or_else(|| ValueError::CannotMultiply(self.clone(), other.clone()))?;
 
         *left = new_data;
@@ -468,7 +500,7 @@ impl Value {
             Value::Mutable(data) => &data.read().unwrap(),
         };
         let new_data = left
-            .divide(&right)
+            .divide(right)
             .ok_or_else(|| ValueError::CannotDivide(self.clone(), other.clone()))?;
 
         *left = new_data;
@@ -506,7 +538,7 @@ impl Value {
             Value::Mutable(data) => &data.read().unwrap(),
         };
         let new_data = left
-            .modulo(&right)
+            .modulo(right)
             .ok_or_else(|| ValueError::CannotModulo(self.clone(), other.clone()))?;
 
         *left = new_data;
@@ -709,14 +741,18 @@ impl Eq for Value {}
 
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Value::Raw(left), Value::Raw(right)) => left == right,
-            (Value::Reference(left), Value::Reference(right)) => left == right,
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                *left.read().unwrap() == *right.read().unwrap()
-            }
-            _ => false,
-        }
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        left == right
     }
 }
 
@@ -834,8 +870,7 @@ pub enum ValueData {
     Integer(i64),
     List(Vec<Value>),
     Map(HashMap<Identifier, Value>),
-    Range(Range<Rangeable>),
-    RangeInclusive(RangeInclusive<Rangeable>),
+    Range(RangeValue),
     String(String),
     Struct(Struct),
     Tuple(Vec<Value>),
@@ -875,16 +910,7 @@ impl ValueData {
 
                 Type::Map { pairs }
             }
-            ValueData::Range(range) => Type::Range {
-                r#type: range.start.r#type(),
-            },
-            ValueData::RangeInclusive(range_inclusive) => {
-                let rangeable_type = range_inclusive.start().r#type();
-
-                Type::Range {
-                    r#type: rangeable_type,
-                }
-            }
+            ValueData::Range(range) => range.r#type(),
             ValueData::String(string) => Type::String {
                 length: Some(string.len()),
             },
@@ -919,13 +945,13 @@ impl ValueData {
     }
 
     pub fn is_rangeable(&self) -> bool {
-        match self {
+        matches!(
+            self,
             ValueData::Integer(_)
-            | ValueData::Float(_)
-            | ValueData::Character(_)
-            | ValueData::Byte(_) => true,
-            _ => false,
-        }
+                | ValueData::Float(_)
+                | ValueData::Character(_)
+                | ValueData::Byte(_)
+        )
     }
 
     pub fn add(&self, other: &ValueData) -> Option<ValueData> {
@@ -1174,14 +1200,8 @@ impl Display for ValueData {
 
                 write!(f, "]")
             }
-            ValueData::Range(Range { start, end }) => {
-                write!(f, "{start}..{end}")
-            }
-            ValueData::RangeInclusive(inclusive) => {
-                let start = inclusive.start();
-                let end = inclusive.end();
-
-                write!(f, "{start}..={end}")
+            ValueData::Range(range_value) => {
+                write!(f, "{range_value}")
             }
             ValueData::String(string) => write!(f, "{string}"),
             ValueData::Struct(r#struct) => write!(f, "{struct}"),
@@ -1216,7 +1236,6 @@ impl PartialEq for ValueData {
             (ValueData::List(left), ValueData::List(right)) => left == right,
             (ValueData::Map(left), ValueData::Map(right)) => left == right,
             (ValueData::Range(left), ValueData::Range(right)) => left == right,
-            (ValueData::RangeInclusive(left), ValueData::RangeInclusive(right)) => left == right,
             (ValueData::String(left), ValueData::String(right)) => left == right,
             (ValueData::Struct(left), ValueData::Struct(right)) => left == right,
             (ValueData::Tuple(left), ValueData::Tuple(right)) => left == right,
@@ -1248,26 +1267,8 @@ impl Ord for ValueData {
             (ValueData::Integer(_), _) => Ordering::Greater,
             (ValueData::List(left), ValueData::List(right)) => left.cmp(right),
             (ValueData::List(_), _) => Ordering::Greater,
-            (ValueData::Range(left), ValueData::Range(right)) => {
-                let start_cmp = left.start.cmp(&right.start);
-
-                if start_cmp.is_eq() {
-                    left.end.cmp(&right.end)
-                } else {
-                    start_cmp
-                }
-            }
+            (ValueData::Range(left), ValueData::Range(right)) => left.cmp(right),
             (ValueData::Range(_), _) => Ordering::Greater,
-            (ValueData::RangeInclusive(left), ValueData::RangeInclusive(right)) => {
-                let start_cmp = left.start().cmp(right.start());
-
-                if start_cmp.is_eq() {
-                    left.end().cmp(right.end())
-                } else {
-                    start_cmp
-                }
-            }
-            (ValueData::RangeInclusive(_), _) => Ordering::Greater,
             (ValueData::String(left), ValueData::String(right)) => left.cmp(right),
             (ValueData::String(_), _) => Ordering::Greater,
             (ValueData::Struct(left), ValueData::Struct(right)) => left.cmp(right),
@@ -1302,7 +1303,6 @@ impl Serialize for ValueData {
                 ser.end()
             }
             ValueData::Range(range) => range.serialize(serializer),
-            ValueData::RangeInclusive(inclusive) => inclusive.serialize(serializer),
             ValueData::String(string) => serializer.serialize_str(string),
             ValueData::Struct(r#struct) => r#struct.serialize(serializer),
             ValueData::Tuple(tuple) => tuple.serialize(serializer),
@@ -1561,84 +1561,212 @@ impl Display for Struct {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Rangeable {
-    Byte(u8),
-    Character(char),
-    Float(f64),
-    Integer(i64),
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum RangeValue {
+    ByteRange(Range<u8>),
+    ByteRangeInclusive(RangeInclusive<u8>),
+    CharacterRange(Range<char>),
+    CharacterRangeInclusive(RangeInclusive<char>),
+    FloatRange(Range<f64>),
+    FloatRangeInclusive(RangeInclusive<f64>),
+    IntegerRange(Range<i64>),
+    IntegerRangeInclusive(RangeInclusive<i64>),
 }
 
-impl From<u8> for Rangeable {
-    fn from(value: u8) -> Self {
-        Rangeable::Byte(value)
+impl RangeValue {
+    pub fn r#type(&self) -> Type {
+        let inner_type = match self {
+            RangeValue::ByteRange(_) => RangeableType::Byte,
+            RangeValue::ByteRangeInclusive(_) => RangeableType::Byte,
+            RangeValue::CharacterRange(_) => RangeableType::Character,
+            RangeValue::CharacterRangeInclusive(_) => RangeableType::Character,
+            RangeValue::FloatRange(_) => RangeableType::Float,
+            RangeValue::FloatRangeInclusive(_) => RangeableType::Float,
+            RangeValue::IntegerRange(_) => RangeableType::Integer,
+            RangeValue::IntegerRangeInclusive(_) => RangeableType::Integer,
+        };
+
+        Type::Range { r#type: inner_type }
     }
 }
 
-impl From<char> for Rangeable {
-    fn from(value: char) -> Self {
-        Rangeable::Character(value)
+impl From<Range<u8>> for RangeValue {
+    fn from(range: Range<u8>) -> Self {
+        RangeValue::ByteRange(range)
     }
 }
 
-impl From<f64> for Rangeable {
-    fn from(value: f64) -> Self {
-        Rangeable::Float(value)
+impl From<RangeInclusive<u8>> for RangeValue {
+    fn from(range: RangeInclusive<u8>) -> Self {
+        RangeValue::ByteRangeInclusive(range)
     }
 }
 
-impl From<i32> for Rangeable {
-    fn from(value: i32) -> Self {
-        Rangeable::Integer(value as i64)
+impl From<Range<char>> for RangeValue {
+    fn from(range: Range<char>) -> Self {
+        RangeValue::CharacterRange(range)
     }
 }
 
-impl From<i64> for Rangeable {
-    fn from(value: i64) -> Self {
-        Rangeable::Integer(value)
+impl From<RangeInclusive<char>> for RangeValue {
+    fn from(range: RangeInclusive<char>) -> Self {
+        RangeValue::CharacterRangeInclusive(range)
     }
 }
 
-impl Rangeable {
-    fn r#type(&self) -> RangeableType {
-        match self {
-            Rangeable::Byte(_) => RangeableType::Byte,
-            Rangeable::Character(_) => RangeableType::Character,
-            Rangeable::Float(_) => RangeableType::Float,
-            Rangeable::Integer(_) => RangeableType::Integer,
-        }
+impl From<Range<f64>> for RangeValue {
+    fn from(range: Range<f64>) -> Self {
+        RangeValue::FloatRange(range)
     }
 }
 
-impl Display for Rangeable {
+impl From<RangeInclusive<f64>> for RangeValue {
+    fn from(range: RangeInclusive<f64>) -> Self {
+        RangeValue::FloatRangeInclusive(range)
+    }
+}
+
+impl From<Range<i32>> for RangeValue {
+    fn from(range: Range<i32>) -> Self {
+        RangeValue::IntegerRange(range.start as i64..range.end as i64)
+    }
+}
+
+impl From<RangeInclusive<i32>> for RangeValue {
+    fn from(range: RangeInclusive<i32>) -> Self {
+        RangeValue::IntegerRangeInclusive(*range.start() as i64..=*range.end() as i64)
+    }
+}
+
+impl From<Range<i64>> for RangeValue {
+    fn from(range: Range<i64>) -> Self {
+        RangeValue::IntegerRange(range)
+    }
+}
+
+impl From<RangeInclusive<i64>> for RangeValue {
+    fn from(range: RangeInclusive<i64>) -> Self {
+        RangeValue::IntegerRangeInclusive(range)
+    }
+}
+
+impl Display for RangeValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Rangeable::Byte(byte) => write!(f, "{byte}"),
-            Rangeable::Character(character) => write!(f, "{character}"),
-            Rangeable::Float(float) => write!(f, "{float}"),
-            Rangeable::Integer(integer) => write!(f, "{integer}"),
+            RangeValue::ByteRange(range) => write!(f, "{}..{}", range.start, range.end),
+            RangeValue::ByteRangeInclusive(range) => {
+                write!(f, "{}..={}", range.start(), range.end())
+            }
+            RangeValue::CharacterRange(range) => write!(f, "{}..{}", range.start, range.end),
+            RangeValue::CharacterRangeInclusive(range) => {
+                write!(f, "{}..={}", range.start(), range.end())
+            }
+            RangeValue::FloatRange(range) => write!(f, "{}..{}", range.start, range.end),
+            RangeValue::FloatRangeInclusive(range) => {
+                write!(f, "{}..={}", range.start(), range.end())
+            }
+            RangeValue::IntegerRange(range) => write!(f, "{}..{}", range.start, range.end),
+            RangeValue::IntegerRangeInclusive(range) => {
+                write!(f, "{}..={}", range.start(), range.end())
+            }
         }
     }
 }
 
-impl Eq for Rangeable {}
+impl Eq for RangeValue {}
 
-impl PartialOrd for Rangeable {
+impl PartialOrd for RangeValue {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Rangeable {
+impl Ord for RangeValue {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Rangeable::Byte(left), Rangeable::Byte(right)) => left.cmp(right),
-            (Rangeable::Character(left), Rangeable::Character(right)) => left.cmp(right),
-            (Rangeable::Float(left), Rangeable::Float(right)) => {
-                left.to_bits().cmp(&right.to_bits())
+            (RangeValue::ByteRange(left), RangeValue::ByteRange(right)) => {
+                let start_cmp = left.start.cmp(&right.start);
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end.cmp(&right.end)
+                }
             }
-            (Rangeable::Integer(left), Rangeable::Integer(right)) => left.cmp(right),
-            _ => unreachable!(),
+            (RangeValue::ByteRange(_), _) => Ordering::Greater,
+            (RangeValue::ByteRangeInclusive(left), RangeValue::ByteRangeInclusive(right)) => {
+                let start_cmp = left.start().cmp(right.start());
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end().cmp(right.end())
+                }
+            }
+            (RangeValue::ByteRangeInclusive(_), _) => Ordering::Greater,
+            (RangeValue::CharacterRange(left), RangeValue::CharacterRange(right)) => {
+                let start_cmp = left.start.cmp(&right.start);
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end.cmp(&right.end)
+                }
+            }
+            (RangeValue::CharacterRange(_), _) => Ordering::Greater,
+            (
+                RangeValue::CharacterRangeInclusive(left),
+                RangeValue::CharacterRangeInclusive(right),
+            ) => {
+                let start_cmp = left.start().cmp(right.start());
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end().cmp(right.end())
+                }
+            }
+            (RangeValue::CharacterRangeInclusive(_), _) => Ordering::Greater,
+            (RangeValue::FloatRange(left), RangeValue::FloatRange(right)) => {
+                let start_cmp = left.start.to_bits().cmp(&right.start.to_bits());
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end.to_bits().cmp(&right.end.to_bits())
+                }
+            }
+            (RangeValue::FloatRange(_), _) => Ordering::Greater,
+            (RangeValue::FloatRangeInclusive(left), RangeValue::FloatRangeInclusive(right)) => {
+                let start_cmp = left.start().to_bits().cmp(&right.start().to_bits());
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end().to_bits().cmp(&right.end().to_bits())
+                }
+            }
+            (RangeValue::FloatRangeInclusive(_), _) => Ordering::Greater,
+            (RangeValue::IntegerRange(left), RangeValue::IntegerRange(right)) => {
+                let start_cmp = left.start.cmp(&right.start);
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end.cmp(&right.end)
+                }
+            }
+            (RangeValue::IntegerRange(_), _) => Ordering::Greater,
+            (RangeValue::IntegerRangeInclusive(left), RangeValue::IntegerRangeInclusive(right)) => {
+                let start_cmp = left.start().cmp(right.start());
+
+                if start_cmp != Ordering::Equal {
+                    start_cmp
+                } else {
+                    left.end().cmp(right.end())
+                }
+            }
+            (RangeValue::IntegerRangeInclusive(_), _) => Ordering::Greater,
         }
     }
 }
@@ -1745,6 +1873,10 @@ impl Display for ValueError {
                 "Failed to make mutable value because the value has an immutable reference to it"
             ),
             ValueError::CannotMutate(value) => write!(f, "Cannot mutate {}", value),
+            ValueError::CannotNegate(value) => write!(f, "Cannot negate {}", value),
+            ValueError::CannotNot(value) => {
+                write!(f, "Cannot use logical not operation on {}", value)
+            }
             ValueError::CannotSubtract(left, right) => {
                 write!(f, "Cannot subtract {} and {}", left, right)
             }

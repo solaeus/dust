@@ -386,16 +386,16 @@ impl Vm {
 
                 match (start_data, end_data) {
                     (ValueData::Byte(start), ValueData::Byte(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..end))))
                     }
                     (ValueData::Character(start), ValueData::Character(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..end))))
                     }
                     (ValueData::Float(start), ValueData::Float(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..end))))
                     }
                     (ValueData::Integer(start), ValueData::Integer(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..end))))
                     }
                     _ => Err(RuntimeError::InvalidRange {
                         start_position,
@@ -426,16 +426,16 @@ impl Vm {
 
                 match (start_data, end_data) {
                     (ValueData::Byte(start), ValueData::Byte(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..=end))))
                     }
                     (ValueData::Character(start), ValueData::Character(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..=end))))
                     }
                     (ValueData::Float(start), ValueData::Float(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..=end))))
                     }
                     (ValueData::Integer(start), ValueData::Integer(end)) => {
-                        Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
+                        Ok(Evaluation::Return(Some(Value::range(start..=end))))
                     }
                     _ => Err(RuntimeError::InvalidRange {
                         start_position,
@@ -1404,14 +1404,14 @@ mod tests {
     fn break_loop() {
         let input = "let mut x = 0; loop { x += 1; if x == 10 { break; } } x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(10)))));
+        assert_eq!(run(input), Ok(Some(Value::mutable(Value::integer(10)))));
     }
 
     #[test]
     fn string_index() {
         let input = "'foo'[0]";
 
-        assert_eq!(run(input), Ok(Some(Value::Character('f'))));
+        assert_eq!(run(input), Ok(Some(Value::character('f'))));
     }
 
     #[test]
@@ -1421,8 +1421,8 @@ mod tests {
         assert_eq!(
             run(input),
             Ok(Some(Value::map([
-                (Identifier::new("foo"), Value::Integer(42)),
-                (Identifier::new("bar"), Value::Float(4.2))
+                (Identifier::new("foo"), Value::integer(42)),
+                (Identifier::new("bar"), Value::float(4.2))
             ])))
         );
     }
@@ -1431,7 +1431,7 @@ mod tests {
     fn async_block() {
         let input = "let mut x = 1; async { x += 1; x -= 1; } x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable(Value::Integer(1)))));
+        assert_eq!(run(input), Ok(Some(Value::mutable(Value::integer(1)))));
     }
 
     #[test]
@@ -1440,11 +1440,11 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::Struct(Struct::Fields {
+            Ok(Some(Value::r#struct(Struct::Fields {
                 name: Identifier::new("Foo"),
                 fields: HashMap::from([
-                    (Identifier::new("bar"), Value::Integer(42)),
-                    (Identifier::new("baz"), Value::Float(4.0))
+                    (Identifier::new("bar"), Value::integer(42)),
+                    (Identifier::new("baz"), Value::float(4.0))
                 ])
             })))
         );
@@ -1460,9 +1460,9 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::Struct(Struct::Tuple {
+            Ok(Some(Value::r#struct(Struct::Tuple {
                 name: Identifier::new("Foo"),
-                fields: vec![Value::Integer(42)]
+                fields: vec![Value::integer(42)]
             })))
         )
     }
@@ -1473,9 +1473,9 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::Struct(Struct::Tuple {
+            Ok(Some(Value::r#struct(Struct::Tuple {
                 name: Identifier::new("Foo"),
-                fields: vec![Value::Integer(42)]
+                fields: vec![Value::integer(42)]
             })))
         );
     }
@@ -1490,7 +1490,7 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::Struct(Struct::Unit {
+            Ok(Some(Value::r#struct(Struct::Unit {
                 name: Identifier::new("Foo")
             })))
         )
@@ -1502,7 +1502,7 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::Struct(Struct::Unit {
+            Ok(Some(Value::r#struct(Struct::Unit {
                 name: Identifier::new("Foo")
             })))
         );
@@ -1512,7 +1512,7 @@ mod tests {
     fn list_index_nested() {
         let input = "[[1, 2], [42, 4], [5, 6]][1][0]";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }
 
     #[test]
@@ -1521,9 +1521,9 @@ mod tests {
 
         assert_eq!(
             run(input),
-            Ok(Some(Value::List(vec![
-                Value::Integer(2),
-                Value::Integer(3)
+            Ok(Some(Value::list(vec![
+                Value::integer(2),
+                Value::integer(3)
             ])))
         );
     }
@@ -1532,35 +1532,35 @@ mod tests {
     fn range() {
         let input = "1..5";
 
-        assert_eq!(run(input), Ok(Some(Value::range(1, 5))));
+        assert_eq!(run(input), Ok(Some(Value::range(1..5))));
     }
 
     #[test]
     fn negate_expression() {
         let input = "let x = -42; -x";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }
 
     #[test]
     fn not_expression() {
         let input = "!(1 == 2 || 3 == 4 || 5 == 6)";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn list_index() {
         let input = "[1, 42, 3][1]";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }
 
     #[test]
     fn map_property_access() {
         let input = "map { a = 42 }.a";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(42))));
+        assert_eq!(run(input), Ok(Some(Value::integer(42))));
     }
 
     #[test]
@@ -1588,7 +1588,7 @@ mod tests {
     fn if_else() {
         let input = "let x = if false { 1 } else { 2 }; x";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(2))));
+        assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
 
     #[test]
@@ -1602,167 +1602,167 @@ mod tests {
     fn if_else_if_else() {
         let input = "if false { 1 } else if false { 2 } else { 3 }";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn while_loop() {
         let input = "let mut x = 0; while x < 5 { x += 1 } x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable_from(5))));
+        assert_eq!(run(input), Ok(Some(Value::integer(5))));
     }
 
     #[test]
     fn subtract_assign() {
         let input = "let mut x = 1; x -= 1; x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable_from(0))));
+        assert_eq!(run(input), Ok(Some(Value::integer(0))));
     }
 
     #[test]
     fn add_assign() {
         let input = "let mut x = 1; x += 1; x";
 
-        assert_eq!(run(input), Ok(Some(Value::mutable_from(2))));
+        assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
 
     #[test]
     fn and() {
         let input = "true && true";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn or() {
         let input = "true || false";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn integer_equal() {
         let input = "42 == 42";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn modulo() {
         let input = "42 % 2";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(0))));
+        assert_eq!(run(input), Ok(Some(Value::integer(0))));
     }
 
     #[test]
     fn divide() {
         let input = "42 / 2";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(21))));
+        assert_eq!(run(input), Ok(Some(Value::integer(21))));
     }
 
     #[test]
     fn less_than() {
         let input = "2 < 3";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn less_than_or_equal() {
         let input = "42 <= 42";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn greater_than() {
         let input = "2 > 3";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(false))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(false))));
     }
 
     #[test]
     fn greater_than_or_equal() {
         let input = "42 >= 42";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn integer_saturating_add() {
         let input = "9223372036854775807 + 1";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(i64::MAX))));
+        assert_eq!(run(input), Ok(Some(Value::integer(i64::MAX))));
     }
 
     #[test]
     fn integer_saturating_sub() {
         let input = "-9223372036854775808 - 1";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(i64::MIN))));
+        assert_eq!(run(input), Ok(Some(Value::integer(i64::MIN))));
     }
 
     #[test]
     fn multiply() {
         let input = "2 * 3";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(6))));
+        assert_eq!(run(input), Ok(Some(Value::integer(6))));
     }
 
     #[test]
     fn boolean() {
         let input = "true";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn is_even() {
         let input = "42.is_even";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(true))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(true))));
     }
 
     #[test]
     fn is_odd() {
         let input = "42.is_odd";
 
-        assert_eq!(run(input), Ok(Some(Value::Boolean(false))));
+        assert_eq!(run(input), Ok(Some(Value::boolean(false))));
     }
 
     #[test]
     fn list_length() {
         let input = "[1, 2, 3].length";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn string_length() {
         let input = "\"hello\".length";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(5))));
+        assert_eq!(run(input), Ok(Some(Value::integer(5))));
     }
 
     #[test]
     fn map_length() {
         let input = "map { a = 42, b = 4.0 }.length";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(2))));
+        assert_eq!(run(input), Ok(Some(Value::integer(2))));
     }
 
     #[test]
     fn add() {
         let input = "1 + 2";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(3))));
+        assert_eq!(run(input), Ok(Some(Value::integer(3))));
     }
 
     #[test]
     fn add_multiple() {
         let input = "1 + 2 + 3";
 
-        assert_eq!(run(input), Ok(Some(Value::Integer(6))));
+        assert_eq!(run(input), Ok(Some(Value::integer(6))));
     }
 }

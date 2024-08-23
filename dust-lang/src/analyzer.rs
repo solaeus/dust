@@ -17,8 +17,8 @@ use crate::{
         PrimitiveValueExpression, RangeExpression, Span, Statement, StructDefinition,
         StructExpression, TupleAccessExpression,
     },
-    core_library, parse, Context, ContextError, DustError, Expression, Identifier, Rangeable,
-    RangeableType, StructType, Type,
+    core_library, parse, Context, ContextError, DustError, Expression, Identifier, RangeableType,
+    StructType, Type,
 };
 
 /// Analyzes the abstract syntax tree for errors.

@@ -31,7 +31,7 @@ pub struct UnitConstructor {
 
 impl UnitConstructor {
     pub fn construct(self) -> Value {
-        Value::Struct(Struct::Unit { name: self.name })
+        Value::r#struct(Struct::Unit { name: self.name })
     }
 }
 
@@ -42,7 +42,7 @@ pub struct TupleConstructor {
 
 impl TupleConstructor {
     pub fn construct(self, fields: Vec<Value>) -> Value {
-        Value::Struct(Struct::Tuple {
+        Value::r#struct(Struct::Tuple {
             name: self.name,
             fields,
         })
@@ -56,7 +56,7 @@ pub struct FieldsConstructor {
 
 impl FieldsConstructor {
     pub fn construct(self, fields: HashMap<Identifier, Value>) -> Value {
-        Value::Struct(Struct::Fields {
+        Value::r#struct(Struct::Fields {
             name: self.name,
             fields,
         })
