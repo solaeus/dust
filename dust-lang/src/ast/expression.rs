@@ -476,7 +476,10 @@ impl Expression {
                             position: tuple.position(),
                         })?;
 
-                if let Type::Tuple(fields) = tuple_value {
+                if let Type::Tuple {
+                    fields: Some(fields),
+                } = tuple_value
+                {
                     fields.get(index.inner).cloned()
                 } else {
                     Err(AstError::ExpectedTupleType {

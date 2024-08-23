@@ -34,9 +34,9 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn analysis(analysis_errors: Vec<AnalysisError>, source: &'src str) -> Self {
+    pub fn analysis<T: Into<Vec<AnalysisError>>>(analysis_errors: T, source: &'src str) -> Self {
         DustError::Analysis {
-            analysis_errors,
+            analysis_errors: analysis_errors.into(),
             source,
         }
     }

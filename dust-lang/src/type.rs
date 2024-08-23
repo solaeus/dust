@@ -55,7 +55,9 @@ pub enum Type {
         length: Option<usize>,
     },
     Struct(StructType),
-    Tuple(Vec<Type>),
+    Tuple {
+        fields: Option<Vec<Type>>,
+    },
 }
 
 impl Type {
@@ -295,18 +297,22 @@ impl Display for Type {
             Type::Range { r#type } => write!(f, "{type} range"),
             Type::String { .. } => write!(f, "str"),
             Type::Struct(struct_type) => write!(f, "{struct_type}"),
-            Type::Tuple(fields) => {
-                write!(f, "(")?;
+            Type::Tuple { fields } => {
+                if let Some(fields) = fields {
+                    write!(f, "(")?;
 
-                for (index, r#type) in fields.iter().enumerate() {
-                    write!(f, "{type}")?;
+                    for (index, r#type) in fields.iter().enumerate() {
+                        write!(f, "{type}")?;
 
-                    if index != fields.len() - 1 {
-                        write!(f, ", ")?;
+                        if index != fields.len() - 1 {
+                            write!(f, ", ")?;
+                        }
                     }
-                }
 
-                write!(f, ")")
+                    write!(f, ")")
+                } else {
+                    write!(f, "tuple")
+                }
             }
         }
     }
@@ -385,8 +391,9 @@ impl Ord for Type {
                 left_struct.cmp(right_struct)
             }
             (Type::Struct(_), _) => Ordering::Greater,
-            (Type::Tuple(left_tuple), Type::Tuple(right_tuple)) => left_tuple.cmp(right_tuple),
-            (Type::Tuple(_), _) => Ordering::Greater,
+
+            (Type::Tuple { fields: left }, Type::Tuple { fields: right }) => left.cmp(right),
+            (Type::Tuple { .. }, _) => Ordering::Greater,
         }
     }
 }

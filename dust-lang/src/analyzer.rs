@@ -323,7 +323,7 @@ impl<'a> Analyzer<'a> {
                     ))) = literal_type
                     {
                         if integer >= length as i64 {
-                            self.errors.push(AnalysisError::IndexOutOfBounds {
+                            self.errors.push(AnalysisError::ListIndexOutOfBounds {
                                 index: index.clone(),
                                 length,
                                 list: list.clone(),
@@ -358,7 +358,7 @@ impl<'a> Analyzer<'a> {
                     ))) = literal_type
                     {
                         if integer >= length as i64 {
-                            self.errors.push(AnalysisError::IndexOutOfBounds {
+                            self.errors.push(AnalysisError::ListIndexOutOfBounds {
                                 index: index.clone(),
                                 length,
                                 list: list.clone(),
@@ -634,7 +634,42 @@ impl<'a> Analyzer<'a> {
                 }
             },
             Expression::TupleAccess(tuple_access) => {
-                let TupleAccessExpression { tuple, .. } = tuple_access.inner.as_ref();
+                let TupleAccessExpression { tuple, index } = tuple_access.inner.as_ref();
+
+                let tuple_type = match tuple.return_type(&self.context) {
+                    Ok(Some(tuple_type)) => tuple_type,
+                    Ok(None) => {
+                        self.errors
+                            .push(AnalysisError::ExpectedValueFromExpression {
+                                expression: tuple.clone(),
+                            });
+                        return;
+                    }
+                    Err(ast_error) => {
+                        self.errors.push(AnalysisError::AstError(ast_error));
+                        return;
+                    }
+                };
+
+                if let Type::Tuple {
+                    fields: Some(fields),
+                } = tuple_type
+                {
+                    if index.inner >= fields.len() {
+                        self.errors.push(AnalysisError::TupleIndexOutOfBounds {
+                            index: expression.clone(),
+                            tuple: tuple.clone(),
+                            index_value: index.inner as i64,
+                            length: fields.len(),
+                        });
+                    }
+                } else {
+                    self.errors.push(AnalysisError::ExpectedType {
+                        expected: Type::Tuple { fields: None },
+                        actual: tuple_type,
+                        actual_expression: tuple.clone(),
+                    });
+                }
 
                 self.analyze_expression(tuple, statement_position);
             }
@@ -720,8 +755,14 @@ pub enum AnalysisError {
         actual: usize,
         position: Span,
     },
-    IndexOutOfBounds {
+    ListIndexOutOfBounds {
         list: Expression,
+        index: Expression,
+        index_value: i64,
+        length: usize,
+    },
+    TupleIndexOutOfBounds {
+        tuple: Expression,
         index: Expression,
         index_value: i64,
         length: usize,
@@ -775,7 +816,8 @@ impl AnalysisError {
             AnalysisError::ExpectedIdentifierOrString { actual } => actual.position(),
             AnalysisError::ExpectedValueFromExpression { expression, .. } => expression.position(),
             AnalysisError::ExpectedValueArgumentCount { position, .. } => *position,
-            AnalysisError::IndexOutOfBounds { index, .. } => index.position(),
+            AnalysisError::ListIndexOutOfBounds { index, .. } => index.position(),
+            AnalysisError::TupleIndexOutOfBounds { index, .. } => index.position(),
             AnalysisError::LetExpectedValueFromStatement { actual } => actual.position(),
             AnalysisError::NegativeIndex { index, .. } => index.position(),
             AnalysisError::TypeConflict {
@@ -840,7 +882,7 @@ impl Display for AnalysisError {
             AnalysisError::ExpectedValueArgumentCount {
                 expected, actual, ..
             } => write!(f, "Expected {} value arguments, found {}", expected, actual),
-            AnalysisError::IndexOutOfBounds {
+            AnalysisError::ListIndexOutOfBounds {
                 list,
                 index_value,
                 length,
@@ -860,6 +902,16 @@ impl Display for AnalysisError {
             AnalysisError::NegativeIndex {
                 list, index_value, ..
             } => write!(f, "Negative index {} for list {}", index_value, list),
+            AnalysisError::TupleIndexOutOfBounds {
+                tuple,
+                index_value,
+                length,
+                ..
+            } => write!(
+                f,
+                "Index {} out of bounds for tuple {} with length {}",
+                index_value, tuple, length
+            ),
             AnalysisError::TypeConflict {
                 actual_expression: actual_statement,
                 actual_type,
@@ -871,6 +923,7 @@ impl Display for AnalysisError {
                     expected, actual_statement, actual_type
                 )
             }
+
             AnalysisError::UndefinedFieldIdentifier {
                 identifier,
                 container,
@@ -899,6 +952,8 @@ impl Display for AnalysisError {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::RangeableType;
 
     use super::*;
@@ -994,7 +1049,7 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_errors: vec![AnalysisError::IndexOutOfBounds {
+                analysis_errors: vec![AnalysisError::ListIndexOutOfBounds {
                     list: Expression::list(
                         vec![
                             Expression::literal(1, (1, 2)),
@@ -1062,12 +1117,26 @@ mod tests {
 
         assert_eq!(
             analyze(source),
-            Err(DustError::Analysis {
-                analysis_errors: vec![AnalysisError::ExpectedIdentifierOrString {
-                    actual: Expression::literal(0, (10, 11))
+            Err(DustError::analysis(
+                [AnalysisError::ExpectedType {
+                    expected: Type::Tuple { fields: None },
+                    actual: Type::Struct(StructType::Fields {
+                        name: Identifier::new("Foo"),
+                        fields: HashMap::from([(Identifier::new("x"), Type::Integer)])
+                    }),
+                    actual_expression: Expression::r#struct(
+                        StructExpression::Fields {
+                            name: Node::new(Identifier::new("Foo"), (22, 25)),
+                            fields: vec![(
+                                Node::new(Identifier::new("x"), (28, 29)),
+                                Expression::literal(1, (31, 32))
+                            )],
+                        },
+                        (22, 35)
+                    ),
                 }],
-                source,
-            })
+                source
+            ))
         );
     }
 

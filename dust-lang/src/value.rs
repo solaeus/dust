@@ -939,7 +939,9 @@ impl ValueData {
             ValueData::Tuple(values) => {
                 let fields = values.iter().map(|value| value.r#type()).collect();
 
-                Type::Tuple(fields)
+                Type::Tuple {
+                    fields: Some(fields),
+                }
             }
         }
     }
