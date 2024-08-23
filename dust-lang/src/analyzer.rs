@@ -35,14 +35,15 @@ use crate::{
 pub fn analyze(source: &str) -> Result<(), DustError> {
     let abstract_tree = parse(source)?;
     let context = core_library().create_child();
-    let analyzer = Analyzer::new(&abstract_tree, context);
+    let mut analyzer = Analyzer::new(&abstract_tree, context);
 
-    analyzer
-        .analyze()
-        .map_err(|analysis_error| DustError::Analysis {
-            analysis_error,
-            source,
-        })
+    analyzer.analyze();
+
+    if analyzer.errors.is_empty() {
+        Ok(())
+    } else {
+        Err(DustError::analysis(analyzer.errors, source))
+    }
 }
 
 /// Static analyzer that checks for potential runtime errors.
@@ -61,181 +62,213 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 pub struct Analyzer<'a> {
     abstract_tree: &'a AbstractSyntaxTree,
     context: Context,
+    pub errors: Vec<AnalysisError>,
 }
 
-impl<'recovered, 'a: 'recovered> Analyzer<'a> {
+impl<'a> Analyzer<'a> {
     pub fn new(abstract_tree: &'a AbstractSyntaxTree, context: Context) -> Self {
         Self {
             abstract_tree,
             context,
+            errors: Vec::new(),
         }
     }
 
-    pub fn analyze(&'recovered self) -> Result<(), AnalysisError> {
+    pub fn analyze(&mut self) {
         for statement in &self.abstract_tree.statements {
-            self.analyze_statement(statement)?;
+            self.analyze_statement(statement);
         }
-
-        Ok(())
     }
 
-    fn analyze_statement(&'recovered self, statement: &Statement) -> Result<(), AnalysisError> {
+    fn analyze_statement(&mut self, statement: &Statement) {
         match statement {
-            Statement::Expression(expression) => self.analyze_expression(expression)?,
+            Statement::Expression(expression) => self.analyze_expression(expression),
             Statement::ExpressionNullified(expression_node) => {
-                self.analyze_expression(&expression_node.inner)?;
+                self.analyze_expression(&expression_node.inner);
             }
             Statement::Let(let_statement) => match &let_statement.inner {
                 LetStatement::Let { identifier, value }
                 | LetStatement::LetMut { identifier, value } => {
-                    let r#type = value.return_type(&self.context)?;
+                    let r#type = match value.return_type(&self.context) {
+                        Ok(type_option) => type_option,
+                        Err(ast_error) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+
+                            None
+                        }
+                    };
 
                     if let Some(r#type) = r#type {
-                        self.context
-                            .set_variable_type(
-                                identifier.inner.clone(),
-                                r#type,
-                                identifier.position,
-                            )
-                            .map_err(|error| AnalysisError::ContextError {
-                                error,
+                        let set_type = self.context.set_variable_type(
+                            identifier.inner.clone(),
+                            r#type.clone(),
+                            identifier.position,
+                        );
+
+                        if let Err(context_error) = set_type {
+                            self.errors.push(AnalysisError::ContextError {
+                                error: context_error,
                                 position: identifier.position,
-                            })?;
+                            });
+                        }
                     } else {
-                        return Err(AnalysisError::LetExpectedValueFromStatement {
-                            actual: value.clone(),
-                        });
+                        self.errors
+                            .push(AnalysisError::LetExpectedValueFromStatement {
+                                actual: value.clone(),
+                            });
                     }
 
-                    self.analyze_expression(value)?;
+                    self.analyze_expression(value);
                 }
                 LetStatement::LetType { .. } => todo!(),
                 LetStatement::LetMutType { .. } => todo!(),
             },
-            Statement::StructDefinition(struct_definition) => match &struct_definition.inner {
-                StructDefinition::Unit { name } => self.context.set_constructor_type(
-                    name.inner.clone(),
-                    StructType::Unit {
-                        name: name.inner.clone(),
-                    },
-                    name.position,
-                ),
-                StructDefinition::Tuple { name, items } => {
-                    let fields = items.iter().map(|item| item.inner.clone()).collect();
-
-                    self.context.set_constructor_type(
+            Statement::StructDefinition(struct_definition) => {
+                let set_constructor_type = match &struct_definition.inner {
+                    StructDefinition::Unit { name } => self.context.set_constructor_type(
                         name.inner.clone(),
-                        StructType::Tuple {
+                        StructType::Unit {
                             name: name.inner.clone(),
-                            fields,
                         },
                         name.position,
-                    )
-                }
-                StructDefinition::Fields { name, fields } => {
-                    let fields = fields
-                        .iter()
-                        .map(|(identifier, r#type)| {
-                            (identifier.inner.clone(), r#type.inner.clone())
-                        })
-                        .collect();
+                    ),
+                    StructDefinition::Tuple { name, items } => {
+                        let fields = items.iter().map(|item| item.inner.clone()).collect();
 
-                    self.context.set_constructor_type(
-                        name.inner.clone(),
-                        StructType::Fields {
-                            name: name.inner.clone(),
-                            fields,
-                        },
-                        name.position,
-                    )
+                        self.context.set_constructor_type(
+                            name.inner.clone(),
+                            StructType::Tuple {
+                                name: name.inner.clone(),
+                                fields,
+                            },
+                            name.position,
+                        )
+                    }
+                    StructDefinition::Fields { name, fields } => {
+                        let fields = fields
+                            .iter()
+                            .map(|(identifier, r#type)| {
+                                (identifier.inner.clone(), r#type.inner.clone())
+                            })
+                            .collect();
+
+                        self.context.set_constructor_type(
+                            name.inner.clone(),
+                            StructType::Fields {
+                                name: name.inner.clone(),
+                                fields,
+                            },
+                            name.position,
+                        )
+                    }
+                };
+
+                if let Err(context_error) = set_constructor_type {
+                    self.errors.push(AnalysisError::ContextError {
+                        error: context_error,
+                        position: struct_definition.position,
+                    });
                 }
             }
-            .map_err(|error| AnalysisError::ContextError {
-                error,
-                position: struct_definition.position,
-            })?,
         }
-
-        Ok(())
     }
 
-    fn analyze_expression(&self, expression: &Expression) -> Result<(), AnalysisError> {
+    fn analyze_expression(&mut self, expression: &Expression) {
         match expression {
-            Expression::Block(block_expression) => self.analyze_block(&block_expression.inner)?,
+            Expression::Block(block_expression) => self.analyze_block(&block_expression.inner),
             Expression::Break(break_node) => {
                 if let Some(expression) = &break_node.inner {
-                    self.analyze_expression(expression)?;
+                    self.analyze_expression(expression);
                 }
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, arguments } = call_expression.inner.as_ref();
 
-                self.analyze_expression(invoker)?;
+                self.analyze_expression(invoker);
 
                 for argument in arguments {
-                    self.analyze_expression(argument)?;
+                    self.analyze_expression(argument);
                 }
             }
             Expression::FieldAccess(field_access_expression) => {
-                let FieldAccessExpression { container, field } =
+                let FieldAccessExpression { container, .. } =
                     field_access_expression.inner.as_ref();
 
-                self.context
-                    .update_last_position(&field.inner, field.position)
-                    .map_err(|error| AnalysisError::ContextError {
-                        error,
-                        position: field.position,
-                    })?;
-                self.analyze_expression(container)?;
+                self.analyze_expression(container);
             }
             Expression::Grouped(expression) => {
-                self.analyze_expression(expression.inner.as_ref())?;
+                self.analyze_expression(expression.inner.as_ref());
             }
             Expression::Identifier(identifier) => {
                 let found = self
                     .context
                     .update_last_position(&identifier.inner, identifier.position)
-                    .map_err(|error| AnalysisError::ContextError {
-                        error,
-                        position: identifier.position,
-                    })?;
+                    .map_err(|error| {
+                        self.errors.push(AnalysisError::ContextError {
+                            error,
+                            position: identifier.position,
+                        })
+                    });
 
-                if !found {
-                    return Err(AnalysisError::UndefinedVariable {
+                if let Ok(false) = found {
+                    self.errors.push(AnalysisError::UndefinedVariable {
                         identifier: identifier.clone(),
                     });
                 }
             }
-            Expression::If(if_expression) => self.analyze_if(&if_expression.inner)?,
+            Expression::If(if_expression) => self.analyze_if(&if_expression.inner),
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
                 ListExpression::AutoFill {
                     repeat_operand,
                     length_operand,
                 } => {
-                    self.analyze_expression(repeat_operand)?;
-                    self.analyze_expression(length_operand)?;
+                    self.analyze_expression(repeat_operand);
+                    self.analyze_expression(length_operand);
                 }
                 ListExpression::Ordered(expressions) => {
                     for expression in expressions {
-                        self.analyze_expression(expression)?;
+                        self.analyze_expression(expression);
                     }
                 }
             },
             Expression::ListIndex(list_index_expression) => {
                 let ListIndexExpression { list, index } = list_index_expression.inner.as_ref();
 
-                self.analyze_expression(list)?;
-                self.analyze_expression(index)?;
+                self.analyze_expression(list);
+                self.analyze_expression(index);
 
-                let list_type = list.return_type(&self.context)?;
-                let index_type = if let Some(r#type) = index.return_type(&self.context)? {
-                    r#type
-                } else {
-                    return Err(AnalysisError::ExpectedValueFromExpression {
-                        expression: index.clone(),
-                    });
+                let list_type = match list.return_type(&self.context) {
+                    Ok(Some(r#type)) => r#type,
+                    Ok(None) => {
+                        self.errors
+                            .push(AnalysisError::ExpectedValueFromExpression {
+                                expression: list.clone(),
+                            });
+
+                        return;
+                    }
+                    Err(ast_error) => {
+                        self.errors.push(AnalysisError::AstError(ast_error));
+
+                        return;
+                    }
                 };
+                let index_type = match list.return_type(&self.context) {
+                    Ok(Some(r#type)) => r#type,
+                    Ok(None) => {
+                        self.errors
+                            .push(AnalysisError::ExpectedValueFromExpression {
+                                expression: list.clone(),
+                            });
 
+                        return;
+                    }
+                    Err(ast_error) => {
+                        self.errors.push(AnalysisError::AstError(ast_error));
+
+                        return;
+                    }
+                };
                 let literal_type = if let Expression::Literal(Node { inner, .. }) = index {
                     Some(inner.as_ref().clone())
                 } else {
@@ -247,39 +280,21 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                 ))) = literal_type
                 {
                     if integer < 0 {
-                        return Err(AnalysisError::NegativeIndex {
+                        self.errors.push(AnalysisError::NegativeIndex {
                             index: index.clone(),
                             index_value: integer,
                             list: list.clone(),
                         });
                     }
-                } else if let Type::Range { r#type } = &index_type {
-                    if let RangeableType::Integer = r#type {
-                        // Ok
-                    } else {
-                        return Err(AnalysisError::ExpectedType {
-                            expected: Type::Range {
-                                r#type: RangeableType::Integer,
-                            },
-                            actual: index_type,
-                            actual_expression: index.clone(),
-                        });
-                    }
-                } else {
-                    return Err(AnalysisError::ExpectedType {
-                        expected: Type::Integer,
-                        actual: index_type,
-                        actual_expression: index.clone(),
-                    });
                 }
 
-                if let Some(Type::List { length, .. }) = list_type {
+                if let Type::List { length, .. } = list_type {
                     if let Some(LiteralExpression::Primitive(PrimitiveValueExpression::Integer(
                         integer,
                     ))) = literal_type
                     {
                         if integer >= length as i64 {
-                            return Err(AnalysisError::IndexOutOfBounds {
+                            self.errors.push(AnalysisError::IndexOutOfBounds {
                                 index: index.clone(),
                                 length,
                                 list: list.clone(),
@@ -289,16 +304,16 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                     }
                 }
 
-                if let Some(Type::String {
+                if let Type::String {
                     length: Some(length),
-                }) = list_type
+                } = list_type
                 {
                     if let Some(LiteralExpression::Primitive(PrimitiveValueExpression::Integer(
                         integer,
                     ))) = literal_type
                     {
                         if integer >= length as i64 {
-                            return Err(AnalysisError::IndexOutOfBounds {
+                            self.errors.push(AnalysisError::IndexOutOfBounds {
                                 index: index.clone(),
                                 length,
                                 list: list.clone(),
@@ -307,133 +322,237 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
                         }
                     }
                 }
-
-                if list_type.is_none() {
-                    return Err(AnalysisError::ExpectedValueFromExpression {
-                        expression: list.clone(),
-                    });
-                }
             }
             Expression::Literal(_) => {
                 // Literals don't need to be analyzed
             }
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
-                LoopExpression::Infinite { block } => self.analyze_block(&block.inner)?,
+                LoopExpression::Infinite { block } => self.analyze_block(&block.inner),
                 LoopExpression::While { condition, block } => {
-                    self.analyze_expression(condition)?;
-                    self.analyze_block(&block.inner)?;
+                    self.analyze_expression(condition);
+                    self.analyze_block(&block.inner);
                 }
                 LoopExpression::For {
                     iterator, block, ..
                 } => {
-                    self.analyze_expression(iterator)?;
-                    self.analyze_block(&block.inner)?;
+                    self.analyze_expression(iterator);
+                    self.analyze_block(&block.inner);
                 }
             },
             Expression::Map(map_expression) => {
                 let MapExpression { pairs } = map_expression.inner.as_ref();
 
                 for (_, expression) in pairs {
-                    self.analyze_expression(expression)?;
+                    self.analyze_expression(expression);
                 }
             }
             Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
                 OperatorExpression::Assignment { assignee, value } => {
-                    self.analyze_expression(assignee)?;
-                    self.analyze_expression(value)?;
+                    self.analyze_expression(assignee);
+                    self.analyze_expression(value);
                 }
                 OperatorExpression::Comparison { left, right, .. } => {
-                    self.analyze_expression(left)?;
-                    self.analyze_expression(right)?;
+                    self.analyze_expression(left);
+                    self.analyze_expression(right);
                 }
                 OperatorExpression::CompoundAssignment {
                     assignee, modifier, ..
                 } => {
-                    self.analyze_expression(assignee)?;
-                    self.analyze_expression(modifier)?;
+                    self.analyze_expression(assignee);
+                    self.analyze_expression(modifier);
 
-                    let expected_type = assignee.return_type(&self.context)?;
-                    let actual_type = modifier.return_type(&self.context)?;
+                    let (expected_type, actual_type) = match (
+                        assignee.return_type(&self.context),
+                        modifier.return_type(&self.context),
+                    ) {
+                        (Ok(Some(expected_type)), Ok(Some(actual_type))) => {
+                            (expected_type, actual_type)
+                        }
+                        (Ok(None), Ok(None)) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: assignee.clone(),
+                                });
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: modifier.clone(),
+                                });
+                            return;
+                        }
+                        (Ok(None), _) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: assignee.clone(),
+                                });
+                            return;
+                        }
+                        (_, Ok(None)) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: modifier.clone(),
+                                });
+                            return;
+                        }
+                        (Err(ast_error), _) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+                            return;
+                        }
+                        (_, Err(ast_error)) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+                            return;
+                        }
+                    };
 
-                    if expected_type.is_none() {
-                        return Err(AnalysisError::ExpectedValueFromExpression {
-                            expression: assignee.clone(),
+                    if actual_type != expected_type {
+                        self.errors.push(AnalysisError::ExpectedType {
+                            expected: expected_type,
+                            actual: actual_type,
+                            actual_expression: modifier.clone(),
                         });
-                    }
-
-                    if actual_type.is_none() {
-                        return Err(AnalysisError::ExpectedValueFromExpression {
-                            expression: modifier.clone(),
-                        });
-                    }
-
-                    if let (Some(expected_type), Some(actual_type)) = (expected_type, actual_type) {
-                        expected_type.check(&actual_type).map_err(|_| {
-                            AnalysisError::TypeConflict {
-                                actual_expression: modifier.clone(),
-                                actual_type,
-                                expected: expected_type,
-                            }
-                        })?;
                     }
                 }
                 OperatorExpression::ErrorPropagation(_) => todo!(),
                 OperatorExpression::Negation(expression) => {
-                    self.analyze_expression(expression)?;
+                    self.analyze_expression(expression);
                 }
                 OperatorExpression::Not(expression) => {
-                    self.analyze_expression(expression)?;
+                    self.analyze_expression(expression);
                 }
                 OperatorExpression::Math { left, right, .. } => {
-                    self.analyze_expression(left)?;
-                    self.analyze_expression(right)?;
+                    self.analyze_expression(left);
+                    self.analyze_expression(right);
 
-                    let left_type = left.return_type(&self.context)?;
-                    let right_type = right.return_type(&self.context)?;
+                    let (left_type, right_type) = match (
+                        left.return_type(&self.context),
+                        right.return_type(&self.context),
+                    ) {
+                        (Ok(Some(left_type)), Ok(Some(right_type))) => (left_type, right_type),
+                        (Ok(None), Ok(None)) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: left.clone(),
+                                });
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: right.clone(),
+                                });
+                            return;
+                        }
+                        (Ok(None), _) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: left.clone(),
+                                });
+                            return;
+                        }
+                        (_, Ok(None)) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: right.clone(),
+                                });
+                            return;
+                        }
+                        (Err(ast_error), _) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+                            return;
+                        }
+                        (_, Err(ast_error)) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+                            return;
+                        }
+                    };
 
-                    if left_type.is_none() {
-                        return Err(AnalysisError::ExpectedValueFromExpression {
-                            expression: left.clone(),
-                        });
-                    }
+                    match left_type {
+                        Type::Integer => {
+                            if right_type != Type::Integer {
+                                self.errors.push(AnalysisError::ExpectedType {
+                                    expected: Type::Integer,
+                                    actual: right_type,
+                                    actual_expression: right.clone(),
+                                });
+                            }
+                        }
+                        Type::Float => {
+                            if right_type != Type::Float {
+                                self.errors.push(AnalysisError::ExpectedType {
+                                    expected: Type::Float,
+                                    actual: right_type,
+                                    actual_expression: right.clone(),
+                                });
+                            }
+                        }
 
-                    if right_type.is_none() {
-                        return Err(AnalysisError::ExpectedValueFromExpression {
-                            expression: right.clone(),
-                        });
-                    }
-
-                    if left_type != right_type {
-                        return Err(AnalysisError::ExpectedType {
-                            expected: left_type.unwrap(),
-                            actual: right_type.unwrap(),
-                            actual_expression: right.clone(),
-                        });
+                        Type::String { .. } => {
+                            if let Type::String { .. } = right_type {
+                            } else {
+                                self.errors.push(AnalysisError::ExpectedType {
+                                    expected: Type::String { length: None },
+                                    actual: right_type,
+                                    actual_expression: right.clone(),
+                                });
+                            }
+                        }
+                        _ => {
+                            self.errors.push(AnalysisError::ExpectedTypeMultiple {
+                                expected: vec![
+                                    Type::Float,
+                                    Type::Integer,
+                                    Type::String { length: None },
+                                ],
+                                actual: left_type,
+                                actual_expression: left.clone(),
+                            });
+                        }
                     }
                 }
                 OperatorExpression::Logic { left, right, .. } => {
-                    self.analyze_expression(left)?;
-                    self.analyze_expression(right)?;
+                    self.analyze_expression(left);
+                    self.analyze_expression(right);
 
-                    let left_type = left.return_type(&self.context)?;
-                    let right_type = right.return_type(&self.context)?;
-
-                    if left_type.is_none() {
-                        return Err(AnalysisError::ExpectedValueFromExpression {
-                            expression: left.clone(),
-                        });
-                    }
-
-                    if right_type.is_none() {
-                        return Err(AnalysisError::ExpectedValueFromExpression {
-                            expression: right.clone(),
-                        });
-                    }
+                    let (left_type, right_type) = match (
+                        left.return_type(&self.context),
+                        right.return_type(&self.context),
+                    ) {
+                        (Ok(Some(left_type)), Ok(Some(right_type))) => (left_type, right_type),
+                        (Ok(None), Ok(None)) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: left.clone(),
+                                });
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: right.clone(),
+                                });
+                            return;
+                        }
+                        (Ok(None), _) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: left.clone(),
+                                });
+                            return;
+                        }
+                        (_, Ok(None)) => {
+                            self.errors
+                                .push(AnalysisError::ExpectedValueFromExpression {
+                                    expression: right.clone(),
+                                });
+                            return;
+                        }
+                        (Err(ast_error), _) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+                            return;
+                        }
+                        (_, Err(ast_error)) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+                            return;
+                        }
+                    };
 
                     if left_type != right_type {
-                        return Err(AnalysisError::ExpectedType {
-                            expected: left_type.unwrap(),
-                            actual: right_type.unwrap(),
+                        self.errors.push(AnalysisError::ExpectedType {
+                            expected: left_type,
+                            actual: right_type,
                             actual_expression: right.clone(),
                         });
                     }
@@ -441,87 +560,84 @@ impl<'recovered, 'a: 'recovered> Analyzer<'a> {
             },
             Expression::Range(range_expression) => match range_expression.inner.as_ref() {
                 RangeExpression::Exclusive { start, end } => {
-                    self.analyze_expression(start)?;
-                    self.analyze_expression(end)?;
+                    self.analyze_expression(start);
+                    self.analyze_expression(end);
                 }
                 RangeExpression::Inclusive { start, end } => {
-                    self.analyze_expression(start)?;
-                    self.analyze_expression(end)?;
+                    self.analyze_expression(start);
+                    self.analyze_expression(end);
                 }
             },
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Fields { name, fields } => {
-                    self.context
-                        .update_last_position(&name.inner, name.position)
-                        .map_err(|error| AnalysisError::ContextError {
+                    let update_position = self
+                        .context
+                        .update_last_position(&name.inner, name.position);
+
+                    if let Err(error) = update_position {
+                        self.errors.push(AnalysisError::ContextError {
                             error,
                             position: name.position,
-                        })?;
+                        });
+
+                        return;
+                    }
 
                     for (_, expression) in fields {
-                        self.analyze_expression(expression)?;
+                        self.analyze_expression(expression);
                     }
                 }
             },
             Expression::TupleAccess(tuple_access) => {
                 let TupleAccessExpression { tuple, .. } = tuple_access.inner.as_ref();
 
-                self.analyze_expression(tuple)?;
+                self.analyze_expression(tuple);
             }
         }
-
-        Ok(())
     }
 
-    fn analyze_block(
-        &'recovered self,
-        block_expression: &BlockExpression,
-    ) -> Result<(), AnalysisError> {
+    fn analyze_block(&mut self, block_expression: &BlockExpression) {
         match block_expression {
             BlockExpression::Async(statements) => {
                 for statement in statements {
-                    self.analyze_statement(statement)?;
+                    self.analyze_statement(statement);
                 }
             }
             BlockExpression::Sync(statements) => {
                 for statement in statements {
-                    self.analyze_statement(statement)?;
+                    self.analyze_statement(statement);
                 }
             }
         }
-
-        Ok(())
     }
 
-    fn analyze_if(&'recovered self, if_expression: &IfExpression) -> Result<(), AnalysisError> {
+    fn analyze_if(&mut self, if_expression: &IfExpression) {
         match if_expression {
             IfExpression::If {
                 condition,
                 if_block,
             } => {
-                self.analyze_expression(condition)?;
-                self.analyze_block(&if_block.inner)?;
+                self.analyze_expression(condition);
+                self.analyze_block(&if_block.inner);
             }
             IfExpression::IfElse {
                 condition,
                 if_block,
                 r#else,
             } => {
-                self.analyze_expression(condition)?;
-                self.analyze_block(&if_block.inner)?;
+                self.analyze_expression(condition);
+                self.analyze_block(&if_block.inner);
 
                 match r#else {
                     ElseExpression::Block(block_expression) => {
-                        self.analyze_block(&block_expression.inner)?;
+                        self.analyze_block(&block_expression.inner);
                     }
                     ElseExpression::If(if_expression) => {
-                        self.analyze_if(&if_expression.inner)?;
+                        self.analyze_if(&if_expression.inner);
                     }
                 }
             }
         }
-
-        Ok(())
     }
 }
 
@@ -577,7 +693,7 @@ pub enum AnalysisError {
     },
     UndefinedField {
         identifier: Expression,
-        statement: Expression,
+        expression: Expression,
     },
     UndefinedType {
         identifier: Node<Identifier>,
@@ -712,7 +828,7 @@ impl Display for AnalysisError {
             }
             AnalysisError::UndefinedField {
                 identifier,
-                statement: map,
+                expression: map,
             } => {
                 write!(f, "Undefined field {} in map {}", identifier, map)
             }
@@ -738,6 +854,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn multiple_errors() {
+        let source = "1 + 1.0; 'a' + 1";
+
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_errors: vec![
+                    AnalysisError::ExpectedType {
+                        expected: Type::Integer,
+                        actual: Type::Float,
+                        actual_expression: Expression::literal(1.0, (4, 7)),
+                    },
+                    AnalysisError::ExpectedTypeMultiple {
+                        expected: vec![Type::Float, Type::Integer, Type::String { length: None }],
+                        actual: Type::Character,
+                        actual_expression: Expression::literal('a', (9, 12)),
+                    }
+                ],
+                source,
+            })
+        );
+    }
+
+    #[test]
     fn add_assign_wrong_type() {
         let source = "
             let mut a = 1;
@@ -747,11 +887,11 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::TypeConflict {
-                    actual_expression: Expression::literal(1.0, (45, 48)),
-                    actual_type: Type::Float,
+                analysis_errors: vec![AnalysisError::ExpectedType {
                     expected: Type::Integer,
-                },
+                    actual: Type::Float,
+                    actual_expression: Expression::literal(1.0, (45, 48)),
+                }],
                 source,
             })
         );
@@ -767,11 +907,11 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::TypeConflict {
-                    actual_expression: Expression::literal(1.0, (45, 48)),
-                    actual_type: Type::Float,
+                analysis_errors: vec![AnalysisError::ExpectedType {
                     expected: Type::Integer,
-                },
+                    actual: Type::Float,
+                    actual_expression: Expression::literal(1.0, (45, 48)),
+                }],
                 source,
             })
         );
@@ -787,11 +927,11 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::TypeConflict {
-                    actual_expression: Expression::literal(2, (52, 53)),
-                    actual_type: Type::Integer,
+                analysis_errors: vec![AnalysisError::ExpectedType {
                     expected: Type::Float,
-                },
+                    actual: Type::Integer,
+                    actual_expression: Expression::literal(2, (52, 53)),
+                }],
                 source,
             })
         );
@@ -804,7 +944,7 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::IndexOutOfBounds {
+                analysis_errors: vec![AnalysisError::IndexOutOfBounds {
                     list: Expression::list(
                         vec![
                             Expression::literal(1, (1, 2)),
@@ -816,7 +956,7 @@ mod tests {
                     index: Expression::literal(3, (10, 11)),
                     index_value: 3,
                     length: 3,
-                },
+                }],
                 source,
             })
         );
@@ -826,28 +966,63 @@ mod tests {
     fn nonexistant_field_identifier() {
         let source = "{ x = 1 }.y";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_errors: vec![AnalysisError::UndefinedField {
+                    identifier: Expression::identifier(Identifier::new("y"), (11, 12)),
+                    expression: Expression::map(
+                        [(
+                            Node::new(Identifier::new("x"), (2, 3)),
+                            Expression::literal(1, (6, 7))
+                        )],
+                        (0, 11)
+                    ),
+                }],
+                source,
+            })
+        );
     }
 
     #[test]
     fn nonexistant_field_string() {
         let source = "{ x = 1 }.'y'";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_errors: vec![AnalysisError::UndefinedField {
+                    identifier: Expression::literal("y", (11, 14)),
+                    expression: Expression::map(
+                        [(
+                            Node::new(Identifier::new("x"), (2, 3)),
+                            Expression::literal(1, (6, 7))
+                        )],
+                        (0, 11)
+                    ),
+                }],
+                source,
+            })
+        );
     }
 
     #[test]
     fn malformed_list_index() {
-        let source = "[1, 2, 3]['foo']";
+        let source = "[1, 2, 3][\"foo\"]";
 
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::ExpectedType {
-                    expected: Type::Integer,
+                analysis_errors: vec![AnalysisError::ExpectedTypeMultiple {
+                    expected: vec![
+                        Type::Integer,
+                        Type::Range {
+                            r#type: RangeableType::Integer
+                        }
+                    ],
                     actual: Type::String { length: Some(3) },
                     actual_expression: Expression::literal("foo", (10, 15)),
-                },
+                }],
                 source,
             })
         );
@@ -857,7 +1032,15 @@ mod tests {
     fn malformed_field_access() {
         let source = "{ x = 1 }.0";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_errors: vec![AnalysisError::ExpectedIdentifierOrString {
+                    actual: Expression::literal(0, (10, 11))
+                }],
+                source,
+            })
+        );
     }
 
     #[test]
@@ -867,11 +1050,11 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::ExpectedType {
+                analysis_errors: vec![AnalysisError::ExpectedType {
                     expected: Type::Float,
                     actual: Type::Integer,
                     actual_expression: Expression::literal(2, (7, 8)),
-                },
+                }],
                 source,
             })
         );
@@ -884,11 +1067,11 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::ExpectedType {
+                analysis_errors: vec![AnalysisError::ExpectedType {
                     expected: Type::Integer,
                     actual: Type::Boolean,
                     actual_expression: Expression::literal(true, (5, 9)),
-                },
+                }],
                 source,
             })
         );
@@ -898,7 +1081,16 @@ mod tests {
     fn nonexistant_field() {
         let source = "'hello'.foo";
 
-        assert_eq!(analyze(source), todo!());
+        assert_eq!(
+            analyze(source),
+            Err(DustError::Analysis {
+                analysis_errors: vec![AnalysisError::UndefinedField {
+                    expression: Expression::literal("hello", (0, 7)),
+                    identifier: Expression::identifier(Identifier::new("foo"), (8, 11)),
+                }],
+                source,
+            })
+        );
     }
 
     #[test]
@@ -908,9 +1100,9 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_error: AnalysisError::UndefinedVariable {
+                analysis_errors: vec![AnalysisError::UndefinedVariable {
                     identifier: Node::new(Identifier::new("foo"), (0, 3))
-                },
+                }],
                 source,
             })
         );

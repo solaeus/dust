@@ -57,14 +57,16 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 /// ```
 pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
-    let analyzer = Analyzer::new(&abstract_syntax_tree, context.clone());
+    let mut analyzer = Analyzer::new(&abstract_syntax_tree, context.clone());
 
-    analyzer
-        .analyze()
-        .map_err(|analysis_error| DustError::Analysis {
-            analysis_error,
+    analyzer.analyze();
+
+    if !analyzer.errors.is_empty() {
+        return Err(DustError::Analysis {
+            analysis_errors: analyzer.errors,
             source,
-        })?;
+        });
+    }
 
     let mut vm = Vm::new(abstract_syntax_tree, context);
 

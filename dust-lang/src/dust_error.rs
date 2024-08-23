@@ -13,7 +13,7 @@ pub enum DustError<'src> {
         source: &'src str,
     },
     Analysis {
-        analysis_error: AnalysisError,
+        analysis_errors: Vec<AnalysisError>,
         source: &'src str,
     },
     Parse {
@@ -34,9 +34,9 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn analysis(analysis_error: AnalysisError, source: &'src str) -> Self {
+    pub fn analysis(analysis_errors: Vec<AnalysisError>, source: &'src str) -> Self {
         DustError::Analysis {
-            analysis_error,
+            analysis_errors,
             source,
         }
     }
@@ -61,15 +61,6 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn position(&self) -> Span {
-        match self {
-            DustError::Runtime { runtime_error, .. } => runtime_error.position(),
-            DustError::Analysis { analysis_error, .. } => analysis_error.position(),
-            DustError::Parse { parse_error, .. } => parse_error.position(),
-            DustError::Lex { lex_error, .. } => lex_error.position(),
-        }
-    }
-
     pub fn source(&self) -> &'src str {
         match self {
             DustError::Runtime { source, .. } => source,
@@ -79,23 +70,27 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn primary_error_data(&self) -> (&'static str, Span, String) {
-        (self.title(), self.position(), self.to_string())
-    }
-
-    pub fn secondary_error_data(&self) -> Option<(&'static str, Span, String)> {
-        if let DustError::Runtime { runtime_error, .. } = self {
-            match runtime_error {
-                RuntimeError::Expression { error, .. } => {
-                    Some(("Expression error", error.position(), error.to_string()))
-                }
-                RuntimeError::Statement { error, .. } => {
-                    Some(("Statement error", error.position(), error.to_string()))
-                }
-                _ => None,
+    pub fn error_data(&self) -> Vec<(&'static str, Span, String)> {
+        match self {
+            DustError::Runtime { runtime_error, .. } => vec![(
+                "Runtime error",
+                runtime_error.position(),
+                runtime_error.to_string(),
+            )],
+            DustError::Analysis {
+                analysis_errors, ..
+            } => analysis_errors
+                .iter()
+                .map(|error| ("Analysis error", error.position(), error.to_string()))
+                .collect(),
+            DustError::Parse { parse_error, .. } => vec![(
+                "Parse error",
+                parse_error.position(),
+                parse_error.to_string(),
+            )],
+            DustError::Lex { lex_error, .. } => {
+                vec![("Lex error", lex_error.position(), lex_error.to_string())]
             }
-        } else {
-            None
         }
     }
 
@@ -103,16 +98,7 @@ impl<'src> DustError<'src> {
         let mut report = String::new();
         let renderer = Renderer::styled();
 
-        let (title, span, label) = self.primary_error_data();
-
-        let message = Level::Error.title(title).snippet(
-            Snippet::source(self.source())
-                .annotation(Level::Info.span(span.0..span.1).label(&label)),
-        );
-
-        report.push_str(&format!("{}", renderer.render(message)));
-
-        if let Some((title, span, label)) = self.secondary_error_data() {
+        for (title, span, label) in self.error_data() {
             let message = Level::Error.title(title).snippet(
                 Snippet::source(self.source())
                     .annotation(Level::Info.span(span.0..span.1).label(&label)),
@@ -129,7 +115,15 @@ impl Display for DustError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DustError::Runtime { runtime_error, .. } => write!(f, "{runtime_error}"),
-            DustError::Analysis { analysis_error, .. } => write!(f, "{analysis_error}"),
+            DustError::Analysis {
+                analysis_errors, ..
+            } => {
+                for error in analysis_errors {
+                    write!(f, "{error} ")?;
+                }
+
+                Ok(())
+            }
             DustError::Parse { parse_error, .. } => write!(f, "{parse_error}"),
             DustError::Lex { lex_error, .. } => write!(f, "{lex_error}"),
         }
