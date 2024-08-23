@@ -1173,7 +1173,15 @@ impl Display for ValueData {
             ValueData::Byte(byte) => write!(f, "{byte}"),
             ValueData::Character(character) => write!(f, "{character}"),
             ValueData::Enum(r#enum) => write!(f, "{enum}"),
-            ValueData::Float(float) => write!(f, "{float}"),
+            ValueData::Float(float) => {
+                write!(f, "{float}")?;
+
+                if float.fract() == 0.0 {
+                    write!(f, ".0")?;
+                }
+
+                Ok(())
+            }
             ValueData::Function(function) => write!(f, "{function}"),
             ValueData::Integer(integer) => write!(f, "{integer}"),
             ValueData::Map(pairs) => {

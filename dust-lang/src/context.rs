@@ -127,6 +127,26 @@ impl Context {
         }
     }
 
+    /// Returns the constructor type associated with the identifier.
+    pub fn get_constructor_type(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<StructType>, ContextError> {
+        let read_associations = self.associations.read()?;
+
+        if let Some((context_data, _)) = read_associations.get(identifier) {
+            match context_data {
+                ContextData::Constructor(constructor) => Ok(Some(constructor.struct_type.clone())),
+                ContextData::ConstructorType(struct_type) => Ok(Some(struct_type.clone())),
+                _ => Ok(None),
+            }
+        } else if let Some(parent) = &self.parent {
+            parent.get_constructor_type(identifier)
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Associates an identifier with a variable type, with a position given for garbage collection.
     pub fn set_variable_type(
         &self,
@@ -136,9 +156,22 @@ impl Context {
     ) -> Result<(), ContextError> {
         log::trace!("Setting {identifier} to type {type} at {position:?}");
 
-        self.associations
-            .write()?
-            .insert(identifier, (ContextData::VariableType(r#type), position));
+        let mut associations = self.associations.write()?;
+        let last_position = associations
+            .get(&identifier)
+            .map(|(_, last_position)| {
+                if last_position.1 > position.1 {
+                    *last_position
+                } else {
+                    position
+                }
+            })
+            .unwrap_or_default();
+
+        associations.insert(
+            identifier,
+            (ContextData::VariableType(r#type), last_position),
+        );
 
         Ok(())
     }
@@ -152,7 +185,6 @@ impl Context {
         log::trace!("Setting {identifier} to value {value}");
 
         let mut associations = self.associations.write()?;
-
         let last_position = associations
             .get(&identifier)
             .map(|(_, last_position)| *last_position)
@@ -175,7 +207,6 @@ impl Context {
         log::trace!("Setting {identifier} to constructor {constructor:?}");
 
         let mut associations = self.associations.write()?;
-
         let last_position = associations
             .get(&identifier)
             .map(|(_, last_position)| *last_position)
@@ -200,10 +231,20 @@ impl Context {
         log::trace!("Setting {identifier} to constructor of type {struct_type}");
 
         let mut variables = self.associations.write()?;
+        let last_position = variables
+            .get(&identifier)
+            .map(|(_, last_position)| {
+                if last_position.1 > position.1 {
+                    *last_position
+                } else {
+                    position
+                }
+            })
+            .unwrap_or_default();
 
         variables.insert(
             identifier,
-            (ContextData::ConstructorType(struct_type), position),
+            (ContextData::ConstructorType(struct_type), last_position),
         );
 
         Ok(())

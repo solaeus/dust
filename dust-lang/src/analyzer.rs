@@ -18,7 +18,7 @@ use crate::{
         StructExpression, TupleAccessExpression,
     },
     core_library, parse, Context, ContextError, DustError, Expression, Identifier, RangeableType,
-    StructType, Type,
+    StructType, Type, TypeConflict, TypeEvaluation,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -97,6 +97,24 @@ impl<'a> Analyzer<'a> {
 
                             return;
                         }
+                        Ok(TypeEvaluation::Constructor(StructType::Unit { name })) => {
+                            let set_type = self.context.set_variable_type(
+                                identifier.inner.clone(),
+                                Type::Struct(StructType::Unit { name }),
+                                statement.position(),
+                            );
+
+                            if let Err(context_error) = set_type {
+                                self.errors.push(AnalysisError::ContextError {
+                                    error: context_error,
+                                    position: identifier.position,
+                                });
+                            }
+
+                            self.analyze_expression(value, statement.position());
+
+                            return;
+                        }
                         Ok(evaluation) => evaluation.r#type(),
                     };
 
@@ -104,7 +122,7 @@ impl<'a> Analyzer<'a> {
                         let set_type = self.context.set_variable_type(
                             identifier.inner.clone(),
                             r#type.clone(),
-                            identifier.position,
+                            statement.position(),
                         );
 
                         if let Err(context_error) = set_type {
@@ -187,6 +205,110 @@ impl<'a> Analyzer<'a> {
                 let CallExpression { invoker, arguments } = call_expression.inner.as_ref();
 
                 self.analyze_expression(invoker, statement_position);
+
+                let invoker_evaluation = match invoker.type_evaluation(&self.context) {
+                    Ok(evaluation) => evaluation,
+                    Err(ast_error) => {
+                        self.errors.push(AnalysisError::AstError(ast_error));
+
+                        return;
+                    }
+                };
+
+                if let TypeEvaluation::Constructor(StructType::Tuple { fields, .. }) =
+                    invoker_evaluation
+                {
+                    for (expected_type, argument) in fields.iter().zip(arguments.iter()) {
+                        let actual_type = match argument.type_evaluation(&self.context) {
+                            Ok(evaluation) => evaluation.r#type(),
+                            Err(ast_error) => {
+                                self.errors.push(AnalysisError::AstError(ast_error));
+
+                                return;
+                            }
+                        };
+
+                        if let Some(r#type) = actual_type {
+                            let check = expected_type.check(&r#type);
+
+                            if let Err(type_conflict) = check {
+                                self.errors.push(AnalysisError::TypeConflict {
+                                    actual_expression: argument.clone(),
+                                    type_conflict,
+                                });
+                            }
+                        }
+                    }
+
+                    return;
+                }
+
+                let invoked_type = if let Some(r#type) = invoker_evaluation.r#type() {
+                    r#type
+                } else {
+                    self.errors
+                        .push(AnalysisError::ExpectedValueFromExpression {
+                            expression: invoker.clone(),
+                        });
+
+                    return;
+                };
+                let function_type = if let Type::Function(function_type) = invoked_type {
+                    function_type
+                } else {
+                    self.errors.push(AnalysisError::ExpectedFunction {
+                        actual: invoked_type,
+                        actual_expression: invoker.clone(),
+                    });
+
+                    return;
+                };
+
+                let value_parameters =
+                    if let Some(value_parameters) = &function_type.value_parameters {
+                        value_parameters
+                    } else {
+                        if !arguments.is_empty() {
+                            self.errors.push(AnalysisError::ExpectedValueArgumentCount {
+                                expected: 0,
+                                actual: arguments.len(),
+                                position: invoker.position(),
+                            });
+                        }
+
+                        return;
+                    };
+
+                for ((_, expected_type), argument) in value_parameters.iter().zip(arguments) {
+                    self.analyze_expression(argument, statement_position);
+
+                    let argument_evaluation = match argument.type_evaluation(&self.context) {
+                        Ok(evaluation) => evaluation,
+                        Err(error) => {
+                            self.errors.push(AnalysisError::AstError(error));
+
+                            continue;
+                        }
+                    };
+
+                    let actual_type = if let Some(r#type) = argument_evaluation.r#type() {
+                        r#type
+                    } else {
+                        self.errors
+                            .push(AnalysisError::ExpectedValueFromExpression {
+                                expression: argument.clone(),
+                            });
+
+                        continue;
+                    };
+
+                    if let Err(type_conflict) = expected_type.check(&actual_type) {
+                        self.errors.push(AnalysisError::TypeConflict {
+                            type_conflict,
+                            actual_expression: argument.clone(),
+                        });
+                    }
+                }
 
                 for argument in arguments {
                     self.analyze_expression(argument, statement_position);
@@ -766,6 +888,10 @@ pub enum AnalysisError {
         error: ContextError,
         position: Span,
     },
+    ExpectedFunction {
+        actual: Type,
+        actual_expression: Expression,
+    },
     ExpectedType {
         expected: Type,
         actual: Type,
@@ -812,8 +938,11 @@ pub enum AnalysisError {
     },
     TypeConflict {
         actual_expression: Expression,
-        actual_type: Type,
-        expected: Type,
+        type_conflict: TypeConflict,
+    },
+    UnexpectedArguments {
+        expected: Option<Vec<Type>>,
+        actual: Vec<Expression>,
     },
     UndefinedFieldIdentifier {
         identifier: Node<Identifier>,
@@ -844,6 +973,9 @@ impl AnalysisError {
         match self {
             AnalysisError::AstError(ast_error) => ast_error.position(),
             AnalysisError::ContextError { position, .. } => *position,
+            AnalysisError::ExpectedFunction {
+                actual_expression, ..
+            } => actual_expression.position(),
             AnalysisError::ExpectedType {
                 actual_expression, ..
             } => actual_expression.position(),
@@ -864,6 +996,7 @@ impl AnalysisError {
             AnalysisError::UndefinedFieldIdentifier { identifier, .. } => identifier.position,
             AnalysisError::UndefinedType { identifier } => identifier.position,
             AnalysisError::UndefinedVariable { identifier } => identifier.position,
+            AnalysisError::UnexpectedArguments { actual, .. } => actual[0].position(),
             AnalysisError::UnexpectedIdentifier { identifier } => identifier.position,
             AnalysisError::UnexectedString { actual } => actual.position(),
         }
@@ -877,6 +1010,16 @@ impl Display for AnalysisError {
         match self {
             AnalysisError::AstError(ast_error) => write!(f, "{}", ast_error),
             AnalysisError::ContextError { error, .. } => write!(f, "{}", error),
+            AnalysisError::ExpectedFunction {
+                actual,
+                actual_expression,
+            } => {
+                write!(
+                    f,
+                    "Expected function, found {} in {}",
+                    actual, actual_expression
+                )
+            }
             AnalysisError::ExpectedType {
                 expected,
                 actual,
@@ -952,16 +1095,23 @@ impl Display for AnalysisError {
             ),
             AnalysisError::TypeConflict {
                 actual_expression: actual_statement,
-                actual_type,
-                expected,
+                type_conflict: TypeConflict { expected, actual },
             } => {
                 write!(
                     f,
                     "Expected type {}, found {}, which has type {}",
-                    expected, actual_statement, actual_type
+                    expected, actual_statement, actual
                 )
             }
-
+            AnalysisError::UnexpectedArguments {
+                actual, expected, ..
+            } => {
+                write!(
+                    f,
+                    "Unexpected arguments {:?}, expected {:?}",
+                    actual, expected
+                )
+            }
             AnalysisError::UndefinedFieldIdentifier {
                 identifier,
                 container,
@@ -1070,10 +1220,12 @@ mod tests {
         assert_eq!(
             analyze(source),
             Err(DustError::Analysis {
-                analysis_errors: vec![AnalysisError::ExpectedType {
-                    expected: Type::Float,
-                    actual: Type::Integer,
-                    actual_expression: Expression::literal(2, (52, 53)),
+                analysis_errors: vec![AnalysisError::TypeConflict {
+                    actual_expression: Expression::literal(2, (56, 57)),
+                    type_conflict: TypeConflict {
+                        expected: Type::Float,
+                        actual: Type::Integer,
+                    },
                 }],
                 source,
             })

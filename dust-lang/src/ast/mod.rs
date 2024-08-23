@@ -67,6 +67,9 @@ pub enum AstError {
         error: ContextError,
         position: Span,
     },
+    ExpectedFunctionOrConstructor {
+        position: Span,
+    },
     ExpectedInteger {
         position: Span,
     },
@@ -98,6 +101,7 @@ impl AstError {
     pub fn position(&self) -> Span {
         match self {
             AstError::ContextError { position, .. } => *position,
+            AstError::ExpectedFunctionOrConstructor { position } => *position,
             AstError::ExpectedInteger { position } => *position,
             AstError::ExpectedListType { position } => *position,
             AstError::ExpectedNonEmptyEvaluation { position } => *position,
@@ -115,6 +119,9 @@ impl Display for AstError {
         match self {
             AstError::ContextError { error, position } => {
                 write!(f, "Context error at {:?}: {}", position, error)
+            }
+            AstError::ExpectedFunctionOrConstructor { position } => {
+                write!(f, "Expected a function or constructor at {:?}", position)
             }
             AstError::ExpectedInteger { position } => {
                 write!(f, "Expected an integer at {:?}", position)

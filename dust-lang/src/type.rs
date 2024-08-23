@@ -17,7 +17,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{constructor::Constructor, Identifier};
+use crate::{constructor::Constructor, BuiltInFunction, Identifier};
 
 /// Description of a kind of value.
 ///
@@ -252,6 +252,26 @@ impl Type {
                 Type::Struct(StructType::Fields { fields, .. }) => fields.contains_key(field),
                 Type::Map { pairs } => pairs.contains_key(field),
                 _ => false,
+            },
+        }
+    }
+
+    pub fn get_field_type(&self, field: &Identifier) -> Option<Type> {
+        match field.as_str() {
+            "to_string" => Some(BuiltInFunction::ToString.r#type()),
+            "length" => match self {
+                Type::List { .. } => Some(Type::Integer),
+                Type::ListOf { .. } => Some(Type::Integer),
+                Type::ListEmpty => Some(Type::Integer),
+                Type::Map { .. } => Some(Type::Integer),
+                Type::String { .. } => Some(Type::Integer),
+                _ => None,
+            },
+            "is_even" | "is_odd" => Some(Type::Boolean),
+            _ => match self {
+                Type::Struct(StructType::Fields { fields, .. }) => fields.get(field).cloned(),
+                Type::Map { pairs } => pairs.get(field).cloned(),
+                _ => None,
             },
         }
     }

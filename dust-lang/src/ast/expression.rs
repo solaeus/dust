@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     BuiltInFunction, Context, FunctionType, Identifier, RangeableType, StructType, Type,
-    TypeEvaluation,
+    TypeEvaluation, ValueData,
 };
 
 use super::{AstError, Node, Span, Statement};
@@ -272,7 +272,7 @@ impl Expression {
     }
 
     pub fn type_evaluation(&self, context: &Context) -> Result<TypeEvaluation, AstError> {
-        let return_type = match self {
+        let evaluation = match self {
             Expression::Block(block_expression) => {
                 block_expression.inner.type_evaluation(context)?
             }
@@ -287,49 +287,72 @@ impl Expression {
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, .. } = call_expression.inner.as_ref();
+                let invoker_evaluation = invoker.type_evaluation(context)?;
 
-                let invoker_type = invoker.type_evaluation(context)?.r#type();
-
-                let return_type =
-                    if let Some(Type::Function(FunctionType { return_type, .. })) = invoker_type {
-                        return_type.map(|r#type| *r#type)
-                    } else if let Some(Type::Struct(_)) = invoker_type {
-                        invoker_type
-                    } else {
-                        None
-                    };
-
-                TypeEvaluation::Return(return_type)
+                match invoker_evaluation {
+                    TypeEvaluation::Return(Some(Type::Function(FunctionType {
+                        return_type,
+                        ..
+                    }))) => TypeEvaluation::Return(return_type.map(|boxed| *boxed)),
+                    TypeEvaluation::Constructor(struct_type) => {
+                        TypeEvaluation::Return(Some(Type::Struct(struct_type)))
+                    }
+                    _ => {
+                        return Err(AstError::ExpectedFunctionOrConstructor {
+                            position: invoker.position(),
+                        });
+                    }
+                }
             }
             Expression::FieldAccess(field_access_expression) => {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
-                let container_type = container.type_evaluation(context)?.r#type();
+                let container_type = match container.type_evaluation(context)?.r#type() {
+                    Some(r#type) => r#type,
+                    None => {
+                        return Err(AstError::ExpectedNonEmptyEvaluation {
+                            position: container.position(),
+                        })
+                    }
+                };
 
-                if let Some(Type::Struct(StructType::Fields { fields, .. })) = container_type {
+                if let Type::Struct(StructType::Fields { fields, .. }) = container_type {
                     let found_type = fields
                         .into_iter()
                         .find(|(name, _)| name == &field.inner)
                         .map(|(_, r#type)| r#type);
 
                     TypeEvaluation::Return(found_type)
+                } else if let Some(field_type) = container_type.get_field_type(&field.inner) {
+                    TypeEvaluation::Return(Some(field_type))
                 } else {
-                    return Err(AstError::ExpectedStructFieldsType {
+                    return Err(AstError::ExpectedNonEmptyEvaluation {
                         position: container.position(),
                     });
                 }
             }
             Expression::Grouped(expression) => expression.inner.type_evaluation(context)?,
             Expression::Identifier(identifier) => {
-                let type_option = context.get_type(&identifier.inner).map_err(|error| {
-                    AstError::ContextError {
-                        error,
-                        position: identifier.position,
-                    }
-                })?;
+                if let Some(struct_type) =
+                    context
+                        .get_constructor_type(&identifier.inner)
+                        .map_err(|error| AstError::ContextError {
+                            error,
+                            position: identifier.position,
+                        })?
+                {
+                    TypeEvaluation::Constructor(struct_type)
+                } else {
+                    let type_option = context.get_type(&identifier.inner).map_err(|error| {
+                        AstError::ContextError {
+                            error,
+                            position: identifier.position,
+                        }
+                    })?;
 
-                TypeEvaluation::Return(type_option)
+                    TypeEvaluation::Return(type_option)
+                }
             }
             Expression::If(if_expression) => match if_expression.inner.as_ref() {
                 IfExpression::If { .. } => TypeEvaluation::Return(None),
@@ -540,7 +563,7 @@ impl Expression {
             }
         };
 
-        Ok(return_type)
+        Ok(evaluation)
     }
 
     pub fn position(&self) -> Span {
@@ -734,10 +757,12 @@ pub enum PrimitiveValueExpression {
 impl Display for PrimitiveValueExpression {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            PrimitiveValueExpression::Boolean(boolean) => write!(f, "{boolean}"),
-            PrimitiveValueExpression::Character(character) => write!(f, "'{character}'"),
-            PrimitiveValueExpression::Float(float) => write!(f, "{float}"),
-            PrimitiveValueExpression::Integer(integer) => write!(f, "{integer}"),
+            PrimitiveValueExpression::Boolean(boolean) => ValueData::Boolean(*boolean).fmt(f),
+            PrimitiveValueExpression::Character(character) => {
+                ValueData::Character(*character).fmt(f)
+            }
+            PrimitiveValueExpression::Float(float) => ValueData::Float(*float).fmt(f),
+            PrimitiveValueExpression::Integer(integer) => ValueData::Integer(*integer).fmt(f),
         }
     }
 }

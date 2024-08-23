@@ -1,5 +1,6 @@
-use crate::{Constructor, RuntimeError, Span, Type, Value};
+use crate::{Constructor, RuntimeError, Span, StructType, Type, Value};
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Evaluation {
     Break(Option<Value>),
     Constructor(Constructor),
@@ -23,9 +24,10 @@ impl Evaluation {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum TypeEvaluation {
     Break(Option<Type>),
-    Constructor(Type),
+    Constructor(StructType),
     Return(Option<Type>),
 }
 

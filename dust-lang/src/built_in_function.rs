@@ -7,7 +7,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Type, Value, ValueData, ValueError};
+use crate::{FunctionType, Identifier, Type, Value, ValueData, ValueError};
 
 /// Integrated function that can be called from Dust code.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -63,6 +63,15 @@ impl BuiltInFunction {
             BuiltInFunction::ReadLine => Some(Type::String { length: None }),
             BuiltInFunction::WriteLine => None,
         }
+    }
+
+    pub fn r#type(&self) -> Type {
+        Type::Function(FunctionType {
+            name: Identifier::new(self.name()),
+            type_parameters: self.type_parameters(),
+            value_parameters: self.value_parameters(),
+            return_type: self.return_type().map(Box::new),
+        })
     }
 
     pub fn call(
