@@ -91,13 +91,13 @@ impl<'a> Analyzer<'a> {
             Statement::Let(let_statement) => match &let_statement.inner {
                 LetStatement::Let { identifier, value }
                 | LetStatement::LetMut { identifier, value } => {
-                    let r#type = match value.return_type(&self.context) {
-                        Ok(type_option) => type_option,
+                    let r#type = match value.type_evaluation(&self.context) {
                         Err(ast_error) => {
                             self.errors.push(AnalysisError::AstError(ast_error));
 
-                            None
+                            return;
                         }
+                        Ok(evaluation) => evaluation.r#type(),
                     };
 
                     if let Some(r#type) = r#type {
@@ -196,18 +196,21 @@ impl<'a> Analyzer<'a> {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
-                let container_type = match container.return_type(&self.context) {
-                    Ok(Some(r#type)) => r#type,
-                    Ok(None) => {
+                let evaluation = match container.type_evaluation(&self.context) {
+                    Ok(evaluation) => evaluation,
+                    Err(ast_error) => {
+                        self.errors.push(AnalysisError::AstError(ast_error));
+
+                        return;
+                    }
+                };
+                let container_type = match evaluation.r#type() {
+                    Some(r#type) => r#type,
+                    None => {
                         self.errors
                             .push(AnalysisError::ExpectedValueFromExpression {
                                 expression: container.clone(),
                             });
-
-                        return;
-                    }
-                    Err(ast_error) => {
-                        self.errors.push(AnalysisError::AstError(ast_error));
 
                         return;
                     }
@@ -266,25 +269,17 @@ impl<'a> Analyzer<'a> {
                 self.analyze_expression(list, statement_position);
                 self.analyze_expression(index, statement_position);
 
-                let list_type = match list.return_type(&self.context) {
-                    Ok(Some(r#type)) => r#type,
-                    Ok(None) => {
-                        self.errors
-                            .push(AnalysisError::ExpectedValueFromExpression {
-                                expression: list.clone(),
-                            });
-
-                        return;
-                    }
+                let list_type_evaluation = match list.type_evaluation(&self.context) {
+                    Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
 
                         return;
                     }
                 };
-                let index_type = match index.return_type(&self.context) {
-                    Ok(Some(r#type)) => r#type,
-                    Ok(None) => {
+                let list_type = match list_type_evaluation.r#type() {
+                    Some(r#type) => r#type,
+                    None => {
                         self.errors
                             .push(AnalysisError::ExpectedValueFromExpression {
                                 expression: list.clone(),
@@ -292,8 +287,22 @@ impl<'a> Analyzer<'a> {
 
                         return;
                     }
+                };
+                let index_type_evaluation = match index.type_evaluation(&self.context) {
+                    Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
+
+                        return;
+                    }
+                };
+                let index_type = match index_type_evaluation.r#type() {
+                    Some(r#type) => r#type,
+                    None => {
+                        self.errors
+                            .push(AnalysisError::ExpectedValueFromExpression {
+                                expression: list.clone(),
+                            });
 
                         return;
                     }
@@ -406,14 +415,29 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(assignee, statement_position);
                     self.analyze_expression(modifier, statement_position);
 
+                    let assignee_type_evaluation = match assignee.type_evaluation(&self.context) {
+                        Ok(evaluation) => evaluation,
+                        Err(ast_error) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+
+                            return;
+                        }
+                    };
+                    let modifier_type_evaluation = match modifier.type_evaluation(&self.context) {
+                        Ok(evaluation) => evaluation,
+                        Err(ast_error) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+
+                            return;
+                        }
+                    };
+
                     let (expected_type, actual_type) = match (
-                        assignee.return_type(&self.context),
-                        modifier.return_type(&self.context),
+                        assignee_type_evaluation.r#type(),
+                        modifier_type_evaluation.r#type(),
                     ) {
-                        (Ok(Some(expected_type)), Ok(Some(actual_type))) => {
-                            (expected_type, actual_type)
-                        }
-                        (Ok(None), Ok(None)) => {
+                        (Some(expected_type), Some(actual_type)) => (expected_type, actual_type),
+                        (None, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: assignee.clone(),
@@ -424,26 +448,18 @@ impl<'a> Analyzer<'a> {
                                 });
                             return;
                         }
-                        (Ok(None), _) => {
+                        (None, _) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: assignee.clone(),
                                 });
                             return;
                         }
-                        (_, Ok(None)) => {
+                        (_, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: modifier.clone(),
                                 });
-                            return;
-                        }
-                        (Err(ast_error), _) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
-                            return;
-                        }
-                        (_, Err(ast_error)) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
                             return;
                         }
                     };
@@ -467,12 +483,29 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(left, statement_position);
                     self.analyze_expression(right, statement_position);
 
+                    let left_type_evaluation = match left.type_evaluation(&self.context) {
+                        Ok(evaluation) => evaluation,
+                        Err(ast_error) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+
+                            return;
+                        }
+                    };
+                    let right_type_evaluation = match right.type_evaluation(&self.context) {
+                        Ok(evaluation) => evaluation,
+                        Err(ast_error) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+
+                            return;
+                        }
+                    };
+
                     let (left_type, right_type) = match (
-                        left.return_type(&self.context),
-                        right.return_type(&self.context),
+                        left_type_evaluation.r#type(),
+                        right_type_evaluation.r#type(),
                     ) {
-                        (Ok(Some(left_type)), Ok(Some(right_type))) => (left_type, right_type),
-                        (Ok(None), Ok(None)) => {
+                        (Some(left_type), Some(right_type)) => (left_type, right_type),
+                        (None, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: left.clone(),
@@ -483,26 +516,18 @@ impl<'a> Analyzer<'a> {
                                 });
                             return;
                         }
-                        (Ok(None), _) => {
+                        (None, _) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: left.clone(),
                                 });
                             return;
                         }
-                        (_, Ok(None)) => {
+                        (_, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: right.clone(),
                                 });
-                            return;
-                        }
-                        (Err(ast_error), _) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
-                            return;
-                        }
-                        (_, Err(ast_error)) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
                             return;
                         }
                     };
@@ -554,12 +579,29 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(left, statement_position);
                     self.analyze_expression(right, statement_position);
 
+                    let left_type_evaluation = match left.type_evaluation(&self.context) {
+                        Ok(evaluation) => evaluation,
+                        Err(ast_error) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+
+                            return;
+                        }
+                    };
+                    let right_type_evaluation = match right.type_evaluation(&self.context) {
+                        Ok(evaluation) => evaluation,
+                        Err(ast_error) => {
+                            self.errors.push(AnalysisError::AstError(ast_error));
+
+                            return;
+                        }
+                    };
+
                     let (left_type, right_type) = match (
-                        left.return_type(&self.context),
-                        right.return_type(&self.context),
+                        left_type_evaluation.r#type(),
+                        right_type_evaluation.r#type(),
                     ) {
-                        (Ok(Some(left_type)), Ok(Some(right_type))) => (left_type, right_type),
-                        (Ok(None), Ok(None)) => {
+                        (Some(left_type), Some(right_type)) => (left_type, right_type),
+                        (None, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: left.clone(),
@@ -570,26 +612,18 @@ impl<'a> Analyzer<'a> {
                                 });
                             return;
                         }
-                        (Ok(None), _) => {
+                        (None, _) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: left.clone(),
                                 });
                             return;
                         }
-                        (_, Ok(None)) => {
+                        (_, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: right.clone(),
                                 });
-                            return;
-                        }
-                        (Err(ast_error), _) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
-                            return;
-                        }
-                        (_, Err(ast_error)) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
                             return;
                         }
                     };
@@ -636,17 +670,21 @@ impl<'a> Analyzer<'a> {
             Expression::TupleAccess(tuple_access) => {
                 let TupleAccessExpression { tuple, index } = tuple_access.inner.as_ref();
 
-                let tuple_type = match tuple.return_type(&self.context) {
-                    Ok(Some(tuple_type)) => tuple_type,
-                    Ok(None) => {
+                let type_evaluation = match tuple.type_evaluation(&self.context) {
+                    Ok(evaluation) => evaluation,
+                    Err(ast_error) => {
+                        self.errors.push(AnalysisError::AstError(ast_error));
+                        return;
+                    }
+                };
+
+                let tuple_type = match type_evaluation.r#type() {
+                    Some(tuple_type) => tuple_type,
+                    None => {
                         self.errors
                             .push(AnalysisError::ExpectedValueFromExpression {
                                 expression: tuple.clone(),
                             });
-                        return;
-                    }
-                    Err(ast_error) => {
-                        self.errors.push(AnalysisError::AstError(ast_error));
                         return;
                     }
                 };

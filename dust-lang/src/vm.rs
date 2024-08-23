@@ -21,8 +21,8 @@ use crate::{
         StructDefinition, StructExpression,
     },
     constructor::ConstructError,
-    core_library, parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData,
-    ContextError, DustError, Expression, Function, FunctionCallError, Identifier, ParseError,
+    core_library, parse, Analyzer, BuiltInFunctionError, Context, ContextData, ContextError,
+    DustError, Evaluation, Expression, Function, FunctionCallError, Identifier, ParseError,
     StructType, Type, Value, ValueData, ValueError,
 };
 
@@ -1062,29 +1062,6 @@ impl Vm {
                     }
                 }
             }
-        }
-    }
-}
-
-enum Evaluation {
-    Break(Option<Value>),
-    Constructor(Constructor),
-    Return(Option<Value>),
-}
-
-impl Evaluation {
-    pub fn value(self) -> Option<Value> {
-        match self {
-            Evaluation::Return(value_option) => value_option,
-            _ => None,
-        }
-    }
-
-    pub fn expect_value(self, position: Span) -> Result<Value, RuntimeError> {
-        if let Evaluation::Return(Some(value)) = self {
-            Ok(value)
-        } else {
-            Err(RuntimeError::ExpectedValue { position })
         }
     }
 }

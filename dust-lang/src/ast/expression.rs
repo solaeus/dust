@@ -6,7 +6,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{BuiltInFunction, Context, FunctionType, Identifier, RangeableType, StructType, Type};
+use crate::{
+    BuiltInFunction, Context, FunctionType, Identifier, RangeableType, StructType, Type,
+    TypeEvaluation,
+};
 
 use super::{AstError, Node, Span, Statement};
 
@@ -268,127 +271,172 @@ impl Expression {
         }
     }
 
-    pub fn return_type(&self, context: &Context) -> Result<Option<Type>, AstError> {
+    pub fn type_evaluation(&self, context: &Context) -> Result<TypeEvaluation, AstError> {
         let return_type = match self {
-            Expression::Block(block_expression) => block_expression.inner.return_type(context)?,
+            Expression::Block(block_expression) => {
+                block_expression.inner.type_evaluation(context)?
+            }
             Expression::Break(expression_node) => {
                 if let Some(expression) = expression_node.inner.as_ref() {
-                    expression.return_type(context)?
+                    let type_evaluation = expression.type_evaluation(context)?;
+
+                    TypeEvaluation::Break(type_evaluation.r#type())
                 } else {
-                    None
+                    TypeEvaluation::Break(None)
                 }
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, .. } = call_expression.inner.as_ref();
 
-                let invoker_type = invoker.return_type(context)?;
+                let invoker_type = invoker.type_evaluation(context)?.r#type();
 
-                if let Some(Type::Function(FunctionType { return_type, .. })) = invoker_type {
-                    return_type.map(|r#type| *r#type)
-                } else if let Some(Type::Struct(_)) = invoker_type {
-                    invoker_type
-                } else {
-                    None
-                }
+                let return_type =
+                    if let Some(Type::Function(FunctionType { return_type, .. })) = invoker_type {
+                        return_type.map(|r#type| *r#type)
+                    } else if let Some(Type::Struct(_)) = invoker_type {
+                        invoker_type
+                    } else {
+                        None
+                    };
+
+                TypeEvaluation::Return(return_type)
             }
             Expression::FieldAccess(field_access_expression) => {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
-                let container_type = container.return_type(context)?;
+                let container_type = container.type_evaluation(context)?.r#type();
 
                 if let Some(Type::Struct(StructType::Fields { fields, .. })) = container_type {
-                    fields
+                    let found_type = fields
                         .into_iter()
                         .find(|(name, _)| name == &field.inner)
-                        .map(|(_, r#type)| r#type)
+                        .map(|(_, r#type)| r#type);
+
+                    TypeEvaluation::Return(found_type)
                 } else {
-                    None
+                    return Err(AstError::ExpectedStructFieldsType {
+                        position: container.position(),
+                    });
                 }
             }
-            Expression::Grouped(expression) => expression.inner.return_type(context)?,
+            Expression::Grouped(expression) => expression.inner.type_evaluation(context)?,
             Expression::Identifier(identifier) => {
-                context
-                    .get_type(&identifier.inner)
-                    .map_err(|error| AstError::ContextError {
+                let type_option = context.get_type(&identifier.inner).map_err(|error| {
+                    AstError::ContextError {
                         error,
                         position: identifier.position,
-                    })?
+                    }
+                })?;
+
+                TypeEvaluation::Return(type_option)
             }
             Expression::If(if_expression) => match if_expression.inner.as_ref() {
-                IfExpression::If { .. } => None,
-                IfExpression::IfElse { if_block, .. } => if_block.inner.return_type(context)?,
+                IfExpression::If { .. } => TypeEvaluation::Return(None),
+                IfExpression::IfElse { if_block, .. } => if_block.inner.type_evaluation(context)?,
             },
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
-                ListExpression::AutoFill { repeat_operand, .. } => {
-                    let item_type = repeat_operand.return_type(context)?;
-
-                    if let Some(r#type) = item_type {
-                        Some(Type::ListOf {
-                            item_type: Box::new(r#type),
-                        })
-                    } else {
-                        return Err(AstError::ExpectedType {
+                ListExpression::AutoFill {
+                    repeat_operand,
+                    length_operand,
+                } => {
+                    let item_type = repeat_operand
+                        .type_evaluation(context)?
+                        .r#type()
+                        .ok_or_else(|| AstError::ExpectedListType {
                             position: repeat_operand.position(),
-                        });
-                    }
+                        })?;
+
+                    let list_type = if let Expression::Literal(literal_expression) = length_operand
+                    {
+                        if let Some(index) = literal_expression.inner.as_integer() {
+                            let length = match usize::try_from(index) {
+                                Ok(usize) => usize,
+                                Err(error) => {
+                                    return Err(AstError::FromIntError {
+                                        error,
+                                        position: length_operand.position(),
+                                    })
+                                }
+                            };
+
+                            Type::List {
+                                item_type: Box::new(item_type),
+                                length,
+                            }
+                        } else {
+                            return Err(AstError::ExpectedInteger {
+                                position: literal_expression.position,
+                            });
+                        }
+                    } else {
+                        Type::ListOf {
+                            item_type: Box::new(item_type),
+                        }
+                    };
+
+                    TypeEvaluation::Return(Some(list_type))
                 }
                 ListExpression::Ordered(expressions) => {
                     if expressions.is_empty() {
-                        return Ok(Some(Type::ListEmpty));
+                        return Ok(TypeEvaluation::Return(Some(Type::ListEmpty)));
                     }
 
                     let item_type = expressions
                         .first()
-                        .ok_or_else(|| AstError::ExpectedNonEmptyList {
-                            position: self.position(),
-                        })?
-                        .return_type(context)?
-                        .ok_or_else(|| AstError::ExpectedType {
+                        .unwrap()
+                        .type_evaluation(context)?
+                        .r#type()
+                        .ok_or_else(|| AstError::ExpectedNonEmptyEvaluation {
                             position: expressions.first().unwrap().position(),
                         })?;
-
                     let length = expressions.len();
 
-                    Some(Type::List {
+                    TypeEvaluation::Return(Some(Type::List {
                         item_type: Box::new(item_type),
                         length,
-                    })
+                    }))
                 }
             },
             Expression::ListIndex(list_index_expression) => {
                 let ListIndexExpression { list, .. } = list_index_expression.inner.as_ref();
 
-                let list_type =
-                    list.return_type(context)?
-                        .ok_or_else(|| AstError::ExpectedType {
-                            position: list.position(),
-                        })?;
+                let list_type = list.type_evaluation(context)?.r#type().ok_or_else(|| {
+                    AstError::ExpectedListType {
+                        position: list.position(),
+                    }
+                })?;
 
                 if let Type::List { item_type, .. } = list_type {
-                    Some(*item_type)
+                    TypeEvaluation::Return(Some(*item_type))
                 } else {
-                    None
+                    return Err(AstError::ExpectedListType {
+                        position: list.position(),
+                    });
                 }
             }
-            Expression::Literal(literal_expression) => match literal_expression.inner.as_ref() {
-                LiteralExpression::BuiltInFunction(built_in_function) => {
-                    built_in_function.return_type()
-                }
-                LiteralExpression::Primitive(primitive_value) => match primitive_value {
-                    PrimitiveValueExpression::Boolean(_) => Some(Type::Boolean),
-                    PrimitiveValueExpression::Character(_) => Some(Type::Character),
-                    PrimitiveValueExpression::Integer(_) => Some(Type::Integer),
-                    PrimitiveValueExpression::Float(_) => Some(Type::Float),
-                },
-                LiteralExpression::String(string) => Some(Type::String {
-                    length: Some(string.len()),
-                }),
-            },
+            Expression::Literal(literal_expression) => {
+                let type_option = match literal_expression.inner.as_ref() {
+                    LiteralExpression::BuiltInFunction(built_in_function) => {
+                        built_in_function.return_type()
+                    }
+                    LiteralExpression::Primitive(primitive_value) => match primitive_value {
+                        PrimitiveValueExpression::Boolean(_) => Some(Type::Boolean),
+                        PrimitiveValueExpression::Character(_) => Some(Type::Character),
+                        PrimitiveValueExpression::Integer(_) => Some(Type::Integer),
+                        PrimitiveValueExpression::Float(_) => Some(Type::Float),
+                    },
+                    LiteralExpression::String(string) => Some(Type::String {
+                        length: Some(string.len()),
+                    }),
+                };
+
+                TypeEvaluation::Return(type_option)
+            }
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
-                LoopExpression::For { block, .. } => block.inner.return_type(context)?,
-                LoopExpression::Infinite { .. } => None,
-                LoopExpression::While { block, .. } => block.inner.return_type(context)?,
+                LoopExpression::For { block, .. } => block.inner.type_evaluation(context)?,
+                LoopExpression::Infinite { block } => block.inner.type_evaluation(context)?,
+                LoopExpression::While { block, .. } => block.inner.type_evaluation(context)?,
             },
             Expression::Map(map_expression) => {
                 let MapExpression { pairs } = map_expression.inner.as_ref();
@@ -396,41 +444,47 @@ impl Expression {
                 let mut types = HashMap::with_capacity(pairs.len());
 
                 for (key, value) in pairs {
-                    let value_type =
-                        value
-                            .return_type(context)?
-                            .ok_or_else(|| AstError::ExpectedType {
-                                position: value.position(),
-                            })?;
+                    let value_type = value.type_evaluation(context)?.r#type().ok_or_else(|| {
+                        AstError::ExpectedNonEmptyEvaluation {
+                            position: value.position(),
+                        }
+                    })?;
 
                     types.insert(key.inner.clone(), value_type);
                 }
 
-                Some(Type::Map { pairs: types })
+                TypeEvaluation::Return(Some(Type::Map { pairs: types }))
             }
-            Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
-                OperatorExpression::Assignment { .. } => None,
-                OperatorExpression::Comparison { .. } => Some(Type::Boolean),
-                OperatorExpression::CompoundAssignment { .. } => None,
-                OperatorExpression::ErrorPropagation(expression) => {
-                    expression.return_type(context)?
-                }
-                OperatorExpression::Negation(expression) => expression.return_type(context)?,
-                OperatorExpression::Not(_) => Some(Type::Boolean),
-                OperatorExpression::Math { left, .. } => left.return_type(context)?,
-                OperatorExpression::Logic { .. } => Some(Type::Boolean),
-            },
+            Expression::Operator(operator_expression) => {
+                let expected_type = match operator_expression.inner.as_ref() {
+                    OperatorExpression::Assignment { .. } => None,
+                    OperatorExpression::Comparison { .. } => Some(Type::Boolean),
+                    OperatorExpression::CompoundAssignment { .. } => None,
+                    OperatorExpression::ErrorPropagation(expression) => {
+                        expression.type_evaluation(context)?.r#type()
+                    }
+                    OperatorExpression::Negation(expression) => {
+                        expression.type_evaluation(context)?.r#type()
+                    }
+                    OperatorExpression::Not(_) => Some(Type::Boolean),
+                    OperatorExpression::Math { left, .. } => {
+                        left.type_evaluation(context)?.r#type()
+                    }
+                    OperatorExpression::Logic { .. } => Some(Type::Boolean),
+                };
+
+                TypeEvaluation::Return(expected_type)
+            }
             Expression::Range(range_expression) => {
                 let start = match range_expression.inner.as_ref() {
                     RangeExpression::Exclusive { start, .. } => start,
                     RangeExpression::Inclusive { start, .. } => start,
                 };
-                let start_type =
-                    start
-                        .return_type(context)?
-                        .ok_or_else(|| AstError::ExpectedType {
-                            position: start.position(),
-                        })?;
+                let start_type = start.type_evaluation(context)?.r#type().ok_or_else(|| {
+                    AstError::ExpectedListType {
+                        position: start.position(),
+                    }
+                })?;
                 let rangeable_type = match start_type {
                     Type::Byte => RangeableType::Byte,
                     Type::Character => RangeableType::Character,
@@ -443,44 +497,41 @@ impl Expression {
                     }
                 };
 
-                Some(Type::Range {
+                TypeEvaluation::Return(Some(Type::Range {
                     r#type: rangeable_type,
-                })
+                }))
             }
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Fields { name, fields } => {
                     let mut types = HashMap::with_capacity(fields.len());
 
                     for (field, expression) in fields {
-                        let r#type = expression.return_type(context)?.ok_or_else(|| {
-                            AstError::ExpectedType {
-                                position: expression.position(),
-                            }
-                        })?;
+                        let r#type =
+                            expression
+                                .type_evaluation(context)?
+                                .r#type()
+                                .ok_or_else(|| AstError::ExpectedListType {
+                                    position: expression.position(),
+                                })?;
 
                         types.insert(field.inner.clone(), r#type);
                     }
 
-                    Some(Type::Struct(StructType::Fields {
+                    TypeEvaluation::Return(Some(Type::Struct(StructType::Fields {
                         name: name.inner.clone(),
                         fields: types,
-                    }))
+                    })))
                 }
             },
             Expression::TupleAccess(tuple_access_expression) => {
                 let TupleAccessExpression { tuple, index } = tuple_access_expression.inner.as_ref();
-                let tuple_value =
-                    tuple
-                        .return_type(context)?
-                        .ok_or_else(|| AstError::ExpectedType {
-                            position: tuple.position(),
-                        })?;
+                let tuple_value = tuple.type_evaluation(context)?.r#type();
 
-                if let Type::Tuple {
+                if let Some(Type::Tuple {
                     fields: Some(fields),
-                } = tuple_value
+                }) = tuple_value
                 {
-                    fields.get(index.inner).cloned()
+                    TypeEvaluation::Return(fields.get(index.inner).cloned())
                 } else {
                     Err(AstError::ExpectedTupleType {
                         position: tuple.position(),
@@ -764,6 +815,15 @@ pub enum LiteralExpression {
     BuiltInFunction(BuiltInFunction),
     Primitive(PrimitiveValueExpression),
     String(String),
+}
+
+impl LiteralExpression {
+    pub fn as_integer(&self) -> Option<i64> {
+        match self {
+            LiteralExpression::Primitive(PrimitiveValueExpression::Integer(value)) => Some(*value),
+            _ => None,
+        }
+    }
 }
 
 impl Display for LiteralExpression {
@@ -1051,13 +1111,13 @@ pub enum BlockExpression {
 }
 
 impl BlockExpression {
-    fn return_type(&self, context: &Context) -> Result<Option<Type>, AstError> {
+    fn type_evaluation(&self, context: &Context) -> Result<TypeEvaluation, AstError> {
         match self {
             BlockExpression::Async(statements) | BlockExpression::Sync(statements) => {
                 if let Some(statement) = statements.last() {
-                    statement.return_type(context)
+                    statement.type_evaluation(context)
                 } else {
-                    Ok(None)
+                    Ok(TypeEvaluation::Return(None))
                 }
             }
         }

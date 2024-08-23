@@ -8,6 +8,7 @@ pub use statement::*;
 use std::{
     collections::VecDeque,
     fmt::{self, Display, Formatter},
+    num::TryFromIntError,
 };
 
 use serde::{Deserialize, Serialize};
@@ -62,21 +63,49 @@ impl<T: Display> Display for Node<T> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AstError {
-    ContextError { error: ContextError, position: Span },
-    ExpectedType { position: Span },
-    ExpectedTupleType { position: Span },
-    ExpectedNonEmptyList { position: Span },
-    ExpectedRangeableType { position: Span },
+    ContextError {
+        error: ContextError,
+        position: Span,
+    },
+    ExpectedInteger {
+        position: Span,
+    },
+    ExpectedListType {
+        position: Span,
+    },
+    ExpectedNonEmptyEvaluation {
+        position: Span,
+    },
+    ExpectedNonEmptyList {
+        position: Span,
+    },
+    ExpectedRangeableType {
+        position: Span,
+    },
+    ExpectedStructFieldsType {
+        position: Span,
+    },
+    ExpectedTupleType {
+        position: Span,
+    },
+    FromIntError {
+        error: TryFromIntError,
+        position: Span,
+    },
 }
 
 impl AstError {
     pub fn position(&self) -> Span {
         match self {
             AstError::ContextError { position, .. } => *position,
-            AstError::ExpectedType { position } => *position,
-            AstError::ExpectedTupleType { position } => *position,
+            AstError::ExpectedInteger { position } => *position,
+            AstError::ExpectedListType { position } => *position,
+            AstError::ExpectedNonEmptyEvaluation { position } => *position,
             AstError::ExpectedNonEmptyList { position } => *position,
             AstError::ExpectedRangeableType { position } => *position,
+            AstError::ExpectedStructFieldsType { position } => *position,
+            AstError::ExpectedTupleType { position } => *position,
+            AstError::FromIntError { position, .. } => *position,
         }
     }
 }
@@ -87,15 +116,29 @@ impl Display for AstError {
             AstError::ContextError { error, position } => {
                 write!(f, "Context error at {:?}: {}", position, error)
             }
-            AstError::ExpectedType { position } => write!(f, "Expected a type at {:?}", position),
+            AstError::ExpectedInteger { position } => {
+                write!(f, "Expected an integer at {:?}", position)
+            }
+            AstError::ExpectedListType { position } => {
+                write!(f, "Expected a type at {:?}", position)
+            }
             AstError::ExpectedTupleType { position } => {
                 write!(f, "Expected a tuple type at {:?}", position)
+            }
+            AstError::ExpectedNonEmptyEvaluation { position } => {
+                write!(f, "Expected a type at {:?}", position)
             }
             AstError::ExpectedNonEmptyList { position } => {
                 write!(f, "Expected a non-empty list at {:?}", position)
             }
             AstError::ExpectedRangeableType { position } => {
                 write!(f, "Expected a rangeable type at {:?}", position)
+            }
+            AstError::ExpectedStructFieldsType { position } => {
+                write!(f, "Expected a struct type with fields at {:?}", position)
+            }
+            AstError::FromIntError { error, position } => {
+                write!(f, "Integer conversion error at {:?}: {}", position, error)
             }
         }
     }

@@ -2,7 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, Identifier, Type};
+use crate::{Context, Identifier, Type, TypeEvaluation};
 
 use super::{AstError, Expression, Node, Span};
 
@@ -28,12 +28,20 @@ impl Statement {
         }
     }
 
-    pub fn return_type(&self, context: &Context) -> Result<Option<Type>, AstError> {
+    pub fn type_evaluation(&self, context: &Context) -> Result<TypeEvaluation, AstError> {
         match self {
-            Statement::Expression(expression) => expression.return_type(context),
-            Statement::ExpressionNullified(_) => Ok(None),
-            Statement::Let(_) => Ok(None),
-            Statement::StructDefinition(_) => Ok(None),
+            Statement::Expression(expression) => expression.type_evaluation(context),
+            Statement::ExpressionNullified(expression_node) => {
+                let type_evaluation = expression_node.inner.type_evaluation(context)?;
+
+                if let TypeEvaluation::Break(_) = type_evaluation {
+                    Ok(type_evaluation)
+                } else {
+                    Ok(TypeEvaluation::Return(None))
+                }
+            }
+            Statement::Let(_) => Ok(TypeEvaluation::Return(None)),
+            Statement::StructDefinition(_) => Ok(TypeEvaluation::Return(None)),
         }
     }
 }
