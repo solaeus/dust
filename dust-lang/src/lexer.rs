@@ -55,11 +55,11 @@ pub fn lex<'chars, 'src: 'chars>(
 /// ```
 /// # use dust_lang::*;
 /// let input = "x = 1 + 2";
-/// let mut lexer = Lexer::new();
+/// let mut lexer = Lexer::new(input);
 /// let mut tokens = Vec::new();
 ///
 /// loop {
-///     let (token, span) = lexer.next_token(input).unwrap();
+///     let (token, span) = lexer.next_token().unwrap();
 ///     let is_eof = matches!(token, Token::Eof);
 ///
 ///     tokens.push((token, span));

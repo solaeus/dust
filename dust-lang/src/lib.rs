@@ -32,7 +32,7 @@ pub mod value;
 pub mod vm;
 
 pub use analyzer::{analyze, AnalysisError, Analyzer};
-pub use ast::{AbstractSyntaxTree, Expression, Span, Statement};
+pub use ast::{AbstractSyntaxTree, AstError, Expression, Node, Span, Statement};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
 pub use constructor::Constructor;
 pub use context::{Context, ContextData, ContextError};

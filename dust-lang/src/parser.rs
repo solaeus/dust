@@ -16,31 +16,21 @@ use crate::{ast::*, DustError, Identifier, LexError, Lexer, Token, TokenKind, To
 /// # Examples
 /// ```
 /// # use dust_lang::*;
-/// let tree = parse("x + 42").unwrap();
+/// let source = "42.to_string()";
 ///
 /// assert_eq!(
-///     tree,
-///     AbstractSyntaxTree {
-///         nodes: [
-///             Node::new(
-///                 Statement::BinaryOperation {
-///                     left: Box::new(Node::new(
-///                         Statement::Identifier(Identifier::new("x")),
-///                         (0, 1),
-///                     )),
-///                     operator: Node::new(
-///                         BinaryOperator::Add,
-///                         (2, 3)
-///                     ),
-///                     right: Box::new(Node::new(
-///                         Statement::Constant(Value::integer(42)),
-///                         (4, 6),
-///                     ))
-///                 },
-///                 (0, 6),
-///             )
-///         ].into(),
-///     },
+///     parse(source),
+///     Ok(AbstractSyntaxTree::with_statements([
+///         Statement::Expression(Expression::call(
+///             Expression::field_access(
+///                 Expression::literal(42, (0, 2)),
+///                 Node::new(Identifier::new("to_string"), (3, 12)),
+///                 (0, 12)
+///             ),
+///             vec![],
+///             (0, 14)
+///         ))
+///     ]))
 /// );
 /// ```
 pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
@@ -55,7 +45,8 @@ pub fn parse_into<'src>(
     source: &'src str,
     tree: &mut AbstractSyntaxTree,
 ) -> Result<(), DustError<'src>> {
-    let mut parser = Parser::new(source);
+    let lexer = Lexer::new(source);
+    let mut parser = Parser::new(lexer);
 
     loop {
         let node = parser
@@ -82,21 +73,21 @@ pub fn parse_into<'src>(
 /// # use std::collections::VecDeque;
 /// # use dust_lang::*;
 /// let source = "x = 42";
-/// let lexer = Lexer::new();
-/// let mut parser = Parser::new(input, lexer);
-/// let mut nodes = VecDeque::new();
+/// let lexer = Lexer::new(source);
+/// let mut parser = Parser::new(lexer);
+/// let mut statements = VecDeque::new();
 ///
 /// loop {
-///     let node = parser.parse().unwrap();
+///     let statement = parser.parse_statement().unwrap();
 ///
-///     nodes.push_back(node);
+///     statements.push_back(statement);
 ///
-///     if let Token::Eof = parser.current().0 {
+///     if parser.is_eof() {
 ///         break;
 ///     }
 /// }
 ///
-/// let tree = AbstractSyntaxTree { nodes };
+/// let tree = AbstractSyntaxTree { statements };
 ///
 /// ```
 pub struct Parser<'src> {
@@ -107,8 +98,7 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(source: &'src str) -> Self {
-        let mut lexer = Lexer::new(source);
+    pub fn new(mut lexer: Lexer<'src>) -> Self {
         let (current_token, current_position) = lexer.next_token().unwrap_or((Token::Eof, (0, 0)));
 
         Parser {
@@ -117,6 +107,10 @@ impl<'src> Parser<'src> {
             current_position,
             mode: ParserMode::Normal,
         }
+    }
+
+    pub fn is_eof(&self) -> bool {
+        matches!(self.current_token, Token::Eof)
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement, ParseError> {
@@ -1295,16 +1289,15 @@ mod tests {
 
         assert_eq!(
             parse(source),
-            Ok(AbstractSyntaxTree {
-                statements: [Statement::Let(Node::new(
+            Ok(AbstractSyntaxTree::with_statements([Statement::Let(
+                Node::new(
                     LetStatement::Let {
                         identifier: Node::new(Identifier::new("x"), (4, 5)),
                         value: Expression::literal(42, (8, 10)),
                     },
                     (0, 11),
-                ))]
-                .into()
-            })
+                )
+            )]))
         );
     }
 
