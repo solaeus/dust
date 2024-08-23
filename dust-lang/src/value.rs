@@ -5,10 +5,15 @@ use std::{
     error::Error,
     fmt::{self, Display, Formatter},
     ops::{Range, RangeInclusive},
+    ptr::read,
     sync::{Arc, RwLock},
 };
 
-use serde::{de::Visitor, ser::SerializeMap, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de::{self, EnumAccess, MapAccess, SeqAccess, Visitor},
+    ser::SerializeMap,
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 use crate::{
     AbstractSyntaxTree, BuiltInFunction, BuiltInFunctionError, Context, ContextError, EnumType,
@@ -20,21 +25,21 @@ use crate::{
 /// Each type of value has a corresponding constructor, here are some simple examples:
 ///
 /// ```
-/// # use dust_lang::Value;
-/// let boolean = Value::boolean(true);
-/// let float = Value::float(3.14);
-/// let integer = Value::integer(42);
-/// let string = Value::string("Hello, world!");
+/// # use dust_lang::ValueData;
+/// let boolean = ValueData::boolean(true);
+/// let float = ValueData::float(3.14);
+/// let integer = ValueData::integer(42);
+/// let string = ValueData::string("Hello, world!");
 /// ```
 ///
 /// Values can be combined into more complex values:
 ///
 /// ```
-/// # use dust_lang::Value;
-/// let list = Value::list(vec![
-///     Value::integer(1),
-///     Value::integer(2),
-///     Value::integer(3),
+/// # use dust_lang::ValueData;
+/// let list = ValueData::list(vec![
+///     ValueData::integer(1),
+///     ValueData::integer(2),
+///     ValueData::integer(3),
 /// ]);
 /// ```
 ///
@@ -43,12 +48,783 @@ use crate::{
 /// ```
 /// # use std::collections::HashMap;
 /// # use dust_lang::*;
-/// let value = Value::integer(42);
+/// let value = ValueData::integer(42);
 ///
 /// assert_eq!(value.r#type(), Type::Integer);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub enum Value {
+    Raw(ValueData),
+    Reference(Arc<ValueData>),
+    Mutable(Arc<RwLock<ValueData>>),
+}
+
+impl Value {
+    pub fn boolean(value: bool) -> Self {
+        Value::Raw(ValueData::Boolean(value))
+    }
+
+    pub fn byte(value: u8) -> Self {
+        Value::Raw(ValueData::Byte(value))
+    }
+
+    pub fn character(value: char) -> Self {
+        Value::Raw(ValueData::Character(value))
+    }
+
+    pub fn float(value: f64) -> Self {
+        Value::Raw(ValueData::Float(value))
+    }
+
+    pub fn integer(value: i64) -> Self {
+        Value::Raw(ValueData::Integer(value))
+    }
+
+    pub fn string<T: ToString>(to_string: T) -> Self {
+        Value::Raw(ValueData::String(to_string.to_string()))
+    }
+
+    pub fn list(value: Vec<Value>) -> Self {
+        Value::Raw(ValueData::List(value))
+    }
+
+    pub fn map(value: HashMap<Identifier, Value>) -> Self {
+        Value::Raw(ValueData::Map(value))
+    }
+
+    pub fn mutable(value: Value) -> Self {
+        match value {
+            Value::Raw(data) => Value::Mutable(Arc::new(RwLock::new(data))),
+            Value::Reference(data) => Value::Mutable(Arc::new(RwLock::new(data.as_ref().clone()))),
+            Value::Mutable(_) => value,
+        }
+    }
+
+    pub fn function(value: Function) -> Self {
+        Value::Raw(ValueData::Function(value))
+    }
+
+    pub fn range<T: Into<Rangeable>>(start: T, end: T) -> Self {
+        Value::Raw(ValueData::Range(start.into()..end.into()))
+    }
+
+    pub fn range_inclusive<T: Into<Rangeable>>(start: T, end: T) -> Self {
+        Value::Raw(ValueData::RangeInclusive(start.into()..=end.into()))
+    }
+
+    pub fn reference(value: Value) -> Self {
+        match value {
+            Value::Raw(data) => Value::Reference(Arc::new(data)),
+            Value::Reference(_) => value,
+            Value::Mutable(data) => {
+                let data = data.read().unwrap();
+
+                Value::Reference(Arc::new(data.clone()))
+            }
+        }
+    }
+
+    pub fn into_mutable(self) -> Self {
+        match self {
+            Value::Raw(data) => Value::Mutable(Arc::new(RwLock::new(data))),
+            Value::Reference(data) => Value::Mutable(Arc::new(RwLock::new(data.as_ref().clone()))),
+            Value::Mutable(_) => self,
+        }
+    }
+
+    pub fn into_reference(self) -> Self {
+        match self {
+            Value::Raw(data) => Value::Reference(Arc::new(data)),
+            Value::Reference(_) => self,
+            Value::Mutable(data) => {
+                let data = data.read().unwrap();
+
+                Value::Reference(Arc::new(data.clone()))
+            }
+        }
+    }
+
+    pub fn clone_data(&self) -> ValueData {
+        match self {
+            Value::Raw(data) => data.clone(),
+            Value::Reference(data) => data.as_ref().clone(),
+            Value::Mutable(data) => data.read().unwrap().clone(),
+        }
+    }
+
+    pub fn is_rangeable(&self) -> bool {
+        match self {
+            Value::Raw(data) => data.is_rangeable(),
+            Value::Reference(data) => data.is_rangeable(),
+            Value::Mutable(data) => data.read().unwrap().is_rangeable(),
+        }
+    }
+
+    pub fn as_mutable(&self) -> Option<&Arc<RwLock<ValueData>>> {
+        match self {
+            Value::Mutable(data) => Some(data),
+            _ => None,
+        }
+    }
+
+    pub fn as_boolean(&self) -> Option<bool> {
+        match self {
+            Value::Raw(ValueData::Boolean(value)) => Some(*value),
+            Value::Reference(data) => match data.as_ref() {
+                ValueData::Boolean(value) => Some(*value),
+                _ => None,
+            },
+            Value::Mutable(data) => match *data.read().unwrap() {
+                ValueData::Boolean(value) => Some(value),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_byte(&self) -> Option<u8> {
+        match self {
+            Value::Raw(ValueData::Byte(value)) => Some(*value),
+            Value::Reference(data) => match data.as_ref() {
+                ValueData::Byte(value) => Some(*value),
+                _ => None,
+            },
+            Value::Mutable(data) => match *data.read().unwrap() {
+                ValueData::Byte(value) => Some(value),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_character(&self) -> Option<char> {
+        match self {
+            Value::Raw(ValueData::Character(value)) => Some(*value),
+            Value::Reference(data) => match data.as_ref() {
+                ValueData::Character(value) => Some(*value),
+                _ => None,
+            },
+            Value::Mutable(data) => match *data.read().unwrap() {
+                ValueData::Character(value) => Some(value),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        match self {
+            Value::Raw(ValueData::Float(value)) => Some(*value),
+            Value::Reference(data) => match data.as_ref() {
+                ValueData::Float(value) => Some(*value),
+                _ => None,
+            },
+            Value::Mutable(data) => match *data.read().unwrap() {
+                ValueData::Float(value) => Some(value),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_integer(&self) -> Option<i64> {
+        match self {
+            Value::Raw(ValueData::Integer(value)) => Some(*value),
+            Value::Reference(data) => match data.as_ref() {
+                ValueData::Integer(value) => Some(*value),
+                _ => None,
+            },
+            Value::Mutable(data) => match *data.read().unwrap() {
+                ValueData::Integer(value) => Some(value),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn r#type(&self) -> Type {
+        match self {
+            Value::Raw(data) => data.r#type(),
+            Value::Reference(data) => data.r#type(),
+            Value::Mutable(data) => data.read().unwrap().r#type(),
+        }
+    }
+
+    pub fn mutate(&self, value: Value) -> Result<(), ValueError> {
+        match self {
+            Value::Mutable(data) => {
+                let mut data = data.write().unwrap();
+                *data = value.clone_data();
+
+                Ok(())
+            }
+            _ => Err(ValueError::CannotMutate(self.clone())),
+        }
+    }
+
+    pub fn index(&self, index_value: &Value) -> Result<Value, ValueError> {
+        let collection = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let index = match index_value {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        match (collection, index) {
+            (ValueData::List(values), ValueData::Integer(index)) => values
+                .get(*index as usize)
+                .cloned()
+                .ok_or_else(|| ValueError::IndexOutOfBounds {
+                    value: self.clone(),
+                    index: *index,
+                }),
+            _ => Err(ValueError::CannotIndex {
+                value: self.clone(),
+                index: index_value.clone(),
+            }),
+        }
+    }
+
+    pub fn get_field(&self, field: &Identifier) -> Option<Value> {
+        let data = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        match field.as_str() {
+            "is_even" => match data {
+                ValueData::Integer(integer) => Some(Value::boolean(integer % 2 == 0)),
+                ValueData::Float(float) => Some(Value::boolean(float % 2.0 == 0.0)),
+                _ => None,
+            },
+            "is_odd" => match data {
+                ValueData::Integer(integer) => Some(Value::boolean(integer % 2 != 0)),
+                ValueData::Float(float) => Some(Value::boolean(float % 2.0 != 0.0)),
+                _ => None,
+            },
+            "to_string" => Some(Value::function(Function::BuiltIn(
+                BuiltInFunction::ToString,
+            ))),
+            "length" => match data {
+                ValueData::List(values) => Some(Value::integer(values.len() as i64)),
+                ValueData::String(string) => Some(Value::integer(string.len() as i64)),
+                ValueData::Map(map) => Some(Value::integer(map.len() as i64)),
+                _ => None,
+            },
+            _ => match data {
+                ValueData::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
+                ValueData::Map(pairs) => pairs.get(field).cloned(),
+                _ => None,
+            },
+        }
+    }
+
+    pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let sum = left
+            .add(right)
+            .ok_or_else(|| ValueError::CannotAdd(self.clone(), other.clone()))?;
+
+        Ok(Value::Raw(sum))
+    }
+
+    pub fn add_assign(&self, other: &Value) -> Result<(), ValueError> {
+        let mut left = self
+            .as_mutable()
+            .ok_or(ValueError::CannotMutate(self.clone()))?
+            .write()
+            .unwrap();
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let new_data = left
+            .add(&right)
+            .ok_or_else(|| ValueError::CannotAdd(self.clone(), other.clone()))?;
+
+        *left = new_data;
+
+        Ok(())
+    }
+
+    pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let difference = left
+            .subtract(right)
+            .ok_or_else(|| ValueError::CannotSubtract(self.clone(), other.clone()))?;
+
+        Ok(Value::Raw(difference))
+    }
+
+    pub fn subtract_assign(&self, other: &Value) -> Result<(), ValueError> {
+        let mut left = self
+            .as_mutable()
+            .ok_or(ValueError::CannotMutate(self.clone()))?
+            .write()
+            .unwrap();
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let new_data = left
+            .subtract(&right)
+            .ok_or_else(|| ValueError::CannotSubtract(self.clone(), other.clone()))?;
+
+        *left = new_data;
+
+        Ok(())
+    }
+
+    pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let product = left
+            .multiply(right)
+            .ok_or_else(|| ValueError::CannotMultiply(self.clone(), other.clone()))?;
+
+        Ok(Value::Raw(product))
+    }
+
+    pub fn multiply_assign(&self, other: &Value) -> Result<(), ValueError> {
+        let mut left = self
+            .as_mutable()
+            .ok_or(ValueError::CannotMutate(self.clone()))?
+            .write()
+            .unwrap();
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let new_data = left
+            .multiply(&right)
+            .ok_or_else(|| ValueError::CannotMultiply(self.clone(), other.clone()))?;
+
+        *left = new_data;
+
+        Ok(())
+    }
+
+    pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let quotient = left
+            .divide(right)
+            .ok_or_else(|| ValueError::CannotDivide(self.clone(), other.clone()))?;
+
+        Ok(Value::Raw(quotient))
+    }
+
+    pub fn divide_assign(&self, other: &Value) -> Result<(), ValueError> {
+        let mut left = self
+            .as_mutable()
+            .ok_or(ValueError::CannotMutate(self.clone()))?
+            .write()
+            .unwrap();
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let new_data = left
+            .divide(&right)
+            .ok_or_else(|| ValueError::CannotDivide(self.clone(), other.clone()))?;
+
+        *left = new_data;
+
+        Ok(())
+    }
+
+    pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let remainder = left
+            .modulo(right)
+            .ok_or_else(|| ValueError::CannotModulo(self.clone(), other.clone()))?;
+
+        Ok(Value::Raw(remainder))
+    }
+
+    pub fn modulo_assign(&self, other: &Value) -> Result<(), ValueError> {
+        let mut left = self
+            .as_mutable()
+            .ok_or(ValueError::CannotMutate(self.clone()))?
+            .write()
+            .unwrap();
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let new_data = left
+            .modulo(&right)
+            .ok_or_else(|| ValueError::CannotModulo(self.clone(), other.clone()))?;
+
+        *left = new_data;
+
+        Ok(())
+    }
+
+    pub fn is_even(&self) -> Result<Value, ValueError> {
+        let data = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        data.is_even()
+            .ok_or_else(|| ValueError::CannotModulo(self.clone(), Value::integer(2)))
+            .map(Value::Raw)
+    }
+
+    pub fn is_odd(&self) -> Result<Value, ValueError> {
+        let data = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        data.is_odd()
+            .ok_or_else(|| ValueError::CannotModulo(self.clone(), Value::integer(2)))
+            .map(Value::Raw)
+    }
+
+    pub fn greater_than(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        left.greater_than(right)
+            .ok_or_else(|| ValueError::CannotGreaterThan(self.clone(), other.clone()))
+            .map(Value::Raw)
+    }
+
+    pub fn greater_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        left.greater_than_or_equal(right)
+            .ok_or_else(|| ValueError::CannotGreaterThanOrEqual(self.clone(), other.clone()))
+            .map(Value::Raw)
+    }
+
+    pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        left.less_than(right)
+            .ok_or_else(|| ValueError::CannotLessThan(self.clone(), other.clone()))
+            .map(Value::Raw)
+    }
+
+    pub fn less_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        left.less_than_or_equal(right)
+            .ok_or_else(|| ValueError::CannotLessThanOrEqual(self.clone(), other.clone()))
+            .map(Value::Raw)
+    }
+
+    pub fn equal(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        Ok(Value::boolean(left == right))
+    }
+
+    pub fn not_equal(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        Ok(Value::boolean(left != right))
+    }
+
+    pub fn negate(&self) -> Result<Value, ValueError> {
+        let data = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        data.negate()
+            .ok_or_else(|| ValueError::CannotNegate(self.clone()))
+            .map(Value::Raw)
+    }
+
+    pub fn not(&self) -> Result<Value, ValueError> {
+        let data = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        data.not()
+            .ok_or_else(|| ValueError::CannotNot(self.clone()))
+            .map(Value::Raw)
+    }
+
+    pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        left.and(right)
+            .ok_or_else(|| ValueError::CannotAnd(self.clone(), other.clone()))
+            .map(Value::Raw)
+    }
+
+    pub fn or(&self, other: &Value) -> Result<Value, ValueError> {
+        let left = match self {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+        let right = match other {
+            Value::Raw(data) => data,
+            Value::Reference(data) => data,
+            Value::Mutable(data) => &data.read().unwrap(),
+        };
+
+        left.or(right)
+            .ok_or_else(|| ValueError::CannotOr(self.clone(), other.clone()))
+            .map(Value::Raw)
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Value::Raw(data) => write!(f, "{}", data),
+            Value::Reference(data) => write!(f, "{}", data),
+            Value::Mutable(data) => write!(f, "{}", data.read().unwrap()),
+        }
+    }
+}
+
+impl Eq for Value {}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Raw(left), Value::Raw(right)) => left == right,
+            (Value::Reference(left), Value::Reference(right)) => left == right,
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                *left.read().unwrap() == *right.read().unwrap()
+            }
+            _ => false,
+        }
+    }
+}
+
+impl PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Value {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self, other) {
+            (Value::Raw(left), Value::Raw(right)) => left.cmp(right),
+            (Value::Raw(_), _) => Ordering::Greater,
+            (Value::Reference(left), Value::Reference(right)) => left.cmp(right),
+            (Value::Reference(_), _) => Ordering::Greater,
+            (Value::Mutable(left), Value::Mutable(right)) => {
+                left.read().unwrap().cmp(&right.read().unwrap())
+            }
+            (Value::Mutable(_), _) => Ordering::Greater,
+        }
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Value::Raw(data) => data.serialize(serializer),
+            Value::Reference(data) => data.serialize(serializer),
+            Value::Mutable(data) => data.read().unwrap().serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct ValueVisitor;
+
+        impl<'de> Visitor<'de> for ValueVisitor {
+            type Value = Value;
+
+            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+                formatter.write_str("a value")
+            }
+
+            fn visit_bool<E: de::Error>(self, value: bool) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::Boolean(value)))
+            }
+
+            fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::Integer(value)))
+            }
+
+            fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::Integer(value as i64)))
+            }
+
+            fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::Float(value)))
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::String(value.to_string())))
+            }
+
+            fn visit_string<E: de::Error>(self, value: String) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::String(value)))
+            }
+
+            fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                let mut values = Vec::new();
+
+                while let Some(value) = seq.next_element()? {
+                    values.push(value);
+                }
+
+                Ok(Value::Raw(ValueData::List(values)))
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut values = HashMap::new();
+
+                while let Some((key, value)) = map.next_entry()? {
+                    values.insert(key, value);
+                }
+
+                Ok(Value::Raw(ValueData::Map(values)))
+            }
+
+            fn visit_bytes<E: de::Error>(self, value: &[u8]) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::List(
+                    value.iter().map(|&byte| Value::byte(byte)).collect(),
+                )))
+            }
+
+            fn visit_byte_buf<E: de::Error>(self, value: Vec<u8>) -> Result<Self::Value, E> {
+                Ok(Value::Raw(ValueData::List(
+                    value.iter().map(|&byte| Value::byte(byte)).collect(),
+                )))
+            }
+        }
+
+        deserializer.deserialize_any(ValueVisitor)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ValueData {
     Boolean(bool),
     Byte(u8),
     Character(char),
@@ -58,7 +834,6 @@ pub enum Value {
     Integer(i64),
     List(Vec<Value>),
     Map(HashMap<Identifier, Value>),
-    Mutable(Arc<RwLock<Value>>),
     Range(Range<Rangeable>),
     RangeInclusive(RangeInclusive<Rangeable>),
     String(String),
@@ -66,114 +841,25 @@ pub enum Value {
     Tuple(Vec<Value>),
 }
 
-impl Value {
-    pub fn map<T: Into<HashMap<Identifier, Value>>>(pairs: T) -> Value {
-        Value::Map(pairs.into())
-    }
-
-    pub fn mutable(value: Value) -> Value {
-        Value::Mutable(Arc::new(RwLock::new(value)))
-    }
-
-    pub fn mutable_from<T: Into<Value>>(into_value: T) -> Value {
-        Value::Mutable(Arc::new(RwLock::new(into_value.into())))
-    }
-
-    pub fn range<T: Into<Rangeable>>(start: T, end: T) -> Value {
-        Value::Range(start.into()..end.into())
-    }
-
-    pub fn range_inclusive<T: Into<Rangeable>>(start: T, end: T) -> Value {
-        Value::RangeInclusive(start.into()..=end.into())
-    }
-
-    pub fn string<T: ToString>(to_string: T) -> Value {
-        Value::String(to_string.to_string())
-    }
-
-    pub fn as_boolean(&self) -> Option<bool> {
-        match self {
-            Value::Boolean(value) => Some(*value),
-            Value::Mutable(locked) => locked.read().unwrap().as_boolean(),
-            _ => None,
-        }
-    }
-
-    pub fn as_byte(&self) -> Option<u8> {
-        match self {
-            Value::Byte(value) => Some(*value),
-            Value::Mutable(locked) => locked.read().unwrap().as_byte(),
-            _ => None,
-        }
-    }
-
-    pub fn as_character(&self) -> Option<char> {
-        match self {
-            Value::Character(value) => Some(*value),
-            Value::Mutable(locked) => locked.read().unwrap().as_character(),
-            _ => None,
-        }
-    }
-
-    pub fn as_float(&self) -> Option<f64> {
-        match self {
-            Value::Float(value) => Some(*value),
-            Value::Mutable(locked) => locked.read().unwrap().as_float(),
-            _ => None,
-        }
-    }
-
-    pub fn as_integer(&self) -> Option<i64> {
-        match self {
-            Value::Integer(value) => Some(*value),
-            Value::Mutable(locked) => locked.read().unwrap().as_integer(),
-            _ => None,
-        }
-    }
-
-    pub fn as_mutable(&self) -> Result<&Arc<RwLock<Value>>, ValueError> {
-        match self {
-            Value::Mutable(inner) => Ok(inner),
-            _ => Err(ValueError::CannotMutate(self.clone())),
-        }
-    }
-
-    pub fn into_mutable(self) -> Value {
-        match self {
-            Value::Mutable(_) => self,
-            immutable => Value::Mutable(Arc::new(RwLock::new(immutable))),
-        }
-    }
-
-    pub fn is_mutable(&self) -> bool {
-        matches!(self, Value::Mutable(_))
-    }
-
-    pub fn mutate(&self, other: Value) -> Result<(), ValueError> {
-        match self {
-            Value::Mutable(inner) => *inner.write().unwrap() = other,
-            _ => return Err(ValueError::CannotMutate(self.clone())),
-        };
-
-        Ok(())
-    }
-
+impl ValueData {
     pub fn r#type(&self) -> Type {
         match self {
-            Value::Boolean(_) => Type::Boolean,
-            Value::Byte(_) => Type::Byte,
-            Value::Character(_) => Type::Character,
-            Value::Enum(Enum { r#type, .. }) => Type::Enum(r#type.clone()),
-            Value::Float(_) => Type::Float,
-            Value::Function(Function::BuiltIn(built_in_function)) => Type::Function(FunctionType {
-                name: Identifier::new(built_in_function.name()),
-                type_parameters: built_in_function.type_parameters(),
-                value_parameters: built_in_function.value_parameters(),
-                return_type: built_in_function.return_type().map(Box::new),
-            }),
-            Value::Function(Function::Parsed { r#type, .. }) => Type::Function(r#type.clone()),
-            Value::Integer(_) => Type::Integer,
-            Value::List(values) => {
+            ValueData::Boolean(_) => Type::Boolean,
+            ValueData::Byte(_) => Type::Byte,
+            ValueData::Character(_) => Type::Character,
+            ValueData::Enum(Enum { r#type, .. }) => Type::Enum(r#type.clone()),
+            ValueData::Float(_) => Type::Float,
+            ValueData::Function(Function::BuiltIn(built_in_function)) => {
+                Type::Function(FunctionType {
+                    name: Identifier::new(built_in_function.name()),
+                    type_parameters: built_in_function.type_parameters(),
+                    value_parameters: built_in_function.value_parameters(),
+                    return_type: built_in_function.return_type().map(Box::new),
+                })
+            }
+            ValueData::Function(Function::Parsed { r#type, .. }) => Type::Function(r#type.clone()),
+            ValueData::Integer(_) => Type::Integer,
+            ValueData::List(values) => {
                 let item_type = values.first().unwrap().r#type();
 
                 Type::List {
@@ -181,7 +867,7 @@ impl Value {
                     length: values.len(),
                 }
             }
-            Value::Map(map) => {
+            ValueData::Map(map) => {
                 let pairs = map
                     .iter()
                     .map(|(key, value)| (key.clone(), value.r#type()))
@@ -189,21 +875,20 @@ impl Value {
 
                 Type::Map { pairs }
             }
-            Value::Mutable(locked) => locked.read().unwrap().r#type(),
-            Value::Range(range) => Type::Range {
+            ValueData::Range(range) => Type::Range {
                 r#type: range.start.r#type(),
             },
-            Value::RangeInclusive(range_inclusive) => {
+            ValueData::RangeInclusive(range_inclusive) => {
                 let rangeable_type = range_inclusive.start().r#type();
 
                 Type::Range {
                     r#type: rangeable_type,
                 }
             }
-            Value::String(string) => Type::String {
+            ValueData::String(string) => Type::String {
                 length: Some(string.len()),
             },
-            Value::Struct(r#struct) => match r#struct {
+            ValueData::Struct(r#struct) => match r#struct {
                 Struct::Unit { name } => Type::Struct(StructType::Unit { name: name.clone() }),
                 Struct::Tuple { name, fields } => {
                     let types = fields.iter().map(|field| field.r#type()).collect();
@@ -225,7 +910,7 @@ impl Value {
                     })
                 }
             },
-            Value::Tuple(values) => {
+            ValueData::Tuple(values) => {
                 let fields = values.iter().map(|value| value.r#type()).collect();
 
                 Type::Tuple(fields)
@@ -233,673 +918,237 @@ impl Value {
         }
     }
 
-    pub fn get_field(&self, field: &Identifier) -> Option<Value> {
-        if let Value::Mutable(locked) = self {
-            return locked.read().unwrap().get_field(field);
-        }
-
-        match field.as_str() {
-            "is_even" => match self {
-                Value::Integer(integer) => Some(Value::Boolean(integer % 2 == 0)),
-                Value::Float(float) => Some(Value::Boolean(float % 2.0 == 0.0)),
-                _ => None,
-            },
-            "is_odd" => match self {
-                Value::Integer(integer) => Some(Value::Boolean(integer % 2 != 0)),
-                Value::Float(float) => Some(Value::Boolean(float % 2.0 != 0.0)),
-                _ => None,
-            },
-            "to_string" => Some(Value::Function(Function::BuiltIn(
-                BuiltInFunction::ToString,
-            ))),
-            "length" => match self {
-                Value::List(values) => Some(Value::Integer(values.len() as i64)),
-                Value::String(string) => Some(Value::Integer(string.len() as i64)),
-                Value::Map(map) => Some(Value::Integer(map.len() as i64)),
-                _ => None,
-            },
-            _ => match self {
-                Value::Struct(Struct::Fields { fields, .. }) => fields.get(field).cloned(),
-                Value::Map(pairs) => pairs.get(field).cloned(),
-                _ => None,
-            },
-        }
-    }
-
-    pub fn get_index(&self, index: Value) -> Result<Option<Value>, ValueError> {
-        match (self, index) {
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                return left
-                    .read()
-                    .unwrap()
-                    .get_index(right.read().unwrap().clone());
-            }
-            (Value::Mutable(locked), index) => {
-                return locked.read().unwrap().get_index(index);
-            }
-            (left, Value::Mutable(locked)) => {
-                return left.get_index(locked.read().unwrap().clone());
-            }
-            (Value::List(values), Value::Integer(integer)) => {
-                let index = integer as usize;
-
-                return Ok(values.get(index).cloned());
-            }
-            (Value::List(values), Value::Range(range)) => match (range.start, range.end) {
-                (Rangeable::Integer(start), Rangeable::Integer(end)) => {
-                    let start = start as usize;
-                    let end = end as usize;
-
-                    return Ok(values
-                        .get(start..end)
-                        .map(|values| Value::List(values.to_vec())));
-                }
-                (start, end) => Err(ValueError::CannotIndex {
-                    value: self.clone(),
-                    index: Value::Range(start..end),
-                }),
-            },
-            (Value::String(string), Value::Range(range)) => match (range.start, range.end) {
-                (Rangeable::Integer(start), Rangeable::Integer(end)) => {
-                    let start = start as usize;
-                    let end = end as usize;
-
-                    return Ok(string.get(start..end).map(Value::string));
-                }
-                (start, end) => Err(ValueError::CannotIndex {
-                    value: self.clone(),
-                    index: Value::Range(start..end),
-                }),
-            },
-            (Value::Range(range), Value::Integer(index)) => match (range.start, range.end) {
-                (Rangeable::Integer(start), Rangeable::Integer(end)) => {
-                    Ok((start..end).nth(index as usize).map(Value::Integer))
-                }
-                (start, end) => Err(ValueError::CannotIndex {
-                    value: self.clone(),
-                    index: Value::Range(start..end),
-                }),
-            },
-            (Value::String(string), Value::Integer(integer)) => {
-                let index = integer as usize;
-
-                return Ok(string.chars().nth(index).map(Value::Character));
-            }
-            (value, index) => Err(ValueError::CannotIndex {
-                value: value.clone(),
-                index,
-            }),
-        }
-    }
-
-    pub fn add(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left + right)),
-            (Value::Integer(left), Value::Integer(right)) => {
-                Ok(Value::Integer(left.saturating_add(*right)))
-            }
-            (Value::String(left), Value::String(right)) => {
-                Ok(Value::String(format!("{}{}", left, right)))
-            }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.add(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.add(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.add(&right)
-            }
-            _ => Err(ValueError::CannotAdd(self.clone(), other.clone())),
-        }
-    }
-
-    pub fn add_assign(&self, other: &Value) -> Result<(), ValueError> {
-        match (self, other) {
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
-                    (Value::Float(left), Value::Float(right)) => {
-                        *left += right;
-                        return Ok(());
-                    }
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        *left = left.saturating_add(*right);
-                        return Ok(());
-                    }
-                    (Value::String(left), Value::String(right)) => {
-                        (*left).push_str(right);
-                        return Ok(());
-                    }
-                    _ => {}
-                }
-            }
-            (Value::Mutable(left), right) => match (&mut *left.write().unwrap(), right) {
-                (Value::Float(left), Value::Float(right)) => {
-                    *left += right;
-                    return Ok(());
-                }
-                (Value::Integer(left), Value::Integer(right)) => {
-                    *left = left.saturating_add(*right);
-                    return Ok(());
-                }
-                (Value::String(left), Value::String(right)) => {
-                    left.push_str(right);
-                    return Ok(());
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-
-        Err(ValueError::CannotMutate(self.clone()))
-    }
-
-    pub fn subtract(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left - right)),
-            (Value::Integer(left), Value::Integer(right)) => {
-                Ok(Value::Integer(left.saturating_sub(*right)))
-            }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.subtract(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.subtract(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.subtract(&right)
-            }
-            _ => Err(ValueError::CannotSubtract(self.clone(), other.clone())),
-        }
-    }
-
-    pub fn subtract_assign(&self, other: &Value) -> Result<(), ValueError> {
-        match (self, other) {
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
-                    (Value::Float(left), Value::Float(right)) => {
-                        *left -= right;
-                        return Ok(());
-                    }
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        *left = left.saturating_sub(*right);
-                        return Ok(());
-                    }
-                    _ => {}
-                }
-            }
-            (Value::Mutable(left), right) => match (&mut *left.write().unwrap(), right) {
-                (Value::Float(left), Value::Float(right)) => {
-                    *left -= right;
-                    return Ok(());
-                }
-                (Value::Integer(left), Value::Integer(right)) => {
-                    *left = left.saturating_sub(*right);
-                    return Ok(());
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-
-        Err(ValueError::CannotSubtract(self.clone(), other.clone()))
-    }
-
-    pub fn multiply(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left * right)),
-            (Value::Integer(left), Value::Integer(right)) => {
-                Ok(Value::Integer(left.saturating_mul(*right)))
-            }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.multiply(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.multiply(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.multiply(&right)
-            }
-            _ => Err(ValueError::CannotMultiply(self.clone(), other.clone())),
-        }
-    }
-
-    pub fn multiply_assign(&self, other: &Value) -> Result<(), ValueError> {
-        match (self, other) {
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
-                    (Value::Float(left), Value::Float(right)) => {
-                        *left *= right;
-                        return Ok(());
-                    }
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        *left = left.saturating_mul(*right);
-                        return Ok(());
-                    }
-                    _ => {}
-                }
-            }
-            (Value::Mutable(left), right) => match (&mut *left.write().unwrap(), right) {
-                (Value::Float(left), Value::Float(right)) => {
-                    *left *= right;
-                    return Ok(());
-                }
-                (Value::Integer(left), Value::Integer(right)) => {
-                    *left = left.saturating_mul(*right);
-                    return Ok(());
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-
-        Err(ValueError::CannotMultiply(self.clone(), other.clone()))
-    }
-
-    pub fn divide(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left / right)),
-            (Value::Integer(left), Value::Integer(right)) => {
-                Ok(Value::Integer(left.saturating_div(*right)))
-            }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.divide(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.divide(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.divide(&right)
-            }
-            _ => Err(ValueError::CannotDivide(self.clone(), other.clone())),
-        }
-    }
-
-    pub fn divide_assign(&self, other: &Value) -> Result<(), ValueError> {
-        match (self, other) {
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
-                    (Value::Float(left), Value::Float(right)) => {
-                        *left /= right;
-                        return Ok(());
-                    }
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        *left = (*left as f64 / *right as f64) as i64;
-                        return Ok(());
-                    }
-                    _ => {}
-                }
-            }
-            (Value::Mutable(left), right) => match (&mut *left.write().unwrap(), right) {
-                (Value::Float(left), Value::Float(right)) => {
-                    *left /= right;
-                    return Ok(());
-                }
-                (Value::Integer(left), Value::Integer(right)) => {
-                    *left = (*left as f64 / *right as f64) as i64;
-                    return Ok(());
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-
-        Err(ValueError::CannotDivide(self.clone(), other.clone()))
-    }
-
-    pub fn modulo(&self, other: &Value) -> Result<Value, ValueError> {
-        match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Float(left % right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Integer(left % right)),
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.modulo(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.modulo(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.modulo(&right)
-            }
-            _ => Err(ValueError::CannotModulo(self.clone(), other.clone())),
-        }
-    }
-
-    pub fn modulo_assign(&self, other: &Value) -> Result<(), ValueError> {
-        match (self, other) {
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                match (&mut *left.write().unwrap(), &*right.read().unwrap()) {
-                    (Value::Float(left), Value::Float(right)) => {
-                        *left %= right;
-                        return Ok(());
-                    }
-                    (Value::Integer(left), Value::Integer(right)) => {
-                        *left %= right;
-                        return Ok(());
-                    }
-                    _ => {}
-                }
-            }
-            (Value::Mutable(left), right) => match (&mut *left.write().unwrap(), right) {
-                (Value::Float(left), Value::Float(right)) => {
-                    *left %= right;
-                    return Ok(());
-                }
-                (Value::Integer(left), Value::Integer(right)) => {
-                    *left %= right;
-                    return Ok(());
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-
-        Err(ValueError::CannotModulo(self.clone(), other.clone()))
-    }
-
-    pub fn equal(&self, other: &Value) -> Value {
-        let is_equal = match (self, other) {
-            (Value::Boolean(left), Value::Boolean(right)) => left == right,
-            (Value::Byte(left), Value::Byte(right)) => left == right,
-            (Value::Character(left), Value::Character(right)) => left == right,
-            (Value::Float(left), Value::Float(right)) => left == right,
-            (Value::Function(left), Value::Function(right)) => left == right,
-            (Value::Integer(left), Value::Integer(right)) => left == right,
-            (Value::List(left), Value::List(right)) => {
-                if left.len() != right.len() {
-                    return Value::Boolean(false);
-                }
-
-                for (left, right) in left.iter().zip(right.iter()) {
-                    if let Value::Boolean(false) = left.equal(right) {
-                        return Value::Boolean(false);
-                    }
-                }
-
-                true
-            }
-            (Value::Range(left), Value::Range(right)) => {
-                left.start == right.start && left.end == right.end
-            }
-            (Value::RangeInclusive(left), Value::RangeInclusive(right)) => {
-                left.start() == right.start() && left.end() == right.end()
-            }
-            (Value::String(left), Value::String(right)) => left == right,
-            (Value::Struct(left), Value::Struct(right)) => left == right,
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                return left.equal(&right);
-            }
-            (Value::Mutable(locked), immutable) | (immutable, Value::Mutable(locked)) => {
-                let locked = locked.read().unwrap();
-
-                return locked.equal(immutable);
-            }
+    pub fn is_rangeable(&self) -> bool {
+        match self {
+            ValueData::Integer(_)
+            | ValueData::Float(_)
+            | ValueData::Character(_)
+            | ValueData::Byte(_) => true,
             _ => false,
-        };
-
-        Value::Boolean(is_equal)
-    }
-
-    pub fn not_equal(&self, other: &Value) -> Value {
-        if let Value::Boolean(is_equal) = self.equal(other) {
-            Value::Boolean(!is_equal)
-        } else {
-            Value::Boolean(true)
         }
     }
 
-    pub fn less_than(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn add(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left < right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left < right)),
-            (Value::Float(left), Value::Integer(right)) => {
-                Ok(Value::Boolean(*left < *right as f64))
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Float(left + right))
             }
-            (Value::Integer(left), Value::Float(right)) => {
-                Ok(Value::Boolean((*left as f64) < *right))
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Integer(left.saturating_add(*right)))
             }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.less_than(&right)
+            (ValueData::String(left), ValueData::String(right)) => {
+                Some(ValueData::String(format!("{}{}", left, right)))
             }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.less_than(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.less_than(&right)
-            }
-            _ => Err(ValueError::CannotLessThan(self.clone(), other.clone())),
+            _ => None,
         }
     }
 
-    pub fn less_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn subtract(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left <= right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left <= right)),
-            (Value::Float(left), Value::Integer(right)) => {
-                Ok(Value::Boolean(*left <= *right as f64))
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Float(left - right))
             }
-            (Value::Integer(left), Value::Float(right)) => {
-                Ok(Value::Boolean(*left as f64 <= *right))
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Integer(left.saturating_sub(*right)))
             }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.less_than_or_equal(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.less_than_or_equal(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.less_than_or_equal(&right)
-            }
-            _ => Err(ValueError::CannotLessThanOrEqual(
-                self.clone(),
-                other.clone(),
-            )),
+            _ => None,
         }
     }
 
-    pub fn greater_than(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn multiply(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left > right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left > right)),
-            (Value::Float(left), Value::Integer(right)) => {
-                Ok(Value::Boolean(*left > *right as f64))
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Float(left * right))
             }
-            (Value::Integer(left), Value::Float(right)) => {
-                Ok(Value::Boolean(*left as f64 > *right))
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Integer(left.saturating_mul(*right)))
             }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.greater_than(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.greater_than(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.greater_than(&right)
-            }
-            _ => Err(ValueError::CannotGreaterThan(self.clone(), other.clone())),
+            _ => None,
         }
     }
 
-    pub fn greater_than_or_equal(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn divide(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
-            (Value::Float(left), Value::Float(right)) => Ok(Value::Boolean(left >= right)),
-            (Value::Integer(left), Value::Integer(right)) => Ok(Value::Boolean(left >= right)),
-            (Value::Float(left), Value::Integer(right)) => {
-                Ok(Value::Boolean(*left >= *right as f64))
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Float(left / right))
             }
-            (Value::Integer(left), Value::Float(right)) => {
-                Ok(Value::Boolean(*left as f64 >= *right))
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Integer(left.saturating_div(*right)))
             }
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.greater_than_or_equal(&right)
-            }
-            (Value::Mutable(left), right) => {
-                let left = left.read().unwrap();
-
-                left.greater_than_or_equal(right)
-            }
-            (left, Value::Mutable(right)) => {
-                let right = right.read().unwrap();
-
-                left.greater_than_or_equal(&right)
-            }
-            _ => Err(ValueError::CannotGreaterThanOrEqual(
-                self.clone(),
-                other.clone(),
-            )),
+            _ => None,
         }
     }
 
-    pub fn and(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn modulo(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
-            (Value::Boolean(left), Value::Boolean(right)) => Ok(Value::Boolean(*left && *right)),
-            (Value::Mutable(locked), value) | (value, Value::Mutable(locked)) => {
-                let locked = locked.read().unwrap();
-
-                locked.and(value)
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Float(left % right))
             }
-            _ => Err(ValueError::CannotAnd(self.clone(), other.clone())),
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Integer(left % right))
+            }
+            _ => None,
         }
     }
 
-    pub fn or(&self, other: &Value) -> Result<Value, ValueError> {
+    pub fn less_than(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
-            (Value::Boolean(left), Value::Boolean(right)) => Ok(Value::Boolean(*left || *right)),
-            (Value::Mutable(locked), value) | (value, Value::Mutable(locked)) => {
-                let locked = locked.read().unwrap();
-
-                locked.or(value)
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Boolean(left < right))
             }
-            _ => Err(ValueError::CannotOr(self.clone(), other.clone())),
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Boolean(left < right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn less_than_or_equal(&self, other: &ValueData) -> Option<ValueData> {
+        match (self, other) {
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Boolean(left <= right))
+            }
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Boolean(left <= right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn greater_than(&self, other: &ValueData) -> Option<ValueData> {
+        match (self, other) {
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Boolean(left > right))
+            }
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Boolean(left > right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn greater_than_or_equal(&self, other: &ValueData) -> Option<ValueData> {
+        match (self, other) {
+            (ValueData::Float(left), ValueData::Float(right)) => {
+                Some(ValueData::Boolean(left >= right))
+            }
+            (ValueData::Integer(left), ValueData::Integer(right)) => {
+                Some(ValueData::Boolean(left >= right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn and(&self, other: &ValueData) -> Option<ValueData> {
+        match (self, other) {
+            (ValueData::Boolean(left), ValueData::Boolean(right)) => {
+                Some(ValueData::Boolean(*left && *right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn or(&self, other: &ValueData) -> Option<ValueData> {
+        match (self, other) {
+            (ValueData::Boolean(left), ValueData::Boolean(right)) => {
+                Some(ValueData::Boolean(*left || *right))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn is_even(&self) -> Option<ValueData> {
+        match self {
+            ValueData::Integer(integer) => Some(ValueData::Boolean(integer % 2 == 0)),
+            ValueData::Float(float) => Some(ValueData::Boolean(float % 2.0 == 0.0)),
+            _ => None,
+        }
+    }
+
+    pub fn is_odd(&self) -> Option<ValueData> {
+        match self {
+            ValueData::Integer(integer) => Some(ValueData::Boolean(integer % 2 != 0)),
+            ValueData::Float(float) => Some(ValueData::Boolean(float % 2.0 != 0.0)),
+            _ => None,
+        }
+    }
+
+    pub fn negate(&self) -> Option<ValueData> {
+        match self {
+            ValueData::Byte(value) => Some(ValueData::Byte(!value)),
+            ValueData::Float(value) => Some(ValueData::Float(-value)),
+            ValueData::Integer(value) => Some(ValueData::Integer(-value)),
+            _ => None,
+        }
+    }
+
+    pub fn not(&self) -> Option<ValueData> {
+        match self {
+            ValueData::Boolean(value) => Some(ValueData::Boolean(!value)),
+            _ => None,
         }
     }
 }
 
-impl From<bool> for Value {
+impl From<bool> for ValueData {
     fn from(value: bool) -> Self {
-        Value::Boolean(value)
+        ValueData::Boolean(value)
     }
 }
 
-impl From<u8> for Value {
+impl From<u8> for ValueData {
     fn from(value: u8) -> Self {
-        Value::Byte(value)
+        ValueData::Byte(value)
     }
 }
 
-impl From<char> for Value {
+impl From<char> for ValueData {
     fn from(value: char) -> Self {
-        Value::Character(value)
+        ValueData::Character(value)
     }
 }
 
-impl From<f64> for Value {
+impl From<f64> for ValueData {
     fn from(value: f64) -> Self {
-        Value::Float(value)
+        ValueData::Float(value)
     }
 }
 
-impl From<i32> for Value {
+impl From<i32> for ValueData {
     fn from(value: i32) -> Self {
-        Value::Integer(value as i64)
+        ValueData::Integer(value as i64)
     }
 }
 
-impl From<i64> for Value {
+impl From<i64> for ValueData {
     fn from(value: i64) -> Self {
-        Value::Integer(value)
+        ValueData::Integer(value)
     }
 }
 
-impl From<String> for Value {
+impl From<String> for ValueData {
     fn from(value: String) -> Self {
-        Value::String(value)
+        ValueData::String(value)
     }
 }
 
-impl From<&str> for Value {
+impl From<&str> for ValueData {
     fn from(value: &str) -> Self {
-        Value::String(value.to_string())
+        ValueData::String(value.to_string())
     }
 }
 
-impl Display for Value {
+impl Display for ValueData {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Value::Mutable(inner_locked) => {
-                let inner = inner_locked.read().unwrap();
-
-                write!(f, "{inner}")
-            }
-            Value::Boolean(boolean) => write!(f, "{boolean}"),
-            Value::Byte(byte) => write!(f, "{byte}"),
-            Value::Character(character) => write!(f, "{character}"),
-            Value::Enum(r#enum) => write!(f, "{enum}"),
-            Value::Float(float) => write!(f, "{float}"),
-            Value::Function(function) => write!(f, "{function}"),
-            Value::Integer(integer) => write!(f, "{integer}"),
-            Value::Map(pairs) => {
+            ValueData::Boolean(boolean) => write!(f, "{boolean}"),
+            ValueData::Byte(byte) => write!(f, "{byte}"),
+            ValueData::Character(character) => write!(f, "{character}"),
+            ValueData::Enum(r#enum) => write!(f, "{enum}"),
+            ValueData::Float(float) => write!(f, "{float}"),
+            ValueData::Function(function) => write!(f, "{function}"),
+            ValueData::Integer(integer) => write!(f, "{integer}"),
+            ValueData::Map(pairs) => {
                 write!(f, "{{ ")?;
 
                 for (index, (key, value)) in pairs.iter().enumerate() {
@@ -912,7 +1161,7 @@ impl Display for Value {
 
                 write!(f, " }}")
             }
-            Value::List(list) => {
+            ValueData::List(list) => {
                 write!(f, "[")?;
 
                 for (index, value) in list.iter().enumerate() {
@@ -925,18 +1174,18 @@ impl Display for Value {
 
                 write!(f, "]")
             }
-            Value::Range(Range { start, end }) => {
+            ValueData::Range(Range { start, end }) => {
                 write!(f, "{start}..{end}")
             }
-            Value::RangeInclusive(inclusive) => {
+            ValueData::RangeInclusive(inclusive) => {
                 let start = inclusive.start();
                 let end = inclusive.end();
 
                 write!(f, "{start}..={end}")
             }
-            Value::String(string) => write!(f, "{string}"),
-            Value::Struct(r#struct) => write!(f, "{struct}"),
-            Value::Tuple(fields) => {
+            ValueData::String(string) => write!(f, "{string}"),
+            ValueData::Struct(r#struct) => write!(f, "{struct}"),
+            ValueData::Tuple(fields) => {
                 write!(f, "(")?;
 
                 for (index, field) in fields.iter().enumerate() {
@@ -953,66 +1202,53 @@ impl Display for Value {
     }
 }
 
-impl Eq for Value {}
+impl Eq for ValueData {}
 
-impl PartialEq for Value {
+impl PartialEq for ValueData {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Value::Boolean(left), Value::Boolean(right)) => left == right,
-            (Value::Byte(left), Value::Byte(right)) => left == right,
-            (Value::Character(left), Value::Character(right)) => left == right,
-            (Value::Float(left), Value::Float(right)) => left == right,
-            (Value::Function(left), Value::Function(right)) => left == right,
-            (Value::Integer(left), Value::Integer(right)) => left == right,
-            (Value::List(left), Value::List(right)) => left == right,
-            (Value::Map(left), Value::Map(right)) => left == right,
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = &*left.read().unwrap();
-                let right = &*right.read().unwrap();
-
-                left == right
-            }
-            (Value::Range(left), Value::Range(right)) => left == right,
-            (Value::RangeInclusive(left), Value::RangeInclusive(right)) => left == right,
-            (Value::String(left), Value::String(right)) => left == right,
-            (Value::Struct(left), Value::Struct(right)) => left == right,
-            (Value::Tuple(left), Value::Tuple(right)) => left == right,
+            (ValueData::Boolean(left), ValueData::Boolean(right)) => left == right,
+            (ValueData::Byte(left), ValueData::Byte(right)) => left == right,
+            (ValueData::Character(left), ValueData::Character(right)) => left == right,
+            (ValueData::Float(left), ValueData::Float(right)) => left == right,
+            (ValueData::Function(left), ValueData::Function(right)) => left == right,
+            (ValueData::Integer(left), ValueData::Integer(right)) => left == right,
+            (ValueData::List(left), ValueData::List(right)) => left == right,
+            (ValueData::Map(left), ValueData::Map(right)) => left == right,
+            (ValueData::Range(left), ValueData::Range(right)) => left == right,
+            (ValueData::RangeInclusive(left), ValueData::RangeInclusive(right)) => left == right,
+            (ValueData::String(left), ValueData::String(right)) => left == right,
+            (ValueData::Struct(left), ValueData::Struct(right)) => left == right,
+            (ValueData::Tuple(left), ValueData::Tuple(right)) => left == right,
             _ => false,
         }
     }
 }
 
-impl PartialOrd for Value {
+impl PartialOrd for ValueData {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Value {
+impl Ord for ValueData {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
-            (Value::Boolean(left), Value::Boolean(right)) => left.cmp(right),
-            (Value::Boolean(_), _) => Ordering::Greater,
-            (Value::Byte(left), Value::Byte(right)) => left.cmp(right),
-            (Value::Byte(_), _) => Ordering::Greater,
-            (Value::Character(left), Value::Character(right)) => left.cmp(right),
-            (Value::Character(_), _) => Ordering::Greater,
-            (Value::Float(left), Value::Float(right)) => left.partial_cmp(right).unwrap(),
-            (Value::Float(_), _) => Ordering::Greater,
-            (Value::Function(left), Value::Function(right)) => left.cmp(right),
-            (Value::Function(_), _) => Ordering::Greater,
-            (Value::Integer(left), Value::Integer(right)) => left.cmp(right),
-            (Value::Integer(_), _) => Ordering::Greater,
-            (Value::List(left), Value::List(right)) => left.cmp(right),
-            (Value::List(_), _) => Ordering::Greater,
-            (Value::Mutable(left), Value::Mutable(right)) => {
-                let left = left.read().unwrap();
-                let right = right.read().unwrap();
-
-                left.cmp(&right)
-            }
-            (Value::Mutable(_), _) => Ordering::Greater,
-            (Value::Range(left), Value::Range(right)) => {
+            (ValueData::Boolean(left), ValueData::Boolean(right)) => left.cmp(right),
+            (ValueData::Boolean(_), _) => Ordering::Greater,
+            (ValueData::Byte(left), ValueData::Byte(right)) => left.cmp(right),
+            (ValueData::Byte(_), _) => Ordering::Greater,
+            (ValueData::Character(left), ValueData::Character(right)) => left.cmp(right),
+            (ValueData::Character(_), _) => Ordering::Greater,
+            (ValueData::Float(left), ValueData::Float(right)) => left.partial_cmp(right).unwrap(),
+            (ValueData::Float(_), _) => Ordering::Greater,
+            (ValueData::Function(left), ValueData::Function(right)) => left.cmp(right),
+            (ValueData::Function(_), _) => Ordering::Greater,
+            (ValueData::Integer(left), ValueData::Integer(right)) => left.cmp(right),
+            (ValueData::Integer(_), _) => Ordering::Greater,
+            (ValueData::List(left), ValueData::List(right)) => left.cmp(right),
+            (ValueData::List(_), _) => Ordering::Greater,
+            (ValueData::Range(left), ValueData::Range(right)) => {
                 let start_cmp = left.start.cmp(&right.start);
 
                 if start_cmp.is_eq() {
@@ -1021,8 +1257,8 @@ impl Ord for Value {
                     start_cmp
                 }
             }
-            (Value::Range(_), _) => Ordering::Greater,
-            (Value::RangeInclusive(left), Value::RangeInclusive(right)) => {
+            (ValueData::Range(_), _) => Ordering::Greater,
+            (ValueData::RangeInclusive(left), ValueData::RangeInclusive(right)) => {
                 let start_cmp = left.start().cmp(right.start());
 
                 if start_cmp.is_eq() {
@@ -1031,37 +1267,32 @@ impl Ord for Value {
                     start_cmp
                 }
             }
-            (Value::RangeInclusive(_), _) => Ordering::Greater,
-            (Value::String(left), Value::String(right)) => left.cmp(right),
-            (Value::String(_), _) => Ordering::Greater,
-            (Value::Struct(left), Value::Struct(right)) => left.cmp(right),
-            (Value::Struct(_), _) => Ordering::Greater,
-            (Value::Tuple(left), Value::Tuple(right)) => left.cmp(right),
+            (ValueData::RangeInclusive(_), _) => Ordering::Greater,
+            (ValueData::String(left), ValueData::String(right)) => left.cmp(right),
+            (ValueData::String(_), _) => Ordering::Greater,
+            (ValueData::Struct(left), ValueData::Struct(right)) => left.cmp(right),
+            (ValueData::Struct(_), _) => Ordering::Greater,
+            (ValueData::Tuple(left), ValueData::Tuple(right)) => left.cmp(right),
             _ => Ordering::Greater,
         }
     }
 }
 
-impl Serialize for Value {
+impl Serialize for ValueData {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         match self {
-            Value::Mutable(inner_locked) => {
-                let inner = inner_locked.read().unwrap();
-
-                inner.serialize(serializer)
-            }
-            Value::Boolean(boolean) => serializer.serialize_bool(*boolean),
-            Value::Byte(byte) => serializer.serialize_u8(*byte),
-            Value::Character(character) => serializer.serialize_char(*character),
-            Value::Enum(r#emum) => r#emum.serialize(serializer),
-            Value::Float(float) => serializer.serialize_f64(*float),
-            Value::Function(function) => function.serialize(serializer),
-            Value::Integer(integer) => serializer.serialize_i64(*integer),
-            Value::List(list) => list.serialize(serializer),
-            Value::Map(pairs) => {
+            ValueData::Boolean(boolean) => serializer.serialize_bool(*boolean),
+            ValueData::Byte(byte) => serializer.serialize_u8(*byte),
+            ValueData::Character(character) => serializer.serialize_char(*character),
+            ValueData::Enum(r#emum) => r#emum.serialize(serializer),
+            ValueData::Float(float) => serializer.serialize_f64(*float),
+            ValueData::Function(function) => function.serialize(serializer),
+            ValueData::Integer(integer) => serializer.serialize_i64(*integer),
+            ValueData::List(list) => list.serialize(serializer),
+            ValueData::Map(pairs) => {
                 let mut ser = serializer.serialize_map(Some(pairs.len()))?;
 
                 for (key, value) in pairs {
@@ -1070,55 +1301,55 @@ impl Serialize for Value {
 
                 ser.end()
             }
-            Value::Range(range) => range.serialize(serializer),
-            Value::RangeInclusive(inclusive) => inclusive.serialize(serializer),
-            Value::String(string) => serializer.serialize_str(string),
-            Value::Struct(r#struct) => r#struct.serialize(serializer),
-            Value::Tuple(tuple) => tuple.serialize(serializer),
+            ValueData::Range(range) => range.serialize(serializer),
+            ValueData::RangeInclusive(inclusive) => inclusive.serialize(serializer),
+            ValueData::String(string) => serializer.serialize_str(string),
+            ValueData::Struct(r#struct) => r#struct.serialize(serializer),
+            ValueData::Tuple(tuple) => tuple.serialize(serializer),
         }
     }
 }
 
-impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(deserializer: D) -> Result<Value, D::Error>
+impl<'de> Deserialize<'de> for ValueData {
+    fn deserialize<D>(deserializer: D) -> Result<ValueData, D::Error>
     where
         D: Deserializer<'de>,
     {
-        struct ValueVisitor;
+        struct ValueDataVisitor;
 
-        impl<'de> Visitor<'de> for ValueVisitor {
-            type Value = Value;
+        impl<'de> Visitor<'de> for ValueDataVisitor {
+            type Value = ValueData;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("a value")
             }
 
-            fn visit_bool<E>(self, value: bool) -> Result<Value, E> {
-                Ok(Value::Boolean(value))
+            fn visit_bool<E>(self, value: bool) -> Result<ValueData, E> {
+                Ok(ValueData::Boolean(value))
             }
 
-            fn visit_u8<E>(self, value: u8) -> Result<Value, E> {
-                Ok(Value::Byte(value))
+            fn visit_u8<E>(self, value: u8) -> Result<ValueData, E> {
+                Ok(ValueData::Byte(value))
             }
 
-            fn visit_char<E>(self, value: char) -> Result<Value, E> {
-                Ok(Value::Character(value))
+            fn visit_char<E>(self, value: char) -> Result<ValueData, E> {
+                Ok(ValueData::Character(value))
             }
 
-            fn visit_f64<E>(self, value: f64) -> Result<Value, E> {
-                Ok(Value::Float(value))
+            fn visit_f64<E>(self, value: f64) -> Result<ValueData, E> {
+                Ok(ValueData::Float(value))
             }
 
-            fn visit_i64<E>(self, value: i64) -> Result<Value, E> {
-                Ok(Value::Integer(value))
+            fn visit_i64<E>(self, value: i64) -> Result<ValueData, E> {
+                Ok(ValueData::Integer(value))
             }
 
-            fn visit_str<E>(self, value: &str) -> Result<Value, E> {
-                Ok(Value::String(value.to_string()))
+            fn visit_str<E>(self, value: &str) -> Result<ValueData, E> {
+                Ok(ValueData::String(value.to_string()))
             }
         }
 
-        deserializer.deserialize_any(ValueVisitor)
+        deserializer.deserialize_any(ValueDataVisitor)
     }
 }
 
@@ -1477,6 +1708,8 @@ pub enum ValueError {
     CannotModulo(Value, Value),
     CannotMultiply(Value, Value),
     CannotMutate(Value),
+    CannotNegate(Value),
+    CannotNot(Value),
     CannotSubtract(Value, Value),
     CannotOr(Value, Value),
     DivisionByZero,

@@ -22,7 +22,7 @@ use crate::{
     },
     core_library, parse, Analyzer, BuiltInFunctionError, Constructor, Context, ContextData,
     ContextError, DustError, Expression, Function, FunctionCallError, Identifier, ParseError,
-    StructType, Type, Value, ValueError,
+    StructType, Type, Value, ValueData, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -200,7 +200,8 @@ impl Vm {
                 let position = value.position();
                 let value = self
                     .run_expression(value, collect_garbage)?
-                    .expect_value(position)?;
+                    .expect_value(position)?
+                    .into_reference();
 
                 self.context
                     .set_variable_value(identifier.inner, value)
@@ -367,22 +368,33 @@ impl Vm {
                 let start = self
                     .run_expression(start, collect_garbage)?
                     .expect_value(start_position)?;
+
+                let start_data = match start {
+                    Value::Raw(data) => data,
+                    Value::Reference(reference) => reference.as_ref().clone(),
+                    Value::Mutable(locked) => locked.read().unwrap().clone(),
+                };
                 let end_position = end.position();
                 let end = self
                     .run_expression(end, collect_garbage)?
                     .expect_value(end_position)?;
+                let end_data = match end {
+                    Value::Raw(data) => data,
+                    Value::Reference(reference) => reference.as_ref().clone(),
+                    Value::Mutable(locked) => locked.read().unwrap().clone(),
+                };
 
-                match (start, end) {
-                    (Value::Byte(start), Value::Byte(end)) => {
+                match (start_data, end_data) {
+                    (ValueData::Byte(start), ValueData::Byte(end)) => {
                         Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
-                    (Value::Character(start), Value::Character(end)) => {
+                    (ValueData::Character(start), ValueData::Character(end)) => {
                         Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
-                    (Value::Float(start), Value::Float(end)) => {
+                    (ValueData::Float(start), ValueData::Float(end)) => {
                         Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
-                    (Value::Integer(start), Value::Integer(end)) => {
+                    (ValueData::Integer(start), ValueData::Integer(end)) => {
                         Ok(Evaluation::Return(Some(Value::range(start, end))))
                     }
                     _ => Err(RuntimeError::InvalidRange {
@@ -396,22 +408,33 @@ impl Vm {
                 let start = self
                     .run_expression(start, collect_garbage)?
                     .expect_value(start_position)?;
+
+                let start_data = match start {
+                    Value::Raw(data) => data,
+                    Value::Reference(reference) => reference.as_ref().clone(),
+                    Value::Mutable(locked) => locked.read().unwrap().clone(),
+                };
                 let end_position = end.position();
                 let end = self
                     .run_expression(end, collect_garbage)?
                     .expect_value(end_position)?;
+                let end_data = match end {
+                    Value::Raw(data) => data,
+                    Value::Reference(reference) => reference.as_ref().clone(),
+                    Value::Mutable(locked) => locked.read().unwrap().clone(),
+                };
 
-                match (start, end) {
-                    (Value::Byte(start), Value::Byte(end)) => {
+                match (start_data, end_data) {
+                    (ValueData::Byte(start), ValueData::Byte(end)) => {
                         Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
                     }
-                    (Value::Character(start), Value::Character(end)) => {
+                    (ValueData::Character(start), ValueData::Character(end)) => {
                         Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
                     }
-                    (Value::Float(start), Value::Float(end)) => {
+                    (ValueData::Float(start), ValueData::Float(end)) => {
                         Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
                     }
-                    (Value::Integer(start), Value::Integer(end)) => {
+                    (ValueData::Integer(start), ValueData::Integer(end)) => {
                         Ok(Evaluation::Return(Some(Value::range_inclusive(start, end))))
                     }
                     _ => Err(RuntimeError::InvalidRange {
@@ -441,7 +464,7 @@ impl Vm {
             map.insert(identifier.inner, value);
         }
 
-        Ok(Evaluation::Return(Some(Value::Map(map))))
+        Ok(Evaluation::Return(Some(Value::map(map))))
     }
 
     fn run_operator(
@@ -483,41 +506,25 @@ impl Vm {
                 let right_value = self
                     .run_expression(right, collect_garbage)?
                     .expect_value(right_position)?;
-                let outcome =
-                    match operator.inner {
-                        ComparisonOperator::Equal => left_value.equal(&right_value),
-                        ComparisonOperator::NotEqual => left_value.not_equal(&right_value),
-                        ComparisonOperator::GreaterThan => left_value
-                            .greater_than(&right_value)
-                            .map_err(|error| RuntimeError::ValueError {
-                                error,
-                                left_position,
-                                right_position,
-                            })?,
-                        ComparisonOperator::GreaterThanOrEqual => left_value
-                            .greater_than_or_equal(&right_value)
-                            .map_err(|error| RuntimeError::ValueError {
-                                error,
-                                left_position,
-                                right_position,
-                            })?,
-                        ComparisonOperator::LessThan => left_value
-                            .less_than(&right_value)
-                            .map_err(|error| RuntimeError::ValueError {
-                                error,
-                                left_position,
-                                right_position,
-                            })?,
-                        ComparisonOperator::LessThanOrEqual => left_value
-                            .less_than_or_equal(&right_value)
-                            .map_err(|error| RuntimeError::ValueError {
-                                error,
-                                left_position,
-                                right_position,
-                            })?,
-                    };
+                let result = match operator.inner {
+                    ComparisonOperator::Equal => left_value.equal(&right_value),
+                    ComparisonOperator::NotEqual => left_value.not_equal(&right_value),
+                    ComparisonOperator::GreaterThan => left_value.greater_than(&right_value),
+                    ComparisonOperator::GreaterThanOrEqual => {
+                        left_value.greater_than_or_equal(&right_value)
+                    }
+                    ComparisonOperator::LessThan => left_value.less_than(&right_value),
+                    ComparisonOperator::LessThanOrEqual => {
+                        left_value.less_than_or_equal(&right_value)
+                    }
+                };
+                let value = result.map_err(|error| RuntimeError::ValueError {
+                    error,
+                    left_position,
+                    right_position,
+                })?;
 
-                Ok(Evaluation::Return(Some(outcome)))
+                Ok(Evaluation::Return(Some(value)))
             }
             OperatorExpression::CompoundAssignment {
                 assignee,
@@ -554,10 +561,11 @@ impl Vm {
                 let value = self
                     .run_expression(expression, collect_garbage)?
                     .expect_value(position)?;
-                let integer = value
-                    .as_integer()
-                    .ok_or(RuntimeError::ExpectedBoolean { position })?;
-                let negated = Value::Integer(-integer);
+                let negated = value.negate().map_err(|error| RuntimeError::ValueError {
+                    error,
+                    left_position: position,
+                    right_position: position,
+                })?;
 
                 Ok(Evaluation::Return(Some(negated)))
             }
@@ -566,10 +574,11 @@ impl Vm {
                 let value = self
                     .run_expression(expression, collect_garbage)?
                     .expect_value(position)?;
-                let boolean = value
-                    .as_boolean()
-                    .ok_or(RuntimeError::ExpectedBoolean { position })?;
-                let not = Value::Boolean(!boolean);
+                let not = value.not().map_err(|error| RuntimeError::ValueError {
+                    error,
+                    left_position: position,
+                    right_position: position,
+                })?;
 
                 Ok(Evaluation::Return(Some(not)))
             }
@@ -666,14 +675,14 @@ impl Vm {
     fn run_literal(&self, literal: LiteralExpression) -> Result<Evaluation, RuntimeError> {
         let value = match literal {
             LiteralExpression::BuiltInFunction(built_in_function) => {
-                Value::Function(Function::BuiltIn(built_in_function))
+                Value::function(Function::BuiltIn(built_in_function))
             }
-            LiteralExpression::String(string) => Value::String(string),
+            LiteralExpression::String(string) => Value::string(string),
             LiteralExpression::Primitive(primitive_expression) => match primitive_expression {
-                PrimitiveValueExpression::Boolean(boolean) => Value::Boolean(boolean),
-                PrimitiveValueExpression::Character(character) => Value::Character(character),
-                PrimitiveValueExpression::Integer(integer) => Value::Integer(integer),
-                PrimitiveValueExpression::Float(float) => Value::Float(float),
+                PrimitiveValueExpression::Boolean(boolean) => Value::boolean(boolean),
+                PrimitiveValueExpression::Character(character) => Value::character(character),
+                PrimitiveValueExpression::Integer(integer) => Value::integer(integer),
+                PrimitiveValueExpression::Float(float) => Value::float(float),
             },
         };
 
@@ -699,14 +708,14 @@ impl Vm {
 
         let get_index =
             list_value
-                .get_index(index_value)
+                .index(&index_value)
                 .map_err(|error| RuntimeError::ValueError {
                     error,
                     left_position: list_position,
                     right_position: index_position,
                 })?;
 
-        Ok(Evaluation::Return(get_index))
+        Ok(Evaluation::Return(Some(get_index)))
     }
 
     fn run_call(
@@ -728,13 +737,32 @@ impl Vm {
                 .expect_value(container_position)?;
 
             let function = if let Some(value) = container_value.get_field(&field.inner) {
-                if let Value::Function(function) = value {
-                    function
-                } else {
-                    return Err(RuntimeError::ExpectedFunction {
-                        actual: value,
-                        position: container_position,
-                    });
+                match value {
+                    Value::Raw(ValueData::Function(function)) => function,
+                    Value::Reference(arc) => match arc.as_ref().clone() {
+                        ValueData::Function(function) => function,
+                        _ => {
+                            return Err(RuntimeError::ExpectedFunction {
+                                position: container_position,
+                                actual: container_value,
+                            });
+                        }
+                    },
+                    Value::Mutable(locked) => match locked.read().unwrap().clone() {
+                        ValueData::Function(function) => function,
+                        _ => {
+                            return Err(RuntimeError::ExpectedFunction {
+                                position: container_position,
+                                actual: container_value,
+                            });
+                        }
+                    },
+                    _ => {
+                        return Err(RuntimeError::ExpectedFunction {
+                            position: container_position,
+                            actual: container_value,
+                        });
+                    }
                 }
             } else {
                 return Err(RuntimeError::UndefinedField {
@@ -798,13 +826,32 @@ impl Vm {
                 }
             },
             Evaluation::Return(Some(value)) => {
-                let function = if let Value::Function(function) = value {
-                    function
-                } else {
-                    return Err(RuntimeError::ExpectedFunction {
-                        actual: value.to_owned(),
-                        position: invoker_position,
-                    });
+                let function = match value {
+                    Value::Raw(ValueData::Function(function)) => function,
+                    Value::Reference(arc) => match arc.as_ref() {
+                        ValueData::Function(function) => function.clone(),
+                        _ => {
+                            return Err(RuntimeError::ExpectedFunction {
+                                position: invoker_position,
+                                actual: Value::Reference(arc.clone()),
+                            });
+                        }
+                    },
+                    Value::Mutable(locked) => match locked.read().unwrap().clone() {
+                        ValueData::Function(function) => function,
+                        _ => {
+                            return Err(RuntimeError::ExpectedFunction {
+                                position: invoker_position,
+                                actual: Value::Mutable(locked.clone()),
+                            });
+                        }
+                    },
+                    _ => {
+                        return Err(RuntimeError::ExpectedFunction {
+                            position: invoker_position,
+                            actual: value,
+                        });
+                    }
                 };
 
                 let mut value_arguments: Option<Vec<Value>> = None;
@@ -880,13 +927,13 @@ impl Vm {
                     .run_expression(repeat_operand, collect_garbage)?
                     .expect_value(position)?;
 
-                Ok(Evaluation::Return(Some(Value::List(vec![
+                Ok(Evaluation::Return(Some(Value::list(vec![
                     value;
                     length as usize
                 ]))))
             }
             ListExpression::Ordered(expressions) => {
-                let mut values = Vec::new();
+                let mut values = Vec::with_capacity(expressions.len());
 
                 for expression in expressions {
                     let position = expression.position();
@@ -897,7 +944,7 @@ impl Vm {
                     values.push(value);
                 }
 
-                Ok(Evaluation::Return(Some(Value::List(values))))
+                Ok(Evaluation::Return(Some(Value::list(values))))
             }
         }
     }

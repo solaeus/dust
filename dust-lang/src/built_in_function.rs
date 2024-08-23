@@ -7,7 +7,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Type, Value};
+use crate::{Identifier, Type, Value, ValueData, ValueError};
 
 /// Integrated function that can be called from Dust code.
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -84,21 +84,17 @@ impl BuiltInFunction {
 
         match self {
             BuiltInFunction::ToString => {
-                Ok(Some(Value::String(value_arguments.unwrap()[0].to_string())))
+                Ok(Some(Value::string(value_arguments.unwrap()[0].to_string())))
             }
             BuiltInFunction::IsEven => {
-                if let Value::Integer(integer) = value_arguments.unwrap()[0] {
-                    Ok(Some(Value::Boolean(integer % 2 == 0)))
-                } else {
-                    Err(BuiltInFunctionError::ExpectedInteger)
-                }
+                let is_even = value_arguments.unwrap()[0].is_even()?;
+
+                Ok(Some(is_even))
             }
             BuiltInFunction::IsOdd => {
-                if let Value::Integer(integer) = value_arguments.unwrap()[0] {
-                    Ok(Some(Value::Boolean(integer % 2 != 0)))
-                } else {
-                    Err(BuiltInFunctionError::ExpectedInteger)
-                }
+                let is_odd = value_arguments.unwrap()[0].is_odd()?;
+
+                Ok(Some(is_odd))
             }
             BuiltInFunction::ReadLine => {
                 let mut input = String::new();
@@ -108,15 +104,45 @@ impl BuiltInFunction {
                 Ok(Some(Value::string(input.trim_end_matches('\n'))))
             }
             BuiltInFunction::WriteLine => {
-                if let Value::String(string) = &value_arguments.unwrap()[0] {
-                    let mut stdout = stdout();
+                let first_argument = &value_arguments.unwrap()[0];
 
-                    stdout.write_all(string.as_bytes())?;
-                    stdout.write_all(b"\n")?;
+                match first_argument {
+                    Value::Raw(ValueData::String(string)) => {
+                        let mut stdout = stdout();
 
-                    Ok(None)
-                } else {
-                    Err(BuiltInFunctionError::ExpectedString)
+                        stdout.write_all(string.as_bytes())?;
+                        stdout.write_all(b"\n")?;
+
+                        Ok(None)
+                    }
+
+                    Value::Reference(reference) => match reference.as_ref() {
+                        ValueData::String(string) => {
+                            let mut stdout = stdout();
+
+                            stdout.write_all(string.as_bytes())?;
+                            stdout.write_all(b"\n")?;
+
+                            Ok(None)
+                        }
+                        _ => Err(BuiltInFunctionError::ExpectedString),
+                    },
+                    Value::Mutable(locked) => {
+                        let value_data = &*locked.read().unwrap();
+                        let string = match value_data {
+                            ValueData::String(string) => string,
+                            _ => return Err(BuiltInFunctionError::ExpectedString),
+                        };
+
+                        let mut stdout = stdout();
+
+                        stdout.write_all(string.as_bytes())?;
+                        stdout.write_all(b"\n")?;
+
+                        Ok(None)
+                    }
+
+                    _ => Err(BuiltInFunctionError::ExpectedString),
                 }
             }
         }
@@ -132,12 +158,19 @@ impl Display for BuiltInFunction {
 #[derive(Debug, Clone, PartialEq)]
 pub enum BuiltInFunctionError {
     Io(io::ErrorKind),
+    ValueError(ValueError),
 
     ExpectedString,
     ExpectedList,
     ExpectedInteger,
 
     WrongNumberOfValueArguments,
+}
+
+impl From<ValueError> for BuiltInFunctionError {
+    fn from(v: ValueError) -> Self {
+        Self::ValueError(v)
+    }
 }
 
 impl From<io::Error> for BuiltInFunctionError {
@@ -152,6 +185,9 @@ impl Display for BuiltInFunctionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             BuiltInFunctionError::Io(error_kind) => write!(f, "I/O error: {}", error_kind),
+            BuiltInFunctionError::ValueError(value_error) => {
+                write!(f, "Value error: {}", value_error)
+            }
             BuiltInFunctionError::ExpectedInteger => write!(f, "Expected an integer"),
             BuiltInFunctionError::ExpectedString => write!(f, "Expected a string"),
             BuiltInFunctionError::ExpectedList => write!(f, "Expected a list"),
