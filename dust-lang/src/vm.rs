@@ -113,7 +113,11 @@ impl Vm {
         statement: Statement,
         collect_garbage: bool,
     ) -> Result<Option<Evaluation>, RuntimeError> {
-        log::debug!("Running statement: {}", statement);
+        log::trace!(
+            "Running statement at {:?}: {}",
+            statement.position(),
+            statement
+        );
 
         let position = statement.position();
         let result = match statement {
@@ -232,7 +236,11 @@ impl Vm {
         expression: Expression,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
-        log::debug!("Running expression: {}", expression);
+        log::trace!(
+            "Running expression at {:?}: {}",
+            expression.position(),
+            expression
+        );
 
         let position = expression.position();
         let evaluation_result = match expression {
@@ -291,8 +299,6 @@ impl Vm {
     }
 
     fn run_identifier(&self, identifier: Node<Identifier>) -> Result<Evaluation, RuntimeError> {
-        log::debug!("Running identifier: {}", identifier);
-
         let get_data = self.context.get_data(&identifier.inner).map_err(|error| {
             RuntimeError::ContextError {
                 error,
@@ -323,8 +329,6 @@ impl Vm {
         struct_expression: StructExpression,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
-        log::debug!("Running struct expression: {struct_expression}");
-
         let StructExpression::Fields { name, fields } = struct_expression;
 
         let position = name.position;
@@ -723,8 +727,6 @@ impl Vm {
         call_expression: CallExpression,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
-        log::debug!("Running call expression: {call_expression}");
-
         let CallExpression { invoker, arguments } = call_expression;
         let invoker_position = invoker.position();
 
@@ -1409,7 +1411,7 @@ mod tests {
 
     #[test]
     fn string_index() {
-        let input = "'foo'[0]";
+        let input = "\"foo\"[0]";
 
         assert_eq!(run(input), Ok(Some(Value::character('f'))));
     }

@@ -132,7 +132,29 @@ impl<'src> Lexer<'src> {
                 }
                 'a'..='z' | 'A'..='Z' => self.lex_alphanumeric()?,
                 '"' => self.lex_string('"')?,
-                '\'' => self.lex_string('\'')?,
+                '\'' => {
+                    self.position += 1;
+
+                    if let Some(c) = self.peek_char() {
+                        self.position += 1;
+
+                        if let Some('\'') = self.peek_char() {
+                            self.position += 1;
+
+                            (Token::Character(c), (self.position - 3, self.position))
+                        } else {
+                            return Err(LexError::ExpectedCharacter {
+                                expected: '\'',
+                                actual: c,
+                                position: self.position,
+                            });
+                        }
+                    } else {
+                        return Err(LexError::UnexpectedEndOfFile {
+                            position: self.position,
+                        });
+                    }
+                }
                 '+' => {
                     if let Some('=') = self.peek_second_char() {
                         self.position += 2;
@@ -247,7 +269,7 @@ impl<'src> Lexer<'src> {
                         self.position += 1;
 
                         return Err(LexError::UnexpectedCharacter {
-                            character: c,
+                            actual: c,
                             position: self.position,
                         });
                     }
@@ -266,7 +288,7 @@ impl<'src> Lexer<'src> {
                         self.position += 1;
 
                         return Err(LexError::UnexpectedCharacter {
-                            character: c,
+                            actual: c,
                             position: self.position,
                         });
                     }
@@ -285,7 +307,7 @@ impl<'src> Lexer<'src> {
                     self.position += 1;
 
                     return Err(LexError::UnexpectedCharacter {
-                        character: c,
+                        actual: c,
                         position: self.position,
                     });
                 }
@@ -301,7 +323,7 @@ impl<'src> Lexer<'src> {
     pub fn peek_token(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let token = self.next_token()?;
 
-        self.position -= token.0.as_str().len();
+        self.position -= token.0.len();
 
         Ok(token)
     }
@@ -465,21 +487,26 @@ impl<'src> Lexer<'src> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
-    UnexpectedCharacter { character: char, position: usize },
+    ExpectedCharacter {
+        expected: char,
+        actual: char,
+        position: usize,
+    },
+    UnexpectedCharacter {
+        actual: char,
+        position: usize,
+    },
+    UnexpectedEndOfFile {
+        position: usize,
+    },
 }
 
 impl LexError {
     pub fn position(&self) -> Span {
         match self {
-            Self::UnexpectedCharacter { position, .. } => (*position, *position),
-        }
-    }
-}
-
-impl Error for LexError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::UnexpectedCharacter { .. } => None,
+            Self::ExpectedCharacter { position, .. } => (*position, *position + 1),
+            Self::UnexpectedCharacter { position, .. } => (*position, *position + 1),
+            Self::UnexpectedEndOfFile { position } => (*position, *position),
         }
     }
 }
@@ -487,8 +514,20 @@ impl Error for LexError {
 impl Display for LexError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::UnexpectedCharacter { character, .. } => {
-                write!(f, "Unexpected character: '{}'", character)
+            Self::ExpectedCharacter {
+                expected,
+                actual,
+                position,
+            } => write!(
+                f,
+                "Expected character '{}' at {:?}, found '{}'",
+                expected, position, actual
+            ),
+            Self::UnexpectedCharacter { actual, position } => {
+                write!(f, "Unexpected character at {:?}: '{}'", position, actual)
+            }
+            Self::UnexpectedEndOfFile { position } => {
+                write!(f, "Unexpected end of file at {:?}", position)
             }
         }
     }
@@ -499,8 +538,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn character() {
+        let input = "'a'";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![(Token::Character('a'), (0, 3)), (Token::Eof, (3, 3)),])
+        );
+    }
+
+    #[test]
     fn map_expression() {
-        let input = "map { x = '1', y = 2, z = 3.0 }";
+        let input = "map { x = \"1\", y = 2, z = 3.0 }";
 
         assert_eq!(
             lex(input),
@@ -791,7 +840,7 @@ mod tests {
 
     #[test]
     fn block() {
-        let input = "{ x = 42; y = 'foobar' }";
+        let input = "{ x = 42; y = \"foobar\" }";
 
         assert_eq!(
             lex(input),
@@ -851,27 +900,6 @@ mod tests {
                 (Token::Slash, (3, 4)),
                 (Token::Integer("2"), (5, 6)),
                 (Token::Eof, (6, 6)),
-            ])
-        )
-    }
-
-    #[test]
-    fn map() {
-        let input = "{ x = 42, y = 'foobar' }";
-
-        assert_eq!(
-            lex(input),
-            Ok(vec![
-                (Token::LeftCurlyBrace, (0, 1)),
-                (Token::Identifier("x"), (2, 3)),
-                (Token::Equal, (4, 5)),
-                (Token::Integer("42"), (6, 8)),
-                (Token::Comma, (8, 9)),
-                (Token::Identifier("y"), (10, 11)),
-                (Token::Equal, (12, 13)),
-                (Token::String("foobar"), (14, 22)),
-                (Token::RightCurlyBrace, (23, 24)),
-                (Token::Eof, (24, 24)),
             ])
         )
     }
@@ -1030,7 +1058,7 @@ mod tests {
 
     #[test]
     fn write_line() {
-        let input = "write_line('Hello, world!')";
+        let input = "write_line(\"Hello, world!\")";
 
         assert_eq!(
             lex(input),
@@ -1046,7 +1074,7 @@ mod tests {
 
     #[test]
     fn string_concatenation() {
-        let input = "'Hello, ' + 'world!'";
+        let input = "\"Hello, \" + \"world!\"";
 
         assert_eq!(
             lex(input),
@@ -1061,7 +1089,7 @@ mod tests {
 
     #[test]
     fn string() {
-        let input = "'Hello, world!'";
+        let input = "\"Hello, world!\"";
 
         assert_eq!(
             lex(input),

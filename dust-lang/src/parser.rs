@@ -1116,15 +1116,6 @@ impl ParseError {
     }
 }
 
-impl Error for ParseError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Lex(error) => Some(error),
-            _ => None,
-        }
-    }
-}
-
 impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -1215,7 +1206,7 @@ mod tests {
 
     #[test]
     fn map_expression() {
-        let source = "map { x = '1', y = 2, z = 3.0 }";
+        let source = "map { x = \"1\", y = 2, z = 3.0 }";
 
         assert_eq!(
             parse(source),
@@ -1361,7 +1352,7 @@ mod tests {
 
     #[test]
     fn tuple_struct_access() {
-        let source = "Foo(42, 'bar').0";
+        let source = "Foo(42, \"bar\").0";
 
         assert_eq!(
             parse(source),
@@ -1827,7 +1818,7 @@ mod tests {
 
     #[test]
     fn block_with_assignment() {
-        let source = "{ foo = 42; bar = 42; baz = '42' }";
+        let source = "{ foo = 42; bar = 42; baz = \"42\" }";
 
         assert_eq!(
             parse(source),
@@ -2000,7 +1991,7 @@ mod tests {
 
     #[test]
     fn string_concatenation() {
-        let source = "'Hello, ' + 'World!'";
+        let source = "\"Hello, \" + \"World!\"";
 
         assert_eq!(
             parse(source),

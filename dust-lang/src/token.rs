@@ -1,5 +1,8 @@
 //! Token and TokenOwned types.
-use std::fmt::{self, Display, Formatter};
+use std::{
+    borrow::Borrow,
+    fmt::{self, Display, Formatter},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -11,6 +14,7 @@ pub enum Token<'src> {
 
     // Hard-coded values
     Boolean(&'src str),
+    Character(char),
     Float(&'src str),
     Identifier(&'src str),
     Integer(&'src str),
@@ -64,6 +68,61 @@ pub enum Token<'src> {
 }
 
 impl<'src> Token<'src> {
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        match self {
+            Token::Eof => 0,
+            Token::Boolean(text) => text.len(),
+            Token::Character(_) => 3,
+            Token::Float(text) => text.len(),
+            Token::Identifier(text) => text.len(),
+            Token::Integer(text) => text.len(),
+            Token::String(text) => text.len() + 2,
+            Token::Async => 5,
+            Token::Bool => 4,
+            Token::Break => 5,
+            Token::Else => 4,
+            Token::FloatKeyword => 5,
+            Token::If => 2,
+            Token::Int => 3,
+            Token::Let => 3,
+            Token::Loop => 4,
+            Token::Map => 3,
+            Token::Mut => 3,
+            Token::Str => 3,
+            Token::Struct => 6,
+            Token::While => 5,
+            Token::BangEqual => 2,
+            Token::Bang => 1,
+            Token::Colon => 1,
+            Token::Comma => 1,
+            Token::Dot => 1,
+            Token::DoubleAmpersand => 2,
+            Token::DoubleDot => 2,
+            Token::DoubleEqual => 2,
+            Token::DoublePipe => 2,
+            Token::Equal => 1,
+            Token::Greater => 1,
+            Token::GreaterEqual => 2,
+            Token::LeftCurlyBrace => 1,
+            Token::LeftParenthesis => 1,
+            Token::LeftSquareBrace => 1,
+            Token::Less => 1,
+            Token::LessEqual => 2,
+            Token::Minus => 1,
+            Token::MinusEqual => 2,
+            Token::Percent => 1,
+            Token::Plus => 1,
+            Token::PlusEqual => 2,
+            Token::RightCurlyBrace => 1,
+            Token::RightParenthesis => 1,
+            Token::RightSquareBrace => 1,
+            Token::Semicolon => 1,
+            Token::Slash => 1,
+            Token::Star => 1,
+        }
+    }
+
     pub fn to_owned(&self) -> TokenOwned {
         match self {
             Token::Async => TokenOwned::Async,
@@ -72,6 +131,7 @@ impl<'src> Token<'src> {
             Token::Bool => TokenOwned::Bool,
             Token::Boolean(boolean) => TokenOwned::Boolean(boolean.to_string()),
             Token::Break => TokenOwned::Break,
+            Token::Character(character) => TokenOwned::Character(*character),
             Token::Colon => TokenOwned::Colon,
             Token::Comma => TokenOwned::Comma,
             Token::Dot => TokenOwned::Dot,
@@ -117,60 +177,6 @@ impl<'src> Token<'src> {
         }
     }
 
-    pub fn as_str(&self) -> &str {
-        match self {
-            Token::Boolean(boolean_text) => boolean_text,
-            Token::Float(float_text) => float_text,
-            Token::Identifier(text) => text,
-            Token::Integer(integer_text) => integer_text,
-            Token::String(text) => text,
-
-            Token::Async => "async",
-            Token::BangEqual => "!=",
-            Token::Bang => "!",
-            Token::Bool => "bool",
-            Token::Break => "break",
-            Token::Colon => ":",
-            Token::Comma => ",",
-            Token::Dot => ".",
-            Token::DoubleAmpersand => "&&",
-            Token::DoubleDot => "..",
-            Token::DoubleEqual => "==",
-            Token::DoublePipe => "||",
-            Token::Else => "else",
-            Token::Eof => "EOF",
-            Token::Equal => "=",
-            Token::FloatKeyword => "float",
-            Token::Greater => ">",
-            Token::GreaterEqual => ">=",
-            Token::If => "if",
-            Token::Int => "int",
-            Token::LeftCurlyBrace => "{",
-            Token::LeftParenthesis => "(",
-            Token::LeftSquareBrace => "[",
-            Token::Let => "let",
-            Token::Less => "<",
-            Token::LessEqual => "<=",
-            Token::Loop => "loop",
-            Token::Map => "map",
-            Token::Minus => "-",
-            Token::MinusEqual => "-=",
-            Token::Mut => "mut",
-            Token::Percent => "%",
-            Token::Plus => "+",
-            Token::PlusEqual => "+=",
-            Token::RightCurlyBrace => "}",
-            Token::RightParenthesis => ")",
-            Token::RightSquareBrace => "]",
-            Token::Semicolon => ";",
-            Token::Star => "*",
-            Token::Slash => "/",
-            Token::Str => "str",
-            Token::Struct => "struct",
-            Token::While => "while",
-        }
-    }
-
     pub fn kind(&self) -> TokenKind {
         match self {
             Token::Async => TokenKind::Async,
@@ -179,6 +185,7 @@ impl<'src> Token<'src> {
             Token::Bool => TokenKind::Bool,
             Token::Boolean(_) => TokenKind::Boolean,
             Token::Break => TokenKind::Break,
+            Token::Character(_) => TokenKind::Character,
             Token::Colon => TokenKind::Colon,
             Token::Comma => TokenKind::Comma,
             Token::Dot => TokenKind::Dot,
@@ -279,7 +286,57 @@ impl<'src> Token<'src> {
 
 impl<'src> Display for Token<'src> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.as_str())
+        match self {
+            Token::Async => write!(f, "async"),
+            Token::BangEqual => write!(f, "!="),
+            Token::Bang => write!(f, "!"),
+            Token::Bool => write!(f, "bool"),
+            Token::Boolean(value) => write!(f, "{}", value),
+            Token::Break => write!(f, "break"),
+            Token::Character(value) => write!(f, "'{}'", value),
+            Token::Colon => write!(f, ":"),
+            Token::Comma => write!(f, ","),
+            Token::Dot => write!(f, "."),
+            Token::DoubleAmpersand => write!(f, "&&"),
+            Token::DoubleDot => write!(f, ".."),
+            Token::DoubleEqual => write!(f, "=="),
+            Token::DoublePipe => write!(f, "||"),
+            Token::Else => write!(f, "else"),
+            Token::Eof => write!(f, "EOF"),
+            Token::Equal => write!(f, "="),
+            Token::Float(value) => write!(f, "{}", value),
+            Token::FloatKeyword => write!(f, "float"),
+            Token::Greater => write!(f, ">"),
+            Token::GreaterEqual => write!(f, ">="),
+            Token::Identifier(value) => write!(f, "{}", value),
+            Token::If => write!(f, "if"),
+            Token::Int => write!(f, "int"),
+            Token::Integer(value) => write!(f, "{}", value),
+            Token::LeftCurlyBrace => write!(f, "{{"),
+            Token::LeftParenthesis => write!(f, "("),
+            Token::LeftSquareBrace => write!(f, "["),
+            Token::Let => write!(f, "let"),
+            Token::Less => write!(f, "<"),
+            Token::LessEqual => write!(f, "<="),
+            Token::Loop => write!(f, "loop"),
+            Token::Map => write!(f, "map"),
+            Token::Minus => write!(f, "-"),
+            Token::MinusEqual => write!(f, "-="),
+            Token::Mut => write!(f, "mut"),
+            Token::Percent => write!(f, "%"),
+            Token::Plus => write!(f, "+"),
+            Token::PlusEqual => write!(f, "+="),
+            Token::RightCurlyBrace => write!(f, "}}"),
+            Token::RightParenthesis => write!(f, ")"),
+            Token::RightSquareBrace => write!(f, "]"),
+            Token::Semicolon => write!(f, ";"),
+            Token::Slash => write!(f, "/"),
+            Token::Star => write!(f, "*"),
+            Token::Str => write!(f, "str"),
+            Token::String(value) => write!(f, "\"{}\"", value),
+            Token::Struct => write!(f, "struct"),
+            Token::While => write!(f, "while"),
+        }
     }
 }
 
@@ -294,6 +351,7 @@ pub enum TokenOwned {
 
     // Hard-coded values
     Boolean(String),
+    Character(char),
     Float(String),
     Integer(String),
     String(String),
@@ -354,6 +412,7 @@ impl Display for TokenOwned {
             TokenOwned::Bool => Token::Bool.fmt(f),
             TokenOwned::Boolean(boolean) => Token::Boolean(boolean).fmt(f),
             TokenOwned::Break => Token::Break.fmt(f),
+            TokenOwned::Character(character) => Token::Character(*character).fmt(f),
             TokenOwned::Colon => Token::Colon.fmt(f),
             TokenOwned::Comma => Token::Comma.fmt(f),
             TokenOwned::Dot => Token::Dot.fmt(f),
@@ -409,6 +468,7 @@ pub enum TokenKind {
 
     // Hard-coded values
     Boolean,
+    Character,
     Float,
     Integer,
     String,
@@ -469,6 +529,7 @@ impl Display for TokenKind {
             TokenKind::Bool => Token::Bool.fmt(f),
             TokenKind::Boolean => write!(f, "boolean value"),
             TokenKind::Break => Token::Break.fmt(f),
+            TokenKind::Character => write!(f, "character value"),
             TokenKind::Colon => Token::Colon.fmt(f),
             TokenKind::Comma => Token::Comma.fmt(f),
             TokenKind::Dot => Token::Dot.fmt(f),
