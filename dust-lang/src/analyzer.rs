@@ -54,11 +54,11 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 /// # use dust_lang::*;
 /// let input = "x = 1 + false";
 /// let abstract_tree = parse(input).unwrap();
-/// let mut context = Context::new();
-/// let mut analyzer = Analyzer::new(&abstract_tree, &mut context);
+/// let context = Context::new();
+/// let mut analyzer = Analyzer::new(&abstract_tree, context);
 /// let result = analyzer.analyze();
 ///
-/// assert!(result.is_err());
+/// assert!(!analyzer.errors.is_empty());
 pub struct Analyzer<'a> {
     abstract_tree: &'a AbstractSyntaxTree,
     context: Context,

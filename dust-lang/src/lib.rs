@@ -6,8 +6,8 @@
 //! use dust_lang::{run, Value};
 //!
 //! let program = "
-//!     foo = 21
-//!     bar = 2
+//!     let foo = 21
+//!     let bar = 2
 //!     foo * bar
 //! ";
 //!

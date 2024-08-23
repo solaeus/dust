@@ -34,7 +34,7 @@ use crate::{
 /// # use dust_lang::value::Value;
 /// let result = run("40 + 2");
 ///
-/// assert_eq!(result, Ok(Some(Value::Integer(42))));
+/// assert_eq!(result, Ok(Some(Value::integer(42))));
 /// ```
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let context = core_library().create_child();
@@ -46,15 +46,15 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 ///
 /// # Example
 /// ```
-/// # use dust_lang::{Context, Identifier, Value, run_with_context};
+/// # use dust_lang::*;
 /// let context = Context::new();
 ///
-/// context.set_value(Identifier::new("foo"), Value::Integer(40));
+/// context.set_variable_value(Identifier::new("foo"), Value::integer(40));
 /// context.update_last_position(&Identifier::new("foo"), (100, 100));
 ///
 /// let result = run_with_context("foo + 2", context);
 ///
-/// assert_eq!(result, Ok(Some(Value::Integer(42))));
+/// assert_eq!(result, Ok(Some(Value::integer(42))));
 /// ```
 pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
