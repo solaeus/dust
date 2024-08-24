@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use rayon::prelude::*;
 
 use crate::{
     ast::{
@@ -69,12 +69,13 @@ pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>,
         });
     }
 
-    let mut vm = Vm::new(abstract_syntax_tree, context);
+    let vm = Vm::new(context);
 
-    vm.run().map_err(|runtime_error| DustError::Runtime {
-        runtime_error,
-        source,
-    })
+    vm.run(abstract_syntax_tree)
+        .map_err(|runtime_error| DustError::Runtime {
+            runtime_error,
+            source,
+        })
 }
 
 /// Dust virtual machine.
@@ -85,29 +86,63 @@ pub fn run_with_context(source: &str, context: Context) -> Result<Option<Value>,
 ///
 /// See the `run_with_context` function for an example of how to use the Analyzer and the VM.
 pub struct Vm {
-    abstract_tree: AbstractSyntaxTree,
     context: Context,
 }
 
 impl Vm {
-    pub fn new(abstract_tree: AbstractSyntaxTree, context: Context) -> Self {
-        Self {
-            abstract_tree,
-            context,
-        }
+    pub fn new(context: Context) -> Self {
+        Self { context }
     }
 
-    pub fn run(&mut self) -> Result<Option<Value>, RuntimeError> {
-        let mut previous_evaluation = None;
+    pub fn run(&self, mut tree: AbstractSyntaxTree) -> Result<Option<Value>, RuntimeError> {
+        let mut previous_evaluation = Evaluation::Return(None);
 
-        while let Some(statement) = self.abstract_tree.statements.pop_front() {
+        while let Some(statement) = tree.statements.pop_front() {
             previous_evaluation = self.run_statement(statement, true)?;
         }
 
         match previous_evaluation {
-            Some(Evaluation::Break(value_option)) => Ok(value_option),
-            Some(Evaluation::Return(value_option)) => Ok(value_option),
+            Evaluation::Break(value_option) => Ok(value_option),
+            Evaluation::Return(value_option) => Ok(value_option),
             _ => Ok(None),
+        }
+    }
+
+    fn run_async(&self, tree: AbstractSyntaxTree) -> Result<Option<Value>, RuntimeError> {
+        let final_result = Arc::new(Mutex::new(Evaluation::Return(None)));
+        let statements_length = tree.statements.len();
+
+        let error_option =
+            tree.statements
+                .into_par_iter()
+                .enumerate()
+                .find_map_any(|(i, statement)| {
+                    let evaluation_result = self.run_statement(statement, false);
+
+                    match evaluation_result {
+                        Ok(evaluation_option) => {
+                            if i == statements_length - 1 {
+                                let mut final_result = final_result.lock().unwrap();
+
+                                *final_result = evaluation_option;
+                            }
+
+                            None
+                        }
+                        Err(error) => Some(error),
+                    }
+                });
+
+        if let Some(error) = error_option {
+            Err(error)
+        } else {
+            let final_result = final_result.lock().unwrap();
+
+            match &*final_result {
+                Evaluation::Break(value_option) => Ok(value_option.clone()),
+                Evaluation::Return(value_option) => Ok(value_option.clone()),
+                _ => Ok(None),
+            }
         }
     }
 
@@ -115,7 +150,7 @@ impl Vm {
         &self,
         statement: Statement,
         collect_garbage: bool,
-    ) -> Result<Option<Evaluation>, RuntimeError> {
+    ) -> Result<Evaluation, RuntimeError> {
         log::trace!(
             "Running statement at {:?}: {}",
             statement.position(),
@@ -125,21 +160,21 @@ impl Vm {
         let position = statement.position();
         let result = match statement {
             Statement::Expression(expression) => {
-                Ok(Some(self.run_expression(expression, collect_garbage)?))
+                Ok(self.run_expression(expression, collect_garbage)?)
             }
             Statement::ExpressionNullified(expression) => {
                 let evaluation = self.run_expression(expression.inner, collect_garbage)?;
 
                 if let Evaluation::Break(_) = evaluation {
-                    Ok(Some(evaluation))
+                    Ok(evaluation)
                 } else {
-                    Ok(None)
+                    Ok(Evaluation::Return(None))
                 }
             }
             Statement::Let(let_statement) => {
                 self.run_let_statement(let_statement.inner, collect_garbage)?;
 
-                Ok(None)
+                Ok(Evaluation::Return(None))
             }
             Statement::StructDefinition(struct_definition) => {
                 let (name, struct_type) = match struct_definition.inner {
@@ -181,7 +216,7 @@ impl Vm {
                         position: struct_definition.position,
                     })?;
 
-                Ok(None)
+                Ok(Evaluation::Return(None))
             }
         };
 
@@ -295,9 +330,15 @@ impl Vm {
             Expression::TupleAccess(_) => todo!(),
         };
 
-        evaluation_result.map_err(|error| RuntimeError::Expression {
-            error: Box::new(error),
-            position,
+        evaluation_result.map_err(|error| {
+            if error.position() == position {
+                error
+            } else {
+                RuntimeError::Expression {
+                    error: Box::new(error),
+                    position,
+                }
+            }
         })
     }
 
@@ -657,7 +698,7 @@ impl Vm {
                     for statement in statements.clone() {
                         let evaluation = self.run_statement(statement, false)?;
 
-                        if let Some(Evaluation::Break(value_option)) = evaluation {
+                        if let Evaluation::Break(value_option) = evaluation {
                             break 'outer Ok(Evaluation::Return(value_option));
                         }
                     }
@@ -958,54 +999,25 @@ impl Vm {
         block: BlockExpression,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
+        let block_context = self.context.create_child();
+        let vm = Vm::new(block_context);
+
         match block {
-            BlockExpression::Async(statements) => {
-                let final_result = Arc::new(Mutex::new(None));
-                let statements_length = statements.len();
-                let error_option =
-                    statements
-                        .into_par_iter()
-                        .enumerate()
-                        .find_map_any(|(i, statement)| {
-                            let evaluation_result = self.run_statement(statement, false);
-
-                            match evaluation_result {
-                                Ok(evaluation_option) => {
-                                    if i == statements_length - 1 {
-                                        let mut final_result = final_result.lock().unwrap();
-
-                                        *final_result = evaluation_option;
-                                    }
-
-                                    None
-                                }
-                                Err(error) => Some(error),
-                            }
-                        });
-
-                if let Some(error) = error_option {
-                    Err(error)
-                } else if let Some(evaluation) = final_result.lock().unwrap().take() {
-                    Ok(evaluation)
-                } else {
-                    Ok(Evaluation::Return(None))
-                }
-            }
+            BlockExpression::Async(statements) => vm
+                .run_async(AbstractSyntaxTree::with_statements(statements))
+                .map(Evaluation::Return),
             BlockExpression::Sync(statements) => {
-                let mut previous_evaluation = None;
+                let mut evaluation = Evaluation::Return(None);
 
                 for statement in statements {
-                    previous_evaluation = self.run_statement(statement, collect_garbage)?;
+                    evaluation = vm.run_statement(statement, collect_garbage)?;
 
-                    if let Some(Evaluation::Break(value_option)) = previous_evaluation {
-                        return Ok(Evaluation::Break(value_option));
+                    if let Evaluation::Break(_) = evaluation {
+                        return Ok(evaluation);
                     }
                 }
 
-                match previous_evaluation {
-                    Some(evaluation) => Ok(evaluation),
-                    None => Ok(Evaluation::Return(None)),
-                }
+                Ok(evaluation)
             }
         }
     }
@@ -1385,6 +1397,55 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn block_scope_captures_parent() {
+        let source = "let x = 42; { x }";
+
+        assert_eq!(run(source), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
+    fn block_scope_does_not_capture_child() {
+        let source = "{ let x = 42; } x";
+
+        assert_eq!(
+            run(source),
+            Err(DustError::Runtime {
+                runtime_error: RuntimeError::UnassociatedIdentifier {
+                    identifier: Identifier::new("x"),
+                    position: (16, 17)
+                },
+                source
+            })
+        );
+    }
+
+    #[test]
+    fn block_scope_does_not_capture_sibling() {
+        let source = "{ let x = 42; } { x }";
+
+        assert_eq!(
+            run(source),
+            Err(DustError::Runtime {
+                runtime_error: RuntimeError::Expression {
+                    error: Box::new(RuntimeError::UnassociatedIdentifier {
+                        identifier: Identifier::new("x"),
+                        position: (18, 19)
+                    }),
+                    position: (16, 21)
+                },
+                source
+            })
+        );
+    }
+
+    #[test]
+    fn block_scope_does_not_pollute_parent() {
+        let source = "let x = 42; { let x = \"foo\"; let x = \"bar\"; } x";
+
+        assert_eq!(run(source), Ok(Some(Value::integer(42))));
+    }
 
     #[test]
     fn character() {

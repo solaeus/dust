@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fmt::{self, Display, Formatter},
 };
 
@@ -1131,15 +1131,15 @@ impl Display for ElseExpression {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BlockExpression {
-    Async(Vec<Statement>),
-    Sync(Vec<Statement>),
+    Async(VecDeque<Statement>),
+    Sync(VecDeque<Statement>),
 }
 
 impl BlockExpression {
     fn type_evaluation(&self, context: &Context) -> Result<TypeEvaluation, AstError> {
         match self {
             BlockExpression::Async(statements) | BlockExpression::Sync(statements) => {
-                if let Some(statement) = statements.last() {
+                if let Some(statement) = statements.back() {
                     statement.type_evaluation(context)
                 } else {
                     Ok(TypeEvaluation::Return(None))

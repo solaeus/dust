@@ -30,7 +30,7 @@ impl AbstractSyntaxTree {
         }
     }
 
-    pub fn with_statements<const LEN: usize>(statements: [Statement; LEN]) -> Self {
+    pub fn with_statements<T: Into<VecDeque<Statement>>>(statements: T) -> Self {
         Self {
             statements: statements.into(),
         }

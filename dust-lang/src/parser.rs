@@ -4,6 +4,7 @@
 //! - `parse` convenience function
 //! - `Parser` struct, which parses the input a statement at a time
 use std::{
+    collections::VecDeque,
     fmt::{self, Display, Formatter},
     num::{ParseFloatError, ParseIntError},
     str::ParseBoolError,
@@ -994,7 +995,7 @@ impl<'src> Parser<'src> {
             });
         }
 
-        let mut statements = Vec::new();
+        let mut statements = VecDeque::new();
 
         loop {
             if let Token::RightCurlyBrace = self.current_token {
@@ -1011,7 +1012,7 @@ impl<'src> Parser<'src> {
 
             let statement = self.parse_statement()?;
 
-            statements.push(statement);
+            statements.push_back(statement);
         }
     }
 
@@ -1177,10 +1178,9 @@ mod tests {
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::infinite_loop(
                     Node::new(
-                        BlockExpression::Sync(vec![Statement::ExpressionNullified(Node::new(
-                            Expression::r#break(None, (7, 12)),
-                            (7, 13)
-                        ))]),
+                        BlockExpression::Sync(VecDeque::from([Statement::ExpressionNullified(
+                            Node::new(Expression::r#break(None, (7, 12)), (7, 13))
+                        )])),
                         (5, 15)
                     ),
                     (0, 15)
@@ -1262,14 +1262,14 @@ mod tests {
                                 (21, 27),
                             ),
                             Node::new(
-                                BlockExpression::Sync(vec![Statement::Expression(
+                                BlockExpression::Sync(VecDeque::from([Statement::Expression(
                                     Expression::compound_assignment(
                                         Expression::identifier(Identifier::new("x"), (30, 31)),
                                         Node::new(MathOperator::Add, (32, 34)),
                                         Expression::literal(1, (35, 36)),
                                         (30, 36),
                                     ),
-                                )]),
+                                )])),
                                 (28, 38),
                             ),
                             (15, 38),
@@ -1328,7 +1328,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree {
                 statements: [Statement::Expression(Expression::block(
-                    BlockExpression::Async(vec![
+                    BlockExpression::Async(VecDeque::from([
                         Statement::ExpressionNullified(Node::new(
                             Expression::operator(
                                 OperatorExpression::Assignment {
@@ -1346,7 +1346,7 @@ mod tests {
                             },
                             (16, 23)
                         ))
-                    ]),
+                    ])),
                     (0, 25)
                 ))]
                 .into()
@@ -1645,9 +1645,9 @@ mod tests {
                     IfExpression::If {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
-                            BlockExpression::Sync(vec![Statement::Expression(
+                            BlockExpression::Sync(VecDeque::from([Statement::Expression(
                                 Expression::identifier(Identifier::new("y"), (7, 8))
-                            )]),
+                            )])),
                             (5, 10)
                         )
                     },
@@ -1668,15 +1668,15 @@ mod tests {
                     IfExpression::IfElse {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
-                            BlockExpression::Sync(vec![Statement::Expression(
+                            BlockExpression::Sync(VecDeque::from([Statement::Expression(
                                 Expression::identifier(Identifier::new("y"), (7, 8))
-                            )]),
+                            )])),
                             (5, 10)
                         ),
                         r#else: ElseExpression::Block(Node::new(
-                            BlockExpression::Sync(vec![Statement::Expression(
+                            BlockExpression::Sync(VecDeque::from([Statement::Expression(
                                 Expression::identifier(Identifier::new("z"), (18, 19))
-                            )]),
+                            )])),
                             (16, 21)
                         ))
                     },
@@ -1697,24 +1697,24 @@ mod tests {
                     IfExpression::IfElse {
                         condition: Expression::identifier(Identifier::new("x"), (3, 4)),
                         if_block: Node::new(
-                            BlockExpression::Sync(vec![Statement::Expression(
+                            BlockExpression::Sync(VecDeque::from([Statement::Expression(
                                 Expression::identifier(Identifier::new("y"), (7, 8))
-                            )]),
+                            )])),
                             (5, 10)
                         ),
                         r#else: ElseExpression::If(Node::new(
                             Box::new(IfExpression::IfElse {
                                 condition: Expression::identifier(Identifier::new("z"), (19, 20)),
                                 if_block: Node::new(
-                                    BlockExpression::Sync(vec![Statement::Expression(
+                                    BlockExpression::Sync(VecDeque::from([Statement::Expression(
                                         Expression::identifier(Identifier::new("a"), (23, 24))
-                                    )]),
+                                    )])),
                                     (21, 26)
                                 ),
                                 r#else: ElseExpression::Block(Node::new(
-                                    BlockExpression::Sync(vec![Statement::Expression(
+                                    BlockExpression::Sync(VecDeque::from([Statement::Expression(
                                         Expression::identifier(Identifier::new("b"), (34, 35))
-                                    )]),
+                                    )])),
                                     (32, 37)
                                 )),
                             }),
@@ -1744,14 +1744,19 @@ mod tests {
                         (6, 12)
                     ),
                     Node::new(
-                        BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
-                            OperatorExpression::CompoundAssignment {
-                                assignee: Expression::identifier(Identifier::new("x"), (15, 16)),
-                                operator: Node::new(MathOperator::Add, (17, 19)),
-                                modifier: Expression::literal(1, (20, 21)),
-                            },
-                            (15, 21)
-                        ))]),
+                        BlockExpression::Sync(VecDeque::from([Statement::Expression(
+                            Expression::operator(
+                                OperatorExpression::CompoundAssignment {
+                                    assignee: Expression::identifier(
+                                        Identifier::new("x"),
+                                        (15, 16)
+                                    ),
+                                    operator: Node::new(MathOperator::Add, (17, 19)),
+                                    modifier: Expression::literal(1, (20, 21)),
+                                },
+                                (15, 21)
+                            )
+                        )])),
                         (13, 23)
                     ),
                     (0, 23)
@@ -1806,14 +1811,16 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::block(
-                    BlockExpression::Sync(vec![Statement::Expression(Expression::operator(
-                        OperatorExpression::Math {
-                            left: Expression::literal(40, (2, 4)),
-                            operator: Node::new(MathOperator::Add, (5, 6)),
-                            right: Expression::literal(2, (7, 8)),
-                        },
-                        (2, 8)
-                    ))]),
+                    BlockExpression::Sync(VecDeque::from([Statement::Expression(
+                        Expression::operator(
+                            OperatorExpression::Math {
+                                left: Expression::literal(40, (2, 4)),
+                                operator: Node::new(MathOperator::Add, (5, 6)),
+                                right: Expression::literal(2, (7, 8)),
+                            },
+                            (2, 8)
+                        )
+                    )])),
                     (0, 10)
                 ))
             ]))
@@ -1828,7 +1835,7 @@ mod tests {
             parse(source),
             Ok(AbstractSyntaxTree::with_statements([
                 Statement::Expression(Expression::block(
-                    BlockExpression::Sync(vec![
+                    BlockExpression::Sync(VecDeque::from([
                         Statement::ExpressionNullified(Node::new(
                             Expression::assignment(
                                 Expression::identifier("foo", (2, 5)),
@@ -1850,7 +1857,7 @@ mod tests {
                             Expression::literal("42", (28, 32)),
                             (22, 32)
                         ))
-                    ]),
+                    ])),
                     (0, 34)
                 ))
             ]))
