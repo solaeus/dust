@@ -7,6 +7,7 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    rc::Weak,
     sync::{Arc, Mutex},
 };
 
@@ -242,11 +243,18 @@ impl Vm {
                 let position = value.position();
                 let value = self
                     .run_expression(value, collect_garbage)?
-                    .expect_value(position)?
-                    .into_reference();
+                    .expect_value(position)?;
+
+                let reference = match value {
+                    Value::Raw(_) => value.into_reference(),
+                    Value::Reference(_) => value,
+                    Value::Mutable(_) => {
+                        return Err(RuntimeError::CannotAssignToMutable { position });
+                    }
+                };
 
                 self.context
-                    .set_variable_value(identifier.inner, value)
+                    .set_variable_value(identifier.inner, reference)
                     .map_err(|error| RuntimeError::ContextError { error, position })?;
 
                 Ok(())
@@ -1080,6 +1088,9 @@ impl Vm {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuntimeError {
+    CannotAssignToMutable {
+        position: Span,
+    },
     ConstructError {
         error: ConstructError,
         position: Span,
@@ -1182,6 +1193,7 @@ pub enum RuntimeError {
 impl RuntimeError {
     pub fn position(&self) -> Span {
         match self {
+            Self::CannotAssignToMutable { position } => *position,
             Self::ConstructError { position, .. } => *position,
             Self::ContextError { position, .. } => *position,
             Self::BuiltInFunctionError { position, .. } => *position,
@@ -1233,6 +1245,13 @@ impl From<ParseError> for RuntimeError {
 impl Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::CannotAssignToMutable { position } => {
+                write!(
+                    f,
+                    "Cannot use immutable assignment with a mutable value at {:?}",
+                    position
+                )
+            }
             Self::ConstructError { error, position } => {
                 write!(f, "Constructor error at {:?}: {}", position, error)
             }
@@ -1397,6 +1416,44 @@ mod tests {
     use crate::Struct;
 
     use super::*;
+
+    #[test]
+    fn mutate_copied_variable() {
+        let source = "let mut x = 42; let y = [x; 3]; x += 1; y";
+
+        assert_eq!(
+            run(source),
+            Ok(Some(Value::list([43.into(), 43.into(), 43.into()])))
+        );
+    }
+
+    #[test]
+    fn auto_fill_list() {
+        let source = "[42; 3]";
+
+        assert_eq!(
+            run(source),
+            Ok(Some(Value::list(vec![
+                Value::integer(42),
+                Value::integer(42),
+                Value::integer(42)
+            ])))
+        );
+    }
+
+    #[test]
+    fn mutate_assigned_variable() {
+        let source = "let mut x = 42; let mut y = x; x += 1; y";
+
+        assert_eq!(run(source), Ok(Some(Value::integer(43))));
+    }
+
+    #[test]
+    fn assign_to_variable() {
+        let source = "let x = 42; let y = x; y";
+
+        assert_eq!(run(source), Ok(Some(Value::integer(42))));
+    }
 
     #[test]
     fn block_scope_captures_parent() {

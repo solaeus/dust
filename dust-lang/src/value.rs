@@ -82,8 +82,8 @@ impl Value {
         Value::Raw(ValueData::String(to_string.to_string()))
     }
 
-    pub fn list(value: Vec<Value>) -> Self {
-        Value::Raw(ValueData::List(value))
+    pub fn list<T: Into<Vec<Value>>>(values: T) -> Self {
+        Value::Raw(ValueData::List(values.into()))
     }
 
     pub fn map<T: Into<HashMap<Identifier, Value>>>(into_map: T) -> Self {
@@ -737,6 +737,54 @@ impl Display for Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::boolean(value)
+    }
+}
+
+impl From<u8> for Value {
+    fn from(value: u8) -> Self {
+        Value::byte(value)
+    }
+}
+
+impl From<char> for Value {
+    fn from(value: char) -> Self {
+        Value::character(value)
+    }
+}
+
+impl From<f64> for Value {
+    fn from(value: f64) -> Self {
+        Value::float(value)
+    }
+}
+
+impl From<i32> for Value {
+    fn from(value: i32) -> Self {
+        Value::integer(value as i64)
+    }
+}
+
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
+        Value::integer(value)
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Value::string(value)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(str: &str) -> Self {
+        Value::string(str)
+    }
+}
+
 impl Eq for Value {}
 
 impl PartialEq for Value {
@@ -1115,54 +1163,6 @@ impl ValueData {
             ValueData::Boolean(value) => Some(ValueData::Boolean(!value)),
             _ => None,
         }
-    }
-}
-
-impl From<bool> for ValueData {
-    fn from(value: bool) -> Self {
-        ValueData::Boolean(value)
-    }
-}
-
-impl From<u8> for ValueData {
-    fn from(value: u8) -> Self {
-        ValueData::Byte(value)
-    }
-}
-
-impl From<char> for ValueData {
-    fn from(value: char) -> Self {
-        ValueData::Character(value)
-    }
-}
-
-impl From<f64> for ValueData {
-    fn from(value: f64) -> Self {
-        ValueData::Float(value)
-    }
-}
-
-impl From<i32> for ValueData {
-    fn from(value: i32) -> Self {
-        ValueData::Integer(value as i64)
-    }
-}
-
-impl From<i64> for ValueData {
-    fn from(value: i64) -> Self {
-        ValueData::Integer(value)
-    }
-}
-
-impl From<String> for ValueData {
-    fn from(value: String) -> Self {
-        ValueData::String(value)
-    }
-}
-
-impl From<&str> for ValueData {
-    fn from(value: &str) -> Self {
-        ValueData::String(value.to_string())
     }
 }
 
