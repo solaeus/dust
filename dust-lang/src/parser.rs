@@ -369,8 +369,16 @@ impl<'src> Parser<'src> {
 
                 Ok(Expression::negation(operand, position))
             }
+            Token::Star => {
+                self.next_token()?;
+
+                let operand = self.parse_expression(0)?;
+                let position = (operator_start, self.current_position.1);
+
+                Ok(Expression::dereference(operand, position))
+            }
             _ => Err(ParseError::ExpectedTokenMultiple {
-                expected: vec![TokenKind::Bang, TokenKind::Minus],
+                expected: vec![TokenKind::Bang, TokenKind::Minus, TokenKind::Star],
                 actual: self.current_token.to_owned(),
                 position: self.current_position,
             }),
@@ -1156,6 +1164,21 @@ mod tests {
     use crate::{Identifier, Type};
 
     use super::*;
+
+    #[test]
+    fn dereference() {
+        let source = "*a";
+
+        assert_eq!(
+            parse(source),
+            Ok(AbstractSyntaxTree::with_statements([
+                Statement::Expression(Expression::dereference(
+                    Expression::identifier(Identifier::new("a"), (1, 2)),
+                    (0, 2)
+                ),)
+            ]))
+        );
+    }
 
     #[test]
     fn character_literal() {

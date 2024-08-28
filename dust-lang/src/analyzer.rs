@@ -314,6 +314,9 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(argument, statement_position);
                 }
             }
+            Expression::Dereference(expression) => {
+                self.analyze_expression(&expression.inner, statement_position);
+            }
             Expression::FieldAccess(field_access_expression) => {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();

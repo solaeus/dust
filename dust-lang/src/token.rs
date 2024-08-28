@@ -270,7 +270,7 @@ impl<'src> Token<'src> {
     }
 
     pub fn is_prefix(&self) -> bool {
-        matches!(self, Token::Bang | Token::Minus)
+        matches!(self, Token::Bang | Token::Minus | Token::Star)
     }
 
     pub fn is_postfix(&self) -> bool {

@@ -130,6 +130,14 @@ impl Value {
         }
     }
 
+    pub fn into_raw(self) -> Self {
+        match self {
+            Value::Raw(_) => self,
+            Value::Reference(data) => Value::Raw(data.as_ref().clone()),
+            Value::Mutable(data) => Value::Raw(data.read().unwrap().clone()),
+        }
+    }
+
     pub fn into_reference(self) -> Self {
         match self {
             Value::Raw(data) => Value::Reference(Arc::new(data)),
@@ -155,6 +163,13 @@ impl Value {
             Value::Raw(data) => data.is_rangeable(),
             Value::Reference(data) => data.is_rangeable(),
             Value::Mutable(data) => data.read().unwrap().is_rangeable(),
+        }
+    }
+
+    pub fn is_raw(&self) -> bool {
+        match self {
+            Value::Raw(_) => true,
+            _ => false,
         }
     }
 
@@ -1398,7 +1413,7 @@ impl Function {
                     }
                 }
 
-                let mut vm = Vm::new(new_context);
+                let vm = Vm::new(new_context);
 
                 vm.run(body)
                     .map_err(|error| FunctionCallError::Runtime(Box::new(error)))

@@ -18,6 +18,7 @@ pub enum Expression {
     Block(Node<Box<BlockExpression>>),
     Break(Node<Option<Box<Expression>>>),
     Call(Node<Box<CallExpression>>),
+    Dereference(Node<Box<Expression>>),
     FieldAccess(Node<Box<FieldAccessExpression>>),
     Grouped(Node<Box<Expression>>),
     Identifier(Node<Identifier>),
@@ -34,6 +35,10 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn dereference(expression: Expression, position: Span) -> Self {
+        Self::Dereference(Node::new(Box::new(expression), position))
+    }
+
     pub fn r#break(expression: Option<Expression>, position: Span) -> Self {
         Self::Break(Node::new(expression.map(Box::new), position))
     }
@@ -304,6 +309,7 @@ impl Expression {
                     }
                 }
             }
+            Expression::Dereference(expression) => expression.inner.type_evaluation(context)?,
             Expression::FieldAccess(field_access_expression) => {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
@@ -571,6 +577,7 @@ impl Expression {
             Expression::Block(block) => block.position,
             Expression::Break(expression_node) => expression_node.position,
             Expression::Call(call) => call.position,
+            Expression::Dereference(expression_node) => expression_node.position,
             Expression::FieldAccess(field_access) => field_access.position,
             Expression::Grouped(grouped) => grouped.position,
             Expression::Identifier(identifier) => identifier.position,
@@ -600,6 +607,7 @@ impl Display for Expression {
                 }
             }
             Expression::Call(call) => write!(f, "{}", call.inner),
+            Expression::Dereference(expression_node) => write!(f, "*{}", expression_node.inner),
             Expression::FieldAccess(field_access) => write!(f, "{}", field_access.inner),
             Expression::Grouped(grouped) => write!(f, "({})", grouped.inner),
             Expression::Identifier(identifier) => write!(f, "{}", identifier.inner),

@@ -7,7 +7,6 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    rc::Weak,
     sync::{Arc, Mutex},
 };
 
@@ -243,18 +242,12 @@ impl Vm {
                 let position = value.position();
                 let value = self
                     .run_expression(value, collect_garbage)?
-                    .expect_value(position)?;
-
-                let reference = match value {
-                    Value::Raw(_) => value.into_reference(),
-                    Value::Reference(_) => value,
-                    Value::Mutable(_) => {
-                        return Err(RuntimeError::CannotAssignToMutable { position });
-                    }
-                };
+                    .expect_value(position)?
+                    .into_raw()
+                    .into_reference();
 
                 self.context
-                    .set_variable_value(identifier.inner, reference)
+                    .set_variable_value(identifier.inner, value)
                     .map_err(|error| RuntimeError::ContextError { error, position })?;
 
                 Ok(())
@@ -264,6 +257,7 @@ impl Vm {
                 let mutable_value = self
                     .run_expression(value, collect_garbage)?
                     .expect_value(position)?
+                    .into_raw()
                     .into_mutable();
 
                 self.context
@@ -309,6 +303,22 @@ impl Vm {
                 Ok(evaluation)
             }
             Expression::Call(call) => self.run_call(*call.inner, collect_garbage),
+            Expression::Dereference(Node { inner, .. }) => {
+                let run_expression = self.run_expression(*inner, collect_garbage)?;
+                let evaluation = match run_expression {
+                    Evaluation::Constructor(_) => {
+                        return Err(RuntimeError::ExpectedValue { position })
+                    }
+                    Evaluation::Return(value_option) => {
+                        Evaluation::Return(value_option.map(|value| value.into_raw()))
+                    }
+                    Evaluation::Break(value_option) => {
+                        Evaluation::Break(value_option.map(|value| value.into_raw()))
+                    }
+                };
+
+                Ok(evaluation)
+            }
             Expression::FieldAccess(field_access) => {
                 self.run_field_access(*field_access.inner, collect_garbage)
             }
@@ -978,7 +988,8 @@ impl Vm {
                 let position = repeat_operand.position();
                 let value = self
                     .run_expression(repeat_operand, collect_garbage)?
-                    .expect_value(position)?;
+                    .expect_value(position)?
+                    .into_raw();
 
                 Ok(Evaluation::Return(Some(Value::list(vec![
                     value;
@@ -1418,12 +1429,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn dereference_variable() {
+        let source = "let x = 42; let y = x; *y";
+
+        assert!(run(source).unwrap().unwrap().is_raw());
+    }
+
+    #[test]
     fn mutate_copied_variable() {
         let source = "let mut x = 42; let y = [x; 3]; x += 1; y";
 
         assert_eq!(
             run(source),
-            Ok(Some(Value::list([43.into(), 43.into(), 43.into()])))
+            Ok(Some(Value::list([42.into(), 42.into(), 42.into()])))
         );
     }
 
@@ -1443,9 +1461,9 @@ mod tests {
 
     #[test]
     fn mutate_assigned_variable() {
-        let source = "let mut x = 42; let mut y = x; x += 1; y";
+        let source = "let mut x = 42; let y = x; x += 1; y";
 
-        assert_eq!(run(source), Ok(Some(Value::integer(43))));
+        assert_eq!(run(source), Ok(Some(Value::integer(42))));
     }
 
     #[test]
