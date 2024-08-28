@@ -242,12 +242,16 @@ impl Vm {
                 let position = value.position();
                 let value = self
                     .run_expression(value, collect_garbage)?
-                    .expect_value(position)?
-                    .into_raw()
-                    .into_reference();
+                    .expect_value(position)?;
+                let new_value = match value {
+                    Value::Mutable(_) => {
+                        return Err(RuntimeError::CannotAssignToMutable { position })
+                    }
+                    _ => value,
+                };
 
                 self.context
-                    .set_variable_value(identifier.inner, value)
+                    .set_variable_value(identifier.inner, new_value)
                     .map_err(|error| RuntimeError::ContextError { error, position })?;
 
                 Ok(())
@@ -257,7 +261,6 @@ impl Vm {
                 let mutable_value = self
                     .run_expression(value, collect_garbage)?
                     .expect_value(position)?
-                    .into_raw()
                     .into_mutable();
 
                 self.context
@@ -988,8 +991,7 @@ impl Vm {
                 let position = repeat_operand.position();
                 let value = self
                     .run_expression(repeat_operand, collect_garbage)?
-                    .expect_value(position)?
-                    .into_raw();
+                    .expect_value(position)?;
 
                 Ok(Evaluation::Return(Some(Value::list(vec![
                     value;
@@ -1436,8 +1438,8 @@ mod tests {
     }
 
     #[test]
-    fn mutate_copied_variable() {
-        let source = "let mut x = 42; let y = [x; 3]; x += 1; y";
+    fn dereference_copied_variable() {
+        let source = "let mut x = 42; let y = [*x; 3]; x += 1; y";
 
         assert_eq!(
             run(source),
@@ -1460,8 +1462,8 @@ mod tests {
     }
 
     #[test]
-    fn mutate_assigned_variable() {
-        let source = "let mut x = 42; let y = x; x += 1; y";
+    fn dereference_mutable_variable() {
+        let source = "let mut x = 42; let y = *x; x += 1; y";
 
         assert_eq!(run(source), Ok(Some(Value::integer(42))));
     }
