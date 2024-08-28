@@ -167,10 +167,15 @@ impl Value {
     }
 
     pub fn is_raw(&self) -> bool {
-        match self {
-            Value::Raw(_) => true,
-            _ => false,
-        }
+        matches!(self, Value::Raw(_))
+    }
+
+    pub fn is_reference(&self) -> bool {
+        matches!(self, Value::Reference(_))
+    }
+
+    pub fn is_mutable(&self) -> bool {
+        matches!(self, Value::Mutable(_))
     }
 
     pub fn as_mutable(&self) -> Option<&Arc<RwLock<ValueData>>> {
