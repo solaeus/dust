@@ -1431,6 +1431,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn dereference_deep_copy() {
+        let source = "let mut x = 42; let mut y = *x; y += 1; x";
+
+        assert_eq!(run(source), Ok(Some(Value::integer(42))));
+    }
+
+    #[test]
     fn dereference_variable() {
         let source = "let x = 42; let y = x; *y";
 
