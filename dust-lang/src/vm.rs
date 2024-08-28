@@ -838,8 +838,8 @@ impl Vm {
                 return Err(RuntimeError::UndefinedField {
                     value: container_value,
                     value_position: container_position,
-                    property: field.inner,
-                    property_position: field.position,
+                    field: field.inner,
+                    field_position: field.position,
                 });
             };
 
@@ -1198,8 +1198,8 @@ pub enum RuntimeError {
     UndefinedField {
         value: Value,
         value_position: Span,
-        property: Identifier,
-        property_position: Span,
+        field: Identifier,
+        field_position: Span,
     },
 }
 
@@ -1240,11 +1240,8 @@ impl RuntimeError {
                 end_position,
                 ..
             } => (start_position.0, end_position.1),
-
             Self::UndefinedType { position, .. } => *position,
-            Self::UndefinedField {
-                property_position, ..
-            } => *property_position,
+            Self::UndefinedField { field_position, .. } => *field_position,
         }
     }
 }
@@ -1404,9 +1401,11 @@ impl Display for RuntimeError {
                 )
             }
             Self::UndefinedField {
-                value, property, ..
+                value,
+                field: property,
+                ..
             } => {
-                write!(f, "Value {} does not have the property {}", value, property)
+                write!(f, "Value {} does not have the field {}", value, property)
             }
             Self::UndefinedType {
                 identifier,
