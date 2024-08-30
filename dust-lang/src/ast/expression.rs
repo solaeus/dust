@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     fmt::{self, Display, Formatter},
 };
 
@@ -11,7 +11,7 @@ use crate::{
     TypeEvaluation, ValueData,
 };
 
-use super::{AstError, Node, Span, Statement};
+use super::{AbstractSyntaxTree, AstError, Node, Span};
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Expression {
@@ -1139,16 +1139,16 @@ impl Display for ElseExpression {
 
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum BlockExpression {
-    Async(VecDeque<Statement>),
-    Sync(VecDeque<Statement>),
+    Async(AbstractSyntaxTree),
+    Sync(AbstractSyntaxTree),
 }
 
 impl BlockExpression {
-    fn type_evaluation(&self, context: &Context) -> Result<TypeEvaluation, AstError> {
+    fn type_evaluation(&self, _: &Context) -> Result<TypeEvaluation, AstError> {
         match self {
-            BlockExpression::Async(statements) | BlockExpression::Sync(statements) => {
-                if let Some(statement) = statements.back() {
-                    statement.type_evaluation(context)
+            BlockExpression::Async(ast) | BlockExpression::Sync(ast) => {
+                if let Some(statement) = ast.statements.back() {
+                    statement.type_evaluation(&ast.context)
                 } else {
                     Ok(TypeEvaluation::Return(None))
                 }
@@ -1160,10 +1160,10 @@ impl BlockExpression {
 impl Display for BlockExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            BlockExpression::Async(statements) => {
+            BlockExpression::Async(ast) => {
                 write!(f, "async {{ ")?;
 
-                for (i, statement) in statements.iter().enumerate() {
+                for (i, statement) in ast.statements.iter().enumerate() {
                     if i > 0 {
                         write!(f, " ")?;
                     }
@@ -1173,10 +1173,10 @@ impl Display for BlockExpression {
 
                 write!(f, " }}")
             }
-            BlockExpression::Sync(statements) => {
+            BlockExpression::Sync(ast) => {
                 write!(f, "{{ ")?;
 
-                for (i, statement) in statements.iter().enumerate() {
+                for (i, statement) in ast.statements.iter().enumerate() {
                     if i > 0 {
                         write!(f, " ")?;
                     }

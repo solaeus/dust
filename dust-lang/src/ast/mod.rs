@@ -13,26 +13,51 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::ContextError;
+use crate::{Context, ContextError};
 
 pub type Span = (usize, usize);
 
 /// In-memory representation of a Dust program.
-#[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AbstractSyntaxTree {
     pub statements: VecDeque<Statement>,
+
+    #[serde(skip)]
+    pub context: Context,
+}
+
+impl Eq for AbstractSyntaxTree {}
+
+impl PartialEq for AbstractSyntaxTree {
+    fn eq(&self, other: &Self) -> bool {
+        self.statements == other.statements
+    }
+}
+
+impl PartialOrd for AbstractSyntaxTree {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for AbstractSyntaxTree {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.statements.cmp(&other.statements)
+    }
 }
 
 impl AbstractSyntaxTree {
     pub fn new() -> Self {
         Self {
             statements: VecDeque::new(),
+            context: Context::new(),
         }
     }
 
     pub fn with_statements<T: Into<VecDeque<Statement>>>(statements: T) -> Self {
         Self {
             statements: statements.into(),
+            context: Context::new(),
         }
     }
 }

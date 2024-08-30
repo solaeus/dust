@@ -1418,9 +1418,7 @@ impl Function {
                     }
                 }
 
-                let vm = Vm::new(new_context);
-
-                vm.run(body)
+                Vm.run(body)
                     .map_err(|error| FunctionCallError::Runtime(Box::new(error)))
             }
         }

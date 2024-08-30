@@ -17,8 +17,8 @@ use crate::{
         PrimitiveValueExpression, RangeExpression, Span, Statement, StructDefinition,
         StructExpression, TupleAccessExpression,
     },
-    core_library, parse, Context, ContextError, DustError, Expression, Identifier, RangeableType,
-    StructType, Type, TypeConflict, TypeEvaluation,
+    parse, ContextError, DustError, Expression, Identifier, RangeableType, StructType, Type,
+    TypeConflict, TypeEvaluation,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -34,8 +34,7 @@ use crate::{
 /// ```
 pub fn analyze(source: &str) -> Result<(), DustError> {
     let abstract_tree = parse(source)?;
-    let context = core_library().create_child();
-    let mut analyzer = Analyzer::new(&abstract_tree, context);
+    let mut analyzer = Analyzer::new(&abstract_tree);
 
     analyzer.analyze();
 
@@ -61,15 +60,13 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 /// assert!(!analyzer.errors.is_empty());
 pub struct Analyzer<'a> {
     abstract_tree: &'a AbstractSyntaxTree,
-    context: Context,
     pub errors: Vec<AnalysisError>,
 }
 
 impl<'a> Analyzer<'a> {
-    pub fn new(abstract_tree: &'a AbstractSyntaxTree, context: Context) -> Self {
+    pub fn new(abstract_tree: &'a AbstractSyntaxTree) -> Self {
         Self {
             abstract_tree,
-            context,
             errors: Vec::new(),
         }
     }
@@ -91,14 +88,14 @@ impl<'a> Analyzer<'a> {
             Statement::Let(let_statement) => match &let_statement.inner {
                 LetStatement::Let { identifier, value }
                 | LetStatement::LetMut { identifier, value } => {
-                    let r#type = match value.type_evaluation(&self.context) {
+                    let r#type = match value.type_evaluation(&self.abstract_tree.context) {
                         Err(ast_error) => {
                             self.errors.push(AnalysisError::AstError(ast_error));
 
                             return;
                         }
                         Ok(TypeEvaluation::Constructor(StructType::Unit { name })) => {
-                            let set_type = self.context.set_variable_type(
+                            let set_type = self.abstract_tree.context.set_variable_type(
                                 identifier.inner.clone(),
                                 Type::Struct(StructType::Unit { name }),
                                 statement.position(),
@@ -119,7 +116,7 @@ impl<'a> Analyzer<'a> {
                     };
 
                     if let Some(r#type) = r#type {
-                        let set_type = self.context.set_variable_type(
+                        let set_type = self.abstract_tree.context.set_variable_type(
                             identifier.inner.clone(),
                             r#type.clone(),
                             statement.position(),
@@ -145,17 +142,19 @@ impl<'a> Analyzer<'a> {
             },
             Statement::StructDefinition(struct_definition) => {
                 let set_constructor_type = match &struct_definition.inner {
-                    StructDefinition::Unit { name } => self.context.set_constructor_type(
-                        name.inner.clone(),
-                        StructType::Unit {
-                            name: name.inner.clone(),
-                        },
-                        statement.position(),
-                    ),
+                    StructDefinition::Unit { name } => {
+                        self.abstract_tree.context.set_constructor_type(
+                            name.inner.clone(),
+                            StructType::Unit {
+                                name: name.inner.clone(),
+                            },
+                            statement.position(),
+                        )
+                    }
                     StructDefinition::Tuple { name, items } => {
                         let fields = items.iter().map(|item| item.inner.clone()).collect();
 
-                        self.context.set_constructor_type(
+                        self.abstract_tree.context.set_constructor_type(
                             name.inner.clone(),
                             StructType::Tuple {
                                 name: name.inner.clone(),
@@ -172,7 +171,7 @@ impl<'a> Analyzer<'a> {
                             })
                             .collect();
 
-                        self.context.set_constructor_type(
+                        self.abstract_tree.context.set_constructor_type(
                             name.inner.clone(),
                             StructType::Fields {
                                 name: name.inner.clone(),
@@ -206,7 +205,8 @@ impl<'a> Analyzer<'a> {
 
                 self.analyze_expression(invoker, statement_position);
 
-                let invoker_evaluation = match invoker.type_evaluation(&self.context) {
+                let invoker_evaluation = match invoker.type_evaluation(&self.abstract_tree.context)
+                {
                     Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
@@ -219,14 +219,15 @@ impl<'a> Analyzer<'a> {
                     invoker_evaluation
                 {
                     for (expected_type, argument) in fields.iter().zip(arguments.iter()) {
-                        let actual_type = match argument.type_evaluation(&self.context) {
-                            Ok(evaluation) => evaluation.r#type(),
-                            Err(ast_error) => {
-                                self.errors.push(AnalysisError::AstError(ast_error));
+                        let actual_type =
+                            match argument.type_evaluation(&self.abstract_tree.context) {
+                                Ok(evaluation) => evaluation.r#type(),
+                                Err(ast_error) => {
+                                    self.errors.push(AnalysisError::AstError(ast_error));
 
-                                return;
-                            }
-                        };
+                                    return;
+                                }
+                            };
 
                         if let Some(r#type) = actual_type {
                             let check = expected_type.check(&r#type);
@@ -282,14 +283,15 @@ impl<'a> Analyzer<'a> {
                 for ((_, expected_type), argument) in value_parameters.iter().zip(arguments) {
                     self.analyze_expression(argument, statement_position);
 
-                    let argument_evaluation = match argument.type_evaluation(&self.context) {
-                        Ok(evaluation) => evaluation,
-                        Err(error) => {
-                            self.errors.push(AnalysisError::AstError(error));
+                    let argument_evaluation =
+                        match argument.type_evaluation(&self.abstract_tree.context) {
+                            Ok(evaluation) => evaluation,
+                            Err(error) => {
+                                self.errors.push(AnalysisError::AstError(error));
 
-                            continue;
-                        }
-                    };
+                                continue;
+                            }
+                        };
 
                     let actual_type = if let Some(r#type) = argument_evaluation.r#type() {
                         r#type
@@ -321,7 +323,7 @@ impl<'a> Analyzer<'a> {
                 let FieldAccessExpression { container, field } =
                     field_access_expression.inner.as_ref();
 
-                let evaluation = match container.type_evaluation(&self.context) {
+                let evaluation = match container.type_evaluation(&self.abstract_tree.context) {
                     Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
@@ -355,6 +357,7 @@ impl<'a> Analyzer<'a> {
             }
             Expression::Identifier(identifier) => {
                 let find_identifier = self
+                    .abstract_tree
                     .context
                     .update_last_position(&identifier.inner, statement_position);
 
@@ -394,7 +397,7 @@ impl<'a> Analyzer<'a> {
                 self.analyze_expression(list, statement_position);
                 self.analyze_expression(index, statement_position);
 
-                let list_type_evaluation = match list.type_evaluation(&self.context) {
+                let list_type_evaluation = match list.type_evaluation(&self.abstract_tree.context) {
                     Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
@@ -413,7 +416,8 @@ impl<'a> Analyzer<'a> {
                         return;
                     }
                 };
-                let index_type_evaluation = match index.type_evaluation(&self.context) {
+                let index_type_evaluation = match index.type_evaluation(&self.abstract_tree.context)
+                {
                     Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
@@ -540,22 +544,24 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(assignee, statement_position);
                     self.analyze_expression(modifier, statement_position);
 
-                    let assignee_type_evaluation = match assignee.type_evaluation(&self.context) {
-                        Ok(evaluation) => evaluation,
-                        Err(ast_error) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
+                    let assignee_type_evaluation =
+                        match assignee.type_evaluation(&self.abstract_tree.context) {
+                            Ok(evaluation) => evaluation,
+                            Err(ast_error) => {
+                                self.errors.push(AnalysisError::AstError(ast_error));
 
-                            return;
-                        }
-                    };
-                    let modifier_type_evaluation = match modifier.type_evaluation(&self.context) {
-                        Ok(evaluation) => evaluation,
-                        Err(ast_error) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
+                                return;
+                            }
+                        };
+                    let modifier_type_evaluation =
+                        match modifier.type_evaluation(&self.abstract_tree.context) {
+                            Ok(evaluation) => evaluation,
+                            Err(ast_error) => {
+                                self.errors.push(AnalysisError::AstError(ast_error));
 
-                            return;
-                        }
-                    };
+                                return;
+                            }
+                        };
 
                     let (expected_type, actual_type) = match (
                         assignee_type_evaluation.r#type(),
@@ -608,22 +614,24 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(left, statement_position);
                     self.analyze_expression(right, statement_position);
 
-                    let left_type_evaluation = match left.type_evaluation(&self.context) {
-                        Ok(evaluation) => evaluation,
-                        Err(ast_error) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
+                    let left_type_evaluation =
+                        match left.type_evaluation(&self.abstract_tree.context) {
+                            Ok(evaluation) => evaluation,
+                            Err(ast_error) => {
+                                self.errors.push(AnalysisError::AstError(ast_error));
 
-                            return;
-                        }
-                    };
-                    let right_type_evaluation = match right.type_evaluation(&self.context) {
-                        Ok(evaluation) => evaluation,
-                        Err(ast_error) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
+                                return;
+                            }
+                        };
+                    let right_type_evaluation =
+                        match right.type_evaluation(&self.abstract_tree.context) {
+                            Ok(evaluation) => evaluation,
+                            Err(ast_error) => {
+                                self.errors.push(AnalysisError::AstError(ast_error));
 
-                            return;
-                        }
-                    };
+                                return;
+                            }
+                        };
 
                     let (left_type, right_type) = match (
                         left_type_evaluation.r#type(),
@@ -704,22 +712,24 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expression(left, statement_position);
                     self.analyze_expression(right, statement_position);
 
-                    let left_type_evaluation = match left.type_evaluation(&self.context) {
-                        Ok(evaluation) => evaluation,
-                        Err(ast_error) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
+                    let left_type_evaluation =
+                        match left.type_evaluation(&self.abstract_tree.context) {
+                            Ok(evaluation) => evaluation,
+                            Err(ast_error) => {
+                                self.errors.push(AnalysisError::AstError(ast_error));
 
-                            return;
-                        }
-                    };
-                    let right_type_evaluation = match right.type_evaluation(&self.context) {
-                        Ok(evaluation) => evaluation,
-                        Err(ast_error) => {
-                            self.errors.push(AnalysisError::AstError(ast_error));
+                                return;
+                            }
+                        };
+                    let right_type_evaluation =
+                        match right.type_evaluation(&self.abstract_tree.context) {
+                            Ok(evaluation) => evaluation,
+                            Err(ast_error) => {
+                                self.errors.push(AnalysisError::AstError(ast_error));
 
-                            return;
-                        }
-                    };
+                                return;
+                            }
+                        };
 
                     let (left_type, right_type) = match (
                         left_type_evaluation.r#type(),
@@ -775,6 +785,7 @@ impl<'a> Analyzer<'a> {
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
                 StructExpression::Fields { name, fields } => {
                     let update_position = self
+                        .abstract_tree
                         .context
                         .update_last_position(&name.inner, statement_position);
 
@@ -795,7 +806,7 @@ impl<'a> Analyzer<'a> {
             Expression::TupleAccess(tuple_access) => {
                 let TupleAccessExpression { tuple, index } = tuple_access.inner.as_ref();
 
-                let type_evaluation = match tuple.type_evaluation(&self.context) {
+                let type_evaluation = match tuple.type_evaluation(&self.abstract_tree.context) {
                     Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
@@ -840,18 +851,19 @@ impl<'a> Analyzer<'a> {
     }
 
     fn analyze_block(&mut self, block_expression: &BlockExpression) {
-        match block_expression {
-            BlockExpression::Async(statements) => {
-                for statement in statements {
-                    self.analyze_statement(statement);
-                }
-            }
-            BlockExpression::Sync(statements) => {
-                for statement in statements {
-                    self.analyze_statement(statement);
-                }
-            }
-        }
+        let ast = match block_expression {
+            BlockExpression::Async(ast) => ast,
+            BlockExpression::Sync(ast) => ast,
+        };
+
+        ast.context
+            .assign_parent(self.abstract_tree.context.clone());
+
+        let mut analyzer = Analyzer::new(ast);
+
+        analyzer.analyze();
+
+        self.errors.append(&mut analyzer.errors);
     }
 
     fn analyze_if(&mut self, if_expression: &IfExpression, statement_position: Span) {

@@ -13,7 +13,7 @@ pub type Associations = HashMap<Identifier, (ContextData, Span)>;
 #[derive(Debug, Clone)]
 pub struct Context {
     associations: Arc<RwLock<Associations>>,
-    parent: Option<Box<Context>>,
+    parent: Arc<RwLock<Option<Context>>>,
 }
 
 impl Context {
@@ -24,7 +24,7 @@ impl Context {
     pub fn with_data(data: Associations) -> Self {
         Self {
             associations: Arc::new(RwLock::new(data)),
-            parent: None,
+            parent: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -36,8 +36,12 @@ impl Context {
     pub fn create_child(&self) -> Self {
         Self {
             associations: Arc::new(RwLock::new(HashMap::new())),
-            parent: Some(Box::new(self.clone())),
+            parent: Arc::new(RwLock::new(Some(self.clone()))),
         }
+    }
+
+    pub fn assign_parent(&self, parent: Self) {
+        self.parent.write().unwrap().replace(parent);
     }
 
     /// Returns the number of associated identifiers in the context.
@@ -49,7 +53,7 @@ impl Context {
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, ContextError> {
         if self.associations.read()?.contains_key(identifier) {
             Ok(true)
-        } else if let Some(parent) = &self.parent {
+        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
             parent.contains(identifier)
         } else {
             Ok(false)
@@ -77,7 +81,7 @@ impl Context {
             _ => {}
         }
 
-        if let Some(parent) = &self.parent {
+        if let Some(parent) = self.parent.read().unwrap().as_ref() {
             parent.get_type(identifier)
         } else {
             Ok(None)
@@ -88,7 +92,7 @@ impl Context {
     pub fn get_data(&self, identifier: &Identifier) -> Result<Option<ContextData>, ContextError> {
         if let Some((variable_data, _)) = self.associations.read()?.get(identifier) {
             Ok(Some(variable_data.clone()))
-        } else if let Some(parent) = &self.parent {
+        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
             parent.get_data(identifier)
         } else {
             Ok(None)
@@ -104,7 +108,7 @@ impl Context {
             self.associations.read()?.get(identifier)
         {
             Ok(Some(value.clone()))
-        } else if let Some(parent) = &self.parent {
+        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
             parent.get_variable_value(identifier)
         } else {
             Ok(None)
@@ -120,7 +124,7 @@ impl Context {
             self.associations.read()?.get(identifier)
         {
             Ok(Some(constructor.clone()))
-        } else if let Some(parent) = &self.parent {
+        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
             parent.get_constructor(identifier)
         } else {
             Ok(None)
@@ -140,7 +144,7 @@ impl Context {
                 ContextData::ConstructorType(struct_type) => Ok(Some(struct_type.clone())),
                 _ => Ok(None),
             }
-        } else if let Some(parent) = &self.parent {
+        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
             parent.get_constructor_type(identifier)
         } else {
             Ok(None)
@@ -285,7 +289,7 @@ impl Context {
             log::trace!("Updating {identifier}'s last position to {position:?}");
 
             Ok(true)
-        } else if let Some(parent) = &self.parent {
+        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
             parent.contains(identifier)
         } else {
             Ok(false)
@@ -372,7 +376,7 @@ impl Display for ContextError {
 
 #[cfg(test)]
 mod tests {
-    use crate::vm::run_with_context;
+    use crate::{parse, run, Vm};
 
     use super::*;
 
@@ -384,29 +388,25 @@ mod tests {
             let z = x + y;
             z
         ";
-        let context = Context::new();
+        let ast = parse(source).unwrap();
+        let context = ast.context.clone();
 
-        assert_eq!(
-            run_with_context(source, context.clone()),
-            Ok(Some(Value::integer(15)))
-        );
-
+        assert_eq!(Vm.run(ast), Ok(Some(Value::integer(15))));
         assert_eq!(context.association_count().unwrap(), 0);
     }
 
     #[test]
     fn garbage_collector_does_not_break_loops() {
         let source = "
-            let y = 1;
             let mut z = 0;
             while z < 10 {
-                z = z + y
+                z += 1;
             }
         ";
-        let context = Context::new();
+        let ast = parse(source).unwrap();
+        let context = ast.context.clone();
 
-        run_with_context(source, context.clone()).unwrap();
-
+        assert_eq!(Vm.run(ast), Ok(None));
         assert_eq!(context.association_count().unwrap(), 0);
     }
 }

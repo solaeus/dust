@@ -45,4 +45,4 @@ pub use parser::{parse, ParseError, Parser};
 pub use r#type::*;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use value::*;
-pub use vm::{run, run_with_context, RuntimeError, Vm};
+pub use vm::{run, RuntimeError, Vm};
