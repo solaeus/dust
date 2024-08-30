@@ -376,7 +376,7 @@ impl Display for ContextError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse, run, Vm};
+    use crate::{parse, Vm};
 
     use super::*;
 

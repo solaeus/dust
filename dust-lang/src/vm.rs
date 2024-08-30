@@ -21,9 +21,9 @@ use crate::{
         StructDefinition, StructExpression,
     },
     constructor::ConstructError,
-    core_library, parse, Analyzer, BuiltInFunctionError, Context, ContextData, ContextError,
-    DustError, Evaluation, Expression, Function, FunctionCallError, Identifier, ParseError,
-    StructType, Type, Value, ValueData, ValueError,
+    parse, Analyzer, BuiltInFunctionError, Context, ContextData, ContextError, DustError,
+    Evaluation, Expression, Function, FunctionCallError, Identifier, ParseError, StructType, Type,
+    Value, ValueData, ValueError,
 };
 
 /// Run the source code and return the result.
@@ -1424,7 +1424,7 @@ impl Display for RuntimeError {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::Struct;
+    use crate::{AnalysisError, Struct};
 
     use super::*;
 
@@ -1493,13 +1493,12 @@ mod tests {
 
         assert_eq!(
             run(source),
-            Err(DustError::Runtime {
-                runtime_error: RuntimeError::UnassociatedIdentifier {
-                    identifier: Identifier::new("x"),
-                    position: (16, 17)
-                },
+            Err(DustError::analysis(
+                [AnalysisError::UndefinedVariable {
+                    identifier: Node::new(Identifier::new("x"), (16, 17))
+                }],
                 source
-            })
+            ))
         );
     }
 
@@ -1509,16 +1508,12 @@ mod tests {
 
         assert_eq!(
             run(source),
-            Err(DustError::Runtime {
-                runtime_error: RuntimeError::Expression {
-                    error: Box::new(RuntimeError::UnassociatedIdentifier {
-                        identifier: Identifier::new("x"),
-                        position: (18, 19)
-                    }),
-                    position: (16, 21)
-                },
+            Err(DustError::analysis(
+                [AnalysisError::UndefinedVariable {
+                    identifier: Node::new(Identifier::new("x"), (18, 19))
+                }],
                 source
-            })
+            ))
         );
     }
 

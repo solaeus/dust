@@ -11,7 +11,8 @@ use std::{
 };
 
 use crate::{
-    ast::*, Context, DustError, Identifier, LexError, Lexer, Token, TokenKind, TokenOwned, Type,
+    ast::*, core_library, Context, DustError, Identifier, LexError, Lexer, Token, TokenKind,
+    TokenOwned, Type,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -110,7 +111,7 @@ impl<'src> Parser<'src> {
             current_token,
             current_position,
             mode: ParserMode::Normal,
-            context: Context::new(),
+            context: core_library().create_child(),
         }
     }
 
