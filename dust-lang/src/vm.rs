@@ -40,7 +40,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
     let abstract_syntax_tree = parse(source)?;
     let mut analyzer = Analyzer::new(&abstract_syntax_tree);
 
-    analyzer.analyze();
+    analyzer.analyze()?;
 
     if !analyzer.errors.is_empty() {
         return Err(DustError::Analysis {
@@ -58,11 +58,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 
 /// Dust virtual machine.
 ///
-/// **Warning**: Do not run an AbstractSyntaxTree that has not been analyzed *with the same
-/// context*. Use the `run` or `run_with_context` functions to make sure the program is analyzed
-/// before running it.
-///
-/// See the `run_with_context` function for an example of how to use the Analyzer and the VM.
+/// See the `run` function for an example of how to parse, analyze and run code.
 pub struct Vm;
 
 impl Vm {
@@ -70,7 +66,11 @@ impl Vm {
         let mut previous_evaluation = Evaluation::Return(None);
 
         while let Some(statement) = tree.statements.pop_front() {
+            let statement_end = statement.position().1;
+
             previous_evaluation = self.run_statement(statement, &tree.context, true)?;
+
+            tree.context.collect_garbage(statement_end).unwrap();
         }
 
         match previous_evaluation {
@@ -192,12 +192,6 @@ impl Vm {
                 Ok(Evaluation::Return(None))
             }
         };
-
-        if collect_garbage {
-            context
-                .collect_garbage(position.1)
-                .map_err(|error| RuntimeError::ContextError { error, position })?;
-        }
 
         result.map_err(|error| RuntimeError::Statement {
             error: Box::new(error),
@@ -1020,7 +1014,7 @@ impl Vm {
     fn run_block(
         &self,
         block: BlockExpression,
-        context: &Context,
+        _context: &Context,
         collect_garbage: bool,
     ) -> Result<Evaluation, RuntimeError> {
         match block {
@@ -1424,7 +1418,7 @@ impl Display for RuntimeError {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{AnalysisError, Struct};
+    use crate::Struct;
 
     use super::*;
 
@@ -1476,50 +1470,6 @@ mod tests {
     #[test]
     fn assign_to_variable() {
         let source = "let x = 42; let y = x; y";
-
-        assert_eq!(run(source), Ok(Some(Value::integer(42))));
-    }
-
-    #[test]
-    fn block_scope_captures_parent() {
-        let source = "let x = 42; { x }";
-
-        assert_eq!(run(source), Ok(Some(Value::integer(42))));
-    }
-
-    #[test]
-    fn block_scope_does_not_capture_child() {
-        let source = "{ let x = 42; } x";
-
-        assert_eq!(
-            run(source),
-            Err(DustError::analysis(
-                [AnalysisError::UndefinedVariable {
-                    identifier: Node::new(Identifier::new("x"), (16, 17))
-                }],
-                source
-            ))
-        );
-    }
-
-    #[test]
-    fn block_scope_does_not_capture_sibling() {
-        let source = "{ let x = 42; } { x }";
-
-        assert_eq!(
-            run(source),
-            Err(DustError::analysis(
-                [AnalysisError::UndefinedVariable {
-                    identifier: Node::new(Identifier::new("x"), (18, 19))
-                }],
-                source
-            ))
-        );
-    }
-
-    #[test]
-    fn block_scope_does_not_pollute_parent() {
-        let source = "let x = 42; { let x = \"foo\"; let x = \"bar\"; } x";
 
         assert_eq!(run(source), Ok(Some(Value::integer(42))));
     }

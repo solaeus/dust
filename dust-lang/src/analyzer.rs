@@ -17,8 +17,8 @@ use crate::{
         PrimitiveValueExpression, RangeExpression, Span, Statement, StructDefinition,
         StructExpression, TupleAccessExpression,
     },
-    parse, ContextError, DustError, Expression, Identifier, RangeableType, StructType, Type,
-    TypeConflict, TypeEvaluation,
+    parse, Context, ContextData, ContextError, DustError, Expression, Identifier, RangeableType,
+    StructType, Type, TypeConflict, TypeEvaluation,
 };
 
 /// Analyzes the abstract syntax tree for errors.
@@ -36,7 +36,7 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
     let abstract_tree = parse(source)?;
     let mut analyzer = Analyzer::new(&abstract_tree);
 
-    analyzer.analyze();
+    analyzer.analyze()?;
 
     if analyzer.errors.is_empty() {
         Ok(())
@@ -71,19 +71,23 @@ impl<'a> Analyzer<'a> {
         }
     }
 
-    pub fn analyze(&mut self) {
+    pub fn analyze(&mut self) -> Result<(), ContextError> {
         for statement in &self.abstract_tree.statements {
-            self.analyze_statement(statement);
+            self.analyze_statement(statement, &self.abstract_tree.context)?;
         }
+
+        Ok(())
     }
 
-    fn analyze_statement(&mut self, statement: &Statement) {
+    fn analyze_statement(
+        &mut self,
+        statement: &Statement,
+        context: &Context,
+    ) -> Result<(), ContextError> {
         match statement {
-            Statement::Expression(expression) => {
-                self.analyze_expression(expression, statement.position())
-            }
+            Statement::Expression(expression) => self.analyze_expression(expression, context)?,
             Statement::ExpressionNullified(expression_node) => {
-                self.analyze_expression(&expression_node.inner, statement.position());
+                self.analyze_expression(&expression_node.inner, context)?;
             }
             Statement::Let(let_statement) => match &let_statement.inner {
                 LetStatement::Let { identifier, value }
@@ -92,42 +96,25 @@ impl<'a> Analyzer<'a> {
                         Err(ast_error) => {
                             self.errors.push(AnalysisError::AstError(ast_error));
 
-                            return;
+                            return Ok(());
                         }
                         Ok(TypeEvaluation::Constructor(StructType::Unit { name })) => {
-                            let set_type = self.abstract_tree.context.set_variable_type(
+                            self.abstract_tree.context.set_variable_type(
                                 identifier.inner.clone(),
                                 Type::Struct(StructType::Unit { name }),
-                                statement.position(),
-                            );
+                            )?;
 
-                            if let Err(context_error) = set_type {
-                                self.errors.push(AnalysisError::ContextError {
-                                    error: context_error,
-                                    position: identifier.position,
-                                });
-                            }
+                            self.analyze_expression(value, context)?;
 
-                            self.analyze_expression(value, statement.position());
-
-                            return;
+                            return Ok(());
                         }
                         Ok(evaluation) => evaluation.r#type(),
                     };
 
                     if let Some(r#type) = r#type {
-                        let set_type = self.abstract_tree.context.set_variable_type(
-                            identifier.inner.clone(),
-                            r#type.clone(),
-                            statement.position(),
-                        );
-
-                        if let Err(context_error) = set_type {
-                            self.errors.push(AnalysisError::ContextError {
-                                error: context_error,
-                                position: identifier.position,
-                            });
-                        }
+                        self.abstract_tree
+                            .context
+                            .set_variable_type(identifier.inner.clone(), r#type.clone())?;
                     } else {
                         self.errors
                             .push(AnalysisError::LetExpectedValueFromStatement {
@@ -135,13 +122,13 @@ impl<'a> Analyzer<'a> {
                             });
                     }
 
-                    self.analyze_expression(value, statement.position());
+                    self.analyze_expression(value, context)?;
                 }
                 LetStatement::LetType { .. } => todo!(),
                 LetStatement::LetMutType { .. } => todo!(),
             },
             Statement::StructDefinition(struct_definition) => {
-                let set_constructor_type = match &struct_definition.inner {
+                match &struct_definition.inner {
                     StructDefinition::Unit { name } => {
                         self.abstract_tree.context.set_constructor_type(
                             name.inner.clone(),
@@ -149,7 +136,7 @@ impl<'a> Analyzer<'a> {
                                 name: name.inner.clone(),
                             },
                             statement.position(),
-                        )
+                        )?;
                     }
                     StructDefinition::Tuple { name, items } => {
                         let fields = items.iter().map(|item| item.inner.clone()).collect();
@@ -161,7 +148,7 @@ impl<'a> Analyzer<'a> {
                                 fields,
                             },
                             statement.position(),
-                        )
+                        )?;
                     }
                     StructDefinition::Fields { name, fields } => {
                         let fields = fields
@@ -178,32 +165,33 @@ impl<'a> Analyzer<'a> {
                                 fields,
                             },
                             statement.position(),
-                        )
+                        )?;
                     }
                 };
-
-                if let Err(context_error) = set_constructor_type {
-                    self.errors.push(AnalysisError::ContextError {
-                        error: context_error,
-                        position: struct_definition.position,
-                    });
-                }
             }
         }
+
+        Ok(())
     }
 
-    fn analyze_expression(&mut self, expression: &Expression, statement_position: Span) {
+    fn analyze_expression(
+        &mut self,
+        expression: &Expression,
+        context: &Context,
+    ) -> Result<(), ContextError> {
         match expression {
-            Expression::Block(block_expression) => self.analyze_block(&block_expression.inner),
+            Expression::Block(block_expression) => {
+                self.analyze_block(&block_expression.inner, context)?;
+            }
             Expression::Break(break_node) => {
                 if let Some(expression) = &break_node.inner {
-                    self.analyze_expression(expression, statement_position);
+                    self.analyze_expression(expression, context)?;
                 }
             }
             Expression::Call(call_expression) => {
                 let CallExpression { invoker, arguments } = call_expression.inner.as_ref();
 
-                self.analyze_expression(invoker, statement_position);
+                self.analyze_expression(invoker, context)?;
 
                 let invoker_evaluation = match invoker.type_evaluation(&self.abstract_tree.context)
                 {
@@ -211,7 +199,7 @@ impl<'a> Analyzer<'a> {
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
 
-                        return;
+                        return Ok(());
                     }
                 };
 
@@ -225,7 +213,7 @@ impl<'a> Analyzer<'a> {
                                 Err(ast_error) => {
                                     self.errors.push(AnalysisError::AstError(ast_error));
 
-                                    return;
+                                    return Ok(());
                                 }
                             };
 
@@ -241,7 +229,7 @@ impl<'a> Analyzer<'a> {
                         }
                     }
 
-                    return;
+                    return Ok(());
                 }
 
                 let invoked_type = if let Some(r#type) = invoker_evaluation.r#type() {
@@ -252,7 +240,7 @@ impl<'a> Analyzer<'a> {
                             expression: invoker.clone(),
                         });
 
-                    return;
+                    return Ok(());
                 };
                 let function_type = if let Type::Function(function_type) = invoked_type {
                     function_type
@@ -262,7 +250,7 @@ impl<'a> Analyzer<'a> {
                         actual_expression: invoker.clone(),
                     });
 
-                    return;
+                    return Ok(());
                 };
 
                 let value_parameters =
@@ -277,11 +265,11 @@ impl<'a> Analyzer<'a> {
                             });
                         }
 
-                        return;
+                        return Ok(());
                     };
 
                 for ((_, expected_type), argument) in value_parameters.iter().zip(arguments) {
-                    self.analyze_expression(argument, statement_position);
+                    self.analyze_expression(argument, context)?;
 
                     let argument_evaluation =
                         match argument.type_evaluation(&self.abstract_tree.context) {
@@ -313,11 +301,11 @@ impl<'a> Analyzer<'a> {
                 }
 
                 for argument in arguments {
-                    self.analyze_expression(argument, statement_position);
+                    self.analyze_expression(argument, context)?;
                 }
             }
             Expression::Dereference(expression) => {
-                self.analyze_expression(&expression.inner, statement_position);
+                self.analyze_expression(&expression.inner, context)?;
             }
             Expression::FieldAccess(field_access_expression) => {
                 let FieldAccessExpression { container, field } =
@@ -328,7 +316,7 @@ impl<'a> Analyzer<'a> {
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
 
-                        return;
+                        return Ok(());
                     }
                 };
                 let container_type = match evaluation.r#type() {
@@ -339,7 +327,7 @@ impl<'a> Analyzer<'a> {
                                 expression: container.clone(),
                             });
 
-                        return;
+                        return Ok(());
                     }
                 };
 
@@ -350,59 +338,47 @@ impl<'a> Analyzer<'a> {
                     });
                 }
 
-                self.analyze_expression(container, statement_position);
+                self.analyze_expression(container, context)?;
             }
             Expression::Grouped(expression) => {
-                self.analyze_expression(expression.inner.as_ref(), statement_position);
+                self.analyze_expression(expression.inner.as_ref(), context)?;
             }
             Expression::Identifier(identifier) => {
-                let find_identifier = self
-                    .abstract_tree
-                    .context
-                    .update_last_position(&identifier.inner, statement_position);
+                let context_data = context.get_data(&identifier.inner)?;
 
-                if let Ok(false) = find_identifier {
+                if let Some(ContextData::Reserved) | None = context_data {
                     self.errors.push(AnalysisError::UndefinedVariable {
                         identifier: identifier.clone(),
                     });
                 }
-
-                if let Err(context_error) = find_identifier {
-                    self.errors.push(AnalysisError::ContextError {
-                        error: context_error,
-                        position: identifier.position,
-                    });
-                }
             }
-            Expression::If(if_expression) => {
-                self.analyze_if(&if_expression.inner, statement_position)
-            }
+            Expression::If(if_expression) => self.analyze_if(&if_expression.inner, context)?,
             Expression::List(list_expression) => match list_expression.inner.as_ref() {
                 ListExpression::AutoFill {
                     repeat_operand,
                     length_operand,
                 } => {
-                    self.analyze_expression(repeat_operand, statement_position);
-                    self.analyze_expression(length_operand, statement_position);
+                    self.analyze_expression(repeat_operand, context)?;
+                    self.analyze_expression(length_operand, context)?;
                 }
                 ListExpression::Ordered(expressions) => {
                     for expression in expressions {
-                        self.analyze_expression(expression, statement_position);
+                        self.analyze_expression(expression, context)?;
                     }
                 }
             },
             Expression::ListIndex(list_index_expression) => {
                 let ListIndexExpression { list, index } = list_index_expression.inner.as_ref();
 
-                self.analyze_expression(list, statement_position);
-                self.analyze_expression(index, statement_position);
+                self.analyze_expression(list, context)?;
+                self.analyze_expression(index, context)?;
 
                 let list_type_evaluation = match list.type_evaluation(&self.abstract_tree.context) {
                     Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
 
-                        return;
+                        return Ok(());
                     }
                 };
                 let list_type = match list_type_evaluation.r#type() {
@@ -413,7 +389,7 @@ impl<'a> Analyzer<'a> {
                                 expression: list.clone(),
                             });
 
-                        return;
+                        return Ok(());
                     }
                 };
                 let index_type_evaluation = match index.type_evaluation(&self.abstract_tree.context)
@@ -422,7 +398,7 @@ impl<'a> Analyzer<'a> {
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
 
-                        return;
+                        return Ok(());
                     }
                 };
                 let index_type = match index_type_evaluation.r#type() {
@@ -433,7 +409,7 @@ impl<'a> Analyzer<'a> {
                                 expression: list.clone(),
                             });
 
-                        return;
+                        return Ok(());
                     }
                 };
                 let literal_type = if let Expression::Literal(Node { inner, .. }) = index {
@@ -510,39 +486,39 @@ impl<'a> Analyzer<'a> {
                 // Literals don't need to be analyzed
             }
             Expression::Loop(loop_expression) => match loop_expression.inner.as_ref() {
-                LoopExpression::Infinite { block } => self.analyze_block(&block.inner),
+                LoopExpression::Infinite { block } => self.analyze_block(&block.inner, context)?,
                 LoopExpression::While { condition, block } => {
-                    self.analyze_expression(condition, statement_position);
-                    self.analyze_block(&block.inner);
+                    self.analyze_expression(condition, context)?;
+                    self.analyze_block(&block.inner, context)?;
                 }
                 LoopExpression::For {
                     iterator, block, ..
                 } => {
-                    self.analyze_expression(iterator, statement_position);
-                    self.analyze_block(&block.inner);
+                    self.analyze_expression(iterator, context)?;
+                    self.analyze_block(&block.inner, context)?;
                 }
             },
             Expression::Map(map_expression) => {
                 let MapExpression { pairs } = map_expression.inner.as_ref();
 
                 for (_, expression) in pairs {
-                    self.analyze_expression(expression, statement_position);
+                    self.analyze_expression(expression, context)?;
                 }
             }
             Expression::Operator(operator_expression) => match operator_expression.inner.as_ref() {
                 OperatorExpression::Assignment { assignee, value } => {
-                    self.analyze_expression(assignee, statement_position);
-                    self.analyze_expression(value, statement_position);
+                    self.analyze_expression(assignee, context)?;
+                    self.analyze_expression(value, context)?;
                 }
                 OperatorExpression::Comparison { left, right, .. } => {
-                    self.analyze_expression(left, statement_position);
-                    self.analyze_expression(right, statement_position);
+                    self.analyze_expression(left, context)?;
+                    self.analyze_expression(right, context)?;
                 }
                 OperatorExpression::CompoundAssignment {
                     assignee, modifier, ..
                 } => {
-                    self.analyze_expression(assignee, statement_position);
-                    self.analyze_expression(modifier, statement_position);
+                    self.analyze_expression(assignee, context)?;
+                    self.analyze_expression(modifier, context)?;
 
                     let assignee_type_evaluation =
                         match assignee.type_evaluation(&self.abstract_tree.context) {
@@ -550,7 +526,7 @@ impl<'a> Analyzer<'a> {
                             Err(ast_error) => {
                                 self.errors.push(AnalysisError::AstError(ast_error));
 
-                                return;
+                                return Ok(());
                             }
                         };
                     let modifier_type_evaluation =
@@ -559,7 +535,7 @@ impl<'a> Analyzer<'a> {
                             Err(ast_error) => {
                                 self.errors.push(AnalysisError::AstError(ast_error));
 
-                                return;
+                                return Ok(());
                             }
                         };
 
@@ -577,21 +553,21 @@ impl<'a> Analyzer<'a> {
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: modifier.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                         (None, _) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: assignee.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                         (_, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: modifier.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                     };
 
@@ -605,14 +581,14 @@ impl<'a> Analyzer<'a> {
                 }
                 OperatorExpression::ErrorPropagation(_) => todo!(),
                 OperatorExpression::Negation(expression) => {
-                    self.analyze_expression(expression, statement_position);
+                    self.analyze_expression(expression, context)?;
                 }
                 OperatorExpression::Not(expression) => {
-                    self.analyze_expression(expression, statement_position);
+                    self.analyze_expression(expression, context)?;
                 }
                 OperatorExpression::Math { left, right, .. } => {
-                    self.analyze_expression(left, statement_position);
-                    self.analyze_expression(right, statement_position);
+                    self.analyze_expression(left, context)?;
+                    self.analyze_expression(right, context)?;
 
                     let left_type_evaluation =
                         match left.type_evaluation(&self.abstract_tree.context) {
@@ -620,7 +596,7 @@ impl<'a> Analyzer<'a> {
                             Err(ast_error) => {
                                 self.errors.push(AnalysisError::AstError(ast_error));
 
-                                return;
+                                return Ok(());
                             }
                         };
                     let right_type_evaluation =
@@ -629,7 +605,7 @@ impl<'a> Analyzer<'a> {
                             Err(ast_error) => {
                                 self.errors.push(AnalysisError::AstError(ast_error));
 
-                                return;
+                                return Ok(());
                             }
                         };
 
@@ -647,21 +623,21 @@ impl<'a> Analyzer<'a> {
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: right.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                         (None, _) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: left.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                         (_, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: right.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                     };
 
@@ -709,8 +685,8 @@ impl<'a> Analyzer<'a> {
                     }
                 }
                 OperatorExpression::Logic { left, right, .. } => {
-                    self.analyze_expression(left, statement_position);
-                    self.analyze_expression(right, statement_position);
+                    self.analyze_expression(left, context)?;
+                    self.analyze_expression(right, context)?;
 
                     let left_type_evaluation =
                         match left.type_evaluation(&self.abstract_tree.context) {
@@ -718,7 +694,7 @@ impl<'a> Analyzer<'a> {
                             Err(ast_error) => {
                                 self.errors.push(AnalysisError::AstError(ast_error));
 
-                                return;
+                                return Ok(());
                             }
                         };
                     let right_type_evaluation =
@@ -727,7 +703,7 @@ impl<'a> Analyzer<'a> {
                             Err(ast_error) => {
                                 self.errors.push(AnalysisError::AstError(ast_error));
 
-                                return;
+                                return Ok(());
                             }
                         };
 
@@ -745,21 +721,21 @@ impl<'a> Analyzer<'a> {
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: right.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                         (None, _) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: left.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                         (_, None) => {
                             self.errors
                                 .push(AnalysisError::ExpectedValueFromExpression {
                                     expression: right.clone(),
                                 });
-                            return;
+                            return Ok(());
                         }
                     };
 
@@ -774,32 +750,18 @@ impl<'a> Analyzer<'a> {
             },
             Expression::Range(range_expression) => match range_expression.inner.as_ref() {
                 RangeExpression::Exclusive { start, end } => {
-                    self.analyze_expression(start, statement_position);
-                    self.analyze_expression(end, statement_position);
+                    self.analyze_expression(start, context)?;
+                    self.analyze_expression(end, context)?;
                 }
                 RangeExpression::Inclusive { start, end } => {
-                    self.analyze_expression(start, statement_position);
-                    self.analyze_expression(end, statement_position);
+                    self.analyze_expression(start, context)?;
+                    self.analyze_expression(end, context)?;
                 }
             },
             Expression::Struct(struct_expression) => match struct_expression.inner.as_ref() {
-                StructExpression::Fields { name, fields } => {
-                    let update_position = self
-                        .abstract_tree
-                        .context
-                        .update_last_position(&name.inner, statement_position);
-
-                    if let Err(error) = update_position {
-                        self.errors.push(AnalysisError::ContextError {
-                            error,
-                            position: name.position,
-                        });
-
-                        return;
-                    }
-
+                StructExpression::Fields { fields, .. } => {
                     for (_, expression) in fields {
-                        self.analyze_expression(expression, statement_position);
+                        self.analyze_expression(expression, context)?;
                     }
                 }
             },
@@ -810,7 +772,7 @@ impl<'a> Analyzer<'a> {
                     Ok(evaluation) => evaluation,
                     Err(ast_error) => {
                         self.errors.push(AnalysisError::AstError(ast_error));
-                        return;
+                        return Ok(());
                     }
                 };
 
@@ -821,7 +783,7 @@ impl<'a> Analyzer<'a> {
                             .push(AnalysisError::ExpectedValueFromExpression {
                                 expression: tuple.clone(),
                             });
-                        return;
+                        return Ok(());
                     }
                 };
 
@@ -845,64 +807,69 @@ impl<'a> Analyzer<'a> {
                     });
                 }
 
-                self.analyze_expression(tuple, statement_position);
+                self.analyze_expression(tuple, context)?;
             }
         }
+
+        Ok(())
     }
 
-    fn analyze_block(&mut self, block_expression: &BlockExpression) {
+    fn analyze_block(
+        &mut self,
+        block_expression: &BlockExpression,
+        _context: &Context,
+    ) -> Result<(), ContextError> {
         let ast = match block_expression {
             BlockExpression::Async(ast) => ast,
             BlockExpression::Sync(ast) => ast,
         };
 
-        ast.context
-            .assign_parent(self.abstract_tree.context.clone());
+        for statement in &ast.statements {
+            self.analyze_statement(statement, &ast.context)?;
+        }
 
-        let mut analyzer = Analyzer::new(ast);
-
-        analyzer.analyze();
-
-        self.errors.append(&mut analyzer.errors);
+        Ok(())
     }
 
-    fn analyze_if(&mut self, if_expression: &IfExpression, statement_position: Span) {
+    fn analyze_if(
+        &mut self,
+        if_expression: &IfExpression,
+        context: &Context,
+    ) -> Result<(), ContextError> {
         match if_expression {
             IfExpression::If {
                 condition,
                 if_block,
             } => {
-                self.analyze_expression(condition, statement_position);
-                self.analyze_block(&if_block.inner);
+                self.analyze_expression(condition, context)?;
+                self.analyze_block(&if_block.inner, context)?;
             }
             IfExpression::IfElse {
                 condition,
                 if_block,
                 r#else,
             } => {
-                self.analyze_expression(condition, statement_position);
-                self.analyze_block(&if_block.inner);
+                self.analyze_expression(condition, context)?;
+                self.analyze_block(&if_block.inner, context)?;
 
                 match r#else {
                     ElseExpression::Block(block_expression) => {
-                        self.analyze_block(&block_expression.inner);
+                        self.analyze_block(&block_expression.inner, context)?;
                     }
                     ElseExpression::If(if_expression) => {
-                        self.analyze_if(&if_expression.inner, statement_position);
+                        self.analyze_if(&if_expression.inner, context)?;
                     }
                 }
             }
         }
+
+        Ok(())
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnalysisError {
     AstError(AstError),
-    ContextError {
-        error: ContextError,
-        position: Span,
-    },
     ExpectedFunction {
         actual: Type,
         actual_expression: Expression,
@@ -978,8 +945,8 @@ pub enum AnalysisError {
 }
 
 impl From<AstError> for AnalysisError {
-    fn from(v: AstError) -> Self {
-        Self::AstError(v)
+    fn from(error: AstError) -> Self {
+        Self::AstError(error)
     }
 }
 
@@ -987,7 +954,6 @@ impl AnalysisError {
     pub fn position(&self) -> Span {
         match self {
             AnalysisError::AstError(ast_error) => ast_error.position(),
-            AnalysisError::ContextError { position, .. } => *position,
             AnalysisError::ExpectedFunction {
                 actual_expression, ..
             } => actual_expression.position(),
@@ -1024,7 +990,6 @@ impl Display for AnalysisError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             AnalysisError::AstError(ast_error) => write!(f, "{}", ast_error),
-            AnalysisError::ContextError { error, .. } => write!(f, "{}", error),
             AnalysisError::ExpectedFunction {
                 actual,
                 actual_expression,

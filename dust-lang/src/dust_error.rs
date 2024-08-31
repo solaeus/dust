@@ -2,12 +2,13 @@
 use annotate_snippets::{Level, Renderer, Snippet};
 use std::fmt::Display;
 
-use crate::{ast::Span, AnalysisError, LexError, ParseError, RuntimeError};
+use crate::{ast::Span, AnalysisError, ContextError, LexError, ParseError, RuntimeError};
 
 /// An error that occurred during the execution of the Dust language and its
 /// corresponding source code.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DustError<'src> {
+    ContextError(ContextError),
     Runtime {
         runtime_error: RuntimeError,
         source: &'src str,
@@ -24,6 +25,12 @@ pub enum DustError<'src> {
         lex_error: LexError,
         source: &'src str,
     },
+}
+
+impl<'src> From<ContextError> for DustError<'src> {
+    fn from(error: ContextError) -> Self {
+        Self::ContextError(error)
+    }
 }
 
 impl<'src> DustError<'src> {
@@ -54,6 +61,7 @@ impl<'src> DustError<'src> {
 
     pub fn title(&self) -> &'static str {
         match self {
+            DustError::ContextError(_) => "Context error",
             DustError::Runtime { .. } => "Runtime error",
             DustError::Analysis { .. } => "Analysis error",
             DustError::Parse { .. } => "Parse error",
@@ -63,6 +71,7 @@ impl<'src> DustError<'src> {
 
     pub fn source(&self) -> &'src str {
         match self {
+            DustError::ContextError(_) => "",
             DustError::Runtime { source, .. } => source,
             DustError::Analysis { source, .. } => source,
             DustError::Parse { source, .. } => source,
@@ -72,6 +81,7 @@ impl<'src> DustError<'src> {
 
     pub fn error_data(&self) -> Vec<(&'static str, Span, String)> {
         match self {
+            DustError::ContextError(_) => vec![],
             DustError::Runtime { runtime_error, .. } => vec![(
                 "Runtime error",
                 runtime_error.position(),
@@ -114,6 +124,7 @@ impl<'src> DustError<'src> {
 impl Display for DustError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            DustError::ContextError(context_error) => write!(f, "{context_error}"),
             DustError::Runtime { runtime_error, .. } => write!(f, "{runtime_error}"),
             DustError::Analysis {
                 analysis_errors, ..

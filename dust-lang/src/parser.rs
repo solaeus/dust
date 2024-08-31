@@ -11,8 +11,8 @@ use std::{
 };
 
 use crate::{
-    ast::*, core_library, Context, DustError, Identifier, LexError, Lexer, Token, TokenKind,
-    TokenOwned, Type,
+    ast::*, core_library, Context, ContextError, DustError, Identifier, LexError, Lexer, Token,
+    TokenKind, TokenOwned, Type,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -40,34 +40,27 @@ use crate::{
 pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
     let mut tree = AbstractSyntaxTree::new();
 
-    parse_into(source, &mut tree)?;
+    tree.context.assign_parent(core_library().clone());
 
-    Ok(tree)
-}
-
-pub fn parse_into<'src>(
-    source: &'src str,
-    tree: &mut AbstractSyntaxTree,
-) -> Result<(), DustError<'src>> {
     let lexer = Lexer::new(source);
     let mut parser = Parser::new(lexer);
 
     loop {
-        let node = parser
-            .parse_statement()
+        let statement = parser
+            .parse_statement(&tree.context)
             .map_err(|parse_error| DustError::Parse {
                 parse_error,
                 source,
             })?;
 
-        tree.statements.push_back(node);
+        tree.statements.push_back(statement);
 
         if let Token::Eof = parser.current_token {
             break;
         }
     }
 
-    Ok(())
+    Ok(tree)
 }
 
 /// Low-level tool for parsing the input a statement at a time.
@@ -99,7 +92,6 @@ pub struct Parser<'src> {
     current_token: Token<'src>,
     current_position: Span,
     mode: ParserMode,
-    context: Context,
 }
 
 impl<'src> Parser<'src> {
@@ -111,7 +103,6 @@ impl<'src> Parser<'src> {
             current_token,
             current_position,
             mode: ParserMode::Normal,
-            context: core_library().create_child(),
         }
     }
 
@@ -119,7 +110,7 @@ impl<'src> Parser<'src> {
         matches!(self.current_token, Token::Eof)
     }
 
-    pub fn parse_statement(&mut self) -> Result<Statement, ParseError> {
+    pub fn parse_statement(&mut self, context: &Context) -> Result<Statement, ParseError> {
         let start_position = self.current_position;
 
         if let Token::Let = self.current_token {
@@ -135,7 +126,7 @@ impl<'src> Parser<'src> {
                 false
             };
 
-            let identifier = self.parse_identifier()?;
+            let identifier = self.parse_identifier(context)?;
 
             if let Token::Equal = self.current_token {
                 self.next_token()?;
@@ -147,7 +138,7 @@ impl<'src> Parser<'src> {
                 });
             }
 
-            let value = self.parse_expression(0)?;
+            let value = self.parse_expression(0, context)?;
 
             let end = if let Token::Semicolon = self.current_token {
                 let end = self.current_position.1;
@@ -174,7 +165,7 @@ impl<'src> Parser<'src> {
             self.next_token()?;
 
             let name = if let Token::Identifier(_) = self.current_token {
-                self.parse_identifier()?
+                self.parse_identifier(context)?
             } else {
                 return Err(ParseError::ExpectedToken {
                     expected: TokenKind::Identifier,
@@ -203,10 +194,6 @@ impl<'src> Parser<'src> {
                     if let Token::RightParenthesis = self.current_token {
                         self.next_token()?;
 
-                        if let Token::Semicolon = self.current_token {
-                            self.next_token()?;
-                        }
-
                         break;
                     }
 
@@ -222,6 +209,10 @@ impl<'src> Parser<'src> {
                 }
 
                 let position = (start_position.0, self.current_position.1);
+
+                if let Token::Semicolon = self.current_token {
+                    self.next_token()?;
+                }
 
                 return if types.is_empty() {
                     Ok(Statement::struct_definition(
@@ -245,14 +236,10 @@ impl<'src> Parser<'src> {
                     if let Token::RightCurlyBrace = self.current_token {
                         self.next_token()?;
 
-                        if let Token::Semicolon = self.current_token {
-                            self.next_token()?;
-                        }
-
                         break;
                     }
 
-                    let field_name = self.parse_identifier()?;
+                    let field_name = self.parse_identifier(context)?;
 
                     if let Token::Colon = self.current_token {
                         self.next_token()?;
@@ -276,6 +263,10 @@ impl<'src> Parser<'src> {
                 }
 
                 let position = (start_position.0, self.current_position.1);
+
+                if let Token::Semicolon = self.current_token {
+                    self.next_token()?;
+                }
 
                 return if fields.is_empty() {
                     Ok(Statement::struct_definition(
@@ -301,7 +292,7 @@ impl<'src> Parser<'src> {
             });
         }
 
-        let expression = self.parse_expression(0)?;
+        let expression = self.parse_expression(0, context)?;
 
         if let Token::Semicolon = self.current_token {
             let position = (start_position.0, self.current_position.1);
@@ -325,19 +316,23 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_expression(&mut self, mut precedence: u8) -> Result<Expression, ParseError> {
+    fn parse_expression(
+        &mut self,
+        mut precedence: u8,
+        context: &Context,
+    ) -> Result<Expression, ParseError> {
         // Parse a statement starting from the current node.
         let mut left = if self.current_token.is_prefix() {
-            self.parse_prefix()?
+            self.parse_prefix(context)?
         } else {
-            self.parse_primary()?
+            self.parse_primary(context)?
         };
 
         // While the current token has a higher precedence than the given precedence
         while precedence < self.current_token.precedence() {
             // Give precedence to postfix operations
             left = if self.current_token.is_postfix() {
-                let statement = self.parse_postfix(left)?;
+                let statement = self.parse_postfix(left, context)?;
 
                 precedence = self.current_token.precedence();
 
@@ -345,14 +340,14 @@ impl<'src> Parser<'src> {
                 statement
             } else {
                 // Replace the left-hand side with the infix operation
-                self.parse_infix(left)?
+                self.parse_infix(left, context)?
             };
         }
 
         Ok(left)
     }
 
-    fn parse_prefix(&mut self) -> Result<Expression, ParseError> {
+    fn parse_prefix(&mut self, context: &Context) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as prefix operator", self.current_token);
 
         let operator_start = self.current_position.0;
@@ -361,7 +356,7 @@ impl<'src> Parser<'src> {
             Token::Bang => {
                 self.next_token()?;
 
-                let operand = self.parse_expression(0)?;
+                let operand = self.parse_expression(0, context)?;
                 let position = (operator_start, self.current_position.1);
 
                 Ok(Expression::not(operand, position))
@@ -369,7 +364,7 @@ impl<'src> Parser<'src> {
             Token::Minus => {
                 self.next_token()?;
 
-                let operand = self.parse_expression(0)?;
+                let operand = self.parse_expression(0, context)?;
                 let position = (operator_start, self.current_position.1);
 
                 Ok(Expression::negation(operand, position))
@@ -377,7 +372,7 @@ impl<'src> Parser<'src> {
             Token::Star => {
                 self.next_token()?;
 
-                let operand = self.parse_expression(0)?;
+                let operand = self.parse_expression(0, context)?;
                 let position = (operator_start, self.current_position.1);
 
                 Ok(Expression::dereference(operand, position))
@@ -390,14 +385,14 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_primary(&mut self) -> Result<Expression, ParseError> {
+    fn parse_primary(&mut self, context: &Context) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as primary", self.current_token);
 
         let start_position = self.current_position;
 
         match self.current_token {
             Token::Async => {
-                let block = self.parse_block()?;
+                let block = self.parse_block(context)?;
                 let position = (start_position.0, block.position.1);
 
                 Ok(Expression::block(block.inner, position))
@@ -422,7 +417,7 @@ impl<'src> Parser<'src> {
                     // Do not consume the semicolon, allowing it to nullify the expression
 
                     (None, break_end)
-                } else if let Ok(expression) = self.parse_expression(0) {
+                } else if let Ok(expression) = self.parse_expression(0, context) {
                     let end = expression.position().1;
 
                     (Some(expression), end)
@@ -460,13 +455,15 @@ impl<'src> Parser<'src> {
                 let identifier = Identifier::new(text);
 
                 if let ParserMode::Condition = self.mode {
+                    context.update_last_position(&identifier, start_position)?;
+
                     return Ok(Expression::identifier(identifier, start_position));
                 }
 
                 if let Token::LeftCurlyBrace = self.current_token {
                     self.next_token()?;
 
-                    let name = Node::new(identifier, start_position);
+                    let name = Node::new(identifier.clone(), start_position);
                     let mut fields = Vec::new();
 
                     loop {
@@ -476,7 +473,7 @@ impl<'src> Parser<'src> {
                             break;
                         }
 
-                        let field_name = self.parse_identifier()?;
+                        let field_name = self.parse_identifier(context)?;
 
                         if let Token::Colon = self.current_token {
                             self.next_token()?;
@@ -488,7 +485,7 @@ impl<'src> Parser<'src> {
                             });
                         }
 
-                        let field_value = self.parse_expression(0)?;
+                        let field_value = self.parse_expression(0, context)?;
 
                         fields.push((field_name, field_value));
 
@@ -499,11 +496,15 @@ impl<'src> Parser<'src> {
 
                     let position = (start_position.0, self.current_position.1);
 
+                    context.update_last_position(&identifier, position)?;
+
                     return Ok(Expression::r#struct(
                         StructExpression::Fields { name, fields },
                         position,
                     ));
                 }
+
+                context.update_last_position(&identifier, start_position)?;
 
                 Ok(Expression::identifier(identifier, start_position))
             }
@@ -520,7 +521,7 @@ impl<'src> Parser<'src> {
             Token::If => {
                 self.next_token()?;
 
-                let r#if = self.parse_if()?;
+                let r#if = self.parse_if(context)?;
                 let position = (start_position.0, self.current_position.1);
 
                 Ok(Expression::r#if(r#if, position))
@@ -531,14 +532,14 @@ impl<'src> Parser<'src> {
                 Ok(Expression::literal(text.to_string(), start_position))
             }
             Token::LeftCurlyBrace => {
-                let block_node = self.parse_block()?;
+                let block_node = self.parse_block(context)?;
 
                 Ok(Expression::block(block_node.inner, block_node.position))
             }
             Token::LeftParenthesis => {
                 self.next_token()?;
 
-                let node = self.parse_expression(0)?;
+                let node = self.parse_expression(0, context)?;
 
                 if let Token::RightParenthesis = self.current_token {
                     let position = (start_position.0, self.current_position.1);
@@ -565,12 +566,12 @@ impl<'src> Parser<'src> {
                     return Ok(Expression::list(Vec::new(), position));
                 }
 
-                let first_expression = self.parse_expression(0)?;
+                let first_expression = self.parse_expression(0, context)?;
 
                 if let Token::Semicolon = self.current_token {
                     self.next_token()?;
 
-                    let repeat_operand = self.parse_expression(0)?;
+                    let repeat_operand = self.parse_expression(0, context)?;
 
                     if let Token::RightSquareBrace = self.current_token {
                         let position = (start_position.0, self.current_position.1);
@@ -608,7 +609,7 @@ impl<'src> Parser<'src> {
                         continue;
                     }
 
-                    let expression = self.parse_expression(0)?;
+                    let expression = self.parse_expression(0, context)?;
 
                     expressions.push(expression);
                 }
@@ -616,7 +617,7 @@ impl<'src> Parser<'src> {
             Token::Loop => {
                 self.next_token()?;
 
-                let block = self.parse_block()?;
+                let block = self.parse_block(context)?;
                 let position = (start_position.0, block.position.1);
 
                 Ok(Expression::infinite_loop(block, position))
@@ -645,7 +646,7 @@ impl<'src> Parser<'src> {
                         return Ok(Expression::map(fields, position));
                     }
 
-                    let field_name = self.parse_identifier()?;
+                    let field_name = self.parse_identifier(context)?;
 
                     if let Token::Equal = self.current_token {
                         self.next_token()?;
@@ -657,7 +658,7 @@ impl<'src> Parser<'src> {
                         });
                     }
 
-                    let field_value = self.parse_expression(0)?;
+                    let field_value = self.parse_expression(0, context)?;
 
                     fields.push((field_name, field_value));
 
@@ -669,8 +670,8 @@ impl<'src> Parser<'src> {
             Token::While => {
                 self.next_token()?;
 
-                let condition = self.parse_expression(0)?;
-                let block = self.parse_block()?;
+                let condition = self.parse_expression(0, context)?;
+                let block = self.parse_block(context)?;
                 let position = (start_position.0, block.position.1);
 
                 Ok(Expression::while_loop(condition, block, position))
@@ -695,7 +696,11 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_infix(&mut self, left: Expression) -> Result<Expression, ParseError> {
+    fn parse_infix(
+        &mut self,
+        left: Expression,
+        context: &Context,
+    ) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as infix operator", self.current_token);
 
         let operator_precedence = self.current_token.precedence()
@@ -709,7 +714,7 @@ impl<'src> Parser<'src> {
         if let Token::Equal = &self.current_token {
             self.next_token()?;
 
-            let value = self.parse_expression(operator_precedence)?;
+            let value = self.parse_expression(operator_precedence, context)?;
             let position = (left_start, value.position().1);
 
             return Ok(Expression::assignment(left, value, position));
@@ -725,7 +730,7 @@ impl<'src> Parser<'src> {
 
             self.next_token()?;
 
-            let value = self.parse_expression(operator_precedence)?;
+            let value = self.parse_expression(operator_precedence, context)?;
             let position = (left_start, value.position().1);
 
             return Ok(Expression::operator(
@@ -741,7 +746,7 @@ impl<'src> Parser<'src> {
         if let Token::DoubleDot = &self.current_token {
             self.next_token()?;
 
-            let end = self.parse_expression(operator_precedence)?;
+            let end = self.parse_expression(operator_precedence, context)?;
             let position = (left_start, end.position().1);
 
             return Ok(Expression::exclusive_range(left, end, position));
@@ -761,7 +766,7 @@ impl<'src> Parser<'src> {
 
             self.next_token()?;
 
-            let right = self.parse_expression(operator_precedence)?;
+            let right = self.parse_expression(operator_precedence, context)?;
             let position = (left_start, right.position().1);
 
             return Ok(Expression::operator(
@@ -798,7 +803,7 @@ impl<'src> Parser<'src> {
 
             self.next_token()?;
 
-            let right = self.parse_expression(operator_precedence)?;
+            let right = self.parse_expression(operator_precedence, context)?;
             let position = (left_start, right.position().1);
 
             return Ok(Expression::operator(
@@ -824,7 +829,7 @@ impl<'src> Parser<'src> {
 
         self.next_token()?;
 
-        let right = self.parse_expression(operator_precedence)?;
+        let right = self.parse_expression(operator_precedence, context)?;
         let position = (left_start, right.position().1);
 
         Ok(Expression::operator(
@@ -837,7 +842,11 @@ impl<'src> Parser<'src> {
         ))
     }
 
-    fn parse_postfix(&mut self, left: Expression) -> Result<Expression, ParseError> {
+    fn parse_postfix(
+        &mut self,
+        left: Expression,
+        context: &Context,
+    ) -> Result<Expression, ParseError> {
         log::trace!("Parsing {} as postfix operator", self.current_token);
 
         let expression = match &self.current_token {
@@ -856,7 +865,7 @@ impl<'src> Parser<'src> {
 
                     Expression::tuple_access(left, index_node, position)
                 } else {
-                    let field = self.parse_identifier()?;
+                    let field = self.parse_identifier(context)?;
                     let position = (left.position().0, field.position.1);
 
                     Expression::field_access(left, field, position)
@@ -868,7 +877,7 @@ impl<'src> Parser<'src> {
                 let mut arguments = Vec::new();
 
                 while self.current_token != Token::RightParenthesis {
-                    let argument = self.parse_expression(0)?;
+                    let argument = self.parse_expression(0, context)?;
 
                     arguments.push(argument);
 
@@ -879,16 +888,16 @@ impl<'src> Parser<'src> {
                     }
                 }
 
-                self.next_token()?;
-
                 let position = (left.position().0, self.current_position.1);
+
+                self.next_token()?;
 
                 Expression::call(left, arguments, position)
             }
             Token::LeftSquareBrace => {
                 self.next_token()?;
 
-                let index = self.parse_expression(0)?;
+                let index = self.parse_expression(0, context)?;
 
                 let operator_end = if let Token::RightSquareBrace = self.current_token {
                     let end = self.current_position.1;
@@ -922,22 +931,22 @@ impl<'src> Parser<'src> {
         };
 
         if self.current_token.is_postfix() {
-            self.parse_postfix(expression)
+            self.parse_postfix(expression, context)
         } else {
             Ok(expression)
         }
     }
 
-    fn parse_if(&mut self) -> Result<IfExpression, ParseError> {
+    fn parse_if(&mut self, context: &Context) -> Result<IfExpression, ParseError> {
         // Assume that the "if" token has already been consumed
 
         self.mode = ParserMode::Condition;
 
-        let condition = self.parse_expression(0)?;
+        let condition = self.parse_expression(0, context)?;
 
         self.mode = ParserMode::Normal;
 
-        let if_block = self.parse_block()?;
+        let if_block = self.parse_block(context)?;
 
         if let Token::Else = self.current_token {
             self.next_token()?;
@@ -947,7 +956,7 @@ impl<'src> Parser<'src> {
             if let Token::If = self.current_token {
                 self.next_token()?;
 
-                let if_expression = self.parse_if()?;
+                let if_expression = self.parse_if(context)?;
                 let position = (if_keyword_start, self.current_position.1);
 
                 Ok(IfExpression::IfElse {
@@ -956,7 +965,7 @@ impl<'src> Parser<'src> {
                     r#else: ElseExpression::If(Node::new(Box::new(if_expression), position)),
                 })
             } else {
-                let else_block = self.parse_block()?;
+                let else_block = self.parse_block(context)?;
 
                 Ok(IfExpression::IfElse {
                     condition,
@@ -972,13 +981,16 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_identifier(&mut self) -> Result<Node<Identifier>, ParseError> {
+    fn parse_identifier(&mut self, context: &Context) -> Result<Node<Identifier>, ParseError> {
         if let Token::Identifier(text) = self.current_token {
             let position = self.current_position;
+            let identifier = Identifier::new(text);
 
             self.next_token()?;
 
-            Ok(Node::new(Identifier::new(text), position))
+            context.update_last_position(&identifier, position)?;
+
+            Ok(Node::new(identifier, position))
         } else {
             Err(ParseError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -988,7 +1000,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_block(&mut self) -> Result<Node<BlockExpression>, ParseError> {
+    fn parse_block(&mut self, context: &Context) -> Result<Node<BlockExpression>, ParseError> {
         let left_start = self.current_position.0;
         let is_async = if let Token::Async = self.current_token {
             self.next_token()?;
@@ -1008,18 +1020,16 @@ impl<'src> Parser<'src> {
             });
         }
 
-        let mut statements = VecDeque::new();
+        let mut ast = AbstractSyntaxTree {
+            statements: VecDeque::new(),
+            context: context.create_child(),
+        };
 
         loop {
             if let Token::RightCurlyBrace = self.current_token {
                 let position = (left_start, self.current_position.1);
 
                 self.next_token()?;
-
-                let ast = AbstractSyntaxTree {
-                    statements,
-                    context: self.context.create_child(),
-                };
 
                 return if is_async {
                     Ok(Node::new(BlockExpression::Async(ast), position))
@@ -1028,9 +1038,9 @@ impl<'src> Parser<'src> {
                 };
             }
 
-            let statement = self.parse_statement()?;
+            let statement = self.parse_statement(&ast.context)?;
 
-            statements.push_back(statement);
+            ast.statements.push_back(statement);
         }
     }
 
@@ -1063,6 +1073,7 @@ pub enum ParserMode {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ParseError {
+    ContextError(ContextError),
     Boolean {
         error: ParseBoolError,
         position: Span,
@@ -1105,6 +1116,12 @@ pub enum ParseError {
     },
 }
 
+impl From<ContextError> for ParseError {
+    fn from(error: ContextError) -> Self {
+        Self::ContextError(error)
+    }
+}
+
 impl From<LexError> for ParseError {
     fn from(v: LexError) -> Self {
         Self::Lex(v)
@@ -1115,6 +1132,7 @@ impl ParseError {
     pub fn position(&self) -> Span {
         match self {
             ParseError::Boolean { position, .. } => *position,
+            ParseError::ContextError { .. } => (0, 0),
             ParseError::ExpectedAssignment { actual } => actual.position(),
             ParseError::ExpectedExpression { actual } => actual.position(),
             ParseError::ExpectedIdentifierNode { actual } => actual.position(),
@@ -1133,6 +1151,7 @@ impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Boolean { error, .. } => write!(f, "{}", error),
+            Self::ContextError(error) => write!(f, "{}", error),
             Self::ExpectedAssignment { .. } => write!(f, "Expected assignment"),
             Self::ExpectedExpression { .. } => write!(f, "Expected expression"),
             Self::ExpectedIdentifierNode { actual } => {
@@ -1398,7 +1417,7 @@ mod tests {
                             Expression::literal(42, (4, 6)),
                             Expression::literal("bar".to_string(), (8, 13)),
                         ],
-                        (0, 15)
+                        (0, 14)
                     ),
                     Node::new(0, (15, 16)),
                     (0, 16)

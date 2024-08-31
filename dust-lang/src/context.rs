@@ -156,20 +156,13 @@ impl Context {
         &self,
         identifier: Identifier,
         r#type: Type,
-        position: Span,
     ) -> Result<(), ContextError> {
-        log::trace!("Setting {identifier} to type {type} at {position:?}");
+        log::trace!("Setting {identifier} to type {type}.");
 
         let mut associations = self.associations.write()?;
         let last_position = associations
             .get(&identifier)
-            .map(|(_, last_position)| {
-                if last_position.1 > position.1 {
-                    *last_position
-                } else {
-                    position
-                }
-            })
+            .map(|(_, last_position)| *last_position)
             .unwrap_or_default();
 
         associations.insert(
@@ -283,16 +276,32 @@ impl Context {
         identifier: &Identifier,
         position: Span,
     ) -> Result<bool, ContextError> {
-        if let Some((_, last_position)) = self.associations.write()?.get_mut(identifier) {
-            *last_position = position;
+        let mut associations = self.associations.write()?;
 
-            log::trace!("Updating {identifier}'s last position to {position:?}");
+        if let Some((_, last_position)) = associations.get_mut(identifier) {
+            if position.1 > last_position.1 {
+                log::trace!("Updating {identifier}'s last position to {position:?}");
+
+                *last_position = position;
+            }
 
             Ok(true)
-        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
-            parent.contains(identifier)
         } else {
-            Ok(false)
+            let ancestor_contains = if let Some(parent) = self.parent.read().unwrap().as_ref() {
+                parent.contains(identifier)?
+            } else {
+                false
+            };
+
+            if ancestor_contains {
+                Ok(true)
+            } else {
+                log::trace!("Reserving {identifier} at {position:?}");
+
+                associations.insert(identifier.clone(), (ContextData::Reserved, position));
+
+                Ok(false)
+            }
         }
     }
 
@@ -327,6 +336,7 @@ pub enum ContextData {
     ConstructorType(StructType),
     VariableValue(Value),
     VariableType(Type),
+    Reserved,
 }
 
 #[derive(Debug, Clone)]
