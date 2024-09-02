@@ -269,6 +269,32 @@ impl Context {
         identifier: &Identifier,
         position: usize,
     ) -> Result<bool, ContextError> {
+        let found = self.update_position_if_found(identifier, position)?;
+
+        if found {
+            Ok(true)
+        } else if let Some(parent) = &self.parent {
+            let found_in_ancestor = parent.update_last_position(identifier, position)?;
+
+            if !found_in_ancestor {
+                let mut associations = self.associations.write()?;
+
+                log::trace!("Updating {identifier}'s last position to {position:?}");
+
+                associations.insert(identifier.clone(), (ContextData::Reserved, position));
+            }
+
+            Ok(false)
+        } else {
+            Ok(false)
+        }
+    }
+
+    fn update_position_if_found(
+        &self,
+        identifier: &Identifier,
+        position: usize,
+    ) -> Result<bool, ContextError> {
         let mut associations = self.associations.write()?;
 
         if let Some((_, last_position)) = associations.get_mut(identifier) {
@@ -278,21 +304,7 @@ impl Context {
 
             Ok(true)
         } else {
-            let ancestor_contains = if let Some(parent) = &self.parent {
-                parent.contains(identifier)?
-            } else {
-                false
-            };
-
-            if ancestor_contains {
-                Ok(true)
-            } else {
-                log::trace!("Reserving {identifier} at {position:?}");
-
-                associations.insert(identifier.clone(), (ContextData::Reserved, position));
-
-                Ok(false)
-            }
+            Ok(false)
         }
     }
 
