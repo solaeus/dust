@@ -34,7 +34,7 @@ pub mod vm;
 pub use analyzer::{analyze, AnalysisError, Analyzer};
 pub use ast::{AbstractSyntaxTree, AstError, Expression, Node, Span, Statement};
 pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
-pub use constructor::Constructor;
+pub use constructor::{ConstructError, Constructor};
 pub use context::{Context, ContextData, ContextError};
 pub use core_library::core_library;
 pub use dust_error::DustError;

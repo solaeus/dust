@@ -20,10 +20,9 @@ use crate::{
         OperatorExpression, PrimitiveValueExpression, RangeExpression, Span, Statement,
         StructDefinition, StructExpression,
     },
-    constructor::ConstructError,
-    parse, Analyzer, BuiltInFunctionError, Context, ContextData, ContextError, DustError,
-    Evaluation, Expression, Function, FunctionCallError, Identifier, ParseError, StructType, Type,
-    Value, ValueData, ValueError,
+    parse, Analyzer, BuiltInFunctionError, ConstructError, Context, ContextData, ContextError,
+    DustError, Evaluation, Expression, Function, FunctionCallError, Identifier, ParseError,
+    StructType, Type, Value, ValueData, ValueError,
 };
 
 /// Run the source code and return the result.

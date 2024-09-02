@@ -17,7 +17,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{constructor::Constructor, BuiltInFunction, Identifier};
+use crate::{Constructor, BuiltInFunction, Identifier};
 
 /// Description of a kind of value.
 ///

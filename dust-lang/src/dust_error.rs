@@ -2,7 +2,7 @@
 use annotate_snippets::{Level, Renderer, Snippet};
 use std::fmt::Display;
 
-use crate::{ast::Span, AnalysisError, ContextError, LexError, ParseError, RuntimeError};
+use crate::{Span, AnalysisError, ContextError, LexError, ParseError, RuntimeError};
 
 /// An error that occurred during the execution of the Dust language and its
 /// corresponding source code.

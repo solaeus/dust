@@ -5,7 +5,7 @@
 //! - [`Lexer`], which lexes the input a token at a time
 use std::fmt::{self, Display, Formatter};
 
-use crate::{ast::Span, Token};
+use crate::{Span, Token};
 
 /// Lexes the input and return a vector of tokens and their positions.
 ///
