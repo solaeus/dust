@@ -135,7 +135,6 @@ impl<'a> Analyzer<'a> {
                             StructType::Unit {
                                 name: name.inner.clone(),
                             },
-                            statement.position(),
                         )?;
                     }
                     StructDefinition::Tuple { name, items } => {
@@ -147,7 +146,6 @@ impl<'a> Analyzer<'a> {
                                 name: name.inner.clone(),
                                 fields,
                             },
-                            statement.position(),
                         )?;
                     }
                     StructDefinition::Fields { name, fields } => {
@@ -164,7 +162,6 @@ impl<'a> Analyzer<'a> {
                                 name: name.inner.clone(),
                                 fields,
                             },
-                            statement.position(),
                         )?;
                     }
                 };

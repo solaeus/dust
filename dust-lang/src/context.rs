@@ -5,9 +5,9 @@ use std::{
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use crate::{ast::Span, Constructor, Identifier, StructType, Type, Value};
+use crate::{Constructor, Identifier, StructType, Type, Value};
 
-pub type Associations = HashMap<Identifier, (ContextData, Span)>;
+pub type Associations = HashMap<Identifier, (ContextData, usize)>;
 
 /// Garbage-collecting context for variables.
 #[derive(Debug, Clone)]
@@ -64,7 +64,7 @@ impl Context {
     pub fn get(
         &self,
         identifier: &Identifier,
-    ) -> Result<Option<(ContextData, Span)>, ContextError> {
+    ) -> Result<Option<(ContextData, usize)>, ContextError> {
         let associations = self.associations.read()?;
 
         Ok(associations.get(identifier).cloned())
@@ -223,20 +223,13 @@ impl Context {
         &self,
         identifier: Identifier,
         struct_type: StructType,
-        position: Span,
     ) -> Result<(), ContextError> {
         log::trace!("Setting {identifier} to constructor of type {struct_type}");
 
         let mut variables = self.associations.write()?;
         let last_position = variables
             .get(&identifier)
-            .map(|(_, last_position)| {
-                if last_position.1 > position.1 {
-                    *last_position
-                } else {
-                    position
-                }
-            })
+            .map(|(_, last_position)| *last_position)
             .unwrap_or_default();
 
         variables.insert(
@@ -248,13 +241,13 @@ impl Context {
     }
 
     /// Collects garbage up to the given position, removing all variables with lesser positions.
-    pub fn collect_garbage(&self, position_end: usize) -> Result<(), ContextError> {
-        log::trace!("Collecting garbage up to {position_end}");
+    pub fn collect_garbage(&self, position: usize) -> Result<(), ContextError> {
+        log::trace!("Collecting garbage up to {position}");
 
         let mut variables = self.associations.write()?;
 
         variables.retain(|identifier, (_, last_used)| {
-            let should_drop = position_end >= last_used.1;
+            let should_drop = position >= *last_used;
 
             if should_drop {
                 log::trace!("Removing {identifier}");
@@ -274,12 +267,12 @@ impl Context {
     pub fn update_last_position(
         &self,
         identifier: &Identifier,
-        position: Span,
+        position: usize,
     ) -> Result<bool, ContextError> {
         let mut associations = self.associations.write()?;
 
         if let Some((_, last_position)) = associations.get_mut(identifier) {
-            if position.1 > last_position.1 {
+            if position > *last_position {
                 log::trace!("Updating {identifier}'s last position to {position:?}");
 
                 *last_position = position;

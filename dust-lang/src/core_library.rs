@@ -13,7 +13,7 @@ pub fn core_library<'a>() -> &'a Context {
                     ContextData::VariableValue(Value::function(Function::BuiltIn(
                         BuiltInFunction::ToString,
                     ))),
-                    (0, 0),
+                    0,
                 ),
             ),
             (
@@ -22,7 +22,7 @@ pub fn core_library<'a>() -> &'a Context {
                     ContextData::VariableValue(Value::function(Function::BuiltIn(
                         BuiltInFunction::ReadLine,
                     ))),
-                    (0, 0),
+                    0,
                 ),
             ),
             (
@@ -31,7 +31,7 @@ pub fn core_library<'a>() -> &'a Context {
                     ContextData::VariableValue(Value::function(Function::BuiltIn(
                         BuiltInFunction::WriteLine,
                     ))),
-                    (0, 0),
+                    0,
                 ),
             ),
         ]))

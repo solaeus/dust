@@ -455,7 +455,7 @@ impl<'src> Parser<'src> {
                 let identifier = Identifier::new(text);
 
                 if let ParserMode::Condition = self.mode {
-                    context.update_last_position(&identifier, start_position)?;
+                    context.update_last_position(&identifier, start_position.1)?;
 
                     return Ok(Expression::identifier(identifier, start_position));
                 }
@@ -496,7 +496,7 @@ impl<'src> Parser<'src> {
 
                     let position = (start_position.0, self.current_position.1);
 
-                    context.update_last_position(&identifier, position)?;
+                    context.update_last_position(&identifier, position.1)?;
 
                     return Ok(Expression::r#struct(
                         StructExpression::Fields { name, fields },
@@ -504,7 +504,7 @@ impl<'src> Parser<'src> {
                     ));
                 }
 
-                context.update_last_position(&identifier, start_position)?;
+                context.update_last_position(&identifier, start_position.1)?;
 
                 Ok(Expression::identifier(identifier, start_position))
             }
@@ -988,7 +988,7 @@ impl<'src> Parser<'src> {
 
             self.next_token()?;
 
-            context.update_last_position(&identifier, position)?;
+            context.update_last_position(&identifier, position.1)?;
 
             Ok(Node::new(identifier, position))
         } else {
