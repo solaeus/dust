@@ -49,8 +49,6 @@ pub fn lex<'chars, 'src: 'chars>(
 
 /// Low-level tool for lexing a single token at a time.
 ///
-/// **Note**: It is a logic error to call `next_token` with different inputs.
-///
 /// # Examples
 /// ```
 /// # use dust_lang::*;
@@ -97,8 +95,6 @@ impl<'src> Lexer<'src> {
     }
 
     /// Produce the next token.
-    ///
-    /// It is a logic error to call this method with different inputs.
     pub fn next_token(&mut self) -> Result<(Token<'src>, Span), LexError> {
         self.skip_whitespace();
 
