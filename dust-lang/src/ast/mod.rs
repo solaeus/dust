@@ -13,7 +13,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Context, ContextError};
+use crate::{core_library, Context, ContextError};
 
 pub type Span = (usize, usize);
 
@@ -66,6 +66,13 @@ impl AbstractSyntaxTree {
         Self {
             statements: statements.into(),
             context: Context::new(),
+        }
+    }
+
+    pub fn with_core_library() -> Self {
+        Self {
+            statements: VecDeque::new(),
+            context: core_library().create_child(),
         }
     }
 }

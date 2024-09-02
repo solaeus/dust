@@ -13,7 +13,7 @@ pub type Associations = HashMap<Identifier, (ContextData, usize)>;
 #[derive(Debug, Clone)]
 pub struct Context {
     associations: Arc<RwLock<Associations>>,
-    parent: Arc<RwLock<Option<Context>>>,
+    parent: Option<Box<Context>>,
 }
 
 impl Context {
@@ -24,7 +24,7 @@ impl Context {
     pub fn with_data(data: Associations) -> Self {
         Self {
             associations: Arc::new(RwLock::new(data)),
-            parent: Arc::new(RwLock::new(None)),
+            parent: None,
         }
     }
 
@@ -36,12 +36,8 @@ impl Context {
     pub fn create_child(&self) -> Self {
         Self {
             associations: Arc::new(RwLock::new(HashMap::new())),
-            parent: Arc::new(RwLock::new(Some(self.clone()))),
+            parent: Some(Box::new(self.clone())),
         }
-    }
-
-    pub fn assign_parent(&self, parent: Self) {
-        self.parent.write().unwrap().replace(parent);
     }
 
     /// Returns the number of associated identifiers in the context.
@@ -53,7 +49,7 @@ impl Context {
     pub fn contains(&self, identifier: &Identifier) -> Result<bool, ContextError> {
         if self.associations.read()?.contains_key(identifier) {
             Ok(true)
-        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
+        } else if let Some(parent) = &self.parent {
             parent.contains(identifier)
         } else {
             Ok(false)
@@ -81,7 +77,7 @@ impl Context {
             _ => {}
         }
 
-        if let Some(parent) = self.parent.read().unwrap().as_ref() {
+        if let Some(parent) = &self.parent {
             parent.get_type(identifier)
         } else {
             Ok(None)
@@ -92,7 +88,7 @@ impl Context {
     pub fn get_data(&self, identifier: &Identifier) -> Result<Option<ContextData>, ContextError> {
         if let Some((variable_data, _)) = self.associations.read()?.get(identifier) {
             Ok(Some(variable_data.clone()))
-        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
+        } else if let Some(parent) = &self.parent {
             parent.get_data(identifier)
         } else {
             Ok(None)
@@ -108,7 +104,7 @@ impl Context {
             self.associations.read()?.get(identifier)
         {
             Ok(Some(value.clone()))
-        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
+        } else if let Some(parent) = &self.parent {
             parent.get_variable_value(identifier)
         } else {
             Ok(None)
@@ -124,7 +120,7 @@ impl Context {
             self.associations.read()?.get(identifier)
         {
             Ok(Some(constructor.clone()))
-        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
+        } else if let Some(parent) = &self.parent {
             parent.get_constructor(identifier)
         } else {
             Ok(None)
@@ -144,7 +140,7 @@ impl Context {
                 ContextData::ConstructorType(struct_type) => Ok(Some(struct_type.clone())),
                 _ => Ok(None),
             }
-        } else if let Some(parent) = self.parent.read().unwrap().as_ref() {
+        } else if let Some(parent) = &self.parent {
             parent.get_constructor_type(identifier)
         } else {
             Ok(None)
@@ -280,7 +276,7 @@ impl Context {
 
             Ok(true)
         } else {
-            let ancestor_contains = if let Some(parent) = self.parent.read().unwrap().as_ref() {
+            let ancestor_contains = if let Some(parent) = &self.parent {
                 parent.contains(identifier)?
             } else {
                 false
@@ -300,9 +296,8 @@ impl Context {
 
     /// Recovers the context from a poisoned state by recovering data from an error.
     ///
-    /// This method is not used. The context's other methods do not return poison errors because
-    /// they are infallible.
-    pub fn recover_from_poison(&mut self, error: &ContextError) {
+    /// This method is not used.
+    pub fn _recover_from_poison(&mut self, error: &ContextError) {
         log::debug!("Context is recovering from poison error");
 
         let ContextError::PoisonErrorRecovered(recovered) = error;

@@ -11,8 +11,8 @@ use std::{
 };
 
 use crate::{
-    ast::*, core_library, Context, ContextError, DustError, Identifier, LexError, Lexer, Token,
-    TokenKind, TokenOwned, Type,
+    ast::*, Context, ContextError, DustError, Identifier, LexError, Lexer, Token, TokenKind,
+    TokenOwned, Type,
 };
 
 /// Parses the input into an abstract syntax tree.
@@ -38,9 +38,7 @@ use crate::{
 /// );
 /// ```
 pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
-    let mut tree = AbstractSyntaxTree::new();
-
-    tree.context.assign_parent(core_library().clone());
+    let mut tree = AbstractSyntaxTree::with_core_library();
 
     let lexer = Lexer::new(source);
     let mut parser = Parser::new(lexer);

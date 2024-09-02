@@ -357,20 +357,20 @@ impl Vm {
         if let Some(ContextData::Constructor(constructor)) = get_data {
             let construct_result = constructor.construct_unit();
 
-            match construct_result {
+            return match construct_result {
                 Ok(value) => Ok(Evaluation::Return(Some(value))),
                 Err(ConstructError::ExpectedUnit) => Ok(Evaluation::Constructor(constructor)),
                 Err(error) => Err(RuntimeError::ConstructError {
                     error,
                     position: identifier.position,
                 }),
-            }
-        } else {
-            Err(RuntimeError::UnassociatedIdentifier {
-                identifier: identifier.inner,
-                position: identifier.position,
-            })
+            };
         }
+
+        Err(RuntimeError::UnassociatedIdentifier {
+            identifier: identifier.inner,
+            position: identifier.position,
+        })
     }
 
     fn run_struct(
