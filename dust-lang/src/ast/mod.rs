@@ -7,7 +7,7 @@ pub use statement::*;
 
 use std::{
     collections::VecDeque,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     num::TryFromIntError,
 };
 
@@ -18,12 +18,20 @@ use crate::{Context, ContextError};
 pub type Span = (usize, usize);
 
 /// In-memory representation of a Dust program.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AbstractSyntaxTree {
     pub statements: VecDeque<Statement>,
 
     #[serde(skip)]
     pub context: Context,
+}
+
+impl Debug for AbstractSyntaxTree {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("AbstractSyntaxTree")
+            .field("statements", &self.statements)
+            .finish()
+    }
 }
 
 impl Eq for AbstractSyntaxTree {}
