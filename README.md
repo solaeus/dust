@@ -16,7 +16,7 @@ cargo run --package dust-shell -- examples/hello_world.ds
 ```
 
 ```sh
-cargo run --package dust-shell -- -c "'Hello my name is ' + read_line() + '!'"
+cargo run --package dust-shell -- -c '"Hello my name is " + read_line() + "!"'
 ```
 
 Dust is easily embedded in another program. You can run a dust program of any size or complexity
@@ -27,15 +27,15 @@ use dust_lang::{run, Value};
 
 fn main() {
     let code = "
-        x = 'Dust'
-        y = ' is awesome!'
+        let x = 'Dust'
+        let y = ' is awesome!'
 
         write_line(x + y)
 
         42
     ";
 
-    let result = dust.run(code).unwrap();
+    let result = run(code);
 
     assert_eq!(result, Ok(Some(Value::integer(42))));
 }
@@ -45,13 +45,13 @@ fn main() {
 
 ### Effortless Concurrency
 
-Dust takes it a step further by making concurrency as effortless as possible. Dust is organized
-into **statements**, and any sequence of statements can be run concurrently by simply adding the
-`async` keyword before the block of statements.
+Dust makes concurrency as effortless as possible. Dust is organized into **statements**, and any
+sequence of statements can be run concurrently by simply adding the `async` keyword before the block
+of statements.
 
 ```rust
 // Counts from 0 to 9, sleeping for an increasing amount of time between each.
-count_slowly = fn (multiplier: int) {
+let count_slowly = fn (multiplier: int) {
     i = 0
 
     while i < 10 {
@@ -71,16 +71,18 @@ async {
 
 ### Automatic Memory Management
 
-Dust uses a garbage collector to automatically manage memory. During the analysiys phase, Dust
-will determine when a value is no longer needed. It can then be removed from memory at runtime.
+Dust uses a garbage collector to automatically manage memory.
 
 ```rust
-x = 0 // x is assigned but never used
-      // x is removed from memory
+let x = 0     // x is assigned but never used
+              // x is removed from memory
 
-y = 41 // y is assigned
-y + 1  // y is kept alive for this statement
-       // y is removed from memory
+let y = 41    // y is assigned
+let z = y + 1 // y is kept alive for this statement
+              // y is removed from memory
+
+write_line(z) // z is kept alive for this statement
+              // z is removed from memory
 ```
 
 ### Type Safety
@@ -91,17 +93,17 @@ annotations.
 
 ```rust
 // These two statements are identical to Dust
-x = 1
-x: int = 1
+let x = 1
+let x: int = 1
 
 // Numbers with decimals are floats
-y = 10.0
-y: float = 10.0
+let y = 10.0
+let y: float = 10.0
 
-// Strings are enclosed in single or double quotes and are guaranteed to be valid UTF-8
-z = "Hello, world!"
-z: string = "Hello, world!"
+// Strings are enclosed in double quotes and are guaranteed to be valid UTF-8
+let z = "Hello, world!"
+let z: str = "Hello, world!"
 ```
 
-Aside from the ubiqutous `bool`, `int`, `float`, and `string` types, Dust also has list, maps,
+Aside from the ubiqutous `bool`, `int`, `float`, and `str` types, Dust also has lists, maps,
 ranges, structures, enums and functions.
