@@ -61,9 +61,13 @@ impl Context {
         &self,
         identifier: &Identifier,
     ) -> Result<Option<(ContextData, usize)>, ContextError> {
-        let associations = self.associations.read()?;
-
-        Ok(associations.get(identifier).cloned())
+        if let Some((variable_data, position)) = self.associations.read()?.get(identifier) {
+            Ok(Some((variable_data.clone(), *position)))
+        } else if let Some(parent) = &self.parent {
+            parent.get(identifier)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Returns the type associated with the given identifier.
@@ -268,11 +272,9 @@ impl Context {
         let mut associations = self.associations.write()?;
 
         if let Some((_, last_position)) = associations.get_mut(identifier) {
-            if position > *last_position {
-                log::trace!("Updating {identifier}'s last position to {position:?}");
+            log::trace!("Updating {identifier}'s last position to {position:?}");
 
-                *last_position = position;
-            }
+            *last_position = position;
 
             Ok(true)
         } else {

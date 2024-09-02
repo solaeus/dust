@@ -1,8 +1,8 @@
 //! Top-level error handling for the Dust language.
-use annotate_snippets::{Level, Renderer, Snippet};
+use annotate_snippets::{Level, Message, Renderer, Snippet};
 use std::fmt::Display;
 
-use crate::{Span, AnalysisError, ContextError, LexError, ParseError, RuntimeError};
+use crate::{AnalysisError, ContextError, LexError, ParseError, RuntimeError, Span};
 
 /// An error that occurred during the execution of the Dust language and its
 /// corresponding source code.
@@ -79,14 +79,26 @@ impl<'src> DustError<'src> {
         }
     }
 
-    pub fn error_data(&self) -> Vec<(&'static str, Span, String)> {
+    fn footer(&self) -> Vec<(&'static str, Span, String)> {
         match self {
             DustError::ContextError(_) => vec![],
-            DustError::Runtime { runtime_error, .. } => vec![(
-                "Runtime error",
-                runtime_error.position(),
-                runtime_error.to_string(),
-            )],
+            DustError::Runtime { runtime_error, .. } => {
+                let mut error_data = vec![(
+                    "Runtime error",
+                    runtime_error.position(),
+                    runtime_error.to_string(),
+                )];
+
+                if let RuntimeError::Expression { error, position } = runtime_error {
+                    error_data.push((
+                        "Error occured at this expression",
+                        *position,
+                        error.to_string(),
+                    ));
+                }
+
+                error_data
+            }
             DustError::Analysis {
                 analysis_errors, ..
             } => analysis_errors
@@ -108,13 +120,43 @@ impl<'src> DustError<'src> {
         let mut report = String::new();
         let renderer = Renderer::styled();
 
-        for (title, span, label) in self.error_data() {
-            let message = Level::Error.title(title).snippet(
-                Snippet::source(self.source())
-                    .annotation(Level::Info.span(span.0..span.1).label(&label)),
-            );
+        match self {
+            DustError::ContextError(_) => {
+                let message = Level::Error.title("Context error");
 
-            report.push_str(&format!("{}", renderer.render(message)));
+                report.push_str(&renderer.render(message).to_string());
+            }
+            DustError::Runtime {
+                runtime_error,
+                source,
+            } => {
+                let error = runtime_error.root_error();
+                let position = error.position();
+                let label = error.to_string();
+                let message = Level::Error
+                    .title("Runtime error")
+                    .snippet(
+                        Snippet::source(source)
+                            .fold(true)
+                            .annotation(Level::Error.span(position.0..position.1).label(&label)),
+                    )
+                    .footer(
+                        Level::Error
+                            .title("This error occured during the execution of the Dust program."),
+                    );
+
+                report.push_str(&renderer.render(message).to_string());
+                report.push('\n');
+            }
+            DustError::Analysis {
+                analysis_errors,
+                source,
+            } => todo!(),
+            DustError::Parse {
+                parse_error,
+                source,
+            } => todo!(),
+            DustError::Lex { lex_error, source } => todo!(),
         }
 
         report

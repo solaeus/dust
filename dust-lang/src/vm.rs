@@ -1236,6 +1236,14 @@ impl RuntimeError {
             Self::UndefinedField { field_position, .. } => *field_position,
         }
     }
+
+    pub fn root_error(&self) -> &Self {
+        match self {
+            Self::Expression { error, .. } => error.root_error(),
+            Self::Statement { error, .. } => error.root_error(),
+            error => error,
+        }
+    }
 }
 
 impl From<ParseError> for RuntimeError {
@@ -1264,12 +1272,8 @@ impl Display for RuntimeError {
                 write!(f, "Function call error at {:?}: {}", position, error)
             }
             Self::ParseError(parse_error) => write!(f, "{}", parse_error),
-            Self::Expression { error, position } => {
-                write!(
-                    f,
-                    "Error while running expression at {:?}: {}",
-                    position, error
-                )
+            Self::Expression { .. } => {
+                write!(f, "Error while running expression")
             }
             Self::Statement { error, position } => {
                 write!(
