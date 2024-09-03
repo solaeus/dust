@@ -444,22 +444,16 @@ impl ContextInner {
         let found = self.update_position_if_found(identifier, position)?;
 
         if found {
-            return Ok(true);
-        } else if let Some(parent) = &self.parent {
-            if let Some(parent) = parent.upgrade() {
-                let found_in_ancestor = parent.update_position_if_found(identifier, position)?;
+            Ok(true)
+        } else {
+            let mut associations = self.associations.write()?;
 
-                if !found_in_ancestor {
-                    let mut associations = self.associations.write()?;
+            log::trace!("Updating {identifier}'s last position to {position:?}");
 
-                    log::trace!("Updating {identifier}'s last position to {position:?}");
+            associations.insert(identifier.clone(), (ContextData::Reserved, position));
 
-                    associations.insert(identifier.clone(), (ContextData::Reserved, position));
-                }
-            }
+            Ok(false)
         }
-
-        Ok(false)
     }
 
     fn update_position_if_found(
@@ -474,10 +468,14 @@ impl ContextInner {
 
             *last_position = position;
 
-            Ok(true)
-        } else {
-            Ok(false)
+            return Ok(true);
+        } else if let Some(parent) = &self.parent {
+            if let Some(parent) = parent.upgrade() {
+                return parent.update_position_if_found(identifier, position);
+            }
         }
+
+        Ok(false)
     }
 }
 
