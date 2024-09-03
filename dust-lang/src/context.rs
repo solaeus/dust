@@ -2,7 +2,7 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
 };
 
 use crate::{Constructor, Identifier, StructType, Type, Value};
@@ -12,8 +12,7 @@ pub type Associations = HashMap<Identifier, (ContextData, usize)>;
 /// Garbage-collecting context for variables.
 #[derive(Debug, Clone)]
 pub struct Context {
-    associations: Arc<RwLock<Associations>>,
-    parent: Option<Box<Context>>,
+    inner: Arc<ContextInner>,
 }
 
 impl Context {
@@ -23,33 +22,183 @@ impl Context {
 
     pub fn with_data(data: Associations) -> Self {
         Self {
-            associations: Arc::new(RwLock::new(data)),
-            parent: None,
+            inner: Arc::new(ContextInner {
+                associations: RwLock::new(data),
+                parent: None,
+            }),
         }
     }
 
     /// Creates a deep copy of another context.
     pub fn with_data_from(other: &Self) -> Result<Self, ContextError> {
-        Ok(Self::with_data(other.associations.read()?.clone()))
+        let mut associations = HashMap::new();
+
+        for (identifier, (context_data, position)) in other.inner.associations.read()?.iter() {
+            associations.insert(identifier.clone(), (context_data.clone(), *position));
+        }
+
+        Ok(Self::with_data(associations))
     }
 
     pub fn create_child(&self) -> Self {
         Self {
-            associations: Arc::new(RwLock::new(HashMap::new())),
-            parent: Some(Box::new(self.clone())),
+            inner: Arc::new(ContextInner {
+                associations: RwLock::new(HashMap::new()),
+                parent: Some(Arc::downgrade(&self.inner)),
+            }),
         }
     }
 
     /// Returns the number of associated identifiers in the context.
     pub fn association_count(&self) -> Result<usize, ContextError> {
-        let own_count = self.associations.read()?.len();
-        let ancestor_count = if let Some(parent) = &self.parent {
-            parent.association_count()?
-        } else {
-            0
-        };
+        self.inner.association_count()
+    }
 
-        Ok(own_count + ancestor_count)
+    /// Returns a boolean indicating whether the identifier is in the context.
+    pub fn contains(&self, identifier: &Identifier) -> Result<bool, ContextError> {
+        self.inner.contains(identifier)
+    }
+
+    /// Returns the full ContextData and Span if the context contains the given identifier.
+    pub fn get(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<(ContextData, usize)>, ContextError> {
+        self.inner.get(identifier)
+    }
+
+    /// Returns the type associated with the given identifier.
+    pub fn get_type(&self, identifier: &Identifier) -> Result<Option<Type>, ContextError> {
+        self.inner.get_type(identifier)
+    }
+
+    /// Returns the ContextData associated with the identifier.
+    pub fn get_data(&self, identifier: &Identifier) -> Result<Option<ContextData>, ContextError> {
+        self.inner.get_data(identifier)
+    }
+
+    /// Returns the value associated with the identifier.
+    pub fn get_variable_value(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<Value>, ContextError> {
+        self.inner.get_variable_value(identifier)
+    }
+
+    /// Returns the constructor associated with the identifier.
+    pub fn get_constructor(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<Constructor>, ContextError> {
+        self.inner.get_constructor(identifier)
+    }
+
+    /// Returns the constructor type associated with the identifier.
+    pub fn get_constructor_type(
+        &self,
+        identifier: &Identifier,
+    ) -> Result<Option<StructType>, ContextError> {
+        self.inner.get_constructor_type(identifier)
+    }
+
+    /// Associates an identifier with a variable type, with a position given for garbage collection.
+    pub fn set_variable_type(
+        &self,
+        identifier: Identifier,
+        r#type: Type,
+    ) -> Result<(), ContextError> {
+        self.inner.set_variable_type(identifier, r#type)
+    }
+
+    /// Associates an identifier with a variable value.
+    pub fn set_variable_value(
+        &self,
+        identifier: Identifier,
+        value: Value,
+    ) -> Result<(), ContextError> {
+        self.inner.set_variable_value(identifier, value)
+    }
+
+    /// Associates an identifier with a constructor.
+    pub fn set_constructor(
+        &self,
+        identifier: Identifier,
+        constructor: Constructor,
+    ) -> Result<(), ContextError> {
+        self.inner.set_constructor(identifier, constructor)
+    }
+
+    /// Associates an identifier with a constructor type, with a position given for garbage
+    /// collection.
+    pub fn set_constructor_type(
+        &self,
+        identifier: Identifier,
+        struct_type: StructType,
+    ) -> Result<(), ContextError> {
+        self.inner.set_constructor_type(identifier, struct_type)
+    }
+
+    /// Collects garbage up to the given position, removing all variables with lesser positions.
+    pub fn collect_garbage(&self, position: usize) -> Result<(), ContextError> {
+        self.inner.collect_garbage(position)
+    }
+
+    /// Updates an associated identifier's last known position, allowing it to live longer in the
+    /// program. Returns a boolean indicating whether the identifier was found. If the identifier is
+    /// not found in the current context, the parent context is searched but parent context's
+    /// position is not updated.
+    pub fn update_last_position(
+        &self,
+        identifier: &Identifier,
+        position: usize,
+    ) -> Result<bool, ContextError> {
+        self.inner.update_last_position(identifier, position)
+    }
+
+    /// Recovers the context from a poisoned state by recovering data from an error.
+    ///
+    /// This method is not used.
+    pub fn _recover_from_poison(&mut self, error: &ContextError) {
+        log::debug!("Context is recovering from poison error");
+
+        let ContextError::PoisonErrorRecovered(recovered) = error;
+
+        let mut new_associations = HashMap::new();
+
+        for (identifier, (context_data, position)) in recovered.as_ref() {
+            new_associations.insert(identifier.clone(), (context_data.clone(), *position));
+        }
+
+        self.inner = Arc::new(ContextInner {
+            associations: RwLock::new(new_associations),
+            parent: None,
+        });
+    }
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug)]
+pub struct ContextInner {
+    pub associations: RwLock<Associations>,
+    pub parent: Option<Weak<ContextInner>>,
+}
+
+impl ContextInner {
+    pub fn new(associations: RwLock<Associations>, parent: Option<Weak<ContextInner>>) -> Self {
+        Self {
+            associations,
+            parent,
+        }
+    }
+
+    /// Returns the number of associated identifiers in the context.
+    pub fn association_count(&self) -> Result<usize, ContextError> {
+        Ok(self.associations.read()?.len())
     }
 
     /// Returns a boolean indicating whether the identifier is in the context.
@@ -57,7 +206,11 @@ impl Context {
         if self.associations.read()?.contains_key(identifier) {
             Ok(true)
         } else if let Some(parent) = &self.parent {
-            parent.contains(identifier)
+            if let Some(parent) = parent.upgrade() {
+                parent.contains(identifier)
+            } else {
+                Ok(false)
+            }
         } else {
             Ok(false)
         }
@@ -69,12 +222,14 @@ impl Context {
         identifier: &Identifier,
     ) -> Result<Option<(ContextData, usize)>, ContextError> {
         if let Some((variable_data, position)) = self.associations.read()?.get(identifier) {
-            Ok(Some((variable_data.clone(), *position)))
+            return Ok(Some((variable_data.clone(), *position)));
         } else if let Some(parent) = &self.parent {
-            parent.get(identifier)
-        } else {
-            Ok(None)
+            if let Some(parent) = parent.upgrade() {
+                return parent.get(identifier);
+            }
         }
+
+        Ok(None)
     }
 
     /// Returns the type associated with the given identifier.
@@ -89,21 +244,25 @@ impl Context {
         }
 
         if let Some(parent) = &self.parent {
-            parent.get_type(identifier)
-        } else {
-            Ok(None)
+            if let Some(parent) = parent.upgrade() {
+                return parent.get_type(identifier);
+            }
         }
+
+        Ok(None)
     }
 
     /// Returns the ContextData associated with the identifier.
     pub fn get_data(&self, identifier: &Identifier) -> Result<Option<ContextData>, ContextError> {
         if let Some((variable_data, _)) = self.associations.read()?.get(identifier) {
-            Ok(Some(variable_data.clone()))
+            return Ok(Some(variable_data.clone()));
         } else if let Some(parent) = &self.parent {
-            parent.get_data(identifier)
-        } else {
-            Ok(None)
+            if let Some(parent) = parent.upgrade() {
+                return parent.get_data(identifier);
+            }
         }
+
+        Ok(None)
     }
 
     /// Returns the value associated with the identifier.
@@ -114,12 +273,14 @@ impl Context {
         if let Some((ContextData::VariableValue(value), _)) =
             self.associations.read()?.get(identifier)
         {
-            Ok(Some(value.clone()))
+            return Ok(Some(value.clone()));
         } else if let Some(parent) = &self.parent {
-            parent.get_variable_value(identifier)
-        } else {
-            Ok(None)
+            if let Some(parent) = parent.upgrade() {
+                return parent.get_variable_value(identifier);
+            }
         }
+
+        Ok(None)
     }
 
     /// Returns the constructor associated with the identifier.
@@ -130,12 +291,14 @@ impl Context {
         if let Some((ContextData::Constructor(constructor), _)) =
             self.associations.read()?.get(identifier)
         {
-            Ok(Some(constructor.clone()))
+            return Ok(Some(constructor.clone()));
         } else if let Some(parent) = &self.parent {
-            parent.get_constructor(identifier)
-        } else {
-            Ok(None)
+            if let Some(parent) = parent.upgrade() {
+                return parent.get_constructor(identifier);
+            }
         }
+
+        Ok(None)
     }
 
     /// Returns the constructor type associated with the identifier.
@@ -146,16 +309,18 @@ impl Context {
         let read_associations = self.associations.read()?;
 
         if let Some((context_data, _)) = read_associations.get(identifier) {
-            match context_data {
+            return match context_data {
                 ContextData::Constructor(constructor) => Ok(Some(constructor.struct_type.clone())),
                 ContextData::ConstructorType(struct_type) => Ok(Some(struct_type.clone())),
                 _ => Ok(None),
-            }
+            };
         } else if let Some(parent) = &self.parent {
-            parent.get_constructor_type(identifier)
-        } else {
-            Ok(None)
+            if let Some(parent) = parent.upgrade() {
+                return parent.get_constructor_type(identifier);
+            }
         }
+
+        Ok(None)
     }
 
     /// Associates an identifier with a variable type, with a position given for garbage collection.
@@ -279,22 +444,22 @@ impl Context {
         let found = self.update_position_if_found(identifier, position)?;
 
         if found {
-            Ok(true)
+            return Ok(true);
         } else if let Some(parent) = &self.parent {
-            let found_in_ancestor = parent.update_position_if_found(identifier, position)?;
+            if let Some(parent) = parent.upgrade() {
+                let found_in_ancestor = parent.update_position_if_found(identifier, position)?;
 
-            if !found_in_ancestor {
-                let mut associations = self.associations.write()?;
+                if !found_in_ancestor {
+                    let mut associations = self.associations.write()?;
 
-                log::trace!("Updating {identifier}'s last position to {position:?}");
+                    log::trace!("Updating {identifier}'s last position to {position:?}");
 
-                associations.insert(identifier.clone(), (ContextData::Reserved, position));
+                    associations.insert(identifier.clone(), (ContextData::Reserved, position));
+                }
             }
-
-            Ok(false)
-        } else {
-            Ok(false)
         }
+
+        Ok(false)
     }
 
     fn update_position_if_found(
@@ -313,29 +478,6 @@ impl Context {
         } else {
             Ok(false)
         }
-    }
-
-    /// Recovers the context from a poisoned state by recovering data from an error.
-    ///
-    /// This method is not used.
-    pub fn _recover_from_poison(&mut self, error: &ContextError) {
-        log::debug!("Context is recovering from poison error");
-
-        let ContextError::PoisonErrorRecovered(recovered) = error;
-
-        let mut new_associations = HashMap::new();
-
-        for (identifier, (context_data, position)) in recovered.as_ref() {
-            new_associations.insert(identifier.clone(), (context_data.clone(), *position));
-        }
-
-        self.associations = Arc::new(RwLock::new(new_associations));
-    }
-}
-
-impl Default for Context {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
