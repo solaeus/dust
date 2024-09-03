@@ -42,7 +42,14 @@ impl Context {
 
     /// Returns the number of associated identifiers in the context.
     pub fn association_count(&self) -> Result<usize, ContextError> {
-        Ok(self.associations.read()?.len())
+        let own_count = self.associations.read()?.len();
+        let ancestor_count = if let Some(parent) = &self.parent {
+            parent.association_count()?
+        } else {
+            0
+        };
+
+        Ok(own_count + ancestor_count)
     }
 
     /// Returns a boolean indicating whether the identifier is in the context.
@@ -274,7 +281,7 @@ impl Context {
         if found {
             Ok(true)
         } else if let Some(parent) = &self.parent {
-            let found_in_ancestor = parent.update_last_position(identifier, position)?;
+            let found_in_ancestor = parent.update_position_if_found(identifier, position)?;
 
             if !found_in_ancestor {
                 let mut associations = self.associations.write()?;

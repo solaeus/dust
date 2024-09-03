@@ -1018,9 +1018,16 @@ impl<'src> Parser<'src> {
             });
         }
 
+        let context = context.create_child();
+
+        log::trace!(
+            "Creating new block context with {} associations",
+            context.association_count()?
+        );
+
         let mut ast = AbstractSyntaxTree {
             statements: VecDeque::new(),
-            context: context.create_child(),
+            context,
         };
 
         loop {

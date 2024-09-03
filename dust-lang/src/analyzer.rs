@@ -176,6 +176,8 @@ impl<'a> Analyzer<'a> {
         expression: &Expression,
         context: &Context,
     ) -> Result<(), ContextError> {
+        log::trace!("Analyzing expression {expression}");
+
         match expression {
             Expression::Block(block_expression) => {
                 self.analyze_block(&block_expression.inner, context)?;
@@ -342,6 +344,8 @@ impl<'a> Analyzer<'a> {
             }
             Expression::Identifier(identifier) => {
                 let context_data = context.get_data(&identifier.inner)?;
+
+                println!("{:?}", context_data);
 
                 if let Some(ContextData::Reserved) | None = context_data {
                     self.errors.push(AnalysisError::UndefinedVariable {
