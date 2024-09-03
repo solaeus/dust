@@ -146,17 +146,63 @@ impl<'src> DustError<'src> {
                     );
 
                 report.push_str(&renderer.render(message).to_string());
-                report.push('\n');
+                report.push_str("\n\n");
             }
             DustError::Analysis {
                 analysis_errors,
                 source,
-            } => todo!(),
+            } => {
+                for error in analysis_errors {
+                    let position = error.position();
+                    let label = error.to_string();
+                    let message =
+                        Level::Warning
+                            .title("Analysis error")
+                            .snippet(Snippet::source(source).fold(true).annotation(
+                                Level::Warning.span(position.0..position.1).label(&label),
+                            ))
+                            .footer(
+                                Level::Warning
+                                    .title("This error was found without running the program."),
+                            );
+
+                    report.push_str(&renderer.render(message).to_string());
+                    report.push_str("\n\n");
+                }
+            }
             DustError::Parse {
                 parse_error,
                 source,
-            } => todo!(),
-            DustError::Lex { lex_error, source } => todo!(),
+            } => {
+                if let ParseError::Lex(lex_error) = parse_error {
+                    let lex_error_report = DustError::lex(lex_error.clone(), source).report();
+
+                    report.push_str(&lex_error_report);
+
+                    return report;
+                }
+
+                let position = parse_error.position();
+                let label = parse_error.to_string();
+                let message = Level::Error.title("Parse error").snippet(
+                    Snippet::source(source)
+                        .fold(true)
+                        .annotation(Level::Error.span(position.0..position.1).label(&label)),
+                );
+
+                report.push_str(&renderer.render(message).to_string());
+            }
+            DustError::Lex { lex_error, source } => {
+                let position = lex_error.position();
+                let label = lex_error.to_string();
+                let message = Level::Error.title("Lex error").snippet(
+                    Snippet::source(source)
+                        .fold(true)
+                        .annotation(Level::Error.span(position.0..position.1).label(&label)),
+                );
+
+                report.push_str(&renderer.render(message).to_string());
+            }
         }
 
         report

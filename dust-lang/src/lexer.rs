@@ -297,8 +297,6 @@ impl<'src> Lexer<'src> {
                     (Token::Colon, (self.position - 1, self.position))
                 }
                 _ => {
-                    self.position += 1;
-
                     return Err(LexError::UnexpectedCharacter {
                         actual: c,
                         position: self.position,
@@ -497,8 +495,8 @@ pub enum LexError {
 impl LexError {
     pub fn position(&self) -> Span {
         match self {
-            Self::ExpectedCharacter { position, .. } => (*position, *position + 1),
-            Self::UnexpectedCharacter { position, .. } => (*position, *position + 1),
+            Self::ExpectedCharacter { position, .. } => (*position, *position),
+            Self::UnexpectedCharacter { position, .. } => (*position, *position),
             Self::UnexpectedEndOfFile { position } => (*position, *position),
         }
     }
@@ -508,19 +506,13 @@ impl Display for LexError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::ExpectedCharacter {
-                expected,
-                actual,
-                position,
-            } => write!(
-                f,
-                "Expected character '{}' at {:?}, found '{}'",
-                expected, position, actual
-            ),
-            Self::UnexpectedCharacter { actual, position } => {
-                write!(f, "Unexpected character at {:?}: '{}'", position, actual)
+                expected, actual, ..
+            } => write!(f, "Expected character '{expected}', found '{actual}'"),
+            Self::UnexpectedCharacter { actual, .. } => {
+                write!(f, "Unexpected character '{actual}'")
             }
-            Self::UnexpectedEndOfFile { position } => {
-                write!(f, "Unexpected end of file at {:?}", position)
+            Self::UnexpectedEndOfFile { .. } => {
+                write!(f, "Unexpected end of file")
             }
         }
     }
