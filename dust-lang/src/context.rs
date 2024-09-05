@@ -2,12 +2,21 @@
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak,
+    },
 };
 
 use crate::{Constructor, Identifier, StructType, Type, Value};
 
 pub type Associations = HashMap<Identifier, (ContextData, usize)>;
+
+static ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+fn next_id() -> usize {
+    ID_COUNTER.fetch_add(1, Ordering::SeqCst)
+}
 
 /// Garbage-collecting context for variables.
 #[derive(Debug, Clone)]
@@ -26,6 +35,7 @@ impl Context {
                 associations: RwLock::new(data),
                 parent: None,
                 is_immutable: false,
+                id: next_id(),
             }),
         }
     }
@@ -36,6 +46,7 @@ impl Context {
                 associations: RwLock::new(data),
                 parent: None,
                 is_immutable: true,
+                id: next_id(),
             }),
         }
     }
@@ -57,8 +68,13 @@ impl Context {
                 associations: RwLock::new(HashMap::new()),
                 parent: Some(Arc::downgrade(&self.inner)),
                 is_immutable: false,
+                id: next_id(),
             }),
         }
+    }
+
+    pub fn id(&self) -> usize {
+        self.inner.id
     }
 
     /// Returns the number of associated identifiers in the context.
@@ -183,6 +199,7 @@ impl Context {
             associations: RwLock::new(new_associations),
             parent: None,
             is_immutable: false,
+            id: next_id(),
         });
     }
 }
@@ -195,12 +212,17 @@ impl Default for Context {
 
 #[derive(Debug)]
 pub struct ContextInner {
+    id: usize,
     associations: RwLock<Associations>,
     parent: Option<Weak<ContextInner>>,
     is_immutable: bool,
 }
 
 impl ContextInner {
+    fn parent(&self) -> Option<Arc<ContextInner>> {
+        self.parent.as_ref().and_then(|parent| parent.upgrade())
+    }
+
     /// Returns the number of associated identifiers in the context.
     pub fn association_count(&self) -> Result<usize, ContextError> {
         Ok(self.associations.read()?.len())
@@ -328,7 +350,7 @@ impl ContextInner {
         Ok(None)
     }
 
-    /// Associates an identifier with a variable type, with a position given for garbage collection.
+    /// Associates an identifier with a variable type.
     pub fn set_variable_type(
         &self,
         identifier: Identifier,
@@ -338,7 +360,7 @@ impl ContextInner {
             return Err(ContextError::CannotMutateImmutableContext);
         }
 
-        log::trace!("Setting {identifier} to type {type}.");
+        log::trace!("Setting {identifier} to type {type} in context {}", self.id);
 
         let mut associations = self.associations.write()?;
         let last_position = associations
@@ -364,7 +386,10 @@ impl ContextInner {
             return Err(ContextError::CannotMutateImmutableContext);
         }
 
-        log::trace!("Setting {identifier} to value {value}");
+        log::trace!(
+            "Setting {identifier} to value {value} in context {}",
+            self.id
+        );
 
         let mut associations = self.associations.write()?;
         let last_position = associations
@@ -390,7 +415,10 @@ impl ContextInner {
             return Err(ContextError::CannotMutateImmutableContext);
         }
 
-        log::trace!("Setting {identifier} to constructor {constructor:?}");
+        log::trace!(
+            "Setting {identifier} to constructor {constructor:?} in context {}",
+            self.id
+        );
 
         let mut associations = self.associations.write()?;
         let last_position = associations
@@ -417,7 +445,10 @@ impl ContextInner {
             return Err(ContextError::CannotMutateImmutableContext);
         }
 
-        log::trace!("Setting {identifier} to constructor of type {struct_type}");
+        log::trace!(
+            "Setting {identifier} to constructor of type {struct_type} in context {}",
+            self.id
+        );
 
         let mut variables = self.associations.write()?;
         let last_position = variables
@@ -435,7 +466,11 @@ impl ContextInner {
 
     /// Collects garbage up to the given position, removing all variables with lesser positions.
     pub fn collect_garbage(&self, position: usize) -> Result<(), ContextError> {
-        log::trace!("Collecting garbage up to {position}");
+        if self.is_immutable {
+            return Err(ContextError::CannotMutateImmutableContext);
+        }
+
+        log::trace!("Collecting garbage up to {position} in context {}", self.id);
 
         let mut variables = self.associations.write()?;
 
@@ -443,7 +478,7 @@ impl ContextInner {
             let should_drop = position >= *last_used;
 
             if should_drop {
-                log::trace!("Removing {identifier}");
+                log::trace!("Removing {identifier} from context {}", self.id);
             }
 
             !should_drop
@@ -465,16 +500,33 @@ impl ContextInner {
         let found = self.update_position_if_found(identifier, position)?;
 
         if found {
-            Ok(true)
-        } else {
-            let mut associations = self.associations.write()?;
-
-            log::trace!("Updating {identifier}'s last position to {position:?}");
-
-            associations.insert(identifier.clone(), (ContextData::Reserved, position));
-
-            Ok(false)
+            return Ok(true);
         }
+
+        let found_in_ancestor = if let Some(parent) = &self.parent() {
+            if parent.is_immutable {
+                false
+            } else {
+                parent.update_position_if_found(identifier, position)?
+            }
+        } else {
+            false
+        };
+
+        if found_in_ancestor {
+            return Ok(true);
+        }
+
+        let mut associations = self.associations.write()?;
+
+        log::trace!(
+            "Reserving {identifier} at position {position:?} in context {}",
+            self.id
+        );
+
+        associations.insert(identifier.clone(), (ContextData::Reserved, position));
+
+        Ok(false)
     }
 
     fn update_position_if_found(
@@ -482,21 +534,24 @@ impl ContextInner {
         identifier: &Identifier,
         position: usize,
     ) -> Result<bool, ContextError> {
+        if self.is_immutable {
+            return Err(ContextError::CannotMutateImmutableContext);
+        }
+
         let mut associations = self.associations.write()?;
 
         if let Some((_, last_position)) = associations.get_mut(identifier) {
-            log::trace!("Updating {identifier}'s last position to {position:?}");
+            log::trace!(
+                "Updating {identifier}'s last position to {position:?} in context {}",
+                self.id
+            );
 
             *last_position = position;
 
-            return Ok(true);
-        } else if let Some(parent) = &self.parent {
-            if let Some(parent) = parent.upgrade() {
-                return parent.update_position_if_found(identifier, position);
-            }
+            Ok(true)
+        } else {
+            Ok(false)
         }
-
-        Ok(false)
     }
 }
 

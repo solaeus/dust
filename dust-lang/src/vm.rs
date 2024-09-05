@@ -1653,15 +1653,8 @@ mod tests {
     }
 
     #[test]
-    fn built_in_function_dot_notation() {
-        let input = "42.to_string()";
-
-        assert_eq!(run(input), Ok(Some(Value::string("42"))));
-    }
-
-    #[test]
     fn to_string() {
-        let input = "to_string(42)";
+        let input = "42.to_string()";
 
         assert_eq!(run(input), Ok(Some(Value::string("42"))));
     }

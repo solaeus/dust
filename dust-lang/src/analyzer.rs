@@ -84,6 +84,12 @@ impl<'a> Analyzer<'a> {
         statement: &Statement,
         context: &Context,
     ) -> Result<(), ContextError> {
+        log::trace!(
+            "Analyzing statement {statement} at {:?} with context {}",
+            statement.position(),
+            context.id()
+        );
+
         match statement {
             Statement::Expression(expression) => self.analyze_expression(expression, context)?,
             Statement::ExpressionNullified(expression_node) => {
@@ -112,9 +118,7 @@ impl<'a> Analyzer<'a> {
                     };
 
                     if let Some(r#type) = r#type {
-                        self.abstract_tree
-                            .context
-                            .set_variable_type(identifier.inner.clone(), r#type.clone())?;
+                        context.set_variable_type(identifier.inner.clone(), r#type.clone())?;
                     } else {
                         self.errors
                             .push(AnalysisError::LetExpectedValueFromStatement {
@@ -177,8 +181,9 @@ impl<'a> Analyzer<'a> {
         context: &Context,
     ) -> Result<(), ContextError> {
         log::trace!(
-            "Analyzing expression {expression} at {:?}",
-            expression.position()
+            "Analyzing expression {expression} at {:?} with context {}",
+            expression.position(),
+            context.id()
         );
 
         match expression {
@@ -827,6 +832,8 @@ impl<'a> Analyzer<'a> {
             BlockExpression::Async(ast) => ast,
             BlockExpression::Sync(ast) => ast,
         };
+
+        log::trace!("Analyzing block with context {}", ast.context.id());
 
         for statement in &ast.statements {
             self.analyze_statement(statement, &ast.context)?;
