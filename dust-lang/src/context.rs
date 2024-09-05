@@ -159,12 +159,12 @@ impl Context {
     /// program. Returns a boolean indicating whether the identifier was found. If the identifier is
     /// not found in the current context, the parent context is searched but parent context's
     /// position is not updated.
-    pub fn update_last_position(
+    pub fn set_position(
         &self,
         identifier: &Identifier,
         position: usize,
     ) -> Result<bool, ContextError> {
-        self.inner.update_last_position(identifier, position)
+        self.inner.set_position(identifier, position)
     }
 
     /// Recovers the context from a poisoned state by recovering data from an error.
@@ -457,7 +457,7 @@ impl ContextInner {
     /// program. Returns a boolean indicating whether the identifier was found. If the identifier is
     /// not found in the current context, the parent context is searched but parent context's
     /// position is not updated.
-    pub fn update_last_position(
+    pub fn set_position(
         &self,
         identifier: &Identifier,
         position: usize,
