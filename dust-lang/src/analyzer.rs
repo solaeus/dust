@@ -176,7 +176,10 @@ impl<'a> Analyzer<'a> {
         expression: &Expression,
         context: &Context,
     ) -> Result<(), ContextError> {
-        log::trace!("Analyzing expression {expression}");
+        log::trace!(
+            "Analyzing expression {expression} at {:?}",
+            expression.position()
+        );
 
         match expression {
             Expression::Block(block_expression) => {

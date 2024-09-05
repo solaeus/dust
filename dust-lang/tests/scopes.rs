@@ -9,6 +9,8 @@ fn block_scope_captures_parent() {
 
 #[test]
 fn block_scope_does_not_capture_child() {
+    env_logger::builder().is_test(true).try_init().unwrap();
+
     let source = "{ let x = 42; } x";
 
     assert_eq!(

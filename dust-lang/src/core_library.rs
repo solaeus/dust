@@ -6,7 +6,7 @@ static CORE_LIBRARY: OnceLock<Context> = OnceLock::new();
 
 pub fn core_library<'a>() -> &'a Context {
     CORE_LIBRARY.get_or_init(|| {
-        Context::with_data(HashMap::from([
+        Context::with_data_immutable(HashMap::from([
             (
                 Identifier::new("to_string"),
                 (

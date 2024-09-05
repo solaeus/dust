@@ -25,6 +25,17 @@ impl Context {
             inner: Arc::new(ContextInner {
                 associations: RwLock::new(data),
                 parent: None,
+                is_immutable: false,
+            }),
+        }
+    }
+
+    pub fn with_data_immutable(data: Associations) -> Self {
+        Self {
+            inner: Arc::new(ContextInner {
+                associations: RwLock::new(data),
+                parent: None,
+                is_immutable: true,
             }),
         }
     }
@@ -45,6 +56,7 @@ impl Context {
             inner: Arc::new(ContextInner {
                 associations: RwLock::new(HashMap::new()),
                 parent: Some(Arc::downgrade(&self.inner)),
+                is_immutable: false,
             }),
         }
     }
@@ -158,20 +170,19 @@ impl Context {
     /// Recovers the context from a poisoned state by recovering data from an error.
     ///
     /// This method is not used.
-    pub fn _recover_from_poison(&mut self, error: &ContextError) {
+    pub fn _recover_from_poison(&mut self, recovered: &RwLockReadGuard<Associations>) {
         log::debug!("Context is recovering from poison error");
-
-        let ContextError::PoisonErrorRecovered(recovered) = error;
 
         let mut new_associations = HashMap::new();
 
-        for (identifier, (context_data, position)) in recovered.as_ref() {
+        for (identifier, (context_data, position)) in recovered.iter() {
             new_associations.insert(identifier.clone(), (context_data.clone(), *position));
         }
 
         self.inner = Arc::new(ContextInner {
             associations: RwLock::new(new_associations),
             parent: None,
+            is_immutable: false,
         });
     }
 }
@@ -184,18 +195,12 @@ impl Default for Context {
 
 #[derive(Debug)]
 pub struct ContextInner {
-    pub associations: RwLock<Associations>,
-    pub parent: Option<Weak<ContextInner>>,
+    associations: RwLock<Associations>,
+    parent: Option<Weak<ContextInner>>,
+    is_immutable: bool,
 }
 
 impl ContextInner {
-    pub fn new(associations: RwLock<Associations>, parent: Option<Weak<ContextInner>>) -> Self {
-        Self {
-            associations,
-            parent,
-        }
-    }
-
     /// Returns the number of associated identifiers in the context.
     pub fn association_count(&self) -> Result<usize, ContextError> {
         Ok(self.associations.read()?.len())
@@ -329,6 +334,10 @@ impl ContextInner {
         identifier: Identifier,
         r#type: Type,
     ) -> Result<(), ContextError> {
+        if self.is_immutable {
+            return Err(ContextError::CannotMutateImmutableContext);
+        }
+
         log::trace!("Setting {identifier} to type {type}.");
 
         let mut associations = self.associations.write()?;
@@ -351,6 +360,10 @@ impl ContextInner {
         identifier: Identifier,
         value: Value,
     ) -> Result<(), ContextError> {
+        if self.is_immutable {
+            return Err(ContextError::CannotMutateImmutableContext);
+        }
+
         log::trace!("Setting {identifier} to value {value}");
 
         let mut associations = self.associations.write()?;
@@ -373,6 +386,10 @@ impl ContextInner {
         identifier: Identifier,
         constructor: Constructor,
     ) -> Result<(), ContextError> {
+        if self.is_immutable {
+            return Err(ContextError::CannotMutateImmutableContext);
+        }
+
         log::trace!("Setting {identifier} to constructor {constructor:?}");
 
         let mut associations = self.associations.write()?;
@@ -396,6 +413,10 @@ impl ContextInner {
         identifier: Identifier,
         struct_type: StructType,
     ) -> Result<(), ContextError> {
+        if self.is_immutable {
+            return Err(ContextError::CannotMutateImmutableContext);
+        }
+
         log::trace!("Setting {identifier} to constructor of type {struct_type}");
 
         let mut variables = self.associations.write()?;
@@ -490,6 +511,7 @@ pub enum ContextData {
 
 #[derive(Debug, Clone)]
 pub enum ContextError {
+    CannotMutateImmutableContext,
     PoisonErrorRecovered(Arc<Associations>),
 }
 
@@ -512,9 +534,11 @@ impl From<PoisonError<RwLockReadGuard<'_, Associations>>> for ContextError {
 impl PartialEq for ContextError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::CannotMutateImmutableContext, Self::CannotMutateImmutableContext) => true,
             (Self::PoisonErrorRecovered(left), Self::PoisonErrorRecovered(right)) => {
                 Arc::ptr_eq(left, right)
             }
+            _ => false,
         }
     }
 }
@@ -522,6 +546,7 @@ impl PartialEq for ContextError {
 impl Display for ContextError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Self::CannotMutateImmutableContext => write!(f, "Cannot mutate immutable context"),
             Self::PoisonErrorRecovered(associations) => {
                 write!(
                     f,

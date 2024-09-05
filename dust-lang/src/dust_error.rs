@@ -1,8 +1,8 @@
 //! Top-level error handling for the Dust language.
-use annotate_snippets::{Level, Message, Renderer, Snippet};
+use annotate_snippets::{Level, Renderer, Snippet};
 use std::fmt::Display;
 
-use crate::{AnalysisError, ContextError, LexError, ParseError, RuntimeError, Span};
+use crate::{AnalysisError, ContextError, LexError, ParseError, RuntimeError};
 
 /// An error that occurred during the execution of the Dust language and its
 /// corresponding source code.
@@ -76,43 +76,6 @@ impl<'src> DustError<'src> {
             DustError::Analysis { source, .. } => source,
             DustError::Parse { source, .. } => source,
             DustError::Lex { source, .. } => source,
-        }
-    }
-
-    fn footer(&self) -> Vec<(&'static str, Span, String)> {
-        match self {
-            DustError::ContextError(_) => vec![],
-            DustError::Runtime { runtime_error, .. } => {
-                let mut error_data = vec![(
-                    "Runtime error",
-                    runtime_error.position(),
-                    runtime_error.to_string(),
-                )];
-
-                if let RuntimeError::Expression { error, position } = runtime_error {
-                    error_data.push((
-                        "Error occured at this expression",
-                        *position,
-                        error.to_string(),
-                    ));
-                }
-
-                error_data
-            }
-            DustError::Analysis {
-                analysis_errors, ..
-            } => analysis_errors
-                .iter()
-                .map(|error| ("Analysis error", error.position(), error.to_string()))
-                .collect(),
-            DustError::Parse { parse_error, .. } => vec![(
-                "Parse error",
-                parse_error.position(),
-                parse_error.to_string(),
-            )],
-            DustError::Lex { lex_error, .. } => {
-                vec![("Lex error", lex_error.position(), lex_error.to_string())]
-            }
         }
     }
 

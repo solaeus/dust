@@ -1022,7 +1022,12 @@ impl Vm {
                 let mut evaluation = Evaluation::Return(None);
 
                 for statement in ast.statements {
+                    let position = statement.position();
                     evaluation = Vm.run_statement(statement, &ast.context, collect_garbage)?;
+
+                    ast.context
+                        .collect_garbage(position.1)
+                        .map_err(|error| RuntimeError::ContextError { error, position })?;
 
                     if let Evaluation::Break(_) = evaluation {
                         return Ok(evaluation);
