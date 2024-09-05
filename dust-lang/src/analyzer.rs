@@ -54,7 +54,7 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 /// let input = "x = 1 + false";
 /// let abstract_tree = parse(input).unwrap();
 /// let context = Context::new();
-/// let mut analyzer = Analyzer::new(&abstract_tree, context);
+/// let mut analyzer = Analyzer::new(&abstract_tree);
 /// let result = analyzer.analyze();
 ///
 /// assert!(!analyzer.errors.is_empty());
@@ -352,8 +352,6 @@ impl<'a> Analyzer<'a> {
             }
             Expression::Identifier(identifier) => {
                 let context_data = context.get_data(&identifier.inner)?;
-
-                println!("{:?}", context_data);
 
                 if let Some(ContextData::Reserved) | None = context_data {
                     self.errors.push(AnalysisError::UndefinedVariable {

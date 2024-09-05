@@ -70,20 +70,17 @@ pub fn parse(source: &str) -> Result<AbstractSyntaxTree, DustError> {
 /// let source = "x = 42";
 /// let lexer = Lexer::new(source);
 /// let mut parser = Parser::new(lexer);
-/// let mut statements = VecDeque::new();
+/// let mut ast = AbstractSyntaxTree::new();
 ///
 /// loop {
-///     let statement = parser.parse_statement().unwrap();
+///     let statement = parser.parse_statement(&ast.context).unwrap();
 ///
-///     statements.push_back(statement);
+///     ast.statements.push_back(statement);
 ///
 ///     if parser.is_eof() {
 ///         break;
 ///     }
 /// }
-///
-/// let tree = AbstractSyntaxTree { statements };
-///
 /// ```
 pub struct Parser<'src> {
     lexer: Lexer<'src>,
