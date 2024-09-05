@@ -53,7 +53,6 @@ pub fn analyze(source: &str) -> Result<(), DustError> {
 /// # use dust_lang::*;
 /// let input = "x = 1 + false";
 /// let abstract_tree = parse(input).unwrap();
-/// let context = Context::new();
 /// let mut analyzer = Analyzer::new(&abstract_tree);
 /// let result = analyzer.analyze();
 ///
