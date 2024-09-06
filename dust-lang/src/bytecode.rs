@@ -30,15 +30,51 @@ impl Vm {
 
                     self.stack.push(value.clone());
                 }
+                Instruction::Return => {
+                    let value = self.pop()?;
+
+                    return Ok(Some(value));
+                }
+
+                // Unary
                 Instruction::Negate => {
                     let negated = self.pop()?.negate()?;
 
                     self.stack.push(negated);
                 }
-                Instruction::Return => {
-                    let value = self.pop()?;
 
-                    return Ok(Some(value));
+                // Binary
+                Instruction::Add => {
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+
+                    let sum = a.add(&b)?;
+
+                    self.stack.push(sum);
+                }
+                Instruction::Subtract => {
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+
+                    let difference = a.subtract(&b)?;
+
+                    self.stack.push(difference);
+                }
+                Instruction::Multiply => {
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+
+                    let product = a.multiply(&b)?;
+
+                    self.stack.push(product);
+                }
+                Instruction::Divide => {
+                    let b = self.pop()?;
+                    let a = self.pop()?;
+
+                    let quotient = a.divide(&b)?;
+
+                    self.stack.push(quotient);
                 }
             }
 
@@ -91,8 +127,16 @@ impl From<ValueError> for VmError {
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Instruction {
     Constant(usize),
-    Negate,
     Return,
+
+    // Unary
+    Negate,
+
+    // Binary
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 
 impl Instruction {
@@ -103,8 +147,16 @@ impl Instruction {
 
                 format!("{:04} CONSTANT {} {}", offset, index, value)
             }
-            Instruction::Negate => format!("{:04} NEGATE", offset),
             Instruction::Return => format!("{:04} RETURN", offset),
+
+            // Unary
+            Instruction::Negate => format!("{:04} NEGATE", offset),
+
+            // Binary
+            Instruction::Add => format!("{:04} ADD", offset),
+            Instruction::Subtract => format!("{:04} SUBTRACT", offset),
+            Instruction::Multiply => format!("{:04} MULTIPLY", offset),
+            Instruction::Divide => format!("{:04} DIVIDE", offset),
         }
     }
 }
@@ -182,5 +234,74 @@ pub mod tests {
         let result = vm.interpret();
 
         assert_eq!(result, Ok(Some(Value::integer(-42))));
+    }
+
+    #[test]
+    fn addition() {
+        let mut chunk = Chunk::new();
+        let left = chunk.push_constant(Value::integer(42));
+        let right = chunk.push_constant(Value::integer(23));
+
+        chunk.write(Instruction::Constant(left), Span(0, 1));
+        chunk.write(Instruction::Constant(right), Span(2, 3));
+        chunk.write(Instruction::Add, Span(4, 5));
+        chunk.write(Instruction::Return, Span(6, 7));
+
+        let mut vm = Vm::new(chunk);
+        let result = vm.interpret();
+
+        assert_eq!(result, Ok(Some(Value::integer(65))));
+    }
+
+    #[test]
+    fn subtraction() {
+        let mut chunk = Chunk::new();
+        let left = chunk.push_constant(Value::integer(42));
+        let right = chunk.push_constant(Value::integer(23));
+
+        chunk.write(Instruction::Constant(left), Span(0, 1));
+        chunk.write(Instruction::Constant(right), Span(2, 3));
+        chunk.write(Instruction::Subtract, Span(4, 5));
+        chunk.write(Instruction::Return, Span(6, 7));
+
+        let mut vm = Vm::new(chunk);
+        let result = vm.interpret();
+
+        assert_eq!(result, Ok(Some(Value::integer(19))));
+    }
+
+    #[test]
+    fn multiplication() {
+        let mut chunk = Chunk::new();
+        let left = chunk.push_constant(Value::integer(42));
+        let right = chunk.push_constant(Value::integer(23));
+
+        chunk.write(Instruction::Constant(left), Span(0, 1));
+        chunk.write(Instruction::Constant(right), Span(2, 3));
+        chunk.write(Instruction::Multiply, Span(4, 5));
+        chunk.write(Instruction::Return, Span(6, 7));
+
+        let mut vm = Vm::new(chunk);
+        let result = vm.interpret();
+
+        assert_eq!(result, Ok(Some(Value::integer(966))));
+    }
+
+    #[test]
+
+    fn division() {
+        let mut chunk = Chunk::new();
+        let left = chunk.push_constant(Value::integer(42));
+        let right = chunk.push_constant(Value::integer(23));
+
+        chunk.write(Instruction::Constant(left), Span(0, 1));
+        chunk.write(Instruction::Constant(right), Span(2, 3));
+        chunk.write(Instruction::Divide, Span(4, 5));
+        chunk.write(Instruction::Return, Span(6, 7));
+
+        let mut vm = Vm::new(chunk);
+        let result = vm.interpret();
+
+        assert_eq!(result, Ok(Some(Value::integer(1))));
     }
 }
