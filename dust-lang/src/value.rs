@@ -14,10 +14,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{
-    AbstractSyntaxTree, BuiltInFunction, BuiltInFunctionError, Context, ContextError, EnumType,
-    FunctionType, Identifier, RangeableType, RuntimeError, StructType, Type, Vm,
-};
+use crate::{EnumType, FunctionType, Identifier, RangeableType, StructType, Type};
 
 /// Dust value representation
 ///
@@ -96,10 +93,6 @@ impl Value {
             Value::Reference(data) => Value::Mutable(Arc::new(RwLock::new(data.as_ref().clone()))),
             Value::Mutable(_) => value,
         }
-    }
-
-    pub fn function(value: Function) -> Self {
-        Value::Raw(ValueData::Function(value))
     }
 
     pub fn range<T: Into<RangeValue>>(range: T) -> Self {
@@ -359,9 +352,6 @@ impl Value {
                 ValueData::Float(float) => Some(Value::boolean(float % 2.0 != 0.0)),
                 _ => None,
             },
-            "to_string" => Some(Value::function(Function::BuiltIn(
-                BuiltInFunction::ToString,
-            ))),
             "length" => match data {
                 ValueData::List(values) => Some(Value::integer(values.len() as i64)),
                 ValueData::String(string) => Some(Value::integer(string.len() as i64)),
@@ -934,7 +924,6 @@ pub enum ValueData {
     Character(char),
     Enum(Enum),
     Float(f64),
-    Function(Function),
     Integer(i64),
     List(Vec<Value>),
     Map(HashMap<Identifier, Value>),
@@ -952,15 +941,6 @@ impl ValueData {
             ValueData::Character(_) => Type::Character,
             ValueData::Enum(Enum { r#type, .. }) => Type::Enum(r#type.clone()),
             ValueData::Float(_) => Type::Float,
-            ValueData::Function(Function::BuiltIn(built_in_function)) => {
-                Type::Function(FunctionType {
-                    name: Identifier::new(built_in_function.name()),
-                    type_parameters: built_in_function.type_parameters(),
-                    value_parameters: built_in_function.value_parameters(),
-                    return_type: built_in_function.return_type().map(Box::new),
-                })
-            }
-            ValueData::Function(Function::Parsed { r#type, .. }) => Type::Function(r#type.clone()),
             ValueData::Integer(_) => Type::Integer,
             ValueData::List(values) => {
                 let item_type = values.first().unwrap().r#type();
@@ -1202,7 +1182,6 @@ impl Display for ValueData {
 
                 Ok(())
             }
-            ValueData::Function(function) => write!(f, "{function}"),
             ValueData::Integer(integer) => write!(f, "{integer}"),
             ValueData::Map(pairs) => {
                 write!(f, "{{ ")?;
@@ -1261,7 +1240,6 @@ impl PartialEq for ValueData {
             (ValueData::Byte(left), ValueData::Byte(right)) => left == right,
             (ValueData::Character(left), ValueData::Character(right)) => left == right,
             (ValueData::Float(left), ValueData::Float(right)) => left == right,
-            (ValueData::Function(left), ValueData::Function(right)) => left == right,
             (ValueData::Integer(left), ValueData::Integer(right)) => left == right,
             (ValueData::List(left), ValueData::List(right)) => left == right,
             (ValueData::Map(left), ValueData::Map(right)) => left == right,
@@ -1291,8 +1269,6 @@ impl Ord for ValueData {
             (ValueData::Character(_), _) => Ordering::Greater,
             (ValueData::Float(left), ValueData::Float(right)) => left.partial_cmp(right).unwrap(),
             (ValueData::Float(_), _) => Ordering::Greater,
-            (ValueData::Function(left), ValueData::Function(right)) => left.cmp(right),
-            (ValueData::Function(_), _) => Ordering::Greater,
             (ValueData::Integer(left), ValueData::Integer(right)) => left.cmp(right),
             (ValueData::Integer(_), _) => Ordering::Greater,
             (ValueData::List(left), ValueData::List(right)) => left.cmp(right),
@@ -1320,7 +1296,6 @@ impl Serialize for ValueData {
             ValueData::Character(character) => serializer.serialize_char(*character),
             ValueData::Enum(r#emum) => r#emum.serialize(serializer),
             ValueData::Float(float) => serializer.serialize_f64(*float),
-            ValueData::Function(function) => function.serialize(serializer),
             ValueData::Integer(integer) => serializer.serialize_i64(*integer),
             ValueData::List(list) => list.serialize(serializer),
             ValueData::Map(pairs) => {
@@ -1385,11 +1360,9 @@ impl<'de> Deserialize<'de> for ValueData {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Function {
-    BuiltIn(BuiltInFunction),
     Parsed {
         name: Identifier,
         r#type: FunctionType,
-        body: AbstractSyntaxTree,
     },
 }
 
@@ -1398,92 +1371,8 @@ impl Function {
         self,
         _type_arguments: Option<Vec<Type>>,
         value_arguments: Option<Vec<Value>>,
-        context: &Context,
-    ) -> Result<Option<Value>, FunctionCallError> {
-        match self {
-            Function::BuiltIn(built_in_function) => built_in_function
-                .call(_type_arguments, value_arguments)
-                .map_err(FunctionCallError::BuiltInFunction),
-            Function::Parsed { r#type, body, .. } => {
-                let new_context =
-                    Context::with_data_from(context).map_err(FunctionCallError::Context)?;
-
-                if let (Some(value_parameters), Some(value_arguments)) =
-                    (&r#type.value_parameters, value_arguments)
-                {
-                    for ((identifier, _), value) in value_parameters.iter().zip(value_arguments) {
-                        new_context
-                            .set_variable_value(identifier.clone(), value)
-                            .map_err(FunctionCallError::Context)?;
-                    }
-                }
-
-                Vm.run(body)
-                    .map_err(|error| FunctionCallError::Runtime(Box::new(error)))
-            }
-        }
-    }
-}
-
-impl Display for Function {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Function::BuiltIn(built_in_function) => write!(f, "{}", built_in_function),
-            Function::Parsed { name, r#type, body } => {
-                write!(f, "fn {}", name)?;
-
-                if let Some(type_parameters) = &r#type.type_parameters {
-                    write!(f, "<")?;
-
-                    for (index, type_parameter) in type_parameters.iter().enumerate() {
-                        if index > 0 {
-                            write!(f, ", ")?;
-                        }
-
-                        write!(f, "{}", type_parameter)?;
-                    }
-
-                    write!(f, ">")?;
-                }
-
-                write!(f, "(")?;
-
-                if let Some(value_paramers) = &r#type.value_parameters {
-                    for (index, (identifier, r#type)) in value_paramers.iter().enumerate() {
-                        if index > 0 {
-                            write!(f, ", ")?;
-                        }
-
-                        write!(f, "{identifier}: {type}")?;
-                    }
-                }
-
-                write!(f, ") {{")?;
-
-                for statement in &body.statements {
-                    write!(f, "{}", statement)?;
-                }
-
-                write!(f, "}}")
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum FunctionCallError {
-    BuiltInFunction(BuiltInFunctionError),
-    Context(ContextError),
-    Runtime(Box<RuntimeError>),
-}
-
-impl Display for FunctionCallError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            FunctionCallError::BuiltInFunction(error) => write!(f, "{}", error),
-            FunctionCallError::Context(error) => write!(f, "{}", error),
-            FunctionCallError::Runtime(error) => write!(f, "{}", error),
-        }
+    ) -> Result<Option<Value>, ()> {
+        todo!()
     }
 }
 

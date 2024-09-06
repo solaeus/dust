@@ -17,7 +17,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Constructor, BuiltInFunction, Identifier};
+use crate::{Constructor, Identifier};
 
 /// Description of a kind of value.
 ///
@@ -258,7 +258,6 @@ impl Type {
 
     pub fn get_field_type(&self, field: &Identifier) -> Option<Type> {
         match field.as_str() {
-            "to_string" => Some(BuiltInFunction::ToString.r#type()),
             "length" => match self {
                 Type::List { .. } => Some(Type::Integer),
                 Type::ListOf { .. } => Some(Type::Integer),

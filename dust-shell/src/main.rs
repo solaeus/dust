@@ -1,7 +1,6 @@
 use std::fs::read_to_string;
 
 use clap::Parser;
-use dust_lang::run;
 
 #[derive(Parser)]
 struct Cli {
@@ -37,19 +36,9 @@ fn main() {
 }
 
 fn parse_and_display_errors(source: &str) {
-    match dust_lang::parse(source) {
-        Ok(ast) => println!("{:#?}", ast),
-        Err(error) => eprintln!("{}", error.report()),
-    }
+    todo!()
 }
 
 fn run_and_display_errors(source: &str) {
-    match run(source) {
-        Ok(return_value) => {
-            if let Some(value) = return_value {
-                println!("{}", value);
-            }
-        }
-        Err(error) => eprintln!("{}", error.report()),
-    }
+    todo!()
 }

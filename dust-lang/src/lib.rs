@@ -15,34 +15,27 @@
 //!
 //! assert_eq!(the_answer, Some(Value::integer(42)));
 //! ```
-pub mod analyzer;
-pub mod ast;
-pub mod built_in_function;
+pub mod bytecode;
 pub mod constructor;
-pub mod context;
-pub mod core_library;
-pub mod dust_error;
-pub mod evaluation;
 pub mod identifier;
-pub mod lexer;
-pub mod parser;
-pub mod token;
 pub mod r#type;
 pub mod value;
-pub mod vm;
 
-pub use analyzer::{analyze, AnalysisError, Analyzer};
-pub use ast::{AbstractSyntaxTree, AstError, Expression, Node, Span, Statement};
-pub use built_in_function::{BuiltInFunction, BuiltInFunctionError};
-pub use constructor::{ConstructError, Constructor};
-pub use context::{Context, ContextData, ContextError};
-pub use core_library::core_library;
-pub use dust_error::DustError;
-pub use evaluation::{Evaluation, TypeEvaluation};
-pub use identifier::Identifier;
-pub use lexer::{lex, LexError, Lexer};
-pub use parser::{parse, ParseError, Parser};
+pub use bytecode::*;
+pub use constructor::*;
+pub use identifier::*;
 pub use r#type::*;
-pub use token::{Token, TokenKind, TokenOwned};
 pub use value::*;
-pub use vm::{run, RuntimeError, Vm};
+
+use std::fmt::{self, Display, Formatter};
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct Span(usize, usize);
+
+impl Display for Span {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.0, self.1)
+    }
+}
