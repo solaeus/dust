@@ -1,4 +1,4 @@
-use crate::{bytecode::VmError, LexError, ParseError};
+use crate::{vm::VmError, LexError, ParseError};
 
 pub enum DustError<'src> {
     LexError {

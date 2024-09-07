@@ -1,6 +1,8 @@
 use std::{
     fmt::{self, Display, Formatter},
+    mem::{self, swap},
     num::ParseIntError,
+    ptr::replace,
 };
 
 use crate::{
@@ -22,54 +24,49 @@ pub fn parse(source: &str) -> Result<Chunk, ParseError> {
 pub struct Parser<'src> {
     lexer: Lexer<'src>,
     chunk: Chunk,
-    current_token: Option<Token<'src>>,
+    previous_token: Token<'src>,
+    previous_position: Span,
+    current_token: Token<'src>,
     current_position: Span,
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(lexer: Lexer<'src>) -> Self {
+    pub fn new(mut lexer: Lexer<'src>) -> Self {
+        let (current_token, current_position) =
+            lexer.next_token().unwrap_or((Token::Eof, Span(0, 0)));
+
         Parser {
             lexer,
             chunk: Chunk::new(),
-            current_token: None,
-            current_position: Span(0, 0),
+            previous_token: Token::Eof,
+            previous_position: Span(0, 0),
+            current_token,
+            current_position,
         }
     }
 
     fn is_eof(&self) -> bool {
-        matches!(self.current_token, Some(Token::Eof))
+        matches!(self.current_token, Token::Eof)
     }
 
     fn advance(&mut self) -> Result<(), ParseError> {
-        let (token, position) = self.lexer.next_token()?;
+        let (new_token, position) = self.lexer.next_token()?;
 
-        log::trace!("Advancing to token {token} at {position}");
+        log::trace!("Advancing to token {new_token} at {position}");
 
-        self.current_token = Some(token);
-        self.current_position = position;
+        self.previous_token = mem::replace(&mut self.current_token, new_token);
+        self.previous_position = mem::replace(&mut self.current_position, position);
 
         Ok(())
     }
 
-    fn current_token_owned(&self) -> TokenOwned {
-        self.current_token
-            .as_ref()
-            .map_or(TokenOwned::Eof, |token| token.to_owned())
-    }
-
-    fn current_token_kind(&self) -> TokenKind {
-        self.current_token
-            .as_ref()
-            .map_or(TokenKind::Eof, |token| token.kind())
-    }
-
     fn consume(&mut self, expected: TokenKind) -> Result<(), ParseError> {
-        if self.current_token_kind() == expected {
+        if self.current_token.kind() == expected {
             self.advance()
         } else {
             Err(ParseError::ExpectedToken {
                 expected,
-                found: self.current_token_owned(),
+                found: self.current_token.to_owned(),
                 position: self.current_position,
             })
         }
@@ -81,7 +78,7 @@ impl<'src> Parser<'src> {
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
         let constant_index = self.chunk.push_constant(value)?;
-        let position = self.current_position;
+        let position = self.previous_position;
 
         self.emit_byte(Instruction::Constant as u8, position);
         self.emit_byte(constant_index, position);
@@ -89,8 +86,19 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_boolean(&mut self) -> Result<(), ParseError> {
+        if let Token::Boolean(text) = self.previous_token {
+            let boolean = text.parse::<bool>().unwrap();
+            let value = Value::boolean(boolean);
+
+            self.emit_constant(value)?;
+        }
+
+        Ok(())
+    }
+
     fn parse_integer(&mut self) -> Result<(), ParseError> {
-        if let Some(Token::Integer(text)) = self.current_token {
+        if let Token::Integer(text) = self.previous_token {
             let integer = text.parse::<i64>().unwrap();
             let value = Value::integer(integer);
 
@@ -102,27 +110,30 @@ impl<'src> Parser<'src> {
 
     fn parse_grouped(&mut self) -> Result<(), ParseError> {
         self.parse_expression()?;
-
-        self.consume(TokenKind::RightParenthesis)?;
-
-        Ok(())
+        self.consume(TokenKind::RightParenthesis)
     }
 
     fn parse_unary(&mut self) -> Result<(), ParseError> {
-        if let Some(Token::Minus) = self.current_token {
-            let operator_position = self.current_position;
+        let byte = match self.previous_token.kind() {
+            TokenKind::Minus => Instruction::Negate as u8,
+            _ => {
+                return Err(ParseError::ExpectedTokenMultiple {
+                    expected: vec![TokenKind::Minus],
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                })
+            }
+        };
 
-            self.advance()?;
-            self.parse_expression()?;
-            self.emit_byte(Instruction::Negate as u8, operator_position);
-        }
+        self.parse_expression()?;
+        self.emit_byte(byte, self.previous_position);
 
         Ok(())
     }
 
     fn parse_binary(&mut self) -> Result<(), ParseError> {
-        let operator_position = self.current_position;
-        let operator = self.current_token_kind();
+        let operator_position = self.previous_position;
+        let operator = self.previous_token.kind();
         let rule = ParseRule::from(&operator);
 
         self.parse(rule.precedence.increment())?;
@@ -140,8 +151,8 @@ impl<'src> Parser<'src> {
                         TokenKind::Star,
                         TokenKind::Slash,
                     ],
-                    found: self.current_token_owned(),
-                    position: self.current_position,
+                    found: self.previous_token.to_owned(),
+                    position: operator_position,
                 })
             }
         };
@@ -152,36 +163,36 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_expression(&mut self) -> Result<(), ParseError> {
-        self.parse(Precedence::Assignment)
+        self.parse(Precedence::None)
     }
 
-    // Pratt parsing functions
-
     fn parse(&mut self, precedence: Precedence) -> Result<(), ParseError> {
-        log::trace!("Parsing with precedence {precedence}");
-
         self.advance()?;
 
-        let prefix_rule = ParseRule::from(&self.current_token_kind()).prefix;
-
-        if let Some(prefix) = prefix_rule {
-            log::trace!("Parsing {} as prefix", &self.current_token_owned());
+        if let Some(prefix) = ParseRule::from(&self.previous_token.kind()).prefix {
+            log::trace!(
+                "Parsing {} as prefix with precedence {precedence}",
+                self.previous_token,
+            );
 
             prefix(self)?;
         } else {
-            return Err(ParseError::ExpectedPrefix {
-                found: self.current_token_owned(),
-                position: self.current_position,
+            return Err(ParseError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
             });
         }
 
-        while precedence <= ParseRule::from(&self.current_token_kind()).precedence {
+        while precedence <= ParseRule::from(&self.current_token.kind()).precedence {
             self.advance()?;
 
-            let infix_rule = ParseRule::from(&self.current_token_kind()).infix;
+            let infix_rule = ParseRule::from(&self.previous_token.kind()).infix;
 
             if let Some(infix) = infix_rule {
-                log::trace!("Parsing {} as infix", self.current_token_owned());
+                log::trace!(
+                    "Parsing {} as infix with precedence {precedence}",
+                    self.previous_token,
+                );
 
                 infix(self)?;
             } else {
@@ -230,10 +241,6 @@ impl Precedence {
     fn increment(&self) -> Self {
         Self::from_byte(*self as u8 + 1)
     }
-
-    fn decrement(&self) -> Self {
-        Self::from_byte(*self as u8 - 1)
-    }
 }
 
 impl Display for Precedence {
@@ -242,7 +249,7 @@ impl Display for Precedence {
     }
 }
 
-type ParserFunction<'a> = fn(&'_ mut Parser<'a>) -> Result<(), ParseError>;
+type ParserFunction<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ParseRule<'a> {
@@ -260,7 +267,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
             },
             TokenKind::Identifier => todo!(),
-            TokenKind::Boolean => todo!(),
+            TokenKind::Boolean => ParseRule {
+                prefix: Some(Parser::parse_boolean),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Character => todo!(),
             TokenKind::Float => todo!(),
             TokenKind::Integer => ParseRule {
@@ -317,7 +328,11 @@ impl From<&TokenKind> for ParseRule<'_> {
             },
             TokenKind::PlusEqual => todo!(),
             TokenKind::RightCurlyBrace => todo!(),
-            TokenKind::RightParenthesis => todo!(),
+            TokenKind::RightParenthesis => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::RightSquareBrace => todo!(),
             TokenKind::Semicolon => todo!(),
             TokenKind::Star => ParseRule {
@@ -337,7 +352,7 @@ impl From<&TokenKind> for ParseRule<'_> {
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
-    ExpectedPrefix {
+    ExpectedExpression {
         found: TokenOwned,
         position: Span,
     },
@@ -381,7 +396,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_integer() {
+    fn integer() {
         let source = "42";
         let test_chunk = parse(source);
 
@@ -395,9 +410,46 @@ mod tests {
     }
 
     #[test]
-    fn parse_addition() {
+    fn boolean() {
+        let source = "true";
+        let test_chunk = parse(source);
+
+        assert_eq!(
+            test_chunk,
+            Ok(Chunk::with_data(
+                vec![(Instruction::Constant as u8, Span(0, 4)), (0, Span(0, 4))],
+                vec![Value::boolean(true)]
+            ))
+        );
+    }
+
+    #[test]
+    fn grouping() {
         env_logger::builder().is_test(true).try_init().unwrap();
 
+        let source = "(42 + 42) * 2";
+        let test_chunk = parse(source);
+
+        assert_eq!(
+            test_chunk,
+            Ok(Chunk::with_data(
+                vec![
+                    (Instruction::Constant as u8, Span(1, 3)),
+                    (0, Span(1, 3)),
+                    (Instruction::Constant as u8, Span(6, 8)),
+                    (1, Span(6, 8)),
+                    (Instruction::Add as u8, Span(4, 5)),
+                    (Instruction::Constant as u8, Span(11, 12)),
+                    (0, Span(11, 12)),
+                    (Instruction::Multiply as u8, Span(9, 10)),
+                ],
+                vec![Value::integer(42), Value::integer(42), Value::integer(2)]
+            ))
+        );
+    }
+
+    #[test]
+    fn addition() {
         let source = "42 + 42";
         let test_chunk = parse(source);
 
@@ -410,6 +462,66 @@ mod tests {
                     (Instruction::Constant as u8, Span(5, 7)),
                     (1, Span(5, 7)),
                     (Instruction::Add as u8, Span(3, 4)),
+                ],
+                vec![Value::integer(42), Value::integer(42)]
+            ))
+        );
+    }
+
+    #[test]
+    fn subtraction() {
+        let source = "42 - 42";
+        let test_chunk = parse(source);
+
+        assert_eq!(
+            test_chunk,
+            Ok(Chunk::with_data(
+                vec![
+                    (Instruction::Constant as u8, Span(0, 2)),
+                    (0, Span(0, 2)),
+                    (Instruction::Constant as u8, Span(5, 7)),
+                    (1, Span(5, 7)),
+                    (Instruction::Subtract as u8, Span(3, 4)),
+                ],
+                vec![Value::integer(42), Value::integer(42)]
+            ))
+        );
+    }
+
+    #[test]
+    fn multiplication() {
+        let source = "42 * 42";
+        let test_chunk = parse(source);
+
+        assert_eq!(
+            test_chunk,
+            Ok(Chunk::with_data(
+                vec![
+                    (Instruction::Constant as u8, Span(0, 2)),
+                    (0, Span(0, 2)),
+                    (Instruction::Constant as u8, Span(5, 7)),
+                    (1, Span(5, 7)),
+                    (Instruction::Multiply as u8, Span(3, 4)),
+                ],
+                vec![Value::integer(42), Value::integer(42)]
+            ))
+        );
+    }
+
+    #[test]
+    fn division() {
+        let source = "42 / 42";
+        let test_chunk = parse(source);
+
+        assert_eq!(
+            test_chunk,
+            Ok(Chunk::with_data(
+                vec![
+                    (Instruction::Constant as u8, Span(0, 2)),
+                    (0, Span(0, 2)),
+                    (Instruction::Constant as u8, Span(5, 7)),
+                    (1, Span(5, 7)),
+                    (Instruction::Divide as u8, Span(3, 4)),
                 ],
                 vec![Value::integer(42), Value::integer(42)]
             ))

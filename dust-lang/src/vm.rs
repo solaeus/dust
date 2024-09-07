@@ -1,8 +1,6 @@
-use std::fmt::{self, Debug, Display, Formatter};
-
 use serde::{Deserialize, Serialize};
 
-use crate::{Span, Value, ValueError};
+use crate::{Chunk, ChunkError, Span, Value, ValueError};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Vm {
@@ -31,7 +29,7 @@ impl Vm {
             match instruction {
                 Instruction::Constant => {
                     let (index, _) = self.read();
-                    let value = self.read_constant(index as usize);
+                    let value = self.read_constant(index as usize)?;
 
                     self.stack.push(value);
                 }
@@ -106,21 +104,28 @@ impl Vm {
     pub fn read(&mut self) -> (u8, Span) {
         self.ip += 1;
 
-        self.chunk.code[self.ip - 1]
+        self.chunk.read(self.ip - 1)
     }
 
-    pub fn read_constant(&self, index: usize) -> Value {
-        self.chunk.constants[index].clone()
+    pub fn read_constant(&self, index: usize) -> Result<Value, VmError> {
+        Ok(self.chunk.get_constant(index)?.clone())
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VmError {
-    ChunkOverflow,
     InvalidInstruction(u8, Span),
     StackUnderflow,
     StackOverflow,
+
+    Chunk(ChunkError),
     Value(ValueError),
+}
+
+impl From<ChunkError> for VmError {
+    fn from(error: ChunkError) -> Self {
+        Self::Chunk(error)
+    }
 }
 
 impl From<ValueError> for VmError {
@@ -167,9 +172,12 @@ impl Instruction {
         match self {
             Instruction::Constant => {
                 let (index, _) = chunk.read(offset + 1);
-                let value = &chunk.constants[index as usize];
+                let value_display = chunk
+                    .get_constant(index as usize)
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|error| format!("{:?}", error));
 
-                format!("{offset:04} CONSTANT {index} {value}")
+                format!("{offset:04} CONSTANT {index} {value_display}")
             }
             Instruction::Return => format!("{offset:04} RETURN"),
 
@@ -183,119 +191,6 @@ impl Instruction {
             Instruction::Divide => format!("{offset:04} DIVIDE"),
         }
     }
-}
-
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Chunk {
-    code: Vec<(u8, Span)>,
-    constants: Vec<Value>,
-}
-
-impl Chunk {
-    pub fn new() -> Self {
-        Self {
-            code: Vec::new(),
-            constants: Vec::new(),
-        }
-    }
-
-    pub fn with_data(code: Vec<(u8, Span)>, constants: Vec<Value>) -> Self {
-        Self { code, constants }
-    }
-
-    pub fn len(&self) -> usize {
-        self.code.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.code.is_empty()
-    }
-
-    pub fn capacity(&self) -> usize {
-        self.code.capacity()
-    }
-
-    pub fn read(&self, offset: usize) -> (u8, Span) {
-        self.code[offset]
-    }
-
-    pub fn write(&mut self, instruction: u8, position: Span) {
-        self.code.push((instruction, position));
-    }
-
-    pub fn push_constant(&mut self, value: Value) -> Result<u8, ChunkError> {
-        let starting_length = self.constants.len();
-
-        if starting_length + 1 > (u8::MAX as usize) {
-            Err(ChunkError::Overflow)
-        } else {
-            self.constants.push(value);
-
-            Ok(starting_length as u8)
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.code.clear();
-        self.constants.clear();
-    }
-
-    pub fn disassemble(&self, name: &str) -> String {
-        let mut output = String::new();
-
-        output.push_str("== ");
-        output.push_str(name);
-        output.push_str(" ==\n");
-
-        let mut next_is_index = false;
-
-        for (offset, (byte, position)) in self.code.iter().enumerate() {
-            if next_is_index {
-                let index_display = format!("{position} {offset:04} INDEX {byte}\n");
-
-                output.push_str(&index_display);
-
-                next_is_index = false;
-
-                continue;
-            }
-
-            let instruction = Instruction::from_byte(*byte).unwrap();
-            let instruction_display =
-                format!("{} {}\n", position, instruction.disassemble(self, offset));
-
-            output.push_str(&instruction_display);
-
-            if let Instruction::Constant = instruction {
-                next_is_index = true;
-            }
-        }
-
-        output
-    }
-}
-
-impl Default for Chunk {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Display for Chunk {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.disassemble("Chunk"))
-    }
-}
-
-impl Debug for Chunk {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{self}")
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ChunkError {
-    Overflow,
 }
 
 #[cfg(test)]

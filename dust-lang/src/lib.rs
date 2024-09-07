@@ -15,7 +15,7 @@
 //!
 //! assert_eq!(the_answer, Some(Value::integer(42)));
 //! ```
-pub mod bytecode;
+pub mod chunk;
 pub mod constructor;
 pub mod dust_error;
 pub mod identifier;
@@ -24,8 +24,9 @@ pub mod parser;
 pub mod token;
 pub mod r#type;
 pub mod value;
+pub mod vm;
 
-pub use bytecode::{Chunk, ChunkError, Instruction, Vm};
+pub use chunk::{Chunk, ChunkError};
 pub use constructor::{ConstructError, Constructor};
 pub use dust_error::DustError;
 pub use identifier::Identifier;
@@ -34,6 +35,7 @@ pub use parser::{ParseError, Parser};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use token::{Token, TokenKind, TokenOwned};
 pub use value::{Struct, Value, ValueError};
+pub use vm::{Instruction, Vm};
 
 use std::fmt::{self, Display, Formatter};
 
