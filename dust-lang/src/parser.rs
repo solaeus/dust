@@ -75,15 +75,16 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn emit_byte(&mut self, byte: u8) {
-        self.chunk.write(byte, self.current_position);
+    fn emit_byte(&mut self, byte: u8, position: Span) {
+        self.chunk.write(byte, position);
     }
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
         let constant_index = self.chunk.push_constant(value)?;
+        let position = self.current_position;
 
-        self.emit_byte(Instruction::Constant as u8);
-        self.emit_byte(constant_index);
+        self.emit_byte(Instruction::Constant as u8, position);
+        self.emit_byte(constant_index, position);
 
         Ok(())
     }
@@ -109,9 +110,11 @@ impl<'src> Parser<'src> {
 
     fn parse_unary(&mut self) -> Result<(), ParseError> {
         if let Some(Token::Minus) = self.current_token {
+            let operator_position = self.current_position;
+
             self.advance()?;
             self.parse_expression()?;
-            self.emit_byte(Instruction::Negate as u8);
+            self.emit_byte(Instruction::Negate as u8, operator_position);
         }
 
         Ok(())
@@ -124,11 +127,11 @@ impl<'src> Parser<'src> {
 
         self.parse(rule.precedence.increment())?;
 
-        match operator {
-            TokenKind::Plus => self.emit_byte(Instruction::Add as u8),
-            TokenKind::Minus => self.emit_byte(Instruction::Subtract as u8),
-            TokenKind::Star => self.emit_byte(Instruction::Multiply as u8),
-            TokenKind::Slash => self.emit_byte(Instruction::Divide as u8),
+        let byte = match operator {
+            TokenKind::Plus => Instruction::Add as u8,
+            TokenKind::Minus => Instruction::Subtract as u8,
+            TokenKind::Star => Instruction::Multiply as u8,
+            TokenKind::Slash => Instruction::Divide as u8,
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -141,7 +144,9 @@ impl<'src> Parser<'src> {
                     position: self.current_position,
                 })
             }
-        }
+        };
+
+        self.emit_byte(byte, operator_position);
 
         Ok(())
     }
