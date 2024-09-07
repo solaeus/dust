@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Identifier, Instruction, Span, Value};
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Chunk {
     code: Vec<(u8, Span)>,
     constants: Vec<Value>,
@@ -144,6 +144,12 @@ impl Default for Chunk {
 }
 
 impl Display for Chunk {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", self.disassemble("Chunk"))
+    }
+}
+
+impl Debug for Chunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.disassemble("Chunk"))
     }

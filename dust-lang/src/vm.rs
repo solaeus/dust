@@ -294,13 +294,23 @@ impl Instruction {
     pub fn disassemble(&self, chunk: &Chunk, offset: usize) -> String {
         match self {
             Instruction::Constant => {
-                let (index, _) = chunk.read(offset + 1).unwrap();
-                let value_display = chunk
-                    .get_constant(*index as usize)
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|error| format!("{:?}", error));
+                let (index_display, value_display) = if let Ok((index, _)) = chunk.read(offset + 1)
+                {
+                    let index_string = index.to_string();
+                    let value_string = chunk
+                        .get_constant(*index as usize)
+                        .map(|value| value.to_string())
+                        .unwrap_or_else(|error| format!("{:?}", error));
 
-                format!("{offset:04} CONSTANT {index} {value_display}")
+                    (index_string, value_string)
+                } else {
+                    let index = "ERROR".to_string();
+                    let value = "ERROR".to_string();
+
+                    (index, value)
+                };
+
+                format!("{offset:04} CONSTANT {index_display} {value_display}")
             }
             Instruction::Return => format!("{offset:04} RETURN"),
             Instruction::Pop => format!("{offset:04} POP"),
@@ -309,27 +319,45 @@ impl Instruction {
             Instruction::DefineGlobal => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
                 let index = *index as usize;
-                let identifier = chunk.get_identifier(index).unwrap();
-                let value = chunk.get_constant(index).unwrap();
+                let identifier_display = chunk
+                    .get_identifier(index)
+                    .map(|identifier| identifier.to_string())
+                    .unwrap_or_else(|error| format!("{:?}", error));
+                let value_display = chunk
+                    .get_constant(index)
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|error| format!("{:?}", error));
 
-                format!("{offset:04} DEFINE_GLOBAL {identifier} {value}")
+                format!("{offset:04} DEFINE_GLOBAL {identifier_display} {value_display}")
             }
             Instruction::GetGlobal => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
                 let index = *index as usize;
-                let identifier = chunk.get_identifier(index).unwrap();
-                let value = chunk.get_constant(index).unwrap();
+                let identifier_display = chunk
+                    .get_identifier(index)
+                    .map(|identifier| identifier.to_string())
+                    .unwrap_or_else(|error| format!("{:?}", error));
+                let value_display = chunk
+                    .get_constant(index)
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|error| format!("{:?}", error));
 
-                format!("{offset:04} GET_GLOBAL {identifier} {value}")
+                format!("{offset:04} GET_GLOBAL {identifier_display} {value_display}")
             }
 
             Instruction::SetGlobal => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
                 let index = *index as usize;
-                let identifier = chunk.get_identifier(index).unwrap();
-                let value = chunk.get_constant(index).unwrap();
+                let identifier_display = chunk
+                    .get_identifier(index)
+                    .map(|identifier| identifier.to_string())
+                    .unwrap_or_else(|error| format!("{:?}", error));
+                let value_display = chunk
+                    .get_constant(index)
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|error| format!("{:?}", error));
 
-                format!("{offset:04} SET_GLOBAL {identifier} {value}")
+                format!("{offset:04} SET_GLOBAL {identifier_display} {value_display}")
             }
 
             // Unary

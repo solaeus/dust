@@ -243,20 +243,22 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_statement(&mut self) -> Result<(), ParseError> {
-        match self.current_token {
-            Token::Let => self.parse_let_assignment()?,
-            _ => self.parse_expression_statement()?,
-        }
-
-        Ok(())
-    }
-
-    fn parse_expression_statement(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
+        let is_expression_statement = match self.current_token {
+            Token::Let => {
+                self.parse_let_assignment(true)?;
 
-        self.parse_expression()?;
+                false
+            }
+            _ => {
+                self.parse_expression()?;
 
-        if self.allow(TokenKind::Semicolon)? {
+                true
+            }
+        };
+        let has_semicolon = self.allow(TokenKind::Semicolon)?;
+
+        if is_expression_statement && has_semicolon {
             let end = self.previous_position.1;
 
             self.emit_byte(Instruction::Pop as u8, Span(start, end));
@@ -265,7 +267,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_let_assignment(&mut self) -> Result<(), ParseError> {
+    fn parse_let_assignment(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         self.expect(TokenKind::Let)?;
 
         let position = self.current_position;
@@ -273,7 +275,6 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
-        self.expect(TokenKind::Semicolon)?;
         self.define_variable(identifier_index, position)
     }
 
@@ -430,7 +431,11 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::FloatKeyword => todo!(),
             TokenKind::If => todo!(),
             TokenKind::Int => todo!(),
-            TokenKind::Let => todo!(),
+            TokenKind::Let => ParseRule {
+                prefix: Some(Parser::parse_let_assignment),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Loop => todo!(),
             TokenKind::Map => todo!(),
             TokenKind::Str => todo!(),
@@ -545,6 +550,44 @@ impl From<ChunkError> for ParseError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn add_variables() {
+        let source = "
+            let x = 42
+            let y = 42
+            x + y
+        ";
+        let test_chunk = parse(source);
+
+        assert_eq!(
+            test_chunk,
+            Ok(Chunk::with_data(
+                vec![
+                    (Instruction::Constant as u8, Span(21, 23)),
+                    (0, Span(21, 23)),
+                    (Instruction::DefineGlobal as u8, Span(17, 18)),
+                    (0, Span(17, 18)),
+                    (Instruction::Constant as u8, Span(44, 46)),
+                    (1, Span(44, 46)),
+                    (Instruction::DefineGlobal as u8, Span(40, 41)),
+                    (1, Span(40, 41)),
+                    (Instruction::GetGlobal as u8, Span(61, 62)),
+                    (0, Span(61, 62)),
+                    (Instruction::GetGlobal as u8, Span(52, 53)),
+                    (1, Span(52, 53)),
+                    (Instruction::Add as u8, Span(48, 53))
+                ],
+                vec![Value::integer(42), Value::integer(42)],
+                vec![
+                    Identifier::new("x"),
+                    Identifier::new("y"),
+                    Identifier::new("x"),
+                    Identifier::new("y")
+                ]
+            ))
+        );
+    }
 
     #[test]
     fn let_statement() {
