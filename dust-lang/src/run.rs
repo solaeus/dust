@@ -5,7 +5,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 
     let mut vm = Vm::new(chunk);
 
-    vm.interpret()
+    vm.run()
         .map_err(|error| DustError::Runtime { error, source })
 }
 

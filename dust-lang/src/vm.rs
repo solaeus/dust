@@ -24,7 +24,7 @@ impl Vm {
         }
     }
 
-    pub fn interpret(&mut self) -> Result<Option<Value>, VmError> {
+    pub fn run(&mut self) -> Result<Option<Value>, VmError> {
         while let Ok((byte, position)) = self.read().copied() {
             let instruction = Instruction::from_byte(byte)
                 .ok_or_else(|| VmError::InvalidInstruction(byte, position))?;
@@ -44,7 +44,9 @@ impl Vm {
                 Instruction::Pop => {
                     self.pop()?;
                 }
-                Instruction::SetGlobal => {
+
+                // Variables
+                Instruction::DefineGlobal => {
                     let (index, _) = self.read().copied()?;
                     let identifier = self.chunk.get_identifier(index as usize)?.clone();
                     let value = self.pop()?;
@@ -60,6 +62,18 @@ impl Vm {
                         })?;
 
                     self.push(value)?;
+                }
+                Instruction::SetGlobal => {
+                    let (index, _) = self.read().copied()?;
+                    let identifier = self.chunk.get_identifier(index as usize)?.clone();
+
+                    if !self.globals.contains_key(&identifier) {
+                        return Err(VmError::UndefinedGlobal(identifier, position));
+                    }
+
+                    let value = self.pop()?;
+
+                    self.globals.insert(identifier, value);
                 }
 
                 // Unary
@@ -225,26 +239,29 @@ pub enum Instruction {
     Constant = 0,
     Return = 1,
     Pop = 2,
-    SetGlobal = 3,
+
+    // Variables
+    DefineGlobal = 3,
     GetGlobal = 4,
+    SetGlobal = 5,
 
     // Unary
-    Negate = 5,
-    Not = 6,
+    Negate = 6,
+    Not = 7,
 
     // Binary
-    Add = 7,
-    Subtract = 8,
-    Multiply = 9,
-    Divide = 10,
-    Greater = 11,
-    Less = 12,
-    GreaterEqual = 13,
-    LessEqual = 14,
-    Equal = 15,
-    NotEqual = 16,
-    And = 17,
-    Or = 18,
+    Add = 8,
+    Subtract = 9,
+    Multiply = 10,
+    Divide = 11,
+    Greater = 12,
+    Less = 13,
+    GreaterEqual = 14,
+    LessEqual = 15,
+    Equal = 16,
+    NotEqual = 17,
+    And = 18,
+    Or = 19,
 }
 
 impl Instruction {
@@ -253,22 +270,23 @@ impl Instruction {
             0 => Some(Instruction::Constant),
             1 => Some(Instruction::Return),
             2 => Some(Instruction::Pop),
-            3 => Some(Instruction::SetGlobal),
+            3 => Some(Instruction::DefineGlobal),
             4 => Some(Instruction::GetGlobal),
-            5 => Some(Instruction::Negate),
-            6 => Some(Instruction::Not),
-            7 => Some(Instruction::Add),
-            8 => Some(Instruction::Subtract),
-            9 => Some(Instruction::Multiply),
-            10 => Some(Instruction::Divide),
-            11 => Some(Instruction::Greater),
-            12 => Some(Instruction::Less),
-            13 => Some(Instruction::GreaterEqual),
-            14 => Some(Instruction::LessEqual),
-            15 => Some(Instruction::Equal),
-            16 => Some(Instruction::NotEqual),
-            17 => Some(Instruction::And),
-            18 => Some(Instruction::Or),
+            5 => Some(Instruction::SetGlobal),
+            6 => Some(Instruction::Negate),
+            7 => Some(Instruction::Not),
+            8 => Some(Instruction::Add),
+            9 => Some(Instruction::Subtract),
+            10 => Some(Instruction::Multiply),
+            11 => Some(Instruction::Divide),
+            12 => Some(Instruction::Greater),
+            13 => Some(Instruction::Less),
+            14 => Some(Instruction::GreaterEqual),
+            15 => Some(Instruction::LessEqual),
+            16 => Some(Instruction::Equal),
+            17 => Some(Instruction::NotEqual),
+            18 => Some(Instruction::And),
+            19 => Some(Instruction::Or),
             _ => None,
         }
     }
@@ -286,17 +304,32 @@ impl Instruction {
             }
             Instruction::Return => format!("{offset:04} RETURN"),
             Instruction::Pop => format!("{offset:04} POP"),
-            Instruction::SetGlobal => {
-                let (index, _) = chunk.read(offset + 1).unwrap();
-                let identifier = chunk.get_identifier(*index as usize).unwrap();
 
-                format!("{offset:04} DEFINE_GLOBAL {identifier}")
+            // Variables
+            Instruction::DefineGlobal => {
+                let (index, _) = chunk.read(offset + 1).unwrap();
+                let index = *index as usize;
+                let identifier = chunk.get_identifier(index).unwrap();
+                let value = chunk.get_constant(index).unwrap();
+
+                format!("{offset:04} DEFINE_GLOBAL {identifier} {value}")
             }
             Instruction::GetGlobal => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
-                let identifier = chunk.get_identifier(*index as usize).unwrap();
+                let index = *index as usize;
+                let identifier = chunk.get_identifier(index).unwrap();
+                let value = chunk.get_constant(index).unwrap();
 
-                format!("{offset:04} GET_GLOBAL {identifier}")
+                format!("{offset:04} GET_GLOBAL {identifier} {value}")
+            }
+
+            Instruction::SetGlobal => {
+                let (index, _) = chunk.read(offset + 1).unwrap();
+                let index = *index as usize;
+                let identifier = chunk.get_identifier(index).unwrap();
+                let value = chunk.get_constant(index).unwrap();
+
+                format!("{offset:04} SET_GLOBAL {identifier} {value}")
             }
 
             // Unary
@@ -335,7 +368,7 @@ pub mod tests {
         chunk.write(Instruction::Return as u8, Span(2, 3));
 
         let mut vm = Vm::new(chunk);
-        let result = vm.interpret();
+        let result = vm.run();
 
         assert_eq!(result, Ok(Some(Value::integer(-42))));
     }
@@ -354,7 +387,7 @@ pub mod tests {
         chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
-        let result = vm.interpret();
+        let result = vm.run();
 
         assert_eq!(result, Ok(Some(Value::integer(65))));
     }
@@ -373,7 +406,7 @@ pub mod tests {
         chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
-        let result = vm.interpret();
+        let result = vm.run();
 
         assert_eq!(result, Ok(Some(Value::integer(19))));
     }
@@ -392,7 +425,7 @@ pub mod tests {
         chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
-        let result = vm.interpret();
+        let result = vm.run();
 
         assert_eq!(result, Ok(Some(Value::integer(966))));
     }
@@ -412,7 +445,7 @@ pub mod tests {
         chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
-        let result = vm.interpret();
+        let result = vm.run();
 
         assert_eq!(result, Ok(Some(Value::integer(1))));
     }

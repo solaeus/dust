@@ -102,28 +102,35 @@ impl Chunk {
         output.push_str(name);
         output.push_str(" ==\n");
 
-        let mut next_is_index = false;
+        let mut previous = None;
 
         for (offset, (byte, position)) in self.code.iter().enumerate() {
-            if next_is_index {
-                let index_display = format!("{position} {offset:04} INDEX {byte}\n");
+            if let Some(Instruction::Constant) = previous {
+                let display = format!("{position} {offset:04} CONSTANT_INDEX {byte}\n");
+                previous = None;
 
-                output.push_str(&index_display);
+                output.push_str(&display);
 
-                next_is_index = false;
+                continue;
+            }
+
+            if let Some(
+                Instruction::DefineGlobal | Instruction::GetGlobal | Instruction::SetGlobal,
+            ) = previous
+            {
+                let display = format!("{position} {offset:04} IDENTIFIER_INDEX {byte}\n");
+                previous = None;
+
+                output.push_str(&display);
 
                 continue;
             }
 
             let instruction = Instruction::from_byte(*byte).unwrap();
-            let instruction_display =
-                format!("{} {}\n", position, instruction.disassemble(self, offset));
+            let display = format!("{} {}\n", position, instruction.disassemble(self, offset));
+            previous = Some(instruction);
 
-            output.push_str(&instruction_display);
-
-            if let Instruction::Constant = instruction {
-                next_is_index = true;
-            }
+            output.push_str(&display);
         }
 
         output

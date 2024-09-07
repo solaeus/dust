@@ -100,7 +100,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_boolean(&mut self) -> Result<(), ParseError> {
+    fn parse_boolean(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::Boolean(text) = self.previous_token {
             let boolean = text.parse::<bool>().unwrap();
             let value = Value::boolean(boolean);
@@ -111,7 +111,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_float(&mut self) -> Result<(), ParseError> {
+    fn parse_float(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::Float(text) = self.previous_token {
             let float = text.parse::<f64>().unwrap();
             let value = Value::float(float);
@@ -122,7 +122,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_integer(&mut self) -> Result<(), ParseError> {
+    fn parse_integer(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::Integer(text) = self.previous_token {
             let integer = text.parse::<i64>().unwrap();
             let value = Value::integer(integer);
@@ -133,7 +133,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_string(&mut self) -> Result<(), ParseError> {
+    fn parse_string(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::String(text) = self.previous_token {
             let value = Value::string(text);
 
@@ -143,12 +143,12 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_grouped(&mut self) -> Result<(), ParseError> {
+    fn parse_grouped(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         self.parse_expression()?;
         self.expect(TokenKind::RightParenthesis)
     }
 
-    fn parse_unary(&mut self) -> Result<(), ParseError> {
+    fn parse_unary(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         let operator_position = self.previous_position;
         let byte = match self.previous_token.kind() {
             TokenKind::Minus => Instruction::Negate as u8,
@@ -198,15 +198,25 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_variable(&mut self) -> Result<(), ParseError> {
-        self.parse_named_variable_from(self.previous_token.to_owned())
+    fn parse_variable(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
+        self.parse_named_variable_from(self.previous_token.to_owned(), allow_assignment)
     }
 
-    fn parse_named_variable_from(&mut self, token: TokenOwned) -> Result<(), ParseError> {
+    fn parse_named_variable_from(
+        &mut self,
+        token: TokenOwned,
+        allow_assignment: bool,
+    ) -> Result<(), ParseError> {
         let identifier_index = self.parse_identifier_from(token)?;
 
-        self.emit_byte(Instruction::GetGlobal as u8, self.previous_position);
-        self.emit_byte(identifier_index, self.previous_position);
+        if allow_assignment && self.allow(TokenKind::Equal)? {
+            self.parse_expression()?;
+            self.emit_byte(Instruction::SetGlobal as u8, self.previous_position);
+            self.emit_byte(identifier_index, self.previous_position);
+        } else {
+            self.emit_byte(Instruction::GetGlobal as u8, self.previous_position);
+            self.emit_byte(identifier_index, self.previous_position);
+        }
 
         Ok(())
     }
@@ -268,7 +278,7 @@ impl<'src> Parser<'src> {
     }
 
     fn define_variable(&mut self, identifier_index: u8, position: Span) -> Result<(), ParseError> {
-        self.emit_byte(Instruction::SetGlobal as u8, position);
+        self.emit_byte(Instruction::DefineGlobal as u8, position);
         self.emit_byte(identifier_index, position);
 
         Ok(())
@@ -277,19 +287,24 @@ impl<'src> Parser<'src> {
     fn parse(&mut self, precedence: Precedence) -> Result<(), ParseError> {
         self.advance()?;
 
-        if let Some(prefix) = ParseRule::from(&self.previous_token.kind()).prefix {
+        let prefix_rule = if let Some(prefix) = ParseRule::from(&self.previous_token.kind()).prefix
+        {
             log::trace!(
                 "Parsing {} as prefix with precedence {precedence}",
                 self.previous_token,
             );
 
-            prefix(self)?;
+            prefix
         } else {
             return Err(ParseError::ExpectedExpression {
                 found: self.previous_token.to_owned(),
                 position: self.previous_position,
             });
-        }
+        };
+
+        let allow_assignment = precedence <= Precedence::Assignment;
+
+        prefix_rule(self, allow_assignment)?;
 
         while precedence < ParseRule::from(&self.current_token.kind()).precedence {
             self.advance()?;
@@ -301,6 +316,13 @@ impl<'src> Parser<'src> {
                     "Parsing {} as infix with precedence {precedence}",
                     self.previous_token,
                 );
+
+                if allow_assignment && self.allow(TokenKind::Equal)? {
+                    return Err(ParseError::InvalidAssignmentTarget {
+                        found: self.previous_token.to_owned(),
+                        position: self.previous_position,
+                    });
+                }
 
                 infix(self)?;
             } else {
@@ -357,12 +379,13 @@ impl Display for Precedence {
     }
 }
 
-type ParserFunction<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;
+type PrefixFunction<'a> = fn(&mut Parser<'a>, bool) -> Result<(), ParseError>;
+type InfixFunction<'a> = fn(&mut Parser<'a>) -> Result<(), ParseError>;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ParseRule<'a> {
-    pub prefix: Option<ParserFunction<'a>>,
-    pub infix: Option<ParserFunction<'a>>,
+    pub prefix: Option<PrefixFunction<'a>>,
+    pub infix: Option<InfixFunction<'a>>,
     pub precedence: Precedence,
 }
 
@@ -490,6 +513,10 @@ pub enum ParseError {
         found: TokenOwned,
         position: Span,
     },
+    InvalidAssignmentTarget {
+        found: TokenOwned,
+        position: Span,
+    },
 
     // Wrappers around foreign errors
     Chunk(ChunkError),
@@ -530,7 +557,7 @@ mod tests {
                 vec![
                     (Instruction::Constant as u8, Span(8, 10)),
                     (0, Span(8, 10)),
-                    (Instruction::SetGlobal as u8, Span(4, 5)),
+                    (Instruction::DefineGlobal as u8, Span(4, 5)),
                     (0, Span(4, 5))
                 ],
                 vec![Value::integer(42)],
