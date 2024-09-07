@@ -18,14 +18,20 @@
 pub mod bytecode;
 pub mod constructor;
 pub mod identifier;
+pub mod lexer;
+pub mod parser;
+pub mod token;
 pub mod r#type;
 pub mod value;
 
-pub use bytecode::*;
-pub use constructor::*;
-pub use identifier::*;
-pub use r#type::*;
-pub use value::*;
+pub use bytecode::{Chunk, ChunkError, Instruction, Vm};
+pub use constructor::{ConstructError, Constructor};
+pub use identifier::Identifier;
+pub use lexer::{LexError, Lexer};
+pub use parser::{ParseError, Parser};
+pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
+pub use token::{Token, TokenKind, TokenOwned};
+pub use value::{Struct, Value, ValueError};
 
 use std::fmt::{self, Display, Formatter};
 

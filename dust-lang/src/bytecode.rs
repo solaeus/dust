@@ -22,11 +22,14 @@ impl Vm {
 
     pub fn interpret(&mut self) -> Result<Option<Value>, VmError> {
         loop {
-            let instruction = self.read_instruction();
+            let (byte, position) = self.read();
+            let instruction = Instruction::from_byte(byte)
+                .ok_or_else(|| VmError::InvalidInstruction(byte, position))?;
 
             match instruction {
-                Instruction::Constant(index) => {
-                    let value = self.read_constant(*index);
+                Instruction::Constant => {
+                    let (index, _) = self.read();
+                    let value = self.read_constant(index as usize);
 
                     self.stack.push(value.clone());
                 }
@@ -77,8 +80,6 @@ impl Vm {
                     self.stack.push(quotient);
                 }
             }
-
-            self.ip += 1;
         }
     }
 
@@ -100,10 +101,10 @@ impl Vm {
         }
     }
 
-    pub fn read_instruction(&self) -> &Instruction {
-        let (instruction, _) = &self.chunk.code[self.ip];
+    pub fn read(&mut self) -> (u8, Span) {
+        self.ip += 1;
 
-        instruction
+        self.chunk.code[self.ip - 1]
     }
 
     pub fn read_constant(&self, index: usize) -> Value {
@@ -113,6 +114,8 @@ impl Vm {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VmError {
+    ChunkOverflow,
+    InvalidInstruction(u8, Span),
     StackUnderflow,
     StackOverflow,
     Value(ValueError),
@@ -126,24 +129,43 @@ impl From<ValueError> for VmError {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Instruction {
-    Constant(usize),
-    Return,
+    Constant = 0,
+    Return = 1,
 
     // Unary
-    Negate,
+    Negate = 2,
 
     // Binary
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
+    Add = 3,
+    Subtract = 4,
+    Multiply = 5,
+    Divide = 6,
 }
 
 impl Instruction {
+    pub fn from_byte(byte: u8) -> Option<Self> {
+        match byte {
+            0 => Some(Self::Constant),
+            1 => Some(Self::Return),
+
+            // Unary
+            2 => Some(Self::Negate),
+
+            // Binary
+            3 => Some(Self::Add),
+            4 => Some(Self::Subtract),
+            5 => Some(Self::Multiply),
+            6 => Some(Self::Divide),
+
+            _ => None,
+        }
+    }
+
     pub fn disassemble(&self, chunk: &Chunk, offset: usize) -> String {
         match self {
-            Instruction::Constant(index) => {
-                let value = &chunk.constants[*index];
+            Instruction::Constant => {
+                let index = chunk.code[offset + 1].0 as usize;
+                let value = &chunk.constants[index];
 
                 format!("{:04} CONSTANT {} {}", offset, index, value)
             }
@@ -163,7 +185,7 @@ impl Instruction {
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Chunk {
-    code: Vec<(Instruction, Span)>,
+    code: Vec<(u8, Span)>,
     constants: Vec<Value>,
 }
 
@@ -187,14 +209,20 @@ impl Chunk {
         self.code.capacity()
     }
 
-    pub fn write(&mut self, instruction: Instruction, position: Span) {
+    pub fn write(&mut self, instruction: u8, position: Span) {
         self.code.push((instruction, position));
     }
 
-    pub fn push_constant(&mut self, value: Value) -> usize {
-        self.constants.push(value);
+    pub fn push_constant(&mut self, value: Value) -> Result<u8, ChunkError> {
+        let starting_length = self.constants.len();
 
-        self.constants.len() - 1
+        if starting_length + 1 > (u8::MAX as usize) {
+            Err(ChunkError::Overflow)
+        } else {
+            self.constants.push(value);
+
+            Ok(starting_length as u8)
+        }
     }
 
     pub fn clear(&mut self) {
@@ -205,7 +233,9 @@ impl Chunk {
     pub fn disassemble(&self, name: &str) {
         println!("== {} ==", name);
 
-        for (offset, (instruction, position)) in self.code.iter().enumerate() {
+        for (offset, (byte, position)) in self.code.iter().enumerate() {
+            let instruction = Instruction::from_byte(*byte).unwrap();
+
             println!("{} {}", position, instruction.disassemble(self, offset));
         }
     }
@@ -217,6 +247,11 @@ impl Default for Chunk {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ChunkError {
+    Overflow,
+}
+
 #[cfg(test)]
 pub mod tests {
     use super::*;
@@ -224,11 +259,12 @@ pub mod tests {
     #[test]
     fn negation() {
         let mut chunk = Chunk::new();
-        let constant = chunk.push_constant(Value::integer(42));
+        let constant = chunk.push_constant(Value::integer(42)).unwrap();
 
-        chunk.write(Instruction::Constant(constant), Span(0, 1));
-        chunk.write(Instruction::Negate, Span(4, 5));
-        chunk.write(Instruction::Return, Span(2, 3));
+        chunk.write(Instruction::Constant as u8, Span(0, 1));
+        chunk.write(constant, Span(2, 3));
+        chunk.write(Instruction::Negate as u8, Span(4, 5));
+        chunk.write(Instruction::Return as u8, Span(2, 3));
 
         let mut vm = Vm::new(chunk);
         let result = vm.interpret();
@@ -239,13 +275,15 @@ pub mod tests {
     #[test]
     fn addition() {
         let mut chunk = Chunk::new();
-        let left = chunk.push_constant(Value::integer(42));
-        let right = chunk.push_constant(Value::integer(23));
+        let left = chunk.push_constant(Value::integer(42)).unwrap();
+        let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant(left), Span(0, 1));
-        chunk.write(Instruction::Constant(right), Span(2, 3));
-        chunk.write(Instruction::Add, Span(4, 5));
-        chunk.write(Instruction::Return, Span(6, 7));
+        chunk.write(Instruction::Constant as u8, Span(0, 1));
+        chunk.write(left, Span(2, 3));
+        chunk.write(Instruction::Constant as u8, Span(4, 5));
+        chunk.write(right, Span(6, 7));
+        chunk.write(Instruction::Add as u8, Span(8, 9));
+        chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.interpret();
@@ -256,13 +294,15 @@ pub mod tests {
     #[test]
     fn subtraction() {
         let mut chunk = Chunk::new();
-        let left = chunk.push_constant(Value::integer(42));
-        let right = chunk.push_constant(Value::integer(23));
+        let left = chunk.push_constant(Value::integer(42)).unwrap();
+        let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant(left), Span(0, 1));
-        chunk.write(Instruction::Constant(right), Span(2, 3));
-        chunk.write(Instruction::Subtract, Span(4, 5));
-        chunk.write(Instruction::Return, Span(6, 7));
+        chunk.write(Instruction::Constant as u8, Span(0, 1));
+        chunk.write(left, Span(2, 3));
+        chunk.write(Instruction::Constant as u8, Span(4, 5));
+        chunk.write(right, Span(6, 7));
+        chunk.write(Instruction::Subtract as u8, Span(8, 9));
+        chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.interpret();
@@ -273,13 +313,15 @@ pub mod tests {
     #[test]
     fn multiplication() {
         let mut chunk = Chunk::new();
-        let left = chunk.push_constant(Value::integer(42));
-        let right = chunk.push_constant(Value::integer(23));
+        let left = chunk.push_constant(Value::integer(42)).unwrap();
+        let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant(left), Span(0, 1));
-        chunk.write(Instruction::Constant(right), Span(2, 3));
-        chunk.write(Instruction::Multiply, Span(4, 5));
-        chunk.write(Instruction::Return, Span(6, 7));
+        chunk.write(Instruction::Constant as u8, Span(0, 1));
+        chunk.write(left, Span(2, 3));
+        chunk.write(Instruction::Constant as u8, Span(4, 5));
+        chunk.write(right, Span(6, 7));
+        chunk.write(Instruction::Multiply as u8, Span(8, 9));
+        chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.interpret();
@@ -291,13 +333,15 @@ pub mod tests {
 
     fn division() {
         let mut chunk = Chunk::new();
-        let left = chunk.push_constant(Value::integer(42));
-        let right = chunk.push_constant(Value::integer(23));
+        let left = chunk.push_constant(Value::integer(42)).unwrap();
+        let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant(left), Span(0, 1));
-        chunk.write(Instruction::Constant(right), Span(2, 3));
-        chunk.write(Instruction::Divide, Span(4, 5));
-        chunk.write(Instruction::Return, Span(6, 7));
+        chunk.write(Instruction::Constant as u8, Span(0, 1));
+        chunk.write(left, Span(2, 3));
+        chunk.write(Instruction::Constant as u8, Span(4, 5));
+        chunk.write(right, Span(6, 7));
+        chunk.write(Instruction::Divide as u8, Span(8, 9));
+        chunk.write(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.interpret();
