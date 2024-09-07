@@ -31,10 +31,10 @@ impl Vm {
 
             match instruction {
                 Instruction::Constant => {
-                    let (index, position) = self.read().copied()?;
+                    let (index, _) = self.read().copied()?;
                     let value = self.read_constant(index as usize)?;
 
-                    self.stack.push(value);
+                    self.push(value)?;
                 }
                 Instruction::Return => {
                     let value = self.pop()?;
@@ -44,24 +44,34 @@ impl Vm {
                 Instruction::Pop => {
                     self.pop()?;
                 }
-                Instruction::DefineGlobal => {
+                Instruction::SetGlobal => {
                     let (index, _) = self.read().copied()?;
                     let identifier = self.chunk.get_identifier(index as usize)?.clone();
                     let value = self.pop()?;
 
                     self.globals.insert(identifier, value);
                 }
+                Instruction::GetGlobal => {
+                    let (index, _) = self.read().copied()?;
+                    let identifier = self.chunk.get_identifier(index as usize)?;
+                    let value =
+                        self.globals.get(identifier).cloned().ok_or_else(|| {
+                            VmError::UndefinedGlobal(identifier.clone(), position)
+                        })?;
+
+                    self.push(value)?;
+                }
 
                 // Unary
                 Instruction::Negate => {
                     let negated = self.pop()?.negate()?;
 
-                    self.stack.push(negated);
+                    self.push(negated)?;
                 }
                 Instruction::Not => {
                     let not = self.pop()?.not()?;
 
-                    self.stack.push(not);
+                    self.push(not)?;
                 }
 
                 // Binary
@@ -70,84 +80,84 @@ impl Vm {
                     let left = self.pop()?;
                     let sum = left.add(&right)?;
 
-                    self.stack.push(sum);
+                    self.push(sum)?;
                 }
                 Instruction::Subtract => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let difference = left.subtract(&right)?;
 
-                    self.stack.push(difference);
+                    self.push(difference)?;
                 }
                 Instruction::Multiply => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let product = left.multiply(&right)?;
 
-                    self.stack.push(product);
+                    self.push(product)?;
                 }
                 Instruction::Divide => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let quotient = left.divide(&right)?;
 
-                    self.stack.push(quotient);
+                    self.push(quotient)?;
                 }
                 Instruction::Greater => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let greater = left.greater_than(&right)?;
 
-                    self.stack.push(greater);
+                    self.push(greater)?;
                 }
                 Instruction::Less => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let less = left.less_than(&right)?;
 
-                    self.stack.push(less);
+                    self.push(less)?;
                 }
                 Instruction::GreaterEqual => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let greater_equal = left.greater_than_or_equal(&right)?;
 
-                    self.stack.push(greater_equal);
+                    self.push(greater_equal)?;
                 }
                 Instruction::LessEqual => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let less_equal = left.less_than_or_equal(&right)?;
 
-                    self.stack.push(less_equal);
+                    self.push(less_equal)?;
                 }
                 Instruction::Equal => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let equal = left.equal(&right)?;
 
-                    self.stack.push(equal);
+                    self.push(equal)?;
                 }
                 Instruction::NotEqual => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let not_equal = left.not_equal(&right)?;
 
-                    self.stack.push(not_equal);
+                    self.push(not_equal)?;
                 }
                 Instruction::And => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let and = left.and(&right)?;
 
-                    self.stack.push(and);
+                    self.push(and)?;
                 }
                 Instruction::Or => {
                     let right = self.pop()?;
                     let left = self.pop()?;
                     let or = left.or(&right)?;
 
-                    self.stack.push(or);
+                    self.push(or)?;
                 }
             }
         }
@@ -191,7 +201,9 @@ pub enum VmError {
     InvalidInstruction(u8, Span),
     StackUnderflow,
     StackOverflow,
+    UndefinedGlobal(Identifier, Span),
 
+    // Wrappers for foreign errors
     Chunk(ChunkError),
     Value(ValueError),
 }
@@ -213,25 +225,26 @@ pub enum Instruction {
     Constant = 0,
     Return = 1,
     Pop = 2,
-    DefineGlobal = 3,
+    SetGlobal = 3,
+    GetGlobal = 4,
 
     // Unary
-    Negate = 4,
-    Not = 5,
+    Negate = 5,
+    Not = 6,
 
     // Binary
-    Add = 6,
-    Subtract = 7,
-    Multiply = 8,
-    Divide = 9,
-    Greater = 10,
-    Less = 11,
-    GreaterEqual = 12,
-    LessEqual = 13,
-    Equal = 14,
-    NotEqual = 15,
-    And = 16,
-    Or = 17,
+    Add = 7,
+    Subtract = 8,
+    Multiply = 9,
+    Divide = 10,
+    Greater = 11,
+    Less = 12,
+    GreaterEqual = 13,
+    LessEqual = 14,
+    Equal = 15,
+    NotEqual = 16,
+    And = 17,
+    Or = 18,
 }
 
 impl Instruction {
@@ -240,21 +253,22 @@ impl Instruction {
             0 => Some(Instruction::Constant),
             1 => Some(Instruction::Return),
             2 => Some(Instruction::Pop),
-            3 => Some(Instruction::DefineGlobal),
-            4 => Some(Instruction::Negate),
-            5 => Some(Instruction::Not),
-            6 => Some(Instruction::Add),
-            7 => Some(Instruction::Subtract),
-            8 => Some(Instruction::Multiply),
-            9 => Some(Instruction::Divide),
-            10 => Some(Instruction::Greater),
-            11 => Some(Instruction::Less),
-            12 => Some(Instruction::GreaterEqual),
-            13 => Some(Instruction::LessEqual),
-            14 => Some(Instruction::Equal),
-            15 => Some(Instruction::NotEqual),
-            16 => Some(Instruction::And),
-            17 => Some(Instruction::Or),
+            3 => Some(Instruction::SetGlobal),
+            4 => Some(Instruction::GetGlobal),
+            5 => Some(Instruction::Negate),
+            6 => Some(Instruction::Not),
+            7 => Some(Instruction::Add),
+            8 => Some(Instruction::Subtract),
+            9 => Some(Instruction::Multiply),
+            10 => Some(Instruction::Divide),
+            11 => Some(Instruction::Greater),
+            12 => Some(Instruction::Less),
+            13 => Some(Instruction::GreaterEqual),
+            14 => Some(Instruction::LessEqual),
+            15 => Some(Instruction::Equal),
+            16 => Some(Instruction::NotEqual),
+            17 => Some(Instruction::And),
+            18 => Some(Instruction::Or),
             _ => None,
         }
     }
@@ -272,11 +286,17 @@ impl Instruction {
             }
             Instruction::Return => format!("{offset:04} RETURN"),
             Instruction::Pop => format!("{offset:04} POP"),
-            Instruction::DefineGlobal => {
+            Instruction::SetGlobal => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
                 let identifier = chunk.get_identifier(*index as usize).unwrap();
 
                 format!("{offset:04} DEFINE_GLOBAL {identifier}")
+            }
+            Instruction::GetGlobal => {
+                let (index, _) = chunk.read(offset + 1).unwrap();
+                let identifier = chunk.get_identifier(*index as usize).unwrap();
+
+                format!("{offset:04} GET_GLOBAL {identifier}")
             }
 
             // Unary

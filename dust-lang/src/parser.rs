@@ -199,11 +199,20 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_variable(&mut self) -> Result<(), ParseError> {
-        todo!()
+        self.parse_named_variable_from(self.previous_token.to_owned())
     }
 
-    fn parse_identifier(&mut self) -> Result<u8, ParseError> {
-        if let Token::Identifier(text) = self.current_token {
+    fn parse_named_variable_from(&mut self, token: TokenOwned) -> Result<(), ParseError> {
+        let identifier_index = self.parse_identifier_from(token)?;
+
+        self.emit_byte(Instruction::GetGlobal as u8, self.previous_position);
+        self.emit_byte(identifier_index, self.previous_position);
+
+        Ok(())
+    }
+
+    fn parse_identifier_from(&mut self, token: TokenOwned) -> Result<u8, ParseError> {
+        if let TokenOwned::Identifier(text) = token {
             self.advance()?;
 
             let identifier = Identifier::new(text);
@@ -250,7 +259,7 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Let)?;
 
         let position = self.current_position;
-        let identifier_index = self.parse_identifier()?;
+        let identifier_index = self.parse_identifier_from(self.current_token.to_owned())?;
 
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
@@ -259,7 +268,7 @@ impl<'src> Parser<'src> {
     }
 
     fn define_variable(&mut self, identifier_index: u8, position: Span) -> Result<(), ParseError> {
-        self.emit_byte(Instruction::DefineGlobal as u8, position);
+        self.emit_byte(Instruction::SetGlobal as u8, position);
         self.emit_byte(identifier_index, position);
 
         Ok(())
@@ -521,7 +530,7 @@ mod tests {
                 vec![
                     (Instruction::Constant as u8, Span(8, 10)),
                     (0, Span(8, 10)),
-                    (Instruction::DefineGlobal as u8, Span(4, 5)),
+                    (Instruction::SetGlobal as u8, Span(4, 5)),
                     (0, Span(4, 5))
                 ],
                 vec![Value::integer(42)],

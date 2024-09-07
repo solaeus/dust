@@ -31,7 +31,7 @@ pub use chunk::{Chunk, ChunkError};
 pub use constructor::{ConstructError, Constructor};
 pub use dust_error::DustError;
 pub use identifier::Identifier;
-pub use lexer::{LexError, Lexer};
+pub use lexer::{lex, LexError, Lexer};
 pub use parser::{parse, ParseError, Parser};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
 pub use run::run;
@@ -44,7 +44,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Span(usize, usize);
+pub struct Span(pub usize, pub usize);
 
 impl Display for Span {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {

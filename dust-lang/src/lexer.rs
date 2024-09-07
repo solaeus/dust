@@ -18,12 +18,12 @@ use crate::{Span, Token};
 /// assert_eq!(
 ///     tokens,
 ///     [
-///         (Token::Identifier("x"), (0, 1)),
-///         (Token::Equal, (2, 3)),
-///         (Token::Integer("1"), (4, 5)),
-///         (Token::Plus, (6, 7)),
-///         (Token::Integer("2"), (8, 9)),
-///         (Token::Eof, (9, 9)),
+///         (Token::Identifier("x"), Span(0, 1)),
+///         (Token::Equal, Span(2, 3)),
+///         (Token::Integer("1"), Span(4, 5)),
+///         (Token::Plus, Span(6, 7)),
+///         (Token::Integer("2"), Span(8, 9)),
+///         (Token::Eof, Span(9, 9)),
 ///     ]
 /// );
 /// ```
@@ -70,12 +70,12 @@ pub fn lex<'chars, 'src: 'chars>(
 /// assert_eq!(
 ///     tokens,
 ///     [
-///         (Token::Identifier("x"), (0, 1)),
-///         (Token::Equal, (2, 3)),
-///         (Token::Integer("1"), (4, 5)),
-///         (Token::Plus, (6, 7)),
-///         (Token::Integer("2"), (8, 9)),
-///         (Token::Eof, (9, 9)),
+///         (Token::Identifier("x"), Span(0, 1)),
+///         (Token::Equal, Span(2, 3)),
+///         (Token::Integer("1"), Span(4, 5)),
+///         (Token::Plus, Span(6, 7)),
+///         (Token::Integer("2"), Span(8, 9)),
+///         (Token::Eof, Span(9, 9)),
 ///     ]
 /// )
 /// ```

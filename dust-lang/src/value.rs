@@ -1370,8 +1370,8 @@ impl Function {
     pub fn call(
         self,
         _type_arguments: Option<Vec<Type>>,
-        value_arguments: Option<Vec<Value>>,
-    ) -> Result<Option<Value>, ()> {
+        _value_arguments: Option<Vec<Value>>,
+    ) -> Result<Option<Value>, String> {
         todo!()
     }
 }
