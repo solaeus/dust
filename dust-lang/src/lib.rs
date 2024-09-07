@@ -17,6 +17,7 @@
 //! ```
 pub mod bytecode;
 pub mod constructor;
+pub mod dust_error;
 pub mod identifier;
 pub mod lexer;
 pub mod parser;
@@ -26,6 +27,7 @@ pub mod value;
 
 pub use bytecode::{Chunk, ChunkError, Instruction, Vm};
 pub use constructor::{ConstructError, Constructor};
+pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use lexer::{LexError, Lexer};
 pub use parser::{ParseError, Parser};
