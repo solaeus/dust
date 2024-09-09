@@ -2,13 +2,13 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Identifier, Instruction, Span, Value};
+use crate::{identifier_stack::Local, Identifier, IdentifierStack, Instruction, Span, Value};
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Chunk {
     code: Vec<(u8, Span)>,
     constants: Vec<Value>,
-    identifiers: Vec<Identifier>,
+    identifiers: IdentifierStack,
 }
 
 impl Chunk {
@@ -16,19 +16,19 @@ impl Chunk {
         Self {
             code: Vec::new(),
             constants: Vec::new(),
-            identifiers: Vec::new(),
+            identifiers: IdentifierStack::new(),
         }
     }
 
     pub fn with_data(
         code: Vec<(u8, Span)>,
         constants: Vec<Value>,
-        identifiers: Vec<Identifier>,
+        identifiers: Vec<Local>,
     ) -> Self {
         Self {
             code,
             constants,
-            identifiers,
+            identifiers: IdentifierStack::with_data(identifiers, 0),
         }
     }
 
@@ -54,9 +54,9 @@ impl Chunk {
         self.code.push((instruction, position));
     }
 
-    pub fn get_constant(&self, index: usize) -> Result<&Value, ChunkError> {
+    pub fn get_constant(&self, index: u8) -> Result<&Value, ChunkError> {
         self.constants
-            .get(index)
+            .get(index as usize)
             .ok_or(ChunkError::ConstantIndexOutOfBounds(index))
     }
 
@@ -72,19 +72,30 @@ impl Chunk {
         }
     }
 
-    pub fn get_identifier(&self, index: usize) -> Result<&Identifier, ChunkError> {
+    pub fn contains_identifier(&self, identifier: &Identifier) -> bool {
+        self.identifiers.contains(identifier)
+    }
+
+    pub fn get_identifier(&self, index: u8) -> Result<&Identifier, ChunkError> {
         self.identifiers
-            .get(index)
+            .get(index as usize)
+            .map(|local| &local.identifier)
             .ok_or(ChunkError::IdentifierIndexOutOfBounds(index))
     }
 
+    pub fn get_identifier_index(&self, identifier: &Identifier) -> Result<u8, ChunkError> {
+        self.identifiers
+            .get_index(identifier)
+            .ok_or(ChunkError::IdentifierNotFound(identifier.clone()))
+    }
+
     pub fn push_identifier(&mut self, identifier: Identifier) -> Result<u8, ChunkError> {
-        let starting_length = self.constants.len();
+        let starting_length = self.identifiers.local_count();
 
         if starting_length + 1 > (u8::MAX as usize) {
             Err(ChunkError::IdentifierOverflow)
         } else {
-            self.identifiers.push(identifier);
+            self.identifiers.declare(identifier);
 
             Ok(starting_length as u8)
         }
@@ -93,6 +104,7 @@ impl Chunk {
     pub fn clear(&mut self) {
         self.code.clear();
         self.constants.clear();
+        self.identifiers.clear();
     }
 
     pub fn disassemble(&self, name: &str) -> String {
@@ -115,7 +127,7 @@ impl Chunk {
             }
 
             if let Some(
-                Instruction::DefineGlobal | Instruction::GetGlobal | Instruction::SetGlobal,
+                Instruction::DefineVariable | Instruction::GetVariable | Instruction::SetVariable,
             ) = previous
             {
                 let display = format!("{position} {offset:04} IDENTIFIER_INDEX {byte}\n");
@@ -155,11 +167,12 @@ impl Debug for Chunk {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ChunkError {
     CodeIndextOfBounds(usize),
     ConstantOverflow,
-    ConstantIndexOutOfBounds(usize),
-    IdentifierIndexOutOfBounds(usize),
+    ConstantIndexOutOfBounds(u8),
+    IdentifierIndexOutOfBounds(u8),
     IdentifierOverflow,
+    IdentifierNotFound(Identifier),
 }

@@ -211,10 +211,10 @@ impl<'src> Parser<'src> {
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
             self.parse_expression()?;
-            self.emit_byte(Instruction::SetGlobal as u8, self.previous_position);
+            self.emit_byte(Instruction::SetVariable as u8, self.previous_position);
             self.emit_byte(identifier_index, self.previous_position);
         } else {
-            self.emit_byte(Instruction::GetGlobal as u8, self.previous_position);
+            self.emit_byte(Instruction::GetVariable as u8, self.previous_position);
             self.emit_byte(identifier_index, self.previous_position);
         }
 
@@ -226,7 +226,7 @@ impl<'src> Parser<'src> {
             self.advance()?;
 
             let identifier = Identifier::new(text);
-            let identifier_index = self.chunk.push_identifier(identifier)?;
+            let identifier_index = self.chunk.get_identifier_index(&identifier)?;
 
             Ok(identifier_index)
         } else {
@@ -271,16 +271,25 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Let)?;
 
         let position = self.current_position;
-        let identifier_index = self.parse_identifier_from(self.current_token.to_owned())?;
 
+        let identifier_index = if let Token::Identifier(text) = self.current_token {
+            self.advance()?;
+
+            let identifier = Identifier::new(text);
+
+            self.chunk.push_identifier(identifier)?
+        } else {
+            return Err(ParseError::ExpectedToken {
+                expected: TokenKind::Identifier,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            });
+        };
+
+        self.emit_byte(Instruction::DefineVariable as u8, position);
+        self.emit_byte(identifier_index, position);
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
-        self.define_variable(identifier_index, position)
-    }
-
-    fn define_variable(&mut self, identifier_index: u8, position: Span) -> Result<(), ParseError> {
-        self.emit_byte(Instruction::DefineGlobal as u8, position);
-        self.emit_byte(identifier_index, position);
 
         Ok(())
     }
@@ -549,13 +558,15 @@ impl From<ChunkError> for ParseError {
 
 #[cfg(test)]
 mod tests {
+    use crate::identifier_stack::Local;
+
     use super::*;
 
     #[test]
     fn add_variables() {
         let source = "
-            let x = 42
-            let y = 42
+            let x = 42;
+            let y = 42;
             x + y
         ";
         let test_chunk = parse(source);
@@ -566,25 +577,37 @@ mod tests {
                 vec![
                     (Instruction::Constant as u8, Span(21, 23)),
                     (0, Span(21, 23)),
-                    (Instruction::DefineGlobal as u8, Span(17, 18)),
+                    (Instruction::DefineVariable as u8, Span(17, 18)),
                     (0, Span(17, 18)),
                     (Instruction::Constant as u8, Span(44, 46)),
                     (1, Span(44, 46)),
-                    (Instruction::DefineGlobal as u8, Span(40, 41)),
+                    (Instruction::DefineVariable as u8, Span(40, 41)),
                     (1, Span(40, 41)),
-                    (Instruction::GetGlobal as u8, Span(61, 62)),
+                    (Instruction::GetVariable as u8, Span(61, 62)),
                     (0, Span(61, 62)),
-                    (Instruction::GetGlobal as u8, Span(52, 53)),
+                    (Instruction::GetVariable as u8, Span(52, 53)),
                     (1, Span(52, 53)),
                     (Instruction::Add as u8, Span(48, 53))
                 ],
                 vec![Value::integer(42), Value::integer(42)],
                 vec![
-                    Identifier::new("x"),
-                    Identifier::new("y"),
-                    Identifier::new("x"),
-                    Identifier::new("y")
-                ]
+                    Local {
+                        identifier: Identifier::new("x"),
+                        depth: 0
+                    },
+                    Local {
+                        identifier: Identifier::new("y"),
+                        depth: 0
+                    },
+                    Local {
+                        identifier: Identifier::new("x"),
+                        depth: 0
+                    },
+                    Local {
+                        identifier: Identifier::new("y"),
+                        depth: 0
+                    },
+                ],
             ))
         );
     }
@@ -598,13 +621,16 @@ mod tests {
             test_chunk,
             Ok(Chunk::with_data(
                 vec![
+                    (Instruction::DefineVariable as u8, Span(4, 5)),
+                    (0, Span(4, 5)),
                     (Instruction::Constant as u8, Span(8, 10)),
                     (0, Span(8, 10)),
-                    (Instruction::DefineGlobal as u8, Span(4, 5)),
-                    (0, Span(4, 5))
                 ],
                 vec![Value::integer(42)],
-                vec![Identifier::new("x")]
+                vec![Local {
+                    identifier: Identifier::new("x"),
+                    depth: 0
+                }],
             ))
         );
     }
@@ -619,7 +645,7 @@ mod tests {
             Ok(Chunk::with_data(
                 vec![(Instruction::Constant as u8, Span(0, 15)), (0, Span(0, 15))],
                 vec![Value::string("Hello, World!")],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -634,7 +660,7 @@ mod tests {
             Ok(Chunk::with_data(
                 vec![(Instruction::Constant as u8, Span(0, 2)), (0, Span(0, 2))],
                 vec![Value::integer(42)],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -649,7 +675,7 @@ mod tests {
             Ok(Chunk::with_data(
                 vec![(Instruction::Constant as u8, Span(0, 4)), (0, Span(0, 4))],
                 vec![Value::boolean(true)],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -673,7 +699,7 @@ mod tests {
                     (Instruction::Multiply as u8, Span(10, 11)),
                 ],
                 vec![Value::integer(42), Value::integer(42), Value::integer(2)],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -692,7 +718,7 @@ mod tests {
                     (Instruction::Negate as u8, Span(0, 1)),
                 ],
                 vec![Value::integer(42)],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -713,7 +739,7 @@ mod tests {
                     (Instruction::Add as u8, Span(3, 4)),
                 ],
                 vec![Value::integer(42), Value::integer(42)],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -734,7 +760,7 @@ mod tests {
                     (Instruction::Subtract as u8, Span(3, 4)),
                 ],
                 vec![Value::integer(42), Value::integer(42)],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -755,7 +781,7 @@ mod tests {
                     (Instruction::Multiply as u8, Span(3, 4)),
                 ],
                 vec![Value::integer(42), Value::integer(42)],
-                vec![]
+                vec![],
             ))
         );
     }
@@ -776,7 +802,7 @@ mod tests {
                     (Instruction::Divide as u8, Span(3, 4)),
                 ],
                 vec![Value::integer(42), Value::integer(42)],
-                vec![]
+                vec![],
             ))
         );
     }

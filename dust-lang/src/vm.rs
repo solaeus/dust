@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,6 @@ pub struct Vm {
     chunk: Chunk,
     ip: usize,
     stack: Vec<Value>,
-    globals: HashMap<Identifier, Value>,
 }
 
 impl Vm {
@@ -20,7 +19,6 @@ impl Vm {
             chunk,
             ip: 0,
             stack: Vec::with_capacity(Self::STACK_SIZE),
-            globals: HashMap::new(),
         }
     }
 
@@ -29,10 +27,12 @@ impl Vm {
             let instruction = Instruction::from_byte(byte)
                 .ok_or_else(|| VmError::InvalidInstruction(byte, position))?;
 
+            log::trace!("Running instruction {instruction} at {position}");
+
             match instruction {
                 Instruction::Constant => {
                     let (index, _) = self.read().copied()?;
-                    let value = self.read_constant(index as usize)?;
+                    let value = self.read_constant(index)?;
 
                     self.push(value)?;
                 }
@@ -46,34 +46,29 @@ impl Vm {
                 }
 
                 // Variables
-                Instruction::DefineGlobal => {
-                    let (index, _) = self.read().copied()?;
-                    let identifier = self.chunk.get_identifier(index as usize)?.clone();
-                    let value = self.pop()?;
+                Instruction::DefineVariable => {
+                    let (index, _) = *self.read()?;
+                    let value = self.read_constant(index)?;
 
-                    self.globals.insert(identifier, value);
+                    self.stack.insert(index as usize, value);
                 }
-                Instruction::GetGlobal => {
-                    let (index, _) = self.read().copied()?;
-                    let identifier = self.chunk.get_identifier(index as usize)?;
-                    let value =
-                        self.globals.get(identifier).cloned().ok_or_else(|| {
-                            VmError::UndefinedGlobal(identifier.clone(), position)
-                        })?;
+                Instruction::GetVariable => {
+                    let (index, _) = *self.read()?;
+                    let value = self.stack[index as usize].clone();
 
                     self.push(value)?;
                 }
-                Instruction::SetGlobal => {
-                    let (index, _) = self.read().copied()?;
-                    let identifier = self.chunk.get_identifier(index as usize)?.clone();
+                Instruction::SetVariable => {
+                    let (index, _) = *self.read()?;
+                    let identifier = self.chunk.get_identifier(index)?.clone();
 
-                    if !self.globals.contains_key(&identifier) {
-                        return Err(VmError::UndefinedGlobal(identifier, position));
+                    if !self.chunk.contains_identifier(&identifier) {
+                        return Err(VmError::UndefinedVariable(identifier, position));
                     }
 
                     let value = self.pop()?;
 
-                    self.globals.insert(identifier, value);
+                    self.stack[index as usize] = value;
                 }
 
                 // Unary
@@ -205,7 +200,7 @@ impl Vm {
         Ok(current)
     }
 
-    fn read_constant(&self, index: usize) -> Result<Value, VmError> {
+    fn read_constant(&self, index: u8) -> Result<Value, VmError> {
         Ok(self.chunk.get_constant(index)?.clone())
     }
 }
@@ -215,7 +210,7 @@ pub enum VmError {
     InvalidInstruction(u8, Span),
     StackUnderflow,
     StackOverflow,
-    UndefinedGlobal(Identifier, Span),
+    UndefinedVariable(Identifier, Span),
 
     // Wrappers for foreign errors
     Chunk(ChunkError),
@@ -241,9 +236,9 @@ pub enum Instruction {
     Pop = 2,
 
     // Variables
-    DefineGlobal = 3,
-    GetGlobal = 4,
-    SetGlobal = 5,
+    DefineVariable = 3,
+    GetVariable = 4,
+    SetVariable = 5,
 
     // Unary
     Negate = 6,
@@ -270,9 +265,9 @@ impl Instruction {
             0 => Some(Instruction::Constant),
             1 => Some(Instruction::Return),
             2 => Some(Instruction::Pop),
-            3 => Some(Instruction::DefineGlobal),
-            4 => Some(Instruction::GetGlobal),
-            5 => Some(Instruction::SetGlobal),
+            3 => Some(Instruction::DefineVariable),
+            4 => Some(Instruction::GetVariable),
+            5 => Some(Instruction::SetVariable),
             6 => Some(Instruction::Negate),
             7 => Some(Instruction::Not),
             8 => Some(Instruction::Add),
@@ -298,7 +293,7 @@ impl Instruction {
                 {
                     let index_string = index.to_string();
                     let value_string = chunk
-                        .get_constant(*index as usize)
+                        .get_constant(*index)
                         .map(|value| value.to_string())
                         .unwrap_or_else(|error| format!("{:?}", error));
 
@@ -316,48 +311,33 @@ impl Instruction {
             Instruction::Pop => format!("{offset:04} POP"),
 
             // Variables
-            Instruction::DefineGlobal => {
+            Instruction::DefineVariable => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
-                let index = *index as usize;
-                let identifier_display = chunk
-                    .get_identifier(index)
-                    .map(|identifier| identifier.to_string())
-                    .unwrap_or_else(|error| format!("{:?}", error));
-                let value_display = chunk
-                    .get_constant(index)
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|error| format!("{:?}", error));
+                let identifier_display = match chunk.get_identifier(*index) {
+                    Ok(identifier) => identifier.to_string(),
+                    Err(error) => format!("{:?}", error),
+                };
 
-                format!("{offset:04} DEFINE_GLOBAL {identifier_display} {value_display}")
+                format!("{offset:04} DEFINE_VARIABLE {identifier_display} {index}")
             }
-            Instruction::GetGlobal => {
+            Instruction::GetVariable => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
-                let index = *index as usize;
-                let identifier_display = chunk
-                    .get_identifier(index)
-                    .map(|identifier| identifier.to_string())
-                    .unwrap_or_else(|error| format!("{:?}", error));
-                let value_display = chunk
-                    .get_constant(index)
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|error| format!("{:?}", error));
+                let identifier_display = match chunk.get_identifier(*index) {
+                    Ok(identifier) => identifier.to_string(),
+                    Err(error) => format!("{:?}", error),
+                };
 
-                format!("{offset:04} GET_GLOBAL {identifier_display} {value_display}")
+                format!("{offset:04} GET_VARIABLE {identifier_display} {index}")
             }
 
-            Instruction::SetGlobal => {
+            Instruction::SetVariable => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
-                let index = *index as usize;
-                let identifier_display = chunk
-                    .get_identifier(index)
-                    .map(|identifier| identifier.to_string())
-                    .unwrap_or_else(|error| format!("{:?}", error));
-                let value_display = chunk
-                    .get_constant(index)
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|error| format!("{:?}", error));
+                let identifier_display = match chunk.get_identifier(*index) {
+                    Ok(identifier) => identifier.to_string(),
+                    Err(error) => format!("{:?}", error),
+                };
 
-                format!("{offset:04} SET_GLOBAL {identifier_display} {value_display}")
+                format!("{offset:04} SET_VARIABLE {identifier_display} {index}")
             }
 
             // Unary
@@ -378,6 +358,12 @@ impl Instruction {
             Instruction::And => format!("{offset:04} AND"),
             Instruction::Or => format!("{offset:04} OR"),
         }
+    }
+}
+
+impl Display for Instruction {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{self:?}")
     }
 }
 
