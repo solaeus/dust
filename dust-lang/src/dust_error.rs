@@ -26,9 +26,21 @@ impl<'src> DustError<'src> {
         match self {
             DustError::Runtime { error, source } => {
                 let position = error.position();
-                let label = format!("Runtime {}", error.title());
                 let description = error.description();
-                let message = Level::Error.title(&label).snippet(
+                let message = Level::Error.title(VmError::title()).snippet(
+                    Snippet::source(source).fold(true).annotation(
+                        Level::Error
+                            .span(position.0..position.1)
+                            .label(&description),
+                    ),
+                );
+
+                report.push_str(&renderer.render(message).to_string());
+            }
+            DustError::Parse { error, source } => {
+                let position = error.position();
+                let description = error.description();
+                let message = Level::Error.title(ParseError::title()).snippet(
                     Snippet::source(source).fold(true).annotation(
                         Level::Error
                             .span(position.0..position.1)

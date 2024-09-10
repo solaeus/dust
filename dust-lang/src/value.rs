@@ -46,7 +46,7 @@ use crate::{EnumType, FunctionType, Identifier, RangeableType, StructType, Type}
 ///
 /// assert_eq!(value.r#type(), Type::Integer);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Value {
     Raw(ValueData),
     Reference(Arc<ValueData>),
@@ -791,6 +791,18 @@ impl From<String> for Value {
 impl From<&str> for Value {
     fn from(str: &str) -> Self {
         Value::string(str)
+    }
+}
+
+impl Clone for Value {
+    fn clone(&self) -> Self {
+        log::trace!("Cloning value: {:?}", self);
+
+        match self {
+            Value::Raw(data) => Value::Raw(data.clone()),
+            Value::Reference(data) => Value::Reference(data.clone()),
+            Value::Mutable(data) => Value::Mutable(data.clone()),
+        }
     }
 }
 

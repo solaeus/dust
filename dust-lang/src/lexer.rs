@@ -530,6 +530,24 @@ pub enum LexError {
 }
 
 impl LexError {
+    pub fn title() -> &'static str {
+        "Lex Error"
+    }
+
+    pub fn description(&self) -> String {
+        match self {
+            Self::ExpectedCharacter {
+                expected, actual, ..
+            } => {
+                format!("Expected character \"{}\", found \"{}\"", expected, actual)
+            }
+            Self::UnexpectedCharacter { actual, .. } => {
+                format!("Unexpected character \"{}\"", actual)
+            }
+            Self::UnexpectedEndOfFile { .. } => "Unexpected end of file".to_string(),
+        }
+    }
+
     pub fn position(&self) -> Span {
         match self {
             Self::ExpectedCharacter { position, .. } => Span(*position, *position),

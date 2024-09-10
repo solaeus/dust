@@ -95,8 +95,11 @@ impl<'src> Parser<'src> {
     }
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
-        let constant_index = self.chunk.push_constant(value)?;
         let position = self.previous_position;
+        let constant_index = self
+            .chunk
+            .push_constant(value)
+            .map_err(|error| ParseError::Chunk { error, position })?;
 
         self.emit_byte(Instruction::Constant as u8, position);
         self.emit_byte(constant_index, position);
@@ -117,7 +120,11 @@ impl<'src> Parser<'src> {
 
     fn parse_byte(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::Byte(text) = self.previous_token {
-            let byte = u8::from_str_radix(&text[2..], 16)?;
+            let byte =
+                u8::from_str_radix(&text[2..], 16).map_err(|error| ParseError::ParseIntError {
+                    error,
+                    position: self.previous_position,
+                })?;
             let value = Value::byte(byte);
 
             self.emit_constant(value)?;
@@ -249,7 +256,13 @@ impl<'src> Parser<'src> {
     fn parse_identifier_from(&mut self, token: TokenOwned) -> Result<u8, ParseError> {
         if let TokenOwned::Identifier(text) = token {
             let identifier = Identifier::new(text);
-            let identifier_index = self.chunk.get_identifier_index(&identifier)?;
+            let identifier_index =
+                self.chunk
+                    .get_identifier_index(&identifier)
+                    .map_err(|error| ParseError::Chunk {
+                        error,
+                        position: self.previous_position,
+                    })?;
 
             Ok(identifier_index)
         } else {
@@ -300,7 +313,9 @@ impl<'src> Parser<'src> {
 
             let identifier = Identifier::new(text);
 
-            self.chunk.push_identifier(identifier)?
+            self.chunk
+                .push_identifier(identifier)
+                .map_err(|error| ParseError::Chunk { error, position })?
         } else {
             return Err(ParseError::ExpectedToken {
                 expected: TokenKind::Identifier,
@@ -566,26 +581,60 @@ pub enum ParseError {
     },
 
     // Wrappers around foreign errors
-    Chunk(ChunkError),
+    Chunk {
+        error: ChunkError,
+        position: Span,
+    },
     Lex(LexError),
-    ParseIntError(ParseIntError),
+    ParseIntError {
+        error: ParseIntError,
+        position: Span,
+    },
 }
 
-impl From<ParseIntError> for ParseError {
-    fn from(error: ParseIntError) -> Self {
-        Self::ParseIntError(error)
+impl ParseError {
+    pub fn title() -> &'static str {
+        "Parse Error"
+    }
+
+    pub fn description(&self) -> String {
+        match self {
+            Self::ExpectedExpression { found, .. } => {
+                format!("Expected an expression, found \"{found}\"")
+            }
+            Self::ExpectedToken {
+                expected, found, ..
+            } => {
+                format!("Expected \"{expected}\", found \"{found}\"")
+            }
+            Self::ExpectedTokenMultiple {
+                expected, found, ..
+            } => format!("Expected one of {:?}, found \"{found}\"", expected,),
+            Self::InvalidAssignmentTarget { found, .. } => {
+                format!("Invalid assignment target \"{found}\"")
+            }
+            Self::Chunk { error, .. } => error.description(),
+            Self::Lex(error) => error.description(),
+            Self::ParseIntError { error, .. } => error.to_string(),
+        }
+    }
+
+    pub fn position(&self) -> Span {
+        match self {
+            Self::ExpectedExpression { position, .. } => *position,
+            Self::ExpectedToken { position, .. } => *position,
+            Self::ExpectedTokenMultiple { position, .. } => *position,
+            Self::InvalidAssignmentTarget { position, .. } => *position,
+            Self::Chunk { position, .. } => *position,
+            Self::Lex(error) => error.position(),
+            Self::ParseIntError { position, .. } => *position,
+        }
     }
 }
 
 impl From<LexError> for ParseError {
     fn from(error: LexError) -> Self {
         Self::Lex(error)
-    }
-}
-
-impl From<ChunkError> for ParseError {
-    fn from(error: ChunkError) -> Self {
-        Self::Chunk(error)
     }
 }
 

@@ -56,6 +56,16 @@ impl Chunk {
             .ok_or(ChunkError::ConstantIndexOutOfBounds(index))
     }
 
+    pub fn remove_constant(&mut self, index: u8) -> Result<Value, ChunkError> {
+        let index = index as usize;
+
+        if index >= self.constants.len() {
+            Err(ChunkError::ConstantIndexOutOfBounds(index as u8))
+        } else {
+            Ok(self.constants.remove(index))
+        }
+    }
+
     pub fn push_constant(&mut self, value: Value) -> Result<u8, ChunkError> {
         let starting_length = self.constants.len();
 

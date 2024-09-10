@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     parse, Chunk, ChunkError, DustError, Identifier, Instruction, Span, Value, ValueError,
 };
@@ -13,9 +15,9 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Vm {
-    chunk: Chunk,
+    chunk: Rc<Chunk>,
     ip: usize,
-    stack: Vec<Value>,
+    stack: Vec<StackedValue>,
 }
 
 impl Vm {
@@ -23,17 +25,17 @@ impl Vm {
 
     pub fn new(chunk: Chunk) -> Self {
         Self {
-            chunk,
+            chunk: Rc::new(chunk),
             ip: 0,
             stack: Vec::with_capacity(Self::STACK_SIZE),
         }
     }
 
     pub fn run(&mut self) -> Result<Option<Value>, VmError> {
-        let mut current_postion = Span(0, 0);
+        let mut current_position = Span(0, 0);
 
-        while let Ok((byte, position)) = self.read(current_postion).copied() {
-            current_postion = position;
+        while let Ok((byte, position)) = self.read(current_position).copied() {
+            current_position = position;
 
             let instruction = Instruction::from_byte(byte)
                 .ok_or_else(|| VmError::InvalidInstruction(byte, position))?;
@@ -43,12 +45,11 @@ impl Vm {
             match instruction {
                 Instruction::Constant => {
                     let (index, _) = self.read(position).copied()?;
-                    let value = self.read_constant(index, position)?.clone();
 
-                    self.push(value, position)?;
+                    self.push_constant_value(index, position)?;
                 }
                 Instruction::Return => {
-                    let value = self.pop(position)?;
+                    let value = self.pop(position)?.resolve(&self.chunk, position)?.clone();
 
                     return Ok(Some(value));
                 }
@@ -59,18 +60,14 @@ impl Vm {
                 // Variables
                 Instruction::DefineVariable => {
                     let (index, _) = *self.read(position)?;
-                    let value = self
-                        .read_constant(index, position)?
-                        .clone()
-                        .into_reference();
 
-                    self.stack.insert(index as usize, value);
+                    self.stack
+                        .insert(index as usize, StackedValue::Constant(index));
                 }
                 Instruction::GetVariable => {
                     let (index, _) = *self.read(position)?;
-                    let value = self.stack[index as usize].clone();
 
-                    self.push(value, position)?;
+                    self.push_constant_value(index, position)?;
                 }
                 Instruction::SetVariable => {
                     let (index, _) = *self.read(position)?;
@@ -84,157 +81,205 @@ impl Vm {
                         return Err(VmError::UndefinedVariable(identifier, position));
                     }
 
-                    let value = self.pop(position)?;
+                    let stacked = self.pop(position)?;
 
-                    self.stack[index as usize] = value;
+                    self.stack[index as usize] = stacked;
                 }
 
                 // Unary
                 Instruction::Negate => {
                     let negated = self
                         .pop(position)?
+                        .resolve(&self.chunk, position)?
                         .negate()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(negated, position)?;
+                    self.push_runtime_value(negated, position)?;
                 }
                 Instruction::Not => {
                     let not = self
                         .pop(position)?
+                        .resolve(&self.chunk, position)?
                         .not()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(not, position)?;
+                    self.push_runtime_value(not, position)?;
                 }
 
                 // Binary
                 Instruction::Add => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let sum = left
-                        .add(&right)
+                        .add(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(sum, position)?;
+                    self.push_runtime_value(sum, position)?;
                 }
                 Instruction::Subtract => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let difference = left
-                        .subtract(&right)
+                        .subtract(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(difference, position)?;
+                    self.push_runtime_value(difference, position)?;
                 }
                 Instruction::Multiply => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let product = left
-                        .multiply(&right)
+                        .multiply(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(product, position)?;
+                    self.push_runtime_value(product, position)?;
                 }
                 Instruction::Divide => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let quotient = left
-                        .divide(&right)
+                        .divide(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(quotient, position)?;
+                    self.push_runtime_value(quotient, position)?;
                 }
                 Instruction::Greater => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let greater = left
-                        .greater_than(&right)
+                        .greater_than(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(greater, position)?;
+                    self.push_runtime_value(greater, position)?;
                 }
                 Instruction::Less => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let less = left
-                        .less_than(&right)
+                        .less_than(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(less, position)?;
+                    self.push_runtime_value(less, position)?;
                 }
                 Instruction::GreaterEqual => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let greater_equal = left
-                        .greater_than_or_equal(&right)
+                        .greater_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(greater_equal, position)?;
+                    self.push_runtime_value(greater_equal, position)?;
                 }
                 Instruction::LessEqual => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let less_equal = left
-                        .less_than_or_equal(&right)
+                        .less_than_or_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(less_equal, position)?;
+                    self.push_runtime_value(less_equal, position)?;
                 }
                 Instruction::Equal => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let equal = left
-                        .equal(&right)
+                        .equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(equal, position)?;
+                    self.push_runtime_value(equal, position)?;
                 }
                 Instruction::NotEqual => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let not_equal = left
-                        .not_equal(&right)
+                        .not_equal(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(not_equal, position)?;
+                    self.push_runtime_value(not_equal, position)?;
                 }
                 Instruction::And => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let and = left
-                        .and(&right)
+                        .and(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(and, position)?;
+                    self.push_runtime_value(and, position)?;
                 }
                 Instruction::Or => {
-                    let right = self.pop(position)?;
-                    let left = self.pop(position)?;
+                    let chunk = self.chunk.clone();
+                    let right_stacked = self.pop(position)?;
+                    let right = right_stacked.resolve(chunk.as_ref(), position)?;
+                    let left_stacked = self.pop(position)?;
+                    let left = left_stacked.resolve(&self.chunk, position)?;
                     let or = left
-                        .or(&right)
+                        .or(right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.push(or, position)?;
+                    self.push_runtime_value(or, position)?;
                 }
             }
         }
 
-        Ok(self.stack.pop())
+        Ok(None)
     }
 
-    fn push(&mut self, value: Value, position: Span) -> Result<(), VmError> {
+    fn push_runtime_value(&mut self, value: Value, position: Span) -> Result<(), VmError> {
         if self.stack.len() == Self::STACK_SIZE {
             Err(VmError::StackOverflow(position))
         } else {
-            self.stack.push(value);
+            self.stack.push(StackedValue::Runtime(value));
 
             Ok(())
         }
     }
 
-    fn pop(&mut self, position: Span) -> Result<Value, VmError> {
-        if let Some(value) = self.stack.pop() {
-            Ok(value)
+    fn push_constant_value(&mut self, index: u8, position: Span) -> Result<(), VmError> {
+        if self.stack.len() == Self::STACK_SIZE {
+            Err(VmError::StackOverflow(position))
+        } else {
+            self.stack.push(StackedValue::Constant(index));
+
+            Ok(())
+        }
+    }
+
+    fn pop(&mut self, position: Span) -> Result<StackedValue, VmError> {
+        if let Some(stacked) = self.stack.pop() {
+            Ok(stacked)
         } else {
             Err(VmError::StackUnderflow(position))
         }
@@ -250,14 +295,22 @@ impl Vm {
 
         Ok(current)
     }
+}
 
-    fn read_constant(&self, index: u8, position: Span) -> Result<&Value, VmError> {
-        let value = self
-            .chunk
-            .get_constant(index)
-            .map_err(|error| VmError::Chunk { error, position })?;
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum StackedValue {
+    Runtime(Value),
+    Constant(u8),
+}
 
-        Ok(value)
+impl StackedValue {
+    fn resolve<'a>(&'a self, chunk: &'a Chunk, position: Span) -> Result<&'a Value, VmError> {
+        match self {
+            Self::Runtime(value) => Ok(value),
+            Self::Constant(index) => chunk
+                .get_constant(*index)
+                .map_err(|error| VmError::Chunk { error, position }),
+        }
     }
 }
 
@@ -282,8 +335,8 @@ impl VmError {
         Self::Value { error, position }
     }
 
-    pub fn title(&self) -> &'static str {
-        "VM Error"
+    pub fn title() -> &'static str {
+        "Runtime Error"
     }
 
     pub fn description(&self) -> String {
