@@ -3,7 +3,8 @@ use std::fmt::{self, Debug, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    identifier_stack::Local, Identifier, IdentifierStack, Instruction, Span, Value, ValueLocation,
+    identifier_stack::Local, AnnotatedError, Identifier, IdentifierStack, Instruction, Span, Value,
+    ValueLocation,
 };
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -42,27 +43,34 @@ impl Chunk {
         self.code.is_empty()
     }
 
-    pub fn get_code(&self, offset: usize) -> Result<&(u8, Span), ChunkError> {
+    pub fn scope_depth(&self) -> usize {
+        self.identifiers.scope_depth()
+    }
+
+    pub fn get_code(&self, offset: usize, position: Span) -> Result<&(u8, Span), ChunkError> {
         self.code
             .get(offset)
-            .ok_or(ChunkError::CodeIndexOfBounds(offset))
+            .ok_or(ChunkError::CodeIndexOfBounds { offset, position })
     }
 
     pub fn push_code(&mut self, instruction: u8, position: Span) {
         self.code.push((instruction, position));
     }
 
-    pub fn get_constant(&self, index: u8) -> Result<&Value, ChunkError> {
+    pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {
         self.constants
             .get(index as usize)
-            .ok_or(ChunkError::ConstantIndexOutOfBounds(index))
+            .ok_or(ChunkError::ConstantIndexOutOfBounds { index, position })
     }
 
-    pub fn remove_constant(&mut self, index: u8) -> Result<Value, ChunkError> {
+    pub fn remove_constant(&mut self, index: u8, position: Span) -> Result<Value, ChunkError> {
         let index = index as usize;
 
         if index >= self.constants.len() {
-            Err(ChunkError::ConstantIndexOutOfBounds(index as u8))
+            Err(ChunkError::ConstantIndexOutOfBounds {
+                index: index as u8,
+                position,
+            })
         } else {
             Ok(self.constants.remove(index))
         }
@@ -90,6 +98,14 @@ impl Chunk {
             .ok_or(ChunkError::IdentifierIndexOutOfBounds(index))
     }
 
+    pub fn resolve_local(&self, identifier: &Identifier) -> Option<u8> {
+        self.identifiers.resolve(self, identifier)
+    }
+
+    pub fn resolve_local_index(&self, identifier: &Identifier) -> Option<u8> {
+        self.identifiers.resolve_index(identifier)
+    }
+
     pub fn get_identifier(&self, index: u8) -> Result<&Identifier, ChunkError> {
         self.identifiers
             .get(index as usize)
@@ -97,10 +113,18 @@ impl Chunk {
             .ok_or(ChunkError::IdentifierIndexOutOfBounds(index))
     }
 
-    pub fn get_identifier_index(&self, identifier: &Identifier) -> Result<u8, ChunkError> {
+    pub fn get_identifier_index(
+        &self,
+        identifier: &Identifier,
+        position: Span,
+    ) -> Result<u8, ChunkError> {
         self.identifiers
             .get_index(identifier)
-            .ok_or(ChunkError::IdentifierNotFound(identifier.clone()))
+            .map(|index| index as u8)
+            .ok_or(ChunkError::IdentifierNotFound {
+                identifier: identifier.clone(),
+                position,
+            })
     }
 
     pub fn push_constant_identifier(&mut self, identifier: Identifier) -> Result<u8, ChunkError> {
@@ -110,7 +134,7 @@ impl Chunk {
             Err(ChunkError::IdentifierOverflow)
         } else {
             self.identifiers
-                .declare(identifier, ValueLocation::ConstantStack);
+                .define(identifier, ValueLocation::ConstantStack);
 
             Ok(starting_length as u8)
         }
@@ -123,10 +147,23 @@ impl Chunk {
             Err(ChunkError::IdentifierOverflow)
         } else {
             self.identifiers
-                .declare(identifier, ValueLocation::RuntimeStack);
+                .define(identifier, ValueLocation::RuntimeStack);
 
             Ok(starting_length as u8)
         }
+    }
+
+    pub fn redefine_as_runtime_identifier(
+        &mut self,
+        identifier: &Identifier,
+        position: Span,
+    ) -> Result<usize, ChunkError> {
+        self.identifiers
+            .redefine(identifier, ValueLocation::RuntimeStack)
+            .ok_or_else(|| ChunkError::IdentifierNotFound {
+                identifier: identifier.clone(),
+                position,
+            })
     }
 
     pub fn begin_scope(&mut self) {
@@ -162,7 +199,7 @@ impl Chunk {
         for (offset, (byte, position)) in self.code.iter().enumerate() {
             if let Some(
                 Instruction::Constant
-                | Instruction::DefineVariableConstant
+                | Instruction::DefineVariable
                 | Instruction::GetVariable
                 | Instruction::SetVariable,
             ) = previous
@@ -179,9 +216,9 @@ impl Chunk {
                 instruction.disassemble(self, offset)
             );
 
-            previous = Some(instruction);
-
             output.push_str(&display);
+
+            previous = Some(instruction);
         }
 
         output.push_str("\n            Constants           \n");
@@ -245,29 +282,80 @@ impl Debug for Chunk {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChunkError {
-    CodeIndexOfBounds(usize),
+    CodeIndexOfBounds {
+        offset: usize,
+        position: Span,
+    },
     ConstantOverflow,
-    ConstantIndexOutOfBounds(u8),
+    ConstantIndexOutOfBounds {
+        index: u8,
+        position: Span,
+    },
     IdentifierIndexOutOfBounds(u8),
     IdentifierOverflow,
-    IdentifierNotFound(Identifier),
+    IdentifierNotFound {
+        identifier: Identifier,
+        position: Span,
+    },
+}
+
+impl AnnotatedError for ChunkError {
+    fn title() -> &'static str {
+        "Chunk Error"
+    }
+
+    fn description(&self) -> &'static str {
+        match self {
+            ChunkError::CodeIndexOfBounds { .. } => "Code index out of bounds",
+            ChunkError::ConstantOverflow => "Constant overflow",
+            ChunkError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
+            ChunkError::IdentifierIndexOutOfBounds(_) => "Identifier index out of bounds",
+            ChunkError::IdentifierOverflow => "Identifier overflow",
+            ChunkError::IdentifierNotFound { .. } => "Identifier not found",
+        }
+    }
+
+    fn details(&self) -> Option<String> {
+        match self {
+            ChunkError::CodeIndexOfBounds { offset, .. } => Some(format!("Code index: {}", offset)),
+            ChunkError::ConstantIndexOutOfBounds { index, .. } => {
+                Some(format!("Constant index: {}", index))
+            }
+            ChunkError::IdentifierIndexOutOfBounds(index) => {
+                Some(format!("Identifier index: {}", index))
+            }
+            ChunkError::IdentifierNotFound { identifier, .. } => {
+                Some(format!("Identifier: {}", identifier))
+            }
+            _ => None,
+        }
+    }
+
+    fn position(&self) -> Span {
+        match self {
+            ChunkError::CodeIndexOfBounds { position, .. } => *position,
+            ChunkError::ConstantIndexOutOfBounds { position, .. } => *position,
+            ChunkError::IdentifierNotFound { position, .. } => *position,
+            _ => todo!(),
+        }
+    }
 }
 
 impl Display for ChunkError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ChunkError::CodeIndexOfBounds(offset) => {
+            ChunkError::CodeIndexOfBounds { offset, .. } => {
                 write!(f, "Code index out of bounds: {}", offset)
             }
             ChunkError::ConstantOverflow => write!(f, "Constant overflow"),
-            ChunkError::ConstantIndexOutOfBounds(index) => {
+            ChunkError::ConstantIndexOutOfBounds { index, .. } => {
                 write!(f, "Constant index out of bounds: {}", index)
             }
             ChunkError::IdentifierIndexOutOfBounds(index) => {
                 write!(f, "Identifier index out of bounds: {}", index)
             }
             ChunkError::IdentifierOverflow => write!(f, "Identifier overflow"),
-            ChunkError::IdentifierNotFound(identifier) => {
+            ChunkError::IdentifierNotFound { identifier, .. } => {
                 write!(f, "Identifier not found: {}", identifier)
             }
         }

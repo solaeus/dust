@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Identifier;
+use crate::{Chunk, Identifier};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentifierStack {
@@ -41,11 +41,33 @@ impl IdentifierStack {
             .any(|local| &local.identifier == identifier)
     }
 
+    pub fn resolve(&self, chunk: &Chunk, identifier: &Identifier) -> Option<u8> {
+        for (index, local) in self.locals.iter().rev().enumerate() {
+            if &local.identifier == identifier {
+                let offset = index;
+
+                return Some(offset as u8);
+            }
+        }
+
+        None
+    }
+
+    pub fn resolve_index(&self, identifier: &Identifier) -> Option<u8> {
+        self.locals.iter().enumerate().find_map(|(index, local)| {
+            if &local.identifier == identifier && local.depth <= self.scope_depth {
+                Some(index as u8)
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn get(&self, index: usize) -> Option<&Local> {
         self.locals.get(index)
     }
 
-    pub fn get_index(&self, identifier: &Identifier) -> Option<u8> {
+    pub fn get_index(&self, identifier: &Identifier) -> Option<usize> {
         self.locals.iter().enumerate().rev().find_map(
             |(
                 index,
@@ -54,12 +76,16 @@ impl IdentifierStack {
                 },
             )| {
                 if local == identifier {
-                    Some(index as u8)
+                    Some(index)
                 } else {
                     None
                 }
             },
         )
+    }
+
+    pub fn scope_depth(&self) -> usize {
+        self.scope_depth
     }
 
     pub fn begin_scope(&mut self) {
@@ -70,12 +96,26 @@ impl IdentifierStack {
         self.scope_depth -= 1;
     }
 
-    pub fn declare(&mut self, identifier: Identifier, value_location: ValueLocation) {
+    pub fn define(&mut self, identifier: Identifier, value_location: ValueLocation) {
         self.locals.push(Local {
             identifier,
             depth: self.scope_depth,
             value_location,
         });
+    }
+
+    pub fn redefine(
+        &mut self,
+        identifier: &Identifier,
+        value_location: ValueLocation,
+    ) -> Option<usize> {
+        if let Some(index) = self.get_index(identifier) {
+            self.locals[index].value_location = value_location;
+
+            Some(index)
+        } else {
+            None
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Local> {

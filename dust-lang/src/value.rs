@@ -796,7 +796,7 @@ impl From<&str> for Value {
 
 impl Clone for Value {
     fn clone(&self) -> Self {
-        log::trace!("Cloning value: {:?}", self);
+        log::trace!("Cloning value {:?}", self);
 
         match self {
             Value::Raw(data) => Value::Raw(data.clone()),

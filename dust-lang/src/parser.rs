@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     dust_error::AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, LexError,
-    Lexer, Span, Token, TokenKind, TokenOwned, Value,
+    Lexer, Local, Span, Token, TokenKind, TokenOwned, Value, ValueLocation,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -234,10 +234,10 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_variable(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
-        self.parse_named_variable_from(allow_assignment)
+        self.parse_named_variable(allow_assignment)
     }
 
-    fn parse_named_variable_from(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
+    fn parse_named_variable(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
         let token = self.previous_token.to_owned();
         let identifier_index = self.parse_identifier_from(token)?;
 
@@ -256,9 +256,10 @@ impl<'src> Parser<'src> {
     fn parse_identifier_from(&mut self, token: TokenOwned) -> Result<u8, ParseError> {
         if let TokenOwned::Identifier(text) = token {
             let identifier = Identifier::new(text);
+
             let identifier_index =
                 self.chunk
-                    .get_identifier_index(&identifier)
+                    .push_constant_identifier(identifier)
                     .map_err(|error| ParseError::Chunk {
                         error,
                         position: self.previous_position,
@@ -337,34 +338,15 @@ impl<'src> Parser<'src> {
         };
 
         self.expect(TokenKind::Equal)?;
+        self.parse_expression()?;
 
-        let is_constant = matches!(
-            self.current_token,
-            Token::Boolean(_)
-                | Token::Byte(_)
-                | Token::Character(_)
-                | Token::Float(_)
-                | Token::Integer(_)
-                | Token::String(_)
-        );
+        let identifier_index = self
+            .chunk
+            .push_constant_identifier(identifier)
+            .map_err(|error| ParseError::Chunk { error, position })?;
 
-        let identifier_index = if is_constant {
-            self.chunk.push_constant_identifier(identifier)
-        } else {
-            self.chunk.push_runtime_identifier(identifier)
-        }
-        .map_err(|error| ParseError::Chunk { error, position })?;
-
-        if is_constant {
-            self.emit_byte(Instruction::DefineVariableConstant, position);
-            self.emit_byte(identifier_index, position);
-
-            self.parse_expression()?;
-        } else {
-            self.parse_expression()?;
-
-            self.emit_byte(Instruction::DefineVariableRuntime, position);
-        }
+        self.emit_byte(Instruction::DefineVariable, position);
+        self.emit_byte(identifier_index, position);
 
         Ok(())
     }
@@ -729,11 +711,11 @@ mod tests {
             test_chunk,
             Ok(Chunk::with_data(
                 vec![
-                    (Instruction::DefineVariableConstant as u8, Span(4, 5)),
+                    (Instruction::DefineVariable as u8, Span(4, 5)),
                     (0, Span(4, 5)),
                     (Instruction::Constant as u8, Span(8, 10)),
                     (0, Span(8, 10)),
-                    (Instruction::DefineVariableConstant as u8, Span(16, 17)),
+                    (Instruction::DefineVariable as u8, Span(16, 17)),
                     (1, Span(16, 17)),
                     (Instruction::Constant as u8, Span(20, 22)),
                     (1, Span(20, 22)),
@@ -770,7 +752,7 @@ mod tests {
             test_chunk,
             Ok(Chunk::with_data(
                 vec![
-                    (Instruction::DefineVariableConstant as u8, Span(4, 5)),
+                    (Instruction::DefineVariable as u8, Span(4, 5)),
                     (0, Span(4, 5)),
                     (Instruction::Constant as u8, Span(8, 10)),
                     (0, Span(8, 10)),

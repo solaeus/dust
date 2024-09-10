@@ -1,8 +1,9 @@
-use std::fs::read_to_string;
+use std::{fs::read_to_string, io::Write};
 
 use clap::Parser;
+use colored::Colorize;
 use dust_lang::{parse, run};
-use env_logger::WriteStyle;
+use log::Level;
 
 #[derive(Parser)]
 struct Cli {
@@ -18,8 +19,21 @@ struct Cli {
 fn main() {
     env_logger::builder()
         .parse_env("DUST_LOG")
-        .format_timestamp_secs()
-        .write_style(WriteStyle::Always)
+        .format(|buf, record| {
+            let level = match record.level() {
+                Level::Error => "ERROR".red(),
+                Level::Warn => "WARN".yellow(),
+                Level::Info => "INFO".white(),
+                Level::Debug => "DEBUG".blue(),
+                Level::Trace => "TRACE".purple(),
+            };
+            let module = record
+                .module_path()
+                .map(|path| path.split("::").last().unwrap_or("UNKNOWN").to_uppercase())
+                .unwrap_or("UNKNOWN".to_string());
+
+            writeln!(buf, "[{level:^5}] {module:^6} {}", record.args())
+        })
         .init();
 
     let args = Cli::parse();
