@@ -129,6 +129,14 @@ impl Chunk {
         }
     }
 
+    pub fn begin_scope(&mut self) {
+        self.identifiers.begin_scope();
+    }
+
+    pub fn end_scope(&mut self) {
+        self.identifiers.end_scope();
+    }
+
     pub fn clear(&mut self) {
         self.code.clear();
         self.constants.clear();
@@ -138,9 +146,13 @@ impl Chunk {
     pub fn disassemble(&self, name: &str) -> String {
         let mut output = String::new();
 
-        output.push_str("# ");
-        output.push_str(name);
-        output.push_str("\n\n## Code\n");
+        let name_length = name.len();
+        let buffer_length = 32_usize.saturating_sub(name_length + 2);
+        let name_buffer = " ".repeat(buffer_length / 2);
+        let name_line = format!("{name_buffer} {name} {name_buffer}\n");
+
+        output.push_str(&name_line);
+        output.push_str("\n              Code              \n");
         output.push_str("------ ------------ ------------\n");
         output.push_str("OFFSET POSITION     INSTRUCTION\n");
         output.push_str("------ ------------ ------------\n");
@@ -172,7 +184,7 @@ impl Chunk {
             output.push_str(&display);
         }
 
-        output.push_str("\n## Constants\n");
+        output.push_str("\n            Constants           \n");
         output.push_str("----- ---- -----\n");
         output.push_str("INDEX KIND VALUE\n");
         output.push_str("----- ---- -----\n");
@@ -188,7 +200,7 @@ impl Chunk {
             output.push_str(&display);
         }
 
-        output.push_str("\n## Identifiers\n");
+        output.push_str("\n           Identifiers          \n");
         output.push_str("----- ---------- -------- -----\n");
         output.push_str("INDEX IDENTIFIER LOCATION DEPTH\n");
         output.push_str("----- ---------- -------- -----\n");

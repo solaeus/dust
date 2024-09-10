@@ -90,8 +90,8 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn emit_byte(&mut self, byte: u8, position: Span) {
-        self.chunk.push_code(byte, position);
+    fn emit_byte<T: Into<u8>>(&mut self, into_byte: T, position: Span) {
+        self.chunk.push_code(into_byte.into(), position);
     }
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
@@ -101,7 +101,7 @@ impl<'src> Parser<'src> {
             .push_constant(value)
             .map_err(|error| ParseError::Chunk { error, position })?;
 
-        self.emit_byte(Instruction::Constant as u8, position);
+        self.emit_byte(Instruction::Constant, position);
         self.emit_byte(constant_index, position);
 
         Ok(())
@@ -183,7 +183,7 @@ impl<'src> Parser<'src> {
     fn parse_unary(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         let operator_position = self.previous_position;
         let byte = match self.previous_token.kind() {
-            TokenKind::Minus => Instruction::Negate as u8,
+            TokenKind::Minus => Instruction::Negate,
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![TokenKind::Minus],
@@ -209,11 +209,11 @@ impl<'src> Parser<'src> {
         self.parse(rule.precedence.increment())?;
 
         let byte = match operator {
-            TokenKind::Plus => Instruction::Add as u8,
-            TokenKind::Minus => Instruction::Subtract as u8,
-            TokenKind::Star => Instruction::Multiply as u8,
-            TokenKind::Slash => Instruction::Divide as u8,
-            TokenKind::DoubleAmpersand => Instruction::And as u8,
+            TokenKind::Plus => Instruction::Add,
+            TokenKind::Minus => Instruction::Subtract,
+            TokenKind::Star => Instruction::Multiply,
+            TokenKind::Slash => Instruction::Divide,
+            TokenKind::DoubleAmpersand => Instruction::And,
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -243,10 +243,10 @@ impl<'src> Parser<'src> {
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
             self.parse_expression()?;
-            self.emit_byte(Instruction::SetVariable as u8, self.previous_position);
+            self.emit_byte(Instruction::SetVariable, self.previous_position);
             self.emit_byte(identifier_index, self.previous_position);
         } else {
-            self.emit_byte(Instruction::GetVariable as u8, self.previous_position);
+            self.emit_byte(Instruction::GetVariable, self.previous_position);
             self.emit_byte(identifier_index, self.previous_position);
         }
 
@@ -274,34 +274,47 @@ impl<'src> Parser<'src> {
         }
     }
 
+    pub fn parse_block(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+        self.chunk.begin_scope();
+
+        while !self.allow(TokenKind::RightCurlyBrace)? && !self.is_eof() {
+            self.parse_statement()?;
+        }
+
+        self.chunk.end_scope();
+
+        Ok(())
+    }
+
     fn parse_expression(&mut self) -> Result<(), ParseError> {
         self.parse(Precedence::None)
     }
 
     fn parse_statement(&mut self) -> Result<(), ParseError> {
         let start = self.current_position.0;
-        let is_expression_statement = match self.current_token {
+        let (is_expression_statement, contains_block) = match self.current_token {
             Token::Let => {
                 self.parse_let_assignment(true)?;
 
-                false
+                (false, false)
+            }
+            Token::LeftCurlyBrace => {
+                self.parse_expression()?;
+
+                (true, true)
             }
             _ => {
                 self.parse_expression()?;
 
-                true
+                (true, false)
             }
         };
         let has_semicolon = self.allow(TokenKind::Semicolon)?;
 
-        if is_expression_statement {
+        if is_expression_statement && !contains_block && !has_semicolon {
             let end = self.previous_position.1;
 
-            if has_semicolon {
-                self.emit_byte(Instruction::Pop as u8, Span(start, end));
-            } else {
-                self.emit_byte(Instruction::Return as u8, Span(start, end));
-            }
+            self.emit_byte(Instruction::Return, Span(start, end))
         }
 
         Ok(())
@@ -343,14 +356,14 @@ impl<'src> Parser<'src> {
         .map_err(|error| ParseError::Chunk { error, position })?;
 
         if is_constant {
-            self.emit_byte(Instruction::DefineVariableConstant as u8, position);
+            self.emit_byte(Instruction::DefineVariableConstant, position);
             self.emit_byte(identifier_index, position);
 
             self.parse_expression()?;
         } else {
             self.parse_expression()?;
 
-            self.emit_byte(Instruction::DefineVariableRuntime as u8, position);
+            self.emit_byte(Instruction::DefineVariableRuntime, position);
         }
 
         Ok(())
@@ -533,7 +546,11 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::Equal => todo!(),
             TokenKind::Greater => todo!(),
             TokenKind::GreaterOrEqual => todo!(),
-            TokenKind::LeftCurlyBrace => todo!(),
+            TokenKind::LeftCurlyBrace => ParseRule {
+                prefix: Some(Parser::parse_block),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::LeftParenthesis => ParseRule {
                 prefix: Some(Parser::parse_grouped),
                 infix: None,
@@ -556,7 +573,11 @@ impl From<&TokenKind> for ParseRule<'_> {
                 precedence: Precedence::Term,
             },
             TokenKind::PlusEqual => todo!(),
-            TokenKind::RightCurlyBrace => todo!(),
+            TokenKind::RightCurlyBrace => ParseRule {
+                prefix: None,
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::RightParenthesis => ParseRule {
                 prefix: None,
                 infix: None,
@@ -677,6 +698,27 @@ mod tests {
     use crate::{identifier_stack::Local, ValueLocation};
 
     use super::*;
+
+    #[test]
+    fn block() {
+        let source = "{ 42; 42 }";
+        let test_chunk = parse(source);
+
+        assert_eq!(
+            test_chunk,
+            Ok(Chunk::with_data(
+                vec![
+                    (Instruction::Constant as u8, Span(2, 4)),
+                    (0, Span(2, 4)),
+                    (Instruction::Constant as u8, Span(6, 8)),
+                    (1, Span(6, 8)),
+                    (Instruction::Return as u8, Span(6, 8)),
+                ],
+                vec![Value::integer(42), Value::integer(42)],
+                vec![]
+            ))
+        );
+    }
 
     #[test]
     fn add_variables() {

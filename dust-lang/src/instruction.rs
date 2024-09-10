@@ -134,3 +134,9 @@ impl Display for Instruction {
         write!(f, "{self:?}")
     }
 }
+
+impl From<Instruction> for u8 {
+    fn from(instruction: Instruction) -> Self {
+        instruction as u8
+    }
+}
