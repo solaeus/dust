@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Identifier;
 
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdentifierStack {
     locals: Vec<Local>,
     scope_depth: usize,
@@ -44,11 +44,20 @@ impl IdentifierStack {
     }
 
     pub fn get_index(&self, identifier: &Identifier) -> Option<u8> {
-        self.locals
-            .iter()
-            .rev()
-            .position(|local| &local.identifier == identifier)
-            .map(|index| index as u8)
+        self.locals.iter().enumerate().rev().find_map(
+            |(
+                index,
+                Local {
+                    identifier: local, ..
+                },
+            )| {
+                if local == identifier {
+                    Some(index as u8)
+                } else {
+                    None
+                }
+            },
+        )
     }
 
     pub fn begin_scope(&mut self) {
@@ -74,6 +83,14 @@ impl IdentifierStack {
 impl Default for IdentifierStack {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Eq for IdentifierStack {}
+
+impl PartialEq for IdentifierStack {
+    fn eq(&self, other: &Self) -> bool {
+        self.locals == other.locals
     }
 }
 

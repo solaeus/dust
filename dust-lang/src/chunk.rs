@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    rc::Weak,
-};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
@@ -43,17 +40,13 @@ impl Chunk {
         self.code.is_empty()
     }
 
-    pub fn capacity(&self) -> usize {
-        self.code.capacity()
-    }
-
-    pub fn read(&self, offset: usize) -> Result<&(u8, Span), ChunkError> {
+    pub fn get_code(&self, offset: usize) -> Result<&(u8, Span), ChunkError> {
         self.code
             .get(offset)
             .ok_or(ChunkError::CodeIndextOfBounds(offset))
     }
 
-    pub fn write(&mut self, instruction: u8, position: Span) {
+    pub fn push_code(&mut self, instruction: u8, position: Span) {
         self.code.push((instruction, position));
     }
 
@@ -123,7 +116,7 @@ impl Chunk {
         for (offset, (byte, position)) in self.code.iter().enumerate() {
             if let Some(Instruction::Constant) = previous {
                 let display = format!("{offset:04}   CONSTANT_INDEX {byte}");
-                let display_with_postion = format!("{display:26} {position}\n");
+                let display_with_postion = format!("{display:27} {position}\n");
                 previous = None;
 
                 output.push_str(&display_with_postion);
@@ -136,7 +129,7 @@ impl Chunk {
             ) = previous
             {
                 let display = format!("{offset:04}   IDENTIFIER_INDEX {byte}");
-                let display_with_postion = format!("{display:26} {position}\n");
+                let display_with_postion = format!("{display:27} {position}\n");
 
                 previous = None;
 
@@ -147,7 +140,7 @@ impl Chunk {
 
             let instruction = Instruction::from_byte(*byte).unwrap();
             let display = format!("{offset:04}   {}", instruction.disassemble(self, offset));
-            let display_with_postion = format!("{display:26} {position}\n");
+            let display_with_postion = format!("{display:27} {position}\n");
 
             previous = Some(instruction);
 

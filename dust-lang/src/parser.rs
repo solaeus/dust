@@ -54,6 +54,10 @@ impl<'src> Parser<'src> {
     }
 
     fn advance(&mut self) -> Result<(), ParseError> {
+        if self.is_eof() {
+            return Ok(());
+        }
+
         let (new_token, position) = self.lexer.next_token()?;
 
         log::trace!("Advancing to token {new_token} at {position}");
@@ -87,7 +91,7 @@ impl<'src> Parser<'src> {
     }
 
     fn emit_byte(&mut self, byte: u8, position: Span) {
-        self.chunk.write(byte, position);
+        self.chunk.push_code(byte, position);
     }
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
@@ -168,6 +172,8 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_binary(&mut self) -> Result<(), ParseError> {
+        log::trace!("Parsing binary expression");
+
         let operator_position = self.previous_position;
         let operator = self.previous_token.kind();
         let rule = ParseRule::from(&operator);
@@ -199,14 +205,11 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_variable(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
-        self.parse_named_variable_from(self.previous_token.to_owned(), allow_assignment)
+        self.parse_named_variable_from(allow_assignment)
     }
 
-    fn parse_named_variable_from(
-        &mut self,
-        token: TokenOwned,
-        allow_assignment: bool,
-    ) -> Result<(), ParseError> {
+    fn parse_named_variable_from(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
+        let token = self.previous_token.to_owned();
         let identifier_index = self.parse_identifier_from(token)?;
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
@@ -223,8 +226,6 @@ impl<'src> Parser<'src> {
 
     fn parse_identifier_from(&mut self, token: TokenOwned) -> Result<u8, ParseError> {
         if let TokenOwned::Identifier(text) = token {
-            self.advance()?;
-
             let identifier = Identifier::new(text);
             let identifier_index = self.chunk.get_identifier_index(&identifier)?;
 
@@ -564,41 +565,29 @@ mod tests {
 
     #[test]
     fn add_variables() {
-        let source = "
-            let x = 42;
-            let y = 42;
-            x + y
-        ";
+        let source = "let x = 42; let y = 42; x + y";
         let test_chunk = parse(source);
 
         assert_eq!(
             test_chunk,
             Ok(Chunk::with_data(
                 vec![
-                    (Instruction::Constant as u8, Span(21, 23)),
-                    (0, Span(21, 23)),
-                    (Instruction::DefineVariable as u8, Span(17, 18)),
-                    (0, Span(17, 18)),
-                    (Instruction::Constant as u8, Span(44, 46)),
-                    (1, Span(44, 46)),
-                    (Instruction::DefineVariable as u8, Span(40, 41)),
-                    (1, Span(40, 41)),
-                    (Instruction::GetVariable as u8, Span(61, 62)),
-                    (0, Span(61, 62)),
-                    (Instruction::GetVariable as u8, Span(52, 53)),
-                    (1, Span(52, 53)),
-                    (Instruction::Add as u8, Span(48, 53))
+                    (Instruction::DefineVariable as u8, Span(4, 5)),
+                    (0, Span(4, 5)),
+                    (Instruction::Constant as u8, Span(8, 10)),
+                    (0, Span(8, 10)),
+                    (Instruction::DefineVariable as u8, Span(16, 17)),
+                    (1, Span(16, 17)),
+                    (Instruction::Constant as u8, Span(20, 22)),
+                    (1, Span(20, 22)),
+                    (Instruction::GetVariable as u8, Span(24, 25)),
+                    (0, Span(24, 25)),
+                    (Instruction::GetVariable as u8, Span(28, 29)),
+                    (1, Span(28, 29)),
+                    (Instruction::Add as u8, Span(26, 27))
                 ],
                 vec![Value::integer(42), Value::integer(42)],
                 vec![
-                    Local {
-                        identifier: Identifier::new("x"),
-                        depth: 0
-                    },
-                    Local {
-                        identifier: Identifier::new("y"),
-                        depth: 0
-                    },
                     Local {
                         identifier: Identifier::new("x"),
                         depth: 0

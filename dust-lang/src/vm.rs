@@ -193,7 +193,7 @@ impl Vm {
     }
 
     fn read(&mut self) -> Result<&(u8, Span), VmError> {
-        let current = self.chunk.read(self.ip)?;
+        let current = self.chunk.get_code(self.ip)?;
 
         self.ip += 1;
 
@@ -289,21 +289,21 @@ impl Instruction {
     pub fn disassemble(&self, chunk: &Chunk, offset: usize) -> String {
         match self {
             Instruction::Constant => {
-                let (index_display, value_display) = if let Ok((index, _)) = chunk.read(offset + 1)
-                {
-                    let index_string = index.to_string();
-                    let value_string = chunk
-                        .get_constant(*index)
-                        .map(|value| value.to_string())
-                        .unwrap_or_else(|error| format!("{:?}", error));
+                let (index_display, value_display) =
+                    if let Ok((index, _)) = chunk.get_code(offset + 1) {
+                        let index_string = index.to_string();
+                        let value_string = chunk
+                            .get_constant(*index)
+                            .map(|value| value.to_string())
+                            .unwrap_or_else(|error| format!("{:?}", error));
 
-                    (index_string, value_string)
-                } else {
-                    let index = "ERROR".to_string();
-                    let value = "ERROR".to_string();
+                        (index_string, value_string)
+                    } else {
+                        let index = "ERROR".to_string();
+                        let value = "ERROR".to_string();
 
-                    (index, value)
-                };
+                        (index, value)
+                    };
 
                 format!("CONSTANT {index_display} {value_display}")
             }
@@ -312,7 +312,7 @@ impl Instruction {
 
             // Variables
             Instruction::DefineVariable => {
-                let (index, _) = chunk.read(offset + 1).unwrap();
+                let (index, _) = chunk.get_code(offset + 1).unwrap();
                 let identifier_display = match chunk.get_identifier(*index) {
                     Ok(identifier) => identifier.to_string(),
                     Err(error) => format!("{:?}", error),
@@ -321,7 +321,7 @@ impl Instruction {
                 format!("DEFINE_VARIABLE {identifier_display} {index}")
             }
             Instruction::GetVariable => {
-                let (index, _) = chunk.read(offset + 1).unwrap();
+                let (index, _) = chunk.get_code(offset + 1).unwrap();
                 let identifier_display = match chunk.get_identifier(*index) {
                     Ok(identifier) => identifier.to_string(),
                     Err(error) => format!("{:?}", error),
@@ -331,7 +331,7 @@ impl Instruction {
             }
 
             Instruction::SetVariable => {
-                let (index, _) = chunk.read(offset + 1).unwrap();
+                let (index, _) = chunk.get_code(offset + 1).unwrap();
                 let identifier_display = match chunk.get_identifier(*index) {
                     Ok(identifier) => identifier.to_string(),
                     Err(error) => format!("{:?}", error),
@@ -376,10 +376,10 @@ pub mod tests {
         let mut chunk = Chunk::new();
         let constant = chunk.push_constant(Value::integer(42)).unwrap();
 
-        chunk.write(Instruction::Constant as u8, Span(0, 1));
-        chunk.write(constant, Span(2, 3));
-        chunk.write(Instruction::Negate as u8, Span(4, 5));
-        chunk.write(Instruction::Return as u8, Span(2, 3));
+        chunk.push_code(Instruction::Constant as u8, Span(0, 1));
+        chunk.push_code(constant, Span(2, 3));
+        chunk.push_code(Instruction::Negate as u8, Span(4, 5));
+        chunk.push_code(Instruction::Return as u8, Span(2, 3));
 
         let mut vm = Vm::new(chunk);
         let result = vm.run();
@@ -393,12 +393,12 @@ pub mod tests {
         let left = chunk.push_constant(Value::integer(42)).unwrap();
         let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant as u8, Span(0, 1));
-        chunk.write(left, Span(2, 3));
-        chunk.write(Instruction::Constant as u8, Span(4, 5));
-        chunk.write(right, Span(6, 7));
-        chunk.write(Instruction::Add as u8, Span(8, 9));
-        chunk.write(Instruction::Return as u8, Span(10, 11));
+        chunk.push_code(Instruction::Constant as u8, Span(0, 1));
+        chunk.push_code(left, Span(2, 3));
+        chunk.push_code(Instruction::Constant as u8, Span(4, 5));
+        chunk.push_code(right, Span(6, 7));
+        chunk.push_code(Instruction::Add as u8, Span(8, 9));
+        chunk.push_code(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.run();
@@ -412,12 +412,12 @@ pub mod tests {
         let left = chunk.push_constant(Value::integer(42)).unwrap();
         let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant as u8, Span(0, 1));
-        chunk.write(left, Span(2, 3));
-        chunk.write(Instruction::Constant as u8, Span(4, 5));
-        chunk.write(right, Span(6, 7));
-        chunk.write(Instruction::Subtract as u8, Span(8, 9));
-        chunk.write(Instruction::Return as u8, Span(10, 11));
+        chunk.push_code(Instruction::Constant as u8, Span(0, 1));
+        chunk.push_code(left, Span(2, 3));
+        chunk.push_code(Instruction::Constant as u8, Span(4, 5));
+        chunk.push_code(right, Span(6, 7));
+        chunk.push_code(Instruction::Subtract as u8, Span(8, 9));
+        chunk.push_code(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.run();
@@ -431,12 +431,12 @@ pub mod tests {
         let left = chunk.push_constant(Value::integer(42)).unwrap();
         let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant as u8, Span(0, 1));
-        chunk.write(left, Span(2, 3));
-        chunk.write(Instruction::Constant as u8, Span(4, 5));
-        chunk.write(right, Span(6, 7));
-        chunk.write(Instruction::Multiply as u8, Span(8, 9));
-        chunk.write(Instruction::Return as u8, Span(10, 11));
+        chunk.push_code(Instruction::Constant as u8, Span(0, 1));
+        chunk.push_code(left, Span(2, 3));
+        chunk.push_code(Instruction::Constant as u8, Span(4, 5));
+        chunk.push_code(right, Span(6, 7));
+        chunk.push_code(Instruction::Multiply as u8, Span(8, 9));
+        chunk.push_code(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.run();
@@ -451,12 +451,12 @@ pub mod tests {
         let left = chunk.push_constant(Value::integer(42)).unwrap();
         let right = chunk.push_constant(Value::integer(23)).unwrap();
 
-        chunk.write(Instruction::Constant as u8, Span(0, 1));
-        chunk.write(left, Span(2, 3));
-        chunk.write(Instruction::Constant as u8, Span(4, 5));
-        chunk.write(right, Span(6, 7));
-        chunk.write(Instruction::Divide as u8, Span(8, 9));
-        chunk.write(Instruction::Return as u8, Span(10, 11));
+        chunk.push_code(Instruction::Constant as u8, Span(0, 1));
+        chunk.push_code(left, Span(2, 3));
+        chunk.push_code(Instruction::Constant as u8, Span(4, 5));
+        chunk.push_code(right, Span(6, 7));
+        chunk.push_code(Instruction::Divide as u8, Span(8, 9));
+        chunk.push_code(Instruction::Return as u8, Span(10, 11));
 
         let mut vm = Vm::new(chunk);
         let result = vm.run();
