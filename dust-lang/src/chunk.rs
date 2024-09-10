@@ -108,32 +108,20 @@ impl Chunk {
 
         output.push_str("== ");
         output.push_str(name);
-        output.push_str(" ==\n--code--\n");
+        output.push_str(" ==\n--Code--\n");
         output.push_str("OFFSET INSTRUCTION          POSITION\n");
 
         let mut previous = None;
 
         for (offset, (byte, position)) in self.code.iter().enumerate() {
-            if let Some(Instruction::Constant) = previous {
-                let display = format!("{offset:04}   CONSTANT_INDEX {byte}");
-                let display_with_postion = format!("{display:27} {position}\n");
-                previous = None;
-
-                output.push_str(&display_with_postion);
-
-                continue;
-            }
-
             if let Some(
-                Instruction::DefineVariable | Instruction::GetVariable | Instruction::SetVariable,
+                Instruction::Constant
+                | Instruction::DefineVariable
+                | Instruction::GetVariable
+                | Instruction::SetVariable,
             ) = previous
             {
-                let display = format!("{offset:04}   IDENTIFIER_INDEX {byte}");
-                let display_with_postion = format!("{display:27} {position}\n");
-
                 previous = None;
-
-                output.push_str(&display_with_postion);
 
                 continue;
             }
@@ -147,7 +135,7 @@ impl Chunk {
             output.push_str(&display_with_postion);
         }
 
-        output.push_str("--constants--\n");
+        output.push_str("--Constants--\n");
         output.push_str("INDEX KIND VALUE\n");
 
         for (index, value) in self.constants.iter().enumerate() {
@@ -161,7 +149,7 @@ impl Chunk {
             output.push_str(&display);
         }
 
-        output.push_str("--identifiers--\n");
+        output.push_str("--Identifiers--\n");
         output.push_str("INDEX IDENTIFIER DEPTH\n");
 
         for (index, Local { identifier, depth }) in self.identifiers.iter().enumerate() {

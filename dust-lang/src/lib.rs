@@ -20,9 +20,9 @@ pub mod constructor;
 pub mod dust_error;
 pub mod identifier;
 pub mod identifier_stack;
+pub mod instruction;
 pub mod lexer;
 pub mod parser;
-pub mod run;
 pub mod token;
 pub mod r#type;
 pub mod value;
@@ -33,13 +33,13 @@ pub use constructor::{ConstructError, Constructor};
 pub use dust_error::DustError;
 pub use identifier::Identifier;
 pub use identifier_stack::IdentifierStack;
+pub use instruction::Instruction;
 pub use lexer::{lex, LexError, Lexer};
 pub use parser::{parse, ParseError, Parser};
 pub use r#type::{EnumType, FunctionType, RangeableType, StructType, Type, TypeConflict};
-pub use run::run;
 pub use token::{Token, TokenKind, TokenOwned};
 pub use value::{Struct, Value, ValueError};
-pub use vm::{Instruction, Vm};
+pub use vm::{run, Vm};
 
 use std::fmt::{self, Display, Formatter};
 
