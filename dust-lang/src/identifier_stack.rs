@@ -65,6 +65,10 @@ impl IdentifierStack {
             depth: self.scope_depth,
         });
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Local> {
+        self.locals.iter()
+    }
 }
 
 impl Default for IdentifierStack {

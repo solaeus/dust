@@ -305,7 +305,7 @@ impl Instruction {
                     (index, value)
                 };
 
-                format!("{offset:04} CONSTANT {index_display} {value_display}")
+                format!("CONSTANT {index_display} {value_display}")
             }
             Instruction::Return => format!("{offset:04} RETURN"),
             Instruction::Pop => format!("{offset:04} POP"),
@@ -318,7 +318,7 @@ impl Instruction {
                     Err(error) => format!("{:?}", error),
                 };
 
-                format!("{offset:04} DEFINE_VARIABLE {identifier_display} {index}")
+                format!("DEFINE_VARIABLE {identifier_display} {index}")
             }
             Instruction::GetVariable => {
                 let (index, _) = chunk.read(offset + 1).unwrap();
@@ -327,7 +327,7 @@ impl Instruction {
                     Err(error) => format!("{:?}", error),
                 };
 
-                format!("{offset:04} GET_VARIABLE {identifier_display} {index}")
+                format!("GET_VARIABLE {identifier_display} {index}")
             }
 
             Instruction::SetVariable => {
@@ -337,26 +337,26 @@ impl Instruction {
                     Err(error) => format!("{:?}", error),
                 };
 
-                format!("{offset:04} SET_VARIABLE {identifier_display} {index}")
+                format!("SET_VARIABLE {identifier_display} {index}")
             }
 
             // Unary
-            Instruction::Negate => format!("{offset:04} NEGATE"),
-            Instruction::Not => format!("{offset:04} NOT"),
+            Instruction::Negate => "NEGATE".to_string(),
+            Instruction::Not => "NOT".to_string(),
 
             // Binary
-            Instruction::Add => format!("{offset:04} ADD"),
-            Instruction::Subtract => format!("{offset:04} SUBTRACT"),
-            Instruction::Multiply => format!("{offset:04} MULTIPLY"),
-            Instruction::Divide => format!("{offset:04} DIVIDE"),
-            Instruction::Greater => format!("{offset:04} GREATER"),
-            Instruction::Less => format!("{offset:04} LESS"),
-            Instruction::GreaterEqual => format!("{offset:04} GREATER_EQUAL"),
-            Instruction::LessEqual => format!("{offset:04} LESS_EQUAL"),
-            Instruction::Equal => format!("{offset:04} EQUAL"),
-            Instruction::NotEqual => format!("{offset:04} NOT_EQUAL"),
-            Instruction::And => format!("{offset:04} AND"),
-            Instruction::Or => format!("{offset:04} OR"),
+            Instruction::Add => "ADD".to_string(),
+            Instruction::Subtract => "SUBTRACT".to_string(),
+            Instruction::Multiply => "MULTIPLY".to_string(),
+            Instruction::Divide => "DIVIDE".to_string(),
+            Instruction::Greater => "GREATER".to_string(),
+            Instruction::Less => "LESS".to_string(),
+            Instruction::GreaterEqual => "GREATER_EQUAL".to_string(),
+            Instruction::LessEqual => "LESS_EQUAL".to_string(),
+            Instruction::Equal => "EQUAL".to_string(),
+            Instruction::NotEqual => "NOT_EQUAL".to_string(),
+            Instruction::And => "AND".to_string(),
+            Instruction::Or => "OR".to_string(),
         }
     }
 }

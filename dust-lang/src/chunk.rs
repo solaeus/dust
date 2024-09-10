@@ -1,4 +1,7 @@
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    rc::Weak,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -112,16 +115,18 @@ impl Chunk {
 
         output.push_str("== ");
         output.push_str(name);
-        output.push_str(" ==\n");
+        output.push_str(" ==\n--code--\n");
+        output.push_str("OFFSET INSTRUCTION          POSITION\n");
 
         let mut previous = None;
 
         for (offset, (byte, position)) in self.code.iter().enumerate() {
             if let Some(Instruction::Constant) = previous {
-                let display = format!("{position} {offset:04} CONSTANT_INDEX {byte}\n");
+                let display = format!("{offset:04}   CONSTANT_INDEX {byte}");
+                let display_with_postion = format!("{display:26} {position}\n");
                 previous = None;
 
-                output.push_str(&display);
+                output.push_str(&display_with_postion);
 
                 continue;
             }
@@ -130,18 +135,44 @@ impl Chunk {
                 Instruction::DefineVariable | Instruction::GetVariable | Instruction::SetVariable,
             ) = previous
             {
-                let display = format!("{position} {offset:04} IDENTIFIER_INDEX {byte}\n");
+                let display = format!("{offset:04}   IDENTIFIER_INDEX {byte}");
+                let display_with_postion = format!("{display:26} {position}\n");
+
                 previous = None;
 
-                output.push_str(&display);
+                output.push_str(&display_with_postion);
 
                 continue;
             }
 
             let instruction = Instruction::from_byte(*byte).unwrap();
-            let display = format!("{} {}\n", position, instruction.disassemble(self, offset));
+            let display = format!("{offset:04}   {}", instruction.disassemble(self, offset));
+            let display_with_postion = format!("{display:26} {position}\n");
+
             previous = Some(instruction);
 
+            output.push_str(&display_with_postion);
+        }
+
+        output.push_str("--constants--\n");
+        output.push_str("INDEX KIND VALUE\n");
+
+        for (index, value) in self.constants.iter().enumerate() {
+            let value_kind_display = match value {
+                Value::Raw(_) => "RAW ",
+                Value::Reference(_) => "REF ",
+                Value::Mutable(_) => "MUT ",
+            };
+            let display = format!("{index:04}  {value_kind_display} {value}\n");
+
+            output.push_str(&display);
+        }
+
+        output.push_str("--identifiers--\n");
+        output.push_str("INDEX IDENTIFIER DEPTH\n");
+
+        for (index, Local { identifier, depth }) in self.identifiers.iter().enumerate() {
+            let display = format!("{index:04}  {:10} {depth}\n", identifier.as_str());
             output.push_str(&display);
         }
 
