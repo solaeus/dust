@@ -2,7 +2,6 @@
 use std::{
     cmp::Ordering,
     collections::HashMap,
-    error::Error,
     fmt::{self, Display, Formatter},
     ops::{Range, RangeInclusive},
     sync::{Arc, RwLock},
@@ -1006,6 +1005,9 @@ impl ValueData {
 
     pub fn add(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
+            (ValueData::Byte(left), ValueData::Byte(right)) => {
+                Some(ValueData::Byte(left.saturating_add(*right)))
+            }
             (ValueData::Float(left), ValueData::Float(right)) => {
                 Some(ValueData::Float(left + right))
             }
@@ -1021,6 +1023,9 @@ impl ValueData {
 
     pub fn subtract(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
+            (ValueData::Byte(left), ValueData::Byte(right)) => {
+                Some(ValueData::Byte(left.saturating_sub(*right)))
+            }
             (ValueData::Float(left), ValueData::Float(right)) => {
                 Some(ValueData::Float(left - right))
             }
@@ -1033,6 +1038,9 @@ impl ValueData {
 
     pub fn multiply(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
+            (ValueData::Byte(left), ValueData::Byte(right)) => {
+                Some(ValueData::Byte(left.saturating_mul(*right)))
+            }
             (ValueData::Float(left), ValueData::Float(right)) => {
                 Some(ValueData::Float(left * right))
             }
@@ -1045,6 +1053,9 @@ impl ValueData {
 
     pub fn divide(&self, other: &ValueData) -> Option<ValueData> {
         match (self, other) {
+            (ValueData::Byte(left), ValueData::Byte(right)) => {
+                Some(ValueData::Byte(left.saturating_div(*right)))
+            }
             (ValueData::Float(left), ValueData::Float(right)) => {
                 Some(ValueData::Float(left / right))
             }
@@ -1170,7 +1181,7 @@ impl Display for ValueData {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             ValueData::Boolean(boolean) => write!(f, "{boolean}"),
-            ValueData::Byte(byte) => write!(f, "{byte}"),
+            ValueData::Byte(byte) => write!(f, "0x{byte:02x}"),
             ValueData::Character(character) => write!(f, "{character}"),
             ValueData::Enum(r#enum) => write!(f, "{enum}"),
             ValueData::Float(float) => {
@@ -1757,12 +1768,68 @@ pub enum ValueError {
     CannotNot(Value),
     CannotSubtract(Value, Value),
     CannotOr(Value, Value),
-    DivisionByZero,
-    ExpectedList(Value),
     IndexOutOfBounds { value: Value, index: i64 },
 }
 
-impl Error for ValueError {}
+impl ValueError {
+    pub fn title(&self) -> &'static str {
+        "Value Error"
+    }
+
+    pub fn description(&self) -> String {
+        match self {
+            ValueError::CannotAdd(left, right) => format!("Cannot add {} and {}", left, right),
+            ValueError::CannotAnd(left, right) => {
+                format!(
+                    "Cannot use logical \"and\" operation on {} and {}",
+                    left, right
+                )
+            }
+            ValueError::CannotDivide(left, right) => {
+                format!("Cannot divide {} by {}", left, right)
+            }
+            ValueError::CannotGreaterThan(left, right) => {
+                format!("Cannot compare {} and {}", left, right)
+            }
+            ValueError::CannotGreaterThanOrEqual(left, right) => {
+                format!("Cannot compare {} and {}", left, right)
+            }
+            ValueError::CannotIndex { value, index } => {
+                format!("Cannot index {} with {}", value, index)
+            }
+            ValueError::CannotLessThan(left, right) => {
+                format!("Cannot compare {} and {}", left, right)
+            }
+            ValueError::CannotLessThanOrEqual(left, right) => {
+                format!("Cannot compare {} and {}", left, right)
+            }
+            ValueError::CannotMakeMutable => "Cannot make this value mutable".to_string(),
+            ValueError::CannotModulo(left, right) => {
+                format!("Cannot modulo {} by {}", left, right)
+            }
+            ValueError::CannotMultiply(left, right) => {
+                format!("Cannot multiply {} and {}", left, right)
+            }
+            ValueError::CannotMutate(value) => format!("Cannot mutate {}", value),
+            ValueError::CannotNegate(value) => format!("Cannot negate {}", value),
+            ValueError::CannotNot(value) => {
+                format!("Cannot use logical not operation on {}", value)
+            }
+            ValueError::CannotSubtract(left, right) => {
+                format!("Cannot subtract {} and {}", left, right)
+            }
+            ValueError::CannotOr(left, right) => {
+                format!(
+                    "Cannot use logical \"or\" operation on {} and {}",
+                    left, right
+                )
+            }
+            ValueError::IndexOutOfBounds { value, index } => {
+                format!("Index out of bounds: {} with index {}", value, index)
+            }
+        }
+    }
+}
 
 impl Display for ValueError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -1810,11 +1877,9 @@ impl Display for ValueError {
                     left, right
                 )
             }
-            ValueError::DivisionByZero => write!(f, "Division by zero"),
             ValueError::IndexOutOfBounds { value, index } => {
                 write!(f, "{} does not have an index of {}", value, index)
             }
-            ValueError::ExpectedList(value) => write!(f, "{} is not a list", value),
         }
     }
 }

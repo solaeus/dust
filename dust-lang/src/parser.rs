@@ -206,6 +206,7 @@ impl<'src> Parser<'src> {
             TokenKind::Minus => Instruction::Subtract as u8,
             TokenKind::Star => Instruction::Multiply as u8,
             TokenKind::Slash => Instruction::Divide as u8,
+            TokenKind::DoubleAmpersand => Instruction::And as u8,
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -319,31 +320,28 @@ impl<'src> Parser<'src> {
     fn parse(&mut self, precedence: Precedence) -> Result<(), ParseError> {
         self.advance()?;
 
-        let prefix_rule = if let Some(prefix) = ParseRule::from(&self.previous_token.kind()).prefix
-        {
-            log::trace!(
-                "Parsing {} as prefix with precedence {precedence}",
-                self.previous_token,
-            );
+        let prefix_parser =
+            if let Some(prefix) = ParseRule::from(&self.previous_token.kind()).prefix {
+                log::trace!(
+                    "Parsing {} as prefix with precedence {precedence}",
+                    self.previous_token,
+                );
 
-            prefix
-        } else {
-            return Err(ParseError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            });
-        };
-
+                prefix
+            } else {
+                return Err(ParseError::ExpectedExpression {
+                    found: self.previous_token.to_owned(),
+                    position: self.previous_position,
+                });
+            };
         let allow_assignment = precedence <= Precedence::Assignment;
 
-        prefix_rule(self, allow_assignment)?;
+        prefix_parser(self, allow_assignment)?;
 
         while precedence < ParseRule::from(&self.current_token.kind()).precedence {
             self.advance()?;
 
-            let infix_rule = ParseRule::from(&self.previous_token.kind()).infix;
-
-            if let Some(infix) = infix_rule {
+            if let Some(infix_parser) = ParseRule::from(&self.previous_token.kind()).infix {
                 log::trace!(
                     "Parsing {} as infix with precedence {precedence}",
                     self.previous_token,
@@ -356,7 +354,7 @@ impl<'src> Parser<'src> {
                     });
                 }
 
-                infix(self)?;
+                infix_parser(self)?;
             } else {
                 break;
             }
@@ -485,7 +483,11 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::Colon => todo!(),
             TokenKind::Comma => todo!(),
             TokenKind::Dot => todo!(),
-            TokenKind::DoubleAmpersand => todo!(),
+            TokenKind::DoubleAmpersand => ParseRule {
+                prefix: None,
+                infix: Some(Parser::parse_binary),
+                precedence: Precedence::LogicalAnd,
+            },
             TokenKind::DoubleDot => todo!(),
             TokenKind::DoubleEqual => todo!(),
             TokenKind::DoublePipe => todo!(),

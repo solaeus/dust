@@ -50,7 +50,7 @@ fn run_and_display_errors(source: &str) {
         Ok(Some(value)) => println!("{}", value),
         Ok(_) => {}
         Err(error) => {
-            eprintln!("{:?}", error);
+            eprintln!("{}", error.report());
         }
     }
 }

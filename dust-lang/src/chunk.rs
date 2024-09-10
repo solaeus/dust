@@ -43,7 +43,7 @@ impl Chunk {
     pub fn get_code(&self, offset: usize) -> Result<&(u8, Span), ChunkError> {
         self.code
             .get(offset)
-            .ok_or(ChunkError::CodeIndextOfBounds(offset))
+            .ok_or(ChunkError::CodeIndexOfBounds(offset))
     }
 
     pub fn push_code(&mut self, instruction: u8, position: Span) {
@@ -169,22 +169,47 @@ impl Default for Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.disassemble("Chunk"))
+        write!(f, "{}", self.disassemble("Chunk Disassembly"))
     }
 }
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.disassemble("Chunk"))
+        write!(f, "{}", self.disassemble("Chunk Disassembly"))
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChunkError {
-    CodeIndextOfBounds(usize),
+    CodeIndexOfBounds(usize),
     ConstantOverflow,
     ConstantIndexOutOfBounds(u8),
     IdentifierIndexOutOfBounds(u8),
     IdentifierOverflow,
     IdentifierNotFound(Identifier),
+}
+
+impl ChunkError {
+    pub fn title(&self) -> &'static str {
+        "Chunk Error"
+    }
+
+    pub fn description(&self) -> String {
+        match self {
+            Self::CodeIndexOfBounds(offset) => format!("{offset} is out of bounds",),
+            Self::ConstantOverflow => "More than 256 constants declared in one chunk".to_string(),
+            Self::ConstantIndexOutOfBounds(index) => {
+                format!("{index} is out of bounds")
+            }
+            Self::IdentifierIndexOutOfBounds(index) => {
+                format!("{index} is out of bounds")
+            }
+            Self::IdentifierOverflow => {
+                "More than 256 identifiers declared in one chunk".to_string()
+            }
+            Self::IdentifierNotFound(identifier) => {
+                format!("{} does not exist in this scope", identifier)
+            }
+        }
+    }
 }
