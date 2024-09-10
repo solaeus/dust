@@ -115,6 +115,27 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
+    fn parse_byte(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+        if let Token::Byte(text) = self.previous_token {
+            let byte = u8::from_str_radix(&text[2..], 16)?;
+            let value = Value::byte(byte);
+
+            self.emit_constant(value)?;
+        }
+
+        Ok(())
+    }
+
+    fn parse_character(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+        if let Token::Character(character) = self.previous_token {
+            let value = Value::character(character);
+
+            self.emit_constant(value)?;
+        }
+
+        Ok(())
+    }
+
     fn parse_float(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::Float(text) = self.previous_token {
             let float = text.parse::<f64>().unwrap();
@@ -418,7 +439,16 @@ impl From<&TokenKind> for ParseRule<'_> {
                 infix: None,
                 precedence: Precedence::None,
             },
-            TokenKind::Character => todo!(),
+            TokenKind::Byte => ParseRule {
+                prefix: Some(Parser::parse_byte),
+                infix: None,
+                precedence: Precedence::None,
+            },
+            TokenKind::Character => ParseRule {
+                prefix: Some(Parser::parse_character),
+                infix: None,
+                precedence: Precedence::None,
+            },
             TokenKind::Float => ParseRule {
                 prefix: Some(Parser::parse_float),
                 infix: None,

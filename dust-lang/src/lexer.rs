@@ -424,6 +424,22 @@ impl<'src> Lexer<'src> {
                 }
             }
 
+            if c == 'x' {
+                self.next_char();
+
+                while let Some(c) = self.peek_char() {
+                    if c.is_ascii_hexdigit() {
+                        self.next_char();
+                    } else {
+                        break;
+                    }
+                }
+
+                let text = &self.source[start_pos..self.position];
+
+                return Ok((Token::Byte(text), Span(start_pos, self.position)));
+            }
+
             if c.is_ascii_digit() {
                 self.next_char();
             } else {

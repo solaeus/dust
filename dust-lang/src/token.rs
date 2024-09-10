@@ -11,6 +11,7 @@ pub enum Token<'src> {
 
     // Hard-coded values
     Boolean(&'src str),
+    Byte(&'src str),
     Character(char),
     Float(&'src str),
     Identifier(&'src str),
@@ -70,6 +71,7 @@ impl<'src> Token<'src> {
         match self {
             Token::Eof => 0,
             Token::Boolean(text) => text.len(),
+            Token::Byte(_) => 3,
             Token::Character(_) => 3,
             Token::Float(text) => text.len(),
             Token::Identifier(text) => text.len(),
@@ -128,6 +130,7 @@ impl<'src> Token<'src> {
             Token::Bool => TokenOwned::Bool,
             Token::Boolean(boolean) => TokenOwned::Boolean(boolean.to_string()),
             Token::Break => TokenOwned::Break,
+            Token::Byte(byte) => TokenOwned::Byte(byte.to_string()),
             Token::Character(character) => TokenOwned::Character(*character),
             Token::Colon => TokenOwned::Colon,
             Token::Comma => TokenOwned::Comma,
@@ -182,6 +185,7 @@ impl<'src> Token<'src> {
             Token::Bool => TokenKind::Bool,
             Token::Boolean(_) => TokenKind::Boolean,
             Token::Break => TokenKind::Break,
+            Token::Byte(_) => TokenKind::Byte,
             Token::Character(_) => TokenKind::Character,
             Token::Colon => TokenKind::Colon,
             Token::Comma => TokenKind::Comma,
@@ -238,6 +242,7 @@ impl<'src> Display for Token<'src> {
             Token::Bool => write!(f, "bool"),
             Token::Boolean(value) => write!(f, "{}", value),
             Token::Break => write!(f, "break"),
+            Token::Byte(value) => write!(f, "{}", value),
             Token::Character(value) => write!(f, "'{}'", value),
             Token::Colon => write!(f, ":"),
             Token::Comma => write!(f, ","),
@@ -296,6 +301,7 @@ pub enum TokenOwned {
 
     // Hard-coded values
     Boolean(String),
+    Byte(String),
     Character(char),
     Float(String),
     Integer(String),
@@ -357,6 +363,7 @@ impl Display for TokenOwned {
             TokenOwned::Bool => Token::Bool.fmt(f),
             TokenOwned::Boolean(boolean) => Token::Boolean(boolean).fmt(f),
             TokenOwned::Break => Token::Break.fmt(f),
+            TokenOwned::Byte(byte) => Token::Byte(byte).fmt(f),
             TokenOwned::Character(character) => Token::Character(*character).fmt(f),
             TokenOwned::Colon => Token::Colon.fmt(f),
             TokenOwned::Comma => Token::Comma.fmt(f),
@@ -413,6 +420,7 @@ pub enum TokenKind {
 
     // Hard-coded values
     Boolean,
+    Byte,
     Character,
     Float,
     Integer,
@@ -474,6 +482,7 @@ impl Display for TokenKind {
             TokenKind::Bool => Token::Bool.fmt(f),
             TokenKind::Boolean => write!(f, "boolean value"),
             TokenKind::Break => Token::Break.fmt(f),
+            TokenKind::Byte => write!(f, "byte value"),
             TokenKind::Character => write!(f, "character value"),
             TokenKind::Colon => Token::Colon.fmt(f),
             TokenKind::Comma => Token::Comma.fmt(f),
