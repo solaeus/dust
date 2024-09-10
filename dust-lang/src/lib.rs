@@ -30,9 +30,9 @@ pub mod vm;
 
 pub use chunk::{Chunk, ChunkError};
 pub use constructor::{ConstructError, Constructor};
-pub use dust_error::DustError;
+pub use dust_error::{AnnotatedError, DustError};
 pub use identifier::Identifier;
-pub use identifier_stack::IdentifierStack;
+pub use identifier_stack::{IdentifierStack, Local, ValueLocation};
 pub use instruction::Instruction;
 pub use lexer::{lex, LexError, Lexer};
 pub use parser::{parse, ParseError, Parser};

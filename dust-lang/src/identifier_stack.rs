@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::Identifier;
@@ -68,10 +70,11 @@ impl IdentifierStack {
         self.scope_depth -= 1;
     }
 
-    pub fn declare(&mut self, identifier: Identifier) {
+    pub fn declare(&mut self, identifier: Identifier, value_location: ValueLocation) {
         self.locals.push(Local {
             identifier,
             depth: self.scope_depth,
+            value_location,
         });
     }
 
@@ -98,4 +101,20 @@ impl PartialEq for IdentifierStack {
 pub struct Local {
     pub identifier: Identifier,
     pub depth: usize,
+    pub value_location: ValueLocation,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub enum ValueLocation {
+    ConstantStack,
+    RuntimeStack,
+}
+
+impl Display for ValueLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValueLocation::ConstantStack => write!(f, "constant"),
+            ValueLocation::RuntimeStack => write!(f, "runtime "),
+        }
+    }
 }

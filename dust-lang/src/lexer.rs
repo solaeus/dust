@@ -5,7 +5,7 @@
 //! - [`Lexer`], which lexes the input a token at a time
 use std::fmt::{self, Display, Formatter};
 
-use crate::{Span, Token};
+use crate::{dust_error::AnnotatedError, Span, Token};
 
 /// Lexes the input and return a vector of tokens and their positions.
 ///
@@ -529,26 +529,35 @@ pub enum LexError {
     },
 }
 
-impl LexError {
-    pub fn title() -> &'static str {
+impl AnnotatedError for LexError {
+    fn title() -> &'static str {
         "Lex Error"
     }
 
-    pub fn description(&self) -> String {
+    fn description(&self) -> &'static str {
         match self {
-            Self::ExpectedCharacter {
-                expected, actual, ..
-            } => {
-                format!("Expected character \"{}\", found \"{}\"", expected, actual)
-            }
-            Self::UnexpectedCharacter { actual, .. } => {
-                format!("Unexpected character \"{}\"", actual)
-            }
-            Self::UnexpectedEndOfFile { .. } => "Unexpected end of file".to_string(),
+            Self::ExpectedCharacter { .. } => "Expected character",
+            Self::UnexpectedCharacter { .. } => "Unexpected character",
+            Self::UnexpectedEndOfFile { .. } => "Unexpected end of file",
         }
     }
 
-    pub fn position(&self) -> Span {
+    fn details(&self) -> Option<String> {
+        match self {
+            Self::ExpectedCharacter {
+                expected, actual, ..
+            } => Some(format!(
+                "Expected character \"{}\", found \"{}\"",
+                expected, actual
+            )),
+            Self::UnexpectedCharacter { actual, .. } => {
+                Some(format!("Unexpected character \"{}\"", actual))
+            }
+            Self::UnexpectedEndOfFile { .. } => Some("Unexpected end of file".to_string()),
+        }
+    }
+
+    fn position(&self) -> Span {
         match self {
             Self::ExpectedCharacter { position, .. } => Span(*position, *position),
             Self::UnexpectedCharacter { position, .. } => Span(*position, *position),

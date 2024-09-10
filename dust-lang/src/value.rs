@@ -1783,66 +1783,6 @@ pub enum ValueError {
     IndexOutOfBounds { value: Value, index: i64 },
 }
 
-impl ValueError {
-    pub fn title(&self) -> &'static str {
-        "Value Error"
-    }
-
-    pub fn description(&self) -> String {
-        match self {
-            ValueError::CannotAdd(left, right) => format!("Cannot add {} and {}", left, right),
-            ValueError::CannotAnd(left, right) => {
-                format!(
-                    "Cannot use logical \"and\" operation on {} and {}",
-                    left, right
-                )
-            }
-            ValueError::CannotDivide(left, right) => {
-                format!("Cannot divide {} by {}", left, right)
-            }
-            ValueError::CannotGreaterThan(left, right) => {
-                format!("Cannot compare {} and {}", left, right)
-            }
-            ValueError::CannotGreaterThanOrEqual(left, right) => {
-                format!("Cannot compare {} and {}", left, right)
-            }
-            ValueError::CannotIndex { value, index } => {
-                format!("Cannot index {} with {}", value, index)
-            }
-            ValueError::CannotLessThan(left, right) => {
-                format!("Cannot compare {} and {}", left, right)
-            }
-            ValueError::CannotLessThanOrEqual(left, right) => {
-                format!("Cannot compare {} and {}", left, right)
-            }
-            ValueError::CannotMakeMutable => "Cannot make this value mutable".to_string(),
-            ValueError::CannotModulo(left, right) => {
-                format!("Cannot modulo {} by {}", left, right)
-            }
-            ValueError::CannotMultiply(left, right) => {
-                format!("Cannot multiply {} and {}", left, right)
-            }
-            ValueError::CannotMutate(value) => format!("Cannot mutate {}", value),
-            ValueError::CannotNegate(value) => format!("Cannot negate {}", value),
-            ValueError::CannotNot(value) => {
-                format!("Cannot use logical not operation on {}", value)
-            }
-            ValueError::CannotSubtract(left, right) => {
-                format!("Cannot subtract {} and {}", left, right)
-            }
-            ValueError::CannotOr(left, right) => {
-                format!(
-                    "Cannot use logical \"or\" operation on {} and {}",
-                    left, right
-                )
-            }
-            ValueError::IndexOutOfBounds { value, index } => {
-                format!("Index out of bounds: {} with index {}", value, index)
-            }
-        }
-    }
-}
-
 impl Display for ValueError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {

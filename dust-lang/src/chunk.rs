@@ -2,7 +2,9 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{identifier_stack::Local, Identifier, IdentifierStack, Instruction, Span, Value};
+use crate::{
+    identifier_stack::Local, Identifier, IdentifierStack, Instruction, Span, Value, ValueLocation,
+};
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Chunk {
@@ -82,6 +84,12 @@ impl Chunk {
         self.identifiers.contains(identifier)
     }
 
+    pub fn get_local(&self, index: u8) -> Result<&Local, ChunkError> {
+        self.identifiers
+            .get(index as usize)
+            .ok_or(ChunkError::IdentifierIndexOutOfBounds(index))
+    }
+
     pub fn get_identifier(&self, index: u8) -> Result<&Identifier, ChunkError> {
         self.identifiers
             .get(index as usize)
@@ -95,13 +103,27 @@ impl Chunk {
             .ok_or(ChunkError::IdentifierNotFound(identifier.clone()))
     }
 
-    pub fn push_identifier(&mut self, identifier: Identifier) -> Result<u8, ChunkError> {
+    pub fn push_constant_identifier(&mut self, identifier: Identifier) -> Result<u8, ChunkError> {
         let starting_length = self.identifiers.local_count();
 
         if starting_length + 1 > (u8::MAX as usize) {
             Err(ChunkError::IdentifierOverflow)
         } else {
-            self.identifiers.declare(identifier);
+            self.identifiers
+                .declare(identifier, ValueLocation::ConstantStack);
+
+            Ok(starting_length as u8)
+        }
+    }
+
+    pub fn push_runtime_identifier(&mut self, identifier: Identifier) -> Result<u8, ChunkError> {
+        let starting_length = self.identifiers.local_count();
+
+        if starting_length + 1 > (u8::MAX as usize) {
+            Err(ChunkError::IdentifierOverflow)
+        } else {
+            self.identifiers
+                .declare(identifier, ValueLocation::RuntimeStack);
 
             Ok(starting_length as u8)
         }
@@ -116,17 +138,19 @@ impl Chunk {
     pub fn disassemble(&self, name: &str) -> String {
         let mut output = String::new();
 
-        output.push_str("== ");
+        output.push_str("# ");
         output.push_str(name);
-        output.push_str(" ==\n--Code--\n");
-        output.push_str("OFFSET INSTRUCTION          POSITION\n");
+        output.push_str("\n\n## Code\n");
+        output.push_str("------ ------------ ------------\n");
+        output.push_str("OFFSET POSITION     INSTRUCTION\n");
+        output.push_str("------ ------------ ------------\n");
 
         let mut previous = None;
 
         for (offset, (byte, position)) in self.code.iter().enumerate() {
             if let Some(
                 Instruction::Constant
-                | Instruction::DefineVariable
+                | Instruction::DefineVariableConstant
                 | Instruction::GetVariable
                 | Instruction::SetVariable,
             ) = previous
@@ -137,16 +161,21 @@ impl Chunk {
             }
 
             let instruction = Instruction::from_byte(*byte).unwrap();
-            let display = format!("{offset:04}   {}", instruction.disassemble(self, offset));
-            let display_with_postion = format!("{display:27} {position}\n");
+            let display = format!(
+                "{offset:4}   {:12} {}\n",
+                position.to_string(),
+                instruction.disassemble(self, offset)
+            );
 
             previous = Some(instruction);
 
-            output.push_str(&display_with_postion);
+            output.push_str(&display);
         }
 
-        output.push_str("--Constants--\n");
+        output.push_str("\n## Constants\n");
+        output.push_str("----- ---- -----\n");
         output.push_str("INDEX KIND VALUE\n");
+        output.push_str("----- ---- -----\n");
 
         for (index, value) in self.constants.iter().enumerate() {
             let value_kind_display = match value {
@@ -154,16 +183,29 @@ impl Chunk {
                 Value::Reference(_) => "REF ",
                 Value::Mutable(_) => "MUT ",
             };
-            let display = format!("{index:04}  {value_kind_display} {value}\n");
+            let display = format!("{index:3}   {value_kind_display} {value}\n");
 
             output.push_str(&display);
         }
 
-        output.push_str("--Identifiers--\n");
-        output.push_str("INDEX IDENTIFIER DEPTH\n");
+        output.push_str("\n## Identifiers\n");
+        output.push_str("----- ---------- -------- -----\n");
+        output.push_str("INDEX IDENTIFIER LOCATION DEPTH\n");
+        output.push_str("----- ---------- -------- -----\n");
 
-        for (index, Local { identifier, depth }) in self.identifiers.iter().enumerate() {
-            let display = format!("{index:04}  {:10} {depth}\n", identifier.as_str());
+        for (
+            index,
+            Local {
+                identifier,
+                depth,
+                value_location,
+            },
+        ) in self.identifiers.iter().enumerate()
+        {
+            let display = format!(
+                "{index:3}   {:10} {value_location} {depth}\n",
+                identifier.as_str()
+            );
             output.push_str(&display);
         }
 
@@ -199,26 +241,22 @@ pub enum ChunkError {
     IdentifierNotFound(Identifier),
 }
 
-impl ChunkError {
-    pub fn title(&self) -> &'static str {
-        "Chunk Error"
-    }
-
-    pub fn description(&self) -> String {
+impl Display for ChunkError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::CodeIndexOfBounds(offset) => format!("{offset} is out of bounds",),
-            Self::ConstantOverflow => "More than 256 constants declared in one chunk".to_string(),
-            Self::ConstantIndexOutOfBounds(index) => {
-                format!("{index} is out of bounds")
+            ChunkError::CodeIndexOfBounds(offset) => {
+                write!(f, "Code index out of bounds: {}", offset)
             }
-            Self::IdentifierIndexOutOfBounds(index) => {
-                format!("{index} is out of bounds")
+            ChunkError::ConstantOverflow => write!(f, "Constant overflow"),
+            ChunkError::ConstantIndexOutOfBounds(index) => {
+                write!(f, "Constant index out of bounds: {}", index)
             }
-            Self::IdentifierOverflow => {
-                "More than 256 identifiers declared in one chunk".to_string()
+            ChunkError::IdentifierIndexOutOfBounds(index) => {
+                write!(f, "Identifier index out of bounds: {}", index)
             }
-            Self::IdentifierNotFound(identifier) => {
-                format!("{} does not exist in this scope", identifier)
+            ChunkError::IdentifierOverflow => write!(f, "Identifier overflow"),
+            ChunkError::IdentifierNotFound(identifier) => {
+                write!(f, "Identifier not found: {}", identifier)
             }
         }
     }

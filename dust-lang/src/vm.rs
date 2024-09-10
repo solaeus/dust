@@ -1,7 +1,8 @@
 use std::rc::Rc;
 
 use crate::{
-    parse, Chunk, ChunkError, DustError, Identifier, Instruction, Span, Value, ValueError,
+    dust_error::AnnotatedError, parse, Chunk, ChunkError, DustError, Identifier, Instruction, Span,
+    Value, ValueError, ValueLocation,
 };
 
 pub fn run(source: &str) -> Result<Option<Value>, DustError> {
@@ -13,7 +14,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
         .map_err(|error| DustError::Runtime { error, source })
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Vm {
     chunk: Rc<Chunk>,
     ip: usize,
@@ -44,12 +45,19 @@ impl Vm {
 
             match instruction {
                 Instruction::Constant => {
-                    let (index, _) = self.read(position).copied()?;
+                    let (argument, _) = self.read(position).copied()?;
 
-                    self.push_constant_value(index, position)?;
+                    self.push_constant_value(argument, position)?;
                 }
                 Instruction::Return => {
-                    let value = self.pop(position)?.resolve(&self.chunk, position)?.clone();
+                    let stacked = self.pop(position)?;
+                    let value = match stacked {
+                        StackedValue::Runtime(value) => value,
+                        StackedValue::Constant(index) => Rc::get_mut(&mut self.chunk)
+                            .unwrap()
+                            .remove_constant(index)
+                            .map_err(|error| VmError::Chunk { error, position })?,
+                    };
 
                     return Ok(Some(value));
                 }
@@ -58,32 +66,55 @@ impl Vm {
                 }
 
                 // Variables
-                Instruction::DefineVariable => {
-                    let (index, _) = *self.read(position)?;
+                Instruction::DefineVariableRuntime => {
+                    let value = self.pop(position)?.resolve(&self.chunk, position)?.clone();
 
-                    self.stack
-                        .insert(index as usize, StackedValue::Constant(index));
+                    self.push_runtime_value(value, position)?;
+                }
+                Instruction::DefineVariableConstant => {
+                    let (argument, _) = *self.read(position)?;
+
+                    self.push_constant_value(argument, position)?;
                 }
                 Instruction::GetVariable => {
-                    let (index, _) = *self.read(position)?;
+                    let (argument, _) = *self.read(position)?;
 
-                    self.push_constant_value(index, position)?;
+                    let local = self
+                        .chunk
+                        .get_local(argument)
+                        .map_err(|error| VmError::Chunk { error, position })?;
+
+                    match local.value_location {
+                        ValueLocation::ConstantStack => {
+                            let value = self
+                                .chunk
+                                .get_constant(argument)
+                                .map_err(|error| VmError::Chunk { error, position })?
+                                .clone();
+
+                            self.push_runtime_value(value, position)?;
+                        }
+                        ValueLocation::RuntimeStack => {
+                            let value = self.pop(position)?.resolve(&self.chunk, position)?.clone();
+
+                            self.push_runtime_value(value, position)?;
+                        }
+                    }
                 }
                 Instruction::SetVariable => {
-                    let (index, _) = *self.read(position)?;
+                    let (argument, _) = *self.read(position)?;
                     let identifier = self
                         .chunk
-                        .get_identifier(index)
-                        .map_err(|error| VmError::Chunk { error, position })?
-                        .clone();
+                        .get_identifier(argument)
+                        .map_err(|error| VmError::Chunk { error, position })?;
 
-                    if !self.chunk.contains_identifier(&identifier) {
-                        return Err(VmError::UndefinedVariable(identifier, position));
+                    if !self.chunk.contains_identifier(identifier) {
+                        return Err(VmError::UndefinedVariable(identifier.clone(), position));
                     }
 
                     let stacked = self.pop(position)?;
 
-                    self.stack[index as usize] = stacked;
+                    self.stack[argument as usize] = stacked;
                 }
 
                 // Unary
@@ -261,6 +292,12 @@ impl Vm {
         if self.stack.len() == Self::STACK_SIZE {
             Err(VmError::StackOverflow(position))
         } else {
+            let value = if value.is_raw() {
+                value.into_reference()
+            } else {
+                value
+            };
+
             self.stack.push(StackedValue::Runtime(value));
 
             Ok(())
@@ -334,28 +371,41 @@ impl VmError {
     pub fn value(error: ValueError, position: Span) -> Self {
         Self::Value { error, position }
     }
+}
 
-    pub fn title() -> &'static str {
+impl AnnotatedError for VmError {
+    fn title() -> &'static str {
         "Runtime Error"
     }
 
-    pub fn description(&self) -> String {
+    fn description(&self) -> &'static str {
         match self {
-            Self::InvalidInstruction(byte, _) => {
-                format!("The byte {byte} does not correspond to a valid instruction")
-            }
-            Self::StackOverflow(position) => format!("Stack overflow at {position}"),
-            Self::StackUnderflow(position) => format!("Stack underflow at {position}"),
-            Self::UndefinedVariable(identifier, position) => {
-                format!("{identifier} is not in scope at {position}")
-            }
-
-            Self::Chunk { error, .. } => error.description(),
-            Self::Value { error, .. } => error.description(),
+            Self::InvalidInstruction(_, _) => "Invalid instruction",
+            Self::StackOverflow(_) => "Stack overflow",
+            Self::StackUnderflow(_) => "Stack underflow",
+            Self::UndefinedVariable(_, _) => "Undefined variable",
+            Self::Chunk { .. } => "Chunk error",
+            Self::Value { .. } => "Value error",
         }
     }
 
-    pub fn position(&self) -> Span {
+    fn details(&self) -> Option<String> {
+        match self {
+            Self::InvalidInstruction(byte, _) => Some(format!(
+                "The byte {byte} does not correspond to a valid instruction"
+            )),
+            Self::StackOverflow(position) => Some(format!("Stack overflow at {position}")),
+            Self::StackUnderflow(position) => Some(format!("Stack underflow at {position}")),
+            Self::UndefinedVariable(identifier, position) => {
+                Some(format!("{identifier} is not in scope at {position}"))
+            }
+
+            Self::Chunk { error, .. } => Some(error.to_string()),
+            Self::Value { error, .. } => Some(error.to_string()),
+        }
+    }
+
+    fn position(&self) -> Span {
         match self {
             Self::InvalidInstruction(_, position) => *position,
             Self::StackUnderflow(position) => *position,

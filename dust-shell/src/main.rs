@@ -2,6 +2,7 @@ use std::fs::read_to_string;
 
 use clap::Parser;
 use dust_lang::{parse, run};
+use env_logger::WriteStyle;
 
 #[derive(Parser)]
 struct Cli {
@@ -15,7 +16,11 @@ struct Cli {
 }
 
 fn main() {
-    env_logger::init();
+    env_logger::builder()
+        .parse_env("DUST_LOG")
+        .format_timestamp_secs()
+        .write_style(WriteStyle::Always)
+        .init();
 
     let args = Cli::parse();
 
