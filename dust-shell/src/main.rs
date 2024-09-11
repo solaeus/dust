@@ -26,13 +26,16 @@ fn main() {
                 Level::Info => "INFO".white(),
                 Level::Debug => "DEBUG".blue(),
                 Level::Trace => "TRACE".purple(),
-            };
+            }
+            .bold();
+            let level_display = format!("[{level:^5}]").white().on_black();
             let module = record
                 .module_path()
-                .map(|path| path.split("::").last().unwrap_or("UNKNOWN").to_uppercase())
-                .unwrap_or("UNKNOWN".to_string());
+                .map(|path| path.split("::").last().unwrap_or("unknown"))
+                .unwrap_or("unknown")
+                .dimmed();
 
-            writeln!(buf, "[{level:^5}] {module:^6} {}", record.args())
+            writeln!(buf, "{level_display} {module:^6} {}", record.args())
         })
         .init();
 

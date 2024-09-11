@@ -247,12 +247,6 @@ impl Vm {
         if self.stack.len() == Self::STACK_SIZE {
             Err(VmError::StackOverflow(position))
         } else {
-            let value = if value.is_raw() {
-                value.into_reference()
-            } else {
-                value
-            };
-
             self.stack.push(value);
 
             Ok(())
