@@ -1,5 +1,3 @@
-use std::rc::{Rc, Weak};
-
 use crate::{
     dust_error::AnnotatedError, parse, Chunk, ChunkError, DustError, Identifier, Instruction, Span,
     Value, ValueError,
@@ -16,7 +14,7 @@ pub fn run(source: &str) -> Result<Option<Value>, DustError> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Vm {
-    chunk: Rc<Chunk>,
+    chunk: Chunk,
     ip: usize,
     stack: Vec<Value>,
 }
@@ -26,7 +24,7 @@ impl Vm {
 
     pub fn new(chunk: Chunk) -> Self {
         Self {
-            chunk: Rc::new(chunk),
+            chunk,
             ip: 0,
             stack: Vec::with_capacity(Self::STACK_SIZE),
         }
@@ -46,7 +44,7 @@ impl Vm {
             match instruction {
                 Instruction::Constant => {
                     let (argument, _) = *self.read(position)?;
-                    let value = self.chunk.get_constant(argument, position)?.clone();
+                    let value = self.chunk.use_constant(argument, position)?;
 
                     log::trace!("Pushing constant {value}");
 
@@ -68,7 +66,10 @@ impl Vm {
                 // Variables
                 Instruction::DeclareVariable => {
                     let (argument, _) = *self.read(position)?;
-                    let identifier = self.chunk.get_identifier(argument, position)?;
+                    let identifier = self
+                        .chunk
+                        .get_identifier(argument)
+                        .ok_or_else(|| VmError::UndeclaredVariable { position })?;
                     let value = self.stack.remove(argument as usize);
 
                     log::trace!("Declaring {identifier} as value {value}",);
@@ -77,7 +78,10 @@ impl Vm {
                 }
                 Instruction::GetVariable => {
                     let (argument, _) = *self.read(position)?;
-                    let identifier = self.chunk.get_identifier(argument, position)?;
+                    let identifier = self
+                        .chunk
+                        .get_identifier(argument)
+                        .ok_or_else(|| VmError::UndeclaredVariable { position })?;
                     let value = self.stack.remove(argument as usize);
 
                     log::trace!("Getting {identifier} as value {value}",);
@@ -86,7 +90,11 @@ impl Vm {
                 }
                 Instruction::SetVariable => {
                     let (argument, _) = *self.read(position)?;
-                    let identifier = self.chunk.get_identifier(argument, position)?.clone();
+                    let identifier = self
+                        .chunk
+                        .get_identifier(argument)
+                        .ok_or_else(|| VmError::UndeclaredVariable { position })?
+                        .clone();
 
                     if !self.chunk.contains_identifier(&identifier) {
                         return Err(VmError::UndefinedVariable {
@@ -273,6 +281,9 @@ pub enum VmError {
     InvalidInstruction(u8, Span),
     StackOverflow(Span),
     StackUnderflow(Span),
+    UndeclaredVariable {
+        position: Span,
+    },
     UndefinedVariable {
         identifier: Identifier,
         position: Span,
@@ -302,6 +313,7 @@ impl AnnotatedError for VmError {
             Self::InvalidInstruction(_, _) => "Invalid instruction",
             Self::StackOverflow(_) => "Stack overflow",
             Self::StackUnderflow(_) => "Stack underflow",
+            Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UndefinedVariable { .. } => "Undefined variable",
             Self::Chunk(_) => "Chunk error",
             Self::Value { .. } => "Value error",
@@ -315,6 +327,7 @@ impl AnnotatedError for VmError {
             )),
             Self::StackOverflow(position) => Some(format!("Stack overflow at {position}")),
             Self::StackUnderflow(position) => Some(format!("Stack underflow at {position}")),
+            Self::UndeclaredVariable { .. } => Some("Variable is not declared".to_string()),
             Self::UndefinedVariable { identifier, .. } => {
                 Some(format!("{identifier} is not in scope"))
             }
@@ -328,6 +341,7 @@ impl AnnotatedError for VmError {
             Self::InvalidInstruction(_, position) => *position,
             Self::StackUnderflow(position) => *position,
             Self::StackOverflow(position) => *position,
+            Self::UndeclaredVariable { position } => *position,
             Self::UndefinedVariable { position, .. } => *position,
             Self::Chunk(error) => error.position(),
             Self::Value { position, .. } => *position,

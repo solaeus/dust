@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AnnotatedError, Identifier, Instruction, Span, Value};
 
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Chunk {
     code: Vec<(u8, Span)>,
-    constants: Vec<Value>,
+    constants: Vec<Option<Value>>,
     identifiers: Vec<Local>,
     scope_depth: usize,
 }
@@ -29,7 +29,7 @@ impl Chunk {
     ) -> Self {
         Self {
             code,
-            constants,
+            constants: constants.into_iter().map(Some).collect(),
             identifiers,
             scope_depth: 0,
         }
@@ -61,19 +61,27 @@ impl Chunk {
         self.constants
             .get(index as usize)
             .ok_or(ChunkError::ConstantIndexOutOfBounds { index, position })
+            .and_then(|value| {
+                value
+                    .as_ref()
+                    .ok_or(ChunkError::ConstantAlreadyUsed { index, position })
+            })
     }
 
-    pub fn remove_constant(&mut self, index: u8, position: Span) -> Result<Value, ChunkError> {
+    pub fn use_constant(&mut self, index: u8, position: Span) -> Result<Value, ChunkError> {
         let index = index as usize;
 
-        if index >= self.constants.len() {
-            Err(ChunkError::ConstantIndexOutOfBounds {
+        self.constants
+            .get_mut(index)
+            .ok_or_else(|| ChunkError::ConstantIndexOutOfBounds {
+                index: index as u8,
+                position,
+            })?
+            .take()
+            .ok_or(ChunkError::ConstantAlreadyUsed {
                 index: index as u8,
                 position,
             })
-        } else {
-            Ok(self.constants.remove(index))
-        }
     }
 
     pub fn push_constant(&mut self, value: Value, position: Span) -> Result<u8, ChunkError> {
@@ -82,7 +90,7 @@ impl Chunk {
         if starting_length + 1 > (u8::MAX as usize) {
             Err(ChunkError::ConstantOverflow { position })
         } else {
-            self.constants.push(value);
+            self.constants.push(Some(value));
 
             Ok(starting_length as u8)
         }
@@ -100,11 +108,12 @@ impl Chunk {
             .ok_or(ChunkError::IdentifierIndexOutOfBounds { index, position })
     }
 
-    pub fn get_identifier(&self, index: u8, position: Span) -> Result<&Identifier, ChunkError> {
-        self.identifiers
-            .get(index as usize)
-            .map(|local| &local.identifier)
-            .ok_or(ChunkError::IdentifierIndexOutOfBounds { index, position })
+    pub fn get_identifier(&self, index: u8) -> Option<&Identifier> {
+        if let Some(local) = self.identifiers.get(index as usize) {
+            Some(&local.identifier)
+        } else {
+            None
+        }
     }
 
     pub fn get_identifier_index(
@@ -114,8 +123,8 @@ impl Chunk {
     ) -> Result<u8, ChunkError> {
         self.identifiers
             .iter()
-            .enumerate()
             .rev()
+            .enumerate()
             .find_map(|(index, local)| {
                 if &local.identifier == identifier {
                     Some(index as u8)
@@ -211,25 +220,30 @@ impl Chunk {
             previous = Some(instruction);
         }
 
-        output.push_str("\n            Constants           \n");
+        output.push_str("\n   Constants\n");
         output.push_str("----- ---- -----\n");
         output.push_str("INDEX KIND VALUE\n");
         output.push_str("----- ---- -----\n");
 
-        for (index, value) in self.constants.iter().enumerate() {
-            let value_kind_display = match value {
-                Value::Raw(_) => "RAW ",
-                Value::Reference(_) => "REF ",
-                Value::Mutable(_) => "MUT ",
+        for (index, value_option) in self.constants.iter().enumerate() {
+            let value_kind_display = match value_option {
+                Some(Value::Raw(_)) => "RAW ",
+                Some(Value::Reference(_)) => "REF ",
+                Some(Value::Mutable(_)) => "MUT ",
+                None => "EMPTY",
             };
-            let display = format!("{index:3}   {value_kind_display} {value}\n");
+            let value_display = value_option
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "EMPTY".to_string());
+            let display = format!("{index:3}   {value_kind_display} {value_display}\n",);
 
             output.push_str(&display);
         }
 
-        output.push_str("\n    Identifiers     \n");
+        output.push_str("\n      Identifiers\n");
         output.push_str("----- ---------- -----\n");
-        output.push_str("INDEX IDENTIFIER DEPTH\n");
+        output.push_str("INDEX NAME       DEPTH\n");
         output.push_str("----- ---------- -----\n");
 
         for (index, Local { identifier, depth }) in self.identifiers.iter().enumerate() {
@@ -259,6 +273,16 @@ impl Debug for Chunk {
     }
 }
 
+impl Eq for Chunk {}
+
+impl PartialEq for Chunk {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code
+            && self.constants == other.constants
+            && self.identifiers == other.identifiers
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Local {
     pub identifier: Identifier,
@@ -269,6 +293,10 @@ pub struct Local {
 pub enum ChunkError {
     CodeIndexOfBounds {
         offset: usize,
+        position: Span,
+    },
+    ConstantAlreadyUsed {
+        index: u8,
         position: Span,
     },
     ConstantOverflow {
@@ -299,6 +327,7 @@ impl AnnotatedError for ChunkError {
     fn description(&self) -> &'static str {
         match self {
             ChunkError::CodeIndexOfBounds { .. } => "Code index out of bounds",
+            ChunkError::ConstantAlreadyUsed { .. } => "Constant already used",
             ChunkError::ConstantOverflow { .. } => "Constant overflow",
             ChunkError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
             ChunkError::IdentifierIndexOutOfBounds { .. } => "Identifier index out of bounds",
@@ -310,6 +339,9 @@ impl AnnotatedError for ChunkError {
     fn details(&self) -> Option<String> {
         match self {
             ChunkError::CodeIndexOfBounds { offset, .. } => Some(format!("Code index: {}", offset)),
+            ChunkError::ConstantAlreadyUsed { index, .. } => {
+                Some(format!("Constant index: {}", index))
+            }
             ChunkError::ConstantIndexOutOfBounds { index, .. } => {
                 Some(format!("Constant index: {}", index))
             }
@@ -326,6 +358,7 @@ impl AnnotatedError for ChunkError {
     fn position(&self) -> Span {
         match self {
             ChunkError::CodeIndexOfBounds { position, .. } => *position,
+            ChunkError::ConstantAlreadyUsed { position, .. } => *position,
             ChunkError::ConstantIndexOutOfBounds { position, .. } => *position,
             ChunkError::IdentifierNotFound { position, .. } => *position,
             _ => todo!(),

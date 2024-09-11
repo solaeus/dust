@@ -288,8 +288,7 @@ impl<'src> Parser<'src> {
             .chunk
             .identifiers()
             .iter()
-            .rev()
-            .next()
+            .next_back()
             .map_or(false, |local| local.depth > self.chunk.scope_depth())
         {
             self.emit_byte(Instruction::Pop, self.current_position);
@@ -390,7 +389,7 @@ impl<'src> Parser<'src> {
                     self.previous_token,
                 );
 
-                if allow_assignment && self.allow(TokenKind::Equal)? {
+                if allow_assignment && self.current_token == Token::Equal {
                     return Err(ParseError::InvalidAssignmentTarget {
                         found: self.previous_token.to_owned(),
                         position: self.previous_position,

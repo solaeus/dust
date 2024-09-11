@@ -80,29 +80,29 @@ impl Instruction {
             // Variables
             Instruction::DeclareVariable => {
                 let (argument, _) = chunk.get_code(offset + 1, dummy_position).unwrap();
-                let identifier_display = match chunk.get_identifier(*argument, dummy_position) {
-                    Ok(identifier) => identifier.to_string(),
-                    Err(error) => format!("{error:?}"),
-                };
+                let identifier_display = chunk
+                    .get_identifier(*argument)
+                    .map(|identifier| identifier.to_string())
+                    .unwrap_or_else(|| "ERROR".to_string());
 
                 format!("DECLARE_VARIABLE {identifier_display}")
             }
             Instruction::GetVariable => {
                 let (argument, _) = chunk.get_code(offset + 1, dummy_position).unwrap();
-                let identifier_display = match chunk.get_identifier(*argument, dummy_position) {
-                    Ok(identifier) => identifier.to_string(),
-                    Err(error) => format!("{error:?}"),
-                };
+                let identifier_display = chunk
+                    .get_identifier(*argument)
+                    .map(|identifier| identifier.to_string())
+                    .unwrap_or_else(|| "ERROR".to_string());
 
                 format!("GET_VARIABLE {identifier_display}")
             }
 
             Instruction::SetVariable => {
                 let (argument, _) = chunk.get_code(offset + 1, dummy_position).unwrap();
-                let identifier_display = match chunk.get_identifier(*argument, dummy_position) {
-                    Ok(identifier) => identifier.to_string(),
-                    Err(error) => format!("{error:?}"),
-                };
+                let identifier_display = chunk
+                    .get_identifier(*argument)
+                    .map(|identifier| identifier.to_string())
+                    .unwrap_or_else(|| "ERROR".to_string());
 
                 format!("SET_VARIABLE {identifier_display}")
             }
