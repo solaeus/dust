@@ -11,7 +11,7 @@ pub enum Instruction {
     Pop = 2,
 
     // Variables
-    DefineVariable = 3,
+    DeclareVariable = 3,
     GetVariable = 4,
     SetVariable = 5,
 
@@ -40,7 +40,7 @@ impl Instruction {
             0 => Some(Instruction::Constant),
             1 => Some(Instruction::Return),
             2 => Some(Instruction::Pop),
-            3 => Some(Instruction::DefineVariable),
+            3 => Some(Instruction::DeclareVariable),
             4 => Some(Instruction::GetVariable),
             5 => Some(Instruction::SetVariable),
             6 => Some(Instruction::Negate),
@@ -70,7 +70,7 @@ impl Instruction {
                 let value_display = chunk
                     .get_constant(argument, position)
                     .map(|value| value.to_string())
-                    .unwrap_or_else(|error| error.to_string());
+                    .unwrap_or_else(|error| format!("{error:?}"));
 
                 format!("CONSTANT {value_display}")
             }
@@ -78,20 +78,20 @@ impl Instruction {
             Instruction::Pop => "POP".to_string(),
 
             // Variables
-            Instruction::DefineVariable => {
+            Instruction::DeclareVariable => {
                 let (argument, _) = chunk.get_code(offset + 1, dummy_position).unwrap();
-                let identifier_display = match chunk.get_identifier(*argument) {
+                let identifier_display = match chunk.get_identifier(*argument, dummy_position) {
                     Ok(identifier) => identifier.to_string(),
-                    Err(error) => error.to_string(),
+                    Err(error) => format!("{error:?}"),
                 };
 
-                format!("DEFINE_VARIABLE {identifier_display}")
+                format!("DECLARE_VARIABLE {identifier_display}")
             }
             Instruction::GetVariable => {
                 let (argument, _) = chunk.get_code(offset + 1, dummy_position).unwrap();
-                let identifier_display = match chunk.get_identifier(*argument) {
+                let identifier_display = match chunk.get_identifier(*argument, dummy_position) {
                     Ok(identifier) => identifier.to_string(),
-                    Err(error) => error.to_string(),
+                    Err(error) => format!("{error:?}"),
                 };
 
                 format!("GET_VARIABLE {identifier_display}")
@@ -99,9 +99,9 @@ impl Instruction {
 
             Instruction::SetVariable => {
                 let (argument, _) = chunk.get_code(offset + 1, dummy_position).unwrap();
-                let identifier_display = match chunk.get_identifier(*argument) {
+                let identifier_display = match chunk.get_identifier(*argument, dummy_position) {
                     Ok(identifier) => identifier.to_string(),
-                    Err(error) => error.to_string(),
+                    Err(error) => format!("{error:?}"),
                 };
 
                 format!("SET_VARIABLE {identifier_display}")

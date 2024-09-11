@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     dust_error::AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, LexError,
-    Lexer, Local, Span, Token, TokenKind, TokenOwned, Value, ValueLocation,
+    Lexer, Span, Token, TokenKind, TokenOwned, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -96,10 +96,7 @@ impl<'src> Parser<'src> {
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
         let position = self.previous_position;
-        let constant_index = self
-            .chunk
-            .push_constant(value)
-            .map_err(|error| ParseError::Chunk { error, position })?;
+        let constant_index = self.chunk.push_constant(value, position)?;
 
         self.emit_byte(Instruction::Constant, position);
         self.emit_byte(constant_index, position);
@@ -239,7 +236,7 @@ impl<'src> Parser<'src> {
 
     fn parse_named_variable(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
         let token = self.previous_token.to_owned();
-        let identifier_index = self.parse_identifier_from(token)?;
+        let identifier_index = self.parse_identifier_from(token, self.previous_position)?;
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
             self.parse_expression()?;
@@ -253,24 +250,27 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_identifier_from(&mut self, token: TokenOwned) -> Result<u8, ParseError> {
+    fn parse_identifier_from(
+        &mut self,
+        token: TokenOwned,
+        position: Span,
+    ) -> Result<u8, ParseError> {
         if let TokenOwned::Identifier(text) = token {
             let identifier = Identifier::new(text);
 
-            let identifier_index =
-                self.chunk
-                    .push_constant_identifier(identifier)
-                    .map_err(|error| ParseError::Chunk {
-                        error,
-                        position: self.previous_position,
-                    })?;
-
-            Ok(identifier_index)
+            if let Ok(identifier_index) = self.chunk.get_identifier_index(&identifier, position) {
+                Ok(identifier_index)
+            } else {
+                Err(ParseError::UndefinedVariable {
+                    identifier,
+                    position,
+                })
+            }
         } else {
             Err(ParseError::ExpectedToken {
                 expected: TokenKind::Identifier,
                 found: self.current_token.to_owned(),
-                position: self.current_position,
+                position,
             })
         }
     }
@@ -284,6 +284,18 @@ impl<'src> Parser<'src> {
 
         self.chunk.end_scope();
 
+        while self
+            .chunk
+            .identifiers()
+            .iter()
+            .rev()
+            .next()
+            .map_or(false, |local| local.depth > self.chunk.scope_depth())
+        {
+            self.emit_byte(Instruction::Pop, self.current_position);
+            self.chunk.pop_identifier();
+        }
+
         Ok(())
     }
 
@@ -295,7 +307,7 @@ impl<'src> Parser<'src> {
         let start = self.current_position.0;
         let (is_expression_statement, contains_block) = match self.current_token {
             Token::Let => {
-                self.parse_let_assignment(true)?;
+                self.parse_let_statement(true)?;
 
                 (false, false)
             }
@@ -321,7 +333,7 @@ impl<'src> Parser<'src> {
         Ok(())
     }
 
-    fn parse_let_assignment(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
+    fn parse_let_statement(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         self.expect(TokenKind::Let)?;
 
         let position = self.current_position;
@@ -340,12 +352,9 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
 
-        let identifier_index = self
-            .chunk
-            .push_constant_identifier(identifier)
-            .map_err(|error| ParseError::Chunk { error, position })?;
+        let identifier_index = self.chunk.declare_variable(identifier, position)?;
 
-        self.emit_byte(Instruction::DefineVariable, position);
+        self.emit_byte(Instruction::DeclareVariable, position);
         self.emit_byte(identifier_index, position);
 
         Ok(())
@@ -504,7 +513,7 @@ impl From<&TokenKind> for ParseRule<'_> {
             TokenKind::If => todo!(),
             TokenKind::Int => todo!(),
             TokenKind::Let => ParseRule {
-                prefix: Some(Parser::parse_let_assignment),
+                prefix: Some(Parser::parse_let_statement),
                 infix: None,
                 precedence: Precedence::None,
             },
@@ -606,17 +615,24 @@ pub enum ParseError {
         found: TokenOwned,
         position: Span,
     },
-
-    // Wrappers around foreign errors
-    Chunk {
-        error: ChunkError,
+    UndefinedVariable {
+        identifier: Identifier,
         position: Span,
     },
+
+    // Wrappers around foreign errors
+    Chunk(ChunkError),
     Lex(LexError),
     ParseIntError {
         error: ParseIntError,
         position: Span,
     },
+}
+
+impl From<ChunkError> for ParseError {
+    fn from(error: ChunkError) -> Self {
+        Self::Chunk(error)
+    }
 }
 
 impl AnnotatedError for ParseError {
@@ -630,6 +646,7 @@ impl AnnotatedError for ParseError {
             Self::ExpectedToken { .. } => "Expected a specific token",
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
+            Self::UndefinedVariable { .. } => "Undefined variable",
             Self::Chunk { .. } => "Chunk error",
             Self::Lex(_) => "Lex error",
             Self::ParseIntError { .. } => "Failed to parse integer",
@@ -650,7 +667,10 @@ impl AnnotatedError for ParseError {
             Self::InvalidAssignmentTarget { found, .. } => {
                 Some(format!("Invalid assignment target \"{found}\""))
             }
-            Self::Chunk { error, .. } => Some(error.to_string()),
+            Self::UndefinedVariable { identifier, .. } => {
+                Some(format!("Undefined variable \"{identifier}\""))
+            }
+            Self::Chunk(error) => error.details(),
             Self::Lex(error) => Some(error.to_string()),
             Self::ParseIntError { error, .. } => Some(error.to_string()),
         }
@@ -662,7 +682,8 @@ impl AnnotatedError for ParseError {
             Self::ExpectedToken { position, .. } => *position,
             Self::ExpectedTokenMultiple { position, .. } => *position,
             Self::InvalidAssignmentTarget { position, .. } => *position,
-            Self::Chunk { position, .. } => *position,
+            Self::UndefinedVariable { position, .. } => *position,
+            Self::Chunk(error) => error.position(),
             Self::Lex(error) => error.position(),
             Self::ParseIntError { position, .. } => *position,
         }
@@ -677,7 +698,7 @@ impl From<LexError> for ParseError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{identifier_stack::Local, ValueLocation};
+    use crate::Local;
 
     use super::*;
 
@@ -711,14 +732,14 @@ mod tests {
             test_chunk,
             Ok(Chunk::with_data(
                 vec![
-                    (Instruction::DefineVariable as u8, Span(4, 5)),
-                    (0, Span(4, 5)),
                     (Instruction::Constant as u8, Span(8, 10)),
                     (0, Span(8, 10)),
-                    (Instruction::DefineVariable as u8, Span(16, 17)),
-                    (1, Span(16, 17)),
+                    (Instruction::DeclareVariable as u8, Span(4, 5)),
+                    (0, Span(4, 5)),
                     (Instruction::Constant as u8, Span(20, 22)),
                     (1, Span(20, 22)),
+                    (Instruction::DeclareVariable as u8, Span(16, 17)),
+                    (1, Span(16, 17)),
                     (Instruction::GetVariable as u8, Span(24, 25)),
                     (0, Span(24, 25)),
                     (Instruction::GetVariable as u8, Span(28, 29)),
@@ -731,12 +752,10 @@ mod tests {
                     Local {
                         identifier: Identifier::new("x"),
                         depth: 0,
-                        value_location: ValueLocation::ConstantStack,
                     },
                     Local {
                         identifier: Identifier::new("y"),
                         depth: 0,
-                        value_location: ValueLocation::ConstantStack,
                     },
                 ],
             ))
@@ -752,16 +771,15 @@ mod tests {
             test_chunk,
             Ok(Chunk::with_data(
                 vec![
-                    (Instruction::DefineVariable as u8, Span(4, 5)),
-                    (0, Span(4, 5)),
                     (Instruction::Constant as u8, Span(8, 10)),
                     (0, Span(8, 10)),
+                    (Instruction::DeclareVariable as u8, Span(4, 5)),
+                    (0, Span(4, 5)),
                 ],
                 vec![Value::integer(42)],
                 vec![Local {
                     identifier: Identifier::new("x"),
                     depth: 0,
-                    value_location: ValueLocation::ConstantStack,
                 }],
             ))
         );
