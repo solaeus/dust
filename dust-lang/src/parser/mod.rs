@@ -138,6 +138,7 @@ impl<'src> Parser<'src> {
             Instruction::load_constant(self.current_register, constant_index),
             position,
         );
+        self.increment_register()?;
 
         Ok(())
     }
@@ -350,6 +351,8 @@ impl<'src> Parser<'src> {
             );
         }
 
+        self.increment_register()?;
+
         Ok(())
     }
 
@@ -449,7 +452,7 @@ impl<'src> Parser<'src> {
         let local_index = self.chunk.declare_local(identifier, position)?;
 
         self.emit_instruction(
-            Instruction::declare_local(self.current_register, local_index),
+            Instruction::declare_local(self.current_register - 1, local_index),
             position,
         );
 

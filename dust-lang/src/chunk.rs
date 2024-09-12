@@ -108,12 +108,8 @@ impl Chunk {
             .ok_or(ChunkError::LocalIndexOutOfBounds { index, position })
     }
 
-    pub fn get_identifier(&self, index: u8) -> Option<&Identifier> {
-        if let Some(local) = self.locals.get(index as usize) {
-            Some(&local.identifier)
-        } else {
-            None
-        }
+    pub fn get_identifier(&self, index: usize) -> Option<&Identifier> {
+        self.locals.get(index).map(|local| &local.identifier)
     }
 
     pub fn get_local_index(
@@ -123,8 +119,8 @@ impl Chunk {
     ) -> Result<u16, ChunkError> {
         self.locals
             .iter()
-            .rev()
             .enumerate()
+            .rev()
             .find_map(|(index, local)| {
                 if &local.identifier == identifier {
                     Some(index as u16)
@@ -262,9 +258,9 @@ impl DisassembledChunk<'_> {
             let operation = instruction.operation.to_string();
             let info_option = instruction.disassembly_info(Some(chunk));
             let instruction_display = if let Some(info) = info_option {
-                format!("{offset:<6} {operation:16} {info:17} {position:8}\n")
+                format!("{offset:<6} {operation:16} {info:20} {position:8}\n")
             } else {
-                format!("{offset:<6} {operation:16} {:17} {position:8}\n", " ")
+                format!("{offset:<6} {operation:16} {:20} {position:8}\n", " ")
             };
 
             disassembled.push_str(&instruction_display);
@@ -351,12 +347,14 @@ impl DisassembledChunk<'_> {
     }
 
     fn name_header(&self) -> String {
-        format!("{:^50}\n{:^50}", self.name, "==============")
+        let name_length = self.name.len();
+
+        format!("{:^50}\n{:^50}", self.name, "=".repeat(name_length))
     }
 
     fn instructions_header() -> String {
         format!(
-            "{:^50}\n{:^50}\n{:<6} {:<16} {:<17} {}\n{} {} {} {}",
+            "{:^50}\n{:^50}\n{:<6} {:<16} {:<20} {}\n{} {} {} {}",
             "Instructions",
             "------------",
             "OFFSET",
@@ -365,21 +363,21 @@ impl DisassembledChunk<'_> {
             "POSITION",
             "------",
             "----------------",
-            "-----------------",
+            "--------------------",
             "--------"
         )
     }
 
     fn constant_header() -> String {
         format!(
-            "{:^16}\n{:^16}\n{:<5} {:<4} {}\n{} {} {}",
+            "{}\n{}\n{:<5} {:<4} {}\n{} {} {}",
             "Constants", "---------", "INDEX", "KIND", "VALUE", "-----", "----", "-----"
         )
     }
 
     fn local_header() -> String {
         format!(
-            "{:^50}\n{:^50}\n{:<5} {:<10} {:<5} {:<5} {:<5}\n{} {} {} {} {}",
+            "{}\n{}\n{:<5} {:<10} {:<5} {:<5} {}\n{} {} {} {} {}",
             "Locals",
             "------",
             "INDEX",

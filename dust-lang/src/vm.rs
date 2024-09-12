@@ -30,6 +30,10 @@ impl Vm {
         }
     }
 
+    pub fn take_chunk(self) -> Chunk {
+        self.chunk
+    }
+
     pub fn run(&mut self) -> Result<Option<Value>, VmError> {
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
             log::trace!("Running instruction {instruction} at {position}");
@@ -51,10 +55,19 @@ impl Vm {
                     self.chunk.define_local(local_index, value, position)?;
                 }
                 Operation::GetLocal => {
-                    let identifier_index = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.clone(identifier_index, position)?;
+                    let register_index = instruction.destination as usize;
+                    let local_index = u16::from_le_bytes(instruction.arguments) as usize;
+                    let local = self.chunk.get_local(local_index, position)?;
+                    let value = if let Some(value) = &local.value {
+                        value.clone()
+                    } else {
+                        return Err(VmError::UndefinedVariable {
+                            identifier: local.identifier.clone(),
+                            position,
+                        });
+                    };
 
-                    self.insert(value, identifier_index, position)?;
+                    self.insert(value, register_index, position)?;
                 }
                 Operation::SetLocal => todo!(),
                 Operation::Add => {
@@ -137,13 +150,15 @@ impl Vm {
 
     fn clone(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.get_mut(index) {
-            let value = register
-                .take()
-                .ok_or(VmError::EmptyRegister { index, position })?
-                .into_reference();
-            let _ = register.insert(value.clone());
+            if let Some(mut value) = register.take() {
+                if value.is_raw() {
+                    value = value.into_reference();
+                }
 
-            Ok(value)
+                Ok(value.clone())
+            } else {
+                Err(VmError::EmptyRegister { index, position })
+            }
         } else {
             Err(VmError::RegisterIndexOutOfBounds { position })
         }
