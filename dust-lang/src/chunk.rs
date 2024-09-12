@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{AnnotatedError, Identifier, Instruction, Span, Value};
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Chunk {
-    code: Vec<(u8, Span)>,
+    code: Vec<(Instruction, Span)>,
     constants: Vec<Option<Value>>,
     identifiers: Vec<Local>,
     scope_depth: usize,
@@ -23,7 +23,7 @@ impl Chunk {
     }
 
     pub fn with_data(
-        code: Vec<(u8, Span)>,
+        code: Vec<(Instruction, Span)>,
         constants: Vec<Value>,
         identifiers: Vec<Local>,
     ) -> Self {
@@ -47,17 +47,21 @@ impl Chunk {
         self.scope_depth
     }
 
-    pub fn get_code(&self, offset: usize, position: Span) -> Result<&(u8, Span), ChunkError> {
+    pub fn get_code(
+        &self,
+        offset: usize,
+        position: Span,
+    ) -> Result<&(Instruction, Span), ChunkError> {
         self.code
             .get(offset)
             .ok_or(ChunkError::CodeIndexOfBounds { offset, position })
     }
 
-    pub fn push_code<T: Into<u8>>(&mut self, into_byte: T, position: Span) {
-        self.code.push((into_byte.into(), position));
+    pub fn push_code(&mut self, instruction: Instruction, position: Span) {
+        self.code.push((instruction, position));
     }
 
-    pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {
+    pub fn get_constant(&self, index: u16, position: Span) -> Result<&Value, ChunkError> {
         self.constants
             .get(index as usize)
             .ok_or(ChunkError::ConstantIndexOutOfBounds { index, position })
@@ -68,23 +72,15 @@ impl Chunk {
             })
     }
 
-    pub fn use_constant(&mut self, index: u8, position: Span) -> Result<Value, ChunkError> {
-        let index = index as usize;
-
+    pub fn use_constant(&mut self, index: u16, position: Span) -> Result<Value, ChunkError> {
         self.constants
-            .get_mut(index)
-            .ok_or_else(|| ChunkError::ConstantIndexOutOfBounds {
-                index: index as u8,
-                position,
-            })?
+            .get_mut(index as usize)
+            .ok_or_else(|| ChunkError::ConstantIndexOutOfBounds { index, position })?
             .take()
-            .ok_or(ChunkError::ConstantAlreadyUsed {
-                index: index as u8,
-                position,
-            })
+            .ok_or(ChunkError::ConstantAlreadyUsed { index, position })
     }
 
-    pub fn push_constant(&mut self, value: Value, position: Span) -> Result<u8, ChunkError> {
+    pub fn push_constant(&mut self, value: Value, position: Span) -> Result<u16, ChunkError> {
         let starting_length = self.constants.len();
 
         if starting_length + 1 > (u8::MAX as usize) {
@@ -92,7 +88,7 @@ impl Chunk {
         } else {
             self.constants.push(Some(value));
 
-            Ok(starting_length as u8)
+            Ok(starting_length as u16)
         }
     }
 
@@ -102,7 +98,7 @@ impl Chunk {
             .any(|local| &local.identifier == identifier)
     }
 
-    pub fn get_local(&self, index: u8, position: Span) -> Result<&Local, ChunkError> {
+    pub fn get_local(&self, index: u16, position: Span) -> Result<&Local, ChunkError> {
         self.identifiers
             .get(index as usize)
             .ok_or(ChunkError::IdentifierIndexOutOfBounds { index, position })
@@ -120,14 +116,14 @@ impl Chunk {
         &self,
         identifier: &Identifier,
         position: Span,
-    ) -> Result<u8, ChunkError> {
+    ) -> Result<u16, ChunkError> {
         self.identifiers
             .iter()
             .rev()
             .enumerate()
             .find_map(|(index, local)| {
                 if &local.identifier == identifier {
-                    Some(index as u8)
+                    Some(index as u16)
                 } else {
                     None
                 }
@@ -142,7 +138,7 @@ impl Chunk {
         &mut self,
         identifier: Identifier,
         position: Span,
-    ) -> Result<u8, ChunkError> {
+    ) -> Result<u16, ChunkError> {
         let starting_length = self.identifiers.len();
 
         if starting_length + 1 > (u8::MAX as usize) {
@@ -153,7 +149,7 @@ impl Chunk {
                 depth: self.scope_depth,
             });
 
-            Ok(starting_length as u8)
+            Ok(starting_length as u16)
         }
     }
 
@@ -183,32 +179,19 @@ impl Chunk {
         let mut output = String::new();
 
         let name_length = name.len();
-        let buffer_length = 32_usize.saturating_sub(name_length + 2);
+        let buffer_length = 34_usize.saturating_sub(name_length + 2);
         let name_buffer = " ".repeat(buffer_length / 2);
-        let name_line = format!("{name_buffer} {name} {name_buffer}\n");
+        let name_line = format!("\n{name_buffer}{name}{name_buffer}\n");
+        let name_underline = format!("{name_buffer}{}{name_buffer}\n", "-".repeat(name_length));
 
         output.push_str(&name_line);
+        output.push_str(&name_underline);
         output.push_str("\n              Code              \n");
         output.push_str("------ ------------ ------------\n");
         output.push_str("OFFSET POSITION     INSTRUCTION\n");
         output.push_str("------ ------------ ------------\n");
 
-        let mut previous = None;
-
-        for (offset, (byte, position)) in self.code.iter().enumerate() {
-            if let Some(
-                Instruction::Constant
-                | Instruction::DeclareVariable
-                | Instruction::GetVariable
-                | Instruction::SetVariable,
-            ) = previous
-            {
-                previous = None;
-
-                continue;
-            }
-
-            let instruction = Instruction::from_byte(*byte).unwrap();
+        for (offset, (instruction, position)) in self.code.iter().enumerate() {
             let display = format!(
                 "{offset:4}   {:12} {}\n",
                 position.to_string(),
@@ -216,8 +199,6 @@ impl Chunk {
             );
 
             output.push_str(&display);
-
-            previous = Some(instruction);
         }
 
         output.push_str("\n   Constants\n");
@@ -296,18 +277,18 @@ pub enum ChunkError {
         position: Span,
     },
     ConstantAlreadyUsed {
-        index: u8,
+        index: u16,
         position: Span,
     },
     ConstantOverflow {
         position: Span,
     },
     ConstantIndexOutOfBounds {
-        index: u8,
+        index: u16,
         position: Span,
     },
     IdentifierIndexOutOfBounds {
-        index: u8,
+        index: u16,
         position: Span,
     },
     IdentifierOverflow {

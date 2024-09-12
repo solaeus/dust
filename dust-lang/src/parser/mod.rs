@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use std::{
     fmt::{self, Display, Formatter},
     mem,
@@ -24,12 +27,13 @@ pub fn parse(source: &str) -> Result<Chunk, DustError> {
 
 #[derive(Debug)]
 pub struct Parser<'src> {
-    lexer: Lexer<'src>,
     chunk: Chunk,
-    previous_token: Token<'src>,
-    previous_position: Span,
+    lexer: Lexer<'src>,
+    current_register: u8,
     current_token: Token<'src>,
     current_position: Span,
+    previous_token: Token<'src>,
+    previous_position: Span,
 }
 
 impl<'src> Parser<'src> {
@@ -42,15 +46,30 @@ impl<'src> Parser<'src> {
         Parser {
             lexer,
             chunk: Chunk::new(),
-            previous_token: Token::Eof,
-            previous_position: Span(0, 0),
+            current_register: 0,
             current_token,
             current_position,
+            previous_token: Token::Eof,
+            previous_position: Span(0, 0),
         }
     }
 
     fn is_eof(&self) -> bool {
         matches!(self.current_token, Token::Eof)
+    }
+
+    fn increment_register(&mut self) -> Result<(), ParseError> {
+        let current = self.current_register;
+
+        if current == u8::MAX {
+            Err(ParseError::RegisterOverflow {
+                position: self.current_position,
+            })
+        } else {
+            self.current_register += 1;
+
+            Ok(())
+        }
     }
 
     fn advance(&mut self) -> Result<(), ParseError> {
@@ -90,16 +109,19 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn emit_byte<T: Into<u8>>(&mut self, into_byte: T, position: Span) {
-        self.chunk.push_code(into_byte.into(), position);
+    fn emit_instruction(&mut self, instruction: Instruction, position: Span) {
+        self.chunk.push_code(instruction, position);
     }
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
         let position = self.previous_position;
         let constant_index = self.chunk.push_constant(value, position)?;
 
-        self.emit_byte(Instruction::Constant, position);
-        self.emit_byte(constant_index, position);
+        self.emit_instruction(
+            Instruction::load_constant(self.current_register, constant_index),
+            position,
+        );
+        self.increment_register()?;
 
         Ok(())
     }
@@ -180,7 +202,9 @@ impl<'src> Parser<'src> {
     fn parse_unary(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         let operator_position = self.previous_position;
         let byte = match self.previous_token.kind() {
-            TokenKind::Minus => Instruction::Negate,
+            TokenKind::Minus => {
+                Instruction::negate(self.current_register, self.current_register - 1)
+            }
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![TokenKind::Minus],
@@ -191,7 +215,7 @@ impl<'src> Parser<'src> {
         };
 
         self.parse_expression()?;
-        self.emit_byte(byte, operator_position);
+        self.emit_instruction(byte, operator_position);
 
         Ok(())
     }
@@ -205,12 +229,18 @@ impl<'src> Parser<'src> {
 
         self.parse(rule.precedence.increment())?;
 
+        let to_register = if self.current_register < 2 {
+            self.current_register + 2
+        } else {
+            self.current_register
+        };
+        let left_register = to_register - 1;
+        let right_register = to_register - 2;
         let byte = match operator {
-            TokenKind::Plus => Instruction::Add,
-            TokenKind::Minus => Instruction::Subtract,
-            TokenKind::Star => Instruction::Multiply,
-            TokenKind::Slash => Instruction::Divide,
-            TokenKind::DoubleAmpersand => Instruction::And,
+            TokenKind::Plus => Instruction::add(to_register, left_register, right_register),
+            TokenKind::Minus => Instruction::subtract(to_register, left_register, right_register),
+            TokenKind::Star => Instruction::multiply(to_register, left_register, right_register),
+            TokenKind::Slash => Instruction::divide(to_register, left_register, right_register),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -225,7 +255,7 @@ impl<'src> Parser<'src> {
             }
         };
 
-        self.emit_byte(byte, operator_position);
+        self.emit_instruction(byte, operator_position);
 
         Ok(())
     }
@@ -240,11 +270,17 @@ impl<'src> Parser<'src> {
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
             self.parse_expression()?;
-            self.emit_byte(Instruction::SetVariable, self.previous_position);
-            self.emit_byte(identifier_index, self.previous_position);
+
+            self.emit_instruction(
+                Instruction::set_variable(self.current_register, identifier_index),
+                self.previous_position,
+            );
+            self.increment_register()?;
         } else {
-            self.emit_byte(Instruction::GetVariable, self.previous_position);
-            self.emit_byte(identifier_index, self.previous_position);
+            self.emit_instruction(
+                Instruction::get_variable(self.current_register - 1, identifier_index),
+                self.previous_position,
+            );
         }
 
         Ok(())
@@ -254,7 +290,7 @@ impl<'src> Parser<'src> {
         &mut self,
         token: TokenOwned,
         position: Span,
-    ) -> Result<u8, ParseError> {
+    ) -> Result<u16, ParseError> {
         if let TokenOwned::Identifier(text) = token {
             let identifier = Identifier::new(text);
 
@@ -291,8 +327,10 @@ impl<'src> Parser<'src> {
             .next_back()
             .map_or(false, |local| local.depth > self.chunk.scope_depth())
         {
-            self.emit_byte(Instruction::Pop, self.current_position);
-            self.chunk.pop_identifier();
+            self.emit_instruction(
+                Instruction::close(self.current_register),
+                self.current_position,
+            );
         }
 
         Ok(())
@@ -326,7 +364,7 @@ impl<'src> Parser<'src> {
         if is_expression_statement && !contains_block && !has_semicolon {
             let end = self.previous_position.1;
 
-            self.emit_byte(Instruction::Return, Span(start, end))
+            self.emit_instruction(Instruction::r#return(), Span(start, end))
         }
 
         Ok(())
@@ -353,8 +391,11 @@ impl<'src> Parser<'src> {
 
         let identifier_index = self.chunk.declare_variable(identifier, position)?;
 
-        self.emit_byte(Instruction::DeclareVariable, position);
-        self.emit_byte(identifier_index, position);
+        self.emit_instruction(
+            Instruction::set_variable(self.current_register, identifier_index),
+            position,
+        );
+        self.increment_register()?;
 
         Ok(())
     }
@@ -618,6 +659,9 @@ pub enum ParseError {
         identifier: Identifier,
         position: Span,
     },
+    RegisterOverflow {
+        position: Span,
+    },
 
     // Wrappers around foreign errors
     Chunk(ChunkError),
@@ -646,6 +690,7 @@ impl AnnotatedError for ParseError {
             Self::ExpectedTokenMultiple { .. } => "Expected one of multiple tokens",
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
             Self::UndefinedVariable { .. } => "Undefined variable",
+            Self::RegisterOverflow { .. } => "Register overflow",
             Self::Chunk { .. } => "Chunk error",
             Self::Lex(_) => "Lex error",
             Self::ParseIntError { .. } => "Failed to parse integer",
@@ -654,9 +699,7 @@ impl AnnotatedError for ParseError {
 
     fn details(&self) -> Option<String> {
         match self {
-            Self::ExpectedExpression { found, .. } => {
-                Some(format!("Expected an expression, found \"{found}\""))
-            }
+            Self::ExpectedExpression { found, .. } => Some(format!("Found \"{found}\"")),
             Self::ExpectedToken {
                 expected, found, ..
             } => Some(format!("Expected \"{expected}\", found \"{found}\"")),
@@ -664,11 +707,12 @@ impl AnnotatedError for ParseError {
                 expected, found, ..
             } => Some(format!("Expected one of {expected:?}, found \"{found}\"")),
             Self::InvalidAssignmentTarget { found, .. } => {
-                Some(format!("Invalid assignment target \"{found}\""))
+                Some(format!("Invalid assignment target, found \"{found}\""))
             }
             Self::UndefinedVariable { identifier, .. } => {
                 Some(format!("Undefined variable \"{identifier}\""))
             }
+            Self::RegisterOverflow { .. } => None,
             Self::Chunk(error) => error.details(),
             Self::Lex(error) => Some(error.to_string()),
             Self::ParseIntError { error, .. } => Some(error.to_string()),
@@ -682,6 +726,7 @@ impl AnnotatedError for ParseError {
             Self::ExpectedTokenMultiple { position, .. } => *position,
             Self::InvalidAssignmentTarget { position, .. } => *position,
             Self::UndefinedVariable { position, .. } => *position,
+            Self::RegisterOverflow { position } => *position,
             Self::Chunk(error) => error.position(),
             Self::Lex(error) => error.position(),
             Self::ParseIntError { position, .. } => *position,
@@ -692,285 +737,5 @@ impl AnnotatedError for ParseError {
 impl From<LexError> for ParseError {
     fn from(error: LexError) -> Self {
         Self::Lex(error)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::Local;
-
-    use super::*;
-
-    #[test]
-    fn block() {
-        let source = "{ 42; 42 }";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(2, 4)),
-                    (0, Span(2, 4)),
-                    (Instruction::Constant as u8, Span(6, 8)),
-                    (1, Span(6, 8)),
-                    (Instruction::Return as u8, Span(6, 8)),
-                ],
-                vec![Value::integer(42), Value::integer(42)],
-                vec![]
-            ))
-        );
-    }
-
-    #[test]
-    fn add_variables() {
-        let source = "let x = 42; let y = 42; x + y";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(8, 10)),
-                    (0, Span(8, 10)),
-                    (Instruction::DeclareVariable as u8, Span(4, 5)),
-                    (0, Span(4, 5)),
-                    (Instruction::Constant as u8, Span(20, 22)),
-                    (1, Span(20, 22)),
-                    (Instruction::DeclareVariable as u8, Span(16, 17)),
-                    (1, Span(16, 17)),
-                    (Instruction::GetVariable as u8, Span(24, 25)),
-                    (0, Span(24, 25)),
-                    (Instruction::GetVariable as u8, Span(28, 29)),
-                    (1, Span(28, 29)),
-                    (Instruction::Add as u8, Span(26, 27)),
-                    (Instruction::Return as u8, Span(24, 29)),
-                ],
-                vec![Value::integer(42), Value::integer(42)],
-                vec![
-                    Local {
-                        identifier: Identifier::new("x"),
-                        depth: 0,
-                    },
-                    Local {
-                        identifier: Identifier::new("y"),
-                        depth: 0,
-                    },
-                ],
-            ))
-        );
-    }
-
-    #[test]
-    fn let_statement() {
-        let source = "let x = 42;";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(8, 10)),
-                    (0, Span(8, 10)),
-                    (Instruction::DeclareVariable as u8, Span(4, 5)),
-                    (0, Span(4, 5)),
-                ],
-                vec![Value::integer(42)],
-                vec![Local {
-                    identifier: Identifier::new("x"),
-                    depth: 0,
-                }],
-            ))
-        );
-    }
-
-    #[test]
-    fn string() {
-        let source = "\"Hello, World!\"";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(0, 15)),
-                    (0, Span(0, 15)),
-                    (Instruction::Return as u8, Span(0, 15)),
-                ],
-                vec![Value::string("Hello, World!")],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn integer() {
-        let source = "42";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(0, 2)),
-                    (0, Span(0, 2)),
-                    (Instruction::Return as u8, Span(0, 2)),
-                ],
-                vec![Value::integer(42)],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn boolean() {
-        let source = "true";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(0, 4)),
-                    (0, Span(0, 4)),
-                    (Instruction::Return as u8, Span(0, 4)),
-                ],
-                vec![Value::boolean(true)],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn grouping() {
-        let source = "(42 + 42) * 2";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(1, 3)),
-                    (0, Span(1, 3)),
-                    (Instruction::Constant as u8, Span(6, 8)),
-                    (1, Span(6, 8)),
-                    (Instruction::Add as u8, Span(4, 5)),
-                    (Instruction::Constant as u8, Span(12, 13)),
-                    (2, Span(12, 13)),
-                    (Instruction::Multiply as u8, Span(10, 11)),
-                    (Instruction::Return as u8, Span(0, 13)),
-                ],
-                vec![Value::integer(42), Value::integer(42), Value::integer(2)],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn negation() {
-        let source = "-(42)";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(2, 4)),
-                    (0, Span(2, 4)),
-                    (Instruction::Negate as u8, Span(0, 1)),
-                    (Instruction::Return as u8, Span(0, 5)),
-                ],
-                vec![Value::integer(42)],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn addition() {
-        let source = "42 + 42";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(0, 2)),
-                    (0, Span(0, 2)),
-                    (Instruction::Constant as u8, Span(5, 7)),
-                    (1, Span(5, 7)),
-                    (Instruction::Add as u8, Span(3, 4)),
-                    (Instruction::Return as u8, Span(0, 7)),
-                ],
-                vec![Value::integer(42), Value::integer(42)],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn subtraction() {
-        let source = "42 - 42";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(0, 2)),
-                    (0, Span(0, 2)),
-                    (Instruction::Constant as u8, Span(5, 7)),
-                    (1, Span(5, 7)),
-                    (Instruction::Subtract as u8, Span(3, 4)),
-                    (Instruction::Return as u8, Span(0, 7)),
-                ],
-                vec![Value::integer(42), Value::integer(42)],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn multiplication() {
-        let source = "42 * 42";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(0, 2)),
-                    (0, Span(0, 2)),
-                    (Instruction::Constant as u8, Span(5, 7)),
-                    (1, Span(5, 7)),
-                    (Instruction::Multiply as u8, Span(3, 4)),
-                    (Instruction::Return as u8, Span(0, 7)),
-                ],
-                vec![Value::integer(42), Value::integer(42)],
-                vec![],
-            ))
-        );
-    }
-
-    #[test]
-    fn division() {
-        let source = "42 / 42";
-        let test_chunk = parse(source);
-
-        assert_eq!(
-            test_chunk,
-            Ok(Chunk::with_data(
-                vec![
-                    (Instruction::Constant as u8, Span(0, 2)),
-                    (0, Span(0, 2)),
-                    (Instruction::Constant as u8, Span(5, 7)),
-                    (1, Span(5, 7)),
-                    (Instruction::Divide as u8, Span(3, 4)),
-                    (Instruction::Return as u8, Span(0, 7)),
-                ],
-                vec![Value::integer(42), Value::integer(42)],
-                vec![],
-            ))
-        );
     }
 }

@@ -1,10 +1,8 @@
 //! Token and TokenOwned types.
 use std::fmt::{self, Display, Formatter};
 
-use serde::{Deserialize, Serialize};
-
 /// Source code token.
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Token<'src> {
     // End of file
     Eof,
@@ -293,7 +291,7 @@ impl<'src> Display for Token<'src> {
 /// Owned version of `Token`, which owns all the strings.
 ///
 /// This is used for errors.
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenOwned {
     Eof,
 
@@ -412,7 +410,7 @@ impl Display for TokenOwned {
 }
 
 /// Token representation that holds no data.
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
     Eof,
 
