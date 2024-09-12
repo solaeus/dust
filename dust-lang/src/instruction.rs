@@ -5,7 +5,7 @@ use crate::{Chunk, Span};
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Instruction {
     pub operation: Operation,
-    pub to_register: u8,
+    pub destination: u8,
     pub arguments: [u8; 2],
 }
 
@@ -17,15 +17,15 @@ impl Instruction {
 
         Instruction {
             operation,
-            to_register,
+            destination: to_register,
             arguments,
         }
     }
 
     pub fn encode(&self) -> u32 {
-        let operation = u32::from(self.operation as u8);
-        let to_register = u32::from(self.to_register);
-        let arguments = u32::from(self.arguments[0]) << 8 | u32::from(self.arguments[1]);
+        let operation = self.operation as u8 as u32;
+        let to_register = self.destination as u32;
+        let arguments = (self.arguments[0] as u32) << 8 | (self.arguments[1] as u32);
 
         operation << 24 | to_register << 16 | arguments
     }
@@ -33,7 +33,7 @@ impl Instruction {
     pub fn r#move(to_register: u8, from_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Move,
-            to_register,
+            destination: to_register,
             arguments: [from_register, 0],
         }
     }
@@ -41,7 +41,7 @@ impl Instruction {
     pub fn close(to_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Close,
-            to_register,
+            destination: to_register,
             arguments: [0, 0],
         }
     }
@@ -49,7 +49,7 @@ impl Instruction {
     pub fn load_constant(to_register: u8, constant_index: u16) -> Instruction {
         Instruction {
             operation: Operation::LoadConstant,
-            to_register,
+            destination: to_register,
             arguments: constant_index.to_le_bytes(),
         }
     }
@@ -57,7 +57,7 @@ impl Instruction {
     pub fn declare_variable(to_register: u8, variable_index: u16) -> Instruction {
         Instruction {
             operation: Operation::DeclareVariable,
-            to_register,
+            destination: to_register,
             arguments: variable_index.to_le_bytes(),
         }
     }
@@ -65,15 +65,15 @@ impl Instruction {
     pub fn get_variable(to_register: u8, variable_index: u16) -> Instruction {
         Instruction {
             operation: Operation::GetVariable,
-            to_register,
+            destination: to_register,
             arguments: variable_index.to_le_bytes(),
         }
     }
 
-    pub fn set_variable(from_register: u8, variable_index: u16) -> Instruction {
+    pub fn set_local(from_register: u8, variable_index: u16) -> Instruction {
         Instruction {
             operation: Operation::SetVariable,
-            to_register: from_register,
+            destination: from_register,
             arguments: variable_index.to_le_bytes(),
         }
     }
@@ -81,7 +81,7 @@ impl Instruction {
     pub fn add(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Add,
-            to_register,
+            destination: to_register,
             arguments: [left_register, right_register],
         }
     }
@@ -89,7 +89,7 @@ impl Instruction {
     pub fn subtract(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Subtract,
-            to_register,
+            destination: to_register,
             arguments: [left_register, right_register],
         }
     }
@@ -97,7 +97,7 @@ impl Instruction {
     pub fn multiply(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Multiply,
-            to_register,
+            destination: to_register,
             arguments: [left_register, right_register],
         }
     }
@@ -105,7 +105,7 @@ impl Instruction {
     pub fn divide(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Divide,
-            to_register,
+            destination: to_register,
             arguments: [left_register, right_register],
         }
     }
@@ -113,7 +113,7 @@ impl Instruction {
     pub fn negate(to_register: u8, from_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Negate,
-            to_register,
+            destination: to_register,
             arguments: [from_register, 0],
         }
     }
@@ -121,7 +121,7 @@ impl Instruction {
     pub fn r#return() -> Instruction {
         Instruction {
             operation: Operation::Return,
-            to_register: 0,
+            destination: 0,
             arguments: [0, 0],
         }
     }
@@ -132,34 +132,34 @@ impl Instruction {
                 format!(
                     "{:16} R({}) R({})",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     self.arguments[0]
                 )
             }
-            Operation::Close => format!("{} R({})", self.operation, self.to_register),
+            Operation::Close => format!("{:16} R({})", self.operation, self.destination),
             Operation::LoadConstant => {
-                let constant_index = u16::from_le_bytes(self.arguments);
+                let constant_index = u16::from_le_bytes(self.arguments) as usize;
                 let constant_display = match chunk.get_constant(constant_index, Span(0, 0)) {
                     Ok(value) => value.to_string(),
                     Err(error) => format!("{:?}", error),
                 };
 
                 format!(
-                    "{:16} R({}) = C({}) {} ",
+                    "{:16} R({}) = C({}) {}",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     constant_index,
                     constant_display
                 )
             }
             Operation::DeclareVariable => {
-                let identifier_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
+                let local_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
 
                 format!(
-                    "{:16} R[C({})] = R({})",
+                    "{:16} L({}) = R({})",
                     self.operation.to_string(),
-                    identifier_index,
-                    self.to_register
+                    local_index,
+                    self.destination
                 )
             }
             Operation::GetVariable => {
@@ -168,7 +168,7 @@ impl Instruction {
                 format!(
                     "{:16} R{} = R[I({})]",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     identifier_index
                 )
             }
@@ -179,50 +179,50 @@ impl Instruction {
                     "{:16}  R[C({})] = R({})",
                     self.operation.to_string(),
                     identifier_index,
-                    self.to_register
+                    self.destination
                 )
             }
             Operation::Add => {
                 format!(
-                    "{:16} R({}) = R({}) + R({})",
+                    "{:16} R({}) = RC({}) + RC({})",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     self.arguments[0],
                     self.arguments[1]
                 )
             }
             Operation::Subtract => {
                 format!(
-                    "{:16} R({}) = R({}) - R({})",
+                    "{:16} R({}) = RC({}) - RC({})",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     self.arguments[0],
                     self.arguments[1]
                 )
             }
             Operation::Multiply => {
                 format!(
-                    "{:16} R({}) = R({}) * R({})",
+                    "{:16} R({}) = RC({}) * RC({})",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     self.arguments[0],
                     self.arguments[1]
                 )
             }
             Operation::Divide => {
                 format!(
-                    "{:16} R({}) = R({}) / R({})",
+                    "{:16} R({}) = RC({}) / RC({})",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     self.arguments[0],
                     self.arguments[1]
                 )
             }
             Operation::Negate => {
                 format!(
-                    "{:16} R({}) = -R({})",
+                    "{:16} R({}) = -RC({})",
                     self.operation.to_string(),
-                    self.to_register,
+                    self.destination,
                     self.arguments[0]
                 )
             }
@@ -239,22 +239,18 @@ impl Display for Instruction {
             Operation::Move => {
                 write!(
                     f,
-                    "{:16} R({}) R({})",
-                    self.operation.to_string(),
-                    self.to_register,
-                    self.arguments[0]
+                    "{} R({}) R({})",
+                    self.operation, self.destination, self.arguments[0]
                 )
             }
-            Operation::Close => write!(f, "{} R({})", self.operation, self.to_register),
+            Operation::Close => write!(f, "{} R({})", self.operation, self.destination),
             Operation::LoadConstant => {
                 let constant_index = u16::from_le_bytes(self.arguments);
 
                 write!(
                     f,
-                    "{:16} R({}) C({})",
-                    self.operation.to_string(),
-                    self.to_register,
-                    constant_index
+                    "{} R({}) = C({})",
+                    self.operation, self.destination, constant_index
                 )
             }
             Operation::DeclareVariable => {
@@ -262,10 +258,8 @@ impl Display for Instruction {
 
                 write!(
                     f,
-                    "{:16} R[C({})] = R({})",
-                    self.operation.to_string(),
-                    identifier_index,
-                    self.to_register
+                    "{} L({}) = R({})",
+                    self.operation, identifier_index, self.destination
                 )
             }
             Operation::GetVariable => {
@@ -273,10 +267,8 @@ impl Display for Instruction {
 
                 write!(
                     f,
-                    "{:16} R{} = R[I({})]",
-                    self.operation.to_string(),
-                    self.to_register,
-                    identifier_index
+                    "{} R{} = R[I({})]",
+                    self.operation, self.destination, identifier_index
                 )
             }
             Operation::SetVariable => {
@@ -284,63 +276,47 @@ impl Display for Instruction {
 
                 write!(
                     f,
-                    "{:16}  R[C({})] = R({})",
-                    self.operation.to_string(),
-                    identifier_index,
-                    self.to_register
+                    "{}  R[C({})] = R({})",
+                    self.operation, identifier_index, self.destination
                 )
             }
             Operation::Add => {
                 write!(
                     f,
-                    "{:16} R({}) = R({}) + R({})",
-                    self.operation.to_string(),
-                    self.to_register,
-                    self.arguments[0],
-                    self.arguments[1]
+                    "{} R({}) = RC({}) + RC({})",
+                    self.operation, self.destination, self.arguments[0], self.arguments[1]
                 )
             }
             Operation::Subtract => {
                 write!(
                     f,
-                    "{:16} R({}) = R({}) - R({})",
-                    self.operation.to_string(),
-                    self.to_register,
-                    self.arguments[0],
-                    self.arguments[1]
+                    "{} R({}) = RC({}) - RC({})",
+                    self.operation, self.destination, self.arguments[0], self.arguments[1]
                 )
             }
             Operation::Multiply => {
                 write!(
                     f,
-                    "{:16} R({}) = R({}) * R({})",
-                    self.operation.to_string(),
-                    self.to_register,
-                    self.arguments[0],
-                    self.arguments[1]
+                    "{} R({}) = RC({}) * RC({})",
+                    self.operation, self.destination, self.arguments[0], self.arguments[1]
                 )
             }
             Operation::Divide => {
                 write!(
                     f,
-                    "{:16} R({}) = R({}) / R({})",
-                    self.operation.to_string(),
-                    self.to_register,
-                    self.arguments[0],
-                    self.arguments[1]
+                    "{} R({}) = RC({}) / RC({})",
+                    self.operation, self.destination, self.arguments[0], self.arguments[1]
                 )
             }
             Operation::Negate => {
                 write!(
                     f,
-                    "{:16} R({}) = -R({})",
-                    self.operation.to_string(),
-                    self.to_register,
-                    self.arguments[0]
+                    "{} R({}) = -RC({})",
+                    self.operation, self.destination, self.arguments[0]
                 )
             }
             Operation::Return => {
-                write!(f, "{:16}", self.operation.to_string())
+                write!(f, "{}", self.operation)
             }
         }
     }

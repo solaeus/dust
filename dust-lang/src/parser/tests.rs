@@ -12,8 +12,8 @@ fn let_statement() {
                 (Instruction::declare_variable(1, 0), Span(4, 5)),
             ],
             vec![Value::integer(42),],
-            vec![Local::new(Identifier::new("x"), 0)]
-        ))
+            vec![Local::new(Identifier::new("x"), 0, None)]
+        )),
     );
 }
 

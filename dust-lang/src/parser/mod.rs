@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     dust_error::AnnotatedError, Chunk, ChunkError, DustError, Identifier, Instruction, LexError,
-    Lexer, Span, Token, TokenKind, TokenOwned, Value,
+    Lexer, Operation, Span, Token, TokenKind, TokenOwned, Value,
 };
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
@@ -75,6 +75,20 @@ impl<'src> Parser<'src> {
         }
     }
 
+    fn decrement_register(&mut self) -> Result<(), ParseError> {
+        let current = self.current_register;
+
+        if current == 0 {
+            Err(ParseError::RegisterUnderflow {
+                position: self.current_position,
+            })
+        } else {
+            self.current_register -= 1;
+
+            Ok(())
+        }
+    }
+
     fn advance(&mut self) -> Result<(), ParseError> {
         if self.is_eof() {
             return Ok(());
@@ -113,7 +127,7 @@ impl<'src> Parser<'src> {
     }
 
     fn emit_instruction(&mut self, instruction: Instruction, position: Span) {
-        self.chunk.push_code(instruction, position);
+        self.chunk.push_instruction(instruction, position);
     }
 
     fn emit_constant(&mut self, value: Value) -> Result<(), ParseError> {
@@ -241,18 +255,61 @@ impl<'src> Parser<'src> {
 
         self.parse(rule.precedence.increment())?;
 
-        let to_register = if self.current_register < 2 {
-            self.current_register + 2
-        } else {
-            self.current_register
+        let previous_instruction = self.chunk.pop_instruction();
+        let right_register = match previous_instruction {
+            Some((
+                Instruction {
+                    operation: Operation::LoadConstant,
+                    arguments,
+                    ..
+                },
+                _,
+            )) => {
+                self.decrement_register()?;
+
+                arguments[0]
+            }
+            Some((instruction, position)) => {
+                self.chunk.push_instruction(instruction, position);
+
+                self.current_register - 1
+            }
+            _ => self.current_register - 1,
         };
-        let left_register = to_register - 2;
-        let right_register = to_register - 1;
-        let byte = match operator {
-            TokenKind::Plus => Instruction::add(to_register, left_register, right_register),
-            TokenKind::Minus => Instruction::subtract(to_register, left_register, right_register),
-            TokenKind::Star => Instruction::multiply(to_register, left_register, right_register),
-            TokenKind::Slash => Instruction::divide(to_register, left_register, right_register),
+        let last_instruction = self.chunk.pop_instruction();
+        let left_register = match last_instruction {
+            Some((
+                Instruction {
+                    operation: Operation::LoadConstant,
+                    arguments,
+                    ..
+                },
+                _,
+            )) => {
+                self.decrement_register()?;
+
+                arguments[0]
+            }
+            Some((instruction, position)) => {
+                self.chunk.push_instruction(instruction, position);
+
+                self.current_register - 2
+            }
+            _ => self.current_register - 2,
+        };
+        let instruction = match operator {
+            TokenKind::Plus => {
+                Instruction::add(self.current_register, left_register, right_register)
+            }
+            TokenKind::Minus => {
+                Instruction::subtract(self.current_register, left_register, right_register)
+            }
+            TokenKind::Star => {
+                Instruction::multiply(self.current_register, left_register, right_register)
+            }
+            TokenKind::Slash => {
+                Instruction::divide(self.current_register, left_register, right_register)
+            }
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -268,7 +325,7 @@ impl<'src> Parser<'src> {
         };
 
         self.increment_register()?;
-        self.emit_instruction(byte, operator_position);
+        self.emit_instruction(instruction, operator_position);
 
         Ok(())
     }
@@ -279,21 +336,16 @@ impl<'src> Parser<'src> {
 
     fn parse_named_variable(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
         let token = self.previous_token.to_owned();
-        let identifier_index = self.parse_identifier_from(token, self.previous_position)?;
+        let local_index = self.parse_identifier_from(token, self.previous_position)?;
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
             self.parse_expression()?;
 
             self.emit_instruction(
-                Instruction::set_variable(self.current_register, identifier_index),
+                Instruction::set_local(self.current_register, local_index),
                 self.previous_position,
             );
             self.increment_register()?;
-        } else {
-            self.emit_instruction(
-                Instruction::get_variable(self.current_register - 1, identifier_index),
-                self.previous_position,
-            );
         }
 
         Ok(())
@@ -307,8 +359,8 @@ impl<'src> Parser<'src> {
         if let TokenOwned::Identifier(text) = token {
             let identifier = Identifier::new(text);
 
-            if let Ok(identifier_index) = self.chunk.get_identifier_index(&identifier, position) {
-                Ok(identifier_index)
+            if let Ok(local_index) = self.chunk.get_local_index(&identifier, position) {
+                Ok(local_index)
             } else {
                 Err(ParseError::UndefinedVariable {
                     identifier,
@@ -392,13 +444,12 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
 
-        let identifier_index = self.chunk.declare_variable(identifier, position)?;
+        let local_index = self.chunk.declare_local(identifier, position)?;
 
         self.emit_instruction(
-            Instruction::declare_variable(self.current_register, identifier_index),
+            Instruction::declare_variable(self.current_register - 1, local_index),
             position,
         );
-        self.increment_register()?;
 
         Ok(())
     }
@@ -661,6 +712,9 @@ pub enum ParseError {
     RegisterOverflow {
         position: Span,
     },
+    RegisterUnderflow {
+        position: Span,
+    },
 
     // Wrappers around foreign errors
     Chunk(ChunkError),
@@ -694,6 +748,7 @@ impl AnnotatedError for ParseError {
             Self::InvalidAssignmentTarget { .. } => "Invalid assignment target",
             Self::UndefinedVariable { .. } => "Undefined variable",
             Self::RegisterOverflow { .. } => "Register overflow",
+            Self::RegisterUnderflow { .. } => "Register underflow",
             Self::Chunk { .. } => "Chunk error",
             Self::Lex(_) => "Lex error",
             Self::ParseFloatError { .. } => "Failed to parse float",
@@ -717,6 +772,7 @@ impl AnnotatedError for ParseError {
                 Some(format!("Undefined variable \"{identifier}\""))
             }
             Self::RegisterOverflow { .. } => None,
+            Self::RegisterUnderflow { .. } => None,
             Self::Chunk(error) => error.details(),
             Self::Lex(error) => error.details(),
             Self::ParseFloatError { error, .. } => Some(error.to_string()),
@@ -732,6 +788,7 @@ impl AnnotatedError for ParseError {
             Self::InvalidAssignmentTarget { position, .. } => *position,
             Self::UndefinedVariable { position, .. } => *position,
             Self::RegisterOverflow { position } => *position,
+            Self::RegisterUnderflow { position } => *position,
             Self::Chunk(error) => error.position(),
             Self::Lex(error) => error.position(),
             Self::ParseFloatError { position, .. } => *position,

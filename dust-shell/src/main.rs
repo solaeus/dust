@@ -62,7 +62,7 @@ fn parse_and_display_errors(source: &str) {
     match parse(source) {
         Ok(chunk) => println!("{}", chunk.disassemble("Dust CLI Input")),
         Err(error) => {
-            eprintln!("{:?}", error);
+            eprintln!("{}", error.report());
         }
     }
 }

@@ -38,69 +38,77 @@ impl Vm {
                 Operation::Move => todo!(),
                 Operation::Close => todo!(),
                 Operation::LoadConstant => {
-                    let register_index = instruction.to_register as usize;
-                    let constant_index = u16::from_le_bytes(instruction.arguments);
+                    let constant_index = u16::from_le_bytes(instruction.arguments) as usize;
                     let value = self.chunk.use_constant(constant_index, position)?;
 
-                    self.insert(value, register_index, position)?;
+                    self.insert(value, instruction.destination as usize, position)?;
                 }
                 Operation::DeclareVariable => {
-                    let register_index = instruction.to_register as usize;
-                    let identifier_index = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.take(identifier_index, position)?;
+                    let register_index = instruction.destination as usize;
+                    let local_index = u16::from_le_bytes(instruction.arguments) as usize;
+                    let value = self.clone(register_index, position)?;
 
-                    self.insert(value, register_index, position)?;
+                    self.chunk.define_local(local_index, value, position)?;
                 }
                 Operation::GetVariable => {
                     let identifier_index = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.take(identifier_index, position)?;
+                    let value = self.clone(identifier_index, position)?;
 
                     self.insert(value, identifier_index, position)?;
                 }
                 Operation::SetVariable => todo!(),
                 Operation::Add => {
-                    let left = self.take(instruction.arguments[0] as usize, position)?;
-                    let right = self.take(instruction.arguments[1] as usize, position)?;
+                    let left =
+                        self.take_or_use_constant(instruction.arguments[0] as usize, position)?;
+                    let right =
+                        self.take_or_use_constant(instruction.arguments[1] as usize, position)?;
                     let sum = left
                         .add(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(sum, instruction.to_register as usize, position)?;
+                    self.insert(sum, instruction.destination as usize, position)?;
                 }
                 Operation::Subtract => {
-                    let left = self.take(instruction.arguments[0] as usize, position)?;
-                    let right = self.take(instruction.arguments[1] as usize, position)?;
+                    let left =
+                        self.take_or_use_constant(instruction.arguments[0] as usize, position)?;
+                    let right =
+                        self.take_or_use_constant(instruction.arguments[1] as usize, position)?;
                     let difference = left
                         .subtract(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(difference, instruction.to_register as usize, position)?;
+                    self.insert(difference, instruction.destination as usize, position)?;
                 }
                 Operation::Multiply => {
-                    let left = self.take(instruction.arguments[0] as usize, position)?;
-                    let right = self.take(instruction.arguments[1] as usize, position)?;
+                    let left =
+                        self.take_or_use_constant(instruction.arguments[0] as usize, position)?;
+                    let right =
+                        self.take_or_use_constant(instruction.arguments[1] as usize, position)?;
                     let product = left
                         .multiply(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(product, instruction.to_register as usize, position)?;
+                    self.insert(product, instruction.destination as usize, position)?;
                 }
                 Operation::Divide => {
-                    let left = self.take(instruction.arguments[0] as usize, position)?;
-                    let right = self.take(instruction.arguments[1] as usize, position)?;
+                    let left =
+                        self.take_or_use_constant(instruction.arguments[0] as usize, position)?;
+                    let right =
+                        self.take_or_use_constant(instruction.arguments[1] as usize, position)?;
                     let quotient = left
                         .divide(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(quotient, instruction.to_register as usize, position)?;
+                    self.insert(quotient, instruction.destination as usize, position)?;
                 }
                 Operation::Negate => {
-                    let value = self.take(instruction.arguments[0] as usize, position)?;
+                    let value =
+                        self.take_or_use_constant(instruction.arguments[0] as usize, position)?;
                     let negated = value
                         .negate()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(negated, instruction.to_register as usize, position)?;
+                    self.insert(negated, instruction.destination as usize, position)?;
                 }
                 Operation::Return => {
                     let value = self.pop(position)?;
@@ -117,25 +125,37 @@ impl Vm {
         if self.register_stack.len() == Self::STACK_LIMIT {
             Err(VmError::StackOverflow { position })
         } else {
-            if index == self.register_stack.len() {
-                self.register_stack.push(Some(value));
-            } else {
-                self.register_stack[index] = Some(value);
+            while index >= self.register_stack.len() {
+                self.register_stack.push(None);
             }
+
+            self.register_stack[index] = Some(value);
 
             Ok(())
         }
     }
 
-    fn take(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
+    fn clone(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.get_mut(index) {
             let value = register
-                .clone()
-                .ok_or(VmError::EmptyRegister { index, position })?;
+                .take()
+                .ok_or(VmError::EmptyRegister { index, position })?
+                .into_reference();
+            let _ = register.insert(value.clone());
 
             Ok(value)
         } else {
             Err(VmError::RegisterIndexOutOfBounds { position })
+        }
+    }
+
+    fn take_or_use_constant(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
+        if let Ok(value) = self.clone(index, position) {
+            Ok(value)
+        } else {
+            let value = self.chunk.use_constant(index, position)?;
+
+            Ok(value)
         }
     }
 
@@ -153,7 +173,7 @@ impl Vm {
     }
 
     fn read(&mut self, position: Span) -> Result<&(Instruction, Span), VmError> {
-        let current = self.chunk.get_code(self.ip, position)?;
+        let current = self.chunk.get_instruction(self.ip, position)?;
 
         self.ip += 1;
 
