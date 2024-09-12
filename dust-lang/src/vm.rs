@@ -43,20 +43,20 @@ impl Vm {
 
                     self.insert(value, instruction.destination as usize, position)?;
                 }
-                Operation::DeclareVariable => {
+                Operation::DeclareLocal => {
                     let register_index = instruction.destination as usize;
                     let local_index = u16::from_le_bytes(instruction.arguments) as usize;
                     let value = self.clone(register_index, position)?;
 
                     self.chunk.define_local(local_index, value, position)?;
                 }
-                Operation::GetVariable => {
+                Operation::GetLocal => {
                     let identifier_index = u16::from_le_bytes(instruction.arguments) as usize;
                     let value = self.clone(identifier_index, position)?;
 
                     self.insert(value, identifier_index, position)?;
                 }
-                Operation::SetVariable => todo!(),
+                Operation::SetLocal => todo!(),
                 Operation::Add => {
                     let left =
                         self.take_or_use_constant(instruction.arguments[0] as usize, position)?;

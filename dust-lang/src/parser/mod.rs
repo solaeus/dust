@@ -138,7 +138,6 @@ impl<'src> Parser<'src> {
             Instruction::load_constant(self.current_register, constant_index),
             position,
         );
-        self.increment_register()?;
 
         Ok(())
     }
@@ -276,8 +275,8 @@ impl<'src> Parser<'src> {
             }
             _ => self.current_register - 1,
         };
-        let last_instruction = self.chunk.pop_instruction();
-        let left_register = match last_instruction {
+        let previous_instruction = self.chunk.pop_instruction();
+        let left_register = match previous_instruction {
             Some((
                 Instruction {
                     operation: Operation::LoadConstant,
@@ -340,12 +339,15 @@ impl<'src> Parser<'src> {
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
             self.parse_expression()?;
-
             self.emit_instruction(
                 Instruction::set_local(self.current_register, local_index),
                 self.previous_position,
             );
-            self.increment_register()?;
+        } else {
+            self.emit_instruction(
+                Instruction::get_local(self.current_register, local_index),
+                self.previous_position,
+            );
         }
 
         Ok(())
@@ -447,7 +449,7 @@ impl<'src> Parser<'src> {
         let local_index = self.chunk.declare_local(identifier, position)?;
 
         self.emit_instruction(
-            Instruction::declare_variable(self.current_register - 1, local_index),
+            Instruction::declare_local(self.current_register, local_index),
             position,
         );
 

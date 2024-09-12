@@ -104,7 +104,7 @@ impl Chunk {
 
     pub fn get_local(&self, index: usize, position: Span) -> Result<&Local, ChunkError> {
         self.locals
-            .get(index as usize)
+            .get(index)
             .ok_or(ChunkError::LocalIndexOutOfBounds { index, position })
     }
 
@@ -193,78 +193,8 @@ impl Chunk {
         self.locals.pop()
     }
 
-    pub fn disassemble(&self, name: &str) -> String {
-        let mut output = String::new();
-
-        let name_length = name.len();
-        let buffer_length = 51_usize.saturating_sub(name_length);
-        let name_buffer = " ".repeat(buffer_length / 2);
-        let underline = "-".repeat(name_length);
-
-        output.push_str(&format!("{name_buffer}{name}{name_buffer}\n"));
-        output.push_str(&format!("{name_buffer}{underline}{name_buffer}\n",));
-        output.push_str("                       Code                        \n");
-        output.push_str("------ ---------------- -------------------- --------\n");
-        output.push_str("OFFSET INSTRUCTION      INFO                 POSITION\n");
-        output.push_str("------ ---------------- -------------------- --------\n");
-
-        for (offset, (instruction, position)) in self.instructions.iter().enumerate() {
-            let display = format!(
-                "{offset:^6} {:37} {position}\n",
-                instruction.disassemble(self)
-            );
-
-            output.push_str(&display);
-        }
-
-        output.push_str("\n   Constants\n");
-        output.push_str("----- ---- -----\n");
-        output.push_str("INDEX KIND VALUE\n");
-        output.push_str("----- ---- -----\n");
-
-        for (index, value_option) in self.constants.iter().enumerate() {
-            let value_kind_display = match value_option {
-                Some(Value::Raw(_)) => "RAW ",
-                Some(Value::Reference(_)) => "REF ",
-                Some(Value::Mutable(_)) => "MUT ",
-                None => "EMPTY",
-            };
-            let value_display = value_option
-                .as_ref()
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "EMPTY".to_string());
-            let display = format!("{index:3}   {value_kind_display} {value_display}\n",);
-
-            output.push_str(&display);
-        }
-
-        output.push_str("\n         Locals\n");
-        output.push_str("----- ---------- ----- -----\n");
-        output.push_str("INDEX NAME       DEPTH VALUE\n");
-        output.push_str("----- ---------- ----- -----\n");
-
-        for (
-            index,
-            Local {
-                identifier,
-                depth,
-                value,
-            },
-        ) in self.locals.iter().enumerate()
-        {
-            let value_display = value
-                .as_ref()
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "EMPTY".to_string());
-
-            let display = format!(
-                "{index:3}   {:10} {depth:<5} {value_display}\n",
-                identifier.as_str()
-            );
-            output.push_str(&display);
-        }
-
-        output
+    pub fn disassemble<'a>(&self, name: &'a str) -> DisassembledChunk<'a> {
+        DisassembledChunk::new(name, self)
     }
 }
 
@@ -310,6 +240,165 @@ impl Local {
             depth,
             value,
         }
+    }
+}
+
+pub struct DisassembledChunk<'a> {
+    name: &'a str,
+    body: String,
+}
+
+impl DisassembledChunk<'_> {
+    pub fn new<'a>(name: &'a str, chunk: &Chunk) -> DisassembledChunk<'a> {
+        let mut disassembled = String::new();
+        let mut longest_line = 0;
+
+        disassembled.push('\n');
+        disassembled.push_str(&DisassembledChunk::instructions_header());
+        disassembled.push('\n');
+
+        for (offset, (instruction, position)) in chunk.instructions.iter().enumerate() {
+            let position = position.to_string();
+            let operation = instruction.operation.to_string();
+            let info_option = instruction.disassembly_info(Some(chunk));
+            let instruction_display = if let Some(info) = info_option {
+                format!("{offset:<6} {operation:16} {info:17} {position:8}\n")
+            } else {
+                format!("{offset:<6} {operation:16} {:17} {position:8}\n", " ")
+            };
+
+            disassembled.push_str(&instruction_display);
+
+            let line_length = instruction_display.len();
+
+            if line_length > longest_line {
+                longest_line = line_length;
+            }
+        }
+
+        let mut push_centered = |section: &str| {
+            let mut centered = String::new();
+
+            for line in section.lines() {
+                centered.push_str(&format!("{line:^longest_line$}\n"));
+            }
+
+            disassembled.push_str(&centered);
+        };
+
+        push_centered("\n");
+        push_centered(&mut DisassembledChunk::constant_header());
+
+        for (index, value_option) in chunk.constants.iter().enumerate() {
+            let value_kind_display = match value_option {
+                Some(Value::Raw(_)) => "RAW ",
+                Some(Value::Reference(_)) => "REF ",
+                Some(Value::Mutable(_)) => "MUT ",
+                None => "EMPTY",
+            };
+            let value_display = value_option
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "EMPTY".to_string());
+            let constant_display = format!("{index:<5} {value_kind_display:<4} {value_display:<5}");
+
+            push_centered(&constant_display);
+        }
+
+        push_centered("\n");
+        push_centered(&mut DisassembledChunk::local_header());
+
+        for (
+            index,
+            Local {
+                identifier,
+                depth,
+                value,
+            },
+        ) in chunk.locals.iter().enumerate()
+        {
+            let value_kind_display = match value {
+                Some(Value::Raw(_)) => "RAW ",
+                Some(Value::Reference(_)) => "REF ",
+                Some(Value::Mutable(_)) => "MUT ",
+                None => "EMPTY",
+            };
+            let value_display = value
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "EMPTY".to_string());
+            let identifier_display = identifier.as_str();
+            let local_display =
+                format!("{index:<5} {identifier_display:<10} {depth:<5} {value_kind_display:<4} {value_display:<5}");
+
+            push_centered(&local_display);
+        }
+
+        DisassembledChunk {
+            name,
+            body: disassembled,
+        }
+    }
+
+    pub fn to_string_with_width(&self, width: usize) -> String {
+        let mut display = String::new();
+
+        for line in self.to_string().lines() {
+            display.push_str(&format!("{line:^width$}\n"));
+        }
+
+        display
+    }
+
+    fn name_header(&self) -> String {
+        format!("{:^50}\n{:^50}", self.name, "==============")
+    }
+
+    fn instructions_header() -> String {
+        format!(
+            "{:^50}\n{:^50}\n{:<6} {:<16} {:<17} {}\n{} {} {} {}",
+            "Instructions",
+            "------------",
+            "OFFSET",
+            "INSTRUCTION",
+            "INFO",
+            "POSITION",
+            "------",
+            "----------------",
+            "-----------------",
+            "--------"
+        )
+    }
+
+    fn constant_header() -> String {
+        format!(
+            "{:^16}\n{:^16}\n{:<5} {:<4} {}\n{} {} {}",
+            "Constants", "---------", "INDEX", "KIND", "VALUE", "-----", "----", "-----"
+        )
+    }
+
+    fn local_header() -> String {
+        format!(
+            "{:^50}\n{:^50}\n{:<5} {:<10} {:<5} {:<5} {:<5}\n{} {} {} {} {}",
+            "Locals",
+            "------",
+            "INDEX",
+            "IDENTIFIER",
+            "DEPTH",
+            "KIND",
+            "VALUE",
+            "-----",
+            "----------",
+            "-----",
+            "-----",
+            "-----"
+        )
+    }
+}
+
+impl Display for DisassembledChunk<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}\n{}", self.name_header(), self.body)
     }
 }
 
