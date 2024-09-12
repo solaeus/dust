@@ -247,7 +247,7 @@ impl AnnotatedError for VmError {
             Self::StackUnderflow { .. } => "Stack underflow",
             Self::UndeclaredVariable { .. } => "Undeclared variable",
             Self::UndefinedVariable { .. } => "Undefined variable",
-            Self::Chunk(_) => "Chunk error",
+            Self::Chunk(error) => error.description(),
             Self::Value { .. } => "Value error",
         }
     }

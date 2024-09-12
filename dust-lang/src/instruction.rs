@@ -161,8 +161,19 @@ impl Instruction {
             }
             Operation::DeclareLocal => {
                 let local_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
+                let identifier_display = if let Some(chunk) = chunk {
+                    match chunk.get_identifier(local_index as usize) {
+                        Some(identifier) => identifier.to_string(),
+                        None => "???".to_string(),
+                    }
+                } else {
+                    "???".to_string()
+                };
 
-                format!("L({}) = R({})", local_index, self.destination)
+                format!(
+                    "L({}) = R({}) {}",
+                    local_index, self.destination, identifier_display
+                )
             }
             Operation::GetLocal => {
                 let local_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
@@ -170,9 +181,20 @@ impl Instruction {
                 format!("R({}) = L({})", self.destination, local_index)
             }
             Operation::SetLocal => {
-                let identifier_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
+                let local_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
+                let identifier_display = if let Some(chunk) = chunk {
+                    match chunk.get_identifier(local_index as usize) {
+                        Some(identifier) => identifier.to_string(),
+                        None => "???".to_string(),
+                    }
+                } else {
+                    "???".to_string()
+                };
 
-                format!("L({}) = R({})", identifier_index, self.destination)
+                format!(
+                    "L({}) = R({}) {}",
+                    local_index, self.destination, identifier_display
+                )
             }
             Operation::Add => {
                 format!(

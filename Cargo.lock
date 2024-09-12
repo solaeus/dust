@@ -168,6 +168,7 @@ name = "dust-lang"
 version = "0.5.0"
 dependencies = [
  "annotate-snippets",
+ "colored",
  "env_logger",
  "log",
  "rand",
