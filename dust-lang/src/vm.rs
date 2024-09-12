@@ -50,7 +50,7 @@ impl Vm {
                 Operation::DeclareLocal => {
                     let register_index = instruction.destination as usize;
                     let local_index = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.clone(register_index, position)?;
+                    let value = self.take(register_index, position)?;
 
                     self.chunk.define_local(local_index, value, position)?;
                 }
@@ -148,14 +148,10 @@ impl Vm {
         }
     }
 
-    fn clone(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
+    fn take(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.get_mut(index) {
-            if let Some(mut value) = register.take() {
-                if value.is_raw() {
-                    value = value.into_reference();
-                }
-
-                Ok(value.clone())
+            if let Some(value) = register.take() {
+                Ok(value)
             } else {
                 Err(VmError::EmptyRegister { index, position })
             }
@@ -165,7 +161,7 @@ impl Vm {
     }
 
     fn take_or_use_constant(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
-        if let Ok(value) = self.clone(index, position) {
+        if let Ok(value) = self.take(index, position) {
             Ok(value)
         } else {
             let value = self.chunk.use_constant(index, position)?;
