@@ -403,6 +403,10 @@ impl<'src> Lexer<'src> {
                     self.next_char();
 
                     while let Some(peek_char) = self.peek_char() {
+                        if peek_char == ' ' {
+                            break;
+                        }
+
                         if let '0'..='9' = peek_char {
                             self.next_char();
 
