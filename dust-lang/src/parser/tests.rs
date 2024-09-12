@@ -23,7 +23,24 @@ fn add() {
             vec![
                 (Instruction::load_constant(0, 0), Span(0, 1)),
                 (Instruction::load_constant(1, 1), Span(4, 5)),
-                (Instruction::add(2, 1, 0), Span(2, 3)),
+                (Instruction::add(2, 0, 1), Span(2, 3)),
+                (Instruction::r#return(), Span(0, 5)),
+            ],
+            vec![Value::integer(1), Value::integer(2),],
+            vec![]
+        ))
+    );
+}
+
+#[test]
+fn subtract() {
+    assert_eq!(
+        parse("1 - 2"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0), Span(0, 1)),
+                (Instruction::load_constant(1, 1), Span(4, 5)),
+                (Instruction::subtract(2, 0, 1), Span(2, 3)),
                 (Instruction::r#return(), Span(0, 5)),
             ],
             vec![Value::integer(1), Value::integer(2),],

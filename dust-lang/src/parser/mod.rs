@@ -214,6 +214,7 @@ impl<'src> Parser<'src> {
             }
         };
 
+        self.increment_register()?;
         self.parse_expression()?;
         self.emit_instruction(byte, operator_position);
 
@@ -234,8 +235,8 @@ impl<'src> Parser<'src> {
         } else {
             self.current_register
         };
-        let left_register = to_register - 1;
-        let right_register = to_register - 2;
+        let left_register = to_register - 2;
+        let right_register = to_register - 1;
         let byte = match operator {
             TokenKind::Plus => Instruction::add(to_register, left_register, right_register),
             TokenKind::Minus => Instruction::subtract(to_register, left_register, right_register),
@@ -255,6 +256,7 @@ impl<'src> Parser<'src> {
             }
         };
 
+        self.increment_register()?;
         self.emit_instruction(byte, operator_position);
 
         Ok(())
@@ -319,19 +321,10 @@ impl<'src> Parser<'src> {
         }
 
         self.chunk.end_scope();
-
-        while self
-            .chunk
-            .identifiers()
-            .iter()
-            .next_back()
-            .map_or(false, |local| local.depth > self.chunk.scope_depth())
-        {
-            self.emit_instruction(
-                Instruction::close(self.current_register),
-                self.current_position,
-            );
-        }
+        self.emit_instruction(
+            Instruction::close(self.current_register),
+            self.current_position,
+        );
 
         Ok(())
     }
@@ -392,7 +385,7 @@ impl<'src> Parser<'src> {
         let identifier_index = self.chunk.declare_variable(identifier, position)?;
 
         self.emit_instruction(
-            Instruction::set_variable(self.current_register, identifier_index),
+            Instruction::declare_variable(self.current_register, identifier_index),
             position,
         );
         self.increment_register()?;
@@ -714,7 +707,7 @@ impl AnnotatedError for ParseError {
             }
             Self::RegisterOverflow { .. } => None,
             Self::Chunk(error) => error.details(),
-            Self::Lex(error) => Some(error.to_string()),
+            Self::Lex(error) => error.details(),
             Self::ParseIntError { error, .. } => Some(error.to_string()),
         }
     }

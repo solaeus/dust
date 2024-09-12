@@ -181,21 +181,20 @@ impl Chunk {
         let name_length = name.len();
         let buffer_length = 34_usize.saturating_sub(name_length + 2);
         let name_buffer = " ".repeat(buffer_length / 2);
-        let name_line = format!("\n{name_buffer}{name}{name_buffer}\n");
+        let name_line = format!("{name_buffer}{name}{name_buffer}\n");
         let name_underline = format!("{name_buffer}{}{name_buffer}\n", "-".repeat(name_length));
 
         output.push_str(&name_line);
         output.push_str(&name_underline);
         output.push_str("\n              Code              \n");
-        output.push_str("------ ------------ ------------\n");
-        output.push_str("OFFSET POSITION     INSTRUCTION\n");
-        output.push_str("------ ------------ ------------\n");
+        output.push_str("------ -------- ------------\n");
+        output.push_str("OFFSET POSITION INSTRUCTION\n");
+        output.push_str("------ -------- ------------\n");
 
         for (offset, (instruction, position)) in self.code.iter().enumerate() {
             let display = format!(
-                "{offset:4}   {:12} {}\n",
-                position.to_string(),
-                instruction.disassemble(self, offset)
+                "{offset:04}   {position}   {}\n",
+                instruction.disassemble(self)
             );
 
             output.push_str(&display);
