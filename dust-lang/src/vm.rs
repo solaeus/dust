@@ -44,8 +44,19 @@ impl Vm {
 
                     self.insert(value, register_index, position)?;
                 }
-                Operation::DeclareVariable => todo!(),
-                Operation::GetVariable => todo!(),
+                Operation::DeclareVariable => {
+                    let register_index = instruction.to_register as usize;
+                    let identifier_index = u16::from_le_bytes(instruction.arguments) as usize;
+                    let value = self.take(identifier_index, position)?;
+
+                    self.insert(value, register_index, position)?;
+                }
+                Operation::GetVariable => {
+                    let identifier_index = u16::from_le_bytes(instruction.arguments) as usize;
+                    let value = self.take(identifier_index, position)?;
+
+                    self.insert(value, identifier_index, position)?;
+                }
                 Operation::SetVariable => todo!(),
                 Operation::Add => {
                     let left = self.take(instruction.arguments[0] as usize, position)?;
@@ -106,16 +117,20 @@ impl Vm {
         if self.register_stack.len() == Self::STACK_LIMIT {
             Err(VmError::StackOverflow { position })
         } else {
-            self.register_stack.insert(index, Some(value));
+            if index == self.register_stack.len() {
+                self.register_stack.push(Some(value));
+            } else {
+                self.register_stack[index] = Some(value);
+            }
 
             Ok(())
         }
     }
 
-    pub fn take(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
+    fn take(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.get_mut(index) {
             let value = register
-                .take()
+                .clone()
                 .ok_or(VmError::EmptyRegister { index, position })?;
 
             Ok(value)
@@ -126,7 +141,10 @@ impl Vm {
 
     fn pop(&mut self, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.pop() {
-            let value = register.ok_or(VmError::RegisterIndexOutOfBounds { position })?;
+            let value = register.ok_or(VmError::EmptyRegister {
+                index: self.register_stack.len().saturating_sub(1),
+                position,
+            })?;
 
             Ok(value)
         } else {

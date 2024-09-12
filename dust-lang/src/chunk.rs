@@ -179,21 +179,20 @@ impl Chunk {
         let mut output = String::new();
 
         let name_length = name.len();
-        let buffer_length = 34_usize.saturating_sub(name_length + 2);
+        let buffer_length = 51_usize.saturating_sub(name_length);
         let name_buffer = " ".repeat(buffer_length / 2);
-        let name_line = format!("{name_buffer}{name}{name_buffer}\n");
-        let name_underline = format!("{name_buffer}{}{name_buffer}\n", "-".repeat(name_length));
+        let underline = "-".repeat(name_length);
 
-        output.push_str(&name_line);
-        output.push_str(&name_underline);
-        output.push_str("\n              Code              \n");
-        output.push_str("------ -------- ------------\n");
-        output.push_str("OFFSET POSITION INSTRUCTION\n");
-        output.push_str("------ -------- ------------\n");
+        output.push_str(&format!("{name_buffer}{name}{name_buffer}\n"));
+        output.push_str(&format!("{name_buffer}{underline}{name_buffer}\n",));
+        output.push_str("                       Code                        \n");
+        output.push_str("------ ---------------- ------------------ --------\n");
+        output.push_str("OFFSET INSTRUCTION      INFO               POSITION\n");
+        output.push_str("------ ---------------- ------------------ --------\n");
 
         for (offset, (instruction, position)) in self.code.iter().enumerate() {
             let display = format!(
-                "{offset:04}   {position}   {}\n",
+                "{offset:^6} {:35} {position}\n",
                 instruction.disassemble(self)
             );
 
@@ -221,7 +220,7 @@ impl Chunk {
             output.push_str(&display);
         }
 
-        output.push_str("\n      Identifiers\n");
+        output.push_str("\n     Identifiers\n");
         output.push_str("----- ---------- -----\n");
         output.push_str("INDEX NAME       DEPTH\n");
         output.push_str("----- ---------- -----\n");
@@ -243,13 +242,13 @@ impl Default for Chunk {
 
 impl Display for Chunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.disassemble("Chunk Disassembly"))
+        write!(f, "{}", self.disassemble("Chunk Display"))
     }
 }
 
 impl Debug for Chunk {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}", self.disassemble("Chunk Disassembly"))
+        write!(f, "{}", self.disassemble("Chunk Debug Display"))
     }
 }
 
@@ -267,6 +266,12 @@ impl PartialEq for Chunk {
 pub struct Local {
     pub identifier: Identifier,
     pub depth: usize,
+}
+
+impl Local {
+    pub fn new(identifier: Identifier, depth: usize) -> Self {
+        Self { identifier, depth }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

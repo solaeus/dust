@@ -3,7 +3,6 @@
 //! This module provides two lexing options:
 //! - [`lex`], which lexes the entire input and returns a vector of tokens and their positions
 //! - [`Lexer`], which lexes the input a token at a time
-use std::fmt::{self, Display, Formatter};
 
 use crate::{dust_error::AnnotatedError, Span, Token};
 
@@ -100,7 +99,7 @@ impl<'src> Lexer<'src> {
 
         let (token, span) = if let Some(c) = self.peek_char() {
             match c {
-                '0'..='9' => self.lex_number()?,
+                '0'..='9' => self.lex_numeric()?,
                 '-' => {
                     let second_char = self.peek_second_char();
 
@@ -109,7 +108,7 @@ impl<'src> Lexer<'src> {
 
                         (Token::MinusEqual, Span(self.position - 2, self.position))
                     } else if let Some('0'..='9') = second_char {
-                        self.lex_number()?
+                        self.lex_numeric()?
                     } else if "-Infinity" == self.peek_chars(9) {
                         self.position += 9;
 
@@ -384,7 +383,7 @@ impl<'src> Lexer<'src> {
     }
 
     /// Lex an integer or float token.
-    fn lex_number(&mut self) -> Result<(Token<'src>, Span), LexError> {
+    fn lex_numeric(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
         let mut is_float = false;
 
@@ -399,26 +398,39 @@ impl<'src> Lexer<'src> {
                         self.next_char();
                     }
 
+                    is_float = true;
+
                     self.next_char();
 
-                    loop {
-                        let peek_char = self.peek_char();
-
-                        if let Some('0'..='9') = peek_char {
+                    while let Some(peek_char) = self.peek_char() {
+                        if let '0'..='9' = peek_char {
                             self.next_char();
-                        } else if let Some('e') = peek_char {
-                            if let Some('0'..='9') = self.peek_second_char() {
-                                self.next_char();
-                                self.next_char();
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        }
-                    }
 
-                    is_float = true;
+                            continue;
+                        }
+
+                        let peek_second_char = self.peek_second_char();
+
+                        if let ('e', Some('0'..='9')) = (peek_char, peek_second_char) {
+                            self.next_char();
+                            self.next_char();
+
+                            continue;
+                        }
+
+                        if let ('e', Some('-')) = (peek_char, peek_second_char) {
+                            self.next_char();
+                            self.next_char();
+
+                            continue;
+                        }
+
+                        return Err(LexError::ExpectedCharacterMultiple {
+                            expected: &['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'e', '-'],
+                            actual: peek_char,
+                            position: self.position,
+                        });
+                    }
                 } else {
                     break;
                 }
@@ -431,7 +443,10 @@ impl<'src> Lexer<'src> {
                     if c.is_ascii_hexdigit() {
                         self.next_char();
                     } else {
-                        break;
+                        return Err(LexError::ExpectedAsciiHexDigit {
+                            actual: c,
+                            position: self.position,
+                        });
                     }
                 }
 
@@ -515,8 +530,17 @@ impl<'src> Lexer<'src> {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
+    ExpectedAsciiHexDigit {
+        actual: char,
+        position: usize,
+    },
     ExpectedCharacter {
         expected: char,
+        actual: char,
+        position: usize,
+    },
+    ExpectedCharacterMultiple {
+        expected: &'static [char],
         actual: char,
         position: usize,
     },
@@ -536,7 +560,9 @@ impl AnnotatedError for LexError {
 
     fn description(&self) -> &'static str {
         match self {
+            Self::ExpectedAsciiHexDigit { .. } => "Expected ASCII hex digit",
             Self::ExpectedCharacter { .. } => "Expected character",
+            Self::ExpectedCharacterMultiple { .. } => "Expected one of multiple characters",
             Self::UnexpectedCharacter { .. } => "Unexpected character",
             Self::UnexpectedEndOfFile { .. } => "Unexpected end of file",
         }
@@ -544,12 +570,34 @@ impl AnnotatedError for LexError {
 
     fn details(&self) -> Option<String> {
         match self {
+            Self::ExpectedAsciiHexDigit { actual, .. } => Some(format!(
+                "Expected ASCII hex digit (0-9 or A-F), found \"{}\"",
+                actual
+            )),
             Self::ExpectedCharacter {
                 expected, actual, ..
             } => Some(format!(
                 "Expected character \"{}\", found \"{}\"",
                 expected, actual
             )),
+            Self::ExpectedCharacterMultiple {
+                expected, actual, ..
+            } => {
+                let mut details = "Expected one of the following characters ".to_string();
+
+                for (i, c) in expected.iter().enumerate() {
+                    if i == expected.len() - 1 {
+                        details.push_str(", or ");
+                    } else if i > 0 {
+                        details.push_str(", ");
+                    }
+                    details.push(*c);
+                }
+
+                details.push_str(&format!(" but found {}", actual));
+
+                Some(details)
+            }
             Self::UnexpectedCharacter { actual, .. } => {
                 Some(format!("Unexpected character \"{}\"", actual))
             }
@@ -559,25 +607,11 @@ impl AnnotatedError for LexError {
 
     fn position(&self) -> Span {
         match self {
+            Self::ExpectedAsciiHexDigit { position, .. } => Span(*position, *position),
             Self::ExpectedCharacter { position, .. } => Span(*position, *position),
+            Self::ExpectedCharacterMultiple { position, .. } => Span(*position, *position),
             Self::UnexpectedCharacter { position, .. } => Span(*position, *position),
             Self::UnexpectedEndOfFile { position } => Span(*position, *position),
-        }
-    }
-}
-
-impl Display for LexError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::ExpectedCharacter {
-                expected, actual, ..
-            } => write!(f, "Expected character '{expected}', found '{actual}'"),
-            Self::UnexpectedCharacter { actual, .. } => {
-                write!(f, "Unexpected character '{actual}'")
-            }
-            Self::UnexpectedEndOfFile { .. } => {
-                write!(f, "Unexpected end of file")
-            }
         }
     }
 }
@@ -1262,6 +1296,47 @@ mod tests {
             Ok(vec![
                 (Token::Float("123456789.123456789"), Span(0, 19)),
                 (Token::Eof, Span(19, 19)),
+            ])
+        )
+    }
+
+    #[test]
+    fn float_with_exponent() {
+        let input = "1.23e4";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Float("1.23e4"), Span(0, 6)),
+                (Token::Eof, Span(6, 6)),
+            ])
+        )
+    }
+
+    #[test]
+    fn float_with_negative_exponent() {
+        let input = "1.23e-4";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Float("1.23e-4"), Span(0, 7)),
+                (Token::Eof, Span(7, 7)),
+            ])
+        )
+    }
+
+    #[test]
+    fn float_infinity_and_nan() {
+        let input = "Infinity -Infinity NaN";
+
+        assert_eq!(
+            lex(input),
+            Ok(vec![
+                (Token::Float("Infinity"), Span(0, 8)),
+                (Token::Float("-Infinity"), Span(9, 18)),
+                (Token::Float("NaN"), Span(19, 22)),
+                (Token::Eof, Span(22, 22)),
             ])
         )
     }

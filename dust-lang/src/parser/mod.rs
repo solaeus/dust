@@ -3,8 +3,8 @@ mod tests;
 
 use std::{
     fmt::{self, Display, Formatter},
-    mem,
-    num::ParseIntError,
+    mem::replace,
+    num::{ParseFloatError, ParseIntError},
 };
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
 
 pub fn parse(source: &str) -> Result<Chunk, DustError> {
     let lexer = Lexer::new(source);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer).map_err(|error| DustError::Parse { error, source })?;
 
     while !parser.is_eof() {
         parser
@@ -37,13 +37,12 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(mut lexer: Lexer<'src>) -> Self {
-        let (current_token, current_position) =
-            lexer.next_token().unwrap_or((Token::Eof, Span(0, 0)));
+    pub fn new(mut lexer: Lexer<'src>) -> Result<Self, ParseError> {
+        let (current_token, current_position) = lexer.next_token()?;
 
         log::trace!("Starting parser with token {current_token} at {current_position}");
 
-        Parser {
+        Ok(Parser {
             lexer,
             chunk: Chunk::new(),
             current_register: 0,
@@ -51,7 +50,11 @@ impl<'src> Parser<'src> {
             current_position,
             previous_token: Token::Eof,
             previous_position: Span(0, 0),
-        }
+        })
+    }
+
+    pub fn take_chunk(self) -> Chunk {
+        self.chunk
     }
 
     fn is_eof(&self) -> bool {
@@ -81,8 +84,8 @@ impl<'src> Parser<'src> {
 
         log::trace!("Advancing to token {new_token} at {position}");
 
-        self.previous_token = mem::replace(&mut self.current_token, new_token);
-        self.previous_position = mem::replace(&mut self.current_position, position);
+        self.previous_token = replace(&mut self.current_token, new_token);
+        self.previous_position = replace(&mut self.current_position, position);
 
         Ok(())
     }
@@ -164,7 +167,12 @@ impl<'src> Parser<'src> {
 
     fn parse_float(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::Float(text) = self.previous_token {
-            let float = text.parse::<f64>().unwrap();
+            let float = text
+                .parse::<f64>()
+                .map_err(|error| ParseError::ParseFloatError {
+                    error,
+                    position: self.previous_position,
+                })?;
             let value = Value::float(float);
 
             self.emit_constant(value)?;
@@ -175,7 +183,12 @@ impl<'src> Parser<'src> {
 
     fn parse_integer(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         if let Token::Integer(text) = self.previous_token {
-            let integer = text.parse::<i64>().unwrap();
+            let integer = text
+                .parse::<i64>()
+                .map_err(|error| ParseError::ParseIntError {
+                    error,
+                    position: self.previous_position,
+                })?;
             let value = Value::integer(integer);
 
             self.emit_constant(value)?;
@@ -222,8 +235,6 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_binary(&mut self) -> Result<(), ParseError> {
-        log::trace!("Parsing binary expression");
-
         let operator_position = self.previous_position;
         let operator = self.previous_token.kind();
         let rule = ParseRule::from(&operator);
@@ -337,6 +348,7 @@ impl<'src> Parser<'src> {
         let start = self.current_position.0;
         let (is_expression_statement, contains_block) = match self.current_token {
             Token::Let => {
+                self.advance()?;
                 self.parse_let_statement(true)?;
 
                 (false, false)
@@ -364,8 +376,6 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_let_statement(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
-        self.expect(TokenKind::Let)?;
-
         let position = self.current_position;
         let identifier = if let Token::Identifier(text) = self.current_token {
             self.advance()?;
@@ -442,40 +452,36 @@ impl<'src> Parser<'src> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
-    None = 0,
-    Assignment = 1,
-    Conditional = 2,
-    LogicalOr = 3,
-    LogicalAnd = 4,
-    Equality = 5,
-    Comparison = 6,
-    Term = 7,
-    Factor = 8,
-    Unary = 9,
-    Call = 10,
-    Primary = 11,
+    None,
+    Assignment,
+    Conditional,
+    LogicalOr,
+    LogicalAnd,
+    Equality,
+    Comparison,
+    Term,
+    Factor,
+    Unary,
+    Call,
+    Primary,
 }
 
 impl Precedence {
-    fn from_byte(byte: u8) -> Self {
-        match byte {
-            0 => Self::None,
-            1 => Self::Assignment,
-            2 => Self::Conditional,
-            3 => Self::LogicalOr,
-            4 => Self::LogicalAnd,
-            5 => Self::Equality,
-            6 => Self::Comparison,
-            7 => Self::Term,
-            8 => Self::Factor,
-            9 => Self::Unary,
-            10 => Self::Call,
-            _ => Self::Primary,
-        }
-    }
-
     fn increment(&self) -> Self {
-        Self::from_byte(*self as u8 + 1)
+        match self {
+            Precedence::None => Precedence::Assignment,
+            Precedence::Assignment => Precedence::Conditional,
+            Precedence::Conditional => Precedence::LogicalOr,
+            Precedence::LogicalOr => Precedence::LogicalAnd,
+            Precedence::LogicalAnd => Precedence::Equality,
+            Precedence::Equality => Precedence::Comparison,
+            Precedence::Comparison => Precedence::Term,
+            Precedence::Term => Precedence::Factor,
+            Precedence::Factor => Precedence::Unary,
+            Precedence::Unary => Precedence::Call,
+            Precedence::Call => Precedence::Primary,
+            Precedence::Primary => Precedence::Primary,
+        }
     }
 }
 
@@ -659,6 +665,10 @@ pub enum ParseError {
     // Wrappers around foreign errors
     Chunk(ChunkError),
     Lex(LexError),
+    ParseFloatError {
+        error: ParseFloatError,
+        position: Span,
+    },
     ParseIntError {
         error: ParseIntError,
         position: Span,
@@ -686,6 +696,7 @@ impl AnnotatedError for ParseError {
             Self::RegisterOverflow { .. } => "Register overflow",
             Self::Chunk { .. } => "Chunk error",
             Self::Lex(_) => "Lex error",
+            Self::ParseFloatError { .. } => "Failed to parse float",
             Self::ParseIntError { .. } => "Failed to parse integer",
         }
     }
@@ -708,6 +719,7 @@ impl AnnotatedError for ParseError {
             Self::RegisterOverflow { .. } => None,
             Self::Chunk(error) => error.details(),
             Self::Lex(error) => error.details(),
+            Self::ParseFloatError { error, .. } => Some(error.to_string()),
             Self::ParseIntError { error, .. } => Some(error.to_string()),
         }
     }
@@ -722,6 +734,7 @@ impl AnnotatedError for ParseError {
             Self::RegisterOverflow { position } => *position,
             Self::Chunk(error) => error.position(),
             Self::Lex(error) => error.position(),
+            Self::ParseFloatError { position, .. } => *position,
             Self::ParseIntError { position, .. } => *position,
         }
     }

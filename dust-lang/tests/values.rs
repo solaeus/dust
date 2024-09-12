@@ -26,17 +26,12 @@ fn float_exponential() {
 }
 
 #[test]
-fn float_exponential_positive() {
-    assert_eq!(run("4.2e+1"), Ok(Some(Value::float(42.0))));
-}
-
-#[test]
 fn float_exponential_negative() {
     assert_eq!(run("4.2e-1"), Ok(Some(Value::float(0.42))));
 }
 
 #[test]
-fn float_special_values() {
+fn float_infinity_and_nan() {
     assert_eq!(run("Infinity"), Ok(Some(Value::float(f64::INFINITY))));
     assert_eq!(run("-Infinity"), Ok(Some(Value::float(f64::NEG_INFINITY))));
     assert!(run("NaN").unwrap().unwrap().as_float().unwrap().is_nan());

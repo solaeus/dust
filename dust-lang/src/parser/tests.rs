@@ -1,4 +1,21 @@
+use crate::Local;
+
 use super::*;
+
+#[test]
+fn let_statement() {
+    assert_eq!(
+        parse("let x = 42;"),
+        Ok(Chunk::with_data(
+            vec![
+                (Instruction::load_constant(0, 0), Span(8, 10)),
+                (Instruction::declare_variable(1, 0), Span(4, 5)),
+            ],
+            vec![Value::integer(42),],
+            vec![Local::new(Identifier::new("x"), 0)]
+        ))
+    );
+}
 
 #[test]
 fn integer() {
