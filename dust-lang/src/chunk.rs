@@ -156,17 +156,19 @@ impl Chunk {
 
     pub fn define_local(
         &mut self,
-        index: usize,
-        value: Value,
+        local_index: usize,
+        register_index: u8,
         position: Span,
     ) -> Result<(), ChunkError> {
-        let local = self
-            .locals
-            .get_mut(index)
-            .ok_or_else(|| ChunkError::LocalIndexOutOfBounds { index, position })?;
-        let value = value.into_reference();
+        let local =
+            self.locals
+                .get_mut(local_index)
+                .ok_or_else(|| ChunkError::LocalIndexOutOfBounds {
+                    index: local_index,
+                    position,
+                })?;
 
-        local.value = Some(value);
+        local.register_index = Some(register_index);
 
         Ok(())
     }
@@ -238,15 +240,15 @@ impl PartialEq for Chunk {
 pub struct Local {
     pub identifier: Identifier,
     pub depth: usize,
-    pub value: Option<Value>,
+    pub register_index: Option<u8>,
 }
 
 impl Local {
-    pub fn new(identifier: Identifier, depth: usize, value: Option<Value>) -> Self {
+    pub fn new(identifier: Identifier, depth: usize, register_index: Option<u8>) -> Self {
         Self {
             identifier,
             depth,
-            value,
+            register_index,
         }
     }
 }
@@ -279,8 +281,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Locals",
         "------",
-        "INDEX IDENTIFIER DEPTH KIND  VALUE",
-        "----- ---------- ----- ----- -----",
+        "INDEX IDENTIFIER DEPTH REGISTER",
+        "----- ---------- ----- --------",
     ];
 
     /// The default width of the disassembly output. To correctly align the output, this should be
@@ -297,11 +299,6 @@ impl<'a> ChunkDisassembler<'a> {
     }
 
     pub fn disassemble(&self) -> String {
-        let chunk_header = self.chunk_header();
-        let mut disassembled = String::with_capacity(self.predict_capacity());
-
-        println!("capactity: {}", disassembled.capacity());
-
         let center = |line: &str| format!("{line:^width$}\n", width = self.width);
         let style = |line: String| {
             if self.styled {
@@ -311,9 +308,12 @@ impl<'a> ChunkDisassembler<'a> {
             }
         };
 
-        for line in chunk_header.iter() {
-            disassembled.push_str(&style(center(line)));
-        }
+        let name_line = style(center(&format!("Chunk Disassembly: {}", self.name)));
+        let mut disassembled = String::with_capacity(self.predict_capacity());
+
+        println!("capactity: {}", disassembled.capacity());
+
+        disassembled.push_str(&name_line);
 
         for line in Self::INSTRUCTION_HEADER {
             disassembled.push_str(&style(center(line)));
@@ -360,22 +360,17 @@ impl<'a> ChunkDisassembler<'a> {
             Local {
                 identifier,
                 depth,
-                value: value_option,
+                register_index,
             },
         ) in self.chunk.locals.iter().enumerate()
         {
-            let value_kind_display = if let Some(value) = value_option {
-                value.kind().to_string()
-            } else {
-                "empty".to_string()
-            };
-            let value_display = value_option
+            let register_display = register_index
                 .as_ref()
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "EMPTY".to_string());
             let identifier_display = identifier.as_str();
             let local_display =
-                format!("{index:<5} {identifier_display:<10} {depth:<5} {value_kind_display:<4} {value_display:<5}");
+                format!("{index:<5} {identifier_display:<10} {depth:<5} {register_display:<8}");
 
             disassembled.push_str(&center(&local_display));
         }
@@ -397,19 +392,6 @@ impl<'a> ChunkDisassembler<'a> {
         self
     }
 
-    fn chunk_header(&self) -> [String; 3] {
-        [
-            self.name.to_string(),
-            "=".repeat(self.name.len()),
-            format!(
-                "{} instructions, {} constants, {} locals",
-                self.chunk.instructions.len(),
-                self.chunk.constants.len(),
-                self.chunk.locals.len()
-            ),
-        ]
-    }
-
     /// Predicts the capacity of the disassembled output. This is used to pre-allocate the string
     /// buffer to avoid reallocations.
     ///
@@ -419,6 +401,8 @@ impl<'a> ChunkDisassembler<'a> {
     ///     - Add 1 to the width to account for the newline character
     ///     - Multiply the total number of lines by the width of the disassembly output
     fn predict_capacity(&self) -> usize {
+        const EXTRA_LINES: usize = 1;
+
         let chunk_header_line_count = 3; // self.chunk_header().len() is hard-coded to 3
         let static_line_count = chunk_header_line_count
             + Self::INSTRUCTION_HEADER.len()
@@ -426,9 +410,9 @@ impl<'a> ChunkDisassembler<'a> {
             + Self::LOCAL_HEADER.len();
         let dynamic_line_count =
             self.chunk.instructions.len() + self.chunk.constants.len() + self.chunk.locals.len();
-        let total_line_count = static_line_count + dynamic_line_count;
+        let total_line_count = static_line_count + dynamic_line_count + EXTRA_LINES;
 
-        total_line_count * (self.width + 1)
+        total_line_count * (self.width)
     }
 }
 

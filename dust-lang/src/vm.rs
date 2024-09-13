@@ -55,18 +55,17 @@ impl Vm {
                     self.insert(value, to_register, position)?;
                 }
                 Operation::DeclareLocal => {
-                    let from_register = instruction.destination as usize;
+                    let from_register = instruction.destination;
                     let to_local = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.clone(from_register, position)?;
 
-                    self.chunk.define_local(to_local, value, position)?;
+                    self.chunk.define_local(to_local, from_register, position)?;
                 }
                 Operation::GetLocal => {
                     let register_index = instruction.destination as usize;
                     let local_index = u16::from_le_bytes(instruction.arguments) as usize;
                     let local = self.chunk.get_local(local_index, position)?;
-                    let value = if let Some(value) = &local.value {
-                        value.clone()
+                    let value = if let Some(value_index) = &local.register_index {
+                        self.clone(*value_index as usize, position)?
                     } else {
                         return Err(VmError::UndefinedVariable {
                             identifier: local.identifier.clone(),
