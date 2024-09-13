@@ -308,7 +308,7 @@ impl<'a> ChunkDisassembler<'a> {
             }
         };
 
-        let name_line = style(center(&format!("Chunk Disassembly: {}", self.name)));
+        let name_line = style(center(&format!("{}", self.name)));
         let mut disassembled = String::with_capacity(self.predict_capacity());
 
         println!("capactity: {}", disassembled.capacity());
