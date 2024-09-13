@@ -386,9 +386,45 @@ impl<'src> Lexer<'src> {
     fn lex_numeric(&mut self) -> Result<(Token<'src>, Span), LexError> {
         let start_pos = self.position;
         let mut is_float = false;
+        let peek_char = self.peek_char();
 
-        if let Some('-') = self.peek_char() {
+        if let Some('-') = peek_char {
             self.next_char();
+        }
+
+        if let Some('0') = peek_char {
+            self.next_char();
+
+            if let Some('x') = self.peek_char() {
+                self.next_char();
+
+                let mut peek_chars = self.peek_chars(2).chars();
+
+                match (peek_chars.next(), peek_chars.next()) {
+                    (Some('0'..='9' | 'A'..='f'), Some('0'..='9' | 'A'..='f')) => {
+                        self.next_char();
+                        self.next_char();
+
+                        let text = &self.source[start_pos..self.position];
+
+                        return Ok((Token::Byte(text), Span(start_pos, self.position)));
+                    }
+                    (Some('0'..='9' | 'A'..='f'), erroneous) => {
+                        self.next_char();
+
+                        return Err(LexError::ExpectedAsciiHexDigit {
+                            actual: erroneous,
+                            position: self.position,
+                        });
+                    }
+                    (erroneous, _) => {
+                        return Err(LexError::ExpectedAsciiHexDigit {
+                            actual: erroneous,
+                            position: self.position,
+                        });
+                    }
+                }
+            }
         }
 
         while let Some(c) = self.peek_char() {
@@ -438,25 +474,6 @@ impl<'src> Lexer<'src> {
                 } else {
                     break;
                 }
-            }
-
-            if c == 'x' {
-                self.next_char();
-
-                while let Some(c) = self.peek_char() {
-                    if c.is_ascii_hexdigit() {
-                        self.next_char();
-                    } else {
-                        return Err(LexError::ExpectedAsciiHexDigit {
-                            actual: c,
-                            position: self.position,
-                        });
-                    }
-                }
-
-                let text = &self.source[start_pos..self.position];
-
-                return Ok((Token::Byte(text), Span(start_pos, self.position)));
             }
 
             if c.is_ascii_digit() {
@@ -535,7 +552,7 @@ impl<'src> Lexer<'src> {
 #[derive(Debug, PartialEq, Clone)]
 pub enum LexError {
     ExpectedAsciiHexDigit {
-        actual: char,
+        actual: Option<char>,
         position: usize,
     },
     ExpectedCharacter {
@@ -577,6 +594,8 @@ impl AnnotatedError for LexError {
             Self::ExpectedAsciiHexDigit { actual, .. } => Some(format!(
                 "Expected ASCII hex digit (0-9 or A-F), found \"{}\"",
                 actual
+                    .map(|character| character.to_string())
+                    .unwrap_or("end of input".to_string())
             )),
             Self::ExpectedCharacter {
                 expected, actual, ..

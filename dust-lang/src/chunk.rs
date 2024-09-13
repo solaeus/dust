@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    rc::Weak,
-};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use colored::Colorize;
 use serde::{Deserialize, Serialize};

@@ -139,7 +139,7 @@ impl Instruction {
     pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> Option<String> {
         let info = match self.operation {
             Operation::Move => {
-                format!("R({}) R({})", self.destination, self.arguments[0])
+                format!("R({}) = R({})", self.destination, self.arguments[0])
             }
             Operation::Close => format!("R({})", self.destination),
             Operation::LoadConstant => {

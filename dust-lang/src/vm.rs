@@ -39,20 +39,27 @@ impl Vm {
             log::trace!("Running instruction {instruction} at {position}");
 
             match instruction.operation {
-                Operation::Move => todo!(),
+                Operation::Move => {
+                    let from = instruction.arguments[0] as usize;
+                    let to = instruction.destination as usize;
+                    let value = self.clone(from, position)?;
+
+                    self.insert(value, to, position)?;
+                }
                 Operation::Close => todo!(),
                 Operation::LoadConstant => {
-                    let constant_index = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.chunk.use_constant(constant_index, position)?;
+                    let to_register = instruction.destination as usize;
+                    let from_constant = u16::from_le_bytes(instruction.arguments) as usize;
+                    let value = self.chunk.use_constant(from_constant, position)?;
 
-                    self.insert(value, instruction.destination as usize, position)?;
+                    self.insert(value, to_register, position)?;
                 }
                 Operation::DeclareLocal => {
-                    let register_index = instruction.destination as usize;
-                    let local_index = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.take(register_index, position)?;
+                    let from_register = instruction.destination as usize;
+                    let to_local = u16::from_le_bytes(instruction.arguments) as usize;
+                    let value = self.clone(from_register, position)?;
 
-                    self.chunk.define_local(local_index, value, position)?;
+                    self.chunk.define_local(to_local, value, position)?;
                 }
                 Operation::GetLocal => {
                     let register_index = instruction.destination as usize;
@@ -145,6 +152,18 @@ impl Vm {
             self.register_stack[index] = Some(value);
 
             Ok(())
+        }
+    }
+
+    fn clone(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
+        if let Some(register) = self.register_stack.get_mut(index) {
+            if let Some(value) = register.take() {
+                Ok(register.insert(value.into_reference()).clone())
+            } else {
+                Err(VmError::EmptyRegister { index, position })
+            }
+        } else {
+            Err(VmError::RegisterIndexOutOfBounds { position })
         }
     }
 

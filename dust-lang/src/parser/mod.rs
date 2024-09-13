@@ -450,6 +450,33 @@ impl<'src> Parser<'src> {
         self.parse_expression()?;
 
         let local_index = self.chunk.declare_local(identifier, position)?;
+        let previous_instruction = self.chunk.pop_instruction();
+
+        if let Some((
+            Instruction {
+                operation: Operation::GetLocal,
+                destination,
+                arguments,
+            },
+            _,
+        )) = previous_instruction
+        {
+            self.emit_instruction(
+                Instruction {
+                    operation: Operation::Move,
+                    destination,
+                    arguments,
+                },
+                position,
+            );
+        } else if let Some((instruction, position)) = previous_instruction {
+            self.chunk.push_instruction(instruction, position);
+        } else {
+            return Err(ParseError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            });
+        }
 
         self.emit_instruction(
             Instruction::declare_local(self.current_register - 1, local_index),
