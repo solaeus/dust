@@ -62,8 +62,10 @@ impl Chunk {
         self.instructions.push((instruction, position));
     }
 
-    pub fn pop_instruction(&mut self) -> Option<(Instruction, Span)> {
-        self.instructions.pop()
+    pub fn pop_instruction(&mut self, position: Span) -> Result<(Instruction, Span), ChunkError> {
+        self.instructions
+            .pop()
+            .ok_or(ChunkError::InstructionUnderflow { position })
     }
 
     pub fn get_constant(&self, index: usize, position: Span) -> Result<&Value, ChunkError> {
@@ -207,10 +209,7 @@ impl Display for Chunk {
         write!(
             f,
             "{}",
-            self.disassembler("Chunk Display")
-                .styled()
-                .width(80)
-                .disassemble()
+            self.disassembler("Chunk Display").styled().disassemble()
         )
     }
 }
@@ -260,42 +259,65 @@ pub struct ChunkDisassembler<'a> {
 }
 
 impl<'a> ChunkDisassembler<'a> {
+    const INSTRUCTION_HEADER: [&'static str; 5] = [
+        "",
+        "Instructions",
+        "------------",
+        "OFFSET  OPERATION      INFO                 POSITION",
+        "------- -------------- -------------------- --------",
+    ];
+
+    const CONSTANT_HEADER: [&'static str; 5] = [
+        "",
+        "Constants",
+        "---------",
+        "INDEX KIND  VALUE",
+        "----- ----- -----",
+    ];
+
+    const LOCAL_HEADER: [&'static str; 5] = [
+        "",
+        "Locals",
+        "------",
+        "INDEX IDENTIFIER DEPTH KIND  VALUE",
+        "----- ---------- ----- ----- -----",
+    ];
+
+    /// The default width of the disassembly output. To correctly align the output, this should be
+    /// set to the width of the longest line that the disassembler is guaranteed to produce.
+    const DEFAULT_WIDTH: usize = Self::INSTRUCTION_HEADER[3].len() + 1;
+
     pub fn new(name: &'a str, chunk: &'a Chunk) -> Self {
         Self {
             name,
             chunk,
-            width: 0,
+            width: Self::DEFAULT_WIDTH,
             styled: false,
         }
     }
 
     pub fn disassemble(&self) -> String {
-        let mut disassembled = String::new();
-        let mut push_centered_line = |section: &str| {
-            let width = self.width;
-            let is_header = section.contains('\n');
+        let chunk_header = self.chunk_header();
+        let mut disassembled = String::with_capacity(self.predict_capacity());
 
-            if is_header && self.styled {
-                disassembled.push('\n');
+        println!("capactity: {}", disassembled.capacity());
 
-                for line in section.lines() {
-                    if line.is_empty() {
-                        continue;
-                    }
-
-                    let centered = format!("{:^width$}\n", line.bold());
-
-                    disassembled.push_str(&centered);
-                }
+        let center = |line: &str| format!("{line:^width$}\n", width = self.width);
+        let style = |line: String| {
+            if self.styled {
+                line.bold().to_string()
             } else {
-                let centered = format!("{section:^width$}\n");
-
-                disassembled.push_str(&centered);
+                line
             }
         };
 
-        push_centered_line(&self.name_header());
-        push_centered_line(self.instructions_header());
+        for line in chunk_header.iter() {
+            disassembled.push_str(&style(center(line)));
+        }
+
+        for line in Self::INSTRUCTION_HEADER {
+            disassembled.push_str(&style(center(line)));
+        }
 
         for (offset, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
             let position = position.to_string();
@@ -307,17 +329,18 @@ impl<'a> ChunkDisassembler<'a> {
                 format!("{offset:<7} {operation:14} {:20} {position:8}", " ")
             };
 
-            push_centered_line(&instruction_display);
+            disassembled.push_str(&center(&instruction_display));
         }
 
-        push_centered_line(Self::constant_header());
+        for line in Self::CONSTANT_HEADER {
+            disassembled.push_str(&style(center(line)));
+        }
 
         for (index, value_option) in self.chunk.constants.iter().enumerate() {
-            let value_kind_display = match value_option {
-                Some(Value::Raw(_)) => "RAW",
-                Some(Value::Reference(_)) => "REF",
-                Some(Value::Mutable(_)) => "MUT",
-                None => "EMPTY",
+            let value_kind_display = if let Some(value) = value_option {
+                value.kind().to_string()
+            } else {
+                "empty".to_string()
             };
             let value_display = value_option
                 .as_ref()
@@ -325,27 +348,28 @@ impl<'a> ChunkDisassembler<'a> {
                 .unwrap_or_else(|| "EMPTY".to_string());
             let constant_display = format!("{index:<5} {value_kind_display:<5} {value_display:<5}");
 
-            push_centered_line(&constant_display);
+            disassembled.push_str(&center(&constant_display));
         }
 
-        push_centered_line(Self::local_header());
+        for line in Self::LOCAL_HEADER {
+            disassembled.push_str(&style(center(line)));
+        }
 
         for (
             index,
             Local {
                 identifier,
                 depth,
-                value,
+                value: value_option,
             },
         ) in self.chunk.locals.iter().enumerate()
         {
-            let value_kind_display = match value {
-                Some(Value::Raw(_)) => "RAW",
-                Some(Value::Reference(_)) => "REF",
-                Some(Value::Mutable(_)) => "MUT",
-                None => "EMPTY",
+            let value_kind_display = if let Some(value) = value_option {
+                value.kind().to_string()
+            } else {
+                "empty".to_string()
             };
-            let value_display = value
+            let value_display = value_option
                 .as_ref()
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "EMPTY".to_string());
@@ -353,8 +377,10 @@ impl<'a> ChunkDisassembler<'a> {
             let local_display =
                 format!("{index:<5} {identifier_display:<10} {depth:<5} {value_kind_display:<4} {value_display:<5}");
 
-            push_centered_line(&local_display);
+            disassembled.push_str(&center(&local_display));
         }
+
+        println!("length: {}", disassembled.len());
 
         disassembled
     }
@@ -371,31 +397,38 @@ impl<'a> ChunkDisassembler<'a> {
         self
     }
 
-    fn name_header(&self) -> String {
-        let name_length = self.name.len();
-
-        format!("\n{}\n{}\n", self.name, "=".repeat(name_length))
+    fn chunk_header(&self) -> [String; 3] {
+        [
+            self.name.to_string(),
+            "=".repeat(self.name.len()),
+            format!(
+                "{} instructions, {} constants, {} locals",
+                self.chunk.instructions.len(),
+                self.chunk.constants.len(),
+                self.chunk.locals.len()
+            ),
+        ]
     }
 
-    fn instructions_header(&self) -> &'static str {
-        "\nInstructions\n\
-        ------------\n\
-        OFFSET  OPERATION      INFO                 POSITION\n\
-        ------- -------------- -------------------- --------\n"
-    }
+    /// Predicts the capacity of the disassembled output. This is used to pre-allocate the string
+    /// buffer to avoid reallocations.
+    ///
+    /// The capacity is calculated as follows:
+    ///     - Get the number of static lines, i.e. lines that are always present in the disassembly
+    ///     - Get the number of dynamic lines, i.e. lines that are generated from the chunk
+    ///     - Add 1 to the width to account for the newline character
+    ///     - Multiply the total number of lines by the width of the disassembly output
+    fn predict_capacity(&self) -> usize {
+        let chunk_header_line_count = 3; // self.chunk_header().len() is hard-coded to 3
+        let static_line_count = chunk_header_line_count
+            + Self::INSTRUCTION_HEADER.len()
+            + Self::CONSTANT_HEADER.len()
+            + Self::LOCAL_HEADER.len();
+        let dynamic_line_count =
+            self.chunk.instructions.len() + self.chunk.constants.len() + self.chunk.locals.len();
+        let total_line_count = static_line_count + dynamic_line_count;
 
-    fn constant_header() -> &'static str {
-        "\nConstants\n\
-        ---------\n\
-        INDEX KIND  VALUE\n\
-        ----- ----- -----\n"
-    }
-
-    fn local_header() -> &'static str {
-        "\nLocals\n\
-        ------\n\
-        INDEX IDENTIFIER DEPTH KIND  VALUE\n\
-        ----- ---------- ----- ----- -----\n"
+        total_line_count * (self.width + 1)
     }
 }
 
@@ -414,6 +447,9 @@ pub enum ChunkError {
     },
     ConstantIndexOutOfBounds {
         index: usize,
+        position: Span,
+    },
+    InstructionUnderflow {
         position: Span,
     },
     LocalIndexOutOfBounds {
@@ -440,6 +476,7 @@ impl AnnotatedError for ChunkError {
             ChunkError::ConstantAlreadyUsed { .. } => "Constant already used",
             ChunkError::ConstantOverflow { .. } => "Constant overflow",
             ChunkError::ConstantIndexOutOfBounds { .. } => "Constant index out of bounds",
+            ChunkError::InstructionUnderflow { .. } => "Instruction underflow",
             ChunkError::LocalIndexOutOfBounds { .. } => "Identifier index out of bounds",
             ChunkError::IdentifierOverflow { .. } => "Identifier overflow",
             ChunkError::IdentifierNotFound { .. } => "Identifier not found",
@@ -455,6 +492,7 @@ impl AnnotatedError for ChunkError {
             ChunkError::ConstantIndexOutOfBounds { index, .. } => {
                 Some(format!("Constant index: {}", index))
             }
+            ChunkError::InstructionUnderflow { .. } => None,
             ChunkError::LocalIndexOutOfBounds { index, .. } => {
                 Some(format!("Identifier index: {}", index))
             }

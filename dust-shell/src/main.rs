@@ -60,14 +60,7 @@ fn main() {
 
 fn parse_and_display_errors(source: &str) {
     match parse(source) {
-        Ok(chunk) => println!(
-            "{}",
-            chunk
-                .disassembler("Dust CLI Input")
-                .styled()
-                .width(80)
-                .disassemble()
-        ),
+        Ok(chunk) => println!("{}", chunk.disassembler("Dust CLI Input").disassemble()),
         Err(error) => {
             eprintln!("{}", error.report());
         }

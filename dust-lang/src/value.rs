@@ -1,4 +1,36 @@
 //! Dust value representation
+//!
+//! # Examples
+//!
+//! Each type of value has a corresponding method for instantiation:
+//!
+//! ```
+//! # use dust_lang::Value;
+//! let boolean = Value::boolean(true);
+//! let float = Value::float(3.14);
+//! let integer = Value::integer(42);
+//! let string = Value::string("Hello, world!");
+//! ```
+//!
+//! Values can be combined into more complex values:
+//!
+//! ```
+//! # use dust_lang::Value;
+//! let list = Value::list(vec![
+//!     Value::integer(1),
+//!     Value::integer(2),
+//!     Value::integer(3),
+//! ]);
+//! ```
+//!
+//! Values have a type, which can be retrieved using the `r#type` method:
+//!
+//! ```
+//! # use dust_lang::*;
+//! let value = Value::integer(42);
+//!
+//! assert_eq!(value.r#type(), Type::Integer);
+//! ```
 use std::{
     cmp::Ordering,
     collections::HashMap,
@@ -17,35 +49,7 @@ use crate::{EnumType, FunctionType, Identifier, RangeableType, StructType, Type}
 
 /// Dust value representation
 ///
-/// Each type of value has a corresponding constructor, here are some simple examples:
-///
-/// ```
-/// # use dust_lang::Value;
-/// let boolean = Value::boolean(true);
-/// let float = Value::float(3.14);
-/// let integer = Value::integer(42);
-/// let string = Value::string("Hello, world!");
-/// ```
-///
-/// Values can be combined into more complex values:
-///
-/// ```
-/// # use dust_lang::Value;
-/// let list = Value::list(vec![
-///     Value::integer(1),
-///     Value::integer(2),
-///     Value::integer(3),
-/// ]);
-/// ```
-///
-/// Values have a type, which can be retrieved using the `type` method:
-///
-/// ```
-/// # use dust_lang::*;
-/// let value = Value::integer(42);
-///
-/// assert_eq!(value.r#type(), Type::Integer);
-/// ```
+/// See the [module-level documentation][self] for more.
 #[derive(Debug)]
 pub enum Value {
     Raw(ValueData),
@@ -114,14 +118,6 @@ impl Value {
         }
     }
 
-    pub fn into_mutable(self) -> Self {
-        match self {
-            Value::Raw(data) => Value::Mutable(Arc::new(RwLock::new(data))),
-            Value::Reference(data) => Value::Mutable(Arc::new(RwLock::new(data.as_ref().clone()))),
-            Value::Mutable(_) => self,
-        }
-    }
-
     pub fn into_raw(self) -> Self {
         match self {
             Value::Raw(_) => self,
@@ -139,6 +135,14 @@ impl Value {
 
                 Value::Reference(Arc::new(data.clone()))
             }
+        }
+    }
+
+    pub fn into_mutable(self) -> Self {
+        match self {
+            Value::Raw(data) => Value::Mutable(Arc::new(RwLock::new(data))),
+            Value::Reference(data) => Value::Mutable(Arc::new(RwLock::new(data.as_ref().clone()))),
+            Value::Mutable(_) => self,
         }
     }
 
@@ -734,6 +738,14 @@ impl Value {
             .ok_or_else(|| ValueError::CannotOr(self.clone(), other.clone()))
             .map(Value::Raw)
     }
+
+    pub fn kind(&self) -> ValueKind {
+        match self {
+            Value::Raw(_) => ValueKind::Raw,
+            Value::Reference(_) => ValueKind::Reference,
+            Value::Mutable(_) => ValueKind::Mutable,
+        }
+    }
 }
 
 impl Display for Value {
@@ -925,6 +937,23 @@ impl<'de> Deserialize<'de> for Value {
         }
 
         deserializer.deserialize_any(ValueVisitor)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum ValueKind {
+    Raw,
+    Reference,
+    Mutable,
+}
+
+impl Display for ValueKind {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ValueKind::Raw => write!(f, "raw"),
+            ValueKind::Reference => write!(f, "reference"),
+            ValueKind::Mutable => write!(f, "mutable"),
+        }
     }
 }
 

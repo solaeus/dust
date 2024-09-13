@@ -255,47 +255,39 @@ impl<'src> Parser<'src> {
 
         self.parse(rule.precedence.increment())?;
 
-        let previous_instruction = self.chunk.pop_instruction();
+        let (previous_instruction, position) = self.chunk.pop_instruction(self.current_position)?;
         let right_register = match previous_instruction {
-            Some((
-                Instruction {
-                    operation: Operation::LoadConstant,
-                    arguments,
-                    ..
-                },
-                _,
-            )) => {
+            Instruction {
+                operation: Operation::LoadConstant,
+                arguments,
+                ..
+            } => {
                 self.decrement_register()?;
 
                 arguments[0]
             }
-            Some((instruction, position)) => {
-                self.chunk.push_instruction(instruction, position);
+            _ => {
+                self.chunk.push_instruction(previous_instruction, position);
 
                 self.current_register - 1
             }
-            _ => self.current_register - 1,
         };
-        let previous_instruction = self.chunk.pop_instruction();
+        let (previous_instruction, position) = self.chunk.pop_instruction(self.current_position)?;
         let left_register = match previous_instruction {
-            Some((
-                Instruction {
-                    operation: Operation::LoadConstant,
-                    arguments,
-                    ..
-                },
-                _,
-            )) => {
+            Instruction {
+                operation: Operation::LoadConstant,
+                arguments,
+                ..
+            } => {
                 self.decrement_register()?;
 
                 arguments[0]
             }
-            Some((instruction, position)) => {
-                self.chunk.push_instruction(instruction, position);
+            _ => {
+                self.chunk.push_instruction(previous_instruction, position);
 
                 self.current_register - 2
             }
-            _ => self.current_register - 2,
         };
         let instruction = match operator {
             TokenKind::Plus => {
@@ -449,17 +441,17 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
 
-        let local_index = self.chunk.declare_local(identifier, position)?;
-        let previous_instruction = self.chunk.pop_instruction();
+        let local_index = self
+            .chunk
+            .declare_local(identifier, self.current_position)?;
+        let (previous_instruction, previous_position) =
+            self.chunk.pop_instruction(self.current_position)?;
 
-        if let Some((
-            Instruction {
-                operation: Operation::GetLocal,
-                destination,
-                arguments,
-            },
-            _,
-        )) = previous_instruction
+        if let Instruction {
+            operation: Operation::GetLocal,
+            destination,
+            arguments,
+        } = previous_instruction
         {
             self.emit_instruction(
                 Instruction {
@@ -469,13 +461,9 @@ impl<'src> Parser<'src> {
                 },
                 position,
             );
-        } else if let Some((instruction, position)) = previous_instruction {
-            self.chunk.push_instruction(instruction, position);
         } else {
-            return Err(ParseError::ExpectedExpression {
-                found: self.previous_token.to_owned(),
-                position: self.previous_position,
-            });
+            self.chunk
+                .push_instruction(previous_instruction, previous_position);
         }
 
         self.emit_instruction(
