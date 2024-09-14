@@ -13,6 +13,9 @@ struct Cli {
     #[arg(short, long)]
     parse: bool,
 
+    #[arg(short, long)]
+    styled: bool,
+
     path: Option<String>,
 }
 
@@ -43,7 +46,7 @@ fn main() {
 
     if let Some(command) = &args.command {
         if args.parse {
-            parse_and_display_errors(command);
+            parse_and_display_errors(command, args.styled);
         } else {
             run_and_display_errors(command);
         }
@@ -51,18 +54,21 @@ fn main() {
         let source = read_to_string(path).expect("Failed to read file");
 
         if args.parse {
-            parse_and_display_errors(&source);
+            parse_and_display_errors(&source, args.styled);
         } else {
             run_and_display_errors(&source);
         }
     }
 }
 
-fn parse_and_display_errors(source: &str) {
+fn parse_and_display_errors(source: &str, pretty_print: bool) {
     match parse(source) {
         Ok(chunk) => println!(
             "{}",
-            chunk.disassembler("Dust CLI Input").styled().disassemble()
+            chunk
+                .disassembler("Dust CLI Input")
+                .styled(pretty_print)
+                .disassemble()
         ),
         Err(error) => {
             eprintln!("{}", error.report());

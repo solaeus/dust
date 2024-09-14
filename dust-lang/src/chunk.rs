@@ -211,7 +211,9 @@ impl Display for Chunk {
         write!(
             f,
             "{}",
-            self.disassembler("Chunk Display").styled().disassemble()
+            self.disassembler("Chunk Display")
+                .styled(true)
+                .disassemble()
         )
     }
 }
@@ -221,7 +223,9 @@ impl Debug for Chunk {
         write!(
             f,
             "{}",
-            self.disassembler("Chunk Debug Display").disassemble()
+            self.disassembler("Chunk Debug Display")
+                .styled(false)
+                .disassemble()
         )
     }
 }
@@ -309,9 +313,6 @@ impl<'a> ChunkDisassembler<'a> {
         };
 
         let mut disassembled = String::with_capacity(self.predict_length());
-
-        println!("capactity: {}", disassembled.capacity());
-
         let name_line = style(center(self.name));
 
         disassembled.push_str(&name_line);
@@ -376,7 +377,20 @@ impl<'a> ChunkDisassembler<'a> {
             disassembled.push_str(&center(&local_display));
         }
 
-        println!("length: {}", disassembled.len());
+        let expected_length = self.predict_length();
+        let actual_length = disassembled.len();
+
+        if !self.styled && expected_length != actual_length {
+            log::debug!(
+                "Chunk disassembly was not optimized correctly, expected string length {expected_length}, got {actual_length}",
+            );
+        }
+
+        if self.styled && expected_length > actual_length {
+            log::debug!(
+                "Chunk disassembly was not optimized correctly, expected string length to be at least{expected_length}, got {actual_length}",
+            );
+        }
 
         disassembled
     }
@@ -387,8 +401,8 @@ impl<'a> ChunkDisassembler<'a> {
         self
     }
 
-    pub fn styled(&mut self) -> &mut Self {
-        self.styled = true;
+    pub fn styled(&mut self, styled: bool) -> &mut Self {
+        self.styled = styled;
 
         self
     }
