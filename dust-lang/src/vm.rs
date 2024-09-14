@@ -50,7 +50,7 @@ impl Vm {
                 Operation::LoadConstant => {
                     let to_register = instruction.destination as usize;
                     let from_constant = u16::from_le_bytes(instruction.arguments) as usize;
-                    let value = self.chunk.use_constant(from_constant, position)?;
+                    let value = self.chunk.take_constant(from_constant, position)?;
 
                     self.insert(value, to_register, position)?;
                 }
@@ -156,11 +156,19 @@ impl Vm {
 
     fn clone(&mut self, index: usize, position: Span) -> Result<Value, VmError> {
         if let Some(register) = self.register_stack.get_mut(index) {
-            if let Some(value) = register.take() {
-                Ok(register.insert(value.into_reference()).clone())
+            let cloneable = if let Some(value) = register.take() {
+                if value.is_raw() {
+                    value.into_reference()
+                } else {
+                    value
+                }
             } else {
-                Err(VmError::EmptyRegister { index, position })
-            }
+                return Err(VmError::EmptyRegister { index, position });
+            };
+
+            *register = Some(cloneable.clone());
+
+            Ok(cloneable)
         } else {
             Err(VmError::RegisterIndexOutOfBounds { position })
         }
@@ -182,7 +190,7 @@ impl Vm {
         if let Ok(value) = self.take(index, position) {
             Ok(value)
         } else {
-            let value = self.chunk.use_constant(index, position)?;
+            let value = self.chunk.take_constant(index, position)?;
 
             Ok(value)
         }

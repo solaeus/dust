@@ -26,22 +26,14 @@ impl Chunk {
     pub fn with_data(
         instructions: Vec<(Instruction, Span)>,
         constants: Vec<Value>,
-        identifiers: Vec<Local>,
+        locals: Vec<Local>,
     ) -> Self {
         Self {
             instructions,
             constants: constants.into_iter().map(Some).collect(),
-            locals: identifiers,
+            locals,
             scope_depth: 0,
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.instructions.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.instructions.is_empty()
     }
 
     pub fn scope_depth(&self) -> usize {
@@ -79,7 +71,7 @@ impl Chunk {
             })
     }
 
-    pub fn use_constant(&mut self, index: usize, position: Span) -> Result<Value, ChunkError> {
+    pub fn take_constant(&mut self, index: usize, position: Span) -> Result<Value, ChunkError> {
         self.constants
             .get_mut(index)
             .ok_or_else(|| ChunkError::ConstantIndexOutOfBounds { index, position })?
@@ -97,12 +89,6 @@ impl Chunk {
 
             Ok(starting_length as u16)
         }
-    }
-
-    pub fn contains_identifier(&self, identifier: &Identifier) -> bool {
-        self.locals
-            .iter()
-            .any(|local| &local.identifier == identifier)
     }
 
     pub fn get_local(&self, index: usize, position: Span) -> Result<&Local, ChunkError> {
@@ -179,20 +165,6 @@ impl Chunk {
 
     pub fn end_scope(&mut self) {
         self.scope_depth -= 1;
-    }
-
-    pub fn clear(&mut self) {
-        self.instructions.clear();
-        self.constants.clear();
-        self.locals.clear();
-    }
-
-    pub fn identifiers(&self) -> &[Local] {
-        &self.locals
-    }
-
-    pub fn pop_identifier(&mut self) -> Option<Local> {
-        self.locals.pop()
     }
 
     pub fn disassembler<'a>(&'a self, name: &'a str) -> ChunkDisassembler<'a> {
