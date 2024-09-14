@@ -287,7 +287,7 @@ impl<'a> ChunkDisassembler<'a> {
 
     /// The default width of the disassembly output. To correctly align the output, this should be
     /// set to the width of the longest line that the disassembler is guaranteed to produce.
-    const DEFAULT_WIDTH: usize = Self::INSTRUCTION_HEADER[3].len() + 1;
+    const DEFAULT_WIDTH: usize = Self::INSTRUCTION_HEADER[4].len() + 1;
 
     pub fn new(name: &'a str, chunk: &'a Chunk) -> Self {
         Self {
@@ -308,10 +308,11 @@ impl<'a> ChunkDisassembler<'a> {
             }
         };
 
-        let name_line = style(center(&format!("{}", self.name)));
-        let mut disassembled = String::with_capacity(self.predict_capacity());
+        let mut disassembled = String::with_capacity(self.predict_length());
 
         println!("capactity: {}", disassembled.capacity());
+
+        let name_line = style(center(self.name));
 
         disassembled.push_str(&name_line);
 
@@ -345,7 +346,7 @@ impl<'a> ChunkDisassembler<'a> {
             let value_display = value_option
                 .as_ref()
                 .map(|value| value.to_string())
-                .unwrap_or_else(|| "EMPTY".to_string());
+                .unwrap_or_else(|| "empty".to_string());
             let constant_display = format!("{index:<5} {value_kind_display:<5} {value_display:<5}");
 
             disassembled.push_str(&center(&constant_display));
@@ -367,7 +368,7 @@ impl<'a> ChunkDisassembler<'a> {
             let register_display = register_index
                 .as_ref()
                 .map(|value| value.to_string())
-                .unwrap_or_else(|| "EMPTY".to_string());
+                .unwrap_or_else(|| "empty".to_string());
             let identifier_display = identifier.as_str();
             let local_display =
                 format!("{index:<5} {identifier_display:<10} {depth:<5} {register_display:<8}");
@@ -400,19 +401,20 @@ impl<'a> ChunkDisassembler<'a> {
     ///     - Get the number of dynamic lines, i.e. lines that are generated from the chunk
     ///     - Add 1 to the width to account for the newline character
     ///     - Multiply the total number of lines by the width of the disassembly output
-    fn predict_capacity(&self) -> usize {
-        const EXTRA_LINES: usize = 1;
+    ///
+    /// The result is accurate only if the output is not styled. Otherwise the extra bytes added by
+    /// the ANSI escape codes will make the result too low. It still works as a lower bound in that
+    /// case.
+    fn predict_length(&self) -> usize {
+        const EXTRA_LINES: usize = 1; // There is one empty line after the name of the chunk
 
-        let chunk_header_line_count = 3; // self.chunk_header().len() is hard-coded to 3
-        let static_line_count = chunk_header_line_count
-            + Self::INSTRUCTION_HEADER.len()
-            + Self::CONSTANT_HEADER.len()
-            + Self::LOCAL_HEADER.len();
+        let static_line_count =
+            Self::INSTRUCTION_HEADER.len() + Self::CONSTANT_HEADER.len() + Self::LOCAL_HEADER.len();
         let dynamic_line_count =
             self.chunk.instructions.len() + self.chunk.constants.len() + self.chunk.locals.len();
         let total_line_count = static_line_count + dynamic_line_count + EXTRA_LINES;
 
-        total_line_count * (self.width)
+        total_line_count * (self.width + 1)
     }
 }
 
