@@ -71,6 +71,8 @@ impl<'src> Parser<'src> {
         } else {
             self.current_register += 1;
 
+            log::trace!("Incremented register to {}", self.current_register);
+
             Ok(())
         }
     }
@@ -84,6 +86,8 @@ impl<'src> Parser<'src> {
             })
         } else {
             self.current_register -= 1;
+
+            log::trace!("Decremented register to {}", self.current_register);
 
             Ok(())
         }
@@ -258,19 +262,44 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_binary(&mut self) -> Result<(), ParseError> {
+        let (left_instruction, left_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+
+        let mut push_back_left = false;
+        let mut left_is_constant = false;
+        let left = match left_instruction.operation() {
+            Operation::LoadConstant => {
+                left_is_constant = true;
+
+                self.decrement_register()?;
+                left_instruction.first_argument()
+            }
+            Operation::GetLocal => {
+                self.decrement_register()?;
+                left_instruction.first_argument()
+            }
+            _ => {
+                push_back_left = true;
+
+                self.current_register - 1
+            }
+        };
+
+        if push_back_left {
+            self.emit_instruction(left_instruction, left_position);
+        }
+
         let operator_position = self.previous_position;
         let operator = self.previous_token.kind();
         let rule = ParseRule::from(&operator);
 
-        self.parse(rule.precedence.increment())?;
-
-        let mut push_back_right = false;
-        let mut push_back_left = false;
-        let mut right_is_constant = false;
-        let mut left_is_constant = false;
+        self.parse(rule.precedence)?;
 
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
+
+        let mut push_back_right = false;
+        let mut right_is_constant = false;
         let right = match right_instruction.operation() {
             Operation::LoadConstant => {
                 right_is_constant = true;
@@ -288,33 +317,6 @@ impl<'src> Parser<'src> {
                 self.current_register - 1
             }
         };
-        let (left_instruction, left_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-        let left = match left_instruction.operation() {
-            Operation::LoadConstant => {
-                left_is_constant = true;
-
-                self.decrement_register()?;
-                left_instruction.first_argument()
-            }
-            Operation::GetLocal => {
-                self.decrement_register()?;
-                left_instruction.first_argument()
-            }
-            _ => {
-                push_back_left = true;
-
-                if push_back_right {
-                    self.current_register - 2
-                } else {
-                    self.current_register - 1
-                }
-            }
-        };
-
-        if push_back_left {
-            self.emit_instruction(left_instruction, left_position);
-        }
 
         if push_back_right {
             self.emit_instruction(right_instruction, right_position);
@@ -520,30 +522,31 @@ impl<'src> Parser<'src> {
     }
 
     fn parse(&mut self, precedence: Precedence) -> Result<(), ParseError> {
-        self.advance()?;
+        let prefix_parser = if let Some(prefix) = ParseRule::from(&self.current_token.kind()).prefix
+        {
+            log::trace!(
+                "Parsing {} as prefix with precedence {precedence}",
+                self.current_token,
+            );
 
-        let prefix_parser =
-            if let Some(prefix) = ParseRule::from(&self.previous_token.kind()).prefix {
-                log::trace!(
-                    "Parsing {} as prefix with precedence {precedence}",
-                    self.previous_token,
-                );
-
-                prefix
-            } else {
-                return Err(ParseError::ExpectedExpression {
-                    found: self.previous_token.to_owned(),
-                    position: self.previous_position,
-                });
-            };
+            prefix
+        } else {
+            return Err(ParseError::ExpectedExpression {
+                found: self.previous_token.to_owned(),
+                position: self.previous_position,
+            });
+        };
         let allow_assignment = precedence < Precedence::Assignment;
 
+        self.advance()?;
         prefix_parser(self, allow_assignment)?;
 
-        while precedence < ParseRule::from(&self.current_token.kind()).precedence {
+        let mut infix_rule = ParseRule::from(&self.current_token.kind());
+
+        while precedence < infix_rule.precedence {
             self.advance()?;
 
-            if let Some(infix_parser) = ParseRule::from(&self.previous_token.kind()).infix {
+            if let Some(infix_parser) = infix_rule.infix {
                 log::trace!(
                     "Parsing {} as infix with precedence {precedence}",
                     self.previous_token,
@@ -560,6 +563,8 @@ impl<'src> Parser<'src> {
             } else {
                 break;
             }
+
+            infix_rule = ParseRule::from(&self.current_token.kind());
         }
 
         Ok(())
