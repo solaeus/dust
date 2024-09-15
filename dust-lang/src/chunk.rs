@@ -60,7 +60,9 @@ impl Chunk {
             .ok_or(ChunkError::InstructionUnderflow { position })
     }
 
-    pub fn get_constant(&self, index: usize, position: Span) -> Result<&Value, ChunkError> {
+    pub fn get_constant(&self, index: u8, position: Span) -> Result<&Value, ChunkError> {
+        let index = index as usize;
+
         self.constants
             .get(index)
             .ok_or(ChunkError::ConstantIndexOutOfBounds { index, position })
@@ -71,7 +73,9 @@ impl Chunk {
             })
     }
 
-    pub fn take_constant(&mut self, index: usize, position: Span) -> Result<Value, ChunkError> {
+    pub fn take_constant(&mut self, index: u8, position: Span) -> Result<Value, ChunkError> {
+        let index = index as usize;
+
         self.constants
             .get_mut(index)
             .ok_or_else(|| ChunkError::ConstantIndexOutOfBounds { index, position })?
@@ -79,7 +83,7 @@ impl Chunk {
             .ok_or(ChunkError::ConstantAlreadyUsed { index, position })
     }
 
-    pub fn push_constant(&mut self, value: Value, position: Span) -> Result<u16, ChunkError> {
+    pub fn push_constant(&mut self, value: Value, position: Span) -> Result<u8, ChunkError> {
         let starting_length = self.constants.len();
 
         if starting_length + 1 > (u8::MAX as usize) {
@@ -87,17 +91,21 @@ impl Chunk {
         } else {
             self.constants.push(Some(value));
 
-            Ok(starting_length as u16)
+            Ok(starting_length as u8)
         }
     }
 
-    pub fn get_local(&self, index: usize, position: Span) -> Result<&Local, ChunkError> {
+    pub fn get_local(&self, index: u8, position: Span) -> Result<&Local, ChunkError> {
+        let index = index as usize;
+
         self.locals
             .get(index)
             .ok_or(ChunkError::LocalIndexOutOfBounds { index, position })
     }
 
-    pub fn get_identifier(&self, index: usize) -> Option<&Identifier> {
+    pub fn get_identifier(&self, index: u8) -> Option<&Identifier> {
+        let index = index as usize;
+
         self.locals.get(index).map(|local| &local.identifier)
     }
 
@@ -105,14 +113,14 @@ impl Chunk {
         &self,
         identifier: &Identifier,
         position: Span,
-    ) -> Result<u16, ChunkError> {
+    ) -> Result<u8, ChunkError> {
         self.locals
             .iter()
             .enumerate()
             .rev()
             .find_map(|(index, local)| {
                 if &local.identifier == identifier {
-                    Some(index as u16)
+                    Some(index as u8)
                 } else {
                     None
                 }
@@ -126,17 +134,21 @@ impl Chunk {
     pub fn declare_local(
         &mut self,
         identifier: Identifier,
+        register_index: u8,
         position: Span,
-    ) -> Result<u16, ChunkError> {
+    ) -> Result<u8, ChunkError> {
         let starting_length = self.locals.len();
 
         if starting_length + 1 > (u8::MAX as usize) {
             Err(ChunkError::IdentifierOverflow { position })
         } else {
-            self.locals
-                .push(Local::new(identifier, self.scope_depth, None));
+            self.locals.push(Local::new(
+                identifier,
+                self.scope_depth,
+                Some(register_index),
+            ));
 
-            Ok(starting_length as u16)
+            Ok(starting_length as u8)
         }
     }
 
@@ -241,8 +253,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Instructions",
         "------------",
-        "OFFSET  OPERATION      INFO                 POSITION",
-        "------- -------------- -------------------- --------",
+        "OFFSET  OPERATION      INFO                      POSITION",
+        "------- -------------- ------------------------- --------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 5] = [
@@ -274,6 +286,18 @@ impl<'a> ChunkDisassembler<'a> {
         }
     }
 
+    pub fn width(&mut self, width: usize) -> &mut Self {
+        self.width = width;
+
+        self
+    }
+
+    pub fn styled(&mut self, styled: bool) -> &mut Self {
+        self.styled = styled;
+
+        self
+    }
+
     pub fn disassemble(&self) -> String {
         let center = |line: &str| format!("{line:^width$}\n", width = self.width);
         let style = |line: String| {
@@ -298,9 +322,9 @@ impl<'a> ChunkDisassembler<'a> {
             let operation = instruction.operation.to_string();
             let info_option = instruction.disassembly_info(Some(self.chunk));
             let instruction_display = if let Some(info) = info_option {
-                format!("{offset:<7} {operation:14} {info:20} {position:8}")
+                format!("{offset:<7} {operation:14} {info:25} {position:8}")
             } else {
-                format!("{offset:<7} {operation:14} {:20} {position:8}", " ")
+                format!("{offset:<7} {operation:14} {:25} {position:8}", " ")
             };
 
             disassembled.push_str(&center(&instruction_display));
@@ -365,18 +389,6 @@ impl<'a> ChunkDisassembler<'a> {
         }
 
         disassembled
-    }
-
-    pub fn width(&mut self, width: usize) -> &mut Self {
-        self.width = width;
-
-        self
-    }
-
-    pub fn styled(&mut self, styled: bool) -> &mut Self {
-        self.styled = styled;
-
-        self
     }
 
     /// Predicts the capacity of the disassembled output. This is used to pre-allocate the string

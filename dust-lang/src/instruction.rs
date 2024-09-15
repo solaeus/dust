@@ -10,26 +10,6 @@ pub struct Instruction {
 }
 
 impl Instruction {
-    pub fn decode(bits: u32) -> Instruction {
-        let operation = Operation::from((bits >> 24) as u8);
-        let to_register = ((bits >> 16) & 0xff) as u8;
-        let arguments = [((bits >> 8) & 0xff) as u8, (bits & 0xff) as u8];
-
-        Instruction {
-            operation,
-            destination: to_register,
-            arguments,
-        }
-    }
-
-    pub fn encode(&self) -> u32 {
-        let operation = self.operation as u8 as u32;
-        let to_register = self.destination as u32;
-        let arguments = (self.arguments[0] as u32) << 8 | (self.arguments[1] as u32);
-
-        operation << 24 | to_register << 16 | arguments
-    }
-
     pub fn r#move(to_register: u8, from_register: u8) -> Instruction {
         Instruction {
             operation: Operation::Move,
@@ -46,35 +26,35 @@ impl Instruction {
         }
     }
 
-    pub fn load_constant(to_register: u8, constant_index: u16) -> Instruction {
+    pub fn load_constant(to_register: u8, constant_index: u8) -> Instruction {
         Instruction {
             operation: Operation::LoadConstant,
             destination: to_register,
-            arguments: constant_index.to_le_bytes(),
+            arguments: [constant_index, 0],
         }
     }
 
-    pub fn declare_local(to_register: u8, variable_index: u16) -> Instruction {
+    pub fn declare_local(to_register: u8, variable_index: u8) -> Instruction {
         Instruction {
             operation: Operation::DeclareLocal,
             destination: to_register,
-            arguments: variable_index.to_le_bytes(),
+            arguments: [variable_index, 0],
         }
     }
 
-    pub fn get_local(to_register: u8, variable_index: u16) -> Instruction {
+    pub fn get_local(to_register: u8, variable_index: u8) -> Instruction {
         Instruction {
             operation: Operation::GetLocal,
             destination: to_register,
-            arguments: variable_index.to_le_bytes(),
+            arguments: [variable_index, 0],
         }
     }
 
-    pub fn set_local(from_register: u8, variable_index: u16) -> Instruction {
+    pub fn set_local(from_register: u8, variable_index: u8) -> Instruction {
         Instruction {
             operation: Operation::SetLocal,
             destination: from_register,
-            arguments: variable_index.to_le_bytes(),
+            arguments: [variable_index, 0],
         }
     }
 
@@ -143,7 +123,7 @@ impl Instruction {
             }
             Operation::Close => format!("R({})", self.destination),
             Operation::LoadConstant => {
-                let constant_index = u16::from_le_bytes(self.arguments) as usize;
+                let constant_index = self.arguments[0];
 
                 if let Some(chunk) = chunk {
                     match chunk.get_constant(constant_index, Span(0, 0)) {
@@ -160,9 +140,9 @@ impl Instruction {
                 }
             }
             Operation::DeclareLocal => {
-                let local_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
+                let local_index = self.arguments[0];
                 let identifier_display = if let Some(chunk) = chunk {
-                    match chunk.get_identifier(local_index as usize) {
+                    match chunk.get_identifier(local_index) {
                         Some(identifier) => identifier.to_string(),
                         None => "???".to_string(),
                     }
@@ -176,14 +156,14 @@ impl Instruction {
                 )
             }
             Operation::GetLocal => {
-                let local_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
+                let local_index = self.arguments[0];
 
                 format!("R({}) = L({})", self.destination, local_index)
             }
             Operation::SetLocal => {
-                let local_index = u16::from_le_bytes([self.arguments[0], self.arguments[1]]);
+                let local_index = self.arguments[0];
                 let identifier_display = if let Some(chunk) = chunk {
-                    match chunk.get_identifier(local_index as usize) {
+                    match chunk.get_identifier(local_index) {
                         Some(identifier) => identifier.to_string(),
                         None => "???".to_string(),
                     }
@@ -265,6 +245,15 @@ pub enum Operation {
 
     // Control flow
     Return = 11,
+}
+
+impl Operation {
+    pub fn is_binary(&self) -> bool {
+        matches!(
+            self,
+            Operation::Add | Operation::Subtract | Operation::Multiply | Operation::Divide
+        )
+    }
 }
 
 impl From<u8> for Operation {

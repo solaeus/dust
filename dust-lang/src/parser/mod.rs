@@ -255,8 +255,10 @@ impl<'src> Parser<'src> {
 
         self.parse(rule.precedence.increment())?;
 
-        let (previous_instruction, position) = self.chunk.pop_instruction(self.current_position)?;
-        let right_register = match previous_instruction {
+        let mut push_back_right = false;
+        let (right_instruction, right_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+        let right_register = match right_instruction {
             Instruction {
                 operation: Operation::LoadConstant,
                 arguments,
@@ -267,13 +269,15 @@ impl<'src> Parser<'src> {
                 arguments[0]
             }
             _ => {
-                self.chunk.push_instruction(previous_instruction, position);
+                push_back_right = true;
 
                 self.current_register - 1
             }
         };
-        let (previous_instruction, position) = self.chunk.pop_instruction(self.current_position)?;
-        let left_register = match previous_instruction {
+        let mut push_back_left = false;
+        let (left_instruction, left_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+        let left_register = match left_instruction {
             Instruction {
                 operation: Operation::LoadConstant,
                 arguments,
@@ -284,11 +288,21 @@ impl<'src> Parser<'src> {
                 arguments[0]
             }
             _ => {
-                self.chunk.push_instruction(previous_instruction, position);
+                push_back_left = true;
 
                 self.current_register - 2
             }
         };
+
+        if push_back_right {
+            self.chunk
+                .push_instruction(right_instruction, right_position);
+        }
+
+        if push_back_left {
+            self.chunk.push_instruction(left_instruction, left_position);
+        }
+
         let instruction = match operator {
             TokenKind::Plus => {
                 Instruction::add(self.current_register, left_register, right_register)
@@ -328,22 +342,41 @@ impl<'src> Parser<'src> {
 
     fn parse_named_variable(&mut self, allow_assignment: bool) -> Result<(), ParseError> {
         let token = self.previous_token.to_owned();
-        let local_index = self.parse_identifier_from(token, self.previous_position)?;
+        let start_position = self.previous_position;
+        let local_index = self.parse_identifier_from(token, start_position)?;
 
         if allow_assignment && self.allow(TokenKind::Equal)? {
             self.parse_expression()?;
-            self.emit_instruction(
-                Instruction::set_local(self.current_register, local_index),
-                self.previous_position,
-            );
+
+            let (mut previous_instruction, previous_position) =
+                self.chunk.pop_instruction(self.previous_position)?;
+
+            if previous_instruction.operation.is_binary() {
+                let previous_register = self
+                    .chunk
+                    .get_local(local_index, start_position)?
+                    .register_index;
+
+                if let Some(register_index) = previous_register {
+                    previous_instruction.destination = register_index;
+
+                    self.emit_instruction(previous_instruction, self.previous_position);
+                    self.decrement_register()?;
+                } else {
+                    self.emit_instruction(previous_instruction, previous_position);
+                    self.emit_instruction(
+                        Instruction::set_local(self.current_register - 1, local_index),
+                        self.previous_position,
+                    );
+                }
+            }
         } else {
             self.emit_instruction(
                 Instruction::get_local(self.current_register, local_index),
                 self.previous_position,
             );
+            self.increment_register()?;
         }
-
-        self.increment_register()?;
 
         Ok(())
     }
@@ -352,7 +385,7 @@ impl<'src> Parser<'src> {
         &mut self,
         token: TokenOwned,
         position: Span,
-    ) -> Result<u16, ParseError> {
+    ) -> Result<u8, ParseError> {
         if let TokenOwned::Identifier(text) = token {
             let identifier = Identifier::new(text);
 
@@ -441,9 +474,12 @@ impl<'src> Parser<'src> {
         self.expect(TokenKind::Equal)?;
         self.parse_expression()?;
 
-        let local_index = self
-            .chunk
-            .declare_local(identifier, self.current_position)?;
+        let local_index = self.chunk.declare_local(
+            identifier,
+            self.current_register - 1,
+            self.current_position,
+        )?;
+
         let (previous_instruction, previous_position) =
             self.chunk.pop_instruction(self.current_position)?;
 
