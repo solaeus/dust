@@ -71,8 +71,6 @@ impl<'src> Parser<'src> {
         } else {
             self.current_register += 1;
 
-            log::trace!("Incremented register to {}", self.current_register);
-
             Ok(())
         }
     }
@@ -87,8 +85,6 @@ impl<'src> Parser<'src> {
         } else {
             self.current_register -= 1;
 
-            log::trace!("Decremented register to {}", self.current_register);
-
             Ok(())
         }
     }
@@ -100,7 +96,7 @@ impl<'src> Parser<'src> {
 
         let (new_token, position) = self.lexer.next_token()?;
 
-        log::trace!("Advancing to token {new_token} at {position}");
+        log::trace!("Parsing token \"{new_token}\" at {position}");
 
         self.previous_token = replace(&mut self.current_token, new_token);
         self.previous_position = replace(&mut self.current_position, position);
@@ -369,7 +365,6 @@ impl<'src> Parser<'src> {
 
                 if let Some(register_index) = previous_register {
                     previous_instruction.set_destination(register_index);
-
                     self.emit_instruction(previous_instruction, self.previous_position);
                     self.decrement_register()?;
                 } else {
@@ -379,13 +374,19 @@ impl<'src> Parser<'src> {
                         self.previous_position,
                     );
                 }
+            } else {
+                self.emit_instruction(previous_instruction, previous_position);
+                self.emit_instruction(
+                    Instruction::set_local(self.current_register - 1, local_index),
+                    start_position,
+                );
             }
         } else {
+            self.increment_register()?;
             self.emit_instruction(
                 Instruction::get_local(self.current_register, local_index),
                 self.previous_position,
             );
-            self.increment_register()?;
         }
 
         Ok(())

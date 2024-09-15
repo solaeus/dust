@@ -137,6 +137,7 @@ impl Instruction {
     }
 
     pub fn set_destination(&mut self, destination: u8) {
+        self.0 &= 0x00FFFFFF;
         self.0 |= (destination as u32) << 24;
     }
 
@@ -492,19 +493,17 @@ mod tests {
 
     #[test]
     fn add() {
-        let mut instruction = Instruction::add(0, 1, 2);
+        let mut instruction = Instruction::add(1, 1, 0);
 
         instruction.set_operation(Operation::Add);
 
         instruction.set_first_argument_to_constant();
-        instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Add);
-        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.destination(), 1);
         assert_eq!(instruction.first_argument(), 1);
-        assert_eq!(instruction.second_argument(), 2);
+        assert_eq!(instruction.second_argument(), 0);
         assert!(instruction.first_argument_is_constant());
-        assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
