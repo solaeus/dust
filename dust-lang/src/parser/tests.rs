@@ -3,6 +3,30 @@ use crate::Local;
 use super::*;
 
 #[test]
+fn parentheses_precedence() {
+    assert_eq!(
+        parse("(1 + 2) * 3"),
+        Ok(Chunk::with_data(
+            vec![
+                (
+                    *Instruction::add(0, 0, 1)
+                        .set_first_argument_to_constant()
+                        .set_second_argument_to_constant(),
+                    Span(3, 4)
+                ),
+                (
+                    *Instruction::multiply(1, 0, 2).set_second_argument_to_constant(),
+                    Span(8, 9)
+                ),
+                (Instruction::r#return(), Span(0, 11)),
+            ],
+            vec![Value::integer(1), Value::integer(2), Value::integer(3)],
+            vec![]
+        ))
+    );
+}
+
+#[test]
 fn add_multiply_precedence() {
     assert_eq!(
         parse("1 + 2 * 3"),
@@ -42,7 +66,7 @@ fn let_statement() {
 }
 
 #[test]
-fn integer() {
+fn constant() {
     assert_eq!(
         parse("42"),
         Ok(Chunk::with_data(

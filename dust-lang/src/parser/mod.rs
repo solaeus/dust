@@ -227,16 +227,7 @@ impl<'src> Parser<'src> {
 
     fn parse_grouped(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         self.parse_expression()?;
-
-        if self.previous_token == Token::RightParenthesis {
-            Ok(())
-        } else {
-            Err(ParseError::ExpectedToken {
-                expected: TokenKind::RightParenthesis,
-                found: self.current_token.to_owned(),
-                position: self.current_position,
-            })
-        }
+        self.expect(TokenKind::RightParenthesis)
     }
 
     fn parse_unary(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
