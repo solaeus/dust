@@ -38,31 +38,31 @@ impl Vm {
         while let Ok((instruction, position)) = self.read(Span(0, 0)).copied() {
             log::trace!("Running instruction {instruction} at {position}");
 
-            match instruction.operation {
+            match instruction.operation() {
                 Operation::Move => {
-                    let from = instruction.arguments[0];
-                    let to = instruction.destination;
+                    let from = instruction.first_argument();
+                    let to = instruction.destination();
                     let value = self.clone(from, position)?;
 
                     self.insert(value, to, position)?;
                 }
                 Operation::Close => todo!(),
                 Operation::LoadConstant => {
-                    let to_register = instruction.destination;
-                    let from_constant = instruction.arguments[0];
+                    let to_register = instruction.destination();
+                    let from_constant = instruction.first_argument();
                     let value = self.chunk.take_constant(from_constant, position)?;
 
                     self.insert(value, to_register, position)?;
                 }
                 Operation::DeclareLocal => {
-                    let from_register = instruction.destination;
-                    let to_local = u16::from_le_bytes(instruction.arguments) as usize;
+                    let from_register = instruction.destination();
+                    let to_local = instruction.first_argument();
 
                     self.chunk.define_local(to_local, from_register, position)?;
                 }
                 Operation::GetLocal => {
-                    let register_index = instruction.destination;
-                    let local_index = instruction.arguments[0];
+                    let register_index = instruction.destination();
+                    let local_index = instruction.first_argument();
                     let local = self.chunk.get_local(local_index, position)?;
                     let value = if let Some(value_index) = &local.register_index {
                         self.clone(*value_index, position)?
@@ -76,63 +76,90 @@ impl Vm {
                     self.insert(value, register_index, position)?;
                 }
                 Operation::SetLocal => {
-                    let from_register = instruction.destination;
-                    let to_local = instruction.arguments[0] as usize;
+                    let from_register = instruction.destination();
+                    let to_local = instruction.first_argument();
 
                     self.chunk.define_local(to_local, from_register, position)?;
                 }
                 Operation::Add => {
-                    let left =
-                        self.take_constant_or_clone_register(instruction.arguments[0], position)?;
-                    let right =
-                        self.take_constant_or_clone_register(instruction.arguments[1], position)?;
+                    let left = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let right = self.take_constant_or_clone_register(
+                        instruction.second_argument(),
+                        instruction.second_argument_is_constant(),
+                        position,
+                    )?;
                     let sum = left
                         .add(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(sum, instruction.destination, position)?;
+                    self.insert(sum, instruction.destination(), position)?;
                 }
                 Operation::Subtract => {
-                    let left =
-                        self.take_constant_or_clone_register(instruction.arguments[0], position)?;
-                    let right =
-                        self.take_constant_or_clone_register(instruction.arguments[1], position)?;
+                    let left = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let right = self.take_constant_or_clone_register(
+                        instruction.second_argument(),
+                        instruction.second_argument_is_constant(),
+                        position,
+                    )?;
                     let difference = left
                         .subtract(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(difference, instruction.destination, position)?;
+                    self.insert(difference, instruction.destination(), position)?;
                 }
                 Operation::Multiply => {
-                    let left =
-                        self.take_constant_or_clone_register(instruction.arguments[0], position)?;
-                    let right =
-                        self.take_constant_or_clone_register(instruction.arguments[1], position)?;
+                    let left = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let right = self.take_constant_or_clone_register(
+                        instruction.second_argument(),
+                        instruction.second_argument_is_constant(),
+                        position,
+                    )?;
                     let product = left
                         .multiply(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(product, instruction.destination, position)?;
+                    self.insert(product, instruction.destination(), position)?;
                 }
                 Operation::Divide => {
-                    let left =
-                        self.take_constant_or_clone_register(instruction.arguments[0], position)?;
-                    let right =
-                        self.take_constant_or_clone_register(instruction.arguments[1], position)?;
+                    let left = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
+                    let right = self.take_constant_or_clone_register(
+                        instruction.second_argument(),
+                        instruction.second_argument_is_constant(),
+                        position,
+                    )?;
                     let quotient = left
                         .divide(&right)
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(quotient, instruction.destination, position)?;
+                    self.insert(quotient, instruction.destination(), position)?;
                 }
                 Operation::Negate => {
-                    let value =
-                        self.take_constant_or_clone_register(instruction.arguments[0], position)?;
+                    let value = self.take_constant_or_clone_register(
+                        instruction.first_argument(),
+                        instruction.first_argument_is_constant(),
+                        position,
+                    )?;
                     let negated = value
                         .negate()
                         .map_err(|error| VmError::Value { error, position })?;
 
-                    self.insert(negated, instruction.destination, position)?;
+                    self.insert(negated, instruction.destination(), position)?;
                 }
                 Operation::Return => {
                     let value = self.pop(position)?;
@@ -186,14 +213,13 @@ impl Vm {
     fn take_constant_or_clone_register(
         &mut self,
         index: u8,
+        is_constant: bool,
         position: Span,
     ) -> Result<Value, VmError> {
-        if let Ok(value) = self.chunk.take_constant(index, position) {
-            Ok(value)
+        if is_constant {
+            Ok(self.chunk.take_constant(index, position)?)
         } else {
-            let value = self.clone(index, position)?;
-
-            Ok(value)
+            self.clone(index, position)
         }
     }
 

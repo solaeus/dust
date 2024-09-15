@@ -2,112 +2,166 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{Chunk, Span};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Instruction {
-    pub operation: Operation,
-    pub destination: u8,
-    pub arguments: [u8; 2],
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Instruction(u32);
 
 impl Instruction {
     pub fn r#move(to_register: u8, from_register: u8) -> Instruction {
-        Instruction {
-            operation: Operation::Move,
-            destination: to_register,
-            arguments: [from_register, 0],
-        }
+        let mut instruction = Instruction(Operation::Move as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(from_register);
+
+        instruction
     }
 
     pub fn close(to_register: u8) -> Instruction {
-        Instruction {
-            operation: Operation::Close,
-            destination: to_register,
-            arguments: [0, 0],
-        }
+        let mut instruction = Instruction(Operation::Close as u32);
+
+        instruction.set_destination(to_register);
+
+        instruction
     }
 
     pub fn load_constant(to_register: u8, constant_index: u8) -> Instruction {
-        Instruction {
-            operation: Operation::LoadConstant,
-            destination: to_register,
-            arguments: [constant_index, 0],
-        }
+        let mut instruction = Instruction(Operation::LoadConstant as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(constant_index);
+
+        instruction
     }
 
     pub fn declare_local(to_register: u8, variable_index: u8) -> Instruction {
-        Instruction {
-            operation: Operation::DeclareLocal,
-            destination: to_register,
-            arguments: [variable_index, 0],
-        }
+        let mut instruction = Instruction(Operation::DeclareLocal as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(variable_index);
+
+        instruction
     }
 
     pub fn get_local(to_register: u8, variable_index: u8) -> Instruction {
-        Instruction {
-            operation: Operation::GetLocal,
-            destination: to_register,
-            arguments: [variable_index, 0],
-        }
+        let mut instruction = Instruction(Operation::GetLocal as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(variable_index);
+
+        instruction
     }
 
     pub fn set_local(from_register: u8, variable_index: u8) -> Instruction {
-        Instruction {
-            operation: Operation::SetLocal,
-            destination: from_register,
-            arguments: [variable_index, 0],
-        }
+        let mut instruction = Instruction(Operation::SetLocal as u32);
+
+        instruction.set_destination(from_register);
+        instruction.set_first_argument(variable_index);
+
+        instruction
     }
 
-    pub fn add(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
-        Instruction {
-            operation: Operation::Add,
-            destination: to_register,
-            arguments: [left_register, right_register],
-        }
+    pub fn add(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Add as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
     }
 
-    pub fn subtract(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
-        Instruction {
-            operation: Operation::Subtract,
-            destination: to_register,
-            arguments: [left_register, right_register],
-        }
+    pub fn subtract(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Subtract as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
     }
 
-    pub fn multiply(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
-        Instruction {
-            operation: Operation::Multiply,
-            destination: to_register,
-            arguments: [left_register, right_register],
-        }
+    pub fn multiply(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Multiply as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
     }
 
-    pub fn divide(to_register: u8, left_register: u8, right_register: u8) -> Instruction {
-        Instruction {
-            operation: Operation::Divide,
-            destination: to_register,
-            arguments: [left_register, right_register],
-        }
+    pub fn divide(to_register: u8, left_index: u8, right_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Divide as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(left_index);
+        instruction.set_second_argument(right_index);
+
+        instruction
     }
 
-    pub fn negate(to_register: u8, from_register: u8) -> Instruction {
-        Instruction {
-            operation: Operation::Negate,
-            destination: to_register,
-            arguments: [from_register, 0],
-        }
+    pub fn negate(to_register: u8, from_index: u8) -> Instruction {
+        let mut instruction = Instruction(Operation::Negate as u32);
+
+        instruction.set_destination(to_register);
+        instruction.set_first_argument(from_index);
+
+        instruction
     }
 
     pub fn r#return() -> Instruction {
-        Instruction {
-            operation: Operation::Return,
-            destination: 0,
-            arguments: [0, 0],
-        }
+        Instruction(Operation::Return as u32)
+    }
+
+    pub fn set_first_argument_to_constant(&mut self) {
+        self.0 |= 0b1000_0000;
+    }
+
+    pub fn first_argument_is_constant(&self) -> bool {
+        self.0 & 0b1000_0000 != 0
+    }
+
+    pub fn set_second_argument_to_constant(&mut self) {
+        self.0 |= 0b0100_0000;
+    }
+
+    pub fn second_argument_is_constant(&self) -> bool {
+        self.0 & 0b0100_0000 != 0
+    }
+
+    pub fn destination(&self) -> u8 {
+        (self.0 >> 24) as u8
+    }
+
+    pub fn set_destination(&mut self, destination: u8) {
+        self.0 |= (destination as u32) << 24;
+    }
+
+    pub fn first_argument(&self) -> u8 {
+        (self.0 >> 16) as u8
+    }
+
+    pub fn set_first_argument(&mut self, argument: u8) {
+        self.0 |= (argument as u32) << 16;
+    }
+
+    pub fn second_argument(&self) -> u8 {
+        (self.0 >> 8) as u8
+    }
+
+    pub fn set_second_argument(&mut self, argument: u8) {
+        self.0 |= (argument as u32) << 8;
+    }
+
+    pub fn operation(&self) -> Operation {
+        Operation::from((self.0 & 0b0000_0000_0011_1111) as u8)
+    }
+
+    pub fn set_operation(&mut self, operation: Operation) {
+        self.0 |= u8::from(operation) as u32;
     }
 
     pub fn disassemble(&self, chunk: &Chunk) -> String {
-        let mut disassembled = format!("{:16} ", self.operation.to_string());
+        let mut disassembled = format!("{:16} ", self.operation().to_string());
 
         if let Some(info) = self.disassembly_info(Some(chunk)) {
             disassembled.push_str(&info);
@@ -117,30 +171,37 @@ impl Instruction {
     }
 
     pub fn disassembly_info(&self, chunk: Option<&Chunk>) -> Option<String> {
-        let info = match self.operation {
+        let info = match self.operation() {
             Operation::Move => {
-                format!("R({}) = R({})", self.destination, self.arguments[0])
+                format!("R({}) = R({})", self.destination(), self.first_argument())
             }
-            Operation::Close => format!("R({})", self.destination),
+            Operation::Close => format!("R({})", self.destination()),
             Operation::LoadConstant => {
-                let constant_index = self.arguments[0];
+                let constant_index = self.first_argument();
 
                 if let Some(chunk) = chunk {
                     match chunk.get_constant(constant_index, Span(0, 0)) {
                         Ok(value) => {
-                            format!("R({}) = C({}) {}", self.destination, constant_index, value)
+                            format!(
+                                "R({}) = C({}) {}",
+                                self.destination(),
+                                constant_index,
+                                value
+                            )
                         }
                         Err(error) => format!(
                             "R({}) = C({}) {:?}",
-                            self.destination, constant_index, error
+                            self.destination(),
+                            constant_index,
+                            error
                         ),
                     }
                 } else {
-                    format!("R({}) = C({})", self.destination, constant_index)
+                    format!("R({}) = C({})", self.destination(), constant_index)
                 }
             }
             Operation::DeclareLocal => {
-                let local_index = self.arguments[0];
+                let local_index = self.first_argument();
                 let identifier_display = if let Some(chunk) = chunk {
                     match chunk.get_identifier(local_index) {
                         Some(identifier) => identifier.to_string(),
@@ -152,16 +213,18 @@ impl Instruction {
 
                 format!(
                     "L({}) = R({}) {}",
-                    local_index, self.destination, identifier_display
+                    local_index,
+                    self.destination(),
+                    identifier_display
                 )
             }
             Operation::GetLocal => {
-                let local_index = self.arguments[0];
+                let local_index = self.first_argument();
 
-                format!("R({}) = L({})", self.destination, local_index)
+                format!("R({}) = L({})", self.destination(), local_index)
             }
             Operation::SetLocal => {
-                let local_index = self.arguments[0];
+                let local_index = self.first_argument();
                 let identifier_display = if let Some(chunk) = chunk {
                     match chunk.get_identifier(local_index) {
                         Some(identifier) => identifier.to_string(),
@@ -173,35 +236,73 @@ impl Instruction {
 
                 format!(
                     "L({}) = R({}) {}",
-                    local_index, self.destination, identifier_display
+                    local_index,
+                    self.destination(),
+                    identifier_display
                 )
             }
             Operation::Add => {
-                format!(
-                    "R({}) = RC({}) + RC({})",
-                    self.destination, self.arguments[0], self.arguments[1]
-                )
+                let destination = self.destination();
+                let first_argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+                let second_argument = if self.second_argument_is_constant() {
+                    format!("C({})", self.second_argument())
+                } else {
+                    format!("R({})", self.second_argument())
+                };
+
+                format!("R({destination}) = {first_argument} + {second_argument}",)
             }
             Operation::Subtract => {
-                format!(
-                    "R({}) = RC({}) - RC({})",
-                    self.destination, self.arguments[0], self.arguments[1]
-                )
+                let destination = self.destination();
+                let first_argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+                let second_argument = if self.second_argument_is_constant() {
+                    format!("C({})", self.second_argument())
+                } else {
+                    format!("R({})", self.second_argument())
+                };
+
+                format!("R({destination}) = {first_argument} - {second_argument}",)
             }
             Operation::Multiply => {
-                format!(
-                    "R({}) = RC({}) * RC({})",
-                    self.destination, self.arguments[0], self.arguments[1]
-                )
+                let destination = self.destination();
+                let first_argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+                let second_argument = if self.second_argument_is_constant() {
+                    format!("C({})", self.second_argument())
+                } else {
+                    format!("R({})", self.second_argument())
+                };
+
+                format!("R({destination}) = {first_argument} * {second_argument}",)
             }
             Operation::Divide => {
-                format!(
-                    "R({}) = RC({}) / RC({})",
-                    self.destination, self.arguments[0], self.arguments[1]
-                )
+                let destination = self.destination();
+                let first_argument = if self.first_argument_is_constant() {
+                    format!("C({})", self.first_argument())
+                } else {
+                    format!("R({})", self.first_argument())
+                };
+                let second_argument = if self.second_argument_is_constant() {
+                    format!("C({})", self.second_argument())
+                } else {
+                    format!("R({})", self.second_argument())
+                };
+
+                format!("R({destination}) = {first_argument} / {second_argument}",)
             }
             Operation::Negate => {
-                format!("R({}) = -RC({})", self.destination, self.arguments[0])
+                format!("R({}) = -RC({})", self.destination(), self.first_argument())
             }
             Operation::Return => return None,
         };
@@ -213,38 +314,51 @@ impl Instruction {
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if let Some(info) = self.disassembly_info(None) {
-            write!(f, "{} {}", self.operation, info)
+            write!(f, "{} {}", self.operation(), info)
         } else {
-            write!(f, "{}", self.operation)
+            write!(f, "{}", self.operation())
         }
     }
 }
 
+const MOVE: u8 = 0b0000_0000;
+const CLOSE: u8 = 0b000_0001;
+const LOAD_CONSTANT: u8 = 0b0000_0010;
+const DECLARE_LOCAL: u8 = 0b0000_0011;
+const GET_LOCAL: u8 = 0b0000_0100;
+const SET_LOCAL: u8 = 0b0000_0101;
+const ADD: u8 = 0b0000_0110;
+const SUBTRACT: u8 = 0b0000_0111;
+const MULTIPLY: u8 = 0b0000_1000;
+const DIVIDE: u8 = 0b0000_1001;
+const NEGATE: u8 = 0b0000_1010;
+const RETURN: u8 = 0b0000_1011;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Operation {
     // Stack manipulation
-    Move = 0,
-    Close = 1,
+    Move = MOVE as isize,
+    Close = CLOSE as isize,
 
     // Constants
-    LoadConstant = 2,
+    LoadConstant = LOAD_CONSTANT as isize,
 
     // Variables
-    DeclareLocal = 3,
-    GetLocal = 4,
-    SetLocal = 5,
+    DeclareLocal = DECLARE_LOCAL as isize,
+    GetLocal = GET_LOCAL as isize,
+    SetLocal = SET_LOCAL as isize,
 
     // Binary operations
-    Add = 6,
-    Subtract = 7,
-    Multiply = 8,
-    Divide = 9,
+    Add = ADD as isize,
+    Subtract = SUBTRACT as isize,
+    Multiply = MULTIPLY as isize,
+    Divide = DIVIDE as isize,
 
     // Unary operations
-    Negate = 10,
+    Negate = NEGATE as isize,
 
     // Control flow
-    Return = 11,
+    Return = RETURN as isize,
 }
 
 impl Operation {
@@ -259,18 +373,37 @@ impl Operation {
 impl From<u8> for Operation {
     fn from(byte: u8) -> Self {
         match byte {
-            0 => Operation::Move,
-            1 => Operation::Close,
-            2 => Operation::LoadConstant,
-            3 => Operation::DeclareLocal,
-            4 => Operation::GetLocal,
-            5 => Operation::SetLocal,
-            6 => Operation::Add,
-            7 => Operation::Subtract,
-            8 => Operation::Multiply,
-            9 => Operation::Divide,
-            10 => Operation::Negate,
+            MOVE => Operation::Move,
+            CLOSE => Operation::Close,
+            LOAD_CONSTANT => Operation::LoadConstant,
+            DECLARE_LOCAL => Operation::DeclareLocal,
+            GET_LOCAL => Operation::GetLocal,
+            SET_LOCAL => Operation::SetLocal,
+            ADD => Operation::Add,
+            SUBTRACT => Operation::Subtract,
+            MULTIPLY => Operation::Multiply,
+            DIVIDE => Operation::Divide,
+            NEGATE => Operation::Negate,
             _ => Operation::Return,
+        }
+    }
+}
+
+impl From<Operation> for u8 {
+    fn from(operation: Operation) -> Self {
+        match operation {
+            Operation::Move => MOVE,
+            Operation::Close => CLOSE,
+            Operation::LoadConstant => LOAD_CONSTANT,
+            Operation::DeclareLocal => DECLARE_LOCAL,
+            Operation::GetLocal => GET_LOCAL,
+            Operation::SetLocal => SET_LOCAL,
+            Operation::Add => ADD,
+            Operation::Subtract => SUBTRACT,
+            Operation::Multiply => MULTIPLY,
+            Operation::Divide => DIVIDE,
+            Operation::Negate => NEGATE,
+            Operation::Return => RETURN,
         }
     }
 }
@@ -296,12 +429,157 @@ impl Display for Operation {
 
 #[cfg(test)]
 mod tests {
-    use std::mem::size_of;
-
     use super::*;
 
     #[test]
-    fn instruction_is_32_bits() {
-        assert_eq!(size_of::<Instruction>(), 4);
+    fn r#move() {
+        let mut instruction = Instruction::r#move(255, 255);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Move);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn close() {
+        let mut instruction = Instruction::close(255);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Close);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn load_constant() {
+        let mut instruction = Instruction::load_constant(255, 255);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::LoadConstant);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn declare_local() {
+        let mut instruction = Instruction::declare_local(255, 255);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::DeclareLocal);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn add() {
+        let mut instruction = Instruction::add(255, 255, 2);
+
+        instruction.set_operation(Operation::Add);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Add);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.second_argument(), 2);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn subtract() {
+        let mut instruction = Instruction::subtract(255, 255, 255);
+
+        instruction.set_operation(Operation::Subtract);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Subtract);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.second_argument(), 255);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn multiply() {
+        let mut instruction = Instruction::multiply(255, 255, 255);
+
+        instruction.set_operation(Operation::Multiply);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Multiply);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.second_argument(), 255);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn divide() {
+        let mut instruction = Instruction::divide(255, 255, 255);
+
+        instruction.set_operation(Operation::Divide);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Divide);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.second_argument(), 255);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn negate() {
+        let mut instruction = Instruction::negate(255, 255);
+
+        instruction.set_operation(Operation::Negate);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Negate);
+        assert_eq!(instruction.destination(), 255);
+        assert_eq!(instruction.first_argument(), 255);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
+    }
+
+    #[test]
+    fn r#return() {
+        let mut instruction = Instruction::r#return();
+
+        instruction.set_operation(Operation::Return);
+
+        instruction.set_first_argument_to_constant();
+        instruction.set_second_argument_to_constant();
+
+        assert_eq!(instruction.operation(), Operation::Return);
+        assert!(instruction.first_argument_is_constant());
+        assert!(instruction.second_argument_is_constant());
     }
 }

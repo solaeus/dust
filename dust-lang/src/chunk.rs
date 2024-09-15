@@ -154,17 +154,16 @@ impl Chunk {
 
     pub fn define_local(
         &mut self,
-        local_index: usize,
+        local_index: u8,
         register_index: u8,
         position: Span,
     ) -> Result<(), ChunkError> {
-        let local =
-            self.locals
-                .get_mut(local_index)
-                .ok_or_else(|| ChunkError::LocalIndexOutOfBounds {
-                    index: local_index,
-                    position,
-                })?;
+        let local = self.locals.get_mut(local_index as usize).ok_or_else(|| {
+            ChunkError::LocalIndexOutOfBounds {
+                index: local_index as usize,
+                position,
+            }
+        })?;
 
         local.register_index = Some(register_index);
 
@@ -319,7 +318,7 @@ impl<'a> ChunkDisassembler<'a> {
 
         for (offset, (instruction, position)) in self.chunk.instructions.iter().enumerate() {
             let position = position.to_string();
-            let operation = instruction.operation.to_string();
+            let operation = instruction.operation().to_string();
             let info_option = instruction.disassembly_info(Some(self.chunk));
             let instruction_display = if let Some(info) = info_option {
                 format!("{offset:<7} {operation:14} {info:25} {position:8}")

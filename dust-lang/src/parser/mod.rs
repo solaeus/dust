@@ -258,15 +258,11 @@ impl<'src> Parser<'src> {
         let mut push_back_right = false;
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let right_register = match right_instruction {
-            Instruction {
-                operation: Operation::LoadConstant,
-                arguments,
-                ..
-            } => {
+        let right = match right_instruction.operation() {
+            Operation::LoadConstant => {
                 self.decrement_register()?;
 
-                arguments[0]
+                right_instruction.first_argument()
             }
             _ => {
                 push_back_right = true;
@@ -277,15 +273,11 @@ impl<'src> Parser<'src> {
         let mut push_back_left = false;
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
-        let left_register = match left_instruction {
-            Instruction {
-                operation: Operation::LoadConstant,
-                arguments,
-                ..
-            } => {
+        let left = match left_instruction.operation() {
+            Operation::LoadConstant => {
                 self.decrement_register()?;
 
-                arguments[0]
+                left_instruction.first_argument()
             }
             _ => {
                 push_back_left = true;
@@ -294,28 +286,19 @@ impl<'src> Parser<'src> {
             }
         };
 
-        if push_back_right {
-            self.chunk
-                .push_instruction(right_instruction, right_position);
-        }
-
         if push_back_left {
-            self.chunk.push_instruction(left_instruction, left_position);
+            self.emit_instruction(left_instruction, left_position);
         }
 
-        let instruction = match operator {
-            TokenKind::Plus => {
-                Instruction::add(self.current_register, left_register, right_register)
-            }
-            TokenKind::Minus => {
-                Instruction::subtract(self.current_register, left_register, right_register)
-            }
-            TokenKind::Star => {
-                Instruction::multiply(self.current_register, left_register, right_register)
-            }
-            TokenKind::Slash => {
-                Instruction::divide(self.current_register, left_register, right_register)
-            }
+        if push_back_right {
+            self.emit_instruction(right_instruction, right_position);
+        }
+
+        let mut instruction = match operator {
+            TokenKind::Plus => Instruction::add(self.current_register, left, right),
+            TokenKind::Minus => Instruction::subtract(self.current_register, left, right),
+            TokenKind::Star => Instruction::multiply(self.current_register, left, right),
+            TokenKind::Slash => Instruction::divide(self.current_register, left, right),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -329,6 +312,14 @@ impl<'src> Parser<'src> {
                 })
             }
         };
+
+        if !push_back_left {
+            instruction.set_first_argument_to_constant();
+        }
+
+        if !push_back_right {
+            instruction.set_second_argument_to_constant();
+        }
 
         self.increment_register()?;
         self.emit_instruction(instruction, operator_position);
@@ -351,14 +342,14 @@ impl<'src> Parser<'src> {
             let (mut previous_instruction, previous_position) =
                 self.chunk.pop_instruction(self.previous_position)?;
 
-            if previous_instruction.operation.is_binary() {
+            if previous_instruction.operation().is_binary() {
                 let previous_register = self
                     .chunk
                     .get_local(local_index, start_position)?
                     .register_index;
 
                 if let Some(register_index) = previous_register {
-                    previous_instruction.destination = register_index;
+                    previous_instruction.set_destination(register_index);
 
                     self.emit_instruction(previous_instruction, self.previous_position);
                     self.decrement_register()?;
@@ -483,23 +474,15 @@ impl<'src> Parser<'src> {
         let (previous_instruction, previous_position) =
             self.chunk.pop_instruction(self.current_position)?;
 
-        if let Instruction {
-            operation: Operation::GetLocal,
-            destination,
-            arguments,
-        } = previous_instruction
-        {
-            self.emit_instruction(
-                Instruction {
-                    operation: Operation::Move,
-                    destination,
-                    arguments,
-                },
-                position,
+        if let Operation::GetLocal = previous_instruction.operation() {
+            let move_instruction = Instruction::r#move(
+                previous_instruction.destination(),
+                previous_instruction.first_argument(),
             );
+
+            self.emit_instruction(move_instruction, position);
         } else {
-            self.chunk
-                .push_instruction(previous_instruction, previous_position);
+            self.emit_instruction(previous_instruction, previous_position);
         }
 
         self.emit_instruction(
