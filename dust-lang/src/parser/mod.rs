@@ -223,7 +223,16 @@ impl<'src> Parser<'src> {
 
     fn parse_grouped(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
         self.parse_expression()?;
-        self.expect(TokenKind::RightParenthesis)
+
+        if self.previous_token == Token::RightParenthesis {
+            Ok(())
+        } else {
+            Err(ParseError::ExpectedToken {
+                expected: TokenKind::RightParenthesis,
+                found: self.current_token.to_owned(),
+                position: self.current_position,
+            })
+        }
     }
 
     fn parse_unary(&mut self, _allow_assignment: bool) -> Result<(), ParseError> {
@@ -256,12 +265,21 @@ impl<'src> Parser<'src> {
         self.parse(rule.precedence.increment())?;
 
         let mut push_back_right = false;
+        let mut push_back_left = false;
+        let mut right_is_constant = false;
+        let mut left_is_constant = false;
+
         let (right_instruction, right_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let right = match right_instruction.operation() {
             Operation::LoadConstant => {
-                self.decrement_register()?;
+                right_is_constant = true;
 
+                self.decrement_register()?;
+                right_instruction.first_argument()
+            }
+            Operation::GetLocal => {
+                self.decrement_register()?;
                 right_instruction.first_argument()
             }
             _ => {
@@ -270,19 +288,27 @@ impl<'src> Parser<'src> {
                 self.current_register - 1
             }
         };
-        let mut push_back_left = false;
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let left = match left_instruction.operation() {
             Operation::LoadConstant => {
-                self.decrement_register()?;
+                left_is_constant = true;
 
+                self.decrement_register()?;
+                left_instruction.first_argument()
+            }
+            Operation::GetLocal => {
+                self.decrement_register()?;
                 left_instruction.first_argument()
             }
             _ => {
                 push_back_left = true;
 
-                self.current_register - 2
+                if push_back_right {
+                    self.current_register - 2
+                } else {
+                    self.current_register - 1
+                }
             }
         };
 
@@ -313,11 +339,11 @@ impl<'src> Parser<'src> {
             }
         };
 
-        if !push_back_left {
+        if left_is_constant {
             instruction.set_first_argument_to_constant();
         }
 
-        if !push_back_right {
+        if right_is_constant {
             instruction.set_second_argument_to_constant();
         }
 
@@ -510,7 +536,7 @@ impl<'src> Parser<'src> {
                     position: self.previous_position,
                 });
             };
-        let allow_assignment = precedence <= Precedence::Assignment;
+        let allow_assignment = precedence < Precedence::Assignment;
 
         prefix_parser(self, allow_assignment)?;
 

@@ -252,8 +252,8 @@ impl<'a> ChunkDisassembler<'a> {
         "",
         "Instructions",
         "------------",
-        "OFFSET  OPERATION      INFO                      POSITION",
-        "------- -------------- ------------------------- --------",
+        "OFFSET OPERATION      INFO                      POSITION",
+        "------ -------------- ------------------------- --------",
     ];
 
     const CONSTANT_HEADER: [&'static str; 5] = [
@@ -312,6 +312,22 @@ impl<'a> ChunkDisassembler<'a> {
 
         disassembled.push_str(&name_line);
 
+        let info_line = center(&format!(
+            "{} instructions, {} constants, {} locals",
+            self.chunk.instructions.len(),
+            self.chunk.constants.len(),
+            self.chunk.locals.len()
+        ));
+        let styled_info_line = {
+            if self.styled {
+                info_line.bold().dimmed().to_string()
+            } else {
+                info_line
+            }
+        };
+
+        disassembled.push_str(&styled_info_line);
+
         for line in Self::INSTRUCTION_HEADER {
             disassembled.push_str(&style(center(line)));
         }
@@ -321,9 +337,9 @@ impl<'a> ChunkDisassembler<'a> {
             let operation = instruction.operation().to_string();
             let info_option = instruction.disassembly_info(Some(self.chunk));
             let instruction_display = if let Some(info) = info_option {
-                format!("{offset:<7} {operation:14} {info:25} {position:8}")
+                format!("{offset:<6} {operation:14} {info:25} {position:8}")
             } else {
-                format!("{offset:<7} {operation:14} {:25} {position:8}", " ")
+                format!("{offset:<6} {operation:14} {:25} {position:8}", " ")
             };
 
             disassembled.push_str(&center(&instruction_display));
@@ -396,14 +412,14 @@ impl<'a> ChunkDisassembler<'a> {
     /// The capacity is calculated as follows:
     ///     - Get the number of static lines, i.e. lines that are always present in the disassembly
     ///     - Get the number of dynamic lines, i.e. lines that are generated from the chunk
-    ///     - Add 1 to the width to account for the newline character
+    ///     - Add an one to the width to account for the newline character
     ///     - Multiply the total number of lines by the width of the disassembly output
     ///
     /// The result is accurate only if the output is not styled. Otherwise the extra bytes added by
     /// the ANSI escape codes will make the result too low. It still works as a lower bound in that
     /// case.
     fn predict_length(&self) -> usize {
-        const EXTRA_LINES: usize = 1; // There is one empty line after the name of the chunk
+        const EXTRA_LINES: usize = 2; // There is one empty line after the name of the chunk
 
         let static_line_count =
             Self::INSTRUCTION_HEADER.len() + Self::CONSTANT_HEADER.len() + Self::LOCAL_HEADER.len();
