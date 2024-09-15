@@ -112,16 +112,20 @@ impl Instruction {
         Instruction(Operation::Return as u32)
     }
 
-    pub fn set_first_argument_to_constant(&mut self) {
+    pub fn set_first_argument_to_constant(&mut self) -> &mut Self {
         self.0 |= 0b1000_0000;
+
+        self
     }
 
     pub fn first_argument_is_constant(&self) -> bool {
         self.0 & 0b1000_0000 != 0
     }
 
-    pub fn set_second_argument_to_constant(&mut self) {
+    pub fn set_second_argument_to_constant(&mut self) -> &mut Self {
         self.0 |= 0b0100_0000;
+
+        self
     }
 
     pub fn second_argument_is_constant(&self) -> bool {
@@ -433,61 +437,62 @@ mod tests {
 
     #[test]
     fn r#move() {
-        let mut instruction = Instruction::r#move(255, 255);
+        let mut instruction = Instruction::r#move(0, 1);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Move);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
     fn close() {
-        let mut instruction = Instruction::close(255);
+        let mut instruction = Instruction::close(1);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Close);
+        assert_eq!(instruction.destination(), 1);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
     fn load_constant() {
-        let mut instruction = Instruction::load_constant(255, 255);
+        let mut instruction = Instruction::load_constant(0, 1);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::LoadConstant);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
     fn declare_local() {
-        let mut instruction = Instruction::declare_local(255, 255);
+        let mut instruction = Instruction::declare_local(0, 1);
 
         instruction.set_first_argument_to_constant();
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::DeclareLocal);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
     fn add() {
-        let mut instruction = Instruction::add(255, 255, 2);
+        let mut instruction = Instruction::add(0, 1, 2);
 
         instruction.set_operation(Operation::Add);
 
@@ -495,8 +500,8 @@ mod tests {
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Add);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
         assert_eq!(instruction.second_argument(), 2);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
@@ -504,7 +509,7 @@ mod tests {
 
     #[test]
     fn subtract() {
-        let mut instruction = Instruction::subtract(255, 255, 255);
+        let mut instruction = Instruction::subtract(0, 1, 2);
 
         instruction.set_operation(Operation::Subtract);
 
@@ -512,16 +517,16 @@ mod tests {
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Subtract);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
-        assert_eq!(instruction.second_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), 2);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
     fn multiply() {
-        let mut instruction = Instruction::multiply(255, 255, 255);
+        let mut instruction = Instruction::multiply(0, 1, 2);
 
         instruction.set_operation(Operation::Multiply);
 
@@ -529,16 +534,16 @@ mod tests {
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Multiply);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
-        assert_eq!(instruction.second_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), 2);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
     fn divide() {
-        let mut instruction = Instruction::divide(255, 255, 255);
+        let mut instruction = Instruction::divide(0, 1, 2);
 
         instruction.set_operation(Operation::Divide);
 
@@ -546,16 +551,16 @@ mod tests {
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Divide);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
-        assert_eq!(instruction.second_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
+        assert_eq!(instruction.second_argument(), 2);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
 
     #[test]
     fn negate() {
-        let mut instruction = Instruction::negate(255, 255);
+        let mut instruction = Instruction::negate(0, 1);
 
         instruction.set_operation(Operation::Negate);
 
@@ -563,8 +568,8 @@ mod tests {
         instruction.set_second_argument_to_constant();
 
         assert_eq!(instruction.operation(), Operation::Negate);
-        assert_eq!(instruction.destination(), 255);
-        assert_eq!(instruction.first_argument(), 255);
+        assert_eq!(instruction.destination(), 0);
+        assert_eq!(instruction.first_argument(), 1);
         assert!(instruction.first_argument_is_constant());
         assert!(instruction.second_argument_is_constant());
     }
