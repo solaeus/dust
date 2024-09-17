@@ -258,35 +258,6 @@ impl<'src> Parser<'src> {
         let operator = self.previous_token.kind();
         let rule = ParseRule::from(&operator);
 
-        self.parse(rule.precedence.increment())?;
-
-        let (right_instruction, right_position) =
-            self.chunk.pop_instruction(self.current_position)?;
-        let mut push_back_right = false;
-        let mut right_is_constant = false;
-        let right = match right_instruction.operation() {
-            Operation::LoadConstant => {
-                right_is_constant = true;
-
-                self.decrement_register()?;
-                right_instruction.first_argument()
-            }
-            Operation::GetLocal => {
-                self.decrement_register()?;
-                right_instruction.first_argument()
-            }
-            operation if operation.is_binary() => {
-                push_back_right = true;
-
-                self.current_register - 2
-            }
-            _ => {
-                push_back_right = true;
-
-                self.current_register - 1
-            }
-        };
-
         let (left_instruction, left_position) =
             self.chunk.pop_instruction(self.current_position)?;
         let mut push_back_left = false;
@@ -309,17 +280,35 @@ impl<'src> Parser<'src> {
             }
         };
 
-        let destination = if left_is_constant && right_is_constant {
-            self.current_register.saturating_sub(1)
-        } else {
-            self.current_register
+        self.parse(rule.precedence.increment())?;
+
+        let (right_instruction, right_position) =
+            self.chunk.pop_instruction(self.current_position)?;
+        let mut push_back_right = false;
+        let mut right_is_constant = false;
+        let right = match right_instruction.operation() {
+            Operation::LoadConstant => {
+                right_is_constant = true;
+
+                self.decrement_register()?;
+                right_instruction.first_argument()
+            }
+            Operation::GetLocal => {
+                self.decrement_register()?;
+                right_instruction.first_argument()
+            }
+            _ => {
+                push_back_right = true;
+
+                self.current_register - 1
+            }
         };
 
         let mut instruction = match operator {
-            TokenKind::Plus => Instruction::add(destination, left, right),
-            TokenKind::Minus => Instruction::subtract(destination, left, right),
-            TokenKind::Star => Instruction::multiply(destination, left, right),
-            TokenKind::Slash => Instruction::divide(destination, left, right),
+            TokenKind::Plus => Instruction::add(self.current_register, left, right),
+            TokenKind::Minus => Instruction::subtract(self.current_register, left, right),
+            TokenKind::Star => Instruction::multiply(self.current_register, left, right),
+            TokenKind::Slash => Instruction::divide(self.current_register, left, right),
             _ => {
                 return Err(ParseError::ExpectedTokenMultiple {
                     expected: vec![
@@ -342,15 +331,16 @@ impl<'src> Parser<'src> {
             instruction.set_second_argument_to_constant();
         }
 
-        if push_back_right {
-            self.emit_instruction(right_instruction, right_position);
-        }
-
         if push_back_left {
             self.emit_instruction(left_instruction, left_position);
         }
 
+        if push_back_right {
+            self.emit_instruction(right_instruction, right_position);
+        }
+
         self.emit_instruction(instruction, operator_position);
+
         self.increment_register()?;
 
         Ok(())
@@ -439,10 +429,6 @@ impl<'src> Parser<'src> {
         }
 
         self.chunk.end_scope();
-        self.emit_instruction(
-            Instruction::close(self.current_register),
-            self.current_position,
-        );
 
         Ok(())
     }
@@ -547,10 +533,12 @@ impl<'src> Parser<'src> {
         self.advance()?;
         prefix_parser(self, allow_assignment)?;
 
-        while precedence <= ParseRule::from(&self.current_token.kind()).precedence {
+        let mut infix_rule = ParseRule::from(&self.current_token.kind());
+
+        while precedence <= infix_rule.precedence {
             self.advance()?;
 
-            if let Some(infix_parser) = ParseRule::from(&self.previous_token.kind()).infix {
+            if let Some(infix_parser) = infix_rule.infix {
                 log::trace!(
                     "Parsing {} as infix with precedence {precedence}",
                     self.previous_token,
@@ -564,6 +552,8 @@ impl<'src> Parser<'src> {
                 }
 
                 infix_parser(self)?;
+
+                infix_rule = ParseRule::from(&self.current_token.kind());
             } else {
                 break;
             }
